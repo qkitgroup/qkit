@@ -130,7 +130,7 @@ class spectrum_2D(object):
 			return True
 
 	@staticmethod
-	def wait_averages():#
+	def wait_averages():
 		'''
 		wait averages to use with VNA E5071C (9.5GHz)
 		'''
