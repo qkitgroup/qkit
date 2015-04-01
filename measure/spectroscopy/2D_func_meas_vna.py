@@ -141,13 +141,15 @@ class spectrum_2D(object):
 		
 		'''
 		measure method to perform the measurement according to landscape, if set
-		
-		span is the range (in units of the vertical plot axis) data is taken around the specified funtion(s) 
+		self.span is the range (in units of the vertical plot axis) data is taken around the specified funtion(s) 
 		'''
 
 
 		if landscape != None:
 			center_freqs = np.array(landscape).T
+		'''
+		prepare an array of length len(x_vec), each segment filled with an array being the number of present traces (number of functions)
+		'''
 
 		qt.mstart()
 		vna.get_all()
