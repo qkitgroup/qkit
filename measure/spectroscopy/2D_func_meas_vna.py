@@ -144,7 +144,6 @@ class spectrum_2D(object):
 		self.span is the range (in units of the vertical plot axis) data is taken around the specified funtion(s) 
 		'''
 
-
 		if landscape != None:
 			center_freqs = np.array(landscape).T
 		'''
