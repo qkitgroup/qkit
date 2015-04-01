@@ -11,7 +11,7 @@ from scipy.optimize import curve_fit
 
 import qt
 
-ttip = qt.instruments.get('ttip')
+#ttip = qt.instruments.get('ttip')
 vna = qt.instruments.get('vna')
 mw_src1 = qt.instruments.get('mw_src1')
 
@@ -40,8 +40,8 @@ class spectrum_2D(object):
 		self.tdx = 0.002
 		self.tdy = 0.002,
 		#self.op='amppha'
-		self.ref=False
-		self.ref_meas_func=None
+		#self.ref=False
+		#self.ref_meas_func=None
 		self.comment = None
 		self.plot3D = True
 		self.plotlive = True
@@ -68,8 +68,10 @@ class spectrum_2D(object):
 	def get_tdy(self):
 		return self.tdy
 	
+	@staticmethod
 	def f_parab(x,a,b,c):
 		return a*(x-b)**2+c
+	@staticmethod
 	def f_hyp(x,a,b,c):
 		return a*np.sqrt((x/b)**2+c)
 		
@@ -127,7 +129,8 @@ class spectrum_2D(object):
 		else:
 			return True
 
-	def wait_averages_E5071():
+	@staticmethod
+	def wait_averages():
 		'''
 		wait averages to use with VNA E5071C (9.5GHz)
 		'''
@@ -137,20 +140,9 @@ class spectrum_2D(object):
 	def measure(self):
 		
 		'''
-		Can be used as the conventional _sw_2D function without being functionally selective (func == False).
+		measure method to perform the measurement according to landscape, if set
 		
-		Setting func to True enables and requires to pass fit function parameters in popt_a together with an information segment (on position -1) specifying the
-			function to use. Format of popt_a: [[p1,p2,p3,0/1],[p1,p2,p3,0/1],...] (0 for parabolic fit, 1 for hyperbolic fit)
-			popt_a can be 2D in case more than one function is involved.
-			
-			popt_a can be generated using the function gen_fit_function(...) for single functions and subsequently passed as an array:
-			popt1 = gen_fit_function(...)
-			popt2 = gen_fit_function(...)
-			popt3 = gen_fit_function(...)
-			...
-			popt_a = [popt1,popt2,popt3,...]
-			
-			span is the range (in units of the vertical plot axis) data is taken around the specified funtion(s) 
+		span is the range (in units of the vertical plot axis) data is taken around the specified funtion(s) 
 		'''
 
 
@@ -181,7 +173,7 @@ class spectrum_2D(object):
 		data.create_file()
 
 		if(self.plotlive):
-			if(plot3D):
+			if(self.plot3D):
 				plot_amp = qt.Plot3D(data, name='Amplitude', coorddims=(0,1), valdim=int(nop/2)+2, style=qt.Plot3D.STYLE_IMAGE)
 				plot_amp.set_palette('bluewhitered')
 				plot_pha = qt.Plot3D(data, name='Phase', coorddims=(0,1), valdim=int(nop/2)+2+nop, style=qt.Plot3D.STYLE_IMAGE)
@@ -228,7 +220,7 @@ class spectrum_2D(object):
 				data.new_block()
 		finally:
 			if(not self.plotlive):
-				if(plot3D):
+				if(self.plot3D):
 					plot_amp = qt.Plot3D(data, name='Amplitude', coorddims=(0,1), valdim=int(nop/2)+2, style=qt.Plot3D.STYLE_IMAGE)
 					plot_amp.set_palette('bluewhitered')
 					plot_pha = qt.Plot3D(data, name='Phase', coorddims=(0,1), valdim=int(nop/2)+2+nop, style=qt.Plot3D.STYLE_IMAGE)
