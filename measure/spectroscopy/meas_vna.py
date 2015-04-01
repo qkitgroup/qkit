@@ -659,186 +659,171 @@ def _sw_2D_avg(x_vec, x_coordname, x_set_param_func, y_vec, y_coordname, y_set_p
 
 		qt.mend()
 
-###########################################
+##########################################################################################################################
+# measure 2D class
 
-def gen_fit_function(curve_f, curve_p, p0 = [-1,0.1,7]):
-
+class spectrum_2D(object):
+	
 	'''
-	preparatory function for _sw_2D_func to generate a set of optimized fit function parameters
-	curve_f: 'parab', 'hyp', specifies the fit function to be employed
-	curve_p: set of points that are the basis for the fit in the format [[x1,x2,x3,...][y1,y2,y3,...]]
-	p0 (optional): start parameters for the fit, must be an 1D array of length 3 ([a,b,c])
-    
-    returns optimized fit parameters and the function type (0 for parab, 1 for hyp)
+	use:
+	flux_freq_spectrum = spectrum2D()
+	
+	flux_freq_spectrum.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current (mA)',coil.set_current)
+	flux_freq_spectrum.set_x_parameters(arange(4e9,7e9,10e6),'excitation frequency (Hz)',mw_src1.set_frequency)
+	
+	flux_freq_spectrum.gen_fit_function(...)   several times
+	
+	flux_freq_spectrum.measure()
 	'''
+	
+	def __init__(self):
 
+		self.landscape = None
+		self.span = 100e6
+		self.tdx = 0.002
+		self.tdy = 0.002,
+		#self.op='amppha'
+		self.ref=False
+		self.ref_meas_func=None
+		self.comment = None
+		self.plot3D = True
+		self.plotlive = True
+		
+	def set_x_parameters(self, x_vec, x_coordname, x_set_obj):
+		self.x_vec = x_vec
+		self.x_coordname = x_coordname
+		self.x_set_obj = x_set_obj
+		
+	def set_y_parameters(self, y_vec, y_coordname, y_set_obj):
+		self.y_vec = y_vec
+		self.y_coordname = y_coordname
+		self.y_set_obj = y_set_obj
+		
+	def set_tdx(self, tdx):
+		self.tdx = tdx
+		
+	def set_tdy(self, tdy):
+		self.tdy = tdy
+		
+	def get_tdx(self):
+		return self.tdx
+		
+	def get_tdy(self):
+		return self.tdy
+	
 	def f_parab(x,a,b,c):
 		return a*(x-b)**2+c
 	def f_hyp(x,a,b,c):
 		return a*np.sqrt((x/b)**2+c)
 		
-	x_fit = curve_p[0]
-	y_fit = curve_p[1]#*1e-9   #f in GHz
-	plt.plot(x_fit, y_fit, '*')
+	def gen_fit_function(self, curve_f, curve_p, p0 = [-1,0.1,7]):
 	
-	try:
-		if curve_f == 'parab':
-			popt, pcov = curve_fit(f_parab,x_fit,y_fit, p0=p0)
-			center_freqs = f_parab(x_fit, *popt)
-		elif curve_f == 'hyp':
-			popt, pcov = curve_fit(f_hyp,x_fit,y_fit, p0=p0)
-			center_freqs = f_hyp(x_fit, *popt)
-		else:
-			print 'function type not known...aborting'
-			raise ValueError
-	except Exception as message:
-		print 'fit not successful:', message
-		popt = p0
-	finally:
-		x_vec = np.linspace(x_fit[0],x_fit[-1],200)
-		if curve_f == 'parab':
-			plt.plot(x_vec, f_parab(x_vec, *popt))
-			plt.show()
-			return np.append(popt,0)
-		elif curve_f == 'hyp':
-			plt.plot(x_vec, f_hyp(x_vec, *popt))
-			plt.show()
-			return np.append(popt,1)
-
-
-
-def _sw_2D_func(x_vec, x_coordname, x_set_param_func, y_vec, y_coordname, y_set_param_func, func = False, popt_a = None, span = None, tdx = 0.002, tdy = 0.002,
-	op='amppha', ref=False, ref_meas_func=None, comment = None, plot3D = True, plotlive = True):
-	
-	'''
-	Can be used as the conventional _sw_2D function without being functionally selective (func == False).
-	
-	Setting func to True enables and requires to pass fit function parameters in popt_a together with an information segment (on position -1) specifying the
-		function to use. Format of popt_a: [[p1,p2,p3,0/1],[p1,p2,p3,0/1],...] (0 for parabolic fit, 1 for hyperbolic fit)
-		popt_a can be 2D in case more than one function is involved.
+		'''
+		curve_f: 'parab', 'hyp', specifies the fit function to be employed
+		curve_p: set of points that are the basis for the fit in the format [[x1,x2,x3,...][y1,y2,y3,...]]
+		p0 (optional): start parameters for the fit, must be an 1D array of length 3 ([a,b,c])
 		
-		popt_a can be generated using the function gen_fit_function(...) for single functions and subsequently passed as an array:
-		popt1 = gen_fit_function(...)
-		popt2 = gen_fit_function(...)
-		popt3 = gen_fit_function(...)
-		...
-		popt_a = [popt1,popt2,popt3,...]
+		adds a trace to landscape
+		'''
 		
-		span is the range (in units of the vertical plot axis) data is taken around the specified funtion(s) 
-	'''
-	
-	def f_parab(x,a,b,c):
-		return a*(x-b)**2+c
-	def f_hyp(x,a,b,c):
-		return a*np.sqrt((x/b)**2+c)
-
-	if func:
+		if self.landscape == None:
+			self.landscape = []
+		
+		x_fit = curve_p[0]
+		y_fit = curve_p[1]#*1e-9   #f in GHz
+		
 		try:
-			x_coords = np.linspace(x_vec[0],x_vec[-1],100)
-			center_freqs = []
-			for i in range(len(popt_a)):   #for all functions
-				if popt_a[i][-1] == 0:
-					center_freqs.append(f_parab(x_vec, *popt_a[i:-1]))
-					plt.plot(x_coords, f_parab(x_corrds, *popt_a[i:-1]))
-				elif popt_a[i][-1] == 1:
-					center_freqs.append(f_hyp(x_vec, *popt_a[i:-1]))
-					plt.plot(x_coords, f_hyp(x_corrds, *popt_a[i:-1]))
-			plt.show()
-			center_freqs = center_freqs.T
+			if curve_f == 'parab':
+				popt, pcov = curve_fit(f_parab, x_fit, y_fit, p0=p0)
+				landscape.append(f_parab(self.x_vec, *popt))
+			elif curve_f == 'hyp':
+				popt, pcov = curve_fit(f_hyp, x_fit, y_fit, p0=p0)
+				landscape.append(f_hyp(self.x_vec, *popt))
+			else:
+				print 'function type not known...aborting'
+				raise ValueError
 		except Exception as message:
-			print 'wrong format in popt_a...aborting', message
+			print 'fit not successful:', message
+			popt = p0
+
+	def delete_fit_function(self, n = None):
+		if n == None:
+			self.landscape = None
+		else:
+			self.landscape.remove(self.landscape[n])
+			
+	def plot_fit_function(self, num_points = 100):
+
+		try:
+			x_coords = np.linspace(self.x_vec[0], self.x_vec[-1], num_points)
+		except Exception as message:
+			print 'no x axis information specified', message
 			return
+		
+		for trace in self.landscape:
+			plt.plot(x_coords, trace)
+			
+			
+	def func():
+		if self.landscape == None:
+			return False
+		else:
+			return True
+
+	def wait_averages_E5071():
+		'''
+		wait averages to use with VNA E5071C (9.5GHz)
+		'''
+		vna.avg_clear()
+		sleep(vna.get_sweeptime()*vna.get_averages())
+			
+	def measure(self):
+		
+		'''
+		Can be used as the conventional _sw_2D function without being functionally selective (func == False).
+		
+		Setting func to True enables and requires to pass fit function parameters in popt_a together with an information segment (on position -1) specifying the
+			function to use. Format of popt_a: [[p1,p2,p3,0/1],[p1,p2,p3,0/1],...] (0 for parabolic fit, 1 for hyperbolic fit)
+			popt_a can be 2D in case more than one function is involved.
+			
+			popt_a can be generated using the function gen_fit_function(...) for single functions and subsequently passed as an array:
+			popt1 = gen_fit_function(...)
+			popt2 = gen_fit_function(...)
+			popt3 = gen_fit_function(...)
+			...
+			popt_a = [popt1,popt2,popt3,...]
+			
+			span is the range (in units of the vertical plot axis) data is taken around the specified funtion(s) 
+		'''
 
 
-	qt.mstart()
-	vna.get_all()
-	#ttip.get_temperature()
+		if landscape != None:
+			center_freqs = np.array(landscape).T
 
-	_op=op
-	
-	# Check what kind of sweep we are doing
-	'''
-	swtype = vna.get_sweep_type()
-	if swtype in ('LIN','LOG'):
+		qt.mstart()
+		vna.get_all()
+		#ttip.get_temperature()
+
 		nop = vna.get_nop()
-	elif swtype == 'POW':
-		nop = vna.get_power_nop1()
-	else:
-		raise ValueError('unsupported sweep type ' +  swtype)
-	'''
-	nop = vna.get_nop()
-	
-	nop_avg = vna.get_averages()
-	bandwidth = vna.get_bandwidth()
-	t_point = nop / bandwidth * nop_avg
+		nop_avg = vna.get_averages()
+		bandwidth = vna.get_bandwidth()
+		t_point = nop / bandwidth * nop_avg
 
-	if _op in ['amppha']:
 		data = qt.Data(name=('vna_' + x_coordname + y_coordname))
 		data.add_coordinate(x_coordname)
 		data.add_coordinate(y_coordname)
 
-	else:
-		logging.error('unknown option for _sw_2D')
-		raise ValueError('unknown parameter')
+		if self.comment:
+			data.add_comment(self.comment)
 
-	if comment:
-		data.add_comment(comment)
+		for i in range(1,nop+1):
+			data.add_value(('Point %i Amp' %i))
+		for i in range(1,nop+1):
+			data.add_value(('Point %i Pha' %i))
 
-	for i in range(1,nop+1):
-		data.add_value(('Point %i Amp' %i))
-	for i in range(1,nop+1):
-		data.add_value(('Point %i Pha' %i))
+		data.create_file()
 
-	data.create_file()
-
-	if(plotlive):
-		if(plot3D):
-			plot_amp = qt.Plot3D(data, name='Amplitude', coorddims=(0,1), valdim=int(nop/2)+2, style=qt.Plot3D.STYLE_IMAGE)
-			plot_amp.set_palette('bluewhitered')
-			plot_pha = qt.Plot3D(data, name='Phase', coorddims=(0,1), valdim=int(nop/2)+2+nop, style=qt.Plot3D.STYLE_IMAGE)
-			plot_pha.set_palette('bluewhitered')
-		else:
-			plot_amp = qt.Plot2D(data, name='Amplitude', coorddim=1, valdim=int(nop/2)+2)
-			plot_pha = qt.Plot2D(data, name='Phase', coorddim=1, valdim=int(nop/2)+2+nop)
-
-	now1 = time.time()
-	x_it = 0
-
-	try:
-		for i in range(len(x_vec)):
-			if x_it == 1:
-				now2 = time.time()
-				t = (now2-now1)
-				left = (t*np.size(x_vec)/60/60);
-				if left < 1:
-					print('Time left: %f min' %(left*60))
-				else:
-					print('Time left: %f h' %(left))
-                        
-			x_set_param_func(x_vec[i])
-			sleep(tdx)
-			x_it+=1
-
-			for y in y_vec:
-				if (np.min(np.abs(center_freqs[i]-y*np.ones(len(center_freqs[i])))) <= span/2.) and func:   #if point is not of interest (not close to one of the functions)
-					data_amp = np.zeros(int(nop))
-					data_pha = np.zeros(int(nop))
-				else:
-					y_set_param_func(y)
-					sleep(tdy)
-					wait_averages(t_point, nop_avg)
-					data_amp,data_pha = vna.get_tracedata()
-
-				dat = np.append(x_vec[i],y)
-				dat = np.append(dat,data_amp)
-				dat = np.append(dat,data_pha)
-				data.add_data_point(*dat)  # _one_
-
-				qt.msleep()
-
-			data.new_block()
-	finally:
-		if(not plotlive):
+		if(self.plotlive):
 			if(plot3D):
 				plot_amp = qt.Plot3D(data, name='Amplitude', coorddims=(0,1), valdim=int(nop/2)+2, style=qt.Plot3D.STYLE_IMAGE)
 				plot_amp.set_palette('bluewhitered')
@@ -848,12 +833,59 @@ def _sw_2D_func(x_vec, x_coordname, x_set_param_func, y_vec, y_coordname, y_set_
 				plot_amp = qt.Plot2D(data, name='Amplitude', coorddim=1, valdim=int(nop/2)+2)
 				plot_pha = qt.Plot2D(data, name='Phase', coorddim=1, valdim=int(nop/2)+2+nop)
 
-		plot_amp.save_png()
-		plot_amp.save_gp()
-		plot_pha.save_png()
-		plot_pha.save_gp()
+		now1 = time.time()
+		x_it = 0
 
-		data.close_file()
+		try:
+			for i in range(len(self.x_vec)):
+				if x_it == 1:
+					now2 = time.time()
+					t = (now2-now1)
+					left = (t*np.size(self.x_vec)/60/60);
+					if left < 1:
+						print('Time left: %f min' %(left*60))
+					else:
+						print('Time left: %f h' %(left))
+							
+				self.x_set_obj(self.x_vec[i])
+				sleep(self.tdx)
+				x_it+=1
 
-		qt.mend()
+				for y in self.y_vec:
+					if (np.min(np.abs(center_freqs[i]-y*np.ones(len(center_freqs[i])))) <= self.span/2.) and func():   #if point is not of interest (not close to one of the functions)
+						data_amp = np.zeros(int(nop))
+						data_pha = np.zeros(int(nop))
+					else:
+						self.y_set_obj(y)
+						sleep(self.tdy)
+						wait_averages(t_point, nop_avg)
+						data_amp,data_pha = vna.get_tracedata()
+
+					dat = np.append(self.x_vec[i],y)
+					dat = np.append(dat,data_amp)
+					dat = np.append(dat,data_pha)
+					data.add_data_point(*dat)  # _one_
+
+					qt.msleep()
+
+				data.new_block()
+		finally:
+			if(not self.plotlive):
+				if(plot3D):
+					plot_amp = qt.Plot3D(data, name='Amplitude', coorddims=(0,1), valdim=int(nop/2)+2, style=qt.Plot3D.STYLE_IMAGE)
+					plot_amp.set_palette('bluewhitered')
+					plot_pha = qt.Plot3D(data, name='Phase', coorddims=(0,1), valdim=int(nop/2)+2+nop, style=qt.Plot3D.STYLE_IMAGE)
+					plot_pha.set_palette('bluewhitered')
+				else:
+					plot_amp = qt.Plot2D(data, name='Amplitude', coorddim=1, valdim=int(nop/2)+2)
+					plot_pha = qt.Plot2D(data, name='Phase', coorddim=1, valdim=int(nop/2)+2+nop)
+
+			plot_amp.save_png()
+			plot_amp.save_gp()
+			plot_pha.save_png()
+			plot_pha.save_gp()
+
+			data.close_file()
+
+			qt.mend()
 
