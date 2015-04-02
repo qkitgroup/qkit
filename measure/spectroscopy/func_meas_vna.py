@@ -26,7 +26,7 @@ class spectrum_2D(object):
 	flux_freq_spectrum = spectrum2D()
 	
 	flux_freq_spectrum.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current (mA)',coil.set_current)
-	flux_freq_spectrum.set_x_parameters(arange(4e9,7e9,10e6),'excitation frequency (Hz)',mw_src1.set_frequency)
+	flux_freq_spectrum.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency (Hz)',mw_src1.set_frequency)
 	
 	flux_freq_spectrum.gen_fit_function(...)   several times
 	
@@ -35,7 +35,7 @@ class spectrum_2D(object):
 	
 	def __init__(self):
 		self.landscape = None
-		self.span = 200e6
+		self.span = 200e6   #specified in Hz
 		self.tdx = 0.002
 		self.tdy = 0.002
 		#self.op='amppha'
@@ -45,6 +45,12 @@ class spectrum_2D(object):
 		self.plot3D = True
 		self.plotlive = True
 		
+	def set_span(self, span):
+		self.span = span
+		
+	def get_span(self):
+		return self.span
+
 	def set_x_parameters(self, x_vec, x_coordname, x_set_obj):
 		self.x_vec = x_vec
 		self.x_coordname = x_coordname
@@ -66,11 +72,9 @@ class spectrum_2D(object):
 		
 	def get_tdy(self):
 		return self.tdy
-	
-	#@staticmethod
+
 	def f_parab(self,x,a,b,c):
 		return a*(x-b)**2+c
-	#@staticmethod
 	def f_hyp(self,x,a,b,c):
 		return a*np.sqrt((x/b)**2+c)
 		
@@ -88,15 +92,24 @@ class spectrum_2D(object):
 			self.landscape = []
 		
 		x_fit = curve_p[0]
-		y_fit = curve_p[1]#*1e-9   #f in GHz
+		if curve_p[1][0] > 0.5e9:   #frequency given in Hz
+			y_fit = curve_p[1]*1e-9   #convert f in GHz to enable fit
+		else:
+			y_fit = curve_p[1]
 		
 		try:
 			if curve_f == 'parab':
 				popt, pcov = curve_fit(self.f_parab, x_fit, y_fit, p0=p0)
-				self.landscape.append(self.f_parab(self.x_vec, *popt))
+				if curve_p[1][0] > 0.5e9:   #if frequency was given in Hz
+					self.landscape.append(1e9*self.f_parab(self.x_vec, *popt))
+				else:
+					self.landscape.append(self.f_parab(self.x_vec, *popt))
 			elif curve_f == 'hyp':
 				popt, pcov = curve_fit(self.f_hyp, x_fit, y_fit, p0=p0)
-				self.landscape.append(self.f_hyp(self.x_vec, *popt))
+				if curve_p[1][0] > 0.5e9:   #if frequency was given in Hz
+					self.landscape.append(1e9*self.f_hyp(self.x_vec, *popt))
+				else:
+					self.landscape.append(self.f_hyp(self.x_vec, *popt))
 			else:
 				print 'function type not known...aborting'
 				raise ValueError
@@ -119,17 +132,12 @@ class spectrum_2D(object):
 			return
 		'''
 		for trace in self.landscape:
-			plt.plot(self.x_vec, trace)
+			try:
+				plt.plot(self.x_vec, trace)
+			except Exception as m:
+				print 'invalid trace...skip'
 			plt.show()
-			
-	#@staticmethod
-	def func(self):
-		if self.landscape == None:
-			return False
-		else:
-			return True
 
-	#@staticmethod
 	def wait_averages(self):
 		'''
 		wait averages to use with VNA E5071C (9.5GHz)
@@ -147,7 +155,7 @@ class spectrum_2D(object):
 		if self.landscape != None:
 			center_freqs = np.array(self.landscape).T
 		else:
-			center_freqs = []
+			center_freqs = []   #load default sequence
 			for i in range(len(self.x_vec)):
 				center_freqs.append([0])
 		'''
@@ -206,7 +214,7 @@ class spectrum_2D(object):
 				x_it+=1
 
 				for y in self.y_vec:
-					if (np.min(np.abs(center_freqs[i]-y*1e-9*np.ones(len(center_freqs[i])))) > self.span/2.):# and self.func():   #if point is not of interest (not close to one of the functions)
+					if (np.min(np.abs(center_freqs[i]-y*np.ones(len(center_freqs[i])))) > self.span/2.) and self.landscape != None:   #if point is not of interest (not close to one of the functions)
 						data_amp = np.zeros(int(nop))
 						data_pha = np.zeros(int(nop))
 					else:
