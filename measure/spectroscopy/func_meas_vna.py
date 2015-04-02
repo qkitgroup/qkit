@@ -3,20 +3,17 @@
 
 
 import numpy as np
-from time import sleep
-import time
 import logging
 import matplotlib.pylab as plt
 from scipy.optimize import curve_fit
+import time
+from time import sleep
 
-try:
-	import qt
+import qt
 
-	#ttip = qt.instruments.get('ttip')
-	vna = qt.instruments.get('vna')
-	mw_src1 = qt.instruments.get('mw_src1')
-except:
-	pass
+#ttip = qt.instruments.get('ttip')
+vna = qt.instruments.get('vna')
+mw_src1 = qt.instruments.get('mw_src1')
 
 ##########################################################################################################################
 # measure 2D class
@@ -29,7 +26,7 @@ class spectrum_2D(object):
 	flux_freq_spectrum = spectrum2D()
 	
 	flux_freq_spectrum.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current (mA)',coil.set_current)
-	flux_freq_spectrum.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency (Hz)',mw_src1.set_frequency)
+	flux_freq_spectrum.set_x_parameters(arange(4e9,7e9,10e6),'excitation frequency (Hz)',mw_src1.set_frequency)
 	
 	flux_freq_spectrum.gen_fit_function(...)   several times
 	
@@ -37,11 +34,10 @@ class spectrum_2D(object):
 	'''
 	
 	def __init__(self):
-
 		self.landscape = None
-		self.span = 100e6
+		self.span = 200e6
 		self.tdx = 0.002
-		self.tdy = 0.002,
+		self.tdy = 0.002
 		#self.op='amppha'
 		#self.ref=False
 		#self.ref_meas_func=None
@@ -71,11 +67,11 @@ class spectrum_2D(object):
 	def get_tdy(self):
 		return self.tdy
 	
-	@staticmethod
-	def f_parab(x,a,b,c):
+	#@staticmethod
+	def f_parab(self,x,a,b,c):
 		return a*(x-b)**2+c
-	@staticmethod
-	def f_hyp(x,a,b,c):
+	#@staticmethod
+	def f_hyp(self,x,a,b,c):
 		return a*np.sqrt((x/b)**2+c)
 		
 	def gen_fit_function(self, curve_f, curve_p, p0 = [-1,0.1,7]):
@@ -96,11 +92,11 @@ class spectrum_2D(object):
 		
 		try:
 			if curve_f == 'parab':
-				popt, pcov = curve_fit(f_parab, x_fit, y_fit, p0=p0)
-				landscape.append(f_parab(self.x_vec, *popt))
+				popt, pcov = curve_fit(self.f_parab, x_fit, y_fit, p0=p0)
+				self.landscape.append(self.f_parab(self.x_vec, *popt))
 			elif curve_f == 'hyp':
-				popt, pcov = curve_fit(f_hyp, x_fit, y_fit, p0=p0)
-				landscape.append(f_hyp(self.x_vec, *popt))
+				popt, pcov = curve_fit(self.f_hyp, x_fit, y_fit, p0=p0)
+				self.landscape.append(self.f_hyp(self.x_vec, *popt))
 			else:
 				print 'function type not known...aborting'
 				raise ValueError
@@ -115,25 +111,26 @@ class spectrum_2D(object):
 			self.landscape.remove(self.landscape[n])
 			
 	def plot_fit_function(self, num_points = 100):
-
+		'''
 		try:
 			x_coords = np.linspace(self.x_vec[0], self.x_vec[-1], num_points)
 		except Exception as message:
 			print 'no x axis information specified', message
 			return
-		
+		'''
 		for trace in self.landscape:
-			plt.plot(x_coords, trace)
+			plt.plot(self.x_vec, trace)
+			plt.show()
 			
-			
-	def func():
+	#@staticmethod
+	def func(self):
 		if self.landscape == None:
 			return False
 		else:
 			return True
 
-	@staticmethod
-	def wait_averages():
+	#@staticmethod
+	def wait_averages(self):
 		'''
 		wait averages to use with VNA E5071C (9.5GHz)
 		'''
@@ -149,6 +146,10 @@ class spectrum_2D(object):
 
 		if self.landscape != None:
 			center_freqs = np.array(self.landscape).T
+		else:
+			center_freqs = []
+			for i in range(len(self.x_vec)):
+				center_freqs.append([0])
 		'''
 		prepare an array of length len(x_vec), each segment filled with an array being the number of present traces (number of functions)
 		'''
@@ -162,9 +163,9 @@ class spectrum_2D(object):
 		bandwidth = vna.get_bandwidth()
 		t_point = nop / bandwidth * nop_avg
 
-		data = qt.Data(name=('vna_' + x_coordname + y_coordname))
-		data.add_coordinate(x_coordname)
-		data.add_coordinate(y_coordname)
+		data = qt.Data(name=('vna_' + self.x_coordname + self.y_coordname))
+		data.add_coordinate(self.x_coordname)
+		data.add_coordinate(self.y_coordname)
 
 		if self.comment:
 			data.add_comment(self.comment)
@@ -205,13 +206,13 @@ class spectrum_2D(object):
 				x_it+=1
 
 				for y in self.y_vec:
-					if (np.min(np.abs(center_freqs[i]-y*np.ones(len(center_freqs[i])))) <= self.span/2.) and func():   #if point is not of interest (not close to one of the functions)
+					if (np.min(np.abs(center_freqs[i]-y*1e-9*np.ones(len(center_freqs[i])))) > self.span/2.):# and self.func():   #if point is not of interest (not close to one of the functions)
 						data_amp = np.zeros(int(nop))
 						data_pha = np.zeros(int(nop))
 					else:
 						self.y_set_obj(y)
 						sleep(self.tdy)
-						wait_averages(t_point, nop_avg)
+						self.wait_averages()
 						data_amp,data_pha = vna.get_tracedata()
 
 					dat = np.append(self.x_vec[i],y)
