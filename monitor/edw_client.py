@@ -2,7 +2,7 @@ import socket
 import sys
 
 HOST, PORT = 'pi-us74', 9955
-data = 'get_p_cond'
+data = 'jochen'
 
 # Create a socket (SOCK_STREAM means a TCP socket)
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
