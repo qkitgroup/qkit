@@ -10,6 +10,7 @@
 	sudo apt-get install python-rpi.gpio
 '''
 
+'''
 import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BOARD)   #use RPi.GPIO layout
 
@@ -19,17 +20,16 @@ GPIO.setup(SWITCH1, GPIO.OUT)
 GPIO.setup(SWITCH2, GPIO.OUT)   #set as outputs
 GPIO.output(SWITCH1, GPIO.LOW)
 GPIO.output(SWITCH2, GPIO.LOW)   #set off
+'''
+
 switch_position = 0
 
 import SocketServer
+from threading import Thread
 
-import os,sys
-sys.path.append('../')
-from EdwardsActiveDigitalController import Edwards_p_gauge   #import readout class
-
+#import os,sys
 from time import sleep
 
-p = Edwards_p_gauge()
 
 class TCPHandler_Switch2port(SocketServer.BaseRequestHandler):
 	"""
@@ -75,13 +75,22 @@ class TCPHandler_Switch2port(SocketServer.BaseRequestHandler):
 		except Exception as m:
 			print 'Error in TCP server handler:', m
 
+
+class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):   #enable multiple access
+    pass
+
+
 if __name__ == "__main__":
-	HOST, PORT = 'pi-us83', 9988
+	HOST, PORT = 'Jochen', 9988
 
 	# Create the server, binding to localhost on port 9955
-	server = SocketServer.TCPServer((HOST, PORT), TCPHandler_Switch2port)
+	server = ThreadedTCPServer((HOST, PORT), TCPHandler_Switch2port)
 
 	# Activate the server; this will keep running until you
 	# interrupt the program with Ctrl-C
-	server.serve_forever()
+	try:
+		server.serve_forever()
+	finally:
+		print 'shut down server'
+		server.shutdown()
 
