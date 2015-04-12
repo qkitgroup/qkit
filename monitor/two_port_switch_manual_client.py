@@ -4,6 +4,7 @@
 
 import socket
 import sys
+from time import sleep
 
 import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BOARD)   #use RPi.GPIO layout
@@ -27,7 +28,7 @@ if __name__ == "__main__":
 		if button1():
 			data = 'switch 1'
 		if button2():
-			data 0 'switch 2'
+			data = 'switch 2'
 		if data != '':
 			try:
 				# Create a socket (SOCK_STREAM means a TCP socket)
@@ -41,3 +42,4 @@ if __name__ == "__main__":
 				print data
 				data = ''
 				sock.close()
+				sleep(1)
