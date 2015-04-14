@@ -1,5 +1,5 @@
 # JB@KIT 03/2015
-#2D VNA measurement class for function dependent measuring
+# VNA measurement class supporting function dependent measurement
 
 
 import numpy as np
@@ -8,7 +8,6 @@ import matplotlib.pylab as plt
 from scipy.optimize import curve_fit
 import time
 from time import sleep
-
 import qt
 
 #ttip = qt.instruments.get('ttip')
