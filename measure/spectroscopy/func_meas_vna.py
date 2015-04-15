@@ -81,7 +81,7 @@ class spectrum_2D(object):
 	
 		'''
 		curve_f: 'parab', 'hyp', specifies the fit function to be employed
-		curve_p: set of points that are the basis for the fit in the format [[x1,x2,x3,...],[y1,y2,y3,...]]
+		curve_p: set of points that are the basis for the fit in the format [[x1,x2,x3,...],[y1,y2,y3,...]], frequencies in Hz
 		p0 (optional): start parameters for the fit, must be an 1D array of length 3 ([a,b,c])
 		
 		adds a trace to landscape
@@ -91,24 +91,15 @@ class spectrum_2D(object):
 			self.landscape = []
 		
 		x_fit = curve_p[0]
-		if curve_p[1][0] > 0.5e9:   #frequency given in Hz
-			y_fit = curve_p[1]*1e-9   #convert f in GHz to enable fit
-		else:
-			y_fit = curve_p[1]
+		y_fit = curve_p[1]
 		
 		try:
 			if curve_f == 'parab':
 				popt, pcov = curve_fit(self.f_parab, x_fit, y_fit, p0=p0)
-				if curve_p[1][0] > 0.5e9:   #if frequency was given in Hz
-					self.landscape.append(1e9*self.f_parab(self.x_vec, *popt))
-				else:
-					self.landscape.append(self.f_parab(self.x_vec, *popt))
+				self.landscape.append(self.f_parab(self.x_vec, *popt))
 			elif curve_f == 'hyp':
 				popt, pcov = curve_fit(self.f_hyp, x_fit, y_fit, p0=p0)
-				if curve_p[1][0] > 0.5e9:   #if frequency was given in Hz
-					self.landscape.append(1e9*self.f_hyp(self.x_vec, *popt))
-				else:
-					self.landscape.append(self.f_hyp(self.x_vec, *popt))
+				self.landscape.append(self.f_hyp(self.x_vec, *popt))
 			else:
 				print 'function type not known...aborting'
 				raise ValueError
@@ -130,12 +121,15 @@ class spectrum_2D(object):
 			print 'no x axis information specified', message
 			return
 		'''
-		for trace in self.landscape:
-			try:
-				plt.plot(self.x_vec, trace)
-			except Exception as m:
-				print 'invalid trace...skip'
-		plt.show()
+		if self.landscape != None:
+			for trace in self.landscape:
+				try:
+					plt.plot(self.x_vec, trace)
+				except Exception as m:
+					print 'invalid trace...skip'
+			plt.show()
+		else:
+			print 'No trace generated.'
 
 	def wait_averages(self):
 		'''
@@ -215,7 +209,7 @@ class spectrum_2D(object):
 				for y in self.y_vec:
 					if (np.min(np.abs(center_freqs[i]-y*np.ones(len(center_freqs[i])))) > self.span/2.) and self.landscape != None:   #if point is not of interest (not close to one of the functions)
 						data_amp = np.zeros(int(nop))
-						data_pha = np.zeros(int(nop))
+						data_pha = np.zeros(int(nop))   #fill with zeros
 					else:
 						self.y_set_obj(y)
 						sleep(self.tdy)
