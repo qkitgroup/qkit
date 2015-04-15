@@ -77,7 +77,7 @@ class spectrum_2D(object):
 	def f_hyp(self,x,a,b,c):
 		return a*np.sqrt((x/b)**2+c)
 		
-	def gen_fit_function(self, curve_f, curve_p, p0 = [-1,0.1,7]):
+	def gen_fit_function(self, curve_f, curve_p, units = '', p0 = [-1,0.1,7]):
 	
 		'''
 		curve_f: 'parab', 'hyp', specifies the fit function to be employed
@@ -91,15 +91,24 @@ class spectrum_2D(object):
 			self.landscape = []
 		
 		x_fit = curve_p[0]
-		y_fit = curve_p[1]
+		if units == 'Hz':
+			y_fit = np.array(curve_p[1])*1e-9
+		else:
+			y_fit = np.array(curve_p[1])
 		
 		try:
 			if curve_f == 'parab':
 				popt, pcov = curve_fit(self.f_parab, x_fit, y_fit, p0=p0)
-				self.landscape.append(self.f_parab(self.x_vec, *popt))
+				if units == 'Hz':
+					self.landscape.append(1e9*self.f_parab(self.x_vec, *popt))
+				else:
+					self.landscape.append(self.f_parab(self.x_vec, *popt))
 			elif curve_f == 'hyp':
 				popt, pcov = curve_fit(self.f_hyp, x_fit, y_fit, p0=p0)
-				self.landscape.append(self.f_hyp(self.x_vec, *popt))
+				if units == 'Hz':
+					self.landscape.append(1e9*self.f_hyp(self.x_vec, *popt))
+				else:
+					self.landscape.append(self.f_hyp(self.x_vec, *popt))
 			else:
 				print 'function type not known...aborting'
 				raise ValueError
@@ -125,6 +134,7 @@ class spectrum_2D(object):
 			for trace in self.landscape:
 				try:
 					plt.plot(self.x_vec, trace)
+					plt.fill_between(self.x_vec, trace+float(self.span)/2, trace-float(self.span)/2, alpha=0.5)
 				except Exception as m:
 					print 'invalid trace...skip'
 			plt.show()
