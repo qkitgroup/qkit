@@ -10,6 +10,17 @@ import time
 from time import sleep
 import qt
 
+import uuid
+from IPython.display import HTML, Javascript, display
+
+divid = str(uuid.uuid4())
+pb = HTML(
+"""
+<div style="border: 1px solid black; width:500px">
+  <div id="%s" style="background-color:blue; width:0%%">&nbsp;</div>
+</div> 
+""" % divid)
+
 #ttip = qt.instruments.get('ttip')
 vna = qt.instruments.get('vna')
 mw_src1 = qt.instruments.get('mw_src1')
@@ -144,6 +155,15 @@ class spectrum(object):
 		else:
 			print 'No trace generated.'
 
+	
+	def progress(self, it = None):
+		if it != None:   #open progress bar
+			self.it_max = it
+			self.progr = 0
+			display(pb)
+		else:
+			progr += 1
+		display(Javascript("$('div#%s').width('%i%%')" % (divid, 100*self.progr/it_max)))
 
 	def measure_1D(self):
 
@@ -184,9 +204,12 @@ class spectrum(object):
 
 		self.x_set_obj(self.x_vec[0])
 
+		'''
 		now_stamp = 0
 		now_steps = np.size(x_vec)
 		now1 = time.time()
+		'''
+		self.progress(len(self.x_vec))
 
 		#Main Measurement Loop
 		try:
@@ -208,6 +231,7 @@ class spectrum(object):
 
 				qt.msleep()
 
+				'''
 				now_stamp += 1
 				if now_stamp==5:
 					now2 = time.time()
@@ -217,6 +241,8 @@ class spectrum(object):
 						print('Time left: %f min' %(left*60))
 					else:
 						print('Time left: %f h' %(left))
+				'''
+				self.progress()
 		finally:
 			plot_amp.save_png()
 			plot_amp.save_gp()
@@ -226,6 +252,88 @@ class spectrum(object):
 			data.close_file()
 			qt.mend()
 
+	def measure_1D2(self):
+
+		qt.mstart()
+		vna.get_all()
+
+		nop = vna.get_nop()
+		nop_avg = vna.get_averages()
+		bandwidth = vna.get_bandwidth()
+		t_point = nop / bandwidth * nop_avg
+		freqpoints = vna.get_freqpoints()
+
+		data = qt.Data(name=('vna_sweep1D2_' + self.x_coordname))
+		data.add_coordinate(self.x_coordname)
+		data.add_coordinate('Frequency')
+		data.add_value('Amplitude')
+		data.add_value('Phase')
+
+		if self.comment:
+			data.add_comment(self.comment)
+
+		data.create_file()
+
+		if self.plotlive:
+			plot_amp = qt.Plot3D(data, name='Amplitude 2D2', coorddims=(0,1), valdim=2, style=qt.Plot3D.STYLE_IMAGE)
+			plot_amp.set_palette('bluewhitered')
+			plot_pha = qt.Plot3D(data, name='Phase 2D2', coorddims=(0,1), valdim=3, style=qt.Plot3D.STYLE_IMAGE)
+			plot_pha.set_palette('bluewhitered')
+
+		set_param_func(x_vec[0]) #In case for currentsweep go to starting point
+
+		'''
+		now_stamp = 0
+		now_steps = np.size(x_vec)
+		now1 = time.time()
+		'''
+		self.progress(len(self.x_vec))
+
+		try:
+			#Main Measurement Loop
+			for x in self.x_vec:
+				x_set_obj(x)
+				sleep(self.tdx)
+				sleep(vna.get_sweeptime_averages())
+				data_amp,data_pha = vna.get_tracedata()
+				dat = []
+				dat = np.append([x*np.ones(nop)],[freqpoints], axis = 0)
+				dat = np.append(dat,[data_amp],axis = 0)
+				dat = np.append(dat,[data_pha],axis = 0)
+				data.add_data_point(*dat)
+
+				data.new_block()
+				qt.msleep()
+
+				'''
+				now_stamp += 1
+				if now_stamp==5:
+					now2 = time.time()
+					t = (now2-now1)/5
+					left = (t*now_steps/60/60);
+					if left < 1:
+						print('Time left: %f min ' %(left*60))
+					else:
+						print('Time left: %f h ' %(left))
+				'''
+				self.progress()
+		finally:
+			if not self.plotlive:
+				plot_amp = qt.Plot3D(data, name='Amplitude 2D2', coorddims=(0,1), valdim=2, style=qt.Plot3D.STYLE_IMAGE)
+				plot_amp.set_palette('bluewhitered')
+				plot_pha = qt.Plot3D(data, name='Phase 2D', coorddims=(0,1), valdim=3, style=qt.Plot3D.STYLE_IMAGE)
+				plot_pha.set_palette('bluewhitered')
+				plot_amp.update()
+				plot_pha.update()
+				
+			plot_amp.save_png()
+			plot_amp.save_gp()
+			plot_pha.save_png()
+			plot_pha.save_gp()
+
+			data.close_file()
+			qt.mend()
+			
 	def measure_2D(self):
 		
 		'''
@@ -280,8 +388,11 @@ class spectrum(object):
 				plot_amp = qt.Plot2D(data, name='Amplitude', coorddim=1, valdim=int(nop/2)+2)
 				plot_pha = qt.Plot2D(data, name='Phase', coorddim=1, valdim=int(nop/2)+2+nop)
 
+		'''
 		now1 = time.time()
 		x_it = 0
+		'''
+		self.progress(len(self.x_vec)*len(self.y_vec))
 
 		try:
 			for i in range(len(self.x_vec)):
@@ -314,6 +425,7 @@ class spectrum(object):
 					data.add_data_point(*dat)  # _one_
 
 					qt.msleep()
+					self.progress()
 
 				data.new_block()
 		finally:
