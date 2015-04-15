@@ -81,7 +81,7 @@ class spectrum_2D(object):
 	
 		'''
 		curve_f: 'parab', 'hyp', specifies the fit function to be employed
-		curve_p: set of points that are the basis for the fit in the format [[x1,x2,x3,...][y1,y2,y3,...]]
+		curve_p: set of points that are the basis for the fit in the format [[x1,x2,x3,...],[y1,y2,y3,...]]
 		p0 (optional): start parameters for the fit, must be an 1D array of length 3 ([a,b,c])
 		
 		adds a trace to landscape
@@ -135,7 +135,7 @@ class spectrum_2D(object):
 				plt.plot(self.x_vec, trace)
 			except Exception as m:
 				print 'invalid trace...skip'
-			plt.show()
+		plt.show()
 
 	def wait_averages(self):
 		'''
