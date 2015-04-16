@@ -49,13 +49,11 @@ class Measure_td(object):
 		self.x_vec = x_vec
 		self.x_coordname = x_coordname
 		self.x_set_obj = x_set_obj
-		self.delete_fit_function()
 		
 	def set_y_parameters(self, y_vec, y_coordname, y_set_obj):
 		self.y_vec = y_vec
 		self.y_coordname = y_coordname
 		self.y_set_obj = y_set_obj
-		self.delete_fit_function()
 		
 	def measure_1D(self):
 	
