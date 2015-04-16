@@ -10,16 +10,8 @@ import time
 from time import sleep
 import qt
 
-import uuid
-from IPython.display import HTML, Javascript, display
+from measure.Progress_Bar import Progress_Bar
 
-divid = str(uuid.uuid4())
-pb = HTML(
-"""
-<div style="border: 1px solid black; width:500px">
-  <div id="%s" style="background-color:blue; width:0%%">&nbsp;</div>
-</div> 
-""" % divid)
 
 #ttip = qt.instruments.get('ttip')
 vna = qt.instruments.get('vna')
@@ -155,15 +147,6 @@ class spectrum(object):
 		else:
 			print 'No trace generated.'
 
-	
-	def progress(self, it = None):
-		if it != None:   #open progress bar
-			self.it_max = it
-			self.progr = 0
-			display(pb)
-		else:
-			progr += 1
-		display(Javascript("$('div#%s').width('%i%%')" % (divid, 100*self.progr/it_max)))
 
 	def measure_1D(self):
 
@@ -209,7 +192,7 @@ class spectrum(object):
 		now_steps = np.size(x_vec)
 		now1 = time.time()
 		'''
-		self.progress(len(self.x_vec))
+		p = Progress_Bar(len(self.x_vec))
 
 		#Main Measurement Loop
 		try:
@@ -242,7 +225,7 @@ class spectrum(object):
 					else:
 						print('Time left: %f h' %(left))
 				'''
-				self.progress()
+				p.iterate()
 		finally:
 			plot_amp.save_png()
 			plot_amp.save_gp()
@@ -287,7 +270,7 @@ class spectrum(object):
 		now_steps = np.size(x_vec)
 		now1 = time.time()
 		'''
-		self.progress(len(self.x_vec))
+		p = Progress_Bar(len(self.x_vec))
 
 		try:
 			#Main Measurement Loop
@@ -316,7 +299,7 @@ class spectrum(object):
 					else:
 						print('Time left: %f h ' %(left))
 				'''
-				self.progress()
+				p.iterate()
 		finally:
 			if not self.plotlive:
 				plot_amp = qt.Plot3D(data, name='Amplitude 2D2', coorddims=(0,1), valdim=2, style=qt.Plot3D.STYLE_IMAGE)
@@ -341,7 +324,7 @@ class spectrum(object):
 		self.span is the range (in units of the vertical plot axis) data is taken around the specified funtion(s) 
 		'''
 
-		if self.x_set_obj == None or self.set_y_obj == None:
+		if self.x_set_obj == None or self.y_set_obj == None:
 			print 'axes parameters not properly set...aborting'
 			return
 		
@@ -392,7 +375,7 @@ class spectrum(object):
 		now1 = time.time()
 		x_it = 0
 		'''
-		self.progress(len(self.x_vec)*len(self.y_vec))
+		p = Progress_Bar(len(self.x_vec)*len(self.y_vec))
 
 		try:
 			for i in range(len(self.x_vec)):
@@ -425,7 +408,7 @@ class spectrum(object):
 					data.add_data_point(*dat)  # _one_
 
 					qt.msleep()
-					self.progress()
+					p.iterate()
 
 				data.new_block()
 		finally:
