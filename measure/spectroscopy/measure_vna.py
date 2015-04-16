@@ -10,12 +10,13 @@ import time
 from time import sleep
 import qt
 
-from measure.Progress_Bar import Progress_Bar
+from Progress_Bar import Progress_Bar
 
 
 #ttip = qt.instruments.get('ttip')
-vna = qt.instruments.get('vna')
-mw_src1 = qt.instruments.get('mw_src1')
+#vna = qt.instruments.get('vna')
+#mw_src1 = qt.instruments.get('mw_src1')
+vcoil = qt.instruments.get('vcoil')
 
 ##########################################################################################################################
 
@@ -34,7 +35,13 @@ class spectrum(object):
 	flux_freq_spectrum.measure()
 	'''
 	
-	def __init__(self):
+	def __init__(self, vna_select = 'vna', mw_src_select = 'mw_src1'):
+	
+		global vna
+		vna = qt.instruments.get(vna_select)
+		global mw_src1
+		mw_src1 = mw_src1 = qt.instruments.get(mw_src_select)
+		
 		self.landscape = None
 		self.span = 200e6   #specified in Hz
 		self.tdx = 0.002
@@ -152,7 +159,10 @@ class spectrum(object):
 
 
 	def measure_1D(self):
-
+	
+		global vna
+		global mw_src1
+	
 		if self.x_set_obj == None:
 			print 'axes parameters not properly set...aborting'
 			return
@@ -240,6 +250,9 @@ class spectrum(object):
 
 	def measure_1D2(self):
 
+		global vna
+		global mw_src1
+	
 		qt.mstart()
 		vna.get_all()
 
@@ -327,6 +340,9 @@ class spectrum(object):
 		self.span is the range (in units of the vertical plot axis) data is taken around the specified funtion(s) 
 		'''
 
+		global vna
+		global mw_src1
+		
 		if self.x_set_obj == None or self.y_set_obj == None:
 			print 'axes parameters not properly set...aborting'
 			return
