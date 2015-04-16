@@ -59,11 +59,13 @@ class spectrum(object):
 		self.x_vec = x_vec
 		self.x_coordname = x_coordname
 		self.x_set_obj = x_set_obj
+		self.delete_fit_function()
 		
 	def set_y_parameters(self, y_vec, y_coordname, y_set_obj):
 		self.y_vec = y_vec
 		self.y_coordname = y_coordname
 		self.y_set_obj = y_set_obj
+		self.delete_fit_function()
 		
 	def set_tdx(self, tdx):
 		self.tdx = tdx
@@ -126,7 +128,7 @@ class spectrum(object):
 		if n == None:
 			self.landscape = None
 		else:
-			self.landscape.remove(self.landscape[n])
+			self.landscape = np.delete(self.landscape,n,axis=0)
 			
 	def plot_fit_function(self, num_points = 100):
 		'''
@@ -143,6 +145,7 @@ class spectrum(object):
 					plt.fill_between(self.x_vec, trace+float(self.span)/2, trace-float(self.span)/2, alpha=0.5)
 				except Exception as m:
 					print 'invalid trace...skip'
+			plt.axhspan(self.y_vec[0], self.y_vec[-1], facecolor='0.5', alpha=0.5)
 			plt.show()
 		else:
 			print 'No trace generated.'
@@ -379,6 +382,7 @@ class spectrum(object):
 
 		try:
 			for i in range(len(self.x_vec)):
+				'''
 				if x_it == 1:
 					now2 = time.time()
 					t = (now2-now1)
@@ -387,10 +391,11 @@ class spectrum(object):
 						print('Time left: %f min' %(left*60))
 					else:
 						print('Time left: %f h' %(left))
-							
+				'''
+				
 				self.x_set_obj(self.x_vec[i])
 				sleep(self.tdx)
-				x_it+=1
+				#x_it+=1
 
 				for y in self.y_vec:
 					if (np.min(np.abs(center_freqs[i]-y*np.ones(len(center_freqs[i])))) > self.span/2.) and self.landscape != None:   #if point is not of interest (not close to one of the functions)
@@ -399,7 +404,7 @@ class spectrum(object):
 					else:
 						self.y_set_obj(y)
 						sleep(self.tdy)
-						self.wait_averages()
+						sleep(vna.get_sweeptime_averages())
 						data_amp,data_pha = vna.get_tracedata()
 
 					dat = np.append(self.x_vec[i],y)
