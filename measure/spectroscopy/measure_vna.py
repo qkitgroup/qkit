@@ -25,14 +25,15 @@ class spectrum(object):
 	'''
 	useage:
 	
-	flux_freq_spectrum = spectrum2D()
+	m = spectrum()
+	m2 = spectrum(vna_select = 'vna2', mw_src_select = 'mw_src1')   #where 'vna2'/'mw_src1' is the qt.instruments name
 	
-	flux_freq_spectrum.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current (mA)',coil.set_current)
-	flux_freq_spectrum.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency (Hz)',mw_src1.set_frequency)
+	m.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current (mA)',coil.set_current)
+	m.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency (Hz)',mw_src1.set_frequency)
 	
-	flux_freq_spectrum.gen_fit_function(...)   several times
+	m.gen_fit_function(...)   several times
 	
-	flux_freq_spectrum.measure()
+	m.measure_XX()
 	'''
 	
 	def __init__(self, vna_select = 'vna', mw_src_select = 'mw_src1'):
@@ -252,6 +253,10 @@ class spectrum(object):
 
 		global vna
 		global mw_src1
+	
+		if self.x_set_obj == None:
+			print 'axes parameters not properly set...aborting'
+			return
 	
 		qt.mstart()
 		vna.get_all()
