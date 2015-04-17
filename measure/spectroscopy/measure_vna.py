@@ -284,7 +284,7 @@ class spectrum(object):
 			plot_pha = qt.Plot3D(data, name='Phase 2D2', coorddims=(0,1), valdim=3, style=qt.Plot3D.STYLE_IMAGE)
 			plot_pha.set_palette('bluewhitered')
 
-		set_param_func(x_vec[0]) #In case for currentsweep go to starting point
+		self.x_set_obj(self.x_vec[0]) #In case for currentsweep go to starting point
 
 		'''
 		now_stamp = 0
@@ -296,8 +296,9 @@ class spectrum(object):
 		try:
 			#Main Measurement Loop
 			for x in self.x_vec:
-				x_set_obj(x)
+				self.x_set_obj(x)
 				sleep(self.tdx)
+				vna.avg_clear()
 				sleep(vna.get_sweeptime_averages())
 				data_amp,data_pha = vna.get_tracedata()
 				dat = []
