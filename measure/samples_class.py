@@ -30,7 +30,7 @@ class Sample(object):
 		- qubit_mw_src power
 		- qubit_mw_src f01-iq_frequency
 		'''
-		if (awg == None or qubit_mw_src == None)
+		if (awg == None or qubit_mw_src == None):
 			logging.error(__name__ + ' : awg or qubit_mw_src not defined')
 		else:
 			self.awg.set_clock(self.clock)
@@ -44,15 +44,13 @@ class Sample(object):
 		return self.iq_frequency
 	
 	def set_qubit_mw_src(self,qubit_mw_src):
-		'''qubit_mw_src is a string, but self.qubit_mw_src will be a reference to the corresponding qtLab Instrument'''
-		self.qubit_mw_src = qt.instruments.get(qubit_mw_src)
+		self.qubit_mw_src = qubit_mw_src
 	
 	def get_qubit_mw_src(self):
 		return self.qubit_mw_src
 	
 	def set_awg(self,awg):
-		'''awg is a string, but self.awg will be a reference to the corresponding qtLab Instrument'''
-		self.awg = qt.instruments.get(awg)
+		self.awg = awg
 	
 	def get_awg(self):
 		return self.awg
