@@ -34,8 +34,8 @@ class Progress_Bar(object):
 		
 	def iterate(self):
 		self.progr += 1
-		clear_output()
+		clear_output(wait=True)
 		display(self.pb)
 		display(Javascript("$('div#%s').width('%i%%')" % (self.divid, 100*self.progr/self.max_it)))
-		print "(%i/%i) ETA: %s"%(self.progr,self.max_it,time.ctime(time.time() + float(time.time()-self.starttime)/self.progr * (self.max_it - self.progr)))
+		print "(%i/%i) ETA: %s  Time elapsed: %s"%(self.progr,self.max_it,time.ctime(time.time() + float(time.time()-self.starttime)/self.progr * (self.max_it - self.progr)),time.strftime('%H:%M:%S',time.gmtime(time.time()-self.starttime)))
 		sys.stdout.flush()
