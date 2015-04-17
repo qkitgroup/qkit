@@ -39,3 +39,17 @@ class Progress_Bar(object):
 		display(Javascript("$('div#%s').width('%i%%')" % (self.divid, 100*self.progr/self.max_it)))
 		print "(%i/%i) ETA: %s  Time elapsed: %s"%(self.progr,self.max_it,time.ctime(time.time() + float(time.time()-self.starttime)/self.progr * (self.max_it - self.progr)),time.strftime('%H:%M:%S',time.gmtime(time.time()-self.starttime)))
 		sys.stdout.flush()
+		
+		if self.progr == self.max_it:   #end
+			self.pb = HTML(
+			"""
+			<div style="border: 1px solid black; width:900px">
+			  <div id="%s" style="background-color:green; width:0%%">&nbsp;</div>
+			</div> 
+			""" % self.divid)
+			
+			clear_output()
+			display(self.pb)
+			display(Javascript("$('div#%s').width('%i%%')" % (self.divid, 100*self.progr/self.max_it)))
+			print "(%i/%i) ETA: %s"%(self.progr,self.max_it,time.ctime(time.time() + float(time.time()-self.starttime)/self.progr * (self.max_it - self.progr)))
+			sys.stdout.flush()
