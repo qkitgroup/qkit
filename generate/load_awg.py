@@ -46,7 +46,7 @@ def update_sequence(ts, wfm_funcs, wfm_channels, sample, loop = False, drive = '
 	
 	#awg_say = awg._ins._visainstrument.write
 	#awg_ask = awg._ins._visainstrument.ask
-	p = qkit.Progress_Bar.Progress_Bar(len(wfm_funcs)*len(ts))
+	p = Progress_Bar.Progress_Bar(len(wfm_funcs)*len(ts))
 	# create new sequence
 	if(reset):
 		awg.set_runmode('SEQ')
@@ -160,7 +160,7 @@ def awg_update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', pat
 	wfm_samples_prev = [None,None]
 	wfm_fn = [None,None]
 	wfm_pn = [None,None]
-	p = qkit.Progress_Bar.Progress_Bar(len(ts)*2)
+	p = Progress_Bar.Progress_Bar(len(ts)*2)
 	for ti in range(len(ts)):
 		qt.msleep()
 		t = ts[ti]

@@ -17,8 +17,8 @@ import sys
 # creates dummy objects to have everything well-defined.
 
 global sample, iq
-sample = type('Sample', (object,),{  'exc_T' : 1e-6 , 'tpi' : 2e-9 , 'tpi2' : 1e-9   })
-iq = type('iq', (object,),{'clock':1e9})
+sample = type('Sample', (object,),{  'exc_T' : 1e-6 , 'tpi' : 2e-9 , 'tpi2' : 1e-9, 'clock' : 1e9   })
+
 
 
 # awg-supported multiple measurement system
@@ -32,7 +32,7 @@ def erf(pulse, attack, decay, length=None, position = None, clock = None):
 			attack, decay - attack/decay times
 	'''
 	import scipy.special
-	if(clock == None): clock= iq.clock
+	if(clock == None): clock= sample.clock
 	if(length == None): length= sample.exc_T
 	if(position == None): position = length
 	sample_start = int(clock*(position-pulse))
@@ -58,7 +58,7 @@ def triangle(pulse, attack, decay, length = None,position = None, clock = None):
 			length - length of the resulting waveform in seconds
 			position - position of the end of the pulse
 	'''
-	if(clock == None): clock= iq.clock
+	if(clock == None): clock= sample.clock
 	if(length == None): length= sample.exc_T
 	if(position == None): position = length
 	sample_start = int(clock*(position-pulse))
@@ -86,7 +86,7 @@ def square(pulse, length = None,position = None, low = 0, high = 1, clock = None
 		Output:
 			float array of samples
 	'''
-	if(clock == None): clock= iq.clock
+	if(clock == None): clock= sample.clock
 	if(length == None): length= sample.exc_T
 	if(position == None): position = length
 	if(pulse>position): logging.error(__name__ + ' : pulse does not fit into waveform')
@@ -117,7 +117,7 @@ def gauss(pulse, length = None,position = None, low = 0, high = 1, clock = None)
 		Output:
 			float array of samples
 	'''
-	if(clock == None): clock= iq.clock
+	if(clock == None): clock= sample.clock
 	if(length == None): length= sample.exc_T
 	if(position == None): position = length
 	if(pulse>position): logging.error(__name__ + ' : pulse does not fit into waveform')
@@ -146,7 +146,7 @@ def arb_function(function, pulse, length = None,position = None, clock = None):
 		Output:
 			float array of samples
 	'''
-	if(clock == None): clock= iq.clock
+	if(clock == None): clock= sample.clock
 	if(length == None): length= sample.exc_T
 	if(position == None): position = length
 	if(pulse>position): logging.error(__name__ + ' : pulse does not fit into waveform')
@@ -170,7 +170,7 @@ def ramsey(delay, pi2_pulse = None, length = None,position = None, low = 0, high
 		Output:
 			float array of samples
 	'''
-	if(clock == None): clock= iq.clock
+	if(clock == None): clock= sample.clock
 	if(length == None): length= sample.exc_T
 	if(position == None): position = length
 	if(pi2_pulse == None): pi2_pulse = sample.tpi2
@@ -188,7 +188,7 @@ def spinecho(delay, pi2_pulse = None, pi_pulse = None, length = None,position = 
 		
 		(see awg_ramsey for parameter description)
 	'''
-	if(clock == None): clock= iq.clock
+	if(clock == None): clock= sample.clock
 	if(length == None): length= sample.exc_T
 	if(position == None): position = length
 	if(pi2_pulse == None): pi2_pulse = sample.tpi2
