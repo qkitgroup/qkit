@@ -50,6 +50,6 @@ class Progress_Bar(object):
 			
 			clear_output()
 			display(self.pb)
-			display(Javascript("$('div#%s').width('%i%%')" % (self.divid, 100*self.progr/self.max_it)))
-			print "(%i/%i) ETA: %s"%(self.progr,self.max_it,time.ctime(time.time() + float(time.time()-self.starttime)/self.progr * (self.max_it - self.progr)))
+			display(Javascript("$('div#%s').width('%i%%')" % (self.divid, 100)))
+			print "(%i/%i) ETA: %s  Time elapsed: %s"%(self.progr,self.max_it,time.ctime(time.time() + float(time.time()-self.starttime)/self.progr * (self.max_it - self.progr)),time.strftime('%H:%M:%S',time.gmtime(time.time()-self.starttime)))
 			sys.stdout.flush()
