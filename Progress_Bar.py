@@ -1,5 +1,8 @@
 # progress bar handler by JB@KIT 09/2014
-# general class handling a progress bar for all qtLab measurements
+# use:
+# initialize and create empty progress bar by instantiating, passing the number of iterations: e.g. p = Progress_Bar(100)
+# to iterate the progress bar call p.iterate()
+
 
 import numpy as np
 import time,sys
