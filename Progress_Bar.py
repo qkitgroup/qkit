@@ -46,7 +46,7 @@ class Progress_Bar(object):
 			<div style="border: 1px solid black; width:900px">
 			  <div id="%s" style="background-color:green; width:0%%">&nbsp;</div>
 			</div> 
-			""" % self.divid)
+			""" % self.divid)   #switch to green
 			
 			clear_output()
 			display(self.pb)
