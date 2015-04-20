@@ -149,6 +149,7 @@ class spectrum(object):
 		if self.landscape != None:
 			for trace in self.landscape:
 				try:
+					plt.clear()
 					plt.plot(self.x_vec, trace)
 					plt.fill_between(self.x_vec, trace+float(self.span)/2, trace-float(self.span)/2, alpha=0.5)
 				except Exception as m:
