@@ -1,7 +1,8 @@
-#coil.py
+#Virtual_Coil.py
 #script mediating IVVI and measurement script
 #Started by Jochen Braumueller <jochen.braumueller@kit.edu> 08/11/2013
 #last update: 05/02/2015
+#use: set and get current always in mA, make sure to have the correct c_range set which is an attribute of the instance vcoil
 
 
 from instrument import Instrument
@@ -9,14 +10,16 @@ import instruments
 import types
 import logging
 import numpy as np
+import time
 from time import sleep
 import os, sys, qt
 
 IVVI = qt.instruments.get('IVVI')
-DAC_ROUT = 5    #number of routed dac port
+if 'IVVI' not in qt.instruments.get_instrument_names():
+	print 'Warning: IVVI not found...aborting'
 
-dac_val = {'20m':1.30103,'10m':1,'1m':0,'100u':-1,
-		   '10u':-2,'1u':-3,'100n':-4,'10n':-5,'1n':-6}
+DAC_ROUT = 5    #number of routed dac port
+dac_val = {'20m':1.30103,'10m':1,'1m':0,'100u':-1,'10u':-2,'1u':-3,'100n':-4,'10n':-5,'1n':-6}
 
 class Virtual_Coil(Instrument):
 
@@ -41,7 +44,7 @@ class Virtual_Coil(Instrument):
 		return self.c_range
 		
 	def round_to_x_valids(self, x, f):
-			return round(f, -int(np.floor(np.log10(f)))+(x-1))
+			return round(f, -int(np.floor(np.log10(np.abs(f))))+(x-1))
 		
 	def do_set_current(self, current):     #current in mA
 		try:  
@@ -80,6 +83,6 @@ class Virtual_Coil(Instrument):
 		if IVVI.reset_dac() == None:
 			print 'Error!'
 		else:
-			set_current(0)
+			self.set_current(0)
 			print 'Done.'
 
