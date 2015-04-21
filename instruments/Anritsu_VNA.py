@@ -145,7 +145,17 @@ class Anritsu_VNA(Instrument):
 		self.add_parameter('edel', type=types.FloatType,   #added by MW
 			flags=Instrument.FLAG_GETSET,
 			minval=0, maxval=1e-3,
-			units='s', tags=['sweep']) 
+			units='s', tags=['sweep'])
+		
+		self.add_parameter('sweeptime', type=types.FloatType,   #JB
+			flags=Instrument.FLAG_GET,
+			minval=0, maxval=1e-3,
+			units='s', tags=['sweep'])
+			
+		self.add_parameter('sweeptime_averages', type=types.FloatType,   #JB
+			flags=Instrument.FLAG_GET,
+			minval=0, maxval=1e-3,
+			units='s', tags=['sweep'])
 					
 		#Triggering Stuff
 		self.add_parameter('trigger_source', type=types.StringType,
@@ -232,8 +242,8 @@ class Anritsu_VNA(Instrument):
 		Output:
 			'AmpPha':_ Amplitude and Phase
 		'''
-		data = self._visainstrument.ask_for_values(':FORMAT REAL,32;*CLS;CALC1:DATA:NSW? SDAT,1;*OPC',format=1)      
-		#data = self._visainstrument.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; CALC%i:SEL:DATA:SDAT?'%(self._ci), format = visa.double)      
+		#data = self._visainstrument.ask_for_values(':FORMAT REAL,32;*CLS;CALC1:DATA:NSW? SDAT,1;*OPC',format=1)      
+		data = self._visainstrument.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; CALC%i:SEL:DATA:SDAT?'%(self._ci), format = visa.double)      
 		data_size = numpy.size(data)
 		datareal = numpy.array(data[0:data_size:2])
 		dataimag = numpy.array(data[1:data_size:2])
@@ -536,6 +546,20 @@ class Anritsu_VNA(Instrument):
 		logging.debug(__name__ + ' : getting stop frequency')
 		self._stop = float(self._visainstrument.ask('SENS%i:FREQ:STOP?' %(self._ci) ))
 		return  self._stop
+		
+	def do_get_sweeptime_averages(self):
+		return self.get_sweeptime() * self.get_averages()
+	
+	def do_get_sweeptime(self):
+	
+		'''
+		Get sweep time
+
+		'''
+	
+		logging.debug(__name__ + ' : getting sweep time')
+		
+		return float(self.get_nop()) / self.get_bandwidth()
 
 	def do_get_edel(self):   # added by MW
 
