@@ -16,7 +16,7 @@ import sys
 
 # creates dummy objects to have everything well-defined.
 
-global sample, iq
+global sample
 sample = type('Sample', (object,),{  'exc_T' : 1e-6 , 'tpi' : 2e-9 , 'tpi2' : 1e-9, 'clock' : 1e9   })
 
 

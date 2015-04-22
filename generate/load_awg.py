@@ -115,15 +115,7 @@ def update_sequence(ts, wfm_funcs, wfm_channels, sample, loop = False, drive = '
 		try:
 			time.sleep(0.1)
 			for channel in wfm_channels:
-				ch_state = 0
-				while(ch_state == 0):
-					#getattr(awg, 'set_ch%d_status'%channel)('on')
-					#awg.wait()
-					#if(getattr(awg, 'get_ch%d_status'%channel)() != 'on'):
-					ch_state = int(awg_ask(':OUTP%d 1; *WAI; :OUTP%d?'%(channel, channel)))
-					if(ch_state != 1):
-						print 'failed to enable awg channel %d.'%channel
-						time.sleep(0.1)
+				awg.set('ch%i_status'%channel,'on')
 		except:
 			pass
 	
@@ -131,10 +123,10 @@ def update_sequence(ts, wfm_funcs, wfm_channels, sample, loop = False, drive = '
 		awg.run()
 		awg.wait(10,False)
 	qt.mend()
-	#'SEQ:ELEM%d:LOOP:COUN %d'%(idx, 1)
-	#'SEQ:ELEM%d:TWAI %d'%(idx, 1)
+	return np.all([awg.get('ch%i_status'%i)=='on' for i in wfm_channels])
 
-def awg_update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None): #@andre20150318
+
+def update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None): #@andre20150318
 	'''
 		set awg to sequence mode and push a number of waveforms into the sequencer
 		
@@ -154,6 +146,10 @@ def awg_update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', pat
 		awg.set_runmode('SEQ')
 		awg.set_seq_length(0) #awg_say('SEQ:LENG %d'%(0)) # clear sequence
 		awg.set_seq_length(len(ts)) #awg_say('SEQ:LENG %d'%(len(ts))) # create empty sequence
+		awg.set_ch1_offset(0)
+		awg.set_ch2_offset(0)
+		awg.set_ch1_amplitude(2)
+		awg.set_ch2_amplitude(2)
 
 	# update all channels and times
 
@@ -209,33 +205,15 @@ def awg_update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', pat
 			#awg_say('SEQ:ELEM%d:JTAR:TYPE %s'%(ti, 'IND'))
 		#awg_say('SEQ:ELEM%d:JTAR:IND %d'%(ti, 1))
 		#awg_say('SEQ:ELEM%d:GOTO:IND %d'%(ti, 1))
-	print "Done: ",time.ctime()
 
 	if(reset):
 		# set up looping
 		awg.set_seq_goto(len(ts), 1)
-		#awg_say('SEQ:ELEM%d:GOTO:STAT %d'%(len(ts), 1))
-		#awg_say('SEQ:ELEM%d:GOTO:IND %d'%(len(ts), 1))
 		
 		# enable channels
-		try:
-			time.sleep(0.1)
-			for channel in wfm_channels:
-				ch_state = 0
-				while(ch_state == 0):
-					#getattr(awg, 'set_ch%d_status'%channel)('on')
-					#awg.wait()
-					#if(getattr(awg, 'get_ch%d_status'%channel)() != 'on'):
-					ch_state = int(awg_ask(':OUTP%d 1; *WAI; :OUTP%d?'%(channel, channel)))
-					if(ch_state != 1):
-						print 'failed to enable awg channel %d.'%channel
-						time.sleep(0.1)
-		except:
-			pass
-	
-		# start awg
 		awg.run()
+		awg.set_ch1_status('on')
+		awg.set_ch2_status('on')
 		awg.wait(10,False)
 	qt.mend()
-	#'SEQ:ELEM%d:LOOP:COUN %d'%(idx, 1)
-	#'SEQ:ELEM%d:TWAI %d'%(idx, 1)
+	return np.all([awg.get('ch%i_status'%i)=='on' for i in [1,2]])
