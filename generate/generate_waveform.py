@@ -16,8 +16,8 @@ import sys
 
 # creates dummy objects to have everything well-defined.
 
-global sample
-sample = type('Sample', (object,),{  'exc_T' : 1e-6 , 'tpi' : 2e-9 , 'tpi2' : 1e-9, 'clock' : 1e9   })
+#global sample
+#sample = type('Sample', (object,),{  'exc_T' : 1e-6 , 'tpi' : 2e-9 , 'tpi2' : 1e-9, 'clock' : 1e9   })
 
 
 
@@ -72,7 +72,7 @@ def triangle(pulse, attack, decay, length = None,position = None, clock = None):
 	wfm[sample_end-sample_decay:sample_end] = np.linspace(1, 0, sample_decay)
 	return wfm
 
-def square(pulse, length = None,position = None, low = 0, high = 1, clock = None, adddelay=0.,freq=None):
+def square(pulse, sample, length = None,position = None, low = 0, high = 1, clock = None, adddelay=0.,freq=None):
 	'''
 		generate waveform corresponding to a dc pulse
 
@@ -103,7 +103,7 @@ def square(pulse, length = None,position = None, low = 0, high = 1, clock = None
 	return wfm
 	
 	
-def gauss(pulse, length = None,position = None, low = 0, high = 1, clock = None):
+def gauss(pulse, sample, length = None,position = None, low = 0, high = 1, clock = None):
 	'''
 		generate waveform corresponding to a dc gauss pulse
 
@@ -159,7 +159,7 @@ def arb_function(function, pulse, length = None,position = None, clock = None):
 	wfm[sample_start:sample_end] = function(times)
 	return wfm
 
-def ramsey(delay, pi2_pulse = None, length = None,position = None, low = 0, high = 1, clock = None):
+def ramsey(delay, sample, pi2_pulse = None, length = None,position = None, low = 0, high = 1, clock = None):
 	'''
 		generate waveform with two pi/4 pulses and delay in-between
 
@@ -181,7 +181,7 @@ def ramsey(delay, pi2_pulse = None, length = None,position = None, low = 0, high
 	return wfm
 
 
-def spinecho(delay, pi2_pulse = None, pi_pulse = None, length = None,position = None, low = 0, high = 1, clock = None, readoutpulse=True,adddelay=0., freq=None):
+def spinecho(delay, sample, pi2_pulse = None, pi_pulse = None, length = None,position = None, low = 0, high = 1, clock = None, readoutpulse=True,adddelay=0., freq=None):
 	'''
 		generate waveform with two pi/2 pulses, a pi pulse and delays
 		pi2 - delay - pi - delay - [pi2, if readoutpulse]

@@ -24,7 +24,7 @@ def update(t, wfm_funcs, wfm_channels, sample, drive = 'c:', path = '\\waveforms
 	for i in range(len(wfm_funcs)):
 		wfm_func = wfm_funcs[i]
 		wfm_channel = wfm_channels[i]
-		wfm_samples = wfm_func(t)
+		wfm_samples = wfm_func(t,sample)
 		wfm_fn = 'ch%d'%wfm_channel
 		marker = np.zeros(wfm_samples.shape, np.int)
 		awg.send_waveform(wfm_samples, marker, marker, '%s%s\\%s'%(drive, path, wfm_fn), clock)
@@ -62,7 +62,7 @@ def update_sequence(ts, wfm_funcs, wfm_channels, sample, loop = False, drive = '
 			qt.msleep()
 			t = ts[ti]
 			# filter duplicates
-			wfm_samples = wfm_func(t)
+			wfm_samples = wfm_func(t, sample)
 			if(np.array_equal(wfm_samples, wfm_samples_prev)):
 				# waveform was seen before: just set it in the sequencer
 				pass
@@ -161,7 +161,7 @@ def update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = 
 		qt.msleep()
 		t = ts[ti]
 		# filter duplicates
-		wfm_samples = wfm_func(t)
+		wfm_samples = wfm_func(t,sample)
 		
 		for chan in (0,1):
 			if(np.array_equal(wfm_samples[chan], wfm_samples_prev[chan])):
