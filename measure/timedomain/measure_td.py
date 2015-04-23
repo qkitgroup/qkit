@@ -6,7 +6,6 @@ import numpy as np
 import os.path
 import time
 import logging
-import numpy
 import sys
 
 from Progress_Bar import Progress_Bar
@@ -31,7 +30,7 @@ class Measure_td(object):
 	def __init__(self):
 	
 		self.comment = None
-		self.plotlive = True
+		self.plotLive = True
 		self.plot2d = False
 		self.plotFast = False
 		self.plotTime = True
@@ -79,7 +78,7 @@ class Measure_td(object):
 		data.create_file()
 
 		plots = []
-		if self.plotlive:
+		if self.plotLive:
 			for i in range(ndev):
 				plot_amp = qt.plots.get('amplitude_%d%s'%(i, self.plotSuffix))
 				plot_pha = qt.plots.get('phase_%d%s'%(i, self.plotSuffix))
@@ -89,8 +88,8 @@ class Measure_td(object):
 				elif not self.hold:
 					plot_amp.clear()
 					plot_pha.clear()
-				plot_amp.add(data, name='amplitude_%d%s'%(i, plotSuffix), coorddim=0, valdim=1+i)
-				plot_pha.add(data, name='phase_%d%s'%(i, plotSuffix), coorddim=0, valdim=1+ndev+i)
+				plot_amp.add(data, name='amplitude_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+i)
+				plot_pha.add(data, name='phase_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+ndev+i)
 				plots.append(plot_amp)
 				plots.append(plot_pha)
 
@@ -236,11 +235,7 @@ class Measure_td(object):
 
 
 	def measure_1D_AWG(self, iterations = 100):
-	
-		if self.x_set_obj == None:
-			print 'axes parameters not properly set...aborting'
-			return
-	
+
 		self.y_vec = range(iterations)
 		self.y_coordname = '#iteration'
 		self.y_set_obj = lambda y: True
@@ -328,7 +323,7 @@ class Measure_td(object):
 		dat_ampa = np.zeros_like((len(self.x_vec), ndev))
 		dat_phaa = np.zeros_like(dat_ampa)
 
-		p = Progress_Bar(len(self.x_vec)*len(self.y_vec))
+		p = Progress_Bar(len(self.y_vec))
 		# save plot even when aborted
 		try:
 			# measurement loop
@@ -390,8 +385,9 @@ class Measure_td(object):
 
 			# save final averaged data in a separate file
 			if dat_ampa != None:
+				print 'avg'
 				data_avg.create_file(None, '%s_avg.dat'%data_fn, False)
-				dat = np.concatenate((np.atleast_2d(x_vec).transpose(), dat_ampa, dat_phaa), 1)
+				dat = np.concatenate((np.atleast_2d(self.x_vec).transpose(), dat_ampa, dat_phaa), 1)
 				for xi in range(dat.shape[0]):
 					data_avg.add_data_point(*dat[xi, :])
 				data_avg.close_file()
