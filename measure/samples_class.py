@@ -32,28 +32,30 @@ class Sample(object):
 		- qubit_mw_src power
 		- qubit_mw_src f01-iq_frequency
 		'''
-		if (awg == None):
+		
+		
+		if (self.awg == None):
 			logging.error(__name__ + ' : awg not defined')
 		else:
 			self.awg.set_clock(self.clock)
 			
-		if (qubit_mw_src == None):
+		if (self.qubit_mw_src == None):
 			logging.error(__name__ + ' : qubit_mw_src not defined')
 		else:
 			self.qubit_mw_src.set_frequency(self.f01-self.iq_frequency)
 			self.qubit_mw_src.set_power(self.mw_power)
 			
-	def set_iq_frequency(self,iq_frequency):
-		self.iq_frequency = iq_frequency
-	
-	def get_iq_frequency(self):
-		return self.iq_frequency
-		
 	def set_exc_T(self,exc_T):
 		self.exc_T = exc_T
 	
 	def get_exc_T(self):
 		return self.exc_T
+		
+	def set_iq_frequency(self,iq_frequency):
+		self.iq_frequency = iq_frequency
+	
+	def get_iq_frequency(self):
+		return self.iq_frequency
 	
 	def set_qubit_mw_src(self,qubit_mw_src):
 		self.qubit_mw_src = qubit_mw_src
@@ -126,6 +128,7 @@ class Sample(object):
 	
 	def get_all(self):
 		msg = ""
+	
 		copydict = copy.copy(self.__dict__)
 		if type(copydict['awg']) == types.InstanceType: 
 			copydict['awg']="Instrument "+copydict['awg'].get_name()
@@ -142,8 +145,10 @@ class Sample(object):
 				os.makedirs(os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d")))
 				
 		if filename==None:
+			
 			filename=time.strftime("%H%M%S.sample")
 		msg = ""
+		
 		copydict = copy.copy(self.__dict__)
 		if type(copydict['awg']) == types.InstanceType: 
 			copydict['awg']=copydict['awg'].get_name()
@@ -154,7 +159,8 @@ class Sample(object):
 			msg+= str(key) + ":	" + str(copydict[key])+"\n"
 		
 		msg+="\n\n\n<PICKLE PACKET BEGINS HERE>\n" # A Separator
-		msg+=pickle.dumps(copydict,protocol=1) # And a block which can be easily converted back to a dict
+		
+		msg+=pickle.dumps(copydict) # And a block which can be easily converted back to a dict
 		filehandle=open(os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d"),filename),'w+')
 		print "Saved to "+os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d"),filename)
 		filehandle.write(msg)
