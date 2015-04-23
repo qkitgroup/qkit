@@ -107,21 +107,22 @@ def update_sequence(ts, wfm_funcs, wfm_channels, sample, loop = False, drive = '
 
 	if(reset):
 		# set up looping
-		awg.set_seq_goto(len(ts), 1)
-		#awg_say('SEQ:ELEM%d:GOTO:STAT %d'%(len(ts), 1))
-		#awg_say('SEQ:ELEM%d:GOTO:IND %d'%(len(ts), 1))
-		
-		# enable channels
 		try:
-			time.sleep(0.1)
 			for channel in wfm_channels:
 				awg.set('ch%i_status'%channel,'on')
 		except:
 			pass
-	
-		# start awg
+		awg.set_seq_goto(len(ts), 1)
 		awg.run()
 		awg.wait(10,False)
+		#awg_say('SEQ:ELEM%d:GOTO:STAT %d'%(len(ts), 1))
+		#awg_say('SEQ:ELEM%d:GOTO:IND %d'%(len(ts), 1))
+		
+		# enable channels
+		
+	
+		# start awg
+		
 	qt.mend()
 	return np.all([awg.get('ch%i_status'%i)=='on' for i in wfm_channels])
 
@@ -208,12 +209,15 @@ def update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = 
 
 	if(reset):
 		# set up looping
-		awg.set_seq_goto(len(ts), 1)
+		
 		
 		# enable channels
-		awg.run()
 		awg.set_ch1_status('on')
 		awg.set_ch2_status('on')
+		awg.set_seq_goto(len(ts), 1)
+		awg.run()
 		awg.wait(10,False)
+		
+		
 	qt.mend()
 	return np.all([awg.get('ch%i_status'%i)=='on' for i in [1,2]])
