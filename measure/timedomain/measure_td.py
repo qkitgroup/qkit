@@ -43,6 +43,7 @@ class Measure_td(object):
 		self.hold = False
 		
 		self.iterations = 1
+		self.return_avg_data = False
 		
 	def set_x_parameters(self, x_vec, x_coordname, x_set_obj):
 		self.x_vec = x_vec
@@ -385,7 +386,7 @@ class Measure_td(object):
 
 			# save final averaged data in a separate file
 			if dat_ampa != None:
-				print 'avg'
+				#print 'avg'
 				data_avg.create_file(None, '%s_avg.dat'%data_fn, False)
 				dat = np.concatenate((np.atleast_2d(self.x_vec).transpose(), dat_ampa, dat_phaa), 1)
 				for xi in range(dat.shape[0]):
@@ -403,7 +404,7 @@ class Measure_td(object):
 			qt.mend()
 			
 			# return averaged data
-			if(dat_ampa != None):
+			if dat_ampa != None and self.return_avg_data:
 				return np.concatenate((np.atleast_2d(self.x_vec).transpose(), dat_ampa, dat_phaa), 1)
 
 
