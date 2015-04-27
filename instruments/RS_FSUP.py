@@ -240,6 +240,14 @@ class RS_FSUP(Instrument):
 	def get_trace(self, tracenumber=1):
 		return self._visainstrument.ask_for_values('trac:data? trace%i'%tracenumber)
 	
+	def get_frequencies(self):
+		'''
+		returns an array with the frequencies of the points returned by get_trace()
+		ideally suitable as x-axis for plots
+		'''
+		return numpy.linspace(self.get_startfreq(),self.get_stopfreq(),self.get_nop())
+
+	
 	##enable for debugging and testing new functions:
 	
 	def write(self, command):

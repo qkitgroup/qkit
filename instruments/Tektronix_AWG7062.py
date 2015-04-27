@@ -90,7 +90,7 @@ class Tektronix_AWG7062(Instrument):
             minval=-5, maxval=5, units='Volts')
         self.add_parameter('clock', type=types.FloatType,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-            minval=1e6, maxval=1e9, units='Hz')
+            minval=1e6, maxval=6e9, units='Hz')
         self.add_parameter('numpoints', type=types.IntType,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             minval=100, maxval=1e9, units='Int')
@@ -135,6 +135,9 @@ class Tektronix_AWG7062(Instrument):
         self.add_function('set_sequence_mode')
         self.add_function('set_trigger_impedance_1e3')
         self.add_function('set_trigger_impedance_50')
+        self.add_function('get_error')
+        self.add_function('load_settings')
+        self.add_function('save_settings')
         
         # sequence manipulation functions (do not display all waveforms in the user interface)
         self.add_function('wfm_send')
@@ -143,6 +146,15 @@ class Tektronix_AWG7062(Instrument):
         self.add_function('set_seq_loop')
         self.add_function('get_seq_goto')
         self.add_function('set_seq_goto')
+        self.add_function('get_seq_twait')
+        self.add_function('set_seq_twait')
+        self.add_function('wfm_assign')
+        self.add_function('run')
+        self.add_function('wait')
+        self.add_function('force_event')
+        self.add_function('force_trigger')
+        self.add_function('set_seq_jump')
+        
 
         # Make Load/Delete Waveform functions for each channel
         for ch in range(1,5):
@@ -256,10 +268,11 @@ class Tektronix_AWG7062(Instrument):
             try:
                 time.sleep(0.025)
                 self._visainstrument.read()
-                return
+                return True
             except:
                 if(not quiet): print('still waiting for the awg to become ready')
                 time.sleep(1)
+        return False
 
     def do_set_output(self, state, channel):
         '''
@@ -1038,9 +1051,10 @@ class Tektronix_AWG7062(Instrument):
         self._values['files'][filename]['numpoints']=len(w)
 
         m = m1 + numpy.multiply(m2,2)
-        ws = ''
-        for i in range(0,len(w)):
-            ws = ws + struct.pack('<fB', w[i], int(m[i]))
+        #ws = ''
+        #for i in range(0,len(w)):
+        #    ws = ws + struct.pack('<fB', w[i], int(m[i]))
+        ws= str.join('',[struct.pack('<fB', w[i], int(m[i])) for i in range(0,len(w))])
 
         s1 = 'MMEM:DATA "%s",' % filename
         s3 = 'MAGIC 1000\n'
@@ -1054,6 +1068,7 @@ class Tektronix_AWG7062(Instrument):
         mes = s1 + s2 + s3 + s4 + s5 + s6
 
         self._visainstrument.write(mes)
+        #print "%s sent to AWG"%filename
 
     def wfm_resend(self, channel, w=[], m1=[], m2=[], clock=[]):
         '''
@@ -1161,7 +1176,7 @@ class Tektronix_AWG7062(Instrument):
             
     def set_seq_goto(self, position, target):
         '''
-        Sets the target for an unconditional jump from the sequence element at position
+        Sets the target for an conditional jump from the sequence element at position
         
         Input:
             position (int) - sequence element index (starting from 1)
@@ -1175,12 +1190,60 @@ class Tektronix_AWG7062(Instrument):
         
     def get_seq_goto(self, position):
         '''
-        Get the tharget for an unconditional jump from the sequence element at position
+        Get the target for an conditional jump from the sequence element at position
         
         Input:
             position (int) - sequence element index (starting from 1)
         '''
-        if(int(self._visainstrument.ask('SEQ:ELEM%d:GOTO:STAT?'%position)) == 0):
-            return None
+        return int(self._visainstrument.ask('SEQ:ELEM%d:GOTO:IND?'%position))
+        
+    def set_seq_jump(self, position, target):
+        '''
+        Sets the target for an UNconditional jump from the sequence element at position (forced by event)
+        
+        Input:
+            position (int) - sequence element index (starting from 1)
+            target (int) - jump target (also starting from 1). None disables goto for the element.
+        '''
+        if(target == None):
+            self._visainstrument.write('SEQ:ELEM%d:JTAR:OFF'%(position))
         else:
-            return int(self._visainstrument.ask('SEQ:ELEM%d:GOTO:IND?'%position))
+            self._visainstrument.write('SEQ:ELEM%d:JTAR:TYPE IND'%(position))
+            self._visainstrument.write('SEQ:ELEM%d:JTAR:IND %d'%(position, target))
+            
+            
+    def set_seq_twait(self, position, status):
+        '''
+        Set the trigger wait flag for sequence element at position
+        
+        Input:
+            position (int) - sequence element index (starting from 1)
+        '''
+        self._visainstrument.write('SEQ:ELEM%d:TWA %s'%(position, 'on' if status else 'off'))
+
+    def get_seq_twait(self, position):
+        '''
+        Get the trigger wait flag for sequence element at position
+        
+        Input:
+            position (int) - sequence element index (starting from 1)
+        '''
+        return int(self._visainstrument.ask('SEQ:ELEM%d:TWA?'%position))
+
+    def get_error(self):
+        '''
+            ask if an error occurred
+        '''
+        msg = self._visainstrument.ask('SYST:ERR?')
+        return [x.strip('\r\n\"') for x in msg.split(',', 1)]
+        
+    def force_event(self):
+        '''
+        Force an event
+        '''
+        self._visainstrument.write('EVEN:IMM')
+    def force_trigger(self):
+        '''
+        Force a trigger
+        '''
+        self._visainstrument.write('*TRG')

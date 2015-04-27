@@ -8,7 +8,8 @@ from tip_client import tip_client
 
 class virtual_temperature_UFO(Instrument):
     '''
-        virtual instrument reading out UFO's temperature via the tip_client on pi-us74 (Pi)
+        this is real hardware connected to the experiment
+        add one of those to automatically note its value in the measurement files
     '''
 
     def __init__(self, name):
