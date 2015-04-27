@@ -159,9 +159,30 @@ def arb_function(function, pulse, length = None,position = None, clock = None):
 	wfm[sample_start:sample_end] = function(times)
 	return wfm
 
+	
+def t1(delay, sample, length = None, low = 0, high = 1, clock = None):
+	'''
+		generate waveform with one pi pulse and delay after
+
+		Input:
+			delay - time delay after pi pulse
+			sample object
+
+		Output:
+			float array of samples
+	'''
+	if(clock == None): clock = sample.clock
+	if(length == None): length = sample.exc_T
+	if(delay+sample.tpi > length): logging.error(__name__ + ' : pulse does not fit into waveform')
+	
+	wfm = square(sample.tpi, sample, length, length-delay, clock = clock)
+	wfm = wfm * (high-low) + low
+	return wfm
+	
+	
 def ramsey(delay, sample, pi2_pulse = None, length = None,position = None, low = 0, high = 1, clock = None):
 	'''
-		generate waveform with two pi/4 pulses and delay in-between
+		generate waveform with two pi/2 pulses and delay in-between
 
 		Input:
 			delay - time delay between the pi/2 pulses
@@ -175,8 +196,8 @@ def ramsey(delay, sample, pi2_pulse = None, length = None,position = None, low =
 	if(position == None): position = length
 	if(pi2_pulse == None): pi2_pulse = sample.tpi2
 	if(delay+2*pi2_pulse>position): logging.error(__name__ + ' : ramsey pulses do not fit into waveform')
-	wfm = square(pi2_pulse, length, position, clock = clock)
-	wfm += square(pi2_pulse, length, position-delay-pi2_pulse, clock = clock)
+	wfm = square(pi2_pulse, sample, length, position, clock = clock)
+	wfm += square(pi2_pulse, sample,  length, position-delay-pi2_pulse, clock = clock)
 	wfm = wfm * (high-low) + low
 	return wfm
 
@@ -194,11 +215,9 @@ def spinecho(delay, sample, pi2_pulse = None, pi_pulse = None, length = None,pos
 	if(pi2_pulse == None): pi2_pulse = sample.tpi2
 	if(pi_pulse == None): pi_pulse = sample.tpi
 	if(adddelay+2*delay+2*pi2_pulse+pi_pulse>position): logging.error(__name__ + ' : spin-echo pulses do not fit into waveform')
-	if readoutpulse: wfm = square(pi2_pulse, length, position, clock = clock,freq=freq)
-	else: wfm = square(pi2_pulse, length, position, 0,0, clock,freq=freq)
-	wfm += square(pi_pulse, length, position-pi2_pulse-delay-adddelay, clock = clock,freq=freq)
-	wfm += square(pi2_pulse, length, position-2*delay-1*pi2_pulse-pi_pulse-adddelay, clock = clock,freq=freq)
-	#wfm += square(pi_pulse, length, position-pi_pulse-pi2_pulse-delay-adddelay, low, high, clock,freq=freq)
-	#wfm += square(pi2_pulse, length, position-2*delay-2*pi2_pulse-pi_pulse-adddelay, low, high, clock,freq=freq)
+	if readoutpulse: wfm = square(pi2_pulse, sample, length, position, clock = clock,freq=freq)
+	else: wfm = square(pi2_pulse, sample, length, position, 0,0, clock,freq=freq)
+	wfm += square(pi_pulse, sample, length, position-pi2_pulse-delay-adddelay, clock = clock,freq=freq)
+	wfm += square(pi2_pulse, sample, length, position-2*delay-1*pi2_pulse-pi_pulse-adddelay, clock = clock,freq=freq)
 	wfm = wfm * (high-low) + low
 	return wfm

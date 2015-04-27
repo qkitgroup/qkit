@@ -83,11 +83,9 @@ def update_sequence(ts, wfm_funcs, wfm_channels, sample, loop = False, drive = '
 						marker1[1+j] = int(1)
 						marker2[len(wfm_samples)-1-j] = int(1)
 				else: #or set your own markers
-					if marker == "none":
-						marker1 = np.array([int(0) for j in range(len(wfm_samples))])
-						marker2 = np.array([int(0) for j in range(len(wfm_samples))])
-					else:
-						marker1,marker2 = marker[i]
+					c_marker1, c_marker2 = marker[chan]   #JB 04/2015
+					marker1 = c_marker1[ti]
+					marker2 = c_marker2[ti]
 				
 				#this was the old marker def
 ##				marker = np.ones(wfm_samples.shape, np.int)
@@ -115,13 +113,6 @@ def update_sequence(ts, wfm_funcs, wfm_channels, sample, loop = False, drive = '
 		awg.set_seq_goto(len(ts), 1)
 		awg.run()
 		awg.wait(10,False)
-		#awg_say('SEQ:ELEM%d:GOTO:STAT %d'%(len(ts), 1))
-		#awg_say('SEQ:ELEM%d:GOTO:IND %d'%(len(ts), 1))
-		
-		# enable channels
-		
-	
-		# start awg
 		
 	qt.mend()
 	return np.all([awg.get('ch%i_status'%i)=='on' for i in wfm_channels])
@@ -185,11 +176,9 @@ def update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = 
 						marker1[1+j] = int(1)
 						marker2[len(wfm_samples[chan])-1-j] = int(1)
 				else: #or set your own markers
-					if marker == "none":
-						marker1 = np.array([int(0) for j in range(len(wfm_samples[chan]))])
-						marker2 = np.array([int(0) for j in range(len(wfm_samples[chan]))])
-					else:
-						marker1,marker2 = marker[chan]
+					c_marker1, c_marker2 = marker[chan]   #JB 04/2015
+					marker1 = c_marker1[ti]
+					marker2 = c_marker2[ti]
 				
 				#this was the old marker def
 	##				marker = np.ones(wfm_samples.shape, np.int)
