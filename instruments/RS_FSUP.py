@@ -225,6 +225,13 @@ class RS_FSUP(Instrument):
 		'''
 		self._visainstrument.write('INIT:CONT %s'%(value))	
 	
+	def get_frequencies(self):
+		'''
+		returns an array with the frequencies of the points returned by get_trace()
+		ideally suitable as x-axis for plots
+		'''
+		return linspace(self.get_startfreq(),self.get_stopfreq(),self.get_nop())
+	
 	def enable_marker(self,marker,state='ON'):
 		'''
 		ON or OFF
