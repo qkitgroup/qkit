@@ -77,7 +77,7 @@ def load_data(file_name = None):
 	return data, nfile
 
 
-def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True):
+def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, save_pdf = False):
 	
 	'''
 	fit the data in file_name to a function specified by fit_function
@@ -343,6 +343,8 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 			
 		try:
 			plt.savefig(str(nfile[0:-4])+'_dr.png', dpi=300)
+			if save_pdf:
+				plt.savefig(str(nfile[0:-4])+'_dr.pdf', dpi=300)
 			print 'plot saved:', str(nfile[0:-4])+'_dr.png'
 		except Exception as m:
 			print 'figure not stored:', m
