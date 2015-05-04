@@ -6,7 +6,7 @@ import logging
 import numpy
 import sys
 import Progress_Bar
-
+import gc
 
 
 def update(t, wfm_funcs, wfm_channels, sample, drive = 'c:', path = '\\waveforms'):
@@ -194,6 +194,7 @@ def update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = 
 			#awg_say('SEQ:ELEM%d:JTAR:TYPE %s'%(ti, 'IND'))
 		#awg_say('SEQ:ELEM%d:JTAR:IND %d'%(ti, 1))
 		#awg_say('SEQ:ELEM%d:GOTO:IND %d'%(ti, 1))
+		gc.collect()
 
 	if(reset):
 		# set up looping
