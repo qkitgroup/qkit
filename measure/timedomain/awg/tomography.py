@@ -4,13 +4,12 @@ import os.path
 import time
 import logging
 import numpy
-import sys, gc
+import sys
 import Progress_Bar
-import generate.load_awg as load_awg
+import generate.load_awg
 import generate.generate_waveform as gwf
 
 iq = qt.instruments.get('iq')
-print gc.collect()
 
 def concatenate_pulses(pulse_durations,phases, positions,sample):
     '''
@@ -45,17 +44,6 @@ def append_wfm(large_wfm, appendix):
 	return np.append(large_wfm[len(appendix):],appendix)
 	
 
-def length(thetas, phis, wfm = None, sample = None):
-	'''
-		returns the number of tomography steps.
-		You will need this for your measurement.
-	'''
-	angles=[[0,0]]
-	for i,th in enumerate(thetas):
-		angles=np.append(angles,np.array([np.ones(phis[i])*th,np.linspace(0,2*np.pi,phis[i],endpoint=False)]).T,axis=0)
-	angles=angles[1:]
-	return len(angles)
-	
 def radial(thetas, phis, wfm, sample):
 	angles=[[0,0]]
 	for i,th in enumerate(thetas):
@@ -66,11 +54,8 @@ def radial(thetas, phis, wfm, sample):
 		os.makedirs(qt.config.get('datadir')+time.strftime("\\%Y%m%d"))
 	np.savetxt(qt.config.get('datadir')+time.strftime("\\%Y%m%d\\Tomography_%H%M%S.set"),angles)
 	sample.update_instruments()
-	#wfm2 = append_wfm(wfm,gwf.square(angles[t][0]/np.pi*sample.tpi, sample, angles[t][0]/np.pi*sample.tpi)*np.exp(1j*angles[t][1]))
-	#wfm2 = iq.convert(append_wfm(wfm,gwf.square(angles[0][0]/np.pi*sample.tpi, sample, angles[0][0]/np.pi*sample.tpi)*np.exp(1j*angles[0][1])),sample)
-	#print wfm2
-	#qt.msleep(2)
-	load_awg.update_2D_sequence(range(len(angles)), lambda t, sample2: iq.convert(append_wfm(wfm,gwf.square(angles[t][0]/np.pi*sample.tpi, sample, angles[t][0]/np.pi*sample.tpi)*np.exp(1j*angles[t][1]))), sample)
+	
+	load_awg.update_2D_sequence(range(len(angles)), lambda t, sample: iq.convert(append_wfm(wfm,gwf.square(angles[t][0]/np.pi*sample.tpi, sample, angles[t][0]/np.pi*sample.tpi)*np.exp(1j*angles[t][1])),sample))
 
 ### Use like this:
 # thetas = np.linspace(0,2*np.pi, 20)

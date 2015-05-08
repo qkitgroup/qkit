@@ -8,7 +8,7 @@ import logging
 import qt
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
+import sys, gc
 from copy import copy
 
 class IQ_Mixer(Instrument):
@@ -557,4 +557,6 @@ class IQ_Mixer(Instrument):
 		t=np.arange(len(wfm))/self._sample.clock
 		#Relamp is Peak-to-Peak
 		relamp,relamp2=relamp/2,relamp2/2
-		return (dcx+np.abs(wfm)*(relamp*self.ch1(2*np.pi*self._sample.iq_frequency*t+np.angle(wfm)+phaseoffset)-dcx+x),dcy+np.abs(wfm)*(relamp2*self.ch2(2*np.pi*self._sample.iq_frequency*t+np.angle(wfm))-dcy+y) )
+		angle = np.angle(wfm)
+		gc.collect()
+		return (dcx+np.abs(wfm)*(relamp*self.ch1(2*np.pi*self._sample.iq_frequency*t+angle+phaseoffset)-dcx+x),dcy+np.abs(wfm)*(relamp2*self.ch2(2*np.pi*self._sample.iq_frequency*t+angle)-dcy+y) )
