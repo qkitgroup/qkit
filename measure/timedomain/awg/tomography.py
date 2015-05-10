@@ -4,12 +4,13 @@ import os.path
 import time
 import logging
 import numpy
-import sys
+import sys, gc
 #from gui.notebook.Progress_Bar import Progress_Bar
 import measure.timedomain.awg.load_awg
 import measure.timedomain.awg.generate_waveform as gwf
 
 iq = qt.instruments.get('iq')
+gc.collect()
 
 def concatenate_pulses(pulse_durations,phases, positions,sample):
     '''
@@ -44,20 +45,50 @@ def append_wfm(large_wfm, appendix):
 	return np.append(large_wfm[len(appendix):],appendix)
 	
 
-def radial(thetas, phis, wfm, sample):
+def length(thetas, phis, wfm = None, sample = None):
+	'''
+		returns the number of tomography steps.
+		You will need this for your measurement.
+	'''
 	angles=[[0,0]]
 	for i,th in enumerate(thetas):
 		angles=np.append(angles,np.array([np.ones(phis[i])*th,np.linspace(0,2*np.pi,phis[i],endpoint=False)]).T,axis=0)
 	angles=angles[1:]
-	print "You have a tomography resolution of %i points"%len(angles)
+	return len(angles)
+	
+def radial(thetas, phis, wfm, sample, marker = None, delay = 0, markerfunc = None):
+	angles=[[0,0]]
+	for i,th in enumerate(thetas):
+		angles=np.append(angles,np.array([np.ones(phis[i])*th,np.linspace(0,2*np.pi,phis[i],endpoint=False)]).T,axis=0)
+	angles=angles[1:]
 	if not os.path.exists(qt.config.get('datadir')+time.strftime("\\%Y%m%d")):
 		os.makedirs(qt.config.get('datadir')+time.strftime("\\%Y%m%d"))
 	np.savetxt(qt.config.get('datadir')+time.strftime("\\%Y%m%d\\Tomography_%H%M%S.set"),angles)
 	sample.update_instruments()
-	
-	load_awg.update_2D_sequence(range(len(angles)), lambda t, sample: iq.convert(append_wfm(wfm,gwf.square(angles[t][0]/np.pi*sample.tpi, sample, angles[t][0]/np.pi*sample.tpi)*np.exp(1j*angles[t][1])),sample))
+	if marker == None:
+		new_marker = None
+	else:
+		new_marker = [[],[],[],[]]
+		if marker.shape[0] == 4: #each marker is defined
+			for i in range(len(marker)):
+				new_marker[i] = [ append_wfm(marker[i],np.zeros_like(gwf.square(0, sample, angle[0]/np.pi*sample.tpi + delay))) for angle in angles ]
+		else:
+			new_marker[0] = [ append_wfm(marker,np.zeros_like(gwf.square(0, sample,  angle[0]/np.pi*sample.tpi + delay))) for angle in angles ]
+			new_marker[1:4]=[ np.zeros_like(new_marker[0]) for i in range(3) ]
+		new_marker = [[new_marker[0],new_marker[1]],[new_marker[2],new_marker[3]]]
+	load_awg.update_2D_sequence(range(len(angles)), lambda t, sample2: iq.convert(append_wfm(wfm,gwf.square(angles[t][0]/np.pi*sample.tpi, sample, angles[t][0]/np.pi*sample.tpi + delay)*np.exp(1j*angles[t][1]))), sample, marker = new_marker, markerfunc=markerfunc)
+	print "You have a tomography resolution of %i points"%len(angles)
 
 ### Use like this:
 # thetas = np.linspace(0,2*np.pi, 20)
 # phis = [1]+(len(thetas)-1)*[15] #for 15 steps in phi direction (but 0 rotation has only 1 pulse)
 # gt.radial(thetas, phis, gwf.square(qubit.tpi, qubit), qubit)
+
+def threepoint(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc = None):
+	#marker stuff
+	wfm = [ append_wfm(wfm_func(t,sample),gwf.square(sample.tpi2,sample,sample.tpi2)*phase) for phase in [0,1,1j] for t in ts]
+	#ts = np.array([ts,ts,ts]).flatten()
+	ts = range(3*len(ts))
+	if marker!= None:
+		marker = np.append(np.append(marker,marker,axis=2),marker,axis=2)
+	load_awg.update_2D_sequence(ts, lambda t, sample: iq.convert(wfm[t]), sample, loop = loop, drive = drive, path = path, reset = reset, marker=marker ,markerfunc=markerfunc)
