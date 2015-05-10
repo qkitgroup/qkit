@@ -10,7 +10,7 @@ import time
 from time import sleep
 import qt
 
-from Progress_Bar import Progress_Bar
+from gui.notebook.Progress_Bar import Progress_Bar
 
 
 #ttip = qt.instruments.get('ttip')
