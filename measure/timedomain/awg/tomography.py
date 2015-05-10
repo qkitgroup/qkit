@@ -5,9 +5,9 @@ import time
 import logging
 import numpy
 import sys
-import Progress_Bar
-import generate.load_awg
-import generate.generate_waveform as gwf
+#from gui.notebook.Progress_Bar import Progress_Bar
+import measure.timedomain.awg.load_awg
+import measure.timedomain.awg.generate_waveform as gwf
 
 iq = qt.instruments.get('iq')
 
