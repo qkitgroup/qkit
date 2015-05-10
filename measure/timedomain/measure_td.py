@@ -8,7 +8,7 @@ import time
 import logging
 import sys
 
-from gui.notebook.Progress_Bar import Progress_Bar
+from qkitgui.notebook.Progress_Bar import Progress_Bar
 
 readout = qt.instruments.get('readout')
 mspec = qt.instruments.get('mspec')

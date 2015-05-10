@@ -5,7 +5,7 @@ import time
 import logging
 import numpy
 import sys
-from gui.notebook.Progress_Bar import Progress_Bar
+from qkitgui.notebook.Progress_Bar import Progress_Bar
 import gc
 
 
