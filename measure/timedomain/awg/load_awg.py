@@ -5,7 +5,7 @@ import time
 import logging
 import numpy
 import sys
-import Progress_Bar
+from gui.notebook.Progress_Bar import Progress_Bar
 import gc
 
 
@@ -46,7 +46,7 @@ def update_sequence(ts, wfm_funcs, wfm_channels, sample, loop = False, drive = '
 	
 	#awg_say = awg._ins._visainstrument.write
 	#awg_ask = awg._ins._visainstrument.ask
-	p = Progress_Bar.Progress_Bar(len(wfm_funcs)*len(ts))
+	p = Progress_Bar(len(wfm_funcs)*len(ts))
 	# create new sequence
 	if(reset):
 		awg.set_runmode('SEQ')
@@ -149,7 +149,7 @@ def update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = 
 	wfm_samples_prev = [None,None]
 	wfm_fn = [None,None]
 	wfm_pn = [None,None]
-	p = Progress_Bar.Progress_Bar(len(ts)*2)
+	p = Progress_Bar(len(ts)*2)
 	for ti in range(len(ts)):
 		qt.msleep()
 		t = ts[ti]
