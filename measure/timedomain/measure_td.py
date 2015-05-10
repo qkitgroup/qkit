@@ -8,7 +8,7 @@ import time
 import logging
 import sys
 
-from Progress_Bar import Progress_Bar
+from gui.notebook.Progress_Bar import Progress_Bar
 
 readout = qt.instruments.get('readout')
 mspec = qt.instruments.get('mspec')
@@ -34,7 +34,6 @@ class Measure_td(object):
 		self.plot2d = False
 		self.plotFast = False
 		self.plotTime = True
-		self.save_time_trace = False
 		
 		self.x_set_obj = None
 		self.y_set_obj = None
@@ -151,22 +150,21 @@ class Measure_td(object):
 		data.add_value('timestamp')
 		data.create_file()
 
-		if self.save_time_trace:
-			# create time-resolved output
-			# data_time columns: [iteration, coordinate, Is[nSamples], Qs[nSamples], timestamp]
-			data_time = qt.Data(name='avgt_%s'%self.dirname)
-			if self.comment:
-				data_time.add_comment(self.comment)
-			data_time.add_coordinate(self.x_coordname)
-			data_time.add_coordinate(self.y_coordname)
-			for i in range(readout._ins._mspec.get_samples()):
-				data_time.add_coordinate('I%3d'%i)
-			for i in range(readout._ins._mspec.get_samples()):
-				data_time.add_coordinate('Q%3d'%i)
-			data_time.add_value('timestamp')
+		# create time-resolved output
+		# data_time columns: [iteration, coordinate, Is[nSamples], Qs[nSamples], timestamp]
+		data_time = qt.Data(name='avgt_%s'%self.dirname)
+		if self.comment:
+			data_time.add_comment(self.comment)
+		data_time.add_coordinate(self.x_coordname)
+		data_time.add_coordinate(self.y_coordname)
+		for i in range(readout._ins._mspec.get_samples()):
+			data_time.add_coordinate('I%3d'%i)
+		for i in range(readout._ins._mspec.get_samples()):
+			data_time.add_coordinate('Q%3d'%i)
+		data_time.add_value('timestamp')
 
-			data_fn, data_fext = os.path.splitext(data.get_filepath())
-			data_time.create_file(None, '%s_time.dat'%data_fn, False)
+		data_fn, data_fext = os.path.splitext(data.get_filepath())
+		data_time.create_file(None, '%s_time.dat'%data_fn, False)
 
 		plots = []
 		if self.plotLive:
@@ -209,13 +207,12 @@ class Measure_td(object):
 						dat = np.append(dat, timestamp)
 						data.add_data_point(*dat)
 						
-						if self.save_time_trace:
-							# save time-domain data
-							dat = np.array([x, y])
-							dat = np.append(dat, Is[:])
-							dat = np.append(dat, Qs[:])
-							dat = np.append(dat, timestamp)
-							data_time.add_data_point(*dat)
+						# save time-domain data
+						dat = np.array([x, y])
+						dat = np.append(dat, Is[:])
+						dat = np.append(dat, Qs[:])
+						dat = np.append(dat, timestamp)
+						data_time.add_data_point(*dat)
 						
 						p.iterate()
 
@@ -226,7 +223,7 @@ class Measure_td(object):
 					for plot in plots:
 						plot.update()
 				data.new_block()
-				if self.save_time_trace: data_time.new_block()
+				data_time.new_block()
 			return; # execute finally statement   #... ;-) (JB)
 		finally:
 			for plot in plots:
@@ -268,11 +265,11 @@ class Measure_td(object):
 		data_raw = qt.Data(name='avg_%s'%self.dirname)
 		data_sum = qt.Data(name='avgs_%s'%self.dirname)
 		data_avg = qt.Data(name='avga_%s'%self.dirname)
-		if self.save_time_trace: data_time = qt.Data(name='avgt_%s'%self.dirname)
+		data_time = qt.Data(name='avgt_%s'%self.dirname)
 		
 		data_raw.add_coordinate(self.y_coordname)
 		data_sum.add_coordinate(self.y_coordname)
-		if self.save_time_trace: data_time.add_coordinate(self.y_coordname)
+		data_time.add_coordinate(self.y_coordname)
 
 		for data in [data_raw, data_sum, data_avg]:
 			if self.comment:
@@ -285,26 +282,25 @@ class Measure_td(object):
 			for i in range(ndev):
 				data.add_value('pha_%d'%i)
 
-		if self.save_time_trace:
-			# data_time columns: [iteration, coordinate, Is[nSamples], Qs[nSamples], timestamp]
-			if self.comment:
-				data_time.add_comment(self.comment)
-			data_time.add_coordinate(self.x_coordname)
-			#for i in range(readout._ins._mspec.get_samples()):rate = mspec.get_samplerate()
-			for i in range(mspec.get_samples()):
-				data_time.add_coordinate('I%3d'%i)
-			#for i in range(readout._ins._mspec.get_samples()):
-			for i in range(mspec.get_samples()):
-				data_time.add_coordinate('Q%3d'%i)
+		# data_time columns: [iteration, coordinate, Is[nSamples], Qs[nSamples], timestamp]
+		if self.comment:
+			data_time.add_comment(self.comment)
+		data_time.add_coordinate(self.x_coordname)
+		#for i in range(readout._ins._mspec.get_samples()):rate = mspec.get_samplerate()
+		for i in range(mspec.get_samples()):
+			data_time.add_coordinate('I%3d'%i)
+		#for i in range(readout._ins._mspec.get_samples()):
+		for i in range(mspec.get_samples()):
+			data_time.add_coordinate('Q%3d'%i)
 
 		# timestamp is only in non-averaged data
 		data_raw.add_value('timestamp')
-		if self.save_time_trace: data_time.add_value('timestamp')
+		data_time.add_value('timestamp')
 		
 		data_raw.create_file()
 		data_fn, data_fext = os.path.splitext(data_raw.get_filepath())
 		data_sum.create_file(None, '%s_sum.dat'%data_fn, False)
-		if self.save_time_trace: data_time.create_file(None, '%s_time.dat'%data_fn, False)
+		data_time.create_file(None, '%s_time.dat'%data_fn, False)
 		
 
 		plots = []
@@ -350,15 +346,14 @@ class Measure_td(object):
 					dat = np.append(dat, timestamp)
 					data_raw.add_data_point(*dat)
 				
-				if self.save_time_trace:
-					# save time-domain data
-					data_time.new_block()
-					for xi in range(len(self.x_vec)):
-						dat = np.array([self.y_vec[it], self.x_vec[xi]])
-						dat = np.append(dat, Is[:, xi])
-						dat = np.append(dat, Qs[:, xi])
-						dat = np.append(dat, timestamp)
-						data_time.add_data_point(*dat)
+				# save time-domain data
+				data_time.new_block()
+				for xi in range(len(self.x_vec)):
+					dat = np.array([self.y_vec[it], self.x_vec[xi]])
+					dat = np.append(dat, Is[:, xi])
+					dat = np.append(dat, Qs[:, xi])
+					dat = np.append(dat, timestamp)
+					data_time.add_data_point(*dat)
 
 				dat_cmpls += dat_amp * np.exp(1j*dat_pha)
 				dat_ampa = np.abs(dat_cmpls/(it+1))
@@ -404,7 +399,7 @@ class Measure_td(object):
 			#data_avg.add_data_point(dat_avg)
 			data_raw.close_file()
 			data_sum.close_file()
-			if self.save_time_trace: data_time.close_file()
+			data_time.close_file()
 			
 			qt.mend()
 			
