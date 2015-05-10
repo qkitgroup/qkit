@@ -119,7 +119,7 @@ def update_sequence(ts, wfm_funcs, wfm_channels, sample, loop = False, drive = '
 	return np.all([awg.get('ch%i_status'%i)=='on' for i in wfm_channels])
 
 
-def update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None): #@andre20150318
+def update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None): #@andre20150318
 	'''
 		set awg to sequence mode and push a number of waveforms into the sequencer
 		
@@ -131,6 +131,9 @@ def update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = 
 	qt.mstart()
 	awg = sample.get_awg()
 	clock = sample.get_clock()
+	
+	if(marker != None and markerfunc != None):
+		raise ValueError('marker AND markerfunc are both set. You can only use one of them!')
 	
 	#awg_say = awg._ins._visainstrument.write
 	#awg_ask = awg._ins._visainstrument.ask
@@ -161,6 +164,23 @@ def update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = 
 			wfm_pn[chan] = '%s%s\\%s'%(drive, path, wfm_fn[chan])
 			# this results in "low" when the awg is stopped and "high" when it is running 
 			
+			if markerfunc != None:
+				try:
+					if markerfunc[chan][0] == None:
+						marker1 = np.zeros_like(wfm_samples)[0]
+					else:
+						marker1 = markerfunc[chan][0](t,sample)
+					
+					if markerfunc[chan][1] == None:
+						marker2 = np.zeros_like(wfm_samples)[0]
+					else:
+						marker2 = markerfunc[chan][1](t,sample)
+				
+				except TypeError:
+					marker1, marker2 = np.zeros_like(wfm_samples)
+					if chan == 0:
+						marker1 = markerfunc(t,sample)
+					
 			if marker == None:
 				marker1, marker2 = np.zeros_like(wfm_samples)
 				'''
