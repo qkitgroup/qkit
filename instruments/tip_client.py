@@ -83,10 +83,10 @@ class tip_client(Instrument):
         self.send("get T")
         return float(self.recv())
 
-    def new_T(self,T,dT_max=0.00001):
+    def new_T(self,T,dT_max=0.0005):
         def rms(Ts):
             return sqrt(sum(Ts*Ts)/len(Ts)) 
-        Ts=ones(60)
+        Ts=ones(20)
         settling_time = time.time()
         print "T set to ",T,
         self.r_set_T(T)
