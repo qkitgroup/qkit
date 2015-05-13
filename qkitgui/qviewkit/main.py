@@ -4,10 +4,8 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from time import sleep
 
-#from tip_gui_lib import DATA, AcquisitionThread, remote_client
 from qviewkit_cover import Ui_MainWindow
 import pyqtgraph as pg
-#from pyqtgraph import ImageView
 
 import argparse
 import ConfigParser
