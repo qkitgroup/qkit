@@ -48,6 +48,7 @@ class spectrum(object):
 		self.tdx = 0.002
 		self.tdy = 0.002
 		#self.op='amppha'
+		self.data_complex = False
 		#self.ref=False
 		#self.ref_meas_func=None
 		self.comment = None
@@ -273,6 +274,9 @@ class spectrum(object):
 		data.add_coordinate('Frequency')
 		data.add_value('Amplitude')
 		data.add_value('Phase')
+		if self.data_complex == True:
+			data.add_value('Real')
+			data.add_value('Imag')
 
 		if self.comment:
 			data.add_comment(self.comment)
@@ -302,10 +306,15 @@ class spectrum(object):
 				vna.avg_clear()
 				sleep(vna.get_sweeptime_averages())
 				data_amp,data_pha = vna.get_tracedata()
+				if self.data_complex == True:
+					data_real,data_imag = vna.get_tracedata('RealImag')
 				dat = []
 				dat = np.append([x*np.ones(nop)],[freqpoints], axis = 0)
 				dat = np.append(dat,[data_amp],axis = 0)
 				dat = np.append(dat,[data_pha],axis = 0)
+				if self.data_complex == True:
+					dat = np.append(dat,[data_real],axis = 0)
+					dat = np.append(dat,[data_imag],axis = 0)
 				data.add_data_point(*dat)
 
 				data.new_block()
