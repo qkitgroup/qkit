@@ -289,7 +289,7 @@ class spectrum(object):
 			plot_pha = qt.Plot3D(data, name='Phase 2D2', coorddims=(0,1), valdim=3, style=qt.Plot3D.STYLE_IMAGE)
 			plot_pha.set_palette('bluewhitered')
 
-		self.x_set_obj(self.x_vec[0]) #In case for currentsweep go to starting point
+		self.x_set_obj(self.x_vec[0])
 
 		'''
 		now_stamp = 0
@@ -468,3 +468,56 @@ class spectrum(object):
 
 			qt.mend()
 
+	def record_trace(self):
+		
+		'''
+		measure method to record a single (averaged) VNA trace, S11 or S21 according to the setting on the VNA
+		'''
+		
+		global vna
+		global mw_src1
+		
+		qt.mstart()
+		vna.get_all()
+		vna.set_hold(0)   #switch VNA to continuous mode
+		
+		print 'recording trace...'
+		sys.stdout.flush()
+		
+		#creating data object and saving data
+		data = qt.Data(name='VNA_tracedata')
+		data.add_coordinate('f (Hz)')
+		data.add_value('Amplitude (lin.)')
+		data.add_value('Phase')
+		data.add_value('Real')
+		data.add_value('Imag')
+		data.create_file()
+		
+		freq = vna.get_freqpoints()
+		vna.avg_clear()
+		sleep(vna.get_sweeptime_averages())
+		data_amp, data_pha = vna.get_tracedata()
+		data_real, data_imag = vna.get_tracedata('RealImag')
+	
+		try:
+			for i in np.arange(vna.get_nop()):
+				f = freq[i]
+				am = data_amp[i]
+				ph = data_pha[i]
+				re = data_real[i]
+				im = data_imag[i]
+				data.add_data_point(f, am, ph, re, im)
+		finally:
+			plot_amp = qt.Plot2D(data, name='amplitude', clear=True, needtempfile=True, autoupdate=True, coorddim=0, valdim=1)
+			plot_pha = qt.Plot2D(data, name='phase', clear=True, needtempfile=True, autoupdate=True, coorddim=0, valdim=2)
+			plot_complex = qt.Plot2D(data, name='Complex Plane', clear=True, needtempfile=True, autoupdate=True, coorddim=3, valdim=4)
+
+			plot_amp.save_png()
+			plot_amp.save_gp()
+			plot_pha.save_png()
+			plot_pha.save_gp()
+			plot_complex.save_png()
+			plot_complex.save_png()
+			
+			data.close_file()
+			qt.mend()
