@@ -12,7 +12,7 @@ import os
 import time
 
 
-import data
+#import data
 
 #from lib.config import get_config
 #config = get_config()
@@ -21,7 +21,8 @@ import data
 
 #if in_qtlab:
 #    import qt
-    
+config = {}
+config['datadir'] = '/Users/hrotzing/pik/devel/python/qkit/measure/storage'
 
 class H5_file(object):
     """ This base hdf5 class ist intended for QTlab as a base class for a 
@@ -70,9 +71,10 @@ class H5_file(object):
         
     def create_dataset(self,name,tracelength,**kwargs):
         """ handles one and two dimensional data
+        
             tracelength: 
-                is 0 for a single data point in a 1D scan
-                is the length of the first trace in 2D scan
+                is 0 for a single data point in a 1D scan (array of scalars)
+                is the length of the first trace in 2D scan (array of vectors)
             For 2D scans the traces have to have the same tracelength
             and are simply appended to the trace array
             
@@ -200,18 +202,22 @@ class Data(object):
             name (string) : default is 'data'
         """
         
-        name = kwargs.get('name', 'data')
-        self.generate_file_name(name,kwargs)
+        name = kwargs.pop('name', 'data')
+             
+        self.generate_file_name(name, **kwargs)
             
         self.hf = H5_file(self._filepath)
         
         self.hf.flush()
         
-    def generate_file_name(self,name,**kwargs):
+        
+    def generate_file_name(self, name, **kwargs):
         # for now just a copy from the origial file
         # Fixme: I would like to see this as a library function
     
         #name = data.Data._data_list.new_item_name(self, name)
+        #print args
+
         self._name = name
 
         filepath = kwargs.get('filepath', None)
@@ -305,6 +311,38 @@ class Data(object):
             self.hf.append(ds,data)
         return True
 
+    def _add_value_dimension(self, name, type, **meta):
+        '''
+        Add a dimension to the data group.
+        dim_type is not restricted, but 'coordinate' and 'value' should be
+        used to specify what the dimension represents.
+        Extra keywords are added as meta data.
+        '''
+
+        if name in self.hf.grp.keys():
+            logging.error("Dimension '%s' already exists in data set '%s'" \
+                    % (name, self.name))
+            return False
+
+        """for the (compatible) function 'add data point' we have to maintain a ordered list containing
+        the names of the dataests"""
+        self.hf.append('datasets',name)
+        
+        
+        _tracelength = meta.get('tracelength',None)
+        #data = meta.get('data',None)
+        meta['dim_type'] = dim_type
+        
+        
+            
+        # create the dataset
+        ds = self.hf.create_dataset(name,tracelength,meta)
+        
+
+        if data is not None:
+            self.hf.append(ds,data)
+        return True
+        
 
     def add_coordinate(self, name, data=None, **meta):
         '''
@@ -313,7 +351,14 @@ class Data(object):
         '''
         return self._add_dimension(name, 'coordinate', data, **meta)
 
-    def add_value(self, name, data=None, **meta):
+    def add_scalar_value(self, name, data=None, type="scalar", **meta):
+        '''
+        Add a value dimension, optionally with known data.
+        Extra keywords are added as meta data.
+        '''
+        return self._add_dimension(name, 'value', data, **meta)
+        
+    def add_vector_value(self, name, data=None, type="vector", **meta):
         '''
         Add a value dimension, optionally with known data.
         Extra keywords are added as meta data.
@@ -399,7 +444,7 @@ class Data(object):
                 ncols = 1
                 npoints = 1
             else:
-                loggin.warning('add_data_point(): adding >2d data not supported')
+                logging.warning('add_data_point(): adding >2d data not supported')
                 return
         else:
             # Check if all arguments have same shape
