@@ -8,9 +8,10 @@ import matplotlib.pylab as plt
 from scipy.optimize import curve_fit
 import time
 from time import sleep
+import sys
 import qt
 
-from qkitgui.notebook.Progress_Bar import Progress_Bar
+from qkit.gui.notebook.Progress_Bar import Progress_Bar
 
 
 #ttip = qt.instruments.get('ttip')
@@ -479,7 +480,7 @@ class spectrum(object):
 		
 		qt.mstart()
 		vna.get_all()
-		vna.set_hold(0)   #switch VNA to continuous mode
+		vna.hold(0)   #switch VNA to continuous mode
 		
 		print 'recording trace...'
 		sys.stdout.flush()
@@ -521,3 +522,4 @@ class spectrum(object):
 			
 			data.close_file()
 			qt.mend()
+		print 'Done.'

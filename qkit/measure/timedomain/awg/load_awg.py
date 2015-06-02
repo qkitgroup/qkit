@@ -5,7 +5,7 @@ import time
 import logging
 import numpy
 import sys
-from qkitgui.notebook.Progress_Bar import Progress_Bar
+from qkit.gui.notebook.Progress_Bar import Progress_Bar
 import gc
 
 
@@ -69,8 +69,8 @@ def update_sequence(ts, wfm_funcs, wfm_channels, sample, loop = False, drive = '
 			# this results in "low" when the awg is stopped and "high" when it is running 
 			
 			if marker == None:
-				marker1 = np.zeros_like(wfm_samples)
-				marker2 = np.zeros_like(wfm_samples)
+				marker1 = np.zeros_like(wfm_samples, dtype=np.int8)
+				marker2 = np.zeros_like(wfm_samples, dtype=np.int8)
 				
 				'''
 				marker1 = np.array([int(0) for j in range(len(wfm_samples[chan]))])
@@ -167,22 +167,22 @@ def update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = 
 			if markerfunc != None:
 				try:
 					if markerfunc[chan][0] == None:
-						marker1 = np.zeros_like(wfm_samples)[0]
+						marker1 = np.zeros_like(wfm_samples, dtype=np.int8)[0]
 					else:
 						marker1 = markerfunc[chan][0](t,sample)
 					
 					if markerfunc[chan][1] == None:
-						marker2 = np.zeros_like(wfm_samples)[0]
+						marker2 = np.zeros_like(wfm_samples, dtype=np.int8)[0]
 					else:
 						marker2 = markerfunc[chan][1](t,sample)
 				
 				except TypeError:
-					marker1, marker2 = np.zeros_like(wfm_samples)
+					marker1, marker2 = np.zeros_like(wfm_samples, dtype=np.int8)
 					if chan == 0:
 						marker1 = markerfunc(t,sample)
 					
-			if marker == None:
-				marker1, marker2 = np.zeros_like(wfm_samples)
+			elif marker == None:
+				marker1, marker2 = np.zeros_like(wfm_samples, dtype=np.int8)
 				'''
 				marker1 = np.array([int(0) for j in range(len(wfm_samples[chan]))])
 				marker2 = np.array([int(0) for j in range(len(wfm_samples[chan]))])

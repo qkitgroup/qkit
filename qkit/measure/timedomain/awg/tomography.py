@@ -6,8 +6,8 @@ import logging
 import numpy
 import sys, gc
 #from gui.notebook.Progress_Bar import Progress_Bar
-import measure.timedomain.awg.load_awg
-import measure.timedomain.awg.generate_waveform as gwf
+import qkit.measure.timedomain.awg.load_awg as load_awg
+import qkit.measure.timedomain.awg.generate_waveform as gwf
 
 iq = qt.instruments.get('iq')
 gc.collect()
@@ -76,8 +76,9 @@ def radial(thetas, phis, wfm, sample, marker = None, delay = 0, markerfunc = Non
 			new_marker[0] = [ append_wfm(marker,np.zeros_like(gwf.square(0, sample,  angle[0]/np.pi*sample.tpi + delay))) for angle in angles ]
 			new_marker[1:4]=[ np.zeros_like(new_marker[0]) for i in range(3) ]
 		new_marker = [[new_marker[0],new_marker[1]],[new_marker[2],new_marker[3]]]
-	load_awg.update_2D_sequence(range(len(angles)), lambda t, sample2: iq.convert(append_wfm(wfm,gwf.square(angles[t][0]/np.pi*sample.tpi, sample, angles[t][0]/np.pi*sample.tpi + delay)*np.exp(1j*angles[t][1]))), sample, marker = new_marker, markerfunc=markerfunc)
+	result = load_awg.update_2D_sequence(range(len(angles)), lambda t, sample2: iq.convert(append_wfm(wfm,gwf.square(angles[t][0]/np.pi*sample.tpi, sample, angles[t][0]/np.pi*sample.tpi + delay)*np.exp(1j*angles[t][1]))), sample, marker = new_marker, markerfunc=markerfunc)
 	print "You have a tomography resolution of %i points"%len(angles)
+	return result
 
 ### Use like this:
 # thetas = np.linspace(0,2*np.pi, 20)
@@ -91,4 +92,4 @@ def threepoint(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\wavef
 	ts = range(3*len(ts))
 	if marker!= None:
 		marker = np.append(np.append(marker,marker,axis=2),marker,axis=2)
-	load_awg.update_2D_sequence(ts, lambda t, sample: iq.convert(wfm[t]), sample, loop = loop, drive = drive, path = path, reset = reset, marker=marker ,markerfunc=markerfunc)
+	return load_awg.update_2D_sequence(ts, lambda t, sample: iq.convert(wfm[t]), sample, loop = loop, drive = drive, path = path, reset = reset, marker=marker ,markerfunc=markerfunc)
