@@ -63,7 +63,7 @@ class H5_file(object):
             self.grp = self.entry.create_group("data")
             self.grp.attrs.create("NX_class","NXdata")
         else:
-            self.grp = self.create_group("data")
+            self.grp = self.create_group("data0")
             
     def add_default_datasets(self):
         # add a empty string dataset to the group -> used by add_data

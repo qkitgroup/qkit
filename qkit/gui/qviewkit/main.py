@@ -100,8 +100,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         self.h5file= h5py.File(str(self.DataFilePath))
         
-        self.display_2D_data("amp_0",graphicsView = self.graphicsView)
-        self.display_2D_data("pha_0",graphicsView = self.graphicsView2)
+        self.display_2D_data("amplitude",graphicsView = self.graphicsView)
+        self.display_2D_data("phase",graphicsView = self.graphicsView2)
         
         self.h5file.close()
         print "updated"
@@ -119,16 +119,46 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         fill = ds.attrs.get("fill")
         data = np.array(ds[:fill])
         
-        xmin = ds.attrs.get("xmin")
-        ymin = ds.attrs.get("ymin")
-        xmax = ds.attrs.get("xmax")
-        ymax = ds.attrs.get("ymax")
+        x0 = ds.attrs.get("x0")
+        dx = ds.attrs.get("dx")
+        y0 = ds.attrs.get("y0")
+        dy = ds.attrs.get("dy")
+        
+        xmin = x0
+        xmax = x0+fill*dx
+        ymin = y0
+        ymax = y0+fill*dy
+
+        x_name = ds.attrs.get("x_name")        
+        y_name = ds.attrs.get("y_name")
+        z_name = ds.attrs.get("name")
+
+        x_unit = ds.attrs.get("x_unit")
+        y_unit = ds.attrs.get("y_unit")
+        z_unit = ds.attrs.get("z_unit")
+        
+        """
+        dx = 0.0030
+        dy = 120000.0
+        fill = 12
+        name = Amplitude
+        x0 = 0.0
+        x_name = current
+        x_unit = mA
+        y0 = 1.4816136031E9
+        y_name = frequency
+        y_unit = Hz
+        z_unit = a.u.
+        """
         pos = (xmin,ymin)
         
         scale=(xmax/float(data.shape[0]),ymax/float(data.shape[1]))
         #scale=(100,100)
         
         #print len(data)
+        graphicsView.view.setLabel('left', y_name, units=y_unit)
+        graphicsView.view.setLabel('bottom', x_name, units=x_unit)
+        graphicsView.view.setTitle(z_name+" ("+z_unit+")")
         
         graphicsView.setImage(data,pos=pos,scale=scale)
         # Fixme roi ...
@@ -138,7 +168,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
     def display_amplitude(self):
        
-        data =np.array(self.h5file['/entry/data/pha_0'])
+        data =np.array(self.h5file['/entry/data/phase'])
         
         self.graphicsView.setImage(data)#,pos=pos,scale=scale)
         self.graphicsView.show()
