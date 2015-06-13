@@ -56,6 +56,8 @@ class spectrum(object):
 		self.plot3D = True
 		self.plotlive = True
 		
+		self.return_dat = False
+		
 		self.x_set_obj = None
 		self.y_set_obj = None
 		
@@ -473,6 +475,8 @@ class spectrum(object):
 		
 		'''
 		measure method to record a single (averaged) VNA trace, S11 or S21 according to the setting on the VNA
+		
+		returns frequency points, data_amp and data_pha when self.return_dat is set
 		'''
 		
 		global vna
@@ -523,3 +527,4 @@ class spectrum(object):
 			data.close_file()
 			qt.mend()
 		print 'Done.'
+		if self.return_dat: return freq, data_amp, data_pha
