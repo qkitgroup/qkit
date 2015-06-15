@@ -92,7 +92,8 @@ def square(pulse, sample, length = None,position = None, low = 0, high = 1, cloc
 	if(pulse>position): logging.error(__name__ + ' : pulse does not fit into waveform')
 	sample_start = int(clock*(position-pulse-adddelay))
 	sample_end = int(clock*(position-adddelay))
-	sample_length = int(np.ceil(length*clock))
+	sample_length = int(np.round(length*clock)/4)*4 #Ensures that the number of samples is divisible by 4 @andre20150615
+	#sample_length = int(np.ceil(length*clock)) #old definition
 	wfm = low*np.ones(sample_length)
 	if(sample_start < sample_end): wfm[int(sample_start)] = high + (low-high)*(sample_start-int(sample_start))
 	if freq==None: wfm[int(np.ceil(sample_start)):int(sample_end)] = high
@@ -123,7 +124,7 @@ def gauss(pulse, sample, length = None,position = None, low = 0, high = 1, clock
 	if(pulse>position): logging.error(__name__ + ' : pulse does not fit into waveform')
 	sample_start = clock*(position-pulse)
 	sample_end = clock*position
-	sample_length = int(np.ceil(length*clock))
+	sample_length = int(np.round(length*clock)/4)*4
 	wfm = low*np.ones(sample_length)
 	if(sample_start < sample_end): wfm[int(sample_start)] = 0.#high + (low-high)*(sample_start-int(sample_start))
 	#wfm[int(np.ceil(sample_start)):int(sample_end)] = high
