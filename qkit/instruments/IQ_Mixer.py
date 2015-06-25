@@ -129,8 +129,7 @@ class IQ_Mixer(Instrument):
 		if(np.abs(DC[0])>.5 or np.abs(DC[1])>.5):
 			qt.msleep()
 			return 50
-		self._sample.awg.set_ch1_offset(DC[0])
-		self._sample.awg.set_ch2_offset(DC[1])
+		self._sample.awg.set({'ch1_offset':DC[0], 'ch2_offset':DC[1]})
 		#qt.msleep(.05)
 		self._fsup.sweep()
 		return np.around(self._fsup.get_marker_level(1),2) #assuming that marker1 is at leakage frequency
@@ -162,16 +161,17 @@ class IQ_Mixer(Instrument):
 		return np.around(self._fsup.get_marker_level(4),2) #assuming that marker4 is at unwanted sideband
 	
 	def focus(self,frequency, marker):
-		self._fsup.set_continuous_sweep_mode('off')
-		self._fsup.set_centerfreq(frequency)
-		self._fsup.set_freqspan(2e2)
 		self._fsup.enable_marker(1,'OFF')
 		self._fsup.enable_marker(2,'OFF')
 		self._fsup.enable_marker(3,'OFF')
 		self._fsup.enable_marker(4,'OFF')
-		self._fsup.set_marker(marker,frequency)
-		self._fsup.set_resolutionBW(200)
-		self._fsup.set_videoBW(200)
+		
+		self._fsup.set({'continuous_sweep_mode':'off',
+						'centerfreq':frequency,
+						'freqspan':2e2,
+						'marker':(marker,frequency),
+						'resolutionBW':200,
+						'videoBW':200})
 		sweeptime=self._fsup.get_sweeptime()
 		self._fsup.sweep()
 		return sweeptime
@@ -182,17 +182,16 @@ class IQ_Mixer(Instrument):
 		marker=np.zeros_like(ch1wfm)
 		self._sample.awg.wfm_send(ch1wfm,marker,marker,self._awg_filepath+self._ch1_filename,self._sample.clock)
 		self._sample.awg.wfm_import(self._ch1_filename,self._awg_filepath+self._ch1_filename,'WFM')
-		self._sample.awg.set_ch1_waveform(self._ch1_filename)
-		self._sample.awg.set_ch1_offset(0)
-		self._sample.awg.set_ch1_amplitude(1)
 		self._sample.awg.wfm_send(ch2wfm,marker,marker,self._awg_filepath+self._ch2_filename,self._sample.clock)
 		self._sample.awg.wfm_import(self._ch2_filename,self._awg_filepath+self._ch2_filename,'WFM')
-		self._sample.awg.set_ch2_waveform(self._ch2_filename)
-		self._sample.awg.set_ch2_offset(0)
-		self._sample.awg.set_ch2_amplitude(1)
+		self._sample.awg.set({'ch1_waveform':self._ch1_filename,
+							'ch1_offset':0,
+							'ch1_amplitude':1,
+							'ch1_waveform':self._ch2_filename,
+							'ch1_offset':0,
+							'ch1_amplitude':1})
 		self._sample.awg.run()
-		self._sample.awg.set_ch1_output(1)
-		self._sample.awg.set_ch2_output(1)
+		self._sample.awg.set({'ch1_output':1,'ch2_output':1})
 		
 	def load_wfm_init(self):
 		t=np.linspace(0,2*np.pi,self._sample.clock/self._iq_frequency,endpoint=False)
@@ -206,8 +205,7 @@ class IQ_Mixer(Instrument):
 		self._sample.awg.wfm_import(self._ch1_filename,self._awg_filepath+self._ch1_filename,'WFM')
 		self._sample.awg.set_ch1_waveform(self._ch1_filename)
 		self._sample.awg.run()
-		self._sample.awg.set_ch1_output(1)
-		self._sample.awg.set_ch2_output(1)
+		self._sample.awg.set({'ch1_output':1,'ch2_output':1})
 
 	def optimize_dc(self,frequency,x,y,maxiter=10,verbose=False):
 		self.focus(frequency,1)
@@ -290,17 +288,16 @@ class IQ_Mixer(Instrument):
 		marker=np.zeros_like(ch1wfm)
 		self._sample.awg.wfm_send(ch1wfm,marker,marker,self._awg_filepath+self._ch1_filename,self._sample.clock)
 		self._sample.awg.wfm_import(self._ch1_filename,self._awg_filepath+self._ch1_filename,'WFM')
-		self._sample.awg.set_ch1_waveform(self._ch1_filename)
-		self._sample.awg.set_ch1_offset(0)
-		self._sample.awg.set_ch1_amplitude(2)
 		self._sample.awg.wfm_send(ch2wfm,marker,marker,self._awg_filepath+self._ch2_filename,self._sample.clock)
-		self._sample.awg.wfm_import(self._ch2_filename,self._awg_filepath+self._ch2_filename,'WFM')
-		self._sample.awg.set_ch2_waveform(self._ch2_filename)
-		self._sample.awg.set_ch2_offset(0)
-		self._sample.awg.set_ch2_amplitude(2)
+		self._sample.awg.wfm_import(self._ch2_filename,self._awg_filepath+self._ch2_filename,'WFM')		
+		self._sample.awg.set({'ch1_waveform':self._ch1_filename,
+							'ch1_offset':0,
+							'ch1_amplitude':2,
+							'ch1_waveform':self._ch2_filename,
+							'ch1_offset':0,
+							'ch1_amplitude':2})
 		self._sample.awg.run()
-		self._sample.awg.set_ch1_output(1)
-		self._sample.awg.set_ch2_output(1)    
+		self._sample.awg.set({'ch1_output':1,'ch2_output':1})
 
 	def load_wfm(self,sin_phase=0,update_channels=(True,True),init=False,relamp=1.5,relamp2=1.5):
 		if(update_channels[0]):
@@ -318,11 +315,9 @@ class IQ_Mixer(Instrument):
 			self._sample.awg.wfm_import(self._ch2_filename,self._awg_filepath+self._ch2_filename,'WFM')
 			self._sample.awg.set_ch2_waveform(self._ch2_filename)
 		if(init):
-			self._sample.awg.set_ch1_amplitude(relamp)    
-			self._sample.awg.set_ch2_amplitude(relamp2)  
+			self._sample.awg.set({'ch1_amplitude':relamp,'ch2_amplitude':relamp2})
 			self._sample.awg.run()
-			self._sample.awg.set_ch1_output(1)
-			self._sample.awg.set_ch2_output(1)
+			self._sample.awg.set({'ch1_output':1,'ch2_output':1})
 		
 
 	def phaseoptimize(self,offset):
@@ -348,13 +343,8 @@ class IQ_Mixer(Instrument):
 		mw_freq=self._f_rounded - self._iq_frequency
 		
 		#self._sample.awg.stop()
-		self._sample.awg.set_ch1_output(0)
-		self._sample.awg.set_ch2_output(0)
-		self._sample.awg.set_runmode('CONT')
-		
-		self._sample.qubit_mw_src.set_frequency(mw_freq)
-		self._sample.qubit_mw_src.set_power(self._mw_power)
-		self._sample.qubit_mw_src.set_status(1)
+		self._sample.awg.set({'ch1_output':0,'ch2_output':0,'runmode':'CONT'})
+		self._sample.qubit_mw_src.set({'frequency':mw_freq, 'power':self._mw_power, 'status':1})
 		
 		print "Calibrating %s for Frequency: %.2fGHz (MW-Freq: %.2fGHz), MW Power: %.2fdBm"%(self.mixer_name,self._sideband_frequency/1e9,mw_freq/1e9,self._mw_power),
 		sys.stdout.flush()
@@ -392,14 +382,14 @@ class IQ_Mixer(Instrument):
 		currentdata = copy(data)
 
 		#Make a nice image on the FSUP so that you can see the results of calibration there.
-		self._fsup.set_freqspan(self._iq_frequency*10)
-		self._fsup.set_centerfreq(self._sideband_frequency-self._iq_frequency)
-		self._fsup.set_resolutionBW(5e5)
-		self._fsup.set_videoBW(5e2)
-		self._fsup.set_marker(1,self._sideband_frequency-self._iq_frequency)
-		self._fsup.set_marker(2,self._sideband_frequency)
-		self._fsup.set_marker(3,self._sideband_frequency+self._iq_frequency)
-		self._fsup.set_marker(4,self._sideband_frequency+2*self._iq_frequency)
+		self._fsup.set({'freqspan':self._iq_frequency*10,
+						'centerfreq':self._sideband_frequency-self._iq_frequency,
+						'resolutionBW':5e5,
+						'videoBW':5e2,
+						'marker':(1,self._sideband_frequency-self._iq_frequency),
+						'marker':(2,self._sideband_frequency),
+						'marker':(3,self._sideband_frequency+self._iq_frequency),
+						'marker':(4,self._sideband_frequency+2*self._iq_frequency)})
 		sweeptime = self._fsup.get_sweeptime()
 		self._fsup.sweep()
 		qt.msleep(sweeptime)
@@ -407,11 +397,7 @@ class IQ_Mixer(Instrument):
 		if self._swb != None: #switching back
 			self._swb.set_position('1')
 		#reset awg
-		
-		self._sample.awg.set_ch1_amplitude(2)
-		self._sample.awg.set_ch2_amplitude(2)
-		self._sample.awg.set_ch1_offset(0)
-		self._sample.awg.set_ch2_offset(0)
+		[self._sample.awg.set({'ch%i_amplitude'%i:2,'ch%i_offset'%i:0}) for i in (1,2)]
 		
 		try: 
 			storedvalues=np.loadtxt(qt.config.get('datadir')+"\\IQMixer\\%s.cal"%self.mixer_name)
@@ -450,13 +436,9 @@ class IQ_Mixer(Instrument):
 		mw_freq=self._f_rounded - self._iq_frequency
 		
 		#self._sample.awg.stop()
-		self._sample.awg.set_ch1_output(0)
-		self._sample.awg.set_ch2_output(0)
-		self._sample.awg.set_runmode('CONT')
-
-		self._sample.qubit_mw_src.set_frequency(mw_freq)
-		self._sample.qubit_mw_src.set_power(self.mw_power)
-		self._sample.qubit_mw_src.set_status(1)
+		self._sample.awg.set({'ch1_output':0,'ch2_output':0,'runmode':'CONT'})
+		self._sample.qubit_mw_src.set({'frequency':mw_freq, 'power':self._mw_power, 'status':1})
+		
 		
 		#print "Calibrating %s for Frequency: %.2fGHz (MW-Freq: %.2fGHz), MW Power: %.2fdBm"%(self.mixer_name,self.sideband_frequency/1e9,mw_freq/1e9,self._mw_power),
 		sys.stdout.flush()
