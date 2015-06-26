@@ -28,7 +28,7 @@ class IQ_Mixer(Instrument):
 		self.interpol_freqspan = 1e9 #Frequency span where interpolated data is used and recalibrated
 		self.trust_region = 500e6    #Frequency span where interpolated data is used without recalibration. Do not set this to zero, because calibration will round frequency
 		self._iq_frequency = self._sample.iq_frequency
-		self.mixer_name = mixer_name
+		self.do_set_mixer_name(mixer_name)
 		
 		#Parameters
 		self.add_parameter('sideband_frequency', type=types.FloatType,
@@ -63,7 +63,6 @@ class IQ_Mixer(Instrument):
 	_ch2_filename='ch2_opt'
 	_awg_filepath='C:\\waveforms\\'
 	(x,y)=(0,0) #initial values for DC offset in Volts
-	self.do_set_mixer_name(mixer_name)
 	
 	def get_all(self):
 		self.get_FSUP_connected()
@@ -88,7 +87,6 @@ class IQ_Mixer(Instrument):
 		return self._FSUP_connected
 	
 	def do_set_sideband_frequency(self,frequency):
-		print "Nothing happens here"
 		self._sideband_frequency=frequency
 		
 	def do_set_sideband_frequency(self,frequency):
@@ -97,7 +95,6 @@ class IQ_Mixer(Instrument):
 		return self._sideband_frequency
 		
 	def do_set_mw_power(self,mw_power):
-		print "Nothing happens here"
 		self._mw_power=mw_power
 		
 	def do_get_output_power(self):
@@ -106,6 +103,10 @@ class IQ_Mixer(Instrument):
 	def do_get_iq_frequency(self):
 		'''This returns the iq_frequency which was used for the last call of convert()'''
 		return self._iq_frequency
+
+	def do_set_iq_frequency(self, iq_frequency):
+		'''This returns the iq_frequency which was used for the last call of convert()'''
+		self._iq_frequency = iq_frequency
 	
 	
 	def connect_FSUP(self, fsup):
@@ -165,13 +166,12 @@ class IQ_Mixer(Instrument):
 		self._fsup.enable_marker(2,'OFF')
 		self._fsup.enable_marker(3,'OFF')
 		self._fsup.enable_marker(4,'OFF')
-		
-		self._fsup.set({'continuous_sweep_mode':'off',
-						'centerfreq':frequency,
+		self._fsup.set_continuous_sweep_mode('OFF')
+		self._fsup.set({'centerfreq':frequency,
 						'freqspan':2e2,
-						'marker':(marker,frequency),
 						'resolutionBW':200,
 						'videoBW':200})
+		self._fsup.set_marker(marker,frequency)
 		sweeptime=self._fsup.get_sweeptime()
 		self._fsup.sweep()
 		return sweeptime
@@ -333,7 +333,7 @@ class IQ_Mixer(Instrument):
 		if self._swb != None: #switching to fsup
 			self._swb.set_position('2')
 		else:
-			print "WARNING: Switch was not switched. Define switchbox instrument via iq.connect_switchbox(swb). If you do not have a switchbox, make sure your cables are connected and go on."
+			logging.warning(__name__ + ' : Switch was not switched. Define switchbox instrument via iq.connect_switchbox(swb). If you do not have a switchbox, make sure your cables are connected and go on.')
 		self._sample.awg.set_clock(self._sample.clock)
 		if not self._FSUP_connected: 
 			raise ValueError(('FSUP is possibly not connected. \nIncrease trust_region and maxage to interpolate values or connect FSUP and execute connect_FSUP(fsup)'))
@@ -341,16 +341,16 @@ class IQ_Mixer(Instrument):
 		(hx_amp,hx_phase,hy_amp,hy_phase)=(0,0,0,0)
 	
 		mw_freq=self._f_rounded - self._iq_frequency
-		
 		#self._sample.awg.stop()
 		self._sample.awg.set({'ch1_output':0,'ch2_output':0,'runmode':'CONT'})
 		self._sample.qubit_mw_src.set({'frequency':mw_freq, 'power':self._mw_power, 'status':1})
 		
-		print "Calibrating %s for Frequency: %.2fGHz (MW-Freq: %.2fGHz), MW Power: %.2fdBm"%(self.mixer_name,self._sideband_frequency/1e9,mw_freq/1e9,self._mw_power),
+		print "Recalibrating %s for Frequency: %.2fGHz (MW-Freq: %.2fGHz), MW Power: %.2fdBm"%(self.mixer_name,self._sideband_frequency/1e9,mw_freq/1e9,self._mw_power)
 		sys.stdout.flush()
 		frequencies=[mw_freq-3*self._iq_frequency,mw_freq-2*self._iq_frequency,mw_freq-self._iq_frequency,mw_freq,mw_freq+self._iq_frequency,mw_freq+2*self._iq_frequency,mw_freq+3*self._iq_frequency]
 		self.focus(mw_freq,1)
 		self.load_zeros()
+		print "Optimizing DC offsets to reduce leakage when there is no pulse"
 		(xold,yold)=(np.inf,np.inf)
 		while(np.all(np.around((dcx,dcy),3)!=np.around((xold,yold),3))):
 			(xold,yold)=(dcx,dcy)
@@ -360,7 +360,10 @@ class IQ_Mixer(Instrument):
 		
 		optimized=[(self.focus(frequencies[i],1), self._fsup.get_marker_level(1))[1] for i in range(len(frequencies))]
 		optimized_old=[np.inf,np.inf,np.inf,np.inf]
+		print "iterating"
 		while (optimized_old[2]-optimized[2]>1 or optimized_old[3]-optimized[3]>1):
+			print ".",
+			sys.stdout.flush()
 			optimized_old=copy(optimized)
 			self.focus(mw_freq,1)
 			(xold,yold)=(np.inf,np.inf)
@@ -373,10 +376,7 @@ class IQ_Mixer(Instrument):
 			relamp=self.minimize(self.relampoptimize,relamp-.01,relamp+.01,.05,1e-3,final_averages=2,bounds=(.5,2),confirmonly=True)[0]
 			relamp2=self.minimize(self.relampoptimize2,relamp2-.01,relamp2+.01,.05,1e-3,final_averages=2,bounds=(.5,2),confirmonly=True)[0]
 			optimized=[(self.focus(frequencies[i],1), np.mean([(self._fsup.sweep(),self._fsup.get_marker_level(1))[1] for j in range(5)]))[1] for i in range(len(frequencies))]
-			print ".",
-			sys.stdout.flush()
 		print "Parameters: DC x: %.1fmV, DC y: %.1fmV AC x: %.1fmV, AC y: %.1fmV phase: %.1fdegree Amplitude: %.3fVpp/%.3fVpp"%(dcx*1e3,dcy*1e3,x*1e3,y*1e3,phaseoffset*180/np.pi,relamp,relamp2)
-		
 		print "Your Sideband has a power of %.3fdBm, Leakage is %.2fdB lower, other sideband is %.2fdB lower.\nThe largest of the higher harmonics is %.2fdB lower."%(optimized[4],optimized[4]-optimized[3],optimized[4]-optimized[2],np.max((optimized[4]-optimized[0],optimized[4]-optimized[1],optimized[4]-optimized[4],optimized[5]-optimized[6])))
 		data=np.array([np.append((self._f_rounded,mw_freq,self._mw_power,time.time(),dcx,dcy,x,y,phaseoffset,relamp,relamp2),optimized)])
 		currentdata = copy(data)
@@ -385,11 +385,11 @@ class IQ_Mixer(Instrument):
 		self._fsup.set({'freqspan':self._iq_frequency*10,
 						'centerfreq':self._sideband_frequency-self._iq_frequency,
 						'resolutionBW':5e5,
-						'videoBW':5e2,
-						'marker':(1,self._sideband_frequency-self._iq_frequency),
-						'marker':(2,self._sideband_frequency),
-						'marker':(3,self._sideband_frequency+self._iq_frequency),
-						'marker':(4,self._sideband_frequency+2*self._iq_frequency)})
+						'videoBW':5e2})
+		self._fsup.set_marker(1,self._sideband_frequency-self._iq_frequency)
+		self._fsup.set_marker(2,self._sideband_frequency)
+		self._fsup.set_marker(3,self._sideband_frequency+self._iq_frequency)
+		self._fsup.set_marker(4,self._sideband_frequency+2*self._iq_frequency)
 		sweeptime = self._fsup.get_sweeptime()
 		self._fsup.sweep()
 		qt.msleep(sweeptime)
@@ -429,8 +429,7 @@ class IQ_Mixer(Instrument):
 		if self._swb != None: #switching to fsup
 			self._swb.set_position('2')
 		else:
-			print "WARNING: Switch was not switched. Define switchbox instrument via iq.connect_switchbox(swb). If you do not have a switchbox, make sure your cables are connected and go on."
-			
+			logging.warning(__name__ + ' : Switch was not switched. Define switchbox instrument via iq.connect_switchbox(swb). If you do not have a switchbox, make sure your cables are connected and go on.')
 		qt.mstart()
 		(hx_amp,hx_phase,hy_amp,hy_phase,phaseoffset)=(0,0,0,0,0) 
 		mw_freq=self._f_rounded - self._iq_frequency
@@ -440,18 +439,20 @@ class IQ_Mixer(Instrument):
 		self._sample.qubit_mw_src.set({'frequency':mw_freq, 'power':self._mw_power, 'status':1})
 		
 		
-		#print "Calibrating %s for Frequency: %.2fGHz (MW-Freq: %.2fGHz), MW Power: %.2fdBm"%(self.mixer_name,self.sideband_frequency/1e9,mw_freq/1e9,self._mw_power),
+		print "Starting an initial calibration of %s for Frequency: %.2fGHz (MW-Freq: %.2fGHz), MW Power: %.2fdBm"%(self.mixer_name,self._sideband_frequency/1e9,mw_freq/1e9,self._mw_power)
 		sys.stdout.flush()
 		frequencies=[mw_freq-3*self._iq_frequency,mw_freq-2*self._iq_frequency,mw_freq-self._iq_frequency,mw_freq,mw_freq+self._iq_frequency,mw_freq+2*self._iq_frequency,mw_freq+3*self._iq_frequency]
 		self.focus(mw_freq,1)
 		self.load_zeros()
 		(xold,yold)=(np.inf,np.inf)
+		print "Finding initial values for DC offsets to reduce leakage when there is no pulse"
 		dcx=self.minimize(self.xoptimize,-.02,.02,.01,5e-3,final_averages=1)[0]
 		dcy=self.minimize(self.yoptimize,-.02,.02,.01,5e-3,final_averages=1)[0]
 		while(np.all(np.around((dcx,dcy),3)!=np.around((xold,yold),3))):
 			(xold,yold)=(dcx,dcy)
 			dcx=self.minimize(self.xoptimize,dcx-.002,dcx+.002,.002,1e-3,final_averages=3,confirmonly=True)[0]
 			dcy=self.minimize(self.yoptimize,dcy-.002,dcy+.002,.002,1e-3,final_averages=3,confirmonly=True)[0]
+		print "Finding initial values for Sine and Cosine waveform parameters"
 		self.load_wfm(sin_phase=phaseoffset,update_channels=(True,True),relamp=2,relamp2=2,init=True)
 		self.focus(mw_freq,1)
 		(xold,yold)=(0,0)
@@ -465,12 +466,11 @@ class IQ_Mixer(Instrument):
 		relamp=self.minimize(self.relampoptimize,0.2,2,.3,10e-3,final_averages=1,bounds=(.5,2))[0]
 		relamp2=self.minimize(self.relampoptimize2,0.2,2,.3,10e-3,final_averages=1,bounds=(.5,2))[0]
 		phaseoffset=self.minimize(self.phaseoptimize,0,1,.2,5e-3,final_averages=1)[0]
-		print "->",
-		sys.stdout.flush()
+		print "Initial parameterset found, starting optimization..."
 		return self.recalibrate(dcx,dcy,x,y,phaseoffset,relamp,relamp2)
 		
 
-	def calibrate(self,recalibration=True,frequency=None,power=None,iq_frequency=None)):
+	def calibrate(self,recalibrate=True,frequency=None,power=None,iq_frequency=None):
 		'''
 			This function automatically looks up, if this mixer has already been calibrated before:
 			- If this frequency was calibrated less than maxage secs ago, it will just load this settings
@@ -492,7 +492,7 @@ class IQ_Mixer(Instrument):
 		self.do_set_iq_frequency(iq_frequency)
 		
 		self._f_rounded = np.round(self._sideband_frequency,-3) #The FSUP can only resolve 7 digits in frequency, so for Frequencies <10GHz, you can not set frequencies finer than kHz. But as the MW source can, there will be a missmatch if we do not round here.
-		
+
 		try: 
 			storedvalues=np.loadtxt(qt.config.get('datadir')+"\\IQMixer\\%s.cal"%self.mixer_name)
 			NeedForInterpolation=False
@@ -502,7 +502,7 @@ class IQ_Mixer(Instrument):
 				storedvalues = [storedvalues]
 			for index,t in enumerate(storedvalues):
 				if t[0]==self._sideband_frequency and t[1]==self._sideband_frequency-self._iq_frequency and t[2]==self._mw_power:
-					if time.time()-t[3] > self.maxage or recalibration: #Calibration is too old
+					if time.time()-t[3] > self.maxage or recalibrate: #Calibration is too old
 						print "recalibrating because calibration is too old (%.2f days ago)"%((time.time()-t[3])/24/3600)
 						return self.recalibrate(t[4],t[5],t[6],t[7],t[8],t[9],t[10])
 					else:
@@ -515,7 +515,7 @@ class IQ_Mixer(Instrument):
 						NeedForInterpolation=True
 					elif  storedvalues[left_border][0]<t[0]:
 						left_border=index
-					elif np.abs(storedvalues[right_border][2]-self._mw_power)>np.abs(self._mw_power-t[2]):
+					elif np.abs(storedvalues[left_border][2]-self._mw_power)>np.abs(self._mw_power-t[2]):
 						left_border=index
 				if np.abs(t[0]-self._sideband_frequency) <= self.interpol_freqspan and t[0]-self._sideband_frequency >= 0:
 					if right_border== np.inf:
@@ -535,16 +535,14 @@ class IQ_Mixer(Instrument):
 					self._f_rounded = np.ceil(self._sideband_frequency/1e3)*1e3
 					return self.initial_calibrate() 
 				if (left_border==right_border):
-					print "recalibrating"
 					return self.recalibrate(storedvalues[left_border][4],storedvalues[left_border][5],storedvalues[left_border][6],storedvalues[left_border][7],storedvalues[left_border][8],storedvalues[left_border][9],storedvalues[left_border][10])
 				interpolated=storedvalues[left_border]+(storedvalues[right_border]-storedvalues[left_border])*(self._sideband_frequency-storedvalues[left_border][0])/(storedvalues[right_border][0]-storedvalues[left_border][0])
 				if (storedvalues[right_border][0]-storedvalues[left_border][0])<=self.trust_region: #No need for recalibration
-					if recalibration: #Except if we enforce a recalibration
+					if recalibrate: #Except if we enforce a recalibration
 						return self.recalibrate(interpolated[4],interpolated[5],interpolated[6],interpolated[7],interpolated[8],interpolated[9],interpolated[10])
 					#print "using interpolated values"
 					return interpolated
 				else: 
-					print "recalibrating"
 					return self.recalibrate(interpolated[4],interpolated[5],interpolated[6],interpolated[7],interpolated[8],interpolated[9],interpolated[10])
 			else:
 				print "initial calibration for this frequency required. Think about using the interpol_freqspan option!"
@@ -553,10 +551,10 @@ class IQ_Mixer(Instrument):
 		except IOError:
 			#Mixer has not at all been calibrated before
 			print "initial calibration required"
-				if self._sideband_frequency != np.round(self._sideband_frequency,-3): #If we only calibrate the rounded frequency, we will get problems later, because there is nothing to interpolate against
-					self._f_rounded = np.floor(self._sideband_frequency/1e3)*1e3
-					self.initial_calibrate()
-					self._f_rounded = np.ceil(self._sideband_frequency/1e3)*1e3					
+			if self._sideband_frequency != np.round(self._sideband_frequency,-3): #If we only calibrate the rounded frequency, we will get problems later, because there is nothing to interpolate against
+				self._f_rounded = np.floor(self._sideband_frequency/1e3)*1e3
+				self.initial_calibrate()
+				self._f_rounded = np.ceil(self._sideband_frequency/1e3)*1e3
 			return self.initial_calibrate()
 		
 	def get_calibration(self,frequency=None,power=None,iq_frequency=None):
