@@ -74,6 +74,7 @@ class HP_81110A(Instrument):
         self.add_function('get_all')
         self.add_function('set_mode_triggered')
         self.add_function('set_mode_continuous')
+        self.add_function('set_mode_gated')
 
         if reset:
             self.reset()
@@ -298,7 +299,7 @@ class HP_81110A(Instrument):
         if ((val.upper()=='ON') | (val.upper()=='OFF')):
             self._visainstrument.write('DISP ' + val)
         else:
-            logging.error('Try tot set display to ' +val)
+            logging.error('Try to set display to ' +val)
 
     def set_mode_triggered(self):
         '''
@@ -315,7 +316,7 @@ class HP_81110A(Instrument):
 
     def set_mode_continuous(self):
         '''
-        Sets the instrument in 'triggered' mode
+        Sets the instrument in 'continuous' mode
 
         Input:
             None
@@ -325,6 +326,20 @@ class HP_81110A(Instrument):
         '''
         logging.debug(__name__ + ' : setting instrument to continuous mode')
         self._visainstrument.write(':ARM:SOUR IMM')
+
+    def set_mode_gated(self):
+        '''
+        Sets the instrument in 'gated' mode
+
+        Input:
+            None
+
+        Output:
+            None
+        '''
+        logging.debug(__name__ + ' : setting instrument to gated mode')
+        self._visainstrument.write(':ARM:MODE GAT')
+
 
     def _get_number_of_channels(self):
         '''
