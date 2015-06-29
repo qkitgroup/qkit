@@ -7,7 +7,7 @@ Created 2015
 import logging
 import h5py
 import numpy
-#import gobject
+
 import os
 import time
 
@@ -22,7 +22,7 @@ import time
 #if in_qtlab:
 #    import qt
 config = {}
-config['datadir'] = '/Users/hrotzing/pik/devel/python/qkit/measure/storage'
+config['datadir'] = '/Users/hrotzing/pik/devel/python/qkit/qkit/measure/storage'
 
 class H5_file(object):
     """ This base hdf5 class ist intended for QTlab as a base class for a 
@@ -109,14 +109,23 @@ class H5_file(object):
         
     def append(self,ds,data, extend_step = 100):
         """ Append method for hdf5 data. 
-            simple append method for data traces
+            A simple append method for data traces
             reshapes the array and updates the fill attribute
             
         """
         fill = ds.attrs.get("fill")
         try:
-            ds[fill] = data
-            ds.attrs.modify("fill",fill+1)
+            if len(ds.shape) == 1:
+                if type(data) == float:
+                    ds[fill] = data
+                    ds.attrs.modify("fill",fill+1)
+                elif len(data.shape) == 1:
+                    ds.resize(len(data),axis = 0)
+                    ds.attrs.modify("fill",len(data))
+                    ds[:] = data
+            else:
+                ds[fill] = data
+                ds.attrs.modify("fill",fill+1)
             
         except ValueError:
             # array full...
@@ -188,10 +197,158 @@ class DateTimeGenerator(object):
 
         return os.path.join(dir, filename)
 
+class hdf_dataset(object):
+        """
+        This class represents the dataset in python.        
+        
+        this is also a helper class to postpone the creation of the datasets.
+        The main issue here is that until the first data is aquired, 
+        some dimensions and items are unknown.
+        To keep the userinterface simple, we choose to postpone the creation 
+        of the datasets and derive all the unknown values from the real data.
+        """
+        
+        def __init__(self, hdf_file, name, x=None, y=None, unit= "" ,comment="", **meta):
+            self.hf = hdf_file
+            self.name = name
+            self.unit = unit
+            self.comment = comment
+            self.meta = meta
+            self.x_object = x
+            self.y_object = y            
+            
+            # the first dataset is used to extract a few attributes
+            self.first = True
+            
+            # 1d/2d attributes
+            self.x_name = name
+            self.x_unit = unit
+            self.x0 = 0.0
+            self.dx = 1.0
+            
+            self.y_name = ""
+            self.y_unit = ""            
+            self.y0 = 0.0
+            self.dy = 1.0
+                        
+            self.z_name = name
+            self.z_unit = unit
+            
+        def _setup_metadata(self):
+            ds = self.ds
+            # 2d/matrix 
+            if self.x_object:
+                ds.attrs.create("x0",self.x_object.x0)
+                ds.attrs.create("dx",self.x_object.dx)
+                ds.attrs.create("x_unit",self.x_object.x_unit)
+                ds.attrs.create("x_name",self.x_object.x_name)
+            else:
+                ds.attrs.create("x0",self.x0)
+                ds.attrs.create("dx",self.dx)
+                ds.attrs.create("x_unit",self.x_unit)
+                ds.attrs.create("x_name",self.x_name)
+            if self.y_object:
+                ds.attrs.create("y0",self.y_object.x0)
+                ds.attrs.create("dy",self.y_object.dx)
+                ds.attrs.create("y_unit",self.y_object.x_unit)
+                ds.attrs.create("y_name",self.y_object.x_name)
+                
+                ds.attrs.create("z_unit",self.z_unit)
+                ds.attrs.create("z_name",self.z_name)
+            else:
+                ds.attrs.create("y0",self.y0)
+                ds.attrs.create("dy",self.dy)
+                ds.attrs.create("y_unit",self.y_unit)
+                ds.attrs.create("y_name",self.y_name)
+                
+                #ds.attrs.create("z_unit",self.z_unit)
+                #ds.attrs.create("z_name",self.z_name)
+                
+
+            
+        def append(self,data):
+            """
+            The add method is used to save a growing 2-Dim matrix to the hdf file, 
+            one line/vector at a time.
+            For example, data can be a frequency scan of a 1D scan.
+            """
+            # at this point the reference data should be around
+            if self.first:
+                self.first = False
+                #print self.name, data.shape
+                if type(data) == numpy.ndarray:
+                    tracelength = len(data)
+                else:
+                    tracelength = 0
+                # create the dataset
+                self.ds = self.hf.create_dataset(self.name,tracelength,**self.meta)
+                self._setup_metadata()
+                
+            if data is not None:
+                self.hf.append(self.ds,data)
+            self.hf.flush()
+                
+                
+        def add(self,data):
+            """
+            The add method is used to save a 1-Dim vector to the hdf file once.
+            For example, this can be a coordinate of a 1D scan.
+
+            """
+           
+            if self.y_object:
+                logging.info("add is only for 1-Dim data. Please use append 2-Dim data.")
+                return False
+                
+            if self.first:
+                self.first = False
+                #print self.name, data.shape
+                tracelength = 0
+                # create the dataset
+                self.ds = self.hf.create_dataset(self.name,tracelength,**self.meta)
+                ds = self.ds
+                if not self.x_object:
+                    # value data
+                    if len(data) > 2:                
+                        self.x0 = data[0]
+                        self.dx = data[1]-data[0]
+                
+                    ds.attrs.create("x0",self.x0)
+                    ds.attrs.create("dx",self.dx)
+                else:
+                    # coordinate vector
+                    self.x0 = self.x_object.x0
+                    self.dx = self.x_object.dx
+                
+                    ds.attrs.create("x0",self.x0)
+                    ds.attrs.create("dx",self.dx)
+                    
+                ds.attrs.create("x_unit",self.x_unit)
+                ds.attrs.create("x_name",self.x_name)
+                
+                
+            if data is not None:
+                #print "hf  #: ",self.hf, self.ds
+                self.hf.append(self.ds,data)
+            self.hf.flush()
+            
+
+        """
+        def __getitem__(self, name):
+            return self.hf[name]
+
+        def __setitem__(self, name, val):
+            self.hf[name] = val
+        """
+        def __repr__(self):
+            ret = "HDF5Data '%s', filename '%s'" % (self._name, self._filename)
+            return ret
+
+        
+
 class Data(object):
-    "this is basically the hdf5 class from hdf5_data adopted to our needs"
-    #_data_list = data.Data._data_list
-    _filename_generator = DateTimeGenerator()
+    "this is a basic hdf5 class adopted to our needs"
+   
 
     def __init__(self, *args, **kwargs):
         """
@@ -203,9 +360,13 @@ class Data(object):
         """
         
         name = kwargs.pop('name', 'data')
-             
-        self.generate_file_name(name, **kwargs)
-            
+        
+        "if path was omitted, a new filepath will be created"        
+        path = kwargs.pop('path',None)        
+        self._filename_generator = DateTimeGenerator()
+        self.generate_file_name(name, filepath = path, **kwargs)
+        
+        "setup the new file"
         self.hf = H5_file(self._filepath)
         
         self.hf.flush()
@@ -214,9 +375,7 @@ class Data(object):
     def generate_file_name(self, name, **kwargs):
         # for now just a copy from the origial file
         # Fixme: I would like to see this as a library function
-    
-        #name = data.Data._data_list.new_item_name(self, name)
-        #print args
+
 
         self._name = name
 
@@ -250,268 +409,21 @@ class Data(object):
 
     def get_folder(self):
         return self._folder
-    """
-    def create_dataset(self, *args, **kwargs):
-        return self._file.create_dataset(*args, **kwargs)
-
-    def create_group(self, *args, **kwargs):
-        '''Create a raw HDF5 group in the file.'''
-        return self._file.create_group(*args, **kwargs)
-
-    def create_data_group(self, name, **kwargs):
-        '''Create a DataGroup object.'''
-        return DataGroup(name, self, **kwargs)
-    """
-    # from HDF5_data.py
-    def _add_dimension(self, name, dim_type, **meta):
-        '''
-        Add a dimension to the data group.
-        dim_type is not restricted, but 'coordinate' and 'value' should be
-        used to specify what the dimension represents.
-        Extra keywords are added as meta data.
-        '''
-
-        if name in self.hf.grp.keys():
-            logging.error("Dimension '%s' already exists in data set '%s'" \
-                    % (name, self.name))
-            return False
-
-        """for the (compatible) function 'add data point' we have to maintain a ordered list containing
-        the names of the dataests"""
-        self.hf.append('datasets',name)
-        
-        
-        _tracelength = meta.get('tracelength',None)
-        data = meta.get('data',None)
-        meta['dim_type'] = dim_type
-        
-        
-        if _tracelength is not None:
-            tracelength = _tracelength
-                    
-        if data is not None:
-            _tracelength = len(data)
-            if tracelength == _tracelength:
-                pass
-            else:
-                logging.error("Tracelength 'data'/'tracelength' does not match for '%s'."\
-                    % name)
-                tracelength = _tracelength
-                
-        if not tracelength:
-            logging.info("HDF: No tracelength: postpone creation of hdf dataset for %s." %name)
-            logging.info("HDF: Please specify tracelength for %s." %name)
-            return
-            
-        # create the dataset
-        ds = self.hf.create_dataset(name,tracelength,meta)
-        
-
-        if data is not None:
-            self.hf.append(ds,data)
-        return True
-
-    def _add_value_dimension(self, name, type, **meta):
-        '''
-        Add a dimension to the data group.
-        dim_type is not restricted, but 'coordinate' and 'value' should be
-        used to specify what the dimension represents.
-        Extra keywords are added as meta data.
-        '''
-
-        if name in self.hf.grp.keys():
-            logging.error("Dimension '%s' already exists in data set '%s'" \
-                    % (name, self.name))
-            return False
-
-        """for the (compatible) function 'add data point' we have to maintain a ordered list containing
-        the names of the dataests"""
-        self.hf.append('datasets',name)
-        
-        
-        _tracelength = meta.get('tracelength',None)
-        #data = meta.get('data',None)
-        meta['dim_type'] = dim_type
-        
-        
-            
-        # create the dataset
-        ds = self.hf.create_dataset(name,tracelength,meta)
-        
-
-        if data is not None:
-            self.hf.append(ds,data)
-        return True
-        
-
-    def add_coordinate(self, name, data=None, **meta):
-        '''
-        Add a coordinate dimension, optionally with known data.
-        Extra keywords are added as meta data.
-        '''
-        return self._add_dimension(name, 'coordinate', data, **meta)
-
-    def add_scalar_value(self, name, data=None, type="scalar", **meta):
-        '''
-        Add a value dimension, optionally with known data.
-        Extra keywords are added as meta data.
-        '''
-        return self._add_dimension(name, 'value', data, **meta)
-        
-    def add_vector_value(self, name, data=None, type="vector", **meta):
-        '''
-        Add a value dimension, optionally with known data.
-        Extra keywords are added as meta data.
-        '''
-        return self._add_dimension(name, 'value', data, **meta)
-        
+         
+    def add_coordinate(self,  name, unit = "", comment = "",**meta):
+        ds =  hdf_dataset(self.hf,name,unit=unit,comment= comment)
+        return ds
     
-    def add_data(self,**kwargs):
-        '''
-        Append data to the hdf dataset.
-        
-        The kwargs should contain pairs of
-        dimension/value name = data 
-        e.g,
-        field = 0
-        frequencies = [10,20,30]
-        
-        The hdf list 'datasets' contains the list of valid dimensions/values        
-        Extra keywords are ignored.
-        '''
-        datasets = self.hf['datasets'][:self.hf['datasets'].attrs['fill']]
-        for ds in datasets:
-            if ds in kwargs:
-                if ds not in self.hf.grp:
-                    # if the creation of the dataset has been postponed...
-                    tracelength = len(kwargs.get(ds))
-                    ds = self.hf.create_dataset(ds,tracelength)
-                    
-        for ds in kwargs:
-            if ds in datasets:
-                # append the data
-                self.hf.append(ds,kwargs.get(ds))
-        
-        self.hf.flush()
-        
-        
-    def add_data_point(self, *args, **kwargs):
-        '''
+    def add_value_vector(self, name, x = None, unit = "", comment = "",**meta):
+        ds =  hdf_dataset(self.hf,name, x=x, unit=unit, comment= comment)
+        return ds
 
-        Add new data point(s) to the data set (in memory and/or on disk).
-        Note that one data point can consist of multiple coordinates and values.
-
-        provide 1 data point
-            - N numbers: d.add_data_points(1, 2, 3)
-
-        OR
-
-        provide >1 data points.
-            - a single MxN 2d array: d.add_data_point(arraydata)
-            - N 1d arrays of length M: d.add_data_points(a1, a2, a3)
-
-        Notes:
-        If providing >1 argument, all vectors should have same shape.
-        String data is not compatible with 'inmem'.
-
-        Input:
-            *args:
-                n column values or a 2d array
-            **kwargs:
-                newblock (boolean): marks a new 'block' starts after this point
-
-        Output:
-            None
-        '''
-
-        # Check what type of data is being added
-        shapes = [numpy.shape(i) for i in args]
-        dims = numpy.array([len(i) for i in shapes])
-
-        if len(args) == 0:
-            logging.warning('add_data_point(): no data specified')
-            return
-        elif len(args) == 1:
-            if dims[0] == 2:
-                ncols = shapes[0][1]
-                npoints = shapes[0][0]
-                args = args[0]
-            elif dims[0] == 1:
-                ncols = 1
-                npoints = shapes[0][0]
-                args = args[0]
-            elif dims[0] == 0:
-                ncols = 1
-                npoints = 1
-            else:
-                logging.warning('add_data_point(): adding >2d data not supported')
-                return
-        else:
-            # Check if all arguments have same shape
-            for i in range(1, len(args)):
-                if shapes[i] != shapes[i-1]:
-                    logging.warning('add_data_point(): not all provided data arguments have same shape')
-                    return
-
-            if sum(dims!=1) == 0:
-                ncols = len(args)
-                npoints = shapes[0][0]
-                # Transpose args to a single 2-d list
-                args = zip(*args)
-            elif sum(dims!=0) == 0:
-                ncols = len(args)
-                npoints = 1
-            else:
-                logging.warning('add_data_point(): addint >2d data not supported')
-                return
-
-        # Check if the number of columns is correct.
-        # If the number of columns is not yet specified, then it will be done
-        # (only the first time) according to the data
-
-        if len(self._dimensions) == 0:
-            logging.warning('add_data_point(): no dimensions specified, adding according to data')
-            self._add_missing_dimensions(ncols)
-
-        if ncols < len(self._dimensions):
-            logging.warning('add_data_point(): missing columns (%d < %d)' % \
-                (ncols, len(self._dimensions)))
-            return
-        elif ncols > len(self._dimensions):
-            logging.warning('add_data_point(): too many columns (%d > %d)' % \
-                (ncols, len(self._dimensions)))
-            return
-
-        # At this point 'args' is either:
-        #   - a 1d tuple of numbers, for adding a single data point
-        #   - a 2d tuple/list/array, for adding >1 data points
-        
-
-        if self._infile:
-            if npoints == 1:
-                self._write_data_line(args)
-            elif npoints > 1:
-                for i in range(npoints):
-                    self._write_data_line(args[i])
-
-        self._npoints += npoints
-        self._npoints_last_block += npoints
-        if self._npoints_last_block > self._npoints_max_block:
-            self._npoints_max_block = self._npoints_last_block
-
-        if 'newblock' in kwargs and kwargs['newblock']:
-            self.new_block()
-        else:
-            self.emit('new-data-point')
-            
-
-    def new_block(self):
-        "Fortunately there is no need for this function with a hdf file"
-        self.emit('new-data-block')
-
+    def add_value_matrix(self, name, x = None , y = None, unit = "", comment = "",**meta):
+        ds =  hdf_dataset(self.hf,name, x=x, y=y, unit=unit, comment= comment)
+        return ds
+ 
     def flush(self):
         self.hf.flush()
 
     def close(self):
-        self._file.close()
-        
+        self.hf.close_file()
