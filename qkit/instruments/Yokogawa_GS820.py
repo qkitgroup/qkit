@@ -20,6 +20,7 @@ import types
 import logging
 import numpy
 import struct
+import time
 
 class Yokogawa_GS820(Instrument):
     '''
@@ -114,6 +115,8 @@ class Yokogawa_GS820(Instrument):
         self.add_function('get_all')
         self.add_function('set_range_auto')
         self.add_function('set_defaults')
+        self.add_function('ramp_ch1_current')
+        self.add_function('ramp_ch2_current')
 
 
         if reset:
@@ -530,3 +533,22 @@ class Yokogawa_GS820(Instrument):
         logging.debug(__name__ + ' : ask instrument for %s (result %s)' % \
             (string, ans))
         return ans.lower()
+
+    def ramp_ch1_current(self,target, step, wait=0.1, showvalue=True):
+        start = self.get_ch1_level()
+        if(target < start): step = -step
+        a = numpy.concatenate( (numpy.arange(start, target, step)[1:], [target]) )
+        for i in a:
+            if showvalue==True: print i,
+            self.set_ch1_level(i)
+            time.sleep(wait)
+
+
+    def ramp_ch2_current(self,target, step, wait=0.1, showvalue=True):
+        start = self.get_ch2_level()
+        if(target < start): step = -step
+        a = numpy.concatenate( (numpy.arange(start, target, step)[1:], [target]) )
+        for i in a:
+            if showvalue==True: print i,
+            self.set_ch2_level(i)
+            time.sleep(wait)
