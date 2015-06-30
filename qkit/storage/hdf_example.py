@@ -6,8 +6,10 @@ Created on Sun Jun 21 00:16:06 2015
 """
 #import sys
 #sys.path.append("/Users/hrotzing/pik/devel/python/qkit")
-
-from qkit.storage import hdf_lib as hl
+try:
+    from qkit.storage import hdf_lib as hl
+except ImportError:
+    import hdf_lib as hl
 ## for random data
 from numpy.random import rand
 from numpy import linspace,arange

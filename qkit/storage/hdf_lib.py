@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Created 2015
+Library to ease the use of the file format hdf5 for datastorage
+It can be used with or without the qtlab environment.
 
-@author: hrotzing
+@author: hannes.rotzinger@kit.edu 2015
+@version: 0.1
 """
 import logging
 import h5py
@@ -12,17 +14,18 @@ import os
 import time
 
 
-#import data
+try:
+    from lib.config import get_config
+    config = get_config()
+    in_qtlab = config.get('qtlab', False)
 
-#from lib.config import get_config
-#config = get_config()
-#in_qtlab = config.get('qtlab', False)
-#from lib.network.object_sharer import SharedGObject, cache_result
-
-#if in_qtlab:
-#    import qt
-config = {}
-config['datadir'] = '/Users/hrotzing/pik/devel/python/qkit/qkit/measure/storage'
+    if in_qtlab:
+        import qt
+except ImportError:
+    import tempfile
+    print 'executing apparently not in the qt environment, set data root to:'+tempfile.gettempdir()
+    config = {}
+    config['datadir'] = tempfile.gettempdir()
 
 class H5_file(object):
     """ This base hdf5 class ist intended for QTlab as a base class for a 
@@ -59,8 +62,10 @@ class H5_file(object):
             self.hf.attrs.create("NeXus_version","4.3.0")
             self.entry = self.hf.create_group("entry")
             self.entry.attrs.create("NX_class","NXentry")
+            self.entry.attrs.create("data_latest",0)
+            self.entry.attrs.create("analysis_latest",0)
             # create a nexus data group        
-            self.grp = self.entry.create_group("data")
+            self.grp = self.entry.create_group("data0")
             self.grp.attrs.create("NX_class","NXdata")
         else:
             self.grp = self.create_group("data0")
@@ -69,7 +74,11 @@ class H5_file(object):
         # add a empty string dataset to the group -> used by add_data
         self.create_dataset(name='datasets',tracelength=0, dtype='S32')
         
-    def create_dataset(self,name,tracelength,**kwargs):
+    def add_string_datasets(self):
+        # add a empty string dataset to the group -> used by add_data
+        self.create_dataset(name='datasets',tracelength=0, dtype='S32')
+        
+    def create_dataset(self,name,tracelength, group = None,**kwargs):
         """ handles one and two dimensional data
         
             tracelength: 
@@ -77,6 +86,8 @@ class H5_file(object):
                 is the length of the first trace in 2D scan (array of vectors)
             For 2D scans the traces have to have the same tracelength
             and are simply appended to the trace array
+            
+            'group' is a optional group relative to the default group
             
             kwargs are appended as attributes to the dataset
         """
@@ -86,7 +97,9 @@ class H5_file(object):
         else:
             shape     = (100,)
             maxshape  = (None,)
-        
+        if group:
+                self.grp = self.grp.require_group(group)
+                
         if name in self.grp.keys():
             logging.error("Item '%s' already exists in data set '%s'" \
                     % (name, self.name))
