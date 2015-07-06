@@ -95,7 +95,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 	'''
 	
 	def f_Lorentzian(f, f0, k, a, offs):
-		return np.sign(a) * np.sqrt(np.abs(a*(k/2)**2/((k/2)**2+(f-f0)**2)))+offs
+		return np.sign(a) * np.sqrt(np.abs(a**2*(k/2)**2/((k/2)**2+(f-f0)**2)))+offs
 		
 	def f_damped_sine(t, fs, Td, a, offs, ph):
 		return a*np.exp(-t/Td)*np.sin(2*np.pi*fs*t+ph)+offs
@@ -137,15 +137,29 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 			if np.abs(np.max(data[data_c]) - np.mean(data[data_c])) > np.abs(np.min(data[data_c]) - np.mean(data[data_c])):
 				#expect a peak
 				print 'expecting peak'
-				s_a = (np.max(data[data_c])-np.mean(data[data_c]))**2
+				s_a = np.abs((np.max(data[data_c])-np.mean(data[data_c])))
 				s_f0 = data[0][np.where(data[data_c] == max(data[data_c]))[0][0]]*freq_conversion_factor
 			else:
 				print 'expecting dip'
-				s_a = -(np.min(data[data_c])-np.mean(data[data_c]))**2
+				s_a = -np.abs((np.min(data[data_c])-np.mean(data[data_c])))
 				s_f0 = data[0][np.where(data[data_c] == min(data[data_c]))[0][0]]*freq_conversion_factor
 			
+			#estimate peak/dip width
+			mid = s_offs + 0.5*s_a   #estimated mid region between base line and peak/dip
+			print mid
+			m = []   #mid points
+			for dat_p in range(len(data[data_c])-1):
+				if np.sign(data[data_c][dat_p] - mid) != np.sign(data[data_c][dat_p+1] - mid):   #mid level crossing
+					m.append(dat_p)   #frequency of found mid point
+			#print m
+			if len(m) > 1:
+				s_k = data[0][m[-1]]-data[0][m[0]]
+				print 'assume k = %.2e'%s_k
+			else:
+				s_k = 0.15*(data[0][-1]-data[0][0])   #try 15% of window
+				
 			#lorentzian fit
-			p0 = [s_f0, 0.006, s_a, s_offs]
+			p0 = [s_f0, s_k, s_a, s_offs]
 		else:
 			p0 = ps
 			
