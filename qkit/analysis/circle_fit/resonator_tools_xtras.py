@@ -14,7 +14,7 @@ import time
 def init_random():
     random.seed(time.time())
 
-def load_data(filename,y1_col,y2_col,sformat='realimag',phase_conversion = 1,ampformat='lin',fdata_unit=1.):
+def load_data(filename,y1_col,y2_col,sformat='realimag',phase_conversion = 1,ampformat='lin',fdata_unit=1.,delimiter=None):
     '''
     sformat = 'realimag' or 'ampphase'
     ampformat = 'lin' or 'log'
@@ -28,20 +28,20 @@ def load_data(filename,y1_col,y2_col,sformat='realimag',phase_conversion = 1,amp
     if sformat=='realimag':
         for line in lines:
             if ((line!="\n") and (line[0]!="#") and (line[0]!="!")) :
-                lineinfo = line.split()
+                lineinfo = line.split(delimiter)
                 f_data.append(float(lineinfo[0])*fdata_unit)
                 z_data.append(np.complex(float(lineinfo[y1_col]),float(lineinfo[y2_col])))
     elif sformat=='ampphase' and ampformat=='lin':
         for line in lines:
             if ((line!="\n") and (line[0]!="#") and (line[0]!="!") and (line[0]!="M") and (line[0]!="P")):
-                lineinfo = line.split(",")
-                f_data.append(float(lineinfo[1])*fdata_unit)
+                lineinfo = line.split(delimiter)
+                f_data.append(float(lineinfo[0])*fdata_unit)
                 z_data.append(float(lineinfo[y1_col])*np.exp( np.complex(0.,phase_conversion*float(lineinfo[y2_col]))))
     elif sformat=='ampphase' and ampformat=='log':
         for line in lines:
             if ((line!="\n") and (line[0]!="#") and (line[0]!="!") and (line[0]!="M") and (line[0]!="P")):
-                lineinfo = line.split(",")
-                f_data.append(float(lineinfo[1])*fdata_unit)
+                lineinfo = line.split(delimiter)
+                f_data.append(float(lineinfo[0])*fdata_unit)
                 linamp = 10**(float(lineinfo[y1_col])/20.)
                 z_data.append(linamp*np.exp( np.complex(0.,phase_conversion*float(lineinfo[y2_col]))))
     else:
