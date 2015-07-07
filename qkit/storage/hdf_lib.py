@@ -438,5 +438,5 @@ class Data(object):
     def flush(self):
         self.hf.flush()
 
-    def close(self):
+    def close_file(self):
         self.hf.close_file()
