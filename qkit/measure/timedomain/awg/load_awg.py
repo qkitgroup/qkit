@@ -7,6 +7,7 @@ import numpy
 import sys
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 import gc
+#from qkit.measure.timedomain.awg import generate_waveform as gwf
 
 
 def update(t, wfm_funcs, wfm_channels, sample, drive = 'c:', path = '\\waveforms'):
@@ -32,10 +33,18 @@ def update(t, wfm_funcs, wfm_channels, sample, drive = 'c:', path = '\\waveforms
 	#awg.run() # necessary?
 
 
-
-def update_sequence(ts, wfm_funcs, wfm_channels, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc = None):
+def update_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None): #@andre20150318
 	'''
 		set awg to sequence mode and push a number of waveforms into the sequencer
+		
+		inputs:
+		
+		ts: array of times, len(ts) = #sequenzes
+		wfm_func: waveform function usually generated via generate_waveform using ts[i]; this can be a touple of arrays (for channels 0,1, heterodyne mode) or a single array (homodyne mode)
+		sample: sample object
+		
+		marker: marker array in the form [[ch1m1,ch1m2],[ch2m1,ch2m2]] and all entries arrays of sample length
+		markerfunc: analog to wfm_func, set marker to None when used
 		
 		for the 6GS/s AWG, the waveform length must be divisible by 64
 		for the 1.2GS/s AWG, it must be divisible by 4
@@ -44,144 +53,35 @@ def update_sequence(ts, wfm_funcs, wfm_channels, sample, loop = False, drive = '
 	awg = sample.get_awg()
 	clock = sample.get_clock()
 	
-	#awg_say = awg._ins._visainstrument.write
-	#awg_ask = awg._ins._visainstrument.ask
-	p = Progress_Bar(len(wfm_funcs)*len(ts))
 	# create new sequence
-	if(reset):
+	if reset:
 		awg.set_runmode('SEQ')
-		awg.set_seq_length(0) #awg_say('SEQ:LENG %d'%(0)) # clear sequence
-		awg.set_seq_length(len(ts)) #awg_say('SEQ:LENG %d'%(len(ts))) # create empty sequence
-
-	# update all channels and times
-	for i in range(len(wfm_funcs)):
-		wfm_func = wfm_funcs[i]
-		wfm_channel = wfm_channels[i]
-		wfm_samples_prev = None
-		for ti in range(len(ts)):
-			qt.msleep()
-			t = ts[ti]
-			# filter duplicates
-			wfm_samples = wfm_func(t, sample)
-			#print wfm_samples
-			wfm_fn = 'ch%d_t%05d'%(wfm_channel, ti) # filename is kept until changed
-			wfm_pn = '%s%s\\%s'%(drive, path, wfm_fn)
-			# this results in "low" when the awg is stopped and "high" when it is running 
-			
-			if markerfunc != None:
-				try:
-					if markerfunc[chan][0] == None:
-						marker1 = np.zeros_like(wfm_samples, dtype=np.int8)[0]
-					else:
-						marker1 = markerfunc[chan][0](t,sample)
-					
-					if markerfunc[chan][1] == None:
-						marker2 = np.zeros_like(wfm_samples, dtype=np.int8)[0]
-					else:
-						marker2 = markerfunc[chan][1](t,sample)
-				
-				except TypeError:
-					marker1, marker2 = np.zeros_like(wfm_samples, dtype=np.int8)
-					if chan == 0:
-						marker1 = markerfunc(t,sample)
-					
-			elif marker == None:
-				marker1 = np.zeros_like(wfm_samples, dtype=np.int8)
-				marker2 = np.zeros_like(wfm_samples, dtype=np.int8)
-				
-				'''
-				marker1 = np.array([int(0) for j in range(len(wfm_samples[chan]))])
-				marker2 = np.array([int(0) for j in range(len(wfm_samples[chan]))])
-				#make the markers at least 3 ns
-				#marker samples
-				m_sam = int(clock*3e-9)
-				for j in range(m_sam):
-					marker1[1+j] = int(1)
-					marker2[len(wfm_samples[chan])-1-j] = int(1)
-				'''
-			else: #or set your own markers
-				c_marker1, c_marker2 = marker   #JB 04/2015
-				marker1 = c_marker1[ti]
-				marker2 = c_marker2[ti]
-			
-			#this was the old marker def
-##				marker = np.ones(wfm_samples.shape, np.int)
-##				marker[-1] = 0
-			awg.wfm_send(wfm_samples, marker1, marker2, wfm_pn, clock)
-			awg.wfm_import(wfm_fn, wfm_pn, 'WFM')
-			#awg.send_waveform(wfm_samples, marker, marker, wfm_pn, clock)
-			#awg_say('MMEM:IMP "%s", "%s", WFM'%(wfm_fn, wfm_pn)) # import wfm into list
-			# assign waveform to channel/time slot
-			
-			awg.wfm_assign(wfm_channel, ti+1, wfm_fn)
-			#awg_say('SEQ:ELEM%d:WAV%d "%s"'%(ti+1, wfm_channel, wfm_fn))
-			if(loop): awg.set_seq_loop(ti+1, np.infty) # awg_say('SEQ:ELEM%d:LOOP:INF '%(ti, int(loop)))
-			p.iterate()
-			#awg_say('SEQ:ELEM%d:JTAR:TYPE %s'%(ti, 'IND'))
-			#awg_say('SEQ:ELEM%d:JTAR:IND %d'%(ti, 1))
-			#awg_say('SEQ:ELEM%d:GOTO:IND %d'%(ti, 1))
-
-	if(reset):
-		# set up looping
-		try:
-			for channel in wfm_channels:
-				awg.set('ch%i_status'%channel,'on')
-		except:
-			pass
-		awg.set_seq_goto(len(ts), 1)
-		awg.run()
-		awg.wait(10,False)
+		awg.set_seq_length(0)   #clear sequence, necessary?
+		awg.set_seq_length(len(ts))   #create empty sequence
 		
-	qt.mend()
-	return np.all([awg.get('ch%i_status'%i)=='on' for i in wfm_channels])
-
-
-def update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None): #@andre20150318
-	'''
-		set awg to sequence mode and push a number of waveforms into the sequencer
-		
-		wfm_func has to be a tuple of two wfms, for ch1 resp ch2
-		
-		for the 6GS/s AWG, the waveform length must be divisible by 64
-		for the 1.2GS/s AWG, it must be divisible by 4
-	'''
-	qt.mstart()
-	awg = sample.get_awg()
-	clock = sample.get_clock()
-	
-	if(marker != None and markerfunc != None):
-		raise ValueError('marker AND markerfunc are both set. You can only use one of them!')
-	
-	#awg_say = awg._ins._visainstrument.write
-	#awg_ask = awg._ins._visainstrument.ask
-	# create new sequence
-	if(reset):
-		awg.set_runmode('SEQ')
-		awg.set_seq_length(0) #awg_say('SEQ:LENG %d'%(0)) # clear sequence
-		awg.set_seq_length(len(ts)) #awg_say('SEQ:LENG %d'%(len(ts))) # create empty sequence
+		#amplitude settings of analog output
 		awg.set_ch1_offset(0)
 		awg.set_ch2_offset(0)
 		awg.set_ch1_amplitude(2)
 		awg.set_ch2_amplitude(2)
 
-	# update all channels and times
-
+	#generate empty tuples
 	wfm_samples_prev = [None,None]
 	wfm_fn = [None,None]
 	wfm_pn = [None,None]
-	p = Progress_Bar(len(ts)*2)
-	for ti in range(len(ts)):
+	p = Progress_Bar(len(ts)*2)   #init progress bar
+	
+	#update all channels and times
+	for ti in range(len(ts)):   #run through all sequences
 		qt.msleep()
 		t = ts[ti]
 		# filter duplicates
-		wfm_samples = wfm_func(t,sample)
+		wfm_samples = wfm_func(t,sample)   #generate waveform
+		if not isinstance(wfm_samples[0],(list, tuple, np.ndarray)):   #homodyne
+			wfm_samples = [wfm_samples]
 		
-		for chan in (0,1):
-			wfm_fn[chan] = 'ch%d_t%05d'%(chan+1, ti) # filename is kept until changed
-			wfm_pn[chan] = '%s%s\\%s'%(drive, path, wfm_fn[chan])
-			# this results in "low" when the awg is stopped and "high" when it is running 
-			
-			if markerfunc != None:
+		for chan in [0,1]:
+			if markerfunc != None:   #use markerfunc
 				try:
 					if markerfunc[chan][0] == None:
 						marker1 = np.zeros_like(wfm_samples, dtype=np.int8)[0]
@@ -193,50 +93,39 @@ def update_2D_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = 
 					else:
 						marker2 = markerfunc[chan][1](t,sample)
 				
-				except TypeError:
+				except TypeError:   #only one markerfunc given
 					marker1, marker2 = np.zeros_like(wfm_samples, dtype=np.int8)
 					if chan == 0:
 						marker1 = markerfunc(t,sample)
 					
-			elif marker == None:
+			elif marker == None:   #fill up with zeros
 				marker1, marker2 = np.zeros_like(wfm_samples, dtype=np.int8)
-				'''
-				marker1 = np.array([int(0) for j in range(len(wfm_samples[chan]))])
-				marker2 = np.array([int(0) for j in range(len(wfm_samples[chan]))])
-				#make the markers at least 3 ns
-				#marker samples
-				m_sam = int(clock*3e-9)
-				for j in range(m_sam):
-					marker1[1+j] = int(1)
-					marker2[len(wfm_samples[chan])-1-j] = int(1)
-				'''
 			else: #or set your own markers
-				c_marker1, c_marker2 = marker[chan]   #JB 04/2015
+				c_marker1, c_marker2 = marker[chan]
 				marker1 = c_marker1[ti]
 				marker2 = c_marker2[ti]
+				
+			wfm_fn[chan] = 'ch%d_t%05d'%(chan+1, ti) # filename is kept until changed
+			if len(wfm_samples) == 1 and chan == 1:
+				wfm_pn[chan] = '%s%s\\%s'%(drive, path, np.zeros_like(wfm_fn[0]))   #create empty array
+				awg.wfm_send(np.zeros_like(wfm_samples[0]), marker1, marker2, wfm_pn[chan], clock)
+			else:
+				wfm_pn[chan] = '%s%s\\%s'%(drive, path, wfm_fn[chan])
+				#this results in "low" when the awg is stopped and "high" when it is running
+				awg.wfm_send(wfm_samples[chan], marker1, marker2, wfm_pn[chan], clock)
 			
-			#this was the old marker def
-##				marker = np.ones(wfm_samples.shape, np.int)
-##				marker[-1] = 0
-			awg.wfm_send(wfm_samples[chan], marker1, marker2, wfm_pn[chan], clock)
 			awg.wfm_import(wfm_fn[chan], wfm_pn[chan], 'WFM')
-			#awg.send_waveform(wfm_samples, marker, marker, wfm_pn, clock)
-			#awg_say('MMEM:IMP "%s", "%s", WFM'%(wfm_fn, wfm_pn)) # import wfm into list
-			# assign waveform to channel/time slot
 			
+			# assign waveform to channel/time slot
 			awg.wfm_assign(chan+1, ti+1, wfm_fn[chan])
-			#awg_say('SEQ:ELEM%d:WAV%d "%s"'%(ti+1, wfm_channel, wfm_fn))
-			if(loop): awg.set_seq_loop(ti+1, np.infty) # awg_say('SEQ:ELEM%d:LOOP:INF '%(ti, int(loop)))
+			
+			if(loop):
+				awg.set_seq_loop(ti+1, np.infty)
 			p.iterate()
-			#awg_say('SEQ:ELEM%d:JTAR:TYPE %s'%(ti, 'IND'))
-		#awg_say('SEQ:ELEM%d:JTAR:IND %d'%(ti, 1))
-		#awg_say('SEQ:ELEM%d:GOTO:IND %d'%(ti, 1))
-		gc.collect()
 
-	if(reset):
-		# set up looping
-		
-		
+		#gc.collect()
+
+	if reset:
 		# enable channels
 		awg.set_ch1_status('on')
 		awg.set_ch2_status('on')
