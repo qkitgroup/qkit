@@ -2,12 +2,14 @@ import qt
 import numpy as np
 import os.path
 import time
-import logging
+import logging,warnings
 import numpy
 import sys, gc
 #from gui.notebook.Progress_Bar import Progress_Bar
 import qkit.measure.timedomain.awg.load_awg as load_awg
 import qkit.measure.timedomain.awg.generate_waveform as gwf
+import matplotlib.pyplot as plt
+
 
 iq = qt.instruments.get('iq')
 gc.collect()
@@ -76,7 +78,7 @@ def radial(thetas, phis, wfm, sample, marker = None, delay = 0, markerfunc = Non
 			new_marker[0] = [ append_wfm(marker,np.zeros_like(gwf.square(0, sample,  angle[0]/np.pi*sample.tpi + delay))) for angle in angles ]
 			new_marker[1:4]=[ np.zeros_like(new_marker[0]) for i in range(3) ]
 		new_marker = [[new_marker[0],new_marker[1]],[new_marker[2],new_marker[3]]]
-	result = load_awg.update_2D_sequence(range(len(angles)), lambda t, sample2: iq.convert(append_wfm(wfm,gwf.square(angles[t][0]/np.pi*sample.tpi, sample, angles[t][0]/np.pi*sample.tpi + delay)*np.exp(1j*angles[t][1]))), sample, marker = new_marker, markerfunc=markerfunc)
+	result = load_awg.update_sequence(range(len(angles)), lambda t, sample2: iq.convert(append_wfm(wfm,gwf.square(angles[t][0]/np.pi*sample.tpi, sample, angles[t][0]/np.pi*sample.tpi + delay)*np.exp(1j*angles[t][1]))), sample, marker = new_marker, markerfunc=markerfunc)
 	print "You have a tomography resolution of %i points"%len(angles)
 	return result
 
@@ -100,20 +102,24 @@ def threepoint(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\wavef
 		At the end, three mmts are appended: no pulse, pi/2 pulse and pi-pulse, all without any tomographic pulse, in order to get a good scale for the analysis.
 	'''
 	
-	#def phase_t(t): 
+	def phase_t(t): 
 		if largeblocks: #In this version, all ts will be gone through first and then all phases
 			phase = t/len(ts)
 			t = t%len(ts)
 			if phase == 3 :
 				return [-1-t,0]
+			return [ts[t],[0,1,1j][phase]]
 			phase = [0,1,1j][phase]  #map the index to the right values
+			t = ts[t]
 			return [t,phase]
-	
+
 		else:	#In this version, all phases will be gone through first and then all ts
 			phase = t%3
 			t = t/3
 			if t >= len(ts) :
 				return [-1-phase,0]
+			
+			return [ts[t],[0,1,1j][phase]]
 			phase = [0,1,1j][phase]  #map the index to the right values
 			return [t,phase]
 	
@@ -127,9 +133,9 @@ def threepoint(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\wavef
 	def marker_helper (t, sample):
 		t,phase = phase_t(t)
 		if t <0 : return gwf.square(0,sample)
-		return append_wfm(markerfunc(t,sample),gwf.square(0,sample,sample.tpi2)*phase) #ToDo: This does not work for the general array markerfunc=[[funcA1,None],[None,funcB2]]
+		return append_wfm(markerfunc(t,sample),gwf.square(0,sample,sample.tpi2)) #ToDo: This does not work for the general array markerfunc=[[funcA1,None],[None,funcB2]]
 	
-	ts = range(3*len(ts)+3)
+	ts2 = range(3*len(ts)+3)
 	if marker!= None:
 		if largeblocks:		#The following is for option 1, where first all x, then all y coordinates are taken
 			marker = np.append(
@@ -142,4 +148,7 @@ def threepoint(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\wavef
 			
 		else:	#The folllowing is for option 2, where all coordinates are taken for one ts:
 			marker = np.append(marker.repeat(3,axis=2),np.zeros_like(marker[:,:,:3,:]),axis=2)
-	return load_awg.update_sequence(ts, lambda t, sample: iq.convert(wfm_helper(t,sample)), sample, loop = loop, drive = drive, path = path, reset = reset, marker=marker ,markerfunc=lambda t, sample: iq.convert(marker_helper(t,sample)))
+	if markerfunc==None:
+		return load_awg.update_sequence(ts2, lambda t, sample: iq.convert(wfm_helper(t,sample)), sample, loop = loop, drive = drive, path = path, reset = reset, marker=marker ,markerfunc=None)
+	else:
+		return load_awg.update_sequence(ts2, lambda t, sample: iq.convert(wfm_helper(t,sample)), sample, loop = loop, drive = drive, path = path, reset = reset, marker=marker ,markerfunc=lambda t, sample:marker_helper(t,sample))
