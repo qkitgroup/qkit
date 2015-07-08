@@ -26,7 +26,8 @@ import visa
 import types
 import time
 import logging
-import numpy
+import numpy as np
+import qt
 
 class Tektronix_PWS4205(Instrument):
     '''
@@ -53,6 +54,7 @@ class Tektronix_PWS4205(Instrument):
         # Add some global constants
         self._address = address
         self._visainstrument = visa.instrument(self._address)
+        self._name = name
         
         self.add_parameter('voltage',
             flags=Instrument.FLAG_GETSET, units='V', minval=-200, maxval=200, type=types.FloatType)
@@ -72,6 +74,7 @@ class Tektronix_PWS4205(Instrument):
         self.add_function('reset')
         self.add_function('on')
         self.add_function('off')
+        self.add_function('ramp_current')
  
 #        self.add_function('exec_tsl_script')
 #        self.add_function('exec_tsl_script_with_return')
@@ -110,11 +113,14 @@ class Tektronix_PWS4205(Instrument):
         Output:
             None
         '''
-        logging.info(__name__ + ' : get all')
-        #self.do_get_voltageA()
-        #self.get_voltageB()
-        #self.get_currentA()
-        #self.get_currentB()
+        logging.debug(__name__ + ' : get all')
+        self.get('voltage')
+        self.get('current')
+        self.get('status')
+        self.get('setcurrent')
+        self.get('setvoltage')
+        qt.msleep(0.1)
+
     
 #    def exec_tsl_script(self,script):
 #        '''
@@ -179,7 +185,7 @@ class Tektronix_PWS4205(Instrument):
 
     def do_set_voltage(self, volt):
         '''
-        Set the Amplitude of the signal
+        Sets the Amplitude of the signal
 
         Input:
             volt (float) : voltage in volt
@@ -189,6 +195,7 @@ class Tektronix_PWS4205(Instrument):
         '''
         logging.debug(__name__ + ' : set voltage to %f' % volt)
         self._visainstrument.write('VOLT %s' % volt)
+        self.get_all()
 
     def do_get_current(self):
         '''
@@ -218,7 +225,7 @@ class Tektronix_PWS4205(Instrument):
 
     def do_set_current(self, curr):
         '''
-        Set the Amplitude of the signal
+        Sets the Amplitude of the signal
 
         Input:
             curr (float) : current in amps
@@ -228,6 +235,7 @@ class Tektronix_PWS4205(Instrument):
         '''
         logging.debug(__name__ + ' : set current to %f' % curr)
         self._visainstrument.write('CURR %s' % curr)
+        self.get_all()
 
     def do_get_status(self):
         '''
@@ -252,7 +260,7 @@ class Tektronix_PWS4205(Instrument):
 
     def do_set_status(self, status):
         '''
-        Set the output status of the instrument
+        Sets the output status of the instrument
 
         Input:
             status (string) : 'On' or 'Off'
@@ -270,12 +278,12 @@ class Tektronix_PWS4205(Instrument):
             self._visainstrument.write('OUTPUT 1')
         else:
             self._visainstrument.write('OUTPUT 0')
-
+        self.get_all()
 
     # shortcuts
     def off(self):
         '''
-        Set status to 'off'
+        Sets status to 'off'
 
         Input:
             None
@@ -287,7 +295,7 @@ class Tektronix_PWS4205(Instrument):
 
     def on(self):
         '''
-        Set status to 'on'
+        Sets status to 'on'
 
         Input:
             None
@@ -296,3 +304,26 @@ class Tektronix_PWS4205(Instrument):
             None
         '''
         self.set_status('on')
+
+    def ramp_current(self, target, step, wait=0.2, showvalue=True):
+        '''
+        Ramps the Amplitude of the signal
+
+        Input:
+            target (float) : target current in amps
+            step (float) : current steps in amps
+            wait (floa) : waiting time in sec
+            showvalue (bool) : print values
+
+        Output:
+            None
+        '''
+        start = self.get_current()
+        if(target < start): step = -step
+        a = np.concatenate( (np.arange(start, target, step)[1:], [target]) )
+        for i in a:
+            volt = self.get_voltage()
+            if showvalue: 
+                print self._name+":  I="+str(i) + "A  " + "V=" + str(volt) + "V" 
+            self.set_current(i)
+            time.sleep(wait)
