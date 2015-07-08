@@ -105,7 +105,6 @@ class IQ_Mixer(Instrument):
 		return self._iq_frequency
 
 	def do_set_iq_frequency(self, iq_frequency):
-		'''This returns the iq_frequency which was used for the last call of convert()'''
 		self._iq_frequency = iq_frequency
 	
 	
@@ -571,7 +570,7 @@ class IQ_Mixer(Instrument):
 		params=self.get_calibration()
 		#content of params:(sideband_frequency,mw_freq,mw_power,time.time(),dcx,dcy,x,y,phaseoffset,relamp,relamp2),optimized)
 		self.do_set_sideband_frequency( params[0])
-		self.do_set_output_power(params[15])
+		self._output_power = params[15]
 		self.do_set_iq_frequency(self._sample.iq_frequency) #This is unnecessary, because it's done in calibrate()
 		self.get_all()
 		dcx,dcy,x,y,phaseoffset,relamp,relamp2=params[4:11]
