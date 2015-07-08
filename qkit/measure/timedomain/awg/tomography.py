@@ -86,10 +86,38 @@ def radial(thetas, phis, wfm, sample, marker = None, delay = 0, markerfunc = Non
 # gt.radial(thetas, phis, gwf.square(qubit.tpi, qubit), qubit)
 
 def threepoint(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc = None):
-	#marker stuff
-	wfm = [ append_wfm(wfm_func(t,sample),gwf.square(sample.tpi2,sample,sample.tpi2)*phase) for phase in [0,1,1j] for t in ts]
+	'''
+		This is a helper function to pass the right sequences to your AWG for a tomographic measurement.
+		
+		For each value in ts, three measurements are done:
+		* One without a rotation
+		* One with a rotation around x just before the readout
+		* One with a rotation around y just before the readout
+		
+		The wfm_func is automatically shifted by a pi/2 pulse, but THE MARKER IS NOT SHIFTED!
+		
+		At the end, three mmts are appended: no pulse, pi/2 pulse and pi-pulse, all without any tomographic pulse, in order to get a good scale for the analysis.
+	'''
+	#wfm = [ append_wfm(wfm_func(t,sample),gwf.square(sample.tpi2,sample,sample.tpi2)*phase) for phase in [0,1,1j] for t in ts] #the outer value is the one that changes faster -> all ts for one phase
+	wfm = [ append_wfm(wfm_func(t,sample),gwf.square(sample.tpi2,sample,sample.tpi2)*phase) for t in ts for phase in [0,1,1j]] #the outer value is the one that changes faster -> all phases for one ts
+	wfm.append(gwf.square(0,sample))
+	wfm.append(gwf.square(sample.tpi2,sample))
+	wfm.append(gwf.square(sample.tpi,sample))
+	
+
 	#ts = np.array([ts,ts,ts]).flatten()
-	ts = range(3*len(ts))
+	ts = range(3*len(ts)+3)
 	if marker!= None:
-		marker = np.append(np.append(marker,marker,axis=2),marker,axis=2)
+		#marker = np.append(np.append(np.append(marker,marker,axis=2),marker,axis=2),np.zeros_like(marker[0:3]))
+		#The following is for option 1, where first all x, then all y coordinates are taken
+		#marker = np.append(
+		#			np.append(
+		#				np.append(
+		#					marker,
+		#					marker,axis=2),
+		#				marker,axis=2), # Add the same marker three times because of the 
+		#			np.zeros_like(marker[:,:,:3,:]),axis=2)
+		
+		#The folllowing is for option 2, where all coordinates are taken for one ts:
+		marker = np.append(marker.repeat(3,axis=2),np.zeros_like(marker[:,:,:3,:]),axis=2)
 	return load_awg.update_2D_sequence(ts, lambda t, sample: iq.convert(wfm[t]), sample, loop = loop, drive = drive, path = path, reset = reset, marker=marker ,markerfunc=markerfunc)
