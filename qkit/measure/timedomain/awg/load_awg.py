@@ -33,7 +33,7 @@ def update(t, wfm_funcs, wfm_channels, sample, drive = 'c:', path = '\\waveforms
 
 
 
-def update_sequence(ts, wfm_funcs, wfm_channels, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None):
+def update_sequence(ts, wfm_funcs, wfm_channels, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc = None):
 	'''
 		set awg to sequence mode and push a number of waveforms into the sequencer
 		
@@ -68,7 +68,24 @@ def update_sequence(ts, wfm_funcs, wfm_channels, sample, loop = False, drive = '
 			wfm_pn = '%s%s\\%s'%(drive, path, wfm_fn)
 			# this results in "low" when the awg is stopped and "high" when it is running 
 			
-			if marker == None:
+			if markerfunc != None:
+				try:
+					if markerfunc[chan][0] == None:
+						marker1 = np.zeros_like(wfm_samples, dtype=np.int8)[0]
+					else:
+						marker1 = markerfunc[chan][0](t,sample)
+					
+					if markerfunc[chan][1] == None:
+						marker2 = np.zeros_like(wfm_samples, dtype=np.int8)[0]
+					else:
+						marker2 = markerfunc[chan][1](t,sample)
+				
+				except TypeError:
+					marker1, marker2 = np.zeros_like(wfm_samples, dtype=np.int8)
+					if chan == 0:
+						marker1 = markerfunc(t,sample)
+					
+			elif marker == None:
 				marker1 = np.zeros_like(wfm_samples, dtype=np.int8)
 				marker2 = np.zeros_like(wfm_samples, dtype=np.int8)
 				
