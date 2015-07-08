@@ -6,34 +6,10 @@ import logging
 import numpy
 import sys
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
-import gc
-#from qkit.measure.timedomain.awg import generate_waveform as gwf
+#import gc
 
 
-def update(t, wfm_funcs, wfm_channels, sample, drive = 'c:', path = '\\waveforms'):
-	'''
-		simultaneously perform different experiments on multiple qubits using an awg
-
-		Input:
-			t - parameter for wfm_funcs
-			wfm_funcs - callable function of 1 parameter that generate waveforms
-			wfm_channels - awg channels the waveforms are assigned to
-			sample - the Sample instance, where awg and clock are defined
-	'''
-	awg = sample.get_awg()
-	clock = sample.get_clock()
-	for i in range(len(wfm_funcs)):
-		wfm_func = wfm_funcs[i]
-		wfm_channel = wfm_channels[i]
-		wfm_samples = wfm_func(t,sample)
-		wfm_fn = 'ch%d'%wfm_channel
-		marker = np.zeros(wfm_samples.shape, np.int)
-		awg.send_waveform(wfm_samples, marker, marker, '%s%s\\%s'%(drive, path, wfm_fn), clock)
-		awg.load_waveform(wfm_channel, wfm_fn, drive, path)
-	#awg.run() # necessary?
-
-
-def update_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None): #@andre20150318
+def update_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None):
 	'''
 		set awg to sequence mode and push a number of waveforms into the sequencer
 		
@@ -78,7 +54,7 @@ def update_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\
 		# filter duplicates
 		wfm_samples = wfm_func(t,sample)   #generate waveform
 		if not isinstance(wfm_samples[0],(list, tuple, np.ndarray)):   #homodyne
-			wfm_samples = [wfm_samples]
+			wfm_samples = [wfm_samples,np.zeros_like(wfm_samples)]
 		
 		for chan in [0,1]:
 			if markerfunc != None:   #use markerfunc
@@ -108,11 +84,9 @@ def update_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\
 			wfm_fn[chan] = 'ch%d_t%05d'%(chan+1, ti) # filename is kept until changed
 			if len(wfm_samples) == 1 and chan == 1:
 				wfm_pn[chan] = '%s%s\\%s'%(drive, path, np.zeros_like(wfm_fn[0]))   #create empty array
-				awg.wfm_send(np.zeros_like(wfm_samples[0]), marker1, marker2, wfm_pn[chan], clock)
 			else:
 				wfm_pn[chan] = '%s%s\\%s'%(drive, path, wfm_fn[chan])
-				#this results in "low" when the awg is stopped and "high" when it is running
-				awg.wfm_send(wfm_samples[chan], marker1, marker2, wfm_pn[chan], clock)
+			awg.wfm_send(wfm_samples[chan], marker1, marker2, wfm_pn[chan], clock)
 			
 			awg.wfm_import(wfm_fn[chan], wfm_pn[chan], 'WFM')
 			
