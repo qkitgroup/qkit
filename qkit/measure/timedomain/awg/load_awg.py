@@ -6,7 +6,7 @@ import logging
 import numpy
 import sys
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
-#import gc
+import gc
 
 
 def update_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None):
@@ -97,7 +97,7 @@ def update_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\
 				awg.set_seq_loop(ti+1, np.infty)
 			p.iterate()
 
-		#gc.collect()
+		gc.collect()
 
 	if reset:
 		# enable channels
