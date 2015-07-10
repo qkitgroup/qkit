@@ -51,6 +51,7 @@ class spectrum(object):
 
         self.return_dat = False
         
+        self.save_dat = True
         self.save_hdf = False
                      
     def set_x_parameters(self, x_vec, x_coordname, x_instrument, x_unit = ""):
@@ -146,7 +147,8 @@ class spectrum(object):
         self._p = Progress_Bar(len(self.x_vec))
         
         self._prepare_measurement_vna()
-        self._prepare_measurement_data_file()
+        if self.save_dat:
+            self._prepare_measurement_dat_file()
         if self.save_hdf:        
             self._prepare_measurement_hdf_file() 
         
@@ -166,8 +168,9 @@ class spectrum(object):
         self._p = Progress_Bar(len(self.x_vec))
         
         self._prepare_measurement_vna()
-        self._prepare_measurement_data_file()
-        if self.save_hdf:        
+        if self.save_dat:
+            self._prepare_measurement_dat_file()
+        if self.save_hdf:
             self._prepare_measurement_hdf_file()
         
         self._measure()
@@ -188,20 +191,21 @@ class spectrum(object):
         self._scan_2D = True
         self._scan_name = 'vna_sweep2D_'+ self.x_coordname + '_' + self.y_coordname
         self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec))
-        
+
         self._prepare_measurement_vna()
-        self._prepare_measurement_data_file()
+        if self.save_dat:
+            self._prepare_measurement_dat_file()
         if self.save_hdf:        
             self._prepare_measurement_hdf_file()
             #qkit.gui.qviewkit.plot_hdf(self._data_hdf, datasets=['Amplitude', 'Phase'])
-        
+
         if self.landscape:
             self.center_freqs = np.array(self.landscape).T
         else:
             self.center_freqs = []   #load default sequence
             for i in range(len(self.x_vec)):
                 self.center_freqs.append([0])
-                
+
         self._measure()
 
         self._end_measurement()
@@ -215,29 +219,29 @@ class spectrum(object):
         #self._t_point = nop / bandwidth * nop_avg
         self._freqpoints = self.vna.get_freqpoints()
 
-    def _prepare_measurement_data_file(self):
-        self._data = qt.Data(name=self._scan_name)
-        self._data.add_coordinate(self.x_coordname)
+    def _prepare_measurement_dat_file(self):
+        self._data_dat = qt.Data(name=self._scan_name)
+        self._data_dat.add_coordinate(self.x_coordname)
         if self._scan_1D2:
-            self._data.add_coordinate('Frequency')
-            self._data.add_value('Amplitude')
-            self._data.add_value('Phase')
+            self._data_dat.add_coordinate('Frequency')
+            self._data_dat.add_value('Amplitude')
+            self._data_dat.add_value('Phase')
             if self.data_complex:
-                self._data.add_value('Real')
-                self._data.add_value('Img')        
+                self._data_dat.add_value('Real')
+                self._data_dat.add_value('Img')        
         else:
             if self._scan_2D:
-                self._data.add_coordinate(self.y_coordname)
+                self._data_dat.add_coordinate(self.y_coordname)
             for i in range(1,self._nop+1):
-                self._data.add_value(('Point %i Amp' %i))
+                self._data_dat.add_value(('Point %i Amp' %i))
             for i in range(1,self._nop+1):
-                    self._data.add_value(('Point %i Pha' %i))
+                    self._data_dat.add_value(('Point %i Pha' %i))
         if self.comment:
-            self._data.add_comment(self.comment) 
-        self._data.create_file()
+            self._data_dat.add_comment(self.comment) 
+        self._data_dat.create_file()
     
     def _prepare_measurement_hdf_file(self):
-        filename = str(self._data.get_filepath()).replace('.dat','.h5')
+        filename = str(self._data_dat.get_filepath()).replace('.dat','.h5')
         self._data_hdf = hdf.Data(name=self._scan_name, path=filename)
         self._hdf_freq = self._data_hdf.add_coordinate('Frequency', unit = 'Hz', comment = None)
         self._hdf_freq.add(self._freqpoints)
@@ -256,8 +260,8 @@ class spectrum(object):
 
     def _measure(self):
         qt.mstart()
-        if self._scan_1D or self.plotlive: #and not self.save_hdf:
-            plot_amp, plot_pha = self._plot_data_file()
+        if self._scan_1D or self.plotlive:# and not self.save_hdf:
+            plot_amp, plot_pha = self._plot_dat_file()
         """
         if not self._scan_2D:
             self.x_set_obj(self.x_vec[0])
@@ -290,11 +294,11 @@ class spectrum(object):
 
                             sleep(self.vna.get_sweeptime_averages())
                             data_amp, data_pha = self.vna.get_tracedata()
-
-                        dat = np.append(x, y)
-                        dat = np.append(dat,data_amp)
-                        dat = np.append(dat,data_pha)
-                        self._data.add_data_point(*dat)
+                        if self.save_dat:
+                            dat = np.append(x, y)
+                            dat = np.append(dat,data_amp)
+                            dat = np.append(dat,data_pha)
+                            self._data_dat.add_data_point(*dat)
                         if self.save_hdf:
                             save_amp0 = np.append(save_amp0, data_amp[len(data_amp)/2])
                             save_pha0 = np.append(save_pha0, data_pha[len(data_pha)/2])
@@ -313,10 +317,10 @@ class spectrum(object):
                     self.vna.avg_clear()
                     sleep(self.vna.get_sweeptime_averages())
                     data_amp, data_pha = self.vna.get_tracedata()
-
-                    dat = np.append(x, data_amp)
-                    dat = np.append(dat, data_pha)
-                    self._data.add_data_point(*dat)
+                    if self.save_dat:
+                        dat = np.append(x, data_amp)
+                        dat = np.append(dat, data_pha)
+                        self._data_dat.add_data_point(*dat)
                     if self.save_hdf:
                         self._hdf_amp.append(data_amp)
                         self._hdf_pha.append(data_pha)
@@ -328,16 +332,16 @@ class spectrum(object):
                     data_amp, data_pha = self.vna.get_tracedata()
                     if self.data_complex:
                         data_real, data_imag = self.vna.get_tracedata('RealImag')
+                    if self.save_dat:
+                        dat = np.append([x*np.ones(self._nop)],[self._freqpoints], axis = 0)
+                        dat = np.append(dat,[data_amp],axis = 0)
+                        dat = np.append(dat,[data_pha],axis = 0)
+                        if self.data_complex == True:
+                            dat = np.append(dat,[data_real],axis = 0)
+                            dat = np.append(dat,[data_imag],axis = 0)
 
-                    dat = np.append([x*np.ones(self._nop)],[self._freqpoints], axis = 0)
-                    dat = np.append(dat,[data_amp],axis = 0)
-                    dat = np.append(dat,[data_pha],axis = 0)
-                    if self.data_complex == True:
-                        dat = np.append(dat,[data_real],axis = 0)
-                        dat = np.append(dat,[data_imag],axis = 0)
-
-                    self._data.add_data_point(*dat)
-                    self._data.new_block()
+                        self._data_dat.add_data_point(*dat)
+                        self._data_dat.new_block()
                     if self.save_hdf:
                         self._hdf_amp.append(data_amp)
                         self._hdf_pha.append(data_pha)
@@ -349,11 +353,11 @@ class spectrum(object):
                     plot_pha.update()
                 
                 if self._scan_2D: 
-                    self._data.new_block()
+                    self._data_dat.new_block()
 
         finally:
             if self._scan_1D and not self.plotlive: #and not self.save_hdf:
-                plot_amp, plot_pha = self._plot_data_file()
+                plot_amp, plot_pha = self._plot_dat_file()
                 plot_amp.update()
                 plot_pha.update()
 
@@ -365,30 +369,30 @@ class spectrum(object):
             qt.mend()
             
     def _end_measurement(self):
-        print self._data.get_filepath()
-        self._data.close_file()
+        print self._data_dat.get_filepath()
+        self._data_dat.close_file()
         if self.save_hdf:
             print self._data_hdf.get_filepath()
             self._data_hdf.close_file()
 
-    def _plot_data_file(self):
+    def _plot_dat_file(self):
         if self._scan_1D:
-            plot_amp = qt.Plot2D(self._data, name='Amplitude', coorddim=0, valdim=int(self._nop/2)+1)
-            plot_pha = qt.Plot2D(self._data, name='Phase', coorddim=0, valdim=self._nop+int(self._nop/2)+1)
+            plot_amp = qt.Plot2D(self._data_dat, name='Amplitude', coorddim=0, valdim=int(self._nop/2)+1)
+            plot_pha = qt.Plot2D(self._data_dat, name='Phase', coorddim=0, valdim=self._nop+int(self._nop/2)+1)
         if self._scan_1D2:
-            plot_amp = qt.Plot3D(self._data, name='Amplitude 1D2', coorddims=(0,1), valdim=2, style=qt.Plot3D.STYLE_IMAGE)
+            plot_amp = qt.Plot3D(self._data_dat, name='Amplitude 1D2', coorddims=(0,1), valdim=2, style=qt.Plot3D.STYLE_IMAGE)
             plot_amp.set_palette('bluewhitered')
-            plot_pha = qt.Plot3D(self._data, name='Phase 1D2', coorddims=(0,1), valdim=3, style=qt.Plot3D.STYLE_IMAGE)
+            plot_pha = qt.Plot3D(self._data_dat, name='Phase 1D2', coorddims=(0,1), valdim=3, style=qt.Plot3D.STYLE_IMAGE)
             plot_pha.set_palette('bluewhitered')
         if self._scan_2D:
             if self.plot3D:
-                plot_amp = qt.Plot3D(self._data, name='Amplitude', coorddims=(0,1), valdim=int(self._nop/2)+2, style=qt.Plot3D.STYLE_IMAGE)
+                plot_amp = qt.Plot3D(self._data_dat, name='Amplitude', coorddims=(0,1), valdim=int(self._nop/2)+2, style=qt.Plot3D.STYLE_IMAGE)
                 plot_amp.set_palette('bluewhitered')
-                plot_pha = qt.Plot3D(self._data, name='Phase', coorddims=(0,1), valdim=int(self._nop/2)+2+self._nop, style=qt.Plot3D.STYLE_IMAGE)
+                plot_pha = qt.Plot3D(self._data_dat, name='Phase', coorddims=(0,1), valdim=int(self._nop/2)+2+self._nop, style=qt.Plot3D.STYLE_IMAGE)
                 plot_pha.set_palette('bluewhitered')
             else:
-                plot_amp = qt.Plot2D(self._data, name='Amplitude', coorddim=1, valdim=int(self._nop/2)+2)
-                plot_pha = qt.Plot2D(self._data, name='Phase', coorddim=1, valdim=int(self._nop/2)+2+self._nop)
+                plot_amp = qt.Plot2D(self._data_dat, name='Amplitude', coorddim=1, valdim=int(self._nop/2)+2)
+                plot_pha = qt.Plot2D(self._data_dat, name='Phase', coorddim=1, valdim=int(self._nop/2)+2+self._nop)
 
         return plot_amp, plot_pha
 
