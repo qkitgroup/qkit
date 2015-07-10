@@ -11,6 +11,8 @@ import sys
 import qt
 
 from qkit.storage import hdf_lib as hdf
+from qkit.analysis.circle_fit import resonator_tools as rt
+import qkit.gui 
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 
 #ttip = qt.instruments.get('ttip')
@@ -53,6 +55,7 @@ class spectrum(object):
         
         self.save_dat = True
         self.save_hdf = False
+        self.resonator_fit = False
                      
     def set_x_parameters(self, x_vec, x_coordname, x_instrument, x_unit = ""):
         self.x_vec = x_vec
@@ -197,7 +200,7 @@ class spectrum(object):
             self._prepare_measurement_dat_file()
         if self.save_hdf:        
             self._prepare_measurement_hdf_file()
-            #qkit.gui.qviewkit.plot_hdf(self._data_hdf, datasets=['Amplitude', 'Phase'])
+            #gui.plot.plot(self._data_hdf.filepath(), datasets=['Amplitude', 'Phase'])
 
         if self.landscape:
             self.center_freqs = np.array(self.landscape).T
@@ -395,6 +398,77 @@ class spectrum(object):
                 plot_pha = qt.Plot2D(self._data_dat, name='Phase', coorddim=1, valdim=int(self._nop/2)+2+self._nop)
 
         return plot_amp, plot_pha
+        
+    def _resonator_fit(self):
+  
+        if Fit==True:    
+            power, Plot_fr_Qi, Plot_Qc_Qr, Plot_Err_averages = rct.Power_Scan_DataPlot_Handling(power_int, power_end, temp=temp)   #???
+
+        a=1
+        for p in np.arange(power_int, np.sign(power_end)*(np.abs(power_end)+0.01), power_step):
+            FitAverages=1
+            print "------------------------------"
+            print 'Number of power step: %i out of %i' %(a, len(np.arange(power_int, np.sign(power_end)*(np.abs(power_end)+0.01), power_step)) )
+
+            #vna.set_power(p)
+            set_vna(centerfreq, span, p, points, IF, averages, delay)
+            averages = vna.get_averages()
+                    
+            
+            print 'VNA power settings %.1f dBm' %(vna.get_power())
+
+            real, imag=rct.do_averages(averages, single=True)
+            freq = vna.get_freqpoints()
+            z_data=rct.real_imag2z_data(real, imag, freq)
+           
+            if delay != None: z_data=rct.remove_cable_delay(freq, z_data, delay)
+            real, imag=rct.z_data2real_imag(z_data, freq)
+                
+            amp, pha=rct.convert_RealImag_to_AmpPha(real, imag)
+            data = rct.data_handling('Transmission S21', freq, real, imag, amp, pha, averages)
+            #rct.plot_Amp_Pha(data)
+            
+            #delay = vna.get_edel()
+            
+            if Fit == False:
+                print '-No fitting-'
+                #rct.plot_Amp_Pha(data)
+               
+            else:   #Fit == True
+                ExitFit = False
+                while ExitFit == False:
+                    fit_data, fit_results, z_data_nor=rct.Start_Fitting(freq, z_data, span, ResPeak)
+                    if fit_results["chi_square"]<=err_level:
+                        print '-Fitting within error bound-'
+                        ExitFit=True
+                    elif FitAverages==FitAveragesMax:
+                        print '-Fitting max. averages reached-'
+                        ExitFit=True
+                    else:
+                        print '-Keep averaging for fit-'
+                       
+                        FitAverages=FitAverages+1
+                        print '---Number of circle fit steps: %i out of %i' %(FitAverages, FitAveragesMax )
+       
+                        real_temp, imag_temp=rct.do_averages(averages, single=True)
+                        z_data_temp=rct.real_imag2z_data(real_temp, imag_temp, freq)
+                        z_data_temp=rct.remove_cable_delay(freq, z_data_temp, delay)
+                       
+                        z_data = [z_data[i]*(a-1)/a+z_data_temp[i]/a for i in range(len(freq))]
+                   
+                    #real, imag=rct.z_data2real_imag(z_data, freq)
+                    #amp, pha=rct.convert_RealImag_to_AmpPha(real, imag) #added MW July 2013
+                   
+                power.add_data_point(p,fit_results["fr"]/1e9,fit_results["absQc"],fit_results["Qc_dia_corr"],fit_results["Qr"],fit_results["Qi_dia_corr"],fit_results["Qi_no_corr"],fit_results["phi0"],fit_results["chi_square"], FitAverages)
+                #print(data.get_dir())
+                #print(power.get_dir())
+                rct.save_fitting(freq, z_data, fit_data, fit_results, z_data_nor, path=data.get_dir())
+               
+            a=a+1
+       
+            #qt.msleep(0.1)
+            #data, rct.data_handling('Transmission S21', freq, real, imag, amp, pha, averages)
+            #rct.plot_Amp_Pha(data)
 
     def record_trace(self):
         '''
