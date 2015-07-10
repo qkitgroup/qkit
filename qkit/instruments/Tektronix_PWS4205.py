@@ -234,6 +234,9 @@ class Tektronix_PWS4205(Instrument):
             None
         '''
         logging.debug(__name__ + ' : set current to %f' % curr)
+        if curr < 0:
+            logging.error('Negative currents now allowed!')
+            return
         self._visainstrument.write('CURR %s' % curr)
         self.get_all()
 

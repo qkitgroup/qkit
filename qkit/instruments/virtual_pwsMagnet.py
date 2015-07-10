@@ -97,7 +97,7 @@ class virtual_pwsMagnet(Instrument):
         self._current = getattr(self._PWS1, 'get_current')()+getattr(self._PWS2, 'get_current')()
         return self._current
         
-    def do_set_current(self, current, wait = 0.2):
+    def do_set_current(self, curr, wait = 0.2):
         '''
         Sets the Amplitude of the signal
 
@@ -108,10 +108,13 @@ class virtual_pwsMagnet(Instrument):
         Output:
             None
         '''
+        if curr < 0:
+            logging.error('Negative currents now allowed!')
+            return
         logging.debug(__name__+'do_set_current()')
-        getattr(self._PWS1, 'set_current')(current/2.)
+        getattr(self._PWS1, 'set_current')(curr/2.)
         time.sleep(wait)
-        getattr(self._PWS2, 'set_current')(current/2.)
+        getattr(self._PWS2, 'set_current')(curr/2.)
         time.sleep(wait)
         self._current = self.do_get_current()
         self.get_all()
