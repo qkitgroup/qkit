@@ -20,7 +20,7 @@ try:
     in_qtlab = config.get('qtlab', False)
 
     if in_qtlab:
-        import qt
+        import qts
 except ImportError:
     import tempfile
     print 'executing apparently not in the qt environment, set data root to:'+tempfile.gettempdir()
