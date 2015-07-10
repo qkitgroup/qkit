@@ -215,7 +215,7 @@ class spectrum(object):
         #self._t_point = nop / bandwidth * nop_avg
         self._freqpoints = self.vna.get_freqpoints()
 
-    def _prepare_data_file(self):
+    def _prepare_measurement_data_file(self):
         self._data = qt.Data(name=self._scan_name)
         self._data.add_coordinate(self.x_coordname)
         if self._scan_1D2:
@@ -236,7 +236,7 @@ class spectrum(object):
             self._data.add_comment(self.comment) 
         self._data.create_file()
     
-    def _prepare_hdf_file(self):
+    def _prepare_measurement_hdf_file(self):
         filename = str(self._data.get_filepath()).replace('.dat','.h5')
         self._data_hdf = hdf.Data(name=self._scan_name, path=filename)
         self._hdf_freq = self._data_hdf.add_coordinate('Frequency', unit = 'Hz', comment = None)
@@ -256,7 +256,7 @@ class spectrum(object):
 
     def _measure(self):
         qt.mstart()
-        if self._scan_1D or self.plotlive and not self.save_hdf:
+        if self._scan_1D or self.plotlive: #and not self.save_hdf:
             plot_amp, plot_pha = self._plot_data_file()
         """
         if not self._scan_2D:
@@ -352,7 +352,7 @@ class spectrum(object):
                     self._data.new_block()
 
         finally:
-            if self._scan_1D and not self.plotlive and not self.save_hdf:
+            if self._scan_1D and not self.plotlive: #and not self.save_hdf:
                 plot_amp, plot_pha = self._plot_data_file()
                 plot_amp.update()
                 plot_pha.update()
