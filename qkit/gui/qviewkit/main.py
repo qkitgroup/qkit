@@ -100,8 +100,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         self.h5file= h5py.File(str(self.DataFilePath))
         
-        self.display_2D_data("amplitude",graphicsView = self.graphicsView)
-        self.display_2D_data("phase",graphicsView = self.graphicsView2)
+        self.display_2D_data("Amplitude",graphicsView = self.graphicsView)
+        self.display_2D_data("Phase",graphicsView = self.graphicsView2)
         
         self.h5file.close()
         print "updated"
@@ -114,7 +114,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
  
         
     def display_2D_data(self,dataset,graphicsView):
-        ds_path = '/entry/data/'+str(dataset)
+        ds_path = '/entry/data0/'+str(dataset)
         ds = self.h5file[ds_path]
         fill = ds.attrs.get("fill")
         data = np.array(ds[:fill])
@@ -127,8 +127,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         xmin = x0
         xmax = x0+fill*dx
         ymin = y0
-        ymax = y0+fill*dy
-
+        ymax = y0+data.shape[1]*dy
+        print data.shape[1]
         x_name = ds.attrs.get("x_name")        
         y_name = ds.attrs.get("y_name")
         z_name = ds.attrs.get("name")
@@ -152,14 +152,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """
         pos = (xmin,ymin)
         
-        scale=(xmax/float(data.shape[0]),ymax/float(data.shape[1]))
+        scale=((xmax-xmin)/float(data.shape[0]),(ymax-ymin)/float(data.shape[1]))
         #scale=(100,100)
         
         #print len(data)
         graphicsView.view.setLabel('left', y_name, units=y_unit)
         graphicsView.view.setLabel('bottom', x_name, units=x_unit)
         graphicsView.view.setTitle(z_name+" ("+z_unit+")")
-        
+        graphicsView.view.invertY(False) 
         graphicsView.setImage(data,pos=pos,scale=scale)
         # Fixme roi ...
         graphicsView.roi.setPos([xmin,ymin])
