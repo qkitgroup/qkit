@@ -65,9 +65,9 @@ class HP_81110A(Instrument):
         self.add_parameter('low', type=types.FloatType,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, self._channels), minval=-10.0, maxval=9.90, units='Volts',channel_prefix='ch%d_')
-        self.add_parameter('status', type=types.StringType, channels=(1, self._channels),
+        self.add_parameter('status', type=types.BooleanType, channels=(1, self._channels),
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,channel_prefix='ch%d_')
-        self.add_parameter('display', type=types.StringType,
+        self.add_parameter('display', type=types.BooleanType,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET)
 
         self.add_function('reset')
@@ -244,11 +244,7 @@ class HP_81110A(Instrument):
         '''
         logging.debug(__name__ + ' : getting status for channel %d' % channel)
         val = self._visainstrument.ask('OUTP' + str(channel) + '?')
-        if (val=='1'):
-            return 'on'
-        elif (val=='0'):
-            return 'off'
-        return 'error'
+        return bool(val)
 
     def do_set_status(self, val, channel):
         '''
@@ -262,9 +258,9 @@ class HP_81110A(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting status for channel %d to %s' % (channel, val))
-        if ((val.upper()=='ON') | (val.upper()=='OFF')):
-            self._visainstrument.write('OUTP' + str(channel) + " " + val)
-        else:
+        try:
+            self._visainstrument.write('OUTP' + str(channel) + " %s", val)
+        except:
             logging.error('Try tot set OUTP to ' + str(val))
 
     def do_get_display(self):
@@ -290,14 +286,14 @@ class HP_81110A(Instrument):
         Sets the display status of the device
 
         Input:
-            val (string) : 'on' or 'off'
+            val (boolean) 
 
         Output:
             None
         '''
         logging.debug(__name__ + ' : setting display status to %s' % val)
-        if ((val.upper()=='ON') | (val.upper()=='OFF')):
-            self._visainstrument.write('DISP ' + val)
+        try
+            self._visainstrument.write('DISP %s', val)
         else:
             logging.error('Try to set display to ' +val)
 

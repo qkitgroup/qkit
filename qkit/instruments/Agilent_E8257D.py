@@ -219,7 +219,7 @@ class Agilent_E8257D(Instrument):
 		Output:
 			None
 		'''
-		self.set_status('off')
+		self.set_status(False)
 
 	def on(self):
 		'''
@@ -231,5 +231,4 @@ class Agilent_E8257D(Instrument):
 		Output:
 			None
 		'''
-		self.set_status('on')
-
+		self.set_status(True)

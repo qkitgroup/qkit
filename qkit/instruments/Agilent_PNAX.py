@@ -107,6 +107,16 @@ class Agilent_PNAX(Instrument):
         #Triggering Stuff
         self.add_parameter('trigger_source', type=types.StringType,
             flags=Instrument.FLAG_GETSET)
+            
+        self.add_parameter('sweeptime', type=types.FloatType,
+            flags=Instrument.FLAG_GET,
+            minval=0, maxval=1e-3,
+            units='s', tags=['sweep'])
+            
+        self.add_parameter('sweeptime_averages', type=types.FloatType,
+            flags=Instrument.FLAG_GET,
+            minval=0, maxval=1e-3,
+            units='s', tags=['sweep'])
         
         # sets the S21 setting in the PNA X
         self.define_S21()
@@ -290,20 +300,13 @@ class Agilent_PNAX(Instrument):
         Set status of Average
 
         Input:
-            status (string) : 'on' or 'off'
+            status (boolean)
 
         Output:
             None
         '''
         logging.debug(__name__ + ' : setting Average to "%s"' % (status))
-        if status:
-            status = 'ON'
-            self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,status))
-        elif status == False:
-            status = 'OFF'
-            self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,status))
-        else:
-            raise ValueError('set_Average(): can only set on or off')               
+        self._visainstrument.write('SENS%i:AVER:STAT %d' % (self._ci,status))
     def do_get_average(self):
         '''
         Get status of Average
@@ -621,6 +624,20 @@ class Agilent_PNAX(Instrument):
         '''
         logging.debug(__name__ + ' : getting channel index')
         return self._ci
+        
+    def do_get_sweeptime_averages(self):
+        return self.get_sweeptime() * self.get_averages()
+
+    def do_get_sweeptime(self):
+
+        '''
+        Get sweep time
+
+        '''
+
+        logging.debug(__name__ + ' : getting sweep time')
+        
+        return float(self.get_nop()) / self.get_bandwidth()
         
     def read(self):
         return self._visainstrument.read()

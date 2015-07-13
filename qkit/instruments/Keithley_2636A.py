@@ -63,9 +63,9 @@ class Keithley_2636A(Instrument):
             flags=Instrument.FLAG_GETSET, units='A', minval=-10, maxval=10, type=types.FloatType)
          
         self.add_parameter('statusA',
-            flags=Instrument.FLAG_GETSET, type=types.StringType)
+            flags=Instrument.FLAG_GETSET, type=types.BooleanType)
         self.add_parameter('statusB',
-            flags=Instrument.FLAG_GETSET, type=types.StringType)
+            flags=Instrument.FLAG_GETSET, type=types.BooleanType)
 
         self.add_function('reset')
         self.add_function('onA')
@@ -263,39 +263,27 @@ class Keithley_2636A(Instrument):
             None
 
         Output:
-            status (string) : 'On' or 'Off'
+            status (boolean)
         '''
         logging.debug(__name__ + ' : get status A')
-        stat = int(float(self._visainstrument.ask('print(smua.source.output)').strip()))
-
-        if (stat==1):
-          return 'on'
-        elif (stat==0):
-          return 'off'
-        else:
-          raise ValueError('Output status not specified : %s' % stat)
-        return
+        try:
+            return int(float(self._visainstrument.ask('print(smua.source.output)').strip()))
+        except:
+            raise ValueError('Output status not specified : %s' % stat)
+            return
 
     def do_set_statusA(self, status):
         '''
         Set the output status of the instrument
 
         Input:
-            status (string) : 'On' or 'Off'
+            status (boolean)
 
         Output:
             None
         '''
         logging.debug(__name__ + ' : set status A to %s' % status)
-        if status.upper() in ('ON', 'OFF'):
-            status = status.upper()
-        else:
-            raise ValueError('set_status(): can only set on or off')
-            
-        if status == 'ON':
-            self._visainstrument.write('smua.source.output = 1')
-        else:
-            self._visainstrument.write('smua.source.output = 0')
+        self._visainstrument.write('smua.source.output = %d', %status)
 
     def do_get_statusB(self):
         '''
@@ -305,39 +293,26 @@ class Keithley_2636A(Instrument):
             None
 
         Output:
-            status (string) : 'On' or 'Off'
+            status (boolean) 
         '''
-        logging.debug(__name__ + ' : get status B')
-        stat = int(float(self._visainstrument.ask('print(smub.source.output)').strip()))
-
-        if (stat==1):
-          return 'on'
-        elif (stat==0):
-          return 'off'
-        else:
-          raise ValueError('Output status not specified : %s' % stat)
-        return
+        try:
+            return int(float(self._visainstrument.ask('print(smua.source.output)').strip()))
+        except:
+            raise ValueError('Output status not specified : %s' % stat)
+            return
 
     def do_set_statusB(self, status):
         '''
         Set the output status of the instrument
 
         Input:
-            status (string) : 'On' or 'Off'
+            status (boolean)
 
         Output:
             None
         '''
-        logging.debug(__name__ + ' : set status Bto %s' % status)
-        if status.upper() in ('ON', 'OFF'):
-            status = status.upper()
-        else:
-            raise ValueError('set_status(): can only set on or off')
-            
-        if status == 'ON':
-            self._visainstrument.write('smub.source.output = 1')
-        else:
-            self._visainstrument.write('smub.source.output = 0')
+        logging.debug(__name__ + ' : set status A to %s' % status)
+        self._visainstrument.write('smua.source.output = %d', %status)
 
     # shortcuts
     def offA(self):
@@ -350,7 +325,7 @@ class Keithley_2636A(Instrument):
         Output:
             None
         '''
-        self.set_statusA('off')
+        self.set_statusA(False)
 
     def onA(self):
         '''
@@ -362,7 +337,7 @@ class Keithley_2636A(Instrument):
         Output:
             None
         '''
-        self.set_statusA('on')
+        self.set_statusA(True)
 
     def offB(self):
         '''
@@ -374,7 +349,7 @@ class Keithley_2636A(Instrument):
         Output:
             None
         '''
-        self.set_statusB('off')
+        self.set_statusB(False)
 
     def onB(self):
         '''
@@ -386,4 +361,4 @@ class Keithley_2636A(Instrument):
         Output:
             None
         '''
-        self.set_statusB('on')
+        self.set_statusB(True)

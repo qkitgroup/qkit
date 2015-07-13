@@ -50,7 +50,7 @@ class virtual_pwsMagnet(Instrument):
             flags=Instrument.FLAG_GETSET, units='A')
         self.add_parameter('voltage', type=types.FloatType,
             flags=Instrument.FLAG_GET, units='V')        
-        self.add_parameter('status', type=types.StringType,
+        self.add_parameter('status', type=types.BooleanType,
             flags=Instrument.FLAG_GETSET)
         self.add_parameter('magneticField', type=types.FloatType, 
         flags=Instrument.FLAG_GET, units='mT')
@@ -80,8 +80,6 @@ class virtual_pwsMagnet(Instrument):
         self.get('voltage')
         self.get('status')
         self.get('magneticField')
-        qt.msleep(0.1)
-
 
     def do_get_current(self):
         '''
@@ -117,7 +115,6 @@ class virtual_pwsMagnet(Instrument):
         getattr(self._PWS2, 'set_current')(curr/2.)
         time.sleep(wait)
         self._current = self.do_get_current()
-        self.get_all()
         
     def do_get_voltage(self):
         '''
@@ -141,18 +138,18 @@ class virtual_pwsMagnet(Instrument):
             None
 
         Output:
-            status (string) : 'On' or 'Off'
+            status (boolean)
         '''
         logging.debug(__name__+'do_get_status()')
-        status1 = getattr(self._PWS1, 'get_status')()
-        status2 = getattr(self._PWS2, 'get_status')()
-        if status1 == status2:
-            self._status = status1
+        status1 = bool(getattr(self._PWS1, 'get_status')())
+        status2 = bool(getattr(self._PWS2, 'get_status')())
+        if status1 and status2:
+            self._status = True
         else:
-            self._status = 'off'
-            getattr(self._PWS1, 'set_status')('off')
-            getattr(self._PWS2, 'set_status')('off')
-        return self._status
+            self._status = False
+            getattr(self._PWS1, 'off')()
+            getattr(self._PWS2, 'off')()
+        return bool(self._status)
 
     def do_set_status(self, status):
         '''
@@ -160,7 +157,7 @@ class virtual_pwsMagnet(Instrument):
         additional status check
 
         Input:
-            status (string) : 'On' or 'Off'
+            status (boolean) 
 
         Output:
             None
@@ -168,12 +165,7 @@ class virtual_pwsMagnet(Instrument):
         logging.debug(__name__+'do_set_status()')
         getattr(self._PWS1, 'set_status')(status)
         getattr(self._PWS2, 'set_status')(status)
-        if status == self.do_get_status():
-            self._status = status
-            self.get_all()
-        else:
-            logging.error('Status could not be set!')
-            return
+        self._status = status
 
     def do_get_magneticField(self):
         logging.debug(__name__+'do_get_magneticField()')
@@ -267,7 +259,7 @@ class virtual_pwsMagnet(Instrument):
                 
     def off(self):
         '''
-        Sets status to 'off'
+        Sets status to False
 
         Input:
             None
@@ -275,11 +267,11 @@ class virtual_pwsMagnet(Instrument):
         Output:
             None
         '''
-        self.set_status('off')
+        self.set_status(False)
 
     def on(self):
         '''
-        Sets status to 'on'
+        Sets status to True
 
         Input:
             None
@@ -287,4 +279,4 @@ class virtual_pwsMagnet(Instrument):
         Output:
             None
         '''
-        self.set_status('on')
+        self.set_status(True)

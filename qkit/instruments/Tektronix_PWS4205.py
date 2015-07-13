@@ -27,7 +27,6 @@ import types
 import time
 import logging
 import numpy as np
-import qt
 
 class Tektronix_PWS4205(Instrument):
     '''
@@ -69,7 +68,7 @@ class Tektronix_PWS4205(Instrument):
             flags=Instrument.FLAG_GET, units='A', minval=-10, maxval=10, type=types.FloatType)
 
         self.add_parameter('status',
-            flags=Instrument.FLAG_GETSET, type=types.StringType)
+            flags=Instrument.FLAG_GETSET, type=types.BooleanType)
 
         self.add_function('reset')
         self.add_function('on')
@@ -119,8 +118,6 @@ class Tektronix_PWS4205(Instrument):
         self.get('status')
         self.get('setcurrent')
         self.get('setvoltage')
-        qt.msleep(0.1)
-
     
 #    def exec_tsl_script(self,script):
 #        '''
@@ -195,7 +192,6 @@ class Tektronix_PWS4205(Instrument):
         '''
         logging.debug(__name__ + ' : set voltage to %f' % volt)
         self._visainstrument.write('VOLT %s' % volt)
-        self.get_all()
 
     def do_get_current(self):
         '''
@@ -234,11 +230,7 @@ class Tektronix_PWS4205(Instrument):
             None
         '''
         logging.debug(__name__ + ' : set current to %f' % curr)
-        if curr < 0:
-            logging.error('Negative currents now allowed!')
-            return
         self._visainstrument.write('CURR %s' % curr)
-        self.get_all()
 
     def do_get_status(self):
         '''
@@ -248,45 +240,30 @@ class Tektronix_PWS4205(Instrument):
             None
 
         Output:
-            status (string) : 'On' or 'Off'
+            status (boolean) 
         '''
         logging.debug(__name__ + ' : get status')
-        stat = int(float(self._visainstrument.ask('OUTPUT?')))
+        return bool(int(self._visainstrument.ask('OUTPUT?')))
 
-        if (stat==1):
-          return 'on'
-        elif (stat==0):
-          return 'off'
-        else:
-          raise ValueError('Output status not specified : %s' % stat)
-        return
 
     def do_set_status(self, status):
         '''
         Sets the output status of the instrument
 
         Input:
-            status (string) : 'On' or 'Off'
+            status (boolean)
 
         Output:
             None
         '''
-        logging.debug(__name__ + ' : set status to %s' % status)
-        if status.upper() in ('ON', 'OFF'):
-            status = status.upper()
-        else:
-            raise ValueError('set_status(): can only set on or off')
-            
-        if status == 'ON':
-            self._visainstrument.write('OUTPUT 1')
-        else:
-            self._visainstrument.write('OUTPUT 0')
-        self.get_all()
+        logging.debug(__name__ + ' : set status to %d' % status)
+        self._visainstrument.write('OUTPUT %d' %status)
+
 
     # shortcuts
     def off(self):
         '''
-        Sets status to 'off'
+        Sets status to False
 
         Input:
             None
@@ -294,11 +271,11 @@ class Tektronix_PWS4205(Instrument):
         Output:
             None
         '''
-        self.set_status('off')
+        self.set_status(False)
 
     def on(self):
         '''
-        Sets status to 'on'
+        Sets status to True
 
         Input:
             None
@@ -306,7 +283,7 @@ class Tektronix_PWS4205(Instrument):
         Output:
             None
         '''
-        self.set_status('on')
+        self.set_status(True)
 
     def ramp_current(self, target, step, wait=0.2, showvalue=True):
         '''

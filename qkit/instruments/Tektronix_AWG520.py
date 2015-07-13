@@ -101,7 +101,7 @@ class Tektronix_AWG520(Instrument):
         self.add_parameter('marker2_high', type=types.FloatType,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, 2), minval=-2, maxval=2, units='Volts', channel_prefix='ch%d_')
-        self.add_parameter('status', type=types.StringType,
+        self.add_parameter('status', type=types.BooleanType,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, 2),channel_prefix='ch%d_')
 
@@ -639,11 +639,9 @@ class Tektronix_AWG520(Instrument):
         '''
         logging.debug(__name__ + ' : Get status of channel %s' %channel)
         outp = self._visainstrument.ask('OUTP%s?' %channel)
-        if (outp=='0'):
-            return 'off'
-        elif (outp=='1'):
-            return 'on'
-        else:
+        try:
+            return bool(outp)
+        except:
             logging.debug(__name__ + ' : Read invalid status from instrument %s' %outp)
             return 'an error occurred while reading status from instrument'
 
@@ -652,7 +650,7 @@ class Tektronix_AWG520(Instrument):
         Sets the status of designated channel.
 
         Input:
-            status (string) : 'On' or 'Off'
+            status (boolean) 
             channel (int)   : channel number
 
         Output:
@@ -660,9 +658,9 @@ class Tektronix_AWG520(Instrument):
         '''
         logging.debug(__name__ + ' : Set status of channel %s to %s'
             %(channel, status))
-        if (status.upper()=='ON'):
+        if status:
             self._visainstrument.write('OUTP%s ON' %channel)
-        elif (status.upper()=='OFF'):
+        elif not status:
             self._visainstrument.write('OUTP%s OFF' %channel)
         else:
             logging.debug(__name__ + ' : Try to set status to invalid value %s' % status)

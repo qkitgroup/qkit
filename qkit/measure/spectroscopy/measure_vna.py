@@ -11,8 +11,8 @@ import sys
 import qt
 
 from qkit.storage import hdf_lib as hdf
-from qkit.analysis.circle_fit import resonator_tools as rt
-import qkit.gui 
+#from qkit.analysis.circle_fit import resonator_tools as rt
+#import qkit.gui 
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 
 #ttip = qt.instruments.get('ttip')
@@ -220,6 +220,7 @@ class spectrum(object):
         #self._nop_avg = self.vna.get_averages()
         #self._bandwidth = self.vna.get_bandwidth()
         #self._t_point = nop / bandwidth * nop_avg
+        self._sweeptime_averages = self.vna.get_sweeptime_averages()
         self._freqpoints = self.vna.get_freqpoints()
 
     def _prepare_measurement_dat_file(self):
@@ -295,7 +296,7 @@ class spectrum(object):
                             self.y_set_obj(y)
                             sleep(self.tdy)
 
-                            sleep(self.vna.get_sweeptime_averages())
+                            sleep(self._sweeptime_averages)
                             data_amp, data_pha = self.vna.get_tracedata()
                         if self.save_dat:
                             dat = np.append(x, y)
@@ -318,7 +319,7 @@ class spectrum(object):
 
                 if self._scan_1D:
                     self.vna.avg_clear()
-                    sleep(self.vna.get_sweeptime_averages())
+                    sleep(self._sweeptime_averages)
                     data_amp, data_pha = self.vna.get_tracedata()
                     if self.save_dat:
                         dat = np.append(x, data_amp)
@@ -331,7 +332,7 @@ class spectrum(object):
 
                 if self._scan_1D2:
                     self.vna.avg_clear()
-                    sleep(self.vna.get_sweeptime_averages())
+                    sleep(self._sweeptime_averages)
                     data_amp, data_pha = self.vna.get_tracedata()
                     if self.data_complex:
                         data_real, data_imag = self.vna.get_tracedata('RealImag')
@@ -477,7 +478,7 @@ class spectrum(object):
         returns frequency points, data_amp and data_pha when self.return_dat is set
         '''
         qt.mstart()
-        self.vna.get_all()
+        self._prepare_measurement_vna()
         self.vna.hold(0)   #switch VNA to continuous mode
 
         print 'recording trace...'
@@ -492,15 +493,14 @@ class spectrum(object):
         data.add_value('Imag')
         data.create_file()
         
-        freq = self.vna.get_freqpoints()
         self.vna.avg_clear()
-        sleep(self.vna.get_sweeptime_averages())
+        sleep(self._sweeptime_averages)
         data_amp, data_pha = self.vna.get_tracedata()
         data_real, data_imag = self.vna.get_tracedata('RealImag')
 
         try:
-            for i in np.arange(self.vna.get_nop()):
-                f = freq[i]
+            for i in np.arange(self._nop):
+                f = self._freqpoints[i]
                 am = data_amp[i]
                 ph = data_pha[i]
                 re = data_real[i]

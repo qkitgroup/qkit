@@ -317,7 +317,7 @@ class Agilent_VNA_E5071C(Instrument):
 		Set status of Average
 
 		Input:
-			status (string) : 'on' or 'off'
+			status (boolean)
 
 		Output:
 			None
@@ -330,7 +330,7 @@ class Agilent_VNA_E5071C(Instrument):
 			status = 'OFF'
 			self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,status))
 		else:
-			raise ValueError('set_Average(): can only set on or off')               
+			raise ValueError('set_Average(): can only set True or False')               
 	def do_get_Average(self):
 		'''
 		Get status of Average
@@ -339,7 +339,7 @@ class Agilent_VNA_E5071C(Instrument):
 			None
 
 		Output:
-			Status of Averaging ('on' or 'off) (string)
+			Status of Averaging (boolean)
 		'''
 		logging.debug(__name__ + ' : getting average status')
 		return bool(int(self._visainstrument.ask('SENS%i:AVER:STAT?' %(self._ci))))

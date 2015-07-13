@@ -58,9 +58,7 @@ class Anritsu_VNA(Instrument):
 			flags=Instrument.FLAG_GETSET,
 			minval=1, maxval=100000,
 			tags=['sweep'])
-		
-		
-			
+
 		self.add_parameter('bandwidth', type=types.FloatType,
 			flags=Instrument.FLAG_GETSET,
 			minval=0, maxval=1e9,
@@ -72,8 +70,7 @@ class Anritsu_VNA(Instrument):
 
 		self.add_parameter('Average', type=types.BooleanType,
 			flags=Instrument.FLAG_GETSET)   
-		
-		
+
 		self.add_parameter('centerfreq', type=types.FloatType,
 			flags=Instrument.FLAG_GETSET,
 			minval=0, maxval=20e9,
@@ -83,22 +80,22 @@ class Anritsu_VNA(Instrument):
 			flags=Instrument.FLAG_GETSET,
 			minval=0, maxval=20e9,
 			units='Hz', tags=['sweep'])
-			
+
 		self.add_parameter('startfreq', type=types.FloatType,
 			flags=Instrument.FLAG_GETSET,
 			minval=0, maxval=20e9,
 			units='Hz', tags=['sweep'])            
-			
+
 		self.add_parameter('stopfreq', type=types.FloatType,
 			flags=Instrument.FLAG_GETSET,
 			minval=0, maxval=20e9,
 			units='Hz', tags=['sweep'])                        
-			
+
 		self.add_parameter('span', type=types.FloatType,
 			flags=Instrument.FLAG_GETSET,
 			minval=0, maxval=20e9,
 			units='Hz', tags=['sweep'])        
-			
+
 		self.add_parameter('power', type=types.FloatType,
 			flags=Instrument.FLAG_GETSET,
 			minval=-25, maxval=30,
@@ -109,7 +106,7 @@ class Anritsu_VNA(Instrument):
 
 		self.add_parameter('zerospan', type=types.BooleanType,
 			flags=Instrument.FLAG_GETSET)
-			
+
 		self.add_parameter('channel_index', type=types.IntType,
 			flags=Instrument.FLAG_GETSET)     
 
@@ -335,21 +332,17 @@ class Anritsu_VNA(Instrument):
 		Set status of Average
 
 		Input:
-			status (string) : 'on' or 'off'
+			status (boolean)
 
 		Output:
 			None
 		'''
 		logging.debug(__name__ + ' : setting Average to "%s"' % (status))
 		if status:
-			status = 'ON'
 			self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,status))
 			self._visainstrument.write('SENS%i:AVER:TYP SWE' % (self._ci))
-		elif status == False:
-			status = 'OFF'
-			self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,status))
 		else:
-			raise ValueError('set_Average(): can only set on or off')               
+			self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,status))             
 	def do_get_Average(self):
 		'''
 		Get status of Average
@@ -358,7 +351,7 @@ class Anritsu_VNA(Instrument):
 			None
 
 		Output:
-			Status of Averaging ('on' or 'off) (string)
+			Status of Averaging (bool)
 		'''
 		logging.debug(__name__ + ' : getting average status')
 		return bool(int(self._visainstrument.ask('SENS%i:AVER:STAT?' %(self._ci))))
@@ -621,8 +614,7 @@ class Anritsu_VNA(Instrument):
 		'''
 		retrieve CW mode status from device
 		'''
-		res = int(self._visainstrument.ask(':SENS%i:SWE:CW?'%(self._ci)))
-		self._cw = True if res == 1 else False
+		self._cw = bool(int(self._visainstrument.ask(':SENS%i:SWE:CW?'%(self._ci))))
 		return self._cw
 
 	def do_set_zerospan(self,val):
@@ -746,9 +738,6 @@ class Anritsu_VNA(Instrument):
 		logging.debug(__name__ + ' : getting attenuation status')
 		return int(self._visainstrument.ask('SOUR%i:POW:PORT%i:ATT?' %(self._ci,channel)))
 	
-
-
-
 	def do_set_source_attenuation(self, att,channel):
 		'''
 		Set value of source attenuation
