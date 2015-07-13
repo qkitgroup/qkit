@@ -20,11 +20,17 @@ nop = 100
 # first create a data object , if path is set to None or is omitted, a new path will be created
 h5d = hl.Data(name='VNA_tracedata', path = None)
 
+# comment added to the hdf (internal) folder
+# options : comment (mandatory)
+#        : folder='data' | 'analysis' (optional, default is "data") 
+h5d.add_comment("New data has been created ....") 
+
 # measurement setup:
 # add_coordinate()    <- for measurement boundaries/steps
 # options: name (mandatory)
 #        : unit = "" (optional, default is "a.u.")
 #        : comment = "" (optional, default is "")
+#        : folder='data' | 'analysis' (optional, default is "data") 
 f_co = h5d.add_coordinate('frequency', unit = "Hz", comment = "VNA frequency scan")
 I_co = h5d.add_coordinate('current',   unit = "A",  comment = "magnetic field current")
 
@@ -33,8 +39,9 @@ I_co = h5d.add_coordinate('current',   unit = "A",  comment = "magnetic field cu
 #        : x = X  (optional) coordinate vector in x direction, default: None
 #        : unit = "" (optional, default is "a.u.")
 #        : comment = "" (optional, default is "")
+#        : folder='data' | 'analysis' (optional, default is "data") 
 
-T_vec = h5d.add_value_vector('temperature', x = None, unit = "K", comment = "save temperature values")
+T_vec = h5d.add_value_vector('temperature', x = None, unit = "K", comment = "save temperature values") 
 
 # add_value_matrix()    <- for measurement data
 # options: name (mandatory)
@@ -42,6 +49,7 @@ T_vec = h5d.add_value_vector('temperature', x = None, unit = "K", comment = "sav
 #        : y = Y  (mandatory) coordinate vector in y direction
 #        : unit = "" (optional, default is "a.u.")
 #        : comment = "" (optional, default is "")
+#        : folder='data' | 'analysis' (optional, default is "data") 
 
 
 amp_mx = h5d.add_value_matrix('amplitude', x = I_co , y = f_co, unit = "V", comment = "magic data")
@@ -63,4 +71,4 @@ for i in arange(1000):
     T_vec.append(float(rand(1)))
     
 print h5d.get_filepath()
-h5d.close()
+h5d.close_file()

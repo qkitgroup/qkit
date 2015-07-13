@@ -65,10 +65,13 @@ class H5_file(object):
             self.entry.attrs.create("data_latest",0)
             self.entry.attrs.create("analysis_latest",0)
             # create a nexus data group        
-            self.grp = self.entry.create_group("data0")
-            self.grp.attrs.create("NX_class","NXdata")
+            self.dgrp = self.entry.create_group("data0")
+            self.agrp = self.entry.create_group("analysis0")
+            self.dgrp.attrs.create("NX_class","NXdata")
+            self.dgrp.attrs.create("NX_class","NXdata")
         else:
-            self.grp = self.create_group("data0")
+            self.dgrp = self.create_group("data0")
+            self.dgrp = self.create_group("analysis0")
             
     def add_default_datasets(self):
         # add a empty string dataset to the group -> used by add_data
@@ -78,7 +81,7 @@ class H5_file(object):
         # add a empty string dataset to the group -> used by add_data
         self.create_dataset(name='datasets',tracelength=0, dtype='S32')
         
-    def create_dataset(self,name,tracelength, group = None,**kwargs):
+    def create_dataset(self,name,tracelength, folder = "data",**kwargs):
         """ handles one and two dimensional data
         
             tracelength: 
@@ -97,9 +100,16 @@ class H5_file(object):
         else:
             shape     = (100,)
             maxshape  = (None,)
-        if group:
-                self.grp = self.grp.require_group(group)
-                
+            
+        if folder == "data":
+            self.grp = self.dgrp
+        elif folder == "analysis":
+            self.grp = self.agrp
+#           self.grp = self.grp.require_group(group)
+        else:
+            logging.error("please specify either no folder, folder = 'data' or folder = 'analysis'.")
+            raise
+            
         if name in self.grp.keys():
             logging.error("Item '%s' already exists in data set '%s'" \
                     % (name, self.name))
@@ -221,9 +231,10 @@ class hdf_dataset(object):
         of the datasets and derive all the unknown values from the real data.
         """
         
-        def __init__(self, hdf_file, name, x=None, y=None, unit= "" ,comment="", **meta):
+        def __init__(self, hdf_file, name, x=None, y=None, unit= "" ,comment="",folder = 'data', **meta):
             self.hf = hdf_file
             self.name = name
+            self.folder = folder
             self.unit = unit
             self.comment = comment
             self.meta = meta
@@ -249,6 +260,7 @@ class hdf_dataset(object):
             
         def _setup_metadata(self):
             ds = self.ds
+            ds.attrs.create("comment",self.comment)
             # 2d/matrix 
             if self.x_object:
                 ds.attrs.create("x0",self.x_object.x0)
@@ -294,7 +306,7 @@ class hdf_dataset(object):
                 else:
                     tracelength = 0
                 # create the dataset
-                self.ds = self.hf.create_dataset(self.name,tracelength,**self.meta)
+                self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,**self.meta)
                 self._setup_metadata()
                 
             if data is not None:
@@ -387,8 +399,7 @@ class Data(object):
         
     def generate_file_name(self, name, **kwargs):
         # for now just a copy from the origial file
-        # Fixme: I would like to see this as a library function
-
+        
 
         self._name = name
 
@@ -422,17 +433,23 @@ class Data(object):
 
     def get_folder(self):
         return self._folder
-         
-    def add_coordinate(self,  name, unit = "", comment = "",**meta):
-        ds =  hdf_dataset(self.hf,name,unit=unit,comment= comment)
+    
+    def add_comment(self,comment, folder = "data" ):
+        if folder == "data":
+            self.hf.dgrp.attrs.create("comment",comment)
+        if folder == "analysis":
+            self.hf.agrp.attrs.create("comment",comment)
+            
+    def add_coordinate(self,  name, unit = "", comment = "",folder="data",**meta):
+        ds =  hdf_dataset(self.hf,name,unit=unit,comment= comment, folder=folder)
         return ds
     
-    def add_value_vector(self, name, x = None, unit = "", comment = "",**meta):
-        ds =  hdf_dataset(self.hf,name, x=x, unit=unit, comment= comment)
+    def add_value_vector(self, name, x = None, unit = "", comment = "",folder="data",**meta):
+        ds =  hdf_dataset(self.hf,name, x=x, unit=unit, comment= comment,folder=folder)
         return ds
 
-    def add_value_matrix(self, name, x = None , y = None, unit = "", comment = "",**meta):
-        ds =  hdf_dataset(self.hf,name, x=x, y=y, unit=unit, comment= comment)
+    def add_value_matrix(self, name, x = None , y = None, unit = "", comment = "",folder="data",**meta):
+        ds =  hdf_dataset(self.hf,name, x=x, y=y, unit=unit, comment= comment,folder=folder)
         return ds
  
     def flush(self):
