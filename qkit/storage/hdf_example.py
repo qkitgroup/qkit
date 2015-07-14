@@ -18,7 +18,7 @@ nop = 100
 
 
 # first create a data object , if path is set to None or is omitted, a new path will be created
-h5d = hl.Data(name='VNA_tracedata', path = None)
+h5d = hl.Data(name='VNA_tracedata', path = "./test.h5")
 
 # comment added to the hdf (internal) folder
 # options : comment (mandatory)
@@ -42,7 +42,7 @@ I_co = h5d.add_coordinate('current',   unit = "A",  comment = "magnetic field cu
 #        : folder='data' | 'analysis' (optional, default is "data") 
 
 T_vec = h5d.add_value_vector('temperature', x = None, unit = "K", comment = "save temperature values") 
-
+Tc_vec = h5d.add_value_vector('critical_temperature', x = None, unit = "K", folder='analysis' ,comment = "save temperature values")
 # add_value_matrix()    <- for measurement data
 # options: name (mandatory)
 #        : x = X  (optional) coordinate vector in x direction, default: None
@@ -69,6 +69,7 @@ for i in arange(1000):
     amp_mx.append(amp)
     pha_mx.append(pha)
     T_vec.append(float(rand(1)))
+    Tc_vec.append(float(rand(1)))
     
 print h5d.get_filepath()
 h5d.close_file()

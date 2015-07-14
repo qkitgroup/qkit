@@ -60,7 +60,8 @@ class H5_file(object):
             # maybe some day the data can by analyzed by the software supporting nexus
             # first the entry group
             self.hf.attrs.create("NeXus_version","4.3.0")
-            self.entry = self.hf.create_group("entry")
+            
+            self.entry = self.hf.require_group("entry")
             self.entry.attrs.create("NX_class","NXentry")
             self.entry.attrs.create("data_latest",0)
             self.entry.attrs.create("analysis_latest",0)
