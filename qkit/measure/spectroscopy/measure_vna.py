@@ -12,6 +12,7 @@ import qt
 
 from qkit.storage import hdf_lib as hdf
 #from qkit.analysis.circle_fit import resonator_tools as rt
+from qkit.analysis.circle_fit import resonator_tools_xtra as rtx
 #import qkit.gui 
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 
@@ -55,7 +56,7 @@ class spectrum(object):
         
         self.save_dat = True
         self.save_hdf = False
-        self.resonator_fit = False
+        self.fit_resonator = False
                      
     def set_x_parameters(self, x_vec, x_coordname, x_instrument, x_unit = ""):
         self.x_vec = x_vec
@@ -154,7 +155,8 @@ class spectrum(object):
             self._prepare_measurement_dat_file()
         if self.save_hdf:        
             self._prepare_measurement_hdf_file() 
-        
+            #qkit.gui.qviewkit.plot_hdf(self._data_hdf, datasets=['Amplitude', 'Phase'])
+
         self._measure()
         
         self._end_measurement()
@@ -175,7 +177,8 @@ class spectrum(object):
             self._prepare_measurement_dat_file()
         if self.save_hdf:
             self._prepare_measurement_hdf_file()
-        
+            #qkit.gui.qviewkit.plot_hdf(self._data_hdf, datasets=['Amplitude', 'Phase'])
+
         self._measure()
         
         self._end_measurement()
@@ -250,26 +253,29 @@ class spectrum(object):
         self._hdf_freq = self._data_hdf.add_coordinate('Frequency', unit = 'Hz', comment = None)
         self._hdf_freq.add(self._freqpoints)
         self._hdf_x = self._data_hdf.add_coordinate(self.x_coordname, unit = self.x_unit, comment = None)
-        self._hdf_x.add(self.x_vec)        
+        self._hdf_x.add(self.x_vec)
         if self._scan_2D:
             self._hdf_y = self._data_hdf.add_coordinate(self.y_coordname, unit = self.y_unit, comment = None)
-            self._hdf_y.add(self.y_vec)         
-            self._hdf_amp0 = self._data_hdf.add_value_matrix('Amplitude', x = self._hdf_y, y = self._hdf_y, unit = 'V', comment = None)
-            self._hdf_pha0 = self._data_hdf.add_value_matrix('Phase', x = self._hdf_y, y = self._hdf_y, unit='rad', comment = None)
+            self._hdf_y.add(self.y_vec)
+            self._hdf_amp0 = self._data_hdf.add_value_matrix('Amplitude', x = self._hdf_x, y = self._hdf_y, unit = 'V', comment = None)
+            self._hdf_pha0 = self._data_hdf.add_value_matrix('Phase', x = self._hdf_x, y = self._hdf_y, unit='rad', comment = None)
+            """ CREATING 3D BOXES FOR 2D SCAN
+            self._hdf_amp = self._data_hdf.add_value_box('Amplitudes', x = self._hdf_y, y = self._hdf_y, z = self._hdf_freq, unit = 'V', comment = None)
+            self._hdf_pha = self._data_hdf.add_value_box('Phases', x = self._hdf_y, y = self._hdf_y, z = self._hdf_freq, unit = 'V', comment = None)
+            """
         else:
             self._hdf_amp = self._data_hdf.add_value_matrix('Amplitude', x = self._hdf_x, y = self._hdf_freq, unit = 'V', comment = None)
             self._hdf_pha = self._data_hdf.add_value_matrix('Phase', x = self._hdf_x, y = self._hdf_freq, unit='rad', comment = None)
         #if self.comment:
         #    self._data_hdf.add_comment(self.comment) 
+        if self.fit_resonator:
+            self._prepare_fitting_hdf_file()
 
     def _measure(self):
         qt.mstart()
         if self._scan_1D or self.plotlive:# and not self.save_hdf:
             plot_amp, plot_pha = self._plot_dat_file()
-        """
-        if not self._scan_2D:
-            self.x_set_obj(self.x_vec[0])
-        """
+
         try:
             for x in self.x_vec:
                 self.x_set_obj(x)
@@ -311,6 +317,10 @@ class spectrum(object):
                                 self._hdf_pha0.append(save_pha0)
                             hdf_amp.append(data_amp)
                             hdf_pha.append(data_pha)
+                            """ APPENDING DATA TO 3D BOXES
+                            self._hdf_amp.append(data_amp)
+                            self._hdf_pha.append(data_pha
+                            """
                         qt.msleep(0.1)
                         if self.plotlive:
                             plot_amp.update()
@@ -328,6 +338,10 @@ class spectrum(object):
                     if self.save_hdf:
                         self._hdf_amp.append(data_amp)
                         self._hdf_pha.append(data_pha)
+                        if self.fit_resonator:
+                            self._z_data_raw = np.array(data_amp)*np.exp(1j*np.array(data_pha))
+                            self._z_data_raw.tolist()
+                            self._resonator_fit()
                     self._p.iterate()
 
                 if self._scan_1D2:
@@ -349,6 +363,10 @@ class spectrum(object):
                     if self.save_hdf:
                         self._hdf_amp.append(data_amp)
                         self._hdf_pha.append(data_pha)
+                        if self.fit_resonator:
+                            self._z_data_raw = np.array(data_amp)*np.exp(1j*np.array(data_pha))
+                            self._z_data_raw.tolist()
+                            self._resonator_fit()
                     self._p.iterate()
                         
                 qt.msleep(0.1)
@@ -401,75 +419,52 @@ class spectrum(object):
         return plot_amp, plot_pha
         
     def _resonator_fit(self):
-  
-        if Fit==True:    
-            power, Plot_fr_Qi, Plot_Qc_Qr, Plot_Err_averages = rct.Power_Scan_DataPlot_Handling(power_int, power_end, temp=temp)   #???
+        delay, amp_norm, alpha, fr, Qr, A2, frcal = rtx.do_calibration(self._freqpoints,self._z_data_raw,ignoreslope=True)
+        z_data = rtx.do_normalization(self._freqpoints,self._z_data_raw,delay,amp_norm,alpha,A2,frcal)
+        results = rtx.circlefit(self._freqpoints,z_data,fr,Qr,refine_results=False,calc_errors=True)
 
-        a=1
-        for p in np.arange(power_int, np.sign(power_end)*(np.abs(power_end)+0.01), power_step):
-            FitAverages=1
-            print "------------------------------"
-            print 'Number of power step: %i out of %i' %(a, len(np.arange(power_int, np.sign(power_end)*(np.abs(power_end)+0.01), power_step)) )
+        z_data_sim = np.array([A2*(f-frcal)+rtx.S21(f,fr=results["fr"],Qr=results["Qr"],Qc=results["absQc"],phi=results["phi0"],a=amp_norm,alpha=alpha,delay=delay) for f in self._freqpoints])
 
-            #vna.set_power(p)
-            set_vna(centerfreq, span, p, points, IF, averages, delay)
-            averages = vna.get_averages()
-                    
-            
-            print 'VNA power settings %.1f dBm' %(vna.get_power())
+        self._hdf_amp_sim.append(np.absolute(z_data_sim))
+        self._hdf_pha_sim.append(np.angle(z_data_sim))
+        
+        self._hdf_qi_dia_corr.append(results['Qi_dia_corr'])
+        self._hdf_qi_no_corr.append(results['Qi_no_corr'])
+        self._hdf_absQc.append(results['absQc'])
+        self._hdf_qc_dia_corr.append(results['Qc_dia_corr'])
+        self._hdf_qr.append(results['rQ'])
+        self._hdf_fr.append(results['fr'])
+        self._theta0.append(results['theta0'])
+        self._phi0.append(results['phi0'])
 
-            real, imag=rct.do_averages(averages, single=True)
-            freq = vna.get_freqpoints()
-            z_data=rct.real_imag2z_data(real, imag, freq)
-           
-            if delay != None: z_data=rct.remove_cable_delay(freq, z_data, delay)
-            real, imag=rct.z_data2real_imag(z_data, freq)
-                
-            amp, pha=rct.convert_RealImag_to_AmpPha(real, imag)
-            data = rct.data_handling('Transmission S21', freq, real, imag, amp, pha, averages)
-            #rct.plot_Amp_Pha(data)
-            
-            #delay = vna.get_edel()
-            
-            if Fit == False:
-                print '-No fitting-'
-                #rct.plot_Amp_Pha(data)
-               
-            else:   #Fit == True
-                ExitFit = False
-                while ExitFit == False:
-                    fit_data, fit_results, z_data_nor=rct.Start_Fitting(freq, z_data, span, ResPeak)
-                    if fit_results["chi_square"]<=err_level:
-                        print '-Fitting within error bound-'
-                        ExitFit=True
-                    elif FitAverages==FitAveragesMax:
-                        print '-Fitting max. averages reached-'
-                        ExitFit=True
-                    else:
-                        print '-Keep averaging for fit-'
-                       
-                        FitAverages=FitAverages+1
-                        print '---Number of circle fit steps: %i out of %i' %(FitAverages, FitAveragesMax )
-       
-                        real_temp, imag_temp=rct.do_averages(averages, single=True)
-                        z_data_temp=rct.real_imag2z_data(real_temp, imag_temp, freq)
-                        z_data_temp=rct.remove_cable_delay(freq, z_data_temp, delay)
-                       
-                        z_data = [z_data[i]*(a-1)/a+z_data_temp[i]/a for i in range(len(freq))]
-                   
-                    #real, imag=rct.z_data2real_imag(z_data, freq)
-                    #amp, pha=rct.convert_RealImag_to_AmpPha(real, imag) #added MW July 2013
-                   
-                power.add_data_point(p,fit_results["fr"]/1e9,fit_results["absQc"],fit_results["Qc_dia_corr"],fit_results["Qr"],fit_results["Qi_dia_corr"],fit_results["Qi_no_corr"],fit_results["phi0"],fit_results["chi_square"], FitAverages)
-                #print(data.get_dir())
-                #print(power.get_dir())
-                rct.save_fitting(freq, z_data, fit_data, fit_results, z_data_nor, path=data.get_dir())
-               
-            a=a+1
-       
-            #qt.msleep(0.1)
-            #data, rct.data_handling('Transmission S21', freq, real, imag, amp, pha, averages)
-            #rct.plot_Amp_Pha(data)
+        self._hdf_qi_dia_corr_err.append(results['Qi_dia_corr_err'])
+        self._hdf_qi_no_corr_err.append(results['Qi_no_corr_err'])
+        self._hdf_absQc_err.append(results['absQc_err'])
+        self._hdf_qr_err.append(results['Qr_err'])
+        self._hdf_fr_err.append(results['fr_err'])
+        self._phi0_err.append(results['phi0_err'])
+        self._chi_square.append(results['chi_square'])
+
+    def _prepare_fitting_hdf_file(self):
+            self._hdf_amp_sim = self._data_hdf.add_value_matrix('Amplitude', folder = 'Analysis', x = self._hdf_x, y = self._hdf_freq, unit = 'V', comment = None)
+            self._hdf_pha_sim = self._data_hdf.add_value_matrix('Phase', folder = 'Analysis', x = self._hdf_x, y = self._hdf_freq, unit='rad', comment = None)
+
+            self._hdf_qi_dia_corr = self._data_hdf.add_value_vector('Qi dia corr', folder = 'Analysis', x = self._hdf_x, unit ='', comment = None)
+            self._hdf_qi_no_corr = self._data_hdf.add_value_vector('Qi no corr', folder = 'Analysis', x = self._hdf_x, unit ='', comment = None)
+            self._hdf_absQc = self._data_hdf.add_value_vector('Qc abs', folder = 'Analysis', x = self._hdf_x, unit ='', comment = None)
+            self._hdf_qc_dia_corr = self._data_hdf.add_value_vector('Qc dia corr', folder = 'Analysis', x = self._hdf_x, unit ='', comment = None)
+            self._hdf_qr = self._data_hdf.add_value_vector('rQ', folder = 'Analysis', x = self._hdf_x, unit ='', comment = None)
+            self._hdf_fr = self._data_hdf.add_value_vector('fr', folder = 'Analysis', x = self._hdf_x, unit ='', comment = None)
+            self._theta0 = self._data_hdf.add_value_vector('theta0', folder = 'Analysis', x = self._hdf_x, unit ='', comment = None)
+            self._phi0 = self._data_hdf.add_value_vector('phi0', folder = 'Analysis', x = self._hdf_x, unit ='', comment = None)
+
+            self._hdf_qi_dia_corr_err = self._data_hdf.add_value_vector('Qi dia corr err', folder = 'Analysis', x = self._hdf_x, unit ='', comment = None)
+            self._hdf_qi_no_corr_err = self._data_hdf.add_value_vector('Qi no corr err', folder = 'Analysis', x = self._hdf_x, unit ='', comment = None)
+            self._hdf_absQc_err = self._data_hdf.add_value_vector('Qc abs err', folder = 'Analysis', x = self._hdf_x, unit ='', comment = None)
+            self._hdf_qr_err = self._data_hdf.add_value_vector('Qr err', folder = 'Analysis', x = self._hdf_x, unit ='', comment = None)
+            self._hdf_fr_err = self._data_hdf.add_value_vector('fr err', folder = 'Analysis', x = self._hdf_x, unit ='', comment = None)
+            self._phi0_err = self._data_hdf.add_value_vector('phi0 err', folder = 'Analysis', x = self._hdf_x, unit ='', comment = None)
+            self._chi_square = self._data_hdf.add_value_vector('chi_square', folder = 'Analysis', x = self._hdf_x, unit ='', comment = None)
 
     def record_trace(self):
         '''
@@ -521,7 +516,7 @@ class spectrum(object):
             data.close_file()
             qt.mend()
         print 'Done.'
-        if self.return_dat: return freq, data_amp, data_pha
+        if self.return_dat: return self._freqpoints, data_amp, data_pha
             
     def set_span(self, span):
         self.span = span
