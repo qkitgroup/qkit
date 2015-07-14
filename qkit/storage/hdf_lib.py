@@ -446,13 +446,17 @@ class Data(object):
         return ds
     
     def add_value_vector(self, name, x = None, unit = "", comment = "",folder="data",**meta):
-        ds =  hdf_dataset(self.hf,name, x=x, unit=unit, comment= comment,folder=folder)
+        ds =  hdf_dataset(self.hf,name, x=x, unit=unit, comment=comment, folder=folder)
         return ds
 
     def add_value_matrix(self, name, x = None , y = None, unit = "", comment = "",folder="data",**meta):
-        ds =  hdf_dataset(self.hf,name, x=x, y=y, unit=unit, comment= comment,folder=folder)
+        ds =  hdf_dataset(self.hf,name, x=x, y=y, unit=unit, comment=comment, folder=folder)
         return ds
  
+    def add_value_box(self, name, x = None , y = None, z=None, unit = "", comment = "",folder="data",**meta):
+        #ds =  hdf_dataset(self.hf,name, x=x, y=y, z=z, unit=unit, comment=comment, folder=folder)
+        pass
+    
     def flush(self):
         self.hf.flush()
 

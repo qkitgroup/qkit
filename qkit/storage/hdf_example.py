@@ -33,7 +33,7 @@ h5d.add_comment("New data has been created ....")
 #        : folder='data' | 'analysis' (optional, default is "data") 
 f_co = h5d.add_coordinate('frequency', unit = "Hz", comment = "VNA frequency scan")
 I_co = h5d.add_coordinate('current',   unit = "A",  comment = "magnetic field current")
-
+P_co = h5d.add_coordinate('power',   unit = "dBm",  comment = "microwave power")
 # add_value_vector()    <- for measurement data
 # options: name (mandatory)
 #        : x = X  (optional) coordinate vector in x direction, default: None
@@ -42,6 +42,7 @@ I_co = h5d.add_coordinate('current',   unit = "A",  comment = "magnetic field cu
 #        : folder='data' | 'analysis' (optional, default is "data") 
 
 T_vec = h5d.add_value_vector('temperature', x = None, unit = "K", comment = "save temperature values") 
+
 Tc_vec = h5d.add_value_vector('critical_temperature', x = None, unit = "K", folder='analysis' ,comment = "save temperature values")
 # add_value_matrix()    <- for measurement data
 # options: name (mandatory)
@@ -55,6 +56,19 @@ Tc_vec = h5d.add_value_vector('critical_temperature', x = None, unit = "K", fold
 amp_mx = h5d.add_value_matrix('amplitude', x = I_co , y = f_co, unit = "V", comment = "magic data")
 pha_mx = h5d.add_value_matrix('phase',     x = I_co , y = f_co, unit = "rad", comment = "more magic data!")
 
+
+
+# add_value_matrix()    <- for measurement data
+# options: name (mandatory)
+#        : x = X  (optional) coordinate vector in x direction, default: None
+#        : y = Y  (mandatory) coordinate vector in y direction
+#        : unit = "" (optional, default is "a.u.")
+#        : comment = "" (optional, default is "")
+#        : folder='data' | 'analysis' (optional, default is "data") 
+
+
+amp_bx = h5d.add_value_box('amplitude', x = I_co , y = f_co, z= P_co, unit = "V", comment = "magic data")
+pha_bx = h5d.add_value_box('phase',     x = I_co , y = f_co, z= P_co, unit = "rad", comment = "more magic data!")
 
 
 # now we add data to the file
