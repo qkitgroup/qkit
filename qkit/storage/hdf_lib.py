@@ -232,7 +232,7 @@ class hdf_dataset(object):
         of the datasets and derive all the unknown values from the real data.
         """
         
-        def __init__(self, hdf_file, name, x=None, y=None, unit= "" ,comment="",folder = 'data', **meta):
+        def __init__(self, hdf_file, name, x=None, y=None, z=None, unit= "" ,comment="",folder = 'data', **meta):
             self.hf = hdf_file
             self.name = name
             self.folder = folder
@@ -240,7 +240,8 @@ class hdf_dataset(object):
             self.comment = comment
             self.meta = meta
             self.x_object = x
-            self.y_object = y            
+            self.y_object = y
+            self.z_object = z            
             
             # the first dataset is used to extract a few attributes
             self.first = True
@@ -255,12 +256,15 @@ class hdf_dataset(object):
             self.y_unit = ""            
             self.y0 = 0.0
             self.dy = 1.0
-                        
-            self.z_name = name
-            self.z_unit = unit
+            
+            self.z_name = ""
+            self.z_unit = ""            
+            self.z0 = 0.0
+            self.dz = 1.0
             
         def _setup_metadata(self):
             ds = self.ds
+            ds.attrs.create('unit', self.unit)
             ds.attrs.create("comment",self.comment)
             # 2d/matrix 
             if self.x_object:
@@ -278,18 +282,25 @@ class hdf_dataset(object):
                 ds.attrs.create("dy",self.y_object.dx)
                 ds.attrs.create("y_unit",self.y_object.x_unit)
                 ds.attrs.create("y_name",self.y_object.x_name)
-                
-                ds.attrs.create("z_unit",self.z_unit)
-                ds.attrs.create("z_name",self.z_name)
+            """
             else:
                 ds.attrs.create("y0",self.y0)
                 ds.attrs.create("dy",self.dy)
                 ds.attrs.create("y_unit",self.y_unit)
                 ds.attrs.create("y_name",self.y_name)
-                
-                #ds.attrs.create("z_unit",self.z_unit)
-                #ds.attrs.create("z_name",self.z_name)
-                
+            """
+            if self.z_object:
+                ds.attrs.create("z0",self.z_object.x0)
+                ds.attrs.create("dz",self.z_object.dx)
+                ds.attrs.create("z_unit",self.z_object.x_unit)
+                ds.attrs.create("z_name",self.z_object.x_name)
+            """
+            else:
+                ds.attrs.create("z0",self.y0)
+                ds.attrs.create("dz",self.dy)
+                ds.attrs.create("z_unit",self.z_unit)
+                ds.attrs.create("z_name",self.z_name)
+            """
 
             
         def append(self,data):

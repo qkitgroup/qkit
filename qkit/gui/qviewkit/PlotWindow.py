@@ -105,11 +105,11 @@ class PlotWindow(QMainWindow, Ui_MainWindow):
 
         x_name = ds.attrs.get("x_name")        
         y_name = ds.attrs.get("y_name")
-        z_name = ds.attrs.get("name")
+        name = ds.attrs.get("name")
 
         x_unit = ds.attrs.get("x_unit")
         y_unit = ds.attrs.get("y_unit")
-        z_unit = ds.attrs.get("z_unit")
+        unit = ds.attrs.get("unit")
         
         
         pos = (xmin,ymin)
@@ -118,7 +118,7 @@ class PlotWindow(QMainWindow, Ui_MainWindow):
         scale=((xmax-xmin)/float(data.shape[0]),(ymax-ymin)/float(data.shape[1]))
         graphicsView.view.setLabel('left', y_name, units=y_unit)
         graphicsView.view.setLabel('bottom', x_name, units=x_unit)
-        graphicsView.view.setTitle(z_name+" ("+z_unit+")")
+        graphicsView.view.setTitle(name+" ("+unit+")")
         graphicsView.view.invertY(False)
         
         graphicsView.setImage(data,pos=pos,scale=scale)
