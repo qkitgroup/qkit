@@ -90,9 +90,13 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         parents = []
         #self.DATA.dataset_info = {}
         #first parents
-        
+        s=""
+        """itterate over the whole entry tree and collect the attributes """
         for i,pentry in enumerate(self.h5file["/entry"].keys()):
-            parents.append(self.addParent(parent, column, str(pentry)))            
+            parents.append(self.addParent(parent, column, str(pentry)))
+            s= "comment:\t" +str(self.h5file["/entry/"+pentry].attrs.get('comment',"")+"\n")
+            self.DATA.dataset_info["/entry/"+pentry] = s
+            
             for j,centry in enumerate(self.h5file["/entry/"+pentry].keys()):
                 self.addChild(parents[i], column, str(centry),"/entry/"+pentry+"/"+centry)
                 s = ""
@@ -140,6 +144,12 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         getSelected = self.treeWidget.selectedItems()
         if getSelected[0].parent():
             ds =str("/entry/"+getSelected[0].parent().text(0)+"/"+getSelected[0].text(0)) 
+            #print ds
+            #print self.DATA.dataset_info[ds]
+            self.Dataset_properties.clear()
+            self.Dataset_properties.insertPlainText(self.DATA.dataset_info[ds])
+        else:
+            ds =str("/entry/"+getSelected[0].text(0)) 
             #print ds
             #print self.DATA.dataset_info[ds]
             self.Dataset_properties.clear()

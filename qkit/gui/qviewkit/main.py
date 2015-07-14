@@ -37,7 +37,7 @@ class DATA(QObject):
         if self.open_ds.has_key(ds):
             self.open_ds.pop(ds)
     def plot_is_open(self,ds):
-        print ds, self.open_ds.has_key(ds)
+        #print ds, self.open_ds.has_key(ds)
         return self.open_ds.has_key(ds)
 # Main entry to program.  
 def main(argv):
