@@ -52,6 +52,7 @@ def main(argv):
     parser.add_argument('-ds','--dataset', type=str, help='(optional) dataset to directy display')
     parser.add_argument('-live','--live-plot', type=bool, help='(optional) if set, plots are reloaded ')
     parser.add_argument('-rt','--refresh_time', type=float, help='(optional) refresh time ')
+    parser.add_argument('-sp','--save_plot', type=float, help='(optional) save default plots ')
     
     args=parser.parse_args()
     data.file = args.file

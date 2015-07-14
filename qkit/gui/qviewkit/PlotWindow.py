@@ -56,7 +56,8 @@ class PlotWindow(QMainWindow, Ui_MainWindow):
                 self.graphicsView.setObjectName(self.dataset_path)
                 #self.graphicsView.view.setAspectLocked(False)
                 self.verticalLayout.addWidget(self.graphicsView)
-            self. _display_1D_data(graphicsView = self.graphicsView)
+                self.plot = self.graphicsView.plot()
+            self. _display_1D_data(self.plot, self.graphicsView)
                 
         if len(self.ds.shape) == 2:
             if not self.graphicsView:
@@ -64,26 +65,27 @@ class PlotWindow(QMainWindow, Ui_MainWindow):
                 self.graphicsView.setObjectName(self.dataset_path)
                 self.graphicsView.view.setAspectLocked(False)
                 self.verticalLayout.addWidget(self.graphicsView)
-            self._display_2D_data(graphicsView = self.graphicsView)
+            self._display_2D_data(self.graphicsView)
 
-    def _display_1D_data(self,graphicsView):
+    def _display_1D_data(self,plot,graphicsView):
         ds = self.ds
-        
+        fill = ds.attrs.get("fill")
         ydata = np.array(ds[:])
         
         x0 = ds.attrs.get("x0")
         dx = ds.attrs.get("dx")
-        x_data = [x0+dx*i for i in xrange(len(ydata))]
+        x_data = [x0+dx*i for i in xrange(len(ydata[:fill]))]
         
         x_name = ds.attrs.get("x_name")
         name = ds.attrs.get("name")
         x_unit = ds.attrs.get("x_unit")
         unit = ds.attrs.get("unit")
-        pl = graphicsView.plot()
-        pl.setPen((200,200,100))
+        
+        #plot.clear()
+        plot.setPen((200,200,100))
         graphicsView.setLabel('left', name, units=unit)
         graphicsView.setLabel('bottom', x_name , units=x_unit)
-        pl.setData(y=ydata, x=x_data)
+        plot.setData(y=ydata[:fill], x=x_data)
         
     def _display_2D_data(self,graphicsView):
         #load the dataset:

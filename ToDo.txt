@@ -12,11 +12,7 @@ gui/plot/plot:
         remove debugging print call from main.py
         
 measure_vna:
-        insert pna measurement DONE, to be tested
         insert resonator_fit function form analysis/circlefit
-instrument status:
-        set to bool values
-        done for
-            Agilent_PNAX, Anritsu_VNA, Tektronix_PWS4205, virtual_pwsMagnet
+
 VNA/PNA:
         hold functions
