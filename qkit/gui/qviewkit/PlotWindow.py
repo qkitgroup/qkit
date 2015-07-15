@@ -34,7 +34,7 @@ class PlotWindow(QMainWindow, Ui_MainWindow):
         # set up User Interface (widgets, layout...)
         self.setupUi(self)
         self.graphicsView = None
-        
+        self.setWindowTitle(dataset_path.split('/')[-1])
         #self.menubar.setNativeMenuBar(False)
         self._setup_signal_slots()
  

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'main_view.ui'
 #
-# Created: Mon Jul 13 10:49:07 2015
+# Created: Tue Jul 14 23:34:20 2015
 #      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -51,7 +51,6 @@ class Ui_MainWindow(object):
         self.updateButton.setObjectName(_fromUtf8("updateButton"))
         self.gridLayout.addWidget(self.updateButton, 1, 0, 1, 1)
         self.liveCheckBox = QtGui.QCheckBox(self.centralwidget)
-        self.liveCheckBox.setChecked(True)
         self.liveCheckBox.setObjectName(_fromUtf8("liveCheckBox"))
         self.gridLayout.addWidget(self.liveCheckBox, 1, 2, 1, 1)
         self.heardBeat = QtGui.QRadioButton(self.centralwidget)

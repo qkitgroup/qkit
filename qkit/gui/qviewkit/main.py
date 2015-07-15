@@ -49,18 +49,21 @@ def main(argv):
         description="Qviewkit / qkit tool to visualize qkit-hdf files // HR@KIT 2015")
 
     parser.add_argument('-f','--file',     type=str, help='hdf filename to open')
-    parser.add_argument('-ds','--dataset', type=str, help='(optional) dataset to directy display')
+    parser.add_argument('-ds','--dataset', type=str, help='(optional) datasets opened by default')
     parser.add_argument('-live','--live-plot', type=bool, help='(optional) if set, plots are reloaded ')
     parser.add_argument('-rt','--refresh_time', type=float, help='(optional) refresh time ')
     parser.add_argument('-sp','--save_plot', type=float, help='(optional) save default plots ')
     
     args=parser.parse_args()
-    data.file = args.file
-    data.active_dataset = args.dataset
-    print args.file
+    data.args = args
+    
+    #data.file = args.file
+    #data.active_dataset = args.dataset
+    #print args.file
 
     # create Qt application
     app = QApplication(argv,True)
+    
     # create main window
     from DatasetsWindow import DatasetsWindow
     #

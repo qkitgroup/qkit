@@ -74,9 +74,6 @@
           <property name="text">
            <string>live</string>
           </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
          </widget>
         </item>
         <item row="0" column="3">

@@ -29,23 +29,22 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         self.tree_refresh  = True
         self._setup_signal_slots()
         self.setup_timer()
-
-        
+        self.set_cmd_options()
+        self.liveCheckBox.click()
     def setup_timer(self):
          self.timer = QTimer()
          self.timer.timeout.connect(self.update_file)
          self.timer.timeout.connect(self.live_update_onoff)
 
-    def open_file(self):
-        self.DATA.DataFilePath=QFileDialog.getOpenFileName(filter="*.h5")
-        if self.DATA.DataFilePath:
-            self.h5file= h5py.File(str(self.DATA.DataFilePath))
-            self.populate_data_list()
-            self.h5file.close()
-            print self.DATA.DataFilePath
-            self.statusBar().showMessage(self.DATA.DataFilePath)
+
             
-    
+    def set_cmd_options(self):
+        if self.DATA.args.file:
+            self.DATA.DataFilePath = self.DATA.args.file
+            self.update_file()
+        if self.DATA.args.refresh_time:
+            self.refreshTime.setValue(self.DATA.args.refresh_time)
+
     
     def _setup_signal_slots(self):
         #connect(timer, SIGNAL(timeout()), this, SLOT(self.live_update_onoff));
@@ -163,9 +162,18 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                 self.populate_data_list()
             self.update_plots()
             self.h5file.close()
-            
+            self.statusBar().showMessage(self.DATA.DataFilePath)
         except IOError:
             print "IOError"
+
+    def open_file(self):
+        self.DATA.DataFilePath=QFileDialog.getOpenFileName(filter="*.h5")
+        if self.DATA.DataFilePath:
+            self.h5file= h5py.File(str(self.DATA.DataFilePath))
+            self.populate_data_list()
+            self.h5file.close()
+            print self.DATA.DataFilePath
+            self.statusBar().showMessage(self.DATA.DataFilePath)
             
     def update_plots(self):
         self.refresh_signal.emit()
