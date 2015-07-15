@@ -87,7 +87,7 @@ def radial(thetas, phis, wfm, sample, marker = None, delay = 0, markerfunc = Non
 # phis = [1]+(len(thetas)-1)*[15] #for 15 steps in phi direction (but 0 rotation has only 1 pulse)
 # gt.radial(thetas, phis, gwf.square(qubit.tpi, qubit), qubit)
 
-def threepoint(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc = None, largeblocks = False):
+def threepoint(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc = None, largeblocks = False, delay = 0):
 	'''
 		This is a helper function to pass the right sequences to your AWG for a tomographic measurement.
 		
@@ -97,7 +97,9 @@ def threepoint(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\wavef
 		* One with a rotation around y just before the readout
 		If largeblocks=False (default): all 3 mmts are done for one value in ts, then go on to the next value. If largeblocks=True, the mmts consists of 3 large blocks with all ts, so the tomographic mmt sequence changes slowly.
 		
-		The wfm_func is automatically shifted by a pi/2 pulse, THE MARKER IS ONLY SHIFTED WHEN PASSED AS markerfunc!
+		The wfm_func is automatically shifted by a pi/2 pulse + delay, THE MARKER IS ONLY SHIFTED WHEN PASSED AS markerfunc!
+		
+		
 		
 		At the end, three mmts are appended: no pulse, pi/2 pulse and pi-pulse, all without any tomographic pulse, in order to get a good scale for the analysis.
 	'''
@@ -128,12 +130,12 @@ def threepoint(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\wavef
 		if t == -1 : return gwf.square(0,sample)
 		if t == -2 : return gwf.square(sample.tpi,sample)
 		if t == -3 : return gwf.square(sample.tpi2,sample)
-		return append_wfm(wfm_func(t,sample),gwf.square(sample.tpi2,sample,sample.tpi2)*phase)
+		return append_wfm(wfm_func(t,sample),gwf.square(sample.tpi2,sample,sample.tpi2+delay)*phase)
 	
 	def marker_helper (t, sample):
 		t,phase = phase_t(t)
 		if t <0 : return gwf.square(0,sample)
-		return append_wfm(markerfunc(t,sample),gwf.square(0,sample,sample.tpi2)) #ToDo: This does not work for the general array markerfunc=[[funcA1,None],[None,funcB2]]
+		return append_wfm(markerfunc(t,sample),gwf.square(0,sample,sample.tpi2+delay)) #ToDo: This does not work for the general array markerfunc=[[funcA1,None],[None,funcB2]]
 	
 	ts2 = range(3*len(ts)+3)
 	if marker!= None:
