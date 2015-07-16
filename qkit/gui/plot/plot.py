@@ -1,5 +1,5 @@
 ## MP 06/16/15:
-## not tested, since I could not install h5py
+## alpha-tested on erbium pc, this may really work ...
 
 import os
 from subprocess import Popen
@@ -10,17 +10,17 @@ qviewkit_main = os.path.join('qkit','gui','qviewkit','main.py')
 qviewkit_main_path = os.path.abspath(qviewkit_main)
 
 def plot_hdf(filepath, datasets=[]):
-	filepath = os.path.abspath(filepath)
-	arguments = ' -f '+filepath+' '
-	if datasets:
-		arguments += '-ds '
-		for dataset in datasets:
-			arguments += dataset+','
-     	open_main = 'python ' + qviewkit_main_path + arguments
+    filepath = os.path.abspath(filepath)
+    arguments = ' -f '+filepath+' '
+    if datasets:
+        arguments += '-ds '
+        for dataset in datasets:
+            arguments += dataset+','
+    open_main = 'python ' + qviewkit_main_path + arguments
 
-## As far as I understood, the encode('string-escape') does the same as \r 
-     	open_main.encode('string-escape')
-	Popen(open_main, shell=True)
+## As far as I understood, the encode('string-escape') does the same as r' 
+    open_main.encode('string-escape')
+    Popen(open_main, shell=True)
 
 ## "old":
 """
