@@ -63,7 +63,7 @@ class Anritsu_MG37022(Instrument):
             units='dB@10GHz')
         self.add_parameter('power', type=types.FloatType,
             flags=Instrument.FLAG_GETSET,
-            minval=-130, maxval=10,
+            minval=-130, maxval=29,
             units='dBm', tags=['sweep'])
         self.add_parameter('status', type=types.BooleanType,
             flags=Instrument.FLAG_GETSET)
