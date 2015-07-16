@@ -101,12 +101,12 @@ def update_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\
 
 	if reset:
 		# enable channels
-		awg.set_ch1_status('on')
-		awg.set_ch2_status('on')
+		awg.set_ch1_status(True)
+		awg.set_ch2_status(True)
 		awg.set_seq_goto(len(ts), 1)
 		awg.run()
 		awg.wait(10,False)
 		
 		
 	qt.mend()
-	return np.all([awg.get('ch%i_status'%i)=='on' for i in [1,2]])
+	return np.all([awg.get('ch%i_status'%i) for i in [1,2]])
