@@ -355,25 +355,28 @@ class IQ_Mixer(Instrument):
 			(xold,yold)=(dcx,dcy)
 			dcx=self.minimize(self.xoptimize,dcx-.002,dcx+.002,.002,1e-3,final_averages=3,confirmonly=True)[0]
 			dcy=self.minimize(self.yoptimize,dcy-.002,dcy+.002,.002,1e-3,final_averages=3,confirmonly=True)[0]
-		self.load_wfm(sin_phase=phaseoffset,update_channels=(True,True),relamp=relamp,relamp2=relamp2,init=True)
-		
-		optimized=[(self.focus(frequencies[i],1), self._fsup.get_marker_level(1))[1] for i in range(len(frequencies))]
-		optimized_old=[np.inf,np.inf,np.inf,np.inf]
-		print "iterating"
-		while (optimized_old[2]-optimized[2]>1 or optimized_old[3]-optimized[3]>1):
-			print ".",
-			sys.stdout.flush()
-			optimized_old=copy(optimized)
-			self.focus(mw_freq,1)
-			(xold,yold)=(np.inf,np.inf)
-			while(np.all(np.around((x,y),3)!=np.around((xold,yold),3))):
-				(xold,yold)=(x,y)
-				x=self.minimize(self.xoptimize,x-.002,x+.002,.001,1e-3,final_averages=1,confirmonly=True)[0]
-				y=self.minimize(self.yoptimize,y-.002,y+.002,.001,1e-3,final_averages=1,confirmonly=True)[0]
-			self.focus(mw_freq-self._iq_frequency,4)        
-			phaseoffset=self.minimize(self.phaseoptimize,phaseoffset-.15,phaseoffset+.15,5e-3,5e-3,final_averages=1,confirmonly=True)[0]
-			relamp=self.minimize(self.relampoptimize,relamp-.01,relamp+.01,.05,1e-3,final_averages=2,bounds=(.5,2),confirmonly=True)[0]
-			relamp2=self.minimize(self.relampoptimize2,relamp2-.01,relamp2+.01,.05,1e-3,final_averages=2,bounds=(.5,2),confirmonly=True)[0]
+		if not self._iq_frequency == 0:	
+			self.load_wfm(sin_phase=phaseoffset,update_channels=(True,True),relamp=relamp,relamp2=relamp2,init=True)
+			optimized=[(self.focus(frequencies[i],1), self._fsup.get_marker_level(1))[1] for i in range(len(frequencies))]
+			optimized_old=[np.inf,np.inf,np.inf,np.inf]
+			print "iterating"
+			while (optimized_old[2]-optimized[2]>1 or optimized_old[3]-optimized[3]>1):
+				print ".",
+				sys.stdout.flush()
+				optimized_old=copy(optimized)
+				self.focus(mw_freq,1)
+				(xold,yold)=(np.inf,np.inf)
+				while(np.all(np.around((x,y),3)!=np.around((xold,yold),3))):
+					(xold,yold)=(x,y)
+					x=self.minimize(self.xoptimize,x-.002,x+.002,.001,1e-3,final_averages=1,confirmonly=True)[0]
+					y=self.minimize(self.yoptimize,y-.002,y+.002,.001,1e-3,final_averages=1,confirmonly=True)[0]
+				self.focus(mw_freq-self._iq_frequency,4)        
+				phaseoffset=self.minimize(self.phaseoptimize,phaseoffset-.15,phaseoffset+.15,5e-3,5e-3,final_averages=1,confirmonly=True)[0]
+				relamp=self.minimize(self.relampoptimize,relamp-.01,relamp+.01,.05,1e-3,final_averages=2,bounds=(.5,2),confirmonly=True)[0]
+				relamp2=self.minimize(self.relampoptimize2,relamp2-.01,relamp2+.01,.05,1e-3,final_averages=2,bounds=(.5,2),confirmonly=True)[0]
+				optimized=[(self.focus(frequencies[i],1), np.mean([(self._fsup.sweep(),self._fsup.get_marker_level(1))[1] for j in range(5)]))[1] for i in range(len(frequencies))]
+		else:
+			x,y,phaseoffset,relamp,relamp2 = 0,0,0,1,1
 			optimized=[(self.focus(frequencies[i],1), np.mean([(self._fsup.sweep(),self._fsup.get_marker_level(1))[1] for j in range(5)]))[1] for i in range(len(frequencies))]
 		print "Parameters: DC x: %.1fmV, DC y: %.1fmV AC x: %.1fmV, AC y: %.1fmV phase: %.1fdegree Amplitude: %.3fVpp/%.3fVpp"%(dcx*1e3,dcy*1e3,x*1e3,y*1e3,phaseoffset*180/np.pi,relamp,relamp2)
 		print "Your Sideband has a power of %.3fdBm, Leakage is %.2fdB lower, other sideband is %.2fdB lower.\nThe largest of the higher harmonics is %.2fdB lower."%(optimized[4],optimized[4]-optimized[3],optimized[4]-optimized[2],np.max((optimized[4]-optimized[0],optimized[4]-optimized[1],optimized[4]-optimized[4],optimized[5]-optimized[6])))
@@ -451,20 +454,23 @@ class IQ_Mixer(Instrument):
 			(xold,yold)=(dcx,dcy)
 			dcx=self.minimize(self.xoptimize,dcx-.002,dcx+.002,.002,1e-3,final_averages=3,confirmonly=True)[0]
 			dcy=self.minimize(self.yoptimize,dcy-.002,dcy+.002,.002,1e-3,final_averages=3,confirmonly=True)[0]
-		print "Finding initial values for Sine and Cosine waveform parameters"
-		self.load_wfm(sin_phase=phaseoffset,update_channels=(True,True),relamp=2,relamp2=2,init=True)
-		self.focus(mw_freq,1)
-		(xold,yold)=(0,0)
-		x=self.minimize(self.xoptimize,-.02,.02,.01,5e-3,final_averages=1)[0]
-		y=self.minimize(self.yoptimize,-.02,.02,.01,5e-3,final_averages=1)[0]
-		while(np.all(np.around((x,y),3)!=np.around((xold,yold),3))):
-			(xold,yold)=(x,y)
-			x=self.minimize(self.xoptimize,x-.002,x+.002,.002,2e-3,final_averages=1,verbose=False,confirmonly=True)[0]
-			y=self.minimize(self.yoptimize,y-.002,y+.002,.002,2e-3,final_averages=1,verbose=False,confirmonly=True)[0]
-		self.focus(mw_freq-self._iq_frequency,4)
-		relamp=self.minimize(self.relampoptimize,0.2,2,.3,10e-3,final_averages=1,bounds=(.5,2))[0]
-		relamp2=self.minimize(self.relampoptimize2,0.2,2,.3,10e-3,final_averages=1,bounds=(.5,2))[0]
-		phaseoffset=self.minimize(self.phaseoptimize,0,1,.2,5e-3,final_averages=1)[0]
+		if not self._iq_frequency == 0:
+			print "Finding initial values for Sine and Cosine waveform parameters"
+			self.load_wfm(sin_phase=phaseoffset,update_channels=(True,True),relamp=2,relamp2=2,init=True)
+			self.focus(mw_freq,1)
+			(xold,yold)=(0,0)
+			x=self.minimize(self.xoptimize,-.02,.02,.01,5e-3,final_averages=1)[0]
+			y=self.minimize(self.yoptimize,-.02,.02,.01,5e-3,final_averages=1)[0]
+			while(np.all(np.around((x,y),3)!=np.around((xold,yold),3))):
+				(xold,yold)=(x,y)
+				x=self.minimize(self.xoptimize,x-.002,x+.002,.002,2e-3,final_averages=1,verbose=False,confirmonly=True)[0]
+				y=self.minimize(self.yoptimize,y-.002,y+.002,.002,2e-3,final_averages=1,verbose=False,confirmonly=True)[0]
+			self.focus(mw_freq-self._iq_frequency,4)
+			relamp=self.minimize(self.relampoptimize,0.2,2,.3,10e-3,final_averages=1,bounds=(.5,2))[0]
+			relamp2=self.minimize(self.relampoptimize2,0.2,2,.3,10e-3,final_averages=1,bounds=(.5,2))[0]
+			phaseoffset=self.minimize(self.phaseoptimize,0,1,.2,5e-3,final_averages=1)[0]
+		else:
+			x,y,phaseoffset,relamp,relamp2 = 0,0,0,1,1
 		print "Initial parameterset found, starting optimization..."
 		return self.recalibrate(dcx,dcy,x,y,phaseoffset,relamp,relamp2)
 		
