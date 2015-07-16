@@ -12,7 +12,7 @@ import qt
 
 from qkit.storage import hdf_lib as hdf
 from qkit.analysis.circle_fit import resonator_tools_xtras as rtx
-#import qkit.gui.plot as qviewkit
+from qkit.gui.plot import plot as qviewkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 
 #ttip = qt.instruments.get('ttip')
@@ -154,7 +154,7 @@ class spectrum(object):
             self._prepare_measurement_dat_file()
         if self.save_hdf:        
             self._prepare_measurement_hdf_file() 
-            #qviewkit.plot_hdf(self._data_hdf.filepath(), datasets=['amplitude', 'ahase'])
+            #qviewkit.plot_hdf(self._data_hdf.get_filepath(), datasets=['amplitude', 'ahase'])
 
         self._measure()
         self._end_measurement()
@@ -175,7 +175,7 @@ class spectrum(object):
             self._prepare_measurement_dat_file()
         if self.save_hdf:
             self._prepare_measurement_hdf_file()
-            #qviewkit.plot_hdf(self._data_hdf.filepath(), datasets=['amplitude', 'ahase'])
+            #qviewkit.plot_hdf(self._data_hdf.get_filepath())#, datasets=['amplitude', 'ahase'])
 
         self._measure()
         
@@ -318,6 +318,8 @@ class spectrum(object):
                             self._hdf_amp.append(data_amp)
                             self._hdf_pha.append(data_pha)
                             '''
+                            if y == self.y_vec[0]:
+                                qviewkit.plot_hdf(self._data_hdf.get_filepath())
                         qt.msleep(0.1)
                         if self.plotlive:
                             plot_amp.update()
@@ -340,6 +342,8 @@ class spectrum(object):
                             self._z_data_raw = np.array(data_amp)*np.exp(1j*np.array(data_pha))
                             self._z_data_raw.tolist()
                             self._resonator_fit(x)
+                        if x == self.x_vec[0]:
+                            qviewkit.plot_hdf(self._data_hdf.get_filepath())
                     self._p.iterate()
 
                 if self._scan_1D2:
@@ -363,6 +367,8 @@ class spectrum(object):
                             self._z_data_raw = np.array(data_amp)*np.exp(1j*np.array(data_pha))
                             self._z_data_raw.tolist()
                             self._resonator_fit(x)
+                        if x == self.x_vec[0]:
+                            qviewkit.plot_hdf(self._data_hdf.get_filepath())
                     self._p.iterate()
 
                 qt.msleep(0.1)
@@ -431,7 +437,7 @@ class spectrum(object):
             If the fit does not converge due to bad data, the "bad" x_values get stored in a comment in the hdf file's analysis folder. All the fitting data for these values are set to 'None'
             '''
 
-            fail_comment += str(self.x_instrument) + ' = ' + str(x_value)+str(self.x_unit)+'\n'
+            fail_comment += str(self.x_set_obj) + ' = ' + str(x_value)+str(self.x_unit)+'\n'
             self._data_hdf.add_comment(comment=fail_comment[:-1], folder = 'analysis')
 
             none_data_array = np.array(None for f in self._freqpoints)
@@ -441,8 +447,8 @@ class spectrum(object):
                 self._results[key].append(none_data_array)
 
         else:
-            self._hdf_amp_sim.append(z_data_sim)
-            self._hdf_pha_sim.append(z_data_sim)
+            self._hdf_amp_sim.append(np.absolute(z_data_sim))
+            self._hdf_pha_sim.append(np.angle(z_data_sim))
             for key in self._results.keys():
                 self._results[key].append(float(results[key]))
 

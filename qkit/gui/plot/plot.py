@@ -1,13 +1,18 @@
-## MP 06/16/15:
-## alpha-tested on erbium pc, this may really work ...
+## MP (early) 07/17/15:
+## alpha-tested on erbium pc
+## the opened file shows only the axis, not the value matrices
+## fixed, the call for the plot was aparently too early. Now it works!!!
 
 import os
 from subprocess import Popen
+from qkit.gui.qviewkit import main as plot_main
 
-## the os.path.abspath gives the correct path to main.py, whith the working 
-## directory being /qkit (as it is in our case)
-qviewkit_main = os.path.join('qkit','gui','qviewkit','main.py')
-qviewkit_main_path = os.path.abspath(qviewkit_main)
+## This is a little hack. The import command is only for orientaion purposes in the file system
+## The abspath of an imported module can be called and we can use this information without
+## really using the module. Due to name conflicts, the module is renamed.
+
+qviewkit_main_path = os.path.abspath(plot_main.__file__)
+qviewkit_main_path=qviewkit_main_path
 
 def plot_hdf(filepath, datasets=[]):
     filepath = os.path.abspath(filepath)
