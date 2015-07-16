@@ -1,6 +1,3 @@
-hdf_lib:    
-        insert comment function
-        called via .add_comment(comment)?
 gui/plot/plot:
         plot function imported from gui/plot/plot.py:
             called via gui.plot.plot(filepath, datasets, liveplot)
@@ -9,8 +6,8 @@ gui/plot/plot:
             liveplot (bool) = liveplot, optional, default = True
         should open the viewer (individual window for each dataset)
         end of measurement: save pics as .png?
-        remove debugging print call from main.py
-        
+        * plot refresh resets set gui values
+                
 measure_vna:
         insert resonator_fit function form analysis/circlefit
 
