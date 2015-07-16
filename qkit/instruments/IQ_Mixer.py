@@ -338,7 +338,7 @@ class IQ_Mixer(Instrument):
 			raise ValueError(('FSUP is possibly not connected. \nIncrease trust_region and maxage to interpolate values or connect FSUP and execute connect_FSUP(fsup)'))
 		qt.mstart()
 		(hx_amp,hx_phase,hy_amp,hy_phase)=(0,0,0,0)
-	
+		if self._iq_frequency == 0:	logging.warning(__name__+': Your IQ Frequency is 0. It is better to calibrate with a finite IQ frequency because you will get inconsistent data in the calibration file otherwise. If you calibrate with iq!=0, the right values for iq=0 are extracted.')
 		mw_freq=self._f_rounded - self._iq_frequency
 		#self._sample.awg.stop()
 		self._sample.awg.set({'ch1_output':0,'ch2_output':0,'runmode':'CONT'})
@@ -435,7 +435,8 @@ class IQ_Mixer(Instrument):
 		qt.mstart()
 		(hx_amp,hx_phase,hy_amp,hy_phase,phaseoffset)=(0,0,0,0,0) 
 		mw_freq=self._f_rounded - self._iq_frequency
-		
+				if self._iq_frequency == 0:	logging.warning(__name__+': Your IQ Frequency is 0. It is better to calibrate with a finite IQ frequency because you will get inconsistent data in the calibration file otherwise. If you calibrate with iq!=0, the right values for iq=0 are extracted.')
+				
 		#self._sample.awg.stop()
 		self._sample.awg.set({'ch1_output':0,'ch2_output':0,'runmode':'CONT'})
 		self._sample.qubit_mw_src.set({'frequency':mw_freq, 'power':self._mw_power, 'status':1})
@@ -580,6 +581,7 @@ class IQ_Mixer(Instrument):
 		self.do_set_iq_frequency(self._sample.iq_frequency) #This is unnecessary, because it's done in calibrate()
 		self.get_all()
 		dcx,dcy,x,y,phaseoffset,relamp,relamp2=params[4:11]
+		if self._iq_frequency == 0: x,y,phaseoffset,relamp,relamp2 = 0,0,0,1,1 #homodyne
 		t=np.arange(len(wfm))/self._sample.clock
 		#Relamp is Peak-to-Peak
 		relamp,relamp2=relamp/2,relamp2/2
