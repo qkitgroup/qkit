@@ -154,6 +154,7 @@ class Tektronix_AWG7062(Instrument):
 		self.add_function('force_event')
 		self.add_function('force_trigger')
 		self.add_function('set_seq_jump')
+		self.add_function('read_queue')
 		
 
 		# Make Load/Delete Waveform functions for each channel
@@ -1251,3 +1252,13 @@ class Tektronix_AWG7062(Instrument):
 		Force a trigger
 		'''
 		self._visainstrument.write('*TRG')
+	
+	def read_queue(self):
+		'''
+		sometimes the output buffer still contains something and you will always get the response to the previous command.
+		then you can use this function to emtpy the buffer.
+		'''
+		try:
+			return self._visainstrument.read()
+		except visa.VisaIOError:
+			return None
