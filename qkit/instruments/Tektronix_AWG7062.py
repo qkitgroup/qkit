@@ -990,7 +990,7 @@ class Tektronix_AWG7062(Instrument):
 		logging.debug(__name__ + ' : Get status of channel %s' % channel)
 		outp = self._visainstrument.ask('OUTP%s?' % channel)
 		try:
-            return bool(outp)
+			return bool(outp)
 		except:
 			logging.debug(__name__ + ' : Read invalid status from instrument %s' % outp)
 			return 'an error occurred while reading status from instrument'
