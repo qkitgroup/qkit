@@ -319,7 +319,7 @@ class spectrum(object):
                             self._hdf_pha.append(data_pha)
                             '''
                             if y == self.y_vec[0]:
-                                qviewkit.plot_hdf(self._data_hdf.get_filepath())
+                                qviewkit.plot_hdf(self._data_hdf.get_filepath(), ['amplitude','phase'])
                         qt.msleep(0.1)
                         if self.plotlive:
                             plot_amp.update()
@@ -343,7 +343,7 @@ class spectrum(object):
                             self._z_data_raw.tolist()
                             self._resonator_fit(x)
                         if x == self.x_vec[0]:
-                            qviewkit.plot_hdf(self._data_hdf.get_filepath())
+                                qviewkit.plot_hdf(self._data_hdf.get_filepath(), ['amplitude','phase'])
                     self._p.iterate()
 
                 if self._scan_1D2:
