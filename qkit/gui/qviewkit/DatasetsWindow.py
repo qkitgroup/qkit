@@ -25,12 +25,13 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         
         self.treeWidget.setHeaderHidden(True)
-        self.refreshTime_value = 1000
+        self.refreshTime_value = 5000
         self.tree_refresh  = True
         self._setup_signal_slots()
         self.setup_timer()
         self.set_cmd_options()
-        self.liveCheckBox.click()
+        
+        
     def setup_timer(self):
          self.timer = QTimer()
          self.timer.timeout.connect(self.update_file)
@@ -44,23 +45,38 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             self.update_file()
         if self.DATA.args.refresh_time:
             self.refreshTime.setValue(self.DATA.args.refresh_time)
+            self._refresh_time_handler(self.DATA.args.refresh_time)
+        if self.DATA.args.live_plot:
+            self.liveCheckBox.click()
+            
+        # prepare datasets to display
+        if self.DATA.args.datasets:
+            dss = self.DATA.args.datasets.split(',')
+            fds = []
+            for ds in dss:
+                fd = ds.split('/')
+                if len(fd) == 1:
+                    dsp = "/entry/data0/"+fd[0]
+                    if self.DATA.has_dataset(dsp):
+                        fds.append(dsp)
+                    else:
+                        print  "cmd-line: Dataset " + dsp + " not found!"
+                if len(fd) == 2:
+                    dsp = "/entry/"+fd[0]+"/"+fd[1]
+                    if self.DATA.has_dataset(dsp):
+                        fds.append(dsp)
+                    else:
+                        print  "cmd-line: Dataset " + dsp + " not found!"
+            print "Display:", fds
 
+            
     
     def _setup_signal_slots(self):
-        #connect(timer, SIGNAL(timeout()), this, SLOT(self.live_update_onoff));
-        
-        #QObject.connect(self.newT_SpinBox,SIGNAL("valueChanged(double)"),self._update_newT)
         self.treeWidget.itemChanged.connect(self.handleChanged)
         self.treeWidget.itemSelectionChanged.connect((self.handleSelectionChanged))
         QObject.connect(self.refreshTime,SIGNAL("valueChanged(double)"),self._refresh_time_handler)
-        #QObject.connect(self.P_SpinBox,SIGNAL("valueChanged(double)"),self._update_P)
-        #QObject.connect(self.I_SpinBox,SIGNAL("valueChanged(double)"),self._update_I)
-        #QObject.connect(self.D_SpinBox,SIGNAL("valueChanged(double)"),self._update_D)
-        
         QObject.connect(self.updateButton,SIGNAL("released()"),self.update_file)
-        
         #QObject.connect(self.Quit,SIGNAL("released()"),self._quit_tip_gui)
-        #QObject.connect(self.live_sig,SIGNAL("").self.liveBeat)
         self.FileButton.clicked.connect(self.open_file)
         self.liveCheckBox.clicked.connect(self.live_update_onoff)
         
@@ -82,7 +98,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
 
     def populate_data_list(self):
         
-        self.treeWidget.clear()
+        #        self.treeWidget.clear()
         self.parent = self.treeWidget.invisibleRootItem()
         parent = self.parent
         column = 0
@@ -104,7 +120,18 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                 self.DATA.dataset_info["/entry/"+pentry+"/"+centry] = s
                 #print "/entry/"+pentry+"/"+centry
                 #print s
-
+        #root = self.treeWidget.invisibleRootItem()
+            """
+            child_count = parent.childCount()
+            for i in range(child_count):
+                group = parent.child(i)
+                key = "/entry/"+group.text(0)
+                for j in range(item.childCount()):
+                    print item.child(j).text(0) # text at first (0) column
+                    #item.setText(1, 'result from %s' % url) # update result column (1)
+                    #item.child(j).setCheckState(0,QtCore.Qt.Checked)
+                #self.treeWidget.
+                    """
     def addParent(self, parent, column, title,data = ''):
         item = QtGui.QTreeWidgetItem(parent, [title])
         #item.setData(column, QtCore.Qt.UserRole, data)

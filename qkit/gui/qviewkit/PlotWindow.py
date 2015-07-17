@@ -11,17 +11,17 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from time import sleep
 
-from plot_view import Ui_MainWindow
+from plot_view import Ui_Form
 import pyqtgraph as pg
 
 #import argparse
 #import ConfigParser
 import numpy as np
-import h5py
+#import h5py
 
 
-class PlotWindow(QMainWindow, Ui_MainWindow):
-
+#class PlotWindow(QMainWindow, Ui_MainWindow):
+class PlotWindow(QWidget,Ui_Form):
     def myquit(self):
         exit()
 
@@ -29,8 +29,8 @@ class PlotWindow(QMainWindow, Ui_MainWindow):
         self.DATA = data
         self.dataset_path = dataset_path
         self.obj_parent = parent
-                
-        QMainWindow.__init__(self)
+        super(PlotWindow , self).__init__() 
+        Ui_Form.__init__(self)
         # set up User Interface (widgets, layout...)
         self.setupUi(self)
         self.graphicsView = None
@@ -42,10 +42,6 @@ class PlotWindow(QMainWindow, Ui_MainWindow):
     def _setup_signal_slots(self): 
         self.obj_parent.refresh_signal.connect(self.update_plots)
         
-    @pyqtSlot(float)
-    def _update_Error(self,Error):
-        self.Errors=numpy.delete(numpy.append(self.Errors,Error*1e6),0)
-        self.Error_view.plt.setData(self.times, self.Errors)
     
     @pyqtSlot()   
     def update_plots(self):
@@ -54,6 +50,7 @@ class PlotWindow(QMainWindow, Ui_MainWindow):
             if not self.graphicsView:
                 self.graphicsView = pg.PlotWidget(name=self.dataset_path)# pg.ImageView(self.centralwidget,view=pg.PlotItem())
                 self.graphicsView.setObjectName(self.dataset_path)
+                #self.graphicsView.setBackground(None)
                 #self.graphicsView.view.setAspectLocked(False)
                 self.verticalLayout.addWidget(self.graphicsView)
                 self.plot = self.graphicsView.plot()
@@ -61,7 +58,7 @@ class PlotWindow(QMainWindow, Ui_MainWindow):
                 
         if len(self.ds.shape) == 2:
             if not self.graphicsView:
-                self.graphicsView = pg.ImageView(self.centralwidget,view=pg.PlotItem())
+                self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
                 self.graphicsView.setObjectName(self.dataset_path)
                 self.graphicsView.view.setAspectLocked(False)
                 self.verticalLayout.addWidget(self.graphicsView)

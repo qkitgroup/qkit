@@ -29,7 +29,8 @@ class DATA(QObject):
         self.open_plots[window_id]=window
         self.open_ds[ds]=True
         
-        window.show()
+        window.show()   # non-modal
+        #window.exec_() # modal
         return window
     def remove_plot(self,window_id,ds):
         if self.open_plots.has_key(window_id):
@@ -39,6 +40,10 @@ class DATA(QObject):
     def plot_is_open(self,ds):
         #print ds, self.open_ds.has_key(ds)
         return self.open_ds.has_key(ds)
+        
+    def has_dataset(self,ds):
+        return self.dataset_info.has_key(ds)
+        
 # Main entry to program.  
 def main(argv):
     
@@ -47,19 +52,17 @@ def main(argv):
     
     parser = argparse.ArgumentParser(
         description="Qviewkit / qkit tool to visualize qkit-hdf files // HR@KIT 2015")
+    
 
     parser.add_argument('-f','--file',     type=str, help='hdf filename to open')
-    parser.add_argument('-ds','--dataset', type=str, help='(optional) datasets opened by default')
-    parser.add_argument('-live','--live-plot', type=bool, help='(optional) if set, plots are reloaded ')
+    parser.add_argument('-ds','--datasets', type=str, help='(optional) datasets opened by default')
+    
     parser.add_argument('-rt','--refresh_time', type=float, help='(optional) refresh time ')
     parser.add_argument('-sp','--save_plot', type=float, help='(optional) save default plots ')
-    
+    parser.add_argument('-live','--live_plot',default=False,action='store_true', help='(optional) if set, plots are reloaded')    
     args=parser.parse_args()
     data.args = args
     
-    #data.file = args.file
-    #data.active_dataset = args.dataset
-    #print args.file
 
     # create Qt application
     app = QApplication(argv,True)

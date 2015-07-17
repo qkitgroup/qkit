@@ -1,39 +1,21 @@
-## MP (early) 07/17/15:
-## alpha-tested on erbium pc
-## the opened file shows only the axis, not the value matrices
-## fixed, the call for the plot was aparently too early. Now it works!!!
+from subprocess import Popen, PIPE
 
-import os
-from subprocess import Popen
-from qkit.gui.qviewkit import main as plot_main
+def plot(h5_filepath, datasets=[], refresh = 5, live = True, echo = False):
+    ds = ""
+    for s in datasets: ds+=s+","
+    ds = ds.strip(",")
 
-## This is a little hack. The import command is only for orientaion purposes in the file system
-## The abspath of an imported module can be called and we can use this information without
-## really using the module. Due to name conflicts, the module is renamed.
-
-qviewkit_main_path = os.path.abspath(plot_main.__file__)
-qviewkit_main_path=qviewkit_main_path
-
-def plot_hdf(filepath, datasets=[]):
-    filepath = os.path.abspath(filepath)
-    arguments = ' -f '+filepath+' '
-    if datasets:
-        arguments += '-ds '
-        for dataset in datasets:
-            arguments += dataset+','
-    open_main = 'python ' + qviewkit_main_path + arguments
-
-## As far as I understood, the encode('string-escape') does the same as r' 
-    open_main.encode('string-escape')
-    Popen(open_main, shell=True)
-
-## "old":
-"""
-def plot_hdf(filepath, datasets=[]):
-    append_string = r'-f '+filepath + ' '
-    if datasets:
-        append_string += '-ds '
-        for dataset in datasets:
-            append_string += str(dataset)+','
-    Popen(r'python C:\qtlab\qkit\qkit\gui\qviewkit\main.py '+append_string[:-1], shell=True)
-"""
+    print ds
+    cmd = "python"
+    cmd += " -m qkit.gui.qviewkit.main"
+    options =  " -f " + h5_filepath.encode("string-escape")
+    options += " -ds "+ str(ds)
+    options += " -rt "+ str(refresh)
+    if live:
+        options += " -live "
+    print cmd,options
+    if echo:
+        print "Qviewkit open cmd: "+ cmd + options
+        print Popen(cmd+options, shell=True, stdout=PIPE).stdout.read()
+    else:
+        Popen(cmd+options, shell=True)

@@ -464,8 +464,11 @@ class Data(object):
         ds =  hdf_dataset(self.hf,name, x=x, y=y, unit=unit, comment=comment, folder=folder)
         return ds
  
-    def add_value_box(self, name, x = None , y = None, z=None, unit = "", comment = "",folder="data",**meta):
+    def add_value_box(self, name, x = None , y = None, z = None, unit = "", comment = "",folder="data",**meta):
         #ds =  hdf_dataset(self.hf,name, x=x, y=y, z=z, unit=unit, comment=comment, folder=folder)
+        pass
+    
+    def save_finished():
         pass
     
     def flush(self):

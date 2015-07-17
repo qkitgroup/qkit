@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'main_view.ui'
 #
-# Created: Tue Jul 14 23:34:20 2015
+# Created: Wed Jul 15 23:00:25 2015
 #      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -45,6 +45,7 @@ class Ui_MainWindow(object):
         self.refreshTime = QtGui.QDoubleSpinBox(self.centralwidget)
         self.refreshTime.setMinimum(1.0)
         self.refreshTime.setMaximum(999.99)
+        self.refreshTime.setProperty("value", 5.0)
         self.refreshTime.setObjectName(_fromUtf8("refreshTime"))
         self.gridLayout.addWidget(self.refreshTime, 1, 3, 1, 1)
         self.updateButton = QtGui.QPushButton(self.centralwidget)

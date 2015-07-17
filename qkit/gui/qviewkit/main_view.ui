@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>289</width>
-    <height>486</height>
+    <width>271</width>
+    <height>554</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -52,13 +52,10 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="3">
-         <widget class="QDoubleSpinBox" name="refreshTime">
-          <property name="minimum">
-           <double>1.000000000000000</double>
-          </property>
-          <property name="maximum">
-           <double>999.990000000000009</double>
+        <item row="1" column="2">
+         <widget class="QCheckBox" name="liveCheckBox">
+          <property name="text">
+           <string>live</string>
           </property>
          </widget>
         </item>
@@ -69,14 +66,20 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="2">
-         <widget class="QCheckBox" name="liveCheckBox">
-          <property name="text">
-           <string>live</string>
+        <item row="1" column="3">
+         <widget class="QDoubleSpinBox" name="refreshTime">
+          <property name="minimum">
+           <double>1.000000000000000</double>
+          </property>
+          <property name="maximum">
+           <double>999.990000000000009</double>
+          </property>
+          <property name="value">
+           <double>5.000000000000000</double>
           </property>
          </widget>
         </item>
-        <item row="0" column="3">
+        <item row="1" column="4">
          <widget class="QRadioButton" name="heardBeat">
           <property name="text">
            <string/>
@@ -110,7 +113,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>289</width>
+     <width>271</width>
      <height>22</height>
     </rect>
    </property>
