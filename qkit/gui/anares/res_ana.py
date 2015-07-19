@@ -4,91 +4,74 @@ from PyQt4.QtGui import *
 from PyQt4.uic import *
 
 import numpy as np
+sys.path.append('../../analysis/circle_fit')
 import resonator_tools as rt
 import resonator_tools_xtras as rtx
 import tools as to
 
 def notch(f_data,z_data,progress_bar,var_col=0,f_col=1,z_col=2):
-    
-    progress_bar.setMaximum(len(f_data)*len(z_data))
+    #progress bar
+    progress_bar.setMaximum(5)
     i_progress=0
+    progress_bar.setValue(i_progress)
+    QApplication.processEvents()
+    #calibration
     delay,amp_norm,alpha,fr,Qr,A2,frcal=rtx.do_calibration(f_data,z_data[0],ignoreslope=True)
-    
-    z_data_sim=[]
-    parameters=[]
-    residual_amp=[]
-    residual_phase=[]
+    i_progress+=1
+    progress_bar.setValue(i_progress)
+    QApplication.processEvents()
+    #normalization
+    z_norm = rtx.do_normalization(f_data,z_data,delay,amp_norm,alpha,A2,frcal)
+    i_progress+=1
+    progress_bar.setValue(i_progress)
+    QApplication.processEvents()
+    #circlefit
+    parameters = map(lambda x: rtx.circlefit(f_data,z_norm[x],calc_errors=True), xrange(len(z_norm)))
+    i_progress+=1
+    progress_bar.setValue(i_progress)
+    QApplication.processEvents()
+    #simulation
+    z_data_sim = np.array(map(lambda p: to.S21(f_data,fr=p["fr"],Qr=p["Qr"],Qc=p["absQc"],
+                                   phi=p["phi0"],a=amp_norm,alpha=alpha,delay=delay), parameters))
+    #residual values
+    residual_amp = np.absolute(z_norm) - np.absolute(z_data_sim)
+    residual_phase = np.angle(z_norm) - np.angle(z_data_sim)
+    i_progress+=1
+    progress_bar.setValue(i_progress)
+    QApplication.processEvents()
 
-    for z_data0 in z_data:
-    
-        z_new=rtx.do_normalization(f_data,z_data0,delay,amp_norm,alpha,A2,frcal)
-        p=rtx.circlefit(f_data,z_new,calc_errors=False)
-        parameters.append(p)    
-    
-        z_data_sim_temp=[]
-        residual_amp_temp=[]
-        residual_phase_temp=[]
-    
-        for f,z in zip(f_data,z_data0):
-            z_temp=np.array(to.S21(f,fr=p["fr"],Qr=p["Qr"],Qc=p["absQc"],
-                                   phi=p["phi0"],a=amp_norm,alpha=alpha,delay=delay))
-                                   
-            z_data_sim_temp.append(z_temp)
-            residual_amp_temp.append(np.absolute(z)-np.absolute(z_temp))
-            residual_phase_temp.append(np.angle(z)-np.angle(z_temp))
-            
-            i_progress+=1
-            progress_bar.setValue(i_progress)
-        
-        QApplication.processEvents()
-    
-        z_data_sim.append(z_data_sim_temp)
-        residual_amp.append(residual_amp_temp)
-        residual_phase.append(residual_phase_temp)
-    
-    results={"z_sim":np.array(z_data_sim),
-    "res_amp":np.array(residual_amp),
-    "res_phase":np.array(residual_phase),"parameters":parameters,
+    return {"z_sim":z_data_sim,
+    "res_amp":residual_amp,
+    "res_phase":residual_phase,"parameters":parameters,
     "amp_norm":amp_norm,"alpha":alpha,
     "delay":delay}
-    
-    return results
-    
+
 def skewed_lorentzian_fit(f_data,z_data,progress_bar,var_col=0,f_col=1,z_col=2):
-    
-    progress_bar.setMaximum(len(f_data)*len(z_data))
-    i_progress=0
-    
-    amp_sim=[]   
-    parameters=[]
-    residual_amp=[]
-    
-    for z0 in z_data:
-    
-        parameters_temp=to.fit_skewed_lorentzian_2(f_data,z0)
-        A1,A2,A3,A4,fr2,Qr2=parameters_temp
-        parameters.append(parameters_temp)
-    
-        amp_sim_temp=[]
-        residual_amp_temp=[]
-        
-        for f,z in zip(f_data,z0):
-            x=to.skewed_lorentz_function(f,A1,A2,A3,A4,fr2,Qr2)
-            amp_sim_temp.append(x)
-            residual_amp_temp.append(np.absolute(z)-x)
-            
-            i_progress+=1
-            progress_bar.setValue(i_progress)
-        
-        amp_sim.append(amp_sim_temp)
-        residual_amp.append(residual_amp_temp)
-        
-        QApplication.processEvents()
-        
-    results={"z_sim":np.array(amp_sim),
-    "res_amp":np.array(residual_amp),"parameters":parameters}
-        
+
+    progress_bar.setMaximum(4)
+    i_progress=1
+    progress_bar.setValue(i_progress)
+    QApplication.processEvents()
+
+    parameters = map(lambda x: to.fit_skewed_lorentzian_2(f_data,z_data[x]),xrange(len(z_data)))
+    i_progress+=1
+    progress_bar.setValue(i_progress)
+    QApplication.processEvents()
+
+    amp_sim = np.array( map(lambda p: to.skewed_lorentz_function(f_data,*p),parameters))
+    i_progress+=1
+    progress_bar.setValue(i_progress)
+    QApplication.processEvents()
+
+    residual_amp = np.absolute(z_data) - np.absolute(amp_sim)
+    i_progress+=1
+    progress_bar.setValue(i_progress)
+    QApplication.processEvents()
+
+    results={"z_sim":amp_sim,
+    "res_amp":residual_amp,"parameters":parameters}
+
     return results
-    
-    
+
+
 

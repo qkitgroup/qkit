@@ -95,7 +95,10 @@ def load_data():
     else:
         i_data,f_data,z_data=to.loadspecdata2(filename=directory,y1_col=frame.comboBox_4.currentIndex(),
                                               y2_col=frame.comboBox_5.currentIndex(),
-                                              sformat=frame.comboBox.currentText())  
+                                              sformat=frame.comboBox.currentText())
+    i_data = np.array(i_data)
+    f_data = np.array(f_data) 
+    z_data = np.array(z_data)                                             
     fit_data()
     comboBoxes_set_items()
     initialize_gui()
@@ -156,6 +159,8 @@ def comboBoxes_set_items():
         frame.comboBox_2.addItem(_fromUtf8(""))
         frame.comboBox_2.addItem(_fromUtf8(""))
         frame.comboBox_2.addItem(_fromUtf8(""))
+        frame.comboBox_2.addItem(_fromUtf8(""))
+        frame.comboBox_2.addItem(_fromUtf8(""))
         frame.comboBox_2.setItemText(0, _translate("MainWindow", "Amp", None))
         frame.comboBox_2.setItemText(1, _translate("MainWindow", "Phase", None))
         frame.comboBox_2.setItemText(2, _translate("MainWindow", "Circle", None))
@@ -167,6 +172,8 @@ def comboBoxes_set_items():
         frame.comboBox_2.setItemText(8, _translate("MainWindow", "Qi", None))
         frame.comboBox_2.setItemText(9, _translate("MainWindow", "absQc", None))
         frame.comboBox_2.setItemText(10, _translate("MainWindow", "phi0", None))
+        frame.comboBox_2.setItemText(11, _translate("MainWindow", "Qi_err", None))
+        frame.comboBox_2.setItemText(12, _translate("MainWindow", "Qr_err", None))
     
     if frame.radioButton_2.isChecked():
         frame.comboBox_3.addItem(_fromUtf8(""))
@@ -618,6 +625,20 @@ def plot2d(current_text,z_0,z_sim):
         for z0 in data_fit["parameters"]:
             z_0.append(z0["phi0"])
         mw2.plot(i_data,z_0,xlabel=frame.lineEdit_11.text(),xunit=frame.lineEdit_4.text(),ylabel='phi0',yunit='rad')
+        
+    if current_text=='Qi_err':
+        z_0=[]
+        for z0 in data_fit["parameters"]:
+            z_0.append(z0["Qi_dia_corr_err"])
+        mw2.plot(i_data,z_0,xlabel=frame.lineEdit_11.text(),xunit=frame.lineEdit_4.text(),ylabel='Qi_err',yunit='')
+        
+    if current_text=='Qr_err':
+        z_0=[]
+        for z0 in data_fit["parameters"]:
+            z_0.append(z0["Qr_err"])
+        mw2.plot(i_data,z_0,xlabel=frame.lineEdit_11.text(),xunit=frame.lineEdit_4.text(),ylabel='Qr_err',yunit='')
+        
+        
 
 frame.pushButton.clicked.connect(get_filename)
 frame.pushButton_2.clicked.connect(load_data)
