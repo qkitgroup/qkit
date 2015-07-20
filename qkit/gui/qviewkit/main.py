@@ -18,8 +18,9 @@ from PlotWindow import PlotWindow
 class DATA(QObject):
     open_plots = {}
     open_ds    = {}
-
     dataset_info = {}
+    ds_tree_items= {}
+    ds_cmd_open = {}
 
         
     def append_plot(self,parent,window_id,ds):
@@ -57,8 +58,8 @@ def main(argv):
     parser.add_argument('-f','--file',     type=str, help='hdf filename to open')
     parser.add_argument('-ds','--datasets', type=str, help='(optional) datasets opened by default')
     
-    parser.add_argument('-rt','--refresh_time', type=float, help='(optional) refresh time ')
-    parser.add_argument('-sp','--save_plot', type=float, help='(optional) save default plots ')
+    parser.add_argument('-rt','--refresh_time', type=float, help='(optional) refresh time')
+    parser.add_argument('-sp','--save_plot',  default=False,action='store_true', help='(optional) save default plots')
     parser.add_argument('-live','--live_plot',default=False,action='store_true', help='(optional) if set, plots are reloaded')    
     args=parser.parse_args()
     data.args = args

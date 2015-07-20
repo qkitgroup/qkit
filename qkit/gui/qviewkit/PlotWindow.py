@@ -63,20 +63,23 @@ class PlotWindow(QWidget,Ui_Form):
                 self.graphicsView.view.setAspectLocked(False)
                 self.verticalLayout.addWidget(self.graphicsView)
             self._display_2D_data(self.graphicsView)
+    
 
+        
     def _display_1D_data(self,plot,graphicsView):
         ds = self.ds
-        fill = ds.attrs.get("fill")
+        
+        fill = ds.attrs.get("fill",1)
         ydata = np.array(ds[:])
         
-        x0 = ds.attrs.get("x0")
-        dx = ds.attrs.get("dx")
+        x0 = ds.attrs.get("x0",0)
+        dx = ds.attrs.get("dx",1)
         x_data = [x0+dx*i for i in xrange(len(ydata[:fill]))]
         
-        x_name = ds.attrs.get("x_name")
-        name = ds.attrs.get("name")
-        x_unit = ds.attrs.get("x_unit")
-        unit = ds.attrs.get("unit")
+        x_name = ds.attrs.get("x_name","_none_")
+        name = ds.attrs.get("name","_none_")
+        x_unit = ds.attrs.get("x_unit","_none_")
+        unit = ds.attrs.get("unit","_none_")
         
         #plot.clear()
         plot.setPen((200,200,100))
@@ -87,26 +90,26 @@ class PlotWindow(QWidget,Ui_Form):
     def _display_2D_data(self,graphicsView):
         #load the dataset:
         ds = self.ds
-        fill = ds.attrs.get("fill")
+        fill = ds.attrs.get("fill",1)
         data = np.array(ds[:fill])
         
-        x0 = ds.attrs.get("x0")
-        dx = ds.attrs.get("dx")
-        y0 = ds.attrs.get("y0")
-        dy = ds.attrs.get("dy")
+        x0 = ds.attrs.get("x0",0)
+        dx = ds.attrs.get("dx",1)
+        y0 = ds.attrs.get("y0",0)
+        dy = ds.attrs.get("dy",1)
         
         xmin = x0
         xmax = x0+fill*dx
         ymin = y0
         ymax = y0+fill*dy
 
-        x_name = ds.attrs.get("x_name")        
-        y_name = ds.attrs.get("y_name")
-        name = ds.attrs.get("name")
+        x_name = ds.attrs.get("x_name","_none_")        
+        y_name = ds.attrs.get("y_name","_none_")
+        name = ds.attrs.get("name","_none_")
 
-        x_unit = ds.attrs.get("x_unit")
-        y_unit = ds.attrs.get("y_unit")
-        unit = ds.attrs.get("unit")
+        x_unit = ds.attrs.get("x_unit","_none_")
+        y_unit = ds.attrs.get("y_unit","_none_")
+        unit = ds.attrs.get("unit","_none_")
         
         
         pos = (xmin,ymin)
