@@ -42,12 +42,16 @@ P_co = h5d.add_coordinate('power',   unit = "dBm",  comment = "microwave power")
 #        : folder='data' | 'analysis' (optional, default is "data") 
 
 T_vec = h5d.add_value_vector('temperature', x = None, unit = "K", comment = "save temperature values") 
-
 Tc_vec = h5d.add_value_vector('critical_temperature', x = None, unit = "K", folder='analysis' ,comment = "save temperature values")
+
+
 # add_value_matrix()    <- for measurement data
+# convention: the last coordiante should be the one with the fastest changes:
+#             e.g.  for a VNA scan x= magnetic field y= transmission frequency
+# 
 # options: name (mandatory)
 #        : x = X  (optional) coordinate vector in x direction, default: None
-#        : y = Y  (mandatory) coordinate vector in y direction
+#        : y = Y  (mandatory) coordinate vector in y direction / fastest changes
 #        : unit = "" (optional, default is "a.u.")
 #        : comment = "" (optional, default is "")
 #        : folder='data' | 'analysis' (optional, default is "data") 
@@ -58,10 +62,11 @@ pha_mx = h5d.add_value_matrix('phase',     x = I_co , y = f_co, unit = "rad", co
 
 
 
-# add_value_matrix()    <- for measurement data
+# add_value_box()    <- for measurement data
 # options: name (mandatory)
 #        : x = X  (optional) coordinate vector in x direction, default: None
-#        : y = Y  (mandatory) coordinate vector in y direction
+#        : y = Y  (optional) coordinate vector in y direction
+#        : z = Z  (mandatory) coordinate vector in y direction /  fastest changes
 #        : unit = "" (optional, default is "a.u.")
 #        : comment = "" (optional, default is "")
 #        : folder='data' | 'analysis' (optional, default is "data") 
