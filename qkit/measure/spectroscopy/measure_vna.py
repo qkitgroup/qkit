@@ -440,11 +440,11 @@ class spectrum(object):
             fail_comment += str(self.x_set_obj) + ' = ' + str(x_value)+str(self.x_unit)+'\n'
             self._data_hdf.add_comment(comment=fail_comment[:-1], folder = 'analysis')
 
-            none_data_array = np.array(None for f in self._freqpoints)
-            self._hdf_amp_sim.append(none_data_array)
-            self._hdf_pha_sim.append(none_data_array)
+            error_data_array = np.array([0. for f in self._freqpoints])
+            self._hdf_amp_sim.append(error_data_array)
+            self._hdf_pha_sim.append(error_data_array)
             for key in self._results.keys():
-                self._results[key].append(none_data_array)
+                self._results[key].append(error_data_array)
 
         else:
             self._hdf_amp_sim.append(np.absolute(z_data_sim))
