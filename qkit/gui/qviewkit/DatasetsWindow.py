@@ -177,7 +177,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             
     def update_file(self):
         try:
-            self.h5file= h5py.File(str(self.DATA.DataFilePath))
+            self.h5file= h5py.File(str(self.DATA.DataFilePath),mode='r')
             #if self.tree_refresh:
             self.populate_data_list()
             self.update_plots()
@@ -189,9 +189,9 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             print "IOError"
 
     def open_file(self):
-        self.DATA.DataFilePath=QFileDialog.getOpenFileName(filter="*.h5")
+        self.DATA.DataFilePath=str(QFileDialog.getOpenFileName(filter="*.h5"))
         if self.DATA.DataFilePath:
-            self.h5file= h5py.File(str(self.DATA.DataFilePath))
+            self.h5file= h5py.File(self.DATA.DataFilePath,mode='r')
             self.populate_data_list()
             self.h5file.close()
             s = (self.DATA.DataFilePath.split(os.path.sep)[-5:])
