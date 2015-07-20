@@ -28,18 +28,18 @@ class spectrum(object):
     m = spectrum(vna = 'vna1')
     m2 = spectrum(vna = 'vna2', mw_src = 'mw_src1')   #where 'vna2'/'mw_src1' is the qt.instruments name
     
-    m.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current (mA)',coil.set_current)
-    m.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency (Hz)',mw_src1.set_frequency)
+    m.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current',coil.set_current, unit = 'mA')
+    m.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency',mw_src1.set_frequency, unit = 'Hz')
     
     m.gen_fit_function(...)   several times
     
     m.measure_XX()
     '''
 
-    def __init__(self, vna, mw_src = None):
+    def __init__(self, vna, exp_name = ''):
 
         self.vna = vna
-        self.mw_src = mw_src
+        self.exp_name = exp_name
 
         self.landscape = None
         self.span = 200e6   #specified in Hz
@@ -146,15 +146,18 @@ class spectrum(object):
         self._scan_1D = True
         self._scan_1D2 = False
         self._scan_2D = False
+
         self._scan_name = 'vna_sweep1D_'+ self.x_coordname
+        if self.exp_name:
+            self._scan_name += '_' + self.exp_name
+
         self._p = Progress_Bar(len(self.x_vec))
 
         self._prepare_measurement_vna()
         if self.save_dat:
             self._prepare_measurement_dat_file()
-        if self.save_hdf:        
+        if self.save_hdf:
             self._prepare_measurement_hdf_file() 
-            #qviewkit.plot_hdf(self._data_hdf.get_filepath(), datasets=['amplitude', 'ahase'])
 
         self._measure()
         self._end_measurement()
@@ -167,7 +170,11 @@ class spectrum(object):
         self._scan_1D = False
         self._scan_1D2 = True
         self._scan_2D = False
+
         self._scan_name = 'vna_sweep1D2_'+ self.x_coordname
+        if self.exp_name:
+            self._scan_name += '_' + self.exp_name
+
         self._p = Progress_Bar(len(self.x_vec))
 
         self._prepare_measurement_vna()
@@ -178,7 +185,6 @@ class spectrum(object):
             #qviewkit.plot_hdf(self._data_hdf.get_filepath())#, datasets=['amplitude', 'ahase'])
 
         self._measure()
-        
         self._end_measurement()
 
 
@@ -193,7 +199,11 @@ class spectrum(object):
         self._scan_1D = False
         self._scan_1D2 = False
         self._scan_2D = True
+
         self._scan_name = 'vna_sweep2D_'+ self.x_coordname + '_' + self.y_coordname
+        if self.exp_name:
+            self._scan_name += '_' + self.exp_name
+
         self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec))
 
         self._prepare_measurement_vna()
@@ -201,7 +211,6 @@ class spectrum(object):
             self._prepare_measurement_dat_file()
         if self.save_hdf:
             self._prepare_measurement_hdf_file()
-            #gui.plot.plot(self._data_hdf.filepath(), datasets=['Amplitude', 'Phase'])
 
         if self.landscape:
             self.center_freqs = np.array(self.landscape).T
@@ -211,7 +220,6 @@ class spectrum(object):
                 self.center_freqs.append([0])
 
         self._measure()
-
         self._end_measurement()
 
     def _prepare_measurement_vna(self):
@@ -223,23 +231,24 @@ class spectrum(object):
 
     def _prepare_measurement_dat_file(self):
         self._data_dat = qt.Data(name=self._scan_name)
-        self._data_dat.add_coordinate(self.x_coordname)
+        if self.comment:
+            self._data_dat.add_comment(self.comment)
+        self._data_dat.add_coordinate(self.x_coordname + ' '+self.x_unit)
         if self._scan_1D2:
-            self._data_dat.add_coordinate('Frequency')
-            self._data_dat.add_value('Amplitude')
-            self._data_dat.add_value('Phase')
+            self._data_dat.add_coordinate('Frequency (Hz)')
+            self._data_dat.add_value('Amplitude (V)')
+            self._data_dat.add_value('Phase (rad)')
             if self.data_complex:
                 self._data_dat.add_value('Real')
                 self._data_dat.add_value('Img')
         else:
             if self._scan_2D:
-                self._data_dat.add_coordinate(self.y_coordname)
+                self._data_dat.add_coordinate(self.y_coordname + ' ' +self.y_unit)
             for i in range(1,self._nop+1):
                 self._data_dat.add_value(('Point %i Amp' %i))
             for i in range(1,self._nop+1):
-                    self._data_dat.add_value(('Point %i Pha' %i))
-        if self.comment:
-            self._data_dat.add_comment(self.comment)
+                self._data_dat.add_value(('Point %i Pha' %i))
+
         self._data_dat.create_file()
     
     def _prepare_measurement_hdf_file(self):
@@ -269,47 +278,47 @@ class spectrum(object):
     def _measure(self):
         qt.mstart()
         #if not self.save_hdf:
-        if self._scan_1D or self.plotlive:
+        if self.plotlive:
             plot_amp, plot_pha = self._plot_dat_file()
 
         try:
-            for x in self.x_vec:
-                self.x_set_obj(x)
+            for self._x in self.x_vec:
+                self.x_set_obj(self._x)
                 sleep(self.tdx)
 
                 dat=[]
                 
                 if self._scan_2D:
                     if self.save_hdf:
-                        name_amp = 'Amplitude_'+str(x)+'_'+str(self.x_unit)
-                        name_pha = 'Phase_'+str(x)+'_'+str(self.x_unit)
+                        name_amp = 'Amplitude_'+str(self._x)+'_'+str(self.x_unit)
+                        name_pha = 'Phase_'+str(self._x)+'_'+str(self.x_unit)
 
                         hdf_amp = self._data_hdf.add_value_matrix(name_amp, x = self._hdf_y, y = self._hdf_freq, unit = 'V')
                         hdf_pha = self._data_hdf.add_value_matrix(name_pha, x = self._hdf_y, y = self._hdf_freq, unit='rad')
                         save_amp0 = []
                         save_pha0 = []
 
-                    for y in self.y_vec:
-                        if (np.min(np.abs(self.center_freqs[int(x)]-y*np.ones(len(self.center_freqs[int(x)])))) > self.span/2.) and self.landscape:   
+                    for self._y in self.y_vec:
+                        if (np.min(np.abs(self.center_freqs[int(self._x)]-self._y*np.ones(len(self.center_freqs[int(self._x)])))) > self.span/2.) and self.landscape:   
                         #if point is not of interest (not close to one of the functions)
                             data_amp = np.zeros(int(self._nop))
                             data_pha = np.zeros(int(self._nop))   #fill with zeros
                         else:
-                            self.y_set_obj(y)
+                            self.y_set_obj(self._y)
                             sleep(self.tdy)
 
                             self.vna.avg_clear()
                             sleep(self._sweeptime_averages)
                             data_amp, data_pha = self.vna.get_tracedata()
                         if self.save_dat:
-                            dat = np.append(x, y)
+                            dat = np.append(self._x, self._y)
                             dat = np.append(dat,data_amp)
                             dat = np.append(dat,data_pha)
                             self._data_dat.add_data_point(*dat)
                         if self.save_hdf:
                             save_amp0 = np.append(save_amp0, data_amp[len(data_amp)/2])
                             save_pha0 = np.append(save_pha0, data_pha[len(data_pha)/2])
-                            if y == self.y_vec[len(self.y_vec)-1]:
+                            if self._y == self.y_vec[len(self.y_vec)-1]:
                                 self._hdf_amp0.append(save_amp0)
                                 self._hdf_pha0.append(save_pha0)
                             hdf_amp.append(data_amp)
@@ -318,8 +327,9 @@ class spectrum(object):
                             self._hdf_amp.append(data_amp)
                             self._hdf_pha.append(data_pha)
                             '''
-                            if y == self.y_vec[0]:
+                            if self._y == self.y_vec[0]:
                                 qviewkit.plot_hdf(self._data_hdf.get_filepath(), ['amplitude','phase'])
+
                         qt.msleep(0.1)
                         if self.plotlive:
                             plot_amp.update()
@@ -332,7 +342,7 @@ class spectrum(object):
                     sleep(self._sweeptime_averages)
                     data_amp, data_pha = self.vna.get_tracedata()
                     if self.save_dat:
-                        dat = np.append(x, data_amp)
+                        dat = np.append(self._x, data_amp)
                         dat = np.append(dat, data_pha)
                         self._data_dat.add_data_point(*dat)
                     if self.save_hdf:
@@ -341,9 +351,11 @@ class spectrum(object):
                         if self.fit_resonator:
                             self._z_data_raw = np.array(data_amp)*np.exp(1j*np.array(data_pha))
                             self._z_data_raw.tolist()
-                            self._resonator_fit(x)
-                        if x == self.x_vec[0]:
+
+                            self._resonator_fit()
+                        if self._x == self.x_vec[0]:
                                 qviewkit.plot_hdf(self._data_hdf.get_filepath(), ['amplitude','phase'])
+
                     self._p.iterate()
 
                 if self._scan_1D2:
@@ -351,7 +363,7 @@ class spectrum(object):
                     sleep(self._sweeptime_averages)
                     data_amp, data_pha = self.vna.get_tracedata()
                     if self.save_dat:
-                        dat = np.append([x*np.ones(self._nop)],[self._freqpoints], axis = 0)
+                        dat = np.append([self._x*np.ones(self._nop)],[self._freqpoints], axis = 0)
                         dat = np.append(dat,[data_amp],axis = 0)
                         dat = np.append(dat,[data_pha],axis = 0)
                         if self.data_complex:
@@ -366,9 +378,9 @@ class spectrum(object):
                         if self.fit_resonator:
                             self._z_data_raw = np.array(data_amp)*np.exp(1j*np.array(data_pha))
                             self._z_data_raw.tolist()
-                            self._resonator_fit(x)
-                        if x == self.x_vec[0]:
-                            qviewkit.plot_hdf(self._data_hdf.get_filepath())
+                            self._resonator_fit()
+                        if self._x == self.x_vec[0]:
+                            qviewkit.plot_hdf(self._data_hdf.get_filepath()) #, datasets=['amplitude', 'phase'])
                     self._p.iterate()
 
                 qt.msleep(0.1)
@@ -379,7 +391,7 @@ class spectrum(object):
 
         finally:
             #if not self.save_hdf and not self.plotlive:
-            if self._scan_1D and not self.plotlive:
+            if not self.plotlive:
                 plot_amp, plot_pha = self._plot_dat_file()
                 plot_amp.update()
                 plot_pha.update()
@@ -420,7 +432,7 @@ class spectrum(object):
 
         return plot_amp, plot_pha
 
-    def _resonator_fit(self, x_value):
+    def _resonator_fit(self):
         '''
         Calls circle fir from resonator_tools_xtras.py and resonator_tools.py in the qkit/analysis folder
         '''
@@ -437,10 +449,10 @@ class spectrum(object):
             If the fit does not converge due to bad data, the "bad" x_values get stored in a comment in the hdf file's analysis folder. All the fitting data for these values are set to 'None'
             '''
 
-            fail_comment += str(self.x_set_obj) + ' = ' + str(x_value)+str(self.x_unit)+'\n'
+            fail_comment += str(self.x_set_obj) + ' = ' + str(self._x)+str(self.x_unit)+'\n'
             self._data_hdf.add_comment(comment=fail_comment[:-1], folder = 'analysis')
 
-            error_data_array = np.array([0. for f in self._freqpoints])
+            error_data_array = np.zeros(self._freqpoints)
             self._hdf_amp_sim.append(error_data_array)
             self._hdf_pha_sim.append(error_data_array)
             for key in self._results.keys():
