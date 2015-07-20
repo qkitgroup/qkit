@@ -28,7 +28,7 @@ voltage_bias = True
 # magnetic fild scan (mag_scan)
 # or
 # microwave scan (mw_scan)
-mag_scan = True
+mag_scan = False
 mw_scan  = False
 
 
@@ -49,7 +49,7 @@ if current_bias:
 
 if voltage_bias:
     # voltage bias
-    A_per_V = 1e10
+    A_per_V = 1e8
     V_divider  = 1000
     V_amp = 1
 
