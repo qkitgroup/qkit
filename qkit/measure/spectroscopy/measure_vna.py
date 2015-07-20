@@ -47,7 +47,7 @@ class spectrum(object):
         self.tdy = 0.002
         self.data_complex = False
 
-        self.comment = None
+        self.comment = ''
         self.plot3D = True
         self.plotlive = True
 
@@ -277,9 +277,10 @@ class spectrum(object):
 
     def _measure(self):
         qt.mstart()
-        #if not self.save_hdf:
-        if self.plotlive:
+        if not self.save_hdf and self.plotlive:
             plot_amp, plot_pha = self._plot_dat_file()
+        if self.save_hdf:
+            qviewkit.plot(self._data_hdf.get_filepath(), ['amplitude','phase'])
 
         try:
             for self._x in self.x_vec:
@@ -327,9 +328,6 @@ class spectrum(object):
                             self._hdf_amp.append(data_amp)
                             self._hdf_pha.append(data_pha)
                             '''
-                            if self._y == self.y_vec[0]:
-                                qviewkit.plot_hdf(self._data_hdf.get_filepath(), ['amplitude','phase'])
-
                         qt.msleep(0.1)
                         if self.plotlive:
                             plot_amp.update()
@@ -353,8 +351,8 @@ class spectrum(object):
                             self._z_data_raw.tolist()
 
                             self._resonator_fit()
-                        if self._x == self.x_vec[0]:
-                                qviewkit.plot_hdf(self._data_hdf.get_filepath(), ['amplitude','phase'])
+                        #if self._x == self.x_vec[0]:
+                        #        qviewkit.plot_hdf(self._data_hdf.get_filepath(), ['amplitude','phase'])
 
                     self._p.iterate()
 
@@ -379,33 +377,34 @@ class spectrum(object):
                             self._z_data_raw = np.array(data_amp)*np.exp(1j*np.array(data_pha))
                             self._z_data_raw.tolist()
                             self._resonator_fit()
-                        if self._x == self.x_vec[0]:
-                            qviewkit.plot_hdf(self._data_hdf.get_filepath()) #, datasets=['amplitude', 'phase'])
+                        #if self._x == self.x_vec[0]:
+                        #    qviewkit.plot_hdf(self._data_hdf.get_filepath()) #, datasets=['amplitude', 'phase'])
                     self._p.iterate()
 
                 qt.msleep(0.1)
                 #if not self._scan_1D and self.plotlive:
-                if self.plotlive:
+                if not self.save_hdf and self.plotlive:
                     plot_amp.update()
                     plot_pha.update()
 
         finally:
-            #if not self.save_hdf and not self.plotlive:
-            if not self.plotlive:
-                plot_amp, plot_pha = self._plot_dat_file()
-                plot_amp.update()
-                plot_pha.update()
+            if not self.save_hdf:
+                if not self.plotlive:
+                    plot_amp, plot_pha = self._plot_dat_file()
+                    plot_amp.update()
+                    plot_pha.update()
 
-            plot_amp.save_png()
-            plot_amp.save_gp()
-            plot_pha.save_png()
-            plot_pha.save_gp()
+                plot_amp.save_png()
+                plot_amp.save_gp()
+                plot_pha.save_png()
+                plot_pha.save_gp()
 
             qt.mend()
 
     def _end_measurement(self):
-        print self._data_dat.get_filepath()
-        self._data_dat.close_file()
+        if self.save_dat:
+            print self._data_dat.get_filepath()
+            self._data_dat.close_file()
         if self.save_hdf:
             print self._data_hdf.get_filepath()
             # send statement to hdf plotter?!
