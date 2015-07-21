@@ -110,13 +110,23 @@ class Agilent_PNAX(Instrument):
             
         self.add_parameter('sweeptime', type=types.FloatType,
             flags=Instrument.FLAG_GET,
-            minval=0, maxval=1e-3,
+            minval=0, maxval=100,
             units='s', tags=['sweep'])
             
         self.add_parameter('sweeptime_averages', type=types.FloatType,
             flags=Instrument.FLAG_GET,
-            minval=0, maxval=1e-3,
+            minval=0, maxval=500,
             units='s', tags=['sweep'])
+            
+        self.add_parameter('electrical_delay', type=types.FloatType,
+            flags=Instrument.FLAG_GET,
+            minval=-10., maxval=10.,
+            units='s', tags=['sweep'])
+            
+        self.add_parameter('phase_offset', type=types.FloatType,
+            flags=Instrument.FLAG_GET,
+            minval=-360., maxval=360.,
+            units='deg', tags=['sweep'])
         
         # sets the S21 setting in the PNA X
         self.define_S21()
@@ -149,6 +159,8 @@ class Agilent_PNAX(Instrument):
         self.get_averages()
         self.get_freqpoints()   
         self.get_channel_index()
+        self.get_electrical_delay()
+        self.get_phase_offset()
         #self.get_zerospan()
         
     ###
@@ -578,7 +590,7 @@ class Agilent_PNAX(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting trigger source to "%s"' % source)
-        if source.upper() in [AUTO, MAN, EXT, REM]:
+        if source.upper() in ['AUTO', 'MAN', 'EXT', 'REM']:
             self._visainstrument.write('TRIG:SOUR %s' % source.upper())        
         else:
             raise ValueError('set_trigger_source(): must be AUTO | MANual | EXTernal | REMote')
@@ -638,6 +650,64 @@ class Agilent_PNAX(Instrument):
         logging.debug(__name__ + ' : getting sweep time')
         
         return float(self.get_nop()) / self.get_bandwidth()
+        
+    def do_set_phase_offset(self, val):
+        '''
+        Set the phase offset for the selected measurement.
+
+        Input:
+            val (int) : -360 ... 360
+
+        Output:
+            None
+        '''
+        logging.debug(__name__ + ' : setting phase offset to %d' % val)
+        if val > -360 and val < 360:
+            self._visainstrument.write('CALC:OFFS:PHAS %d' % val)        
+        else:
+            raise ValueError('set_phase_offset(): must be between -360 and 360') 
+            
+    def do_get_phase_offset(self):
+        '''
+        Set the phase offset for the selected measurement.
+
+        Input:
+            None
+
+        Output:
+            val (int): -360 - 360
+        '''
+        logging.debug(__name__ + ' : getting phase offset')
+        return self._visainstrument.ask('CALC:OFFS:PHAS?')       
+        
+    def do_set_electrical_delay(self, val):
+        '''
+        Sets the electrical delay for the selected measurement.
+
+        Input:
+            val (int) :-10.00 - 10.00 [s]
+
+        Output:
+            None
+        '''
+        logging.debug(__name__ + ' : setting electrical delay to "%d"' % val)
+        if val > -10. and val < 10.:
+            self._visainstrument.write('CALC%i:CORR:EDEL:TIME %d' %(self._ci, val))        
+        else:
+            raise ValueError('set_electrical_delay(): must be between -10.00 - 10.00 [s]') 
+            
+    def do_get_electrical_delay(self):
+        '''
+        Gets the electrical delay for the selected measurement.
+
+        Input:
+            None
+
+        Output:
+            val (int): -10.00 - 10.00 [s]
+        '''
+        logging.debug(__name__ + ' : getting electrical delay')
+        return self._visainstrument.ask('CALC%i:CORR:EDEL?' %(self._ci))  
         
     def read(self):
         return self._visainstrument.read()
