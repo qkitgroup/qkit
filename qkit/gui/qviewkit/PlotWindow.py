@@ -45,25 +45,28 @@ class PlotWindow(QWidget,Ui_Form):
     
     @pyqtSlot()   
     def update_plots(self):
-        self.ds = self.obj_parent.h5file[self.dataset_path]
-        if len(self.ds.shape) == 1:        
-            if not self.graphicsView:
-                self.graphicsView = pg.PlotWidget(name=self.dataset_path)# pg.ImageView(self.centralwidget,view=pg.PlotItem())
-                self.graphicsView.setObjectName(self.dataset_path)
-                #self.graphicsView.setBackground(None)
-                #self.graphicsView.view.setAspectLocked(False)
-                self.verticalLayout.addWidget(self.graphicsView)
-                self.plot = self.graphicsView.plot()
-            self. _display_1D_data(self.plot, self.graphicsView)
-                
-        if len(self.ds.shape) == 2:
-            if not self.graphicsView:
-                self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
-                self.graphicsView.setObjectName(self.dataset_path)
-                self.graphicsView.view.setAspectLocked(False)
-                self.verticalLayout.addWidget(self.graphicsView)
-            self._display_2D_data(self.graphicsView)
-    
+        try:
+            self.ds = self.obj_parent.h5file[self.dataset_path]
+            if len(self.ds.shape) == 1:        
+                if not self.graphicsView:
+                    self.graphicsView = pg.PlotWidget(name=self.dataset_path)# pg.ImageView(self.centralwidget,view=pg.PlotItem())
+                    self.graphicsView.setObjectName(self.dataset_path)
+                    #self.graphicsView.setBackground(None)
+                    #self.graphicsView.view.setAspectLocked(False)
+                    self.verticalLayout.addWidget(self.graphicsView)
+                    self.plot = self.graphicsView.plot()
+                self. _display_1D_data(self.plot, self.graphicsView)
+                    
+            if len(self.ds.shape) == 2:
+                if not self.graphicsView:
+                    self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
+                    self.graphicsView.setObjectName(self.dataset_path)
+                    self.graphicsView.view.setAspectLocked(False)
+                    self.verticalLayout.addWidget(self.graphicsView)
+                self._display_2D_data(self.graphicsView)
+        except ValueError:
+            #pass
+            print "PlotWindow: Value Error; Dataset not yet available", self.dataset_path
 
         
     def _display_1D_data(self,plot,graphicsView):

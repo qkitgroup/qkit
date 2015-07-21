@@ -25,11 +25,12 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.treeWidget.setHeaderHidden(True)
         
-        self.set_cmd_options()
+        
         self.refreshTime_value = 5000
         self.tree_refresh  = True
-        self._setup_signal_slots()
+        self._setup_signal_slots()        
         self.setup_timer()
+        self.set_cmd_options()
         
         
         
@@ -62,6 +63,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             self._refresh_time_handler(self.DATA.args.refresh_time)
         if self.DATA.args.live_plot:
             self.liveCheckBox.click()
+            #self.live_update_onoff()
             
     def _setup_signal_slots(self):
         self.treeWidget.itemChanged.connect(self.handleChanged)
@@ -89,10 +91,13 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         
 
     def populate_data_list(self):
-        
+        """
+        populate_data_list is called regularly withing the refresh cycle to
+        update the data tree.
+        """
         #        self.treeWidget.clear()
         self.parent = self.treeWidget.invisibleRootItem()
-        parent = self.parent
+        #root_parent = self.parent
         column = 0
         parents = []
         #self.DATA.dataset_info = {}
@@ -102,24 +107,35 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         for i,pentry in enumerate(self.h5file["/entry"].keys()):
             tree_key = "/entry/"+pentry
             if not self.DATA.ds_tree_items.has_key(tree_key):
-                self.DATA.ds_tree_items[tree_key] = True
-                parents.append(self.addParent(parent, column, str(pentry)))
+                parent = self.addParent(self.parent, column, str(pentry))
+                self.DATA.ds_tree_items[tree_key] = parent
+                parents.append(parent)
+            else:
+                parent = self.DATA.ds_tree_items[tree_key]
+                
             s= "comment:\t" +str(self.h5file[tree_key].attrs.get('comment',"")+"\n")
             self.DATA.dataset_info[tree_key] = s
             
             for j,centry in enumerate(self.h5file[tree_key].keys()):
                 tree_key = "/entry/"+pentry+"/"+centry
                 if not self.DATA.ds_tree_items.has_key(tree_key):
-                    self.DATA.ds_tree_items[tree_key] = True
-                    item = self.addChild(parents[i], column, str(centry),tree_key)
+                    item = self.addChild(parent, column, str(centry),tree_key)
+                    self.DATA.ds_tree_items[tree_key] = item
+                    
                     #print tree_key
                     if self.DATA.ds_cmd_open.has_key(tree_key):
                         #print "checked", tree_key
                         item.setCheckState(0,QtCore.Qt.Checked)
                         self.DATA.append_plot(self,item,tree_key)
                 s = ""
-                for k in self.h5file[tree_key].attrs.keys(): 
-                    s+=k +"\t" +str(self.h5file[tree_key].attrs[k])+"\n"
+                try:
+                    for k in self.h5file[tree_key].attrs.keys(): 
+                        s+=k +"\t" +str(self.h5file[tree_key].attrs[k])+"\n"
+                except ValueError:
+                    # dataset is available, but the attrs are not yet readable
+                    #print "Dataset:ValueError ", tree_key
+                    pass
+                #print tree_key
                 self.DATA.dataset_info[tree_key] = s
                
     def addParent(self, parent, column, title,data = ''):
@@ -185,8 +201,8 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             s = (self.DATA.DataFilePath.split(os.path.sep)[-5:])
             self.statusBar().showMessage((os.path.sep).join(s for s in s))
     
-        except IOError:
-            print "IOError"
+        except ValueError:
+            print "Error in Dataset: File not yet available.", self.DATA.DataFilePath
 
     def open_file(self):
         self.DATA.DataFilePath=str(QFileDialog.getOpenFileName(filter="*.h5"))

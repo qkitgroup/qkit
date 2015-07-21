@@ -129,6 +129,8 @@ class H5_file(object):
         # add attibutes
         for a in kwargs:
              ds.attrs.create(a,kwargs[a])
+             
+        self.flush()
         return ds
         
     def append(self,ds,data, extend_step = 100):
@@ -159,7 +161,9 @@ class H5_file(object):
             
             ds[fill] = data
             ds.attrs.modify("fill",fill+1)
-            
+        
+        self.flush()
+        
     def flush(self):
         self.hf.flush()
         

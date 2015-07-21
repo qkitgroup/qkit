@@ -6,6 +6,7 @@ Created on Sun Jun 21 00:16:06 2015
 """
 #import sys
 #sys.path.append("/Users/hrotzing/pik/devel/python/qkit")
+import time
 try:
     from qkit.storage import hdf_lib as hl
 except ImportError:
@@ -82,7 +83,8 @@ Is = linspace(1e-3,10e-3,nop)
 f_co.add(fs)
 I_co.add(Is)
 
-for i in arange(1000):
+for i in arange(5):
+    time.sleep(10)
     amp = rand(nop)
     pha = rand(nop)
     amp_mx.append(amp)
