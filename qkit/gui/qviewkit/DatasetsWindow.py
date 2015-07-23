@@ -20,12 +20,13 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
     refresh_signal = pyqtSignal()
     def __init__(self,DATA):
         self.DATA = DATA
+        #QMainWindow.__init__(self,None,Qt.WindowStaysOnTopHint)
         QMainWindow.__init__(self)
         # set up User Interface (widgets, layout...)
         self.setupUi(self)
         self.treeWidget.setHeaderHidden(True)
         
-        self.refreshTime_value = 5000
+        self.refreshTime_value = 2000
         self.tree_refresh  = True
         self._setup_signal_slots()        
         self.setup_timer()
@@ -94,13 +95,9 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         populate_data_list is called regularly withing the refresh cycle to
         update the data tree.
         """
-        #        self.treeWidget.clear()
         self.parent = self.treeWidget.invisibleRootItem()
-        #root_parent = self.parent
         column = 0
         parents = []
-        #self.DATA.dataset_info = {}
-        #first parents
         s=""
         """itterate over the whole entry tree and collect the attributes """
         for i,pentry in enumerate(self.h5file["/entry"].keys()):
@@ -121,15 +118,14 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                     item = self.addChild(parent, column, str(centry),tree_key)
                     self.DATA.ds_tree_items[tree_key] = item
                     
-                    #print tree_key
+
                     if self.DATA.ds_cmd_open.has_key(tree_key):
-                        #print "checked", tree_key
                         item.setCheckState(0,QtCore.Qt.Checked)
                         self.DATA.append_plot(self,item,tree_key)
-                        pass
+                        self.update_plots()
+                        
                 s = ""
                 try:
-                    #print self.h5file
                     for k in self.h5file[tree_key].attrs.keys(): 
                         s+=k +"\t" +str(self.h5file[tree_key].attrs[k])+"\n"
                 except ValueError:
@@ -150,14 +146,6 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
     def addChild(self, parent, column, title, ds, data=''):
         item = QtGui.QTreeWidgetItem(parent, [title])
         item.setData(column, QtCore.Qt.UserRole, data)
-        """
-        self.tree_refresh = True
-        if self.DATA.plot_is_open(ds):
-            item.setCheckState (column, QtCore.Qt.Checked)
-        else:
-            item.setCheckState (column, QtCore.Qt.Unchecked)
-        self.tree_refresh = False
-        """
         item.setCheckState (column, QtCore.Qt.Unchecked)
         return item
 
@@ -167,14 +155,15 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             #print "checked", item, item.text(column)
             #if not self.tree_refresh:
             self.DATA.append_plot(self,item,ds)
-            #self.refresh_signal.emit()
-            #self.DATA.open_plots[item].show()
-            #self.update_file()
-            
+            # this is a not very sound hack of a concurrency problem!
+            # better to use a locking technique
+            if not self.h5file:
+                self.update_file()
+            else:
+                self.update_plots()
+                
         if item.checkState(column) == QtCore.Qt.Unchecked:
             #print "unchecked", item, item.text(column)
-            #if self.DATA.open_plots
-            #if not self.tree_refresh:
             self.DATA.remove_plot(item,ds)
         
     def handleSelectionChanged(self):

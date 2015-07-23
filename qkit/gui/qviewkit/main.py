@@ -32,6 +32,8 @@ class DATA(QObject):
         
         window.show()   # non-modal
         #window.exec_() # modal
+        window.raise_()
+        
         return window
     def remove_plot(self,window_id,ds):
         if self.open_plots.has_key(window_id):
@@ -73,14 +75,15 @@ def main(argv):
     #
     dsw = DatasetsWindow(data)
     dsw.show()
-    #wnd = PlotWindow(data) # classname
-    #wnd.show()
+    dsw.raise_()
     
     # Connect signal for app finish
     app.connect(app, SIGNAL("lastWindowClosed()"), app, SLOT("quit()"))
     
     # Start the app up
-    sys.exit(app.exec_())
+    #sys.exit(app.exec_())
+    app.exec_()
+    #app.closeAllWindows()
  
 if __name__ == "__main__":
     main(sys.argv)
