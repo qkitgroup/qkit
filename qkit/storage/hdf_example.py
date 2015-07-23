@@ -80,11 +80,12 @@ pha_bx = h5d.add_value_box('phase',     x = I_co , y = f_co, z= P_co, unit = "ra
 # now we add data to the file
 fs = linspace(1e9,5e9,nop)
 Is = linspace(1e-3,10e-3,nop)
+print Is
 f_co.add(fs)
 I_co.add(Is)
 
 for i in arange(5):
-    time.sleep(10)
+    #time.sleep(10)
     amp = rand(nop)
     pha = rand(nop)
     amp_mx.append(amp)
