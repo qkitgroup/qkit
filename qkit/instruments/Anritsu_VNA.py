@@ -198,6 +198,7 @@ class Anritsu_VNA(Instrument):
 		self.get_power_nop1()
 		self.get_power_nop2()
 		self.get_avg_type()
+		self.get_edel()
 		#self.get_zerospan()
 		
 	###
@@ -956,7 +957,9 @@ class Anritsu_VNA(Instrument):
 		else:
 			logging.debug(__name__ + ' : Illegal argument %s'%(swtype))
 
-	
+
+	def read(self, msg):
+        return self._visainstrument.read(msg)
 	def write(self,msg):
 		return self._visainstrument.write(msg)    
 	def ask(self,msg):

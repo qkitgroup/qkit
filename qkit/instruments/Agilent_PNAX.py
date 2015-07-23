@@ -70,7 +70,7 @@ class Agilent_PNAX(Instrument):
             flags=Instrument.FLAG_GETSET,
             minval=1, maxval=1024, tags=['sweep'])                    
 
-        self.add_parameter('average', type=types.BooleanType,
+        self.add_parameter('Average', type=types.BooleanType,
             flags=Instrument.FLAG_GETSET)   
                     
         self.add_parameter('centerfreq', type=types.FloatType,
@@ -118,15 +118,47 @@ class Agilent_PNAX(Instrument):
             minval=0, maxval=500,
             units='s', tags=['sweep'])
             
-        self.add_parameter('electrical_delay', type=types.FloatType,
-            flags=Instrument.FLAG_GET,
+        self.add_parameter('edel', type=types.FloatType,
+            flags=Instrument.FLAG_GETSET,
             minval=-10., maxval=10.,
             units='s', tags=['sweep'])
             
-        self.add_parameter('phase_offset', type=types.FloatType,
-            flags=Instrument.FLAG_GET,
-            minval=-360., maxval=360.,
-            units='deg', tags=['sweep'])
+        self.add_parameter('cw', type=types.BooleanType,
+            flags=Instrument.FLAG_GETSET)
+            
+        self.add_parameter('cwfreq', type=types.FloatType,
+            flags=Instrument.FLAG_GETSET,
+            minval=0, maxval=20e9,
+            units='Hz', tags=['sweep'])
+            
+        self.add_parameter('source_attenuation', type=types.IntType,
+            flags=Instrument.FLAG_GETSET,channels=(1,2),
+            minval=0, maxval=60,
+            tags=['sweep'])
+            
+        self.add_parameter('source_power_start', type=types.FloatType,
+            flags=Instrument.FLAG_GETSET,channels=(1,2),
+            minval=-2.9e1, maxval=3e1,
+            tags=['sweep'])
+            
+        self.add_parameter('source_power_stop', type=types.FloatType,
+            flags=Instrument.FLAG_GETSET,channels=(1,2),
+            minval=-2.9e1, maxval=3e1,
+            tags=['sweep'])
+            
+        self.add_parameter('calibration_state', type=types.BooleanType,
+            flags=Instrument.FLAG_GETSET) 
+        
+        self.add_parameter('sweep_type', type=types.StringType,
+            flags=Instrument.FLAG_GETSET,tags=['sweep']) 
+            
+        self.add_parameter('power_nop', type=types.IntType,
+            flags=Instrument.FLAG_GETSET,channels=(1,2),
+            minval=0, maxval=60,
+            tags=['sweep'])
+        
+        self.add_parameter('avg_type', type=types.StringType,
+            flags=Instrument.FLAG_GETSET,tags=['sweep'])
         
         # sets the S21 setting in the PNA X
         self.define_S21()
@@ -134,6 +166,7 @@ class Agilent_PNAX(Instrument):
         # Implement functions
         self.add_function('get_freqpoints')
         self.add_function('get_tracedata')
+        self.add_function('get_tracedata_FDATA')
         self.add_function('init')
         self.add_function('set_S21')
         #self.add_function('avg_clear')
@@ -155,12 +188,23 @@ class Agilent_PNAX(Instrument):
         self.get_span()
         self.get_bandwidth()
         self.get_trigger_source()
-        self.get_average()
+        self.get_Average()
         self.get_averages()
         self.get_freqpoints()   
         self.get_channel_index()
-        self.get_electrical_delay()
-        self.get_phase_offset()
+        self.get_cw()
+        self.get_source_attenuation1()
+        self.get_source_attenuation2()
+        self.get_source_power_start1()
+        self.get_source_power_start2()
+        self.get_source_power_stop1()
+        self.get_source_power_stop2()
+        self.get_calibration_state()
+        self.get_sweep_type()
+        self.get_power_nop1()
+        self.get_power_nop2()
+        self.get_avg_type()
+        self.get_edel()
         #self.get_zerospan()
         
     ###
@@ -176,6 +220,12 @@ class Agilent_PNAX(Instrument):
               self._visainstrument.write('INIT1;*wai')
           else:
               self._visainstrument.write('INIT1;*wai')
+              
+    def hold(self, status):
+        if status:
+            self._visainstrument.write('SENSe:SWEep:MODE HOLD')
+        else:
+            self._visainstrument.write('SENSe:SWEep:MODE CONT')
 
     def set_S21(self):
         '''
@@ -224,20 +274,53 @@ class Agilent_PNAX(Instrument):
         
     def get_tracedata(self, format = 'AmpPha'):
         '''
-        Get the data of the current trace
+        Get the rawdata of the current trace
 
         Input:
-            format (string) : 'AmpPha': Amp in dB and Phase, 'RealImag',
+            format (string) : 'AmpPha': Amp (lin) and Phase, 'RealImag',
 
         Output:
             'AmpPha':_ Amplitude and Phase
         '''
         self._visainstrument.write(':FORMAT REAL,32; FORMat:BORDer SWAP;')
-        #data = self._visainstrument.ask_for_values(':FORMAT REAL,32; FORMat:BORDer SWAP;*CLS; CALC:DATA? SDATA;*OPC',format=visa.single) 
-        #data = self._visainstrument.ask_for_values(':FORMAT REAL,32;CALC:DATA? SDATA;',format=visa.double) 
-        #data = self._visainstrument.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; CALC%i:SEL:DATA:SDAT?'%(self._ci), format = visa.double)      
-        #test
-        data = self._visainstrument.ask_for_values( "CALCulate:DATA? SDATA",format = visa.single) 
+        data = self._visainstrument.ask_for_values( "CALCulate:DATA? SDATA",format = visa.single)
+        data_size = numpy.size(data)
+        datareal = numpy.array(data[0:data_size:2])
+        dataimag = numpy.array(data[1:data_size:2])
+        
+        #print datareal,dataimag,len(datareal),len(dataimag)
+        if format.upper() == 'REALIMAG':
+          if self._zerospan:
+            return numpy.mean(datareal), numpy.mean(dataimag)
+          else:
+            return datareal, dataimag
+        elif format.upper() == 'AMPPHA':
+          if self._zerospan:
+            datareal = numpy.mean(datareal)
+            dataimag = numpy.mean(dataimag)
+            dataamp = numpy.sqrt(datareal*datareal+dataimag*dataimag)
+            datapha = numpy.arctan(dataimag/datareal)
+            return dataamp, datapha
+          else:
+            dataamp = numpy.sqrt(datareal*datareal+dataimag*dataimag)
+            datapha = numpy.arctan2(dataimag,datareal)
+            return dataamp, datapha
+        else:
+          raise ValueError('get_tracedata(): Format must be AmpPha or RealImag')
+          
+    def get_tracedata_FDATA(self, format = 'AmpPha'):
+        '''
+        Get the data of the current trace
+
+        Input:
+            format (string) : 'AmpPha': Amp (lin) and Phase, 'RealImag',
+
+        Output:
+            'AmpPha':_ Amplitude and Phase
+        '''
+        self._visainstrument.write(':FORMAT REAL,32; FORMat:BORDer SWAP;')
+        self._visainstrument.write('CALC:FORM POL')
+        data = self._visainstrument.ask_for_values( "CALCulate:DATA? FDATA",format = visa.single)
         data_size = numpy.size(data)
         datareal = numpy.array(data[0:data_size:2])
         dataimag = numpy.array(data[1:data_size:2])
@@ -261,6 +344,7 @@ class Agilent_PNAX(Instrument):
             return dataamp, datapha
         else:
           raise ValueError('get_tracedata(): Format must be AmpPha or RealImag') 
+
       
     def get_freqpoints(self, query = False):      
       #if query == True:        
@@ -307,7 +391,7 @@ class Agilent_PNAX(Instrument):
             self._nop = int(self._visainstrument.ask(':SENS%i:SWE:POIN?' %(self._ci)))    
         return self._nop 
     
-    def do_set_average(self, status):
+    def do_set_Average(self, status):
         '''
         Set status of Average
 
@@ -319,7 +403,7 @@ class Agilent_PNAX(Instrument):
         '''
         logging.debug(__name__ + ' : setting Average to "%s"' % (status))
         self._visainstrument.write('SENS%i:AVER:STAT %d' % (self._ci,status))
-    def do_get_average(self):
+    def do_get_Average(self):
         '''
         Get status of Average
 
@@ -327,7 +411,7 @@ class Agilent_PNAX(Instrument):
             None
 
         Output:
-            Status of Averaging ('on' or 'off) (string)
+            Status of Averaging (True or False) (boolean)
         '''
         logging.debug(__name__ + ' : getting average status')
         return bool(int(self._visainstrument.ask('SENS%i:AVER:STAT?' %(self._ci))))
@@ -651,36 +735,8 @@ class Agilent_PNAX(Instrument):
         
         return float(self.get_nop()) / self.get_bandwidth()
         
-    def do_set_phase_offset(self, val):
-        '''
-        Set the phase offset for the selected measurement.
-
-        Input:
-            val (int) : -360 ... 360
-
-        Output:
-            None
-        '''
-        logging.debug(__name__ + ' : setting phase offset to %d' % val)
-        if val > -360 and val < 360:
-            self._visainstrument.write('CALC:OFFS:PHAS %d' % val)        
-        else:
-            raise ValueError('set_phase_offset(): must be between -360 and 360') 
-            
-    def do_get_phase_offset(self):
-        '''
-        Set the phase offset for the selected measurement.
-
-        Input:
-            None
-
-        Output:
-            val (int): -360 - 360
-        '''
-        logging.debug(__name__ + ' : getting phase offset')
-        return self._visainstrument.ask('CALC:OFFS:PHAS?')       
         
-    def do_set_electrical_delay(self, val):
+    def do_set_edel(self, val, unit = 'S'):
         '''
         Sets the electrical delay for the selected measurement.
 
@@ -690,13 +746,13 @@ class Agilent_PNAX(Instrument):
         Output:
             None
         '''
-        logging.debug(__name__ + ' : setting electrical delay to "%d"' % val)
+        logging.debug(__name__ + ' : setting electrical delay to "%i"' % val)
         if val > -10. and val < 10.:
-            self._visainstrument.write('CALC%i:CORR:EDEL:TIME %d' %(self._ci, val))        
+            self._visainstrument.write('SENS:CORR:EXT:PORT%i %i' %(self._ci, val))        
         else:
             raise ValueError('set_electrical_delay(): must be between -10.00 - 10.00 [s]') 
             
-    def do_get_electrical_delay(self):
+    def do_get_edel(self):
         '''
         Gets the electrical delay for the selected measurement.
 
@@ -707,7 +763,263 @@ class Agilent_PNAX(Instrument):
             val (int): -10.00 - 10.00 [s]
         '''
         logging.debug(__name__ + ' : getting electrical delay')
-        return self._visainstrument.ask('CALC%i:CORR:EDEL?' %(self._ci))  
+        return float(self._visainstrument.ask('SENS:CORR:EXT:PORT%i?' %(self._ci)))
+        
+    def do_set_cwfreq(self, cf):
+        ''' set cw frequency '''
+        self._visainstrument.write('SENS%i:FREQ:CW %f' % (self._ci,cf))
+
+    def do_get_cwfreq(self):
+        ''' get cw frequency '''
+        return float(self._visainstrument.ask('SENS%i:FREQ:CW?'%(self._ci)))
+        
+        
+    def do_set_cw(self, val):
+        '''
+        Set instrument to CW (single frequency) mode and back
+        '''
+        if val:
+            self._visainstrument.write(':SENS%i:SWE:TYPE CW'%(self._ci))
+        else:
+            self._visainstrument.write(':SENS%i:SWE:TYPE LIN'%(self._ci))
+        self._cw = val
+        
+    def do_get_cw(self):
+        '''
+        retrieve CW mode status from device
+        '''
+        if self._visainstrument.ask(':SENS%i:SWE:TYPE?'%(self._ci)) == 'CW':
+            stat = True
+        else:
+            stat = False
+        self._cw = stat
+        return self._cw
+        
+    def do_get_source_attenuation(self,channel):
+        '''
+        Get status of source attenuation on port 
+
+        Input:
+            None
+
+        Output:
+            Status of source attenuation (value in dB) 
+        '''
+        
+        logging.debug(__name__ + ' : getting attenuation status')
+        return float(self._visainstrument.ask('SOUR%i:POW%i:ATT?' %(self._ci,channel)))
+
+    def do_set_source_attenuation(self, att,channel):
+        '''
+        Set value of source attenuation
+
+        Input:
+            att (int)   :   Value of source attenuation must
+                            must be one of (0,10,20,30,40,50,60)
+
+        Output:
+            None
+        '''
+        if att in (0,10,20,30,40,50,60):
+            logging.debug(__name__ + ' : setting attenuation on port %i to %idB ' % (channel,att))
+            self._visainstrument.write('SOUR%i:POW%i:ATT %i' % (self._ci,channel,att))
+        else:
+            logging.debug(__name__ + ' : cannot set attenuation to %i ' % (att))
+
+    def do_get_source_power_start(self,channel):
+        '''
+        Get starting value for power sweep 
+
+        Input:
+            None
+
+        Output:
+            Starting value for the power sweep (float value in dBm) 
+        '''
+        
+        logging.debug(__name__ + ' : getting starting power')
+        return float(self._visainstrument.ask('SOUR%i:POW%i:PORT:STAR?' %(self._ci,channel)))
+                    
+    def do_set_source_power_start(self, pow,channel):
+        '''
+        Set starting value for power sweep 
+
+        Input:
+            pow (float)   :   Starting power (-29.9 to 30)
+
+        Output:
+            None
+        '''
+        
+        logging.debug(__name__ + ' : setting starting power on port %i to %.2f dBm ' % (channel,pow))
+        self._visainstrument.write('SOUR%i:POW%i:PORT:STAR %.2f' % (self._ci,channel,pow))
+        
+    def do_get_source_power_stop(self,channel):
+        '''
+        Get stopping value for power sweep 
+
+        Input:
+            None
+
+        Output:
+            Stopping value for the power sweep (float value in dBm) 
+        '''
+        
+        logging.debug(__name__ + ' : getting stopping power')
+        return float(self._visainstrument.ask('SOUR%i:POW%i:PORT:STOP?' %(self._ci,channel)))
+                    
+    def do_set_source_power_stop(self, pow,channel):
+        '''
+        Set stopping value for power sweep 
+
+        Input:
+            pow (float)   :   Stopping power (-29.9 to 30)
+
+        Output:
+            None
+        '''
+        
+        logging.debug(__name__ + ' : setting stopping power on port %i to %.2f dBm ' % (channel,pow))
+        self._visainstrument.write('SOUR%i:POW%i:PORT%:STOP %.2f' % (self._ci,channel,pow))
+        
+      
+    def do_set_calibration_state(self, status):
+        '''
+        Set status of Calibration
+
+        Input:
+            status (boolean) 
+
+        Output:
+            None
+        '''
+        logging.debug(__name__+ ' : setting calibration stat to %i'%(status))
+        self._visainstrument.write('SENS%i:CORR:STAT %i' % (self._ci))
+        
+    def do_get_calibration_state(self):
+        '''
+        Get status of Calibration
+
+        Input:
+            None
+
+        Output:
+            Status of Calibration (bool)
+        '''
+        logging.debug(__name__ + ' : getting calibration state status')
+        return bool(int(self._visainstrument.ask('SENS%i:CORR:STAT?' %(self._ci))))
+
+    def do_get_sweep_type(self):
+        '''
+        Get the Sweep Type
+
+        Input:
+            None
+
+        Output:
+                LIN:    Frequency-based linear sweep
+                LOG:    Frequency-based logarithmic sweep
+                CW:     Frequency-based continuous wave sweep
+                SEG:    Segment-based sweep with frequency-based segments
+                POW:    Power-based sweep with either Power-based sweep with a 
+                    CW frequency, or Power-based sweep with swept-frequency
+                PHAS:
+        '''
+        logging.debug(__name__ + ' : getting sweep type')
+        
+        return str(self._visainstrument.ask('SENS%i:SWE:TYPE?' %(self._ci)))
+
+    def do_set_sweep_type(self,swtype):
+        '''
+        Set the Sweep Type
+        Input:
+            swtype (string):    One of
+                LIN:    Frequency-based linear sweep
+                LOG:    Frequency-based logarithmic sweep
+                CW:     Frequency-based continuous wave sweep
+                SEG:    Segment-based sweep with frequency-based segments
+                POW:    Power-based sweep with either Power-based sweep with a 
+                    CW frequency, or Power-based sweep with swept-frequency
+                PHAS:   
+
+        Output:
+            None            
+        '''
+        if swtype in ('LIN','LOG','CW','SEGM','POW','PHAS'):
+            
+            logging.debug(__name__ + ' : Setting sweep type to %s'%(swtype))
+            return self._visainstrument.write('SENS%i:SWE:TYPE %s' %(self._ci,swtype))
+            
+        else:
+            logging.debug(__name__ + ' : Illegal argument %s'%(swtype))
+            
+
+    def do_get_power_nop(self,channel):
+        '''
+        Get number of points for a power sweep 
+
+        Input:
+            None
+
+        Output:
+            Number of points for a power sweep (int) 
+        '''
+        
+        logging.debug(__name__ + ' : getting power nop')
+        return int(self._visainstrument.ask('SENS%i:SWE:POIN?' %(self._ci)))
+
+
+
+
+    def do_set_power_nop(self, n,channel):
+        '''
+        Set number of points for a power sweep 
+
+        Input:
+            n (int)   :   Number of points of the sweep
+
+        Output:
+            None
+        '''
+        
+        logging.debug(__name__ + ' : setting number of power sweep points on channel %i to %i ' % (channel,n))
+        self._visainstrument.write('SENS%i:SWE:POIN %i' % (self._ci,n))
+        
+    def do_get_avg_type(self):
+        '''
+        Get the Averaging Type
+
+        Input:
+            None
+
+        Output:
+            Averaging Type (string). One of
+            POIN:	Point by Point
+            SWE:	Sweep by Sweep
+            
+        '''
+        logging.debug(__name__ + ' : getting averaging type')
+        
+        return str(self._visainstrument.ask('SENS%i:AVER:MODE?' %(self._ci)))
+
+    def do_set_avg_type(self,avgtype):
+        '''
+        Set the Averaging Type
+        Input:
+            avgtype (string). One of:
+                POIN:	Point by Point
+                SWE:	Sweep by Sweep
+
+        Output:
+            None            
+        '''
+        if avgtype in ('POIN','SWE'):
+            
+            logging.debug(__name__ + ' : Setting avg type to %s'%(avgtype))
+            return self._visainstrument.write('SENS%i:AVER:MODE %s' %(self._ci,avgtype))
+            
+        else:
+            logging.debug(__name__ + ' : Illegal argument %s'%(swtype))
         
     def read(self):
         return self._visainstrument.read()
