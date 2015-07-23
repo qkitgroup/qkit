@@ -166,7 +166,6 @@ class Agilent_PNAX(Instrument):
         # Implement functions
         self.add_function('get_freqpoints')
         self.add_function('get_tracedata')
-        self.add_function('get_tracedata_FDATA')
         self.add_function('init')
         self.add_function('set_S21')
         #self.add_function('avg_clear')
@@ -271,44 +270,8 @@ class Agilent_PNAX(Instrument):
     def still_avg(self): 
         if int(self.get_avg_status()) == 0: return True
         else: return False 
-        
-    def get_tracedata(self, format = 'AmpPha'):
-        '''
-        Get the rawdata of the current trace
-
-        Input:
-            format (string) : 'AmpPha': Amp (lin) and Phase, 'RealImag',
-
-        Output:
-            'AmpPha':_ Amplitude and Phase
-        '''
-        self._visainstrument.write(':FORMAT REAL,32; FORMat:BORDer SWAP;')
-        data = self._visainstrument.ask_for_values( "CALCulate:DATA? SDATA",format = visa.single)
-        data_size = numpy.size(data)
-        datareal = numpy.array(data[0:data_size:2])
-        dataimag = numpy.array(data[1:data_size:2])
-        
-        #print datareal,dataimag,len(datareal),len(dataimag)
-        if format.upper() == 'REALIMAG':
-          if self._zerospan:
-            return numpy.mean(datareal), numpy.mean(dataimag)
-          else:
-            return datareal, dataimag
-        elif format.upper() == 'AMPPHA':
-          if self._zerospan:
-            datareal = numpy.mean(datareal)
-            dataimag = numpy.mean(dataimag)
-            dataamp = numpy.sqrt(datareal*datareal+dataimag*dataimag)
-            datapha = numpy.arctan(dataimag/datareal)
-            return dataamp, datapha
-          else:
-            dataamp = numpy.sqrt(datareal*datareal+dataimag*dataimag)
-            datapha = numpy.arctan2(dataimag,datareal)
-            return dataamp, datapha
-        else:
-          raise ValueError('get_tracedata(): Format must be AmpPha or RealImag')
           
-    def get_tracedata_FDATA(self, format = 'AmpPha'):
+    def get_tracedata(self, format = 'AmpPha'):
         '''
         Get the data of the current trace
 
@@ -336,11 +299,11 @@ class Agilent_PNAX(Instrument):
             datareal = numpy.mean(datareal)
             dataimag = numpy.mean(dataimag)
             dataamp = numpy.sqrt(datareal*datareal+dataimag*dataimag)
-            datapha = numpy.arctan(dataimag/datareal)
+            datapha = numpy.arctan(dataimag/datareal)/numpy.pi
             return dataamp, datapha
           else:
             dataamp = numpy.sqrt(datareal*datareal+dataimag*dataimag)
-            datapha = numpy.arctan2(dataimag,datareal)
+            datapha = numpy.arctan2(dataimag,datareal)/numpy.pi
             return dataamp, datapha
         else:
           raise ValueError('get_tracedata(): Format must be AmpPha or RealImag') 
