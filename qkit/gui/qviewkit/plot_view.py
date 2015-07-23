@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'plot_view.ui'
 #
-# Created: Sun Jul 19 22:53:43 2015
+# Created: Thu Jul 23 07:27:53 2015
 #      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -31,17 +31,25 @@ class Ui_Form(object):
         self.gridLayout_2.setMargin(2)
         self.gridLayout_2.setObjectName(_fromUtf8("gridLayout_2"))
         self.horizontalLayout = QtGui.QHBoxLayout()
+        self.horizontalLayout.setSizeConstraint(QtGui.QLayout.SetMinimumSize)
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
-        self.PlotType = QtGui.QComboBox(Form)
-        self.PlotType.setObjectName(_fromUtf8("PlotType"))
-        self.PlotType.addItem(_fromUtf8(""))
-        self.PlotType.addItem(_fromUtf8(""))
-        self.horizontalLayout.addWidget(self.PlotType)
-        self.Trace = QtGui.QComboBox(Form)
-        self.Trace.setObjectName(_fromUtf8("Trace"))
-        self.horizontalLayout.addWidget(self.Trace)
+        self.PlotTypeSelector = QtGui.QComboBox(Form)
+        self.PlotTypeSelector.setObjectName(_fromUtf8("PlotTypeSelector"))
+        self.PlotTypeSelector.addItem(_fromUtf8(""))
+        self.PlotTypeSelector.addItem(_fromUtf8(""))
+        self.horizontalLayout.addWidget(self.PlotTypeSelector)
+        self.TraceSelector = QtGui.QSpinBox(Form)
+        self.TraceSelector.setSuffix(_fromUtf8(""))
+        self.TraceSelector.setMinimum(-99999)
+        self.TraceSelector.setMaximum(99999)
+        self.TraceSelector.setProperty("value", -1)
+        self.TraceSelector.setObjectName(_fromUtf8("TraceSelector"))
+        self.horizontalLayout.addWidget(self.TraceSelector)
         spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
+        self.addPlotSelector = QtGui.QComboBox(Form)
+        self.addPlotSelector.setObjectName(_fromUtf8("addPlotSelector"))
+        self.horizontalLayout.addWidget(self.addPlotSelector)
         self.gridLayout_2.addLayout(self.horizontalLayout, 0, 0, 1, 1)
         self.gridLayout = QtGui.QGridLayout()
         self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
@@ -55,6 +63,7 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         Form.setWindowTitle(_translate("Form", "Form", None))
-        self.PlotType.setItemText(0, _translate("Form", "Color Plot", None))
-        self.PlotType.setItemText(1, _translate("Form", "Line Plot", None))
+        self.PlotTypeSelector.setItemText(0, _translate("Form", "Color Plot", None))
+        self.PlotTypeSelector.setItemText(1, _translate("Form", "Line Plot", None))
+        self.TraceSelector.setPrefix(_translate("Form", "Trace: ", None))
 

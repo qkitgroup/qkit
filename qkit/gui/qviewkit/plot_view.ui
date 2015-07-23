@@ -19,8 +19,11 @@
    </property>
    <item row="0" column="0">
     <layout class="QHBoxLayout" name="horizontalLayout">
+     <property name="sizeConstraint">
+      <enum>QLayout::SetMinimumSize</enum>
+     </property>
      <item>
-      <widget class="QComboBox" name="PlotType">
+      <widget class="QComboBox" name="PlotTypeSelector">
        <item>
         <property name="text">
          <string>Color Plot</string>
@@ -34,7 +37,23 @@
       </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="Trace"/>
+      <widget class="QSpinBox" name="TraceSelector">
+       <property name="suffix">
+        <string/>
+       </property>
+       <property name="prefix">
+        <string>Trace: </string>
+       </property>
+       <property name="minimum">
+        <number>-99999</number>
+       </property>
+       <property name="maximum">
+        <number>99999</number>
+       </property>
+       <property name="value">
+        <number>-1</number>
+       </property>
+      </widget>
      </item>
      <item>
       <spacer name="horizontalSpacer">
@@ -48,6 +67,9 @@
         </size>
        </property>
       </spacer>
+     </item>
+     <item>
+      <widget class="QComboBox" name="addPlotSelector"/>
      </item>
     </layout>
    </item>

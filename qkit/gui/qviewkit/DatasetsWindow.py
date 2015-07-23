@@ -35,9 +35,9 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         
         
     def setup_timer(self):
-         self.timer = QTimer()
-         self.timer.timeout.connect(self.update_file)
-         self.timer.timeout.connect(self.live_update_onoff)
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_file)
+        self.timer.timeout.connect(self.live_update_onoff)
 
 
             
@@ -127,11 +127,14 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                         #print "checked", tree_key
                         item.setCheckState(0,QtCore.Qt.Checked)
                         self.DATA.append_plot(self,item,tree_key)
+                        pass
                 s = ""
                 try:
+                    #print self.h5file
                     for k in self.h5file[tree_key].attrs.keys(): 
                         s+=k +"\t" +str(self.h5file[tree_key].attrs[k])+"\n"
                 except ValueError:
+                #except IOError:
                     # dataset is available, but the attrs are not yet readable
                     #print "Dataset:ValueError ", tree_key
                     pass
@@ -167,7 +170,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             self.DATA.append_plot(self,item,ds)
             #self.refresh_signal.emit()
             #self.DATA.open_plots[item].show()
-            self.update_file()
+            #self.update_file()
             
         if item.checkState(column) == QtCore.Qt.Unchecked:
             #print "unchecked", item, item.text(column)
@@ -193,14 +196,14 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             
     def update_file(self):
         try:
+            
             self.h5file= h5py.File(str(self.DATA.DataFilePath),mode='r')
-            #if self.tree_refresh:
             self.populate_data_list()
             self.update_plots()
             self.h5file.close()
             s = (self.DATA.DataFilePath.split(os.path.sep)[-5:])
             self.statusBar().showMessage((os.path.sep).join(s for s in s))
-    
+        #except IOError:
         except ValueError:
             print "Error in Dataset: File not yet available.", self.DATA.DataFilePath
 
