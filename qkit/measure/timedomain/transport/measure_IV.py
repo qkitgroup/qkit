@@ -29,6 +29,8 @@ class transport(object):
     def __init__(self, daq, exp_name = ''):
 
         self.daq = daq
+        self.exp_name = exp_name
+
         self._chan_out = self.daq._ins._get_output_channels()[0]
         self._chan_in = self.daq._ins._get_input_channels()[0]
 
@@ -37,7 +39,6 @@ class transport(object):
 
         self.plotlive = True
         self.comment = ''
-        self.exp_name = exp_name
 
         self._voltage_bias = False
         self._current_bias = True
@@ -95,21 +96,17 @@ class transport(object):
         return True
 
     def _save_settings(self):
-            name_settings = str(self._data.get_filepath()).replace('.h5', '_SETTINGS.txt')
-            settings = open(name_settings, "w")
-
-            settings.write("## Settings for measurement, "+self._scan_name)
-            settings.write("\nA per V = %f\nV_amp = %f\nI_div = %f\nV_div = %f\nsamples = %f\nrate = %f\nsweeps = %f\n" % (float(self._conversion_factor), float(self._V_amp), float(self._I_div), float(self._V_div), float(self._sample_count), float(self._sample_rate), float(self._sweeps)))
-            settings.write('Voltage bias = %s, Current bias = %s' %(str(self._voltage_bias), str(self._current_bias)))
-            settings.write("\nMin = %f \nMax = %f \n" % (self._start, self._stop))
+            settings = "## Settings for measurement "+self._scan_name+' ##\n'
+            settings += "A per V = %f\nV_amp = %f\nI_div = %f\nV_div = %f\nsamples = %f\nrate = %f\nsweeps = %f\n" % (float(self._conversion_factor), float(self._V_amp), float(self._I_div), float(self._V_div), float(self._sample_count), float(self._sample_rate), float(self._sweeps))
+            settings += 'Voltage bias = %s, Current bias = %s\n' %(str(self._voltage_bias), str(self._current_bias))
+            settings += "Min = %f \nMax = %f \n" % (self._start, self._stop)
             if not self._measure_IV:
-                settings.write("\n%s, %f-%f %s, step = %f " % (self.x_instrument, self.x_vec[0], self.x_vec[len(self.x_vec)-1], (self.x_vec[len(self.x_vec)-1]-self.x_vec[0])/(len(self.x_vec)-1)))
+                settings += "%s, %f-%f %s, step = %f\n" % (self.x_instrument, self.x_vec[0], self.x_vec[len(self.x_vec)-1], (self.x_vec[len(self.x_vec)-1]-self.x_vec[0])/(len(self.x_vec)-1))
             if self._measure_IV_3D:
-                settings.write("\n%s, %f-%f %s, step = %f " % (self.y_instrument, self.y_vec[0], self.y_vec[len(self.y_vec)-1], (self.y_vec[len(self.y_vec)-1]-self.y_vec[0])/(len(self.y_vec)-1)))
-            settings.write("Current offset %f A\n" %(self._current_offset))
-            settings.write("Voltage offset %f V\n" %(self._voltage_offset))
-
-            settings.close()
+                settings += "%s, %f-%f %s, step = %f\n" % (self.y_instrument, self.y_vec[0], self.y_vec[len(self.y_vec)-1], (self.y_vec[len(self.y_vec)-1]-self.y_vec[0])/(len(self.y_vec)-1))
+            settings += "Current offset %f A\n" %(self._current_offset)
+            settings += "Voltage offset %f V\n" %(self._voltage_offset)
+            self._data.add_comment(settings)
 
     def measure_IV(self):
         self._measure_IV_1D = True

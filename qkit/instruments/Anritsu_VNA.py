@@ -19,7 +19,6 @@ from instrument import Instrument
 import visa
 import types
 import logging
-from time import sleep
 import numpy
 
 class Anritsu_VNA(Instrument):
@@ -113,17 +112,17 @@ class Anritsu_VNA(Instrument):
 		self.add_parameter('source_attenuation', type=types.IntType,
 			flags=Instrument.FLAG_GETSET,channels=(1,2),
 			minval=0, maxval=60,
-			tags=['sweep'])
+			units='dB', tags=['sweep'])
 			
 		self.add_parameter('source_power_start', type=types.FloatType,
 			flags=Instrument.FLAG_GETSET,channels=(1,2),
 			minval=-2.9e1, maxval=3e1,
-			tags=['sweep'])
+			units='dBm', tags=['sweep'])
 			
 		self.add_parameter('source_power_stop', type=types.FloatType,
 			flags=Instrument.FLAG_GETSET,channels=(1,2),
 			minval=-2.9e1, maxval=3e1,
-			tags=['sweep'])
+			units='dBm', tags=['sweep'])
 			
 		self.add_parameter('calibration_state', type=types.BooleanType,
 			flags=Instrument.FLAG_GETSET) 
@@ -542,7 +541,10 @@ class Anritsu_VNA(Instrument):
 		return  self._stop
 		
 	def do_get_sweeptime_averages(self):
-		return self.get_sweeptime() * self.get_averages()
+		if self.get_Average():
+			return self.get_sweeptime() * self.get_averages()
+		else:
+			return self.get_sweeptime()
 	
 	def do_get_sweeptime(self):
 	

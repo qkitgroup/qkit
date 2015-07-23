@@ -282,8 +282,9 @@ class spectrum(object):
 
     def _measure(self):
         qt.mstart()
-        if not self.save_hdf and self.plotlive:
-            plot_amp, plot_pha = self._plot_dat_file()
+        if not self.save_hdf or self._scan_2D:
+            if self.plotlive:
+                plot_amp, plot_pha = self._plot_dat_file()
 
         try:
             for x in self.x_vec:
@@ -384,7 +385,7 @@ class spectrum(object):
                 self._data_hdf.add_comment(comment=self._fit_fail_comment[:-1], folder='analysis')
 
         finally:
-            if not self.save_hdf:
+            if not self.save_hdf or self._scan_2D:
                 if not self.plotlive:
                     plot_amp, plot_pha = self._plot_dat_file()
                     plot_amp.update()

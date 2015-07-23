@@ -1,15 +1,16 @@
 gui/plot/plot:
-        plot function imported from gui/plot/plot.py:
-            called via gui.plot.plot(filepath, datasets, liveplot)
-            filepath (sting) = file to plot, optional
-            datasets (list) = datasets to plot, optional
-            liveplot (bool) = liveplot, optional, default = True
-        should open the viewer (individual window for each dataset)
-        end of measurement: save pics as .png?
+	* communication between closing a window and check mark
+	* 1D view, not only color plot
+	* save pics at measurement end automatically?
         * plot refresh resets set gui values
-                
-measure_vna:
-        insert resonator_fit function form analysis/circlefit
+	* idea for dataset value_box: plot measured data against one axis of choice by constant (choosable) other parameters 
+	  (similar to IV curve at specific 2nd mw_frequency and specific current)
+	* continuous plot: measurement data vs one axis while sweeping the other parameters
+	  (similar to IV curve while sweeping current)
+	* "circle_fit plot": plotting data in complex plane?
 
-VNA/PNA:
-        hold functions
+storage/hdf_lib:
+	* value_box: axis x, y and z; with decreasing "update frequency"
+
+measurement/timedomain/measure_td:
+	* add hdf data output and plotting
