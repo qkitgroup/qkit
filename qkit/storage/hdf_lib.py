@@ -327,7 +327,7 @@ class hdf_dataset(object):
                 
             if data is not None:
                 # we cast everything to a float numpy array
-                data = numpy.array(data,dtype=float)
+                #data = numpy.array(data,dtype=float)
                 self.hf.append(self.ds,data)
             self.hf.flush()
                 
