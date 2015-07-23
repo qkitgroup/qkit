@@ -25,7 +25,6 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.treeWidget.setHeaderHidden(True)
         
-        
         self.refreshTime_value = 5000
         self.tree_refresh  = True
         self._setup_signal_slots()        

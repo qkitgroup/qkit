@@ -36,7 +36,7 @@ class PlotWindow(QWidget,Ui_Form):
         self.graphicsView = None
         self.setWindowTitle(dataset_path.split('/')[-1])
         #self.menubar.setNativeMenuBar(False)
-        self._setPlotDefaults()
+        #self._setPlotDefaults()
         self._setup_signal_slots()
  
         
