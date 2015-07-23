@@ -334,6 +334,8 @@ def get_cov_fast(xdata,ydata,fitparams): #enhanced by analytical derivatives
     chisqr = 1./float(len(xdata)-len(fitparams)) * (chi**2).sum()
     try:
         cov = np.linalg.inv(A)*chisqr
+        ret_sucess = True
     except:
-        cov = None
-    return chisqr, cov
+        cov = 0.
+        ret_sucess = False
+    return chisqr, cov, ret_sucess

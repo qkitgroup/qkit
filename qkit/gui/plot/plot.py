@@ -1,5 +1,5 @@
 from subprocess import Popen, PIPE
-def plot(h5_filepath, datasets=[], refresh = 5, live = True, echo = False):
+def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
     ds = ""
     for s in datasets: ds+=s+","
     ds = ds.strip(",")

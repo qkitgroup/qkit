@@ -55,19 +55,19 @@ def load_data():
         f=h5py.File(str(directory),'r')
         
         try:
-            dset_x=f['/entry/data/amplitude']
-            dset_y=f['/entry/data/phase']
+            dset_x=f['/entry/data0/amplitude']
+            dset_y=f['/entry/data0/phase']
             
-            if dset_x.attrs['z_unit']=='dB':
-                z_data=to.convert_to_complex_array(dset_x,dset_y,sformat='Amp[dB]/Phase')
-            else:
-                z_data=to.convert_to_complex_array(dset_x,dset_y,sformat='Amp/Phase')
+            #if dset_x.attrs['z_unit']=='dB':
+            #z_data=to.convert_to_complex_array(dset_x,dset_y,sformat='Amp[dB]/Phase')
+            #else:
+            z_data=to.convert_to_complex_array(dset_x,dset_y,sformat='Amp/Phase')
             
             ni,nf=dset_x.shape
             
         except KeyError:
-            dset_x=f['/entry/data/re']
-            dset_y=f['/entry/data/im']
+            dset_x=f['/entry/data0/re']
+            dset_y=f['/entry/data0/im']
             
             z_data=to.convert_to_complex_array(dset_x,dset_y,sformat='Real/Imag')
             ni,nf=dset_x.shape

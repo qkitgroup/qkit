@@ -243,23 +243,23 @@ def circlefit(f_data,z_data,fr=None,Qr=None,refine_results=False,calc_errors=Tru
     p = [fr,absQc,Qr,phi0]
     #chi_square, errors = rt.get_errors(rt.residuals_notch_ideal,f_data,z_data,p)
     if calc_errors==True:
-        chi_square, cov = rt.get_cov_fast(f_data,z_data,p)
+        chi_square, cov, ret_sucess = rt.get_cov_fast(f_data,z_data,p)
         #chi_square, cov = rt.get_cov(rt.residuals_notch_ideal,f_data,z_data,p)
 
-        if cov!=None:
+        if ret_sucess:
             errors = np.sqrt(np.diagonal(cov))
             fr_err,absQc_err,Qr_err,phi0_err = errors
             #calc Qi with error prop (sum the squares of the variances and covariaces)
             dQr = 1./((1./Qr-1./absQc)**2*Qr**2)
             dabsQc = - 1./((1./Qr-1./absQc)**2*absQc**2)
-            Qi_no_corr_err = np.sqrt((dQr**2*cov[2][2]) + (dabsQc**2*cov[1][1])+(2*dQr*dabsQc*cov[2][1]))  #with correlations
+            Qi_no_corr_err = np.sqrt((dQr**2*float(cov[2][2])) + (dabsQc**2*float(cov[1][1]))+(2*dQr*dabsQc*float(cov[2][1])))  #with correlations
             #calc Qi dia corr with error prop
             dQr = 1/((1/Qr-np.cos(phi0)/absQc)**2 *Qr**2)
             dabsQc = -np.cos(phi0)/((1/Qr-np.cos(phi0)/absQc)**2 *absQc**2)
             dphi0 = -np.sin(phi0)/((1/Qr-np.cos(phi0)/absQc)**2 *absQc)
             ##err1 = ( (dQr*cov[2][2])**2 + (dabsQc*cov[1][1])**2 + (dphi0*cov[3][3])**2 )
-            err1 = ( (dQr**2*cov[2][2]) + (dabsQc**2*cov[1][1]) + (dphi0**2*cov[3][3]) )
-            err2 = ( dQr*dabsQc*cov[2][1] + dQr*dphi0*cov[2][3] + dabsQc*dphi0*cov[1][3] )
+            err1 = ( (dQr**2*float(cov[2][2])) + (dabsQc**2*float(cov[1][1])) + (dphi0**2*float(cov[3][3])) )
+            err2 = ( dQr*dabsQc*float(cov[2][1]) + dQr*dphi0*float(cov[2][3]) + dabsQc*dphi0*float(cov[1][3]) )
             Qi_dia_corr_err =  np.sqrt(err1+2*err2)  # including correlations
             errors = {"phi0_err":phi0_err, "Qr_err":Qr_err, "absQc_err":absQc_err, "fr_err":fr_err,"chi_square":chi_square,"Qi_no_corr_err":Qi_no_corr_err,"Qi_dia_corr_err": Qi_dia_corr_err}
             results.update( errors )
