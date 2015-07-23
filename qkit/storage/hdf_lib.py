@@ -313,8 +313,6 @@ class hdf_dataset(object):
             one line/vector at a time.
             For example, data can be a frequency scan of a 1D scan.
             """
-            # we cast everything to a float numpy array
-            data = numpy.array(data,dtype=float)
             # at this point the reference data should be around
             if self.first:
                 self.first = False
@@ -328,6 +326,8 @@ class hdf_dataset(object):
                 self._setup_metadata()
                 
             if data is not None:
+                # we cast everything to a float numpy array
+                data = numpy.array(data,dtype=float)
                 self.hf.append(self.ds,data)
             self.hf.flush()
                 
