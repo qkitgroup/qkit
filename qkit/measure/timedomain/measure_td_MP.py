@@ -31,20 +31,24 @@ class Measure_td(object):
 	
 	def __init__(self, exp_name = ''):
 	
-		self.comment = ''
 		self.exp_name = exp_name
+
 		self.plotLive = True
 		self.plot2d = False
+
 		self.plotFast = False
 		self.plotTime = True
+
+		self.save_dat = True
+		self.save_hdf = False
 		
 		self.dirname = ''
 		self.plotSuffix = ''
 		self.hold = False
-		
+
+		self.comment = ''
 		self.iterations = 1
-		self.return_avg_data = False
-		
+
 	def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit = ''):
 		self.x_vec = x_vec
 		self.x_coordname = x_coordname
@@ -73,16 +77,15 @@ class Measure_td(object):
 		self._ndav = readout.readout(False)[0].size
 		self._p = Progress_Bar(len(self.x_vec))
 
-
 		if self.save_dat:
 			self._prepare_measuremet_dat_file()
 		if self.save_hdf:
-			self._prepare_measurement_hdf_file() #TODO
+			self._prepare_measurement_hdf_file()
 			
 		self._measure()
 		self._end_measurement()
 	
-	def measure_2D(self, iterations = 1):
+	def measure_2D(self):
 		if not self.x_set_obj or not self.y_set_obj:
 			logging.error('axes parameters not properly set...aborting')
 			return
@@ -97,17 +100,16 @@ class Measure_td(object):
 
 		self._ndav = readout.readout(timeTrace = True)[0].size
 		self._nsamp = readout._ins._mspec.get_samples()		
-		self._iterations = iterations
-		self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec)*self._iterations)		
-		
+		self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec)*self._iterations)
+
 		if self.save_dat:
 			self._prepare_measuremet_dat_file()
 			self._prepare_time_dat_file()
 		if self.save_hdf:
-			self._prepare_measurement_hdf_file() #TODO
-			self._prepare_time_hdf_file() #TODO
+			self._prepare_measurement_hdf_file()
+			self._prepare_time_hdf_file()
 		self._measure()
-		self._end_measurement()		
+		self._end_measurement()
 
 	def _prepare_measurement_dat_file(self):
 		self._data_dat = qt.Data(self._file_name)
@@ -124,11 +126,29 @@ class Measure_td(object):
 		self._data_dat.create_file()
 		
 	def _prepare_measurement_hdf_file(self):
-		pass
-		
+		filename = str(self._data_dat.get_filepath()).replace('.dat','.h5')
+		self._data_hdf = hdf.Data(name=self._file_name, path=filename)
+		self._hdf_x = self._data_hdf.add_coordinate(self.x_coordname, unit = self.x_unit)
+		self._hdf_x.add(self.x_vec)
+
+		self._hdf_ndev = self._data_hdf.add_coordinate("# dev")
+		self._hdf_ndev.add(range(self.ndev))
+		self._hdf_iterations = self._data_hdf.add_coordinate("# iterations")
+		self._hdf_iterations.add(range(self.iterations))
+		if self._measure_1D:
+			self._hdf_timestamp = self._data_hdf.add_value_matrix('timestamp', x = self._hdf_iterations, y = self._hdf_x, unit = '')
+			self._hdf_amp = self._data_hdf.add_value_box('amplitude', x = self._hdf_iterations, y = self._hdf_x, z = self._hdf_ndev, unit = 'V')
+			self._hdf_pha = self._data_hdf.add_value_hyperbox('phase', x = self._hdf_iterations, y = self._hdf_x, z =  self._hdf_ndev, unit = 'pi')
+		if self._measure_2D:
+			self._hdf_y = self._data_hdf.add_coordinate(self.y_coordname, unit = self.y_unit)
+			self._hdf_y.add(self.y_vec)
+			self._hdf_timestamp = self._data_hdf.add_value_box('timestamp', x = self._hdf_iterations, y = self._hdf_x, z = self._hdf_y, unit = '')
+			self._hdf_amp = self._data_hdf.add_value_hyperbox('amplitude', x = self._hdf_iterations, y = self._hdf_x, z = self._hdf_y, alpha = self._hdf_ndev, unit = 'V')
+			self._hdf_pha = self._data_hdf.add_value_hyperbox('phase', x = self._hdf_iterations, y = self._hdf_x, z = self._hdf_y, alpha = self._hdf_ndev, unit = 'pi')
+
 	def _prepare_time_dat_file(self):
 		filename = str(self._data_dat.get_filepath()).replace('.dat','_time.dat')
-		self._time_dat = qt.Data('avgt_%s'%(self.dirname), path = filename)
+		self._time_dat = qt.Data(name='avgt_%s'%(self.dirname), path = filename)
 		if self.comment:
 			self._time_dat.add_comment(self.comment)
 		self._time_dat.add_coordinate(self.x_coordname)
@@ -142,73 +162,85 @@ class Measure_td(object):
 		self._time_dat.create_file()
 		
 	def _prepare_time_hdf_file(self):
-		pass
-
+		filename = str(self._data_dat.get_filepath()).replace('.dat','_time.h5')
+		self._time_hdf = hdf.Data(name='avgt_%s'%(self.dirname), path=filename)
+		self._hdf_x_time = self._time_hdf.add_coordinate(self.x_coordname, unit = self.x_unit)
+		self._hdf_x_time.add(self.x_vec)
+		self._hdf_y_time = self._time_hdf.add_coordinate(self.y_coordname, unit = self.y_unit)
+		self._hdf_y_time.add(self.y_vec)
+		self._hdf_nsamp = self._data_hdf.add_coordinate("# sample")
+		self._hdf_nsamp.add(np.round(np.array(range(self.nsamp))), 3)
+		self._hdf_iterations_time = self._data_hdf.add_coordinate("# iterations")
+		self._hdf_iterations_time.add(range(self.iterations))
+		
+		self._hdf_i = self._time_hdf.add_value_hyperbox('I', x = self._hdf_iterations_time, y = self._hdf_y_time, z = self._hdf_y_time, alpha = self._hdf_nsamp, unit = '')
+		self._hdf_q = self._time_hdf.add_value_hyperbox('Q', x= self._hdf_iterations_time, y = self._hdf_y_time, z = self._hdf_y_time, alpha = self._hdf_nsamp, unit = '')
+		self._hdf_timestamp_time = self._time_hdf.add_value_box('timestamp', x = self._hdf_iterations, y = self._hdf_x, z = self._hdf_y, unit = '')
+		
 	def _measure(self):
 		qt.mstart()
 		
 		self._plots = []
 		if self.plotLive:
 			self._plot()
-				# save plot even when aborted
+
 		try:
 			# measurement loop
-			if self._measure_1D:			
+			for it in range(self.iterations):
 				for x in self.x_vec:
 					self.x_set_obj(x)
-					#sleep(self.tdx)
-					qt.msleep() # better done during measurement (waiting for trigger)
-	
-					dat_amp, dat_pha = readout.readout(False)
-					dat = np.array([x])
-					dat = np.append(dat, dat_amp)
-					dat = np.append(dat, dat_pha)
-					dat = np.append(dat, time.time())   #add time stamp
-					self._data_dat.add_data_point(*dat)
-	
-					if self.plotLive:
-						for plot in self._plots:
-							plot.update()
-					self._p.iterate()
-
-			if self._measure_2D:
-				for it in range(self.iterations):
-				# measurement loop
-					for x in self.x_vec:
-						self._data_dat.new_block()
-						self.x_set_obj(x)
+					if self._measure_2D:
 						for y in self.y_vec:
 							self.y_set_obj(y)
-							#sleep(self.tdx)
-							qt.msleep() # better done during measurement (waiting for trigger)
-	
 							dat_amp, dat_pha, Is, Qs = readout.readout(timeTrace = True)
 							timestamp = time.time()
+							if self.save_dat:
+								# save standard data
+								dat = np.array([x, y])
+								dat = np.append(dat, dat_amp)
+								dat = np.append(dat, dat_pha)
+								dat = np.append(dat, timestamp)
+								self._data_dat.add_data_point(*dat)
+
+								# save time-domain data
+								dat = np.array([x, y])
+								dat = np.append(dat, Is[:])
+								dat = np.append(dat, Qs[:])
+								dat = np.append(dat, timestamp)
+								self._time_dat.add_data_point(*dat)
+							if self.save_hdf:
+								self._hdf_amp.append(dat_amp)
+								self._hdf_pha.append(dat_pha)
+								self._hdf_timestamp.append(timestamp)
+								
+								self._timestamt_time.append(timestamp)
+								self._hdf_i.append(Is[:])
+								self._hdf_q.append(Qs[:])
+							self._p.iterate()
 	
-							# save standard data
-							dat = np.array([x, y])
+						if self.plotLive: # point-wise update
+							for plot in self._plots:
+								plot.update()
+
+						self._data_dat.new_block()
+						self._time_dat.new_block()
+					if self._measure_1D:
+						dat_amp, dat_pha = readout.readout(False)
+						timestamp = time.time()
+						if self.save_dat:
+							dat = np.array([x])
 							dat = np.append(dat, dat_amp)
 							dat = np.append(dat, dat_pha)
 							dat = np.append(dat, timestamp)
 							self._data_dat.add_data_point(*dat)
-							
-							# save time-domain data
-							dat = np.array([x, y])
-							dat = np.append(dat, Is[:])
-							dat = np.append(dat, Qs[:])
-							dat = np.append(dat, timestamp)
-							self._time_dat.add_data_point(*dat)
-							
-							self._p.iterate()
-	
-						if self.plotLive and self.plotFast: # point-wise update
-							for plot in self._plots:
-								plot.update()
-					if self.plotLive and ~self.plotFast: # trace-wise update
+						if self.save_hdf:
+							self._hdf_amp.append(dat_amp)
+							self._hdf_pha.append(dat_pha)
+							self._hdf_timestamp.append(timestamp)
+						self._p.iterate()
+					if self.plotLive:
 						for plot in self._plots:
 							plot.update()
-					self._data_dat.new_block()
-					self._time_dat.new_block()
 		finally:
 			for plot in self._plots:
 				plot.update()
@@ -219,35 +251,27 @@ class Measure_td(object):
 	def _plot(self):
 		if self._measure_1D:
 			for i in range(self._ndev):
-				plot_amp = qt.plots.get('amplitude_%d%s'%(i, self.plotSuffix))
-				plot_pha = qt.plots.get('phase_%d%s'%(i, self.plotSuffix))
-				if not plot_amp or not plot_pha:
-					plot_amp = qt.Plot2D(name='amplitude_%d%s'%(i, self.plotSuffix))
-					plot_pha = qt.Plot2D(name='phase_%d%s'%(i, self.plotSuffix))
-				elif not self.hold:
-					plot_amp.clear()
-					plot_pha.clear()
-				plot_amp.add(self._data_dat, name='amplitude_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+i)
-				plot_pha.add(self._data_dat, name='phase_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+self._ndev+i)
-				self._plots.append(plot_amp)
-				self._plots.append(plot_pha)
+				plot_amp = qt.Plot2D(self._data_dat, name='amplitude_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+i)
+				plot_pha = qt.Plot2D(self._data_dat, name='phase_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+self._ndev+i)
 		if self._measure_2D:
 			for i in range(self._ndev):
 				# standard 2d plot
 				if self.plot3d:
 					plot_amp = qt.Plot3D(self._data_dat, name='amplitude_%d_3d%s'%(i, self.plotSuffix), coorddims=(0,1), valdim=2+i)
-					plot_amp.set_palette('bluewhitered')
-					self._plots.append(plot_amp)
 					plot_pha = qt.Plot3D(self._data_dat, name='phase_%d_3d%s'%(i, self.plotSuffix), coorddims=(0,1), valdim=2+self._ndev+i)
+					plot_amp.set_palette('bluewhitered')
 					plot_pha.set_palette('bluewhitered')
-					self._plots.append(plot_pha)
 				# time-resolved plot
 				if self.plot2d:
 					plot_amp_2d = qt.Plot2D(self._data_dat, name='amplitude_%d%s_single'%(i, self.plotSuffix), coorddim=1, valdim=2+i, maxtraces = 2)
 					plot_pha_2d = qt.Plot2D(self._data_dat, name='phase_%d%s_single'%(i, self.plotSuffix), coorddim=1, valdim=2+self._ndev+i, maxtraces = 2)
-					self._plots.append(plot_amp_2d)
-					self._plots.append(plot_pha_2d)
-					
+		self._plots.append(plot_amp)
+		self._plots.append(plot_pha)
+		try:
+			self._plots.append(plot_amp_2d)
+			self._plots.append(plot_pha_2d)
+		except: pass
+
 	def _end_measurement(self):
 		if self.save_dat:
 			print self._data_dat.get_filepath()
@@ -256,12 +280,12 @@ class Measure_td(object):
 			print self._data_hdf.get_filepath()
 			self._data_hdf.close_file()
 
-	def measure_1D_AWG(self, iterations = 100):
-		self.set_y_parameters(range(iterations), '#iteration', lambda y: True)
+	def measure_1D_AWG(self):
+		self.set_y_parameters(range(self.iterations), '#iteration', lambda y: True)
 		return self.measure_2D_AWG()
 
 	def measure_2D_AWG(self):
-		if self.y_set_obj == None:
+		if not self.y_set_obj:
 			logging.error('axes parameters not properly set...aborting')
 			return
 	
