@@ -50,6 +50,9 @@ class spectrum(object):
         self.comment = ''
         self.plot3D = True
         self.plotlive = True
+								
+        self.x_set_obj = None
+        self.y_set_obj = None
 
         self.return_dat = False
 
@@ -151,9 +154,9 @@ class spectrum(object):
         self._scan_1D2 = False
         self._scan_2D = False
 
-        self._scan_name = 'vna_sweep1D_'+ self.x_coordname
+        self._file_name = 'vna_sweep1D_'+ self.x_coordname
         if self.exp_name:
-            self._scan_name += '_' + self.exp_name
+            self._file_name += '_' + self.exp_name
 
         self._p = Progress_Bar(len(self.x_vec))
 
@@ -176,9 +179,9 @@ class spectrum(object):
         self._scan_1D2 = True
         self._scan_2D = False
 
-        self._scan_name = 'vna_sweep1D2_'+ self.x_coordname
+        self._file_name = 'vna_sweep1D2_'+ self.x_coordname
         if self.exp_name:
-            self._scan_name += '_' + self.exp_name
+            self._file_name += '_' + self.exp_name
 
         if self.progress_bar: self._p = Progress_Bar(len(self.x_vec))
 
@@ -205,9 +208,9 @@ class spectrum(object):
         self._scan_1D2 = False
         self._scan_2D = True
 
-        self._scan_name = 'vna_sweep2D_'+ self.x_coordname + '_' + self.y_coordname
+        self._file_name = 'vna_sweep2D_'+ self.x_coordname + '_' + self.y_coordname
         if self.exp_name:
-            self._scan_name += '_' + self.exp_name
+            self._file_name += '_' + self.exp_name
 
         self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec))
 
@@ -235,7 +238,7 @@ class spectrum(object):
         self._freqpoints = self.vna.get_freqpoints()
 
     def _prepare_measurement_dat_file(self):
-        self._data_dat = qt.Data(name=self._scan_name)
+        self._data_dat = qt.Data(name=self._file_name)
         if self.comment:
             self._data_dat.add_comment(self.comment)
         self._data_dat.add_coordinate(self.x_coordname + ' '+self.x_unit)
@@ -257,8 +260,8 @@ class spectrum(object):
         self._data_dat.create_file()
     
     def _prepare_measurement_hdf_file(self):
-        filename = str(self._data_dat.get_filepath()).replace('.dat','.h5')
-        self._data_hdf = hdf.Data(name=self._scan_name, path=filename)
+        filename = str(self._data_dat.get_filepath()).replace('.dat','_time.dat')
+        self._data_hdf = hdf.Data(name=self._file_name, path=filename)
         self._hdf_freq = self._data_hdf.add_coordinate('frequency', unit = 'Hz')
         self._hdf_freq.add(self._freqpoints)
         self._hdf_x = self._data_hdf.add_coordinate(self.x_coordname, unit = self.x_unit)
@@ -404,7 +407,6 @@ class spectrum(object):
             self._data_dat.close_file()
         if self.save_hdf:
             print self._data_hdf.get_filepath()
-            # send statement to hdf plotter?!
             self._data_hdf.close_file()
 
     def _plot_dat_file(self):
@@ -437,11 +439,11 @@ class spectrum(object):
             z_data = rtx.do_normalization(np.array(self._freqpoints),self._z_data_raw,delay,amp_norm,alpha,A2,frcal)
             results = rtx.circlefit(np.array(self._freqpoints),z_data,fr,Qr,refine_results=False,calc_errors=True)
 
-            z_data_sim = np.array([A2*(f-frcal)+rtx.S21(f,fr=float(results["fr"]),Qr=float(results["Qr"]),Qc=float(results["absQc"]),phi=float(results["phi0"]),a=amp_norm,alpha=alpha,delay=delay) for f in self._freqpoints])
+            z_data_sim = np.array([A2 * (f - frcal) + rtx.S21(f, fr=float(results["fr"]), Qr=float(results["Qr"]), Qc=float(results["absQc"]), phi=float(results["phi0"]), a= amp_norm, alpha= alpha, delay=delay) for f in self._freqpoints])
 
         except:
             '''
-            If the fit does not converge due to bad data, the "bad" x_values get stored in a comment in the hdf file's analysis folder. All the fitting data for these values are set to 'None'
+            If the fit does not converge due to bad data, the "bad" x_values get stored in a comment in the hdf file's analysis folder. All the fitting data for these values are set to 0.
             '''
 
             self._fit_fail_comment += str(self.x_coordname) + ' = ' + str(x_value)+str(self.x_unit)+'\n'

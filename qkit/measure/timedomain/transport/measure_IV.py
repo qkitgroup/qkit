@@ -37,7 +37,6 @@ class transport(object):
         self._tdx = 0.002
         self._tdy = 0.002
 
-        self.plotlive = True
         self.comment = ''
 
         self._voltage_bias = False
