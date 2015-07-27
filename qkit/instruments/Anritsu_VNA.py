@@ -961,7 +961,7 @@ class Anritsu_VNA(Instrument):
 
 
 	def read(self, msg):
-        return self._visainstrument.read(msg)
+		return self._visainstrument.read(msg)
 	def write(self,msg):
 		return self._visainstrument.write(msg)    
 	def ask(self,msg):
