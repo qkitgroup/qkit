@@ -319,7 +319,9 @@ class dataset_view(object):
         ds = self.ds
         ds.attrs.create("x",self.x_object)
         ds.attrs.create("y",self.y_object)
-
+        ds.attrs.create("view_type",1)
+        
+        
 class hdf_dataset(object):
         """
         This class represents the dataset in python.        

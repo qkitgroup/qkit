@@ -8,7 +8,7 @@ Created on Sun Jun 21 00:16:06 2015
 #sys.path.append("/Users/hrotzing/pik/devel/python/qkit")
 import time
 try:
-    from qkit.storage import hdf_lib2 as hl
+    from qkit.storage import hdf_lib as hl
 except ImportError:
     import hdf_lib as hl
 ## for random data
@@ -82,12 +82,12 @@ pha_bx = h5d.add_value_box('phase',     x = I_co , y = f_co, z= P_co, unit = "ra
 
 # now we add the coordinate data to the file
 fs = linspace(1e9,5e9,nop)
-Is = linspace(0e-3,10e-3,6)
+Is = linspace(0e-3,10e-3,nop)
 #print Is
 f_co.add(fs)
 I_co.add(Is)
 
-for i in arange(nop*10):
+for i in arange(nop):
     #time.sleep(10)
     amp = rand(nop)
     pha = rand(nop)
@@ -96,6 +96,6 @@ for i in arange(nop*10):
     T_vec.append(float(rand(1)))
     Tc_vec.append(float(rand(1)))
 
-TvsTc_view = h5d.add_view("T_vs_Tc", x= T_vec, y = Tc_vec)
+TvsTc_view = h5d.add_view("T_vs_Tc", x= f_co, y = I_co)
 print h5d.get_filepath()
 h5d.close_file()

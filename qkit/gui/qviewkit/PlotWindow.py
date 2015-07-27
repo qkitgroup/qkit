@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Jul  5 22:48:47 2015
 
-@author: hrotzing
+@author: hannes.rotzinger@kit.edu @ 2015
 """
 
-import sys
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
-from time import sleep
+
 
 from plot_view import Ui_Form
 import pyqtgraph as pg
@@ -66,7 +64,16 @@ class PlotWindow(QWidget,Ui_Form):
         #print "update_plots"
         try:
             self.ds = self.obj_parent.h5file[self.dataset_path]
-            if len(self.ds.shape) == 1:
+            self.view_type = self.ds.attrs.get("view_type",0)
+            if self.view_type == 1:
+                if not self.graphicsView:
+                    self.graphicsView = pg.PlotWidget(name=self.dataset_path)
+                    self.graphicsView.setObjectName(self.dataset_path)
+                    self.gridLayout.addWidget(self.graphicsView)
+                    self.plot = self.graphicsView.plot()
+                self._display_1D_view(self.plot, self.graphicsView)
+                
+            elif len(self.ds.shape) == 1:
                 if not self.graphicsView:
                     self.graphicsView = pg.PlotWidget(name=self.dataset_path)# pg.ImageView(self.centralwidget,view=pg.PlotItem())
                     self.graphicsView.setObjectName(self.dataset_path)
@@ -74,20 +81,46 @@ class PlotWindow(QWidget,Ui_Form):
                     #self.graphicsView.view.setAspectLocked(False)
                     self.gridLayout.addWidget(self.graphicsView)
                     self.plot = self.graphicsView.plot()
-                self. _display_1D_data(self.plot, self.graphicsView)
+                self._display_1D_data(self.plot, self.graphicsView)
                     
-            if len(self.ds.shape) == 2:
+            elif len(self.ds.shape) == 2:
                 if not self.graphicsView:
                     self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
                     self.graphicsView.setObjectName(self.dataset_path)
                     self.graphicsView.view.setAspectLocked(False)
                     self.gridLayout.addWidget(self.graphicsView)
                 self._display_2D_data(self.graphicsView)
+            else:
+                pass
         except IOError:
         #except ValueError:
             #pass
             print "PlotWindow: Value Error; Dataset not yet available", self.dataset_path
 
+
+    def _display_1D_view(self,plot,graphicsView):
+        ds = self.ds
+        ds_x_url = ds.attrs.get("x","")
+        ds_y_url = ds.attrs.get("y","")
+        x_ds = self.obj_parent.h5file[ds_x_url]
+        y_ds = self.obj_parent.h5file[ds_y_url]
+        
+        if len(x_ds.shape) == 1 and len(y_ds.shape) == 1:
+            
+            x_data = np.array(x_ds)
+            y_data = np.array(y_ds)
+            #print len(x_data)
+            #print len(y_data)
+            x_name = x_ds.attrs.get("x_name","_none_")                
+            y_name = y_ds.attrs.get("x_name","_none_")
+            
+            x_unit = x_ds.attrs.get("x_unit","_none_")
+            y_unit = y_ds.attrs.get("x_unit","_none_")
+            #print x_name, y_name, x_unit, y_unit
+            plot.setPen((200,200,100))
+            graphicsView.setLabel('left', y_name, units=y_unit)
+            graphicsView.setLabel('bottom', x_name , units=x_unit)
+            plot.setData(y=y_data, x=x_data)
         
     def _display_1D_data(self,plot,graphicsView):
         ds = self.ds
