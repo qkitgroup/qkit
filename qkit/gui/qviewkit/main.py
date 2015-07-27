@@ -1,4 +1,7 @@
-
+# -*- coding: utf-8 -*-
+"""
+@author: hannes.rotzinger@kit.edu @ 2015
+"""
 import sys
 
 from PyQt4.QtCore import QObject,SIGNAL,SLOT,pyqtSignal

@@ -92,12 +92,12 @@ class PlotWindow(QWidget,Ui_Form):
     def _display_1D_data(self,plot,graphicsView):
         ds = self.ds
         
-        fill = ds.attrs.get("fill",1)
-        ydata = np.array(ds[:])
+        #fill = ds.attrs.get("fill",1)
+        ydata = np.array(ds)
         
         x0 = ds.attrs.get("x0",0)
         dx = ds.attrs.get("dx",1)
-        x_data = [x0+dx*i for i in xrange(len(ydata[:fill]))]
+        x_data = [x0+dx*i for i in xrange(len(ydata))]
         
         x_name = ds.attrs.get("x_name","_none_")
         name = ds.attrs.get("name","_none_")
@@ -108,13 +108,16 @@ class PlotWindow(QWidget,Ui_Form):
         plot.setPen((200,200,100))
         graphicsView.setLabel('left', name, units=unit)
         graphicsView.setLabel('bottom', x_name , units=x_unit)
-        plot.setData(y=ydata[:fill], x=x_data)
+        plot.setData(y=ydata, x=x_data)
         
     def _display_2D_data(self,graphicsView):
         #load the dataset:
         ds = self.ds
-        fill = ds.attrs.get("fill",1)
-        data = np.array(ds[:fill])
+        #fill = ds.attrs.get("fill",1)
+        fill_x = ds.shape[0]
+        fill_y = ds.shape[1]
+        #data = np.array(ds[:fill])
+        data = np.array(ds)
         
         x0 = ds.attrs.get("x0",0)
         dx = ds.attrs.get("dx",1)
@@ -122,9 +125,9 @@ class PlotWindow(QWidget,Ui_Form):
         dy = ds.attrs.get("dy",1)
         
         xmin = x0
-        xmax = x0+fill*dx
+        xmax = x0+fill_x*dx
         ymin = y0
-        ymax = y0+fill*dy
+        ymax = y0+fill_y*dy
 
         x_name = ds.attrs.get("x_name","_none_")        
         y_name = ds.attrs.get("y_name","_none_")

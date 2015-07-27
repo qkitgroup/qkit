@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Jun 25 20:41:51 2015
-
-@author: hrotzing
+@author: hannes.rotzinger@kit.edu @ 2015
 """
 
 import sys,os
@@ -24,6 +22,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         QMainWindow.__init__(self)
         # set up User Interface (widgets, layout...)
         self.setupUi(self)
+        self.setWindowTitle("Qviewkit")
         self.treeWidget.setHeaderHidden(True)
         
         self.refreshTime_value = 2000
@@ -126,6 +125,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                         
                 s = ""
                 try:
+                    s="shape\t"+str(self.h5file[tree_key].shape)+"\n"
                     for k in self.h5file[tree_key].attrs.keys(): 
                         s+=k +"\t" +str(self.h5file[tree_key].attrs[k])+"\n"
                 except ValueError:

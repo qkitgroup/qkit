@@ -8,18 +8,18 @@ Created on Sun Jun 21 00:16:06 2015
 #sys.path.append("/Users/hrotzing/pik/devel/python/qkit")
 import time
 try:
-    from qkit.storage import hdf_lib as hl
+    from qkit.storage import hdf_lib2 as hl
 except ImportError:
     import hdf_lib as hl
 ## for random data
 from numpy.random import rand
 from numpy import linspace,arange
-nop = 100
+nop = 101
 ##
 
 
 # first create a data object , if path is set to None or is omitted, a new path will be created
-h5d = hl.Data(name='VNA_tracedata', path = "./test.h5")
+h5d = hl.Data(name='VNA_tracedata', path = "./test2.h5")
 
 # comment added to the hdf (internal) folder
 # options : comment (mandatory)
@@ -43,7 +43,7 @@ P_co = h5d.add_coordinate('power',   unit = "dBm",  comment = "microwave power")
 #        : folder='data' | 'analysis' (optional, default is "data") 
 
 T_vec = h5d.add_value_vector('temperature', x = None, unit = "K", comment = "save temperature values") 
-Tc_vec = h5d.add_value_vector('critical_temperature', x = None, unit = "K", folder='analysis' ,comment = "save temperature values")
+Tc_vec = h5d.add_value_vector('critical_temperature', x = I_co, unit = "K", folder='analysis' ,comment = "save temperature values")
 
 
 # add_value_matrix()    <- for measurement data
@@ -77,14 +77,17 @@ amp_bx = h5d.add_value_box('amplitude', x = I_co , y = f_co, z= P_co, unit = "V"
 pha_bx = h5d.add_value_box('phase',     x = I_co , y = f_co, z= P_co, unit = "rad", comment = "more magic data!")
 
 
-# now we add data to the file
+
+
+
+# now we add the coordinate data to the file
 fs = linspace(1e9,5e9,nop)
-Is = linspace(1e-3,10e-3,nop)
-print Is
+Is = linspace(0e-3,10e-3,6)
+#print Is
 f_co.add(fs)
 I_co.add(Is)
 
-for i in arange(5):
+for i in arange(nop*10):
     #time.sleep(10)
     amp = rand(nop)
     pha = rand(nop)
@@ -92,6 +95,7 @@ for i in arange(5):
     pha_mx.append(pha)
     T_vec.append(float(rand(1)))
     Tc_vec.append(float(rand(1)))
-    
+
+TvsTc_view = h5d.add_view("T_vs_Tc", x= T_vec, y = Tc_vec)
 print h5d.get_filepath()
 h5d.close_file()

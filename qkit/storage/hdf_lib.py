@@ -46,7 +46,11 @@ class H5_file(object):
         # set all standard attributes
         for k in kw:
             self.grp.attrs[k] = kw[k]
-            
+        
+
+        # the next block variable is used to itterate a block
+        self.next_block  = False        
+        
     def create_file(self,output_file):
         self.hf = h5py.File(output_file,'a')
         
@@ -68,11 +72,13 @@ class H5_file(object):
             # create a nexus data group        
             self.dgrp = self.entry.create_group("data0")
             self.agrp = self.entry.create_group("analysis0")
+            self.vgrp = self.entry.create_group("views")
             self.dgrp.attrs.create("NX_class","NXdata")
             self.dgrp.attrs.create("NX_class","NXdata")
         else:
             self.dgrp = self.create_group("data0")
-            self.dgrp = self.create_group("analysis0")
+            self.agrp = self.create_group("analysis0")
+            self.vgrp = self.create_group("views")
             
     def add_default_datasets(self):
         # add a empty string dataset to the group -> used by add_data
@@ -82,11 +88,13 @@ class H5_file(object):
         # add a empty string dataset to the group -> used by add_data
         self.create_dataset(name='datasets',tracelength=0, dtype='S32')
         
-    def create_dataset(self,name,tracelength, folder = "data",**kwargs):
-        """ handles one and two dimensional data
+    def create_dataset(self,name, tracelength, folder = "data", dim = 1,**kwargs):
+        """ handles one, two and three dimensional data
         
-            tracelength: 
-                is 0 for a single data point in a 1D scan (array of scalars)
+            tracelength:
+            
+            dim:
+                is 1 for a single data point in a 1D scan (array of scalars)
                 is the length of the first trace in 2D scan (array of vectors)
             For 2D scans the traces have to have the same tracelength
             and are simply appended to the trace array
@@ -95,20 +103,37 @@ class H5_file(object):
             
             kwargs are appended as attributes to the dataset
         """
-        if tracelength:
-            shape    = (100,tracelength)
-            maxshape = (None,tracelength)
-        else:
-            shape     = (100,)
-            maxshape  = (None,)
+        
+        if dim == 1:
+            shape    = (0,)
+            maxshape = (None,)
+            chunks=True
             
+        elif dim == 2:
+            shape    = (0,0)
+            maxshape = (None,None)
+            chunks=(5, tracelength)
+            
+        elif dim == 3:
+            shape    = (0,0,0)
+            maxshape = (None,None,None)
+            chunks=(5, 5, tracelength)
+            
+        else:
+            logging.ERROR("Create datasets: wrong number of dims.")
+            
+
+
         if folder == "data":
             self.grp = self.dgrp
         elif folder == "analysis":
             self.grp = self.agrp
 #           self.grp = self.grp.require_group(group)
+        elif folder == "views":
+            self.grp = self.vgrp
+            
         else:
-            logging.error("please specify either no folder, folder = 'data' or folder = 'analysis'.")
+            logging.error("please specify either no folder, folder = 'data' , folder = 'analysis' or folder ='view' ")
             raise
             
         if name in self.grp.keys():
@@ -120,10 +145,10 @@ class H5_file(object):
         dtype = kwargs.get('dtype','f')
 
         #create the dataset            
-        ds = self.grp.create_dataset(name, shape, maxshape=maxshape,dtype=dtype)
+        ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype)
         
         # keep track of the actual fill of an array.
-        ds.attrs.create("fill",0)
+        #ds.attrs.create("fill",0)
         
         ds.attrs.create("name",name)
         # add attibutes
@@ -136,9 +161,48 @@ class H5_file(object):
     def append(self,ds,data, extend_step = 100):
         """ Append method for hdf5 data. 
             A simple append method for data traces
-            reshapes the array and updates the fill attribute
+            reshapes the array and updates the attributes
             
         """
+        if len(ds.shape) == 1:
+            if type(data) == float:
+                dim1 = ds.shape[0]+1
+                ds.resize((dim1,))
+                ds[dim1-1] = data
+            elif len(data.shape) == 1:
+                #dim1 = ds.shape[0]+1
+                #ds.resize(dim1,)
+                #ds[dim1] = data
+                ds.resize((len(data),))
+                ds[:] = data
+            #print "1dim resize: "+ str(ds.name)
+                
+        if len(ds.shape) == 2:
+            if self.next_block:
+                self.next_block = False
+            dim1 = ds.shape[0]+1
+            ds.resize((dim1,len(data)))
+            ds[dim1-1] = data
+            #print "2dim resize: "+ str(ds.name), ds.shape
+            
+            
+            
+        if len(ds.shape) == 3:
+            dim1 = ds.shape[0]
+            dim2 = ds.shape[1]
+            if self.next_block:
+                self.next_block = False
+                dim1 += 1
+                dim2  = 0
+                ds.resize((dim1,dim2,len(data)))
+            else:
+                dim2 += 1
+                ds.resize((dim1,dim2,len(data)))
+            
+            ds[dim1-1][dim2-1] = data
+            #print "3dim resize: "+ str(ds.name), ds.shape
+
+        """    
         fill = ds.attrs.get("fill")
         try:
             if len(ds.shape) == 1:
@@ -161,9 +225,12 @@ class H5_file(object):
             
             ds[fill] = data
             ds.attrs.modify("fill",fill+1)
-        
+        """
         self.flush()
         
+    def next_block(self):
+        self.next_block = True
+    
     def flush(self):
         self.hf.flush()
         
@@ -171,7 +238,7 @@ class H5_file(object):
         # before closing the file, reduce all arrays in the group 
         # to their "fill" length
         for ds in self.grp.itervalues():
-                fill  = ds.attrs.get("fill")
+                fill  = ds.attrs.get("fill",-1)
                 if fill > 0:
                     ds.resize(fill,axis=0)
               
@@ -225,6 +292,34 @@ class DateTimeGenerator(object):
 
         return os.path.join(dir, filename)
 
+
+class dataset_view(object):
+
+    """
+    This class describes a view on one or two datasets.        
+    
+    """
+    
+    def __init__(self, hdf_file, name, x=None, y=None, filter = None ,comment="",folder = 'views'):
+        
+        self.hf = hdf_file
+        self.name = name
+        self.folder = folder
+        self.comment = comment
+        if not x or not y: 
+            logging.ERROR("View: Please supply a x and y dataset.")
+        self.x_object = str(x.ds.name)
+        self.y_object = str(y.ds.name)
+        
+        self.ds = self.hf.create_dataset(self.name,0,folder=self.folder)
+        self._setup_metadata()
+        self.hf.flush()
+        
+    def _setup_metadata(self):
+        ds = self.ds
+        ds.attrs.create("x",self.x_object)
+        ds.attrs.create("y",self.y_object)
+
 class hdf_dataset(object):
         """
         This class represents the dataset in python.        
@@ -247,8 +342,11 @@ class hdf_dataset(object):
             self.y_object = y
             self.z_object = z            
             
+
+            
             # the first dataset is used to extract a few attributes
             self.first = True
+            
             
             # 1d/2d attributes
             self.x_name = name
@@ -265,6 +363,14 @@ class hdf_dataset(object):
             self.z_unit = ""            
             self.z0 = 0.0
             self.dz = 1.0
+            # simple dimension check -- Fixme: too simple
+            self.dim = 1
+            if self.x_object:
+                self.dim = 1    
+            if self.y_object:
+                self.dim = 2
+            if self.z_object:
+                self.dim = 3
             
         def _setup_metadata(self):
             ds = self.ds
@@ -306,6 +412,8 @@ class hdf_dataset(object):
                 ds.attrs.create("z_name",self.z_name)
             """
 
+        def next_block(self):
+            self.hf.next_block()
             
         def append(self,data):
             """
@@ -321,8 +429,9 @@ class hdf_dataset(object):
                     tracelength = len(data)
                 else:
                     tracelength = 0
+                    
                 # create the dataset
-                self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,**self.meta)
+                self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,dim = self.dim,**self.meta)
                 self._setup_metadata()
                 
             if data is not None:
@@ -349,7 +458,7 @@ class hdf_dataset(object):
                 #print self.name, data.shape
                 tracelength = 0
                 # create the dataset
-                self.ds = self.hf.create_dataset(self.name,tracelength,**self.meta)
+                self.ds = self.hf.create_dataset(self.name,tracelength,dim = 1,**self.meta)
                 ds = self.ds
                 if not self.x_object:
                     # value data
@@ -475,6 +584,23 @@ class Data(object):
         #ds =  hdf_dataset(self.hf,name, x=x, y=y, z=z, unit=unit, comment=comment, folder=folder)
         pass
     
+    
+    
+    def add_view(self,name,x = None, y = None, filter  = None, comment = ""):
+        """a view is a way to display plot x-y data.
+            x, y are the datasets to display, e.g. 
+            x = "data0/temperature"
+            y = "analysis0/frequency_fit"
+            (if "folder/" is omitted "data0" is assumed)
+            filter is a string of reguar python code, which 
+            accesses the x,y dataset returns arrays of (x,y) 
+            (Fixme: not jet implemented)                                     
+        """
+        ds =  dataset_view(self.hf,name, x=x, y=y, comment=comment)
+        return ds
+        
+        pass        
+        
     def save_finished():
         pass
     
