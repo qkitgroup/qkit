@@ -121,11 +121,11 @@ class PlotWindow(QWidget,Ui_Form):
             y_data = np.array(y_ds)
             #print len(x_data)
             #print len(y_data)
-            x_name = x_ds.attrs.get("x_name","_none_")                
-            y_name = y_ds.attrs.get("x_name","_none_")
+            x_name = x_ds.attrs.get("name","_none_")                
+            y_name = y_ds.attrs.get("name","_none_")
             
-            x_unit = x_ds.attrs.get("x_unit","_none_")
-            y_unit = y_ds.attrs.get("x_unit","_none_")
+            x_unit = x_ds.attrs.get("unit","_none_")
+            y_unit = y_ds.attrs.get("unit","_none_")
             #print x_name, y_name, x_unit, y_unit
             plot.setPen((200,200,100))
             graphicsView.setLabel('left', y_name, units=y_unit)

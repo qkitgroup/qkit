@@ -54,23 +54,19 @@ def load_data():
         global x0,dx,y0,dy,x_name,x_unit,y_name,y_unit,fill
         f=h5py.File(str(directory),'r')
         
-        try:
-            dset_x=f['/entry/data0/amplitude']
-            dset_y=f['/entry/data0/phase']
+        
+        dset_x=f['/entry/data0/amplitude']
+        dset_y=f['/entry/data0/phase']
+        
+        #if dset_x.attrs['z_unit']=='dB':
+        #z_data=to.convert_to_complex_array(dset_x,dset_y,sformat='Amp[dB]/Phase')
+        #else:
+        z_data=to.convert_to_complex_array(dset_x,dset_y,sformat='Amp/Phase')
+        
+        ni,nf=dset_x.shape
             
-            #if dset_x.attrs['z_unit']=='dB':
-            #z_data=to.convert_to_complex_array(dset_x,dset_y,sformat='Amp[dB]/Phase')
-            #else:
-            z_data=to.convert_to_complex_array(dset_x,dset_y,sformat='Amp/Phase')
-            
-            ni,nf=dset_x.shape
-            
-        except KeyError:
-            dset_x=f['/entry/data0/re']
-            dset_y=f['/entry/data0/im']
-            
-            z_data=to.convert_to_complex_array(dset_x,dset_y,sformat='Real/Imag')
-            ni,nf=dset_x.shape
+        #except KeyError:
+        
             
         x0=dset_x.attrs['x0']
         dx=dset_x.attrs['dx']
@@ -81,7 +77,7 @@ def load_data():
         y_name=dset_x.attrs['y_name']
         y_unit=dset_x.attrs['y_unit']
         x_unit=dset_x.attrs['x_unit']
-        fill=dset_x.attrs['fill']
+        #fill=dset_x.attrs['fill']
            
         f.close()
             

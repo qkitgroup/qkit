@@ -35,7 +35,7 @@ class DATA(QObject):
         
         window.show()   # non-modal
         #window.exec_() # modal
-        window.raise_()
+        #window.raise_()
         
         return window
     def _toBe_deleted(self,ds):
