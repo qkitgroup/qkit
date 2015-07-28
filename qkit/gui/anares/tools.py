@@ -226,7 +226,7 @@ def fit_skewed_lorentzian_2(f_data,z_data):
     '''
     amplitude = np.absolute(z_data)
     amplitude_sqr = amplitude**2
-    A1a = np.min(amplitude_sqr[0],amplitude_sqr[len(amplitude_sqr)-1])
+    A1a = np.minimum(amplitude_sqr[0],amplitude_sqr[len(amplitude_sqr)-1])
     A3a = np.max(amplitude_sqr)-A1a
     fra = f_data[np.argmax(amplitude_sqr)]
     def residuals(p,x,y):

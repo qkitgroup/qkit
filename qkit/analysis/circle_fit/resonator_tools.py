@@ -15,9 +15,19 @@ def center(z_data,zc):
     return z_data-zc
 
 def dist(x):
-    x = np.absolute(x)
-    c = (x > np.pi).astype(int)
+    np.absolute(x,x)
+    c = (x > np.pi).astype(np.int)
     return x+c*(-2.*x+2.*np.pi)
+
+#def dist_new2(x):
+#    np.absolute(x,x)
+#    c = np.where(x > np.pi)
+#    x[c] = 2.*np.pi-x[c]
+#    return x
+
+#def dist_new(x):
+#    x = np.absolute(x)
+#    return np.where(x > np.pi, 2.*np.pi-x, x)
 
 def periodic_boundary(x,bound):
     return np.fmod(x,bound)-np.trunc(x/bound)*bound
@@ -74,7 +84,7 @@ def phase_fit(f_data,z_data,theta0, Qr, fr):
 def fit_skewed_lorentzian(f_data,z_data):
     amplitude = np.absolute(z_data)
     amplitude_sqr = amplitude**2
-    A1a = np.min(amplitude_sqr[0],amplitude_sqr[len(amplitude_sqr)-1])
+    A1a = np.minimum(amplitude_sqr[0],amplitude_sqr[-1])
     A3a = -np.max(amplitude_sqr)
     fra = f_data[np.argmin(amplitude_sqr)]
     def residuals(p,x,y):
@@ -163,6 +173,19 @@ def fit_delay(f_data,z_data,delay=0.,maxiter=0):
     def residuals(p,x,y):
         phasedelay = p
         z_data_temp = y*np.exp(1j*(2.*np.pi*phasedelay*x))
+        xc,yc,r0 = fit_circle(z_data_temp)
+        err = np.sqrt((z_data_temp.real-xc)**2+(z_data_temp.imag-yc)**2)-r0
+        return err
+    p_final = spopt.leastsq(residuals,delay,args=(f_data,z_data),maxfev=maxiter,ftol=1e-12,xtol=1e-12)
+    return p_final[0][0]
+
+def fit_delay_alt_bigdata(f_data,z_data,delay=0.,maxiter=0):
+    def residuals(p,x,y):
+        phasedelay = p
+        z_data_temp = 1j*2.*np.pi*phasedelay*x
+        np.exp(z_data_temp,out=z_data_temp)
+        np.multiply(y,z_data_temp,out=z_data_temp)
+        #z_data_temp = y*np.exp(1j*(2.*np.pi*phasedelay*x))
         xc,yc,r0 = fit_circle(z_data_temp)
         err = np.sqrt((z_data_temp.real-xc)**2+(z_data_temp.imag-yc)**2)-r0
         return err
@@ -334,8 +357,8 @@ def get_cov_fast(xdata,ydata,fitparams): #enhanced by analytical derivatives
     chisqr = 1./float(len(xdata)-len(fitparams)) * (chi**2).sum()
     try:
         cov = np.linalg.inv(A)*chisqr
-        ret_sucess = True
     except:
-        cov = 0.
-        ret_sucess = False
-    return chisqr, cov, ret_sucess
+        cov = None
+    return chisqr, cov
+    
+

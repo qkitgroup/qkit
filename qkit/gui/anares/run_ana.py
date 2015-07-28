@@ -47,47 +47,33 @@ def get_filename():
     frame.lineEdit.clear()    
     frame.lineEdit.insert(directory)
     
+    
+def load_h5_minimal(filename):
+    global i_data,f_data,z_data
+    global x_name,x_unit,y_name,y_unit
+    f=h5py.File(str(directory),'r')
+    #determine sweep parameter
+    datagroup = f['/entry/data0']
+    sweep_key = None
+    for key in datagroup.keys():
+        if key not in ['amplitude','phase','imag','real','frequency']:
+            sweep_key = key
+    x_name = sweep_key
+    x_unit = datagroup[sweep_key].attrs['x_unit']  
+    i_data = np.array(datagroup[sweep_key])
+    f_data = np.array(f['/entry/data0/frequency'])
+    y_name=f['/entry/data0/amplitude'].attrs['y_name']
+    y_unit=f['/entry/data0/amplitude'].attrs['y_unit']
+    phase = np.array(f['/entry/data0/phase'])
+    amplitude = np.array(f['/entry/data0/amplitude'])
+    z_data = amplitude*np.exp(1j*phase)
+    return True
+
 def load_data():
     global i_data,f_data,z_data
     
     if fileExtension=='.h5':
-        global x0,dx,y0,dy,x_name,x_unit,y_name,y_unit,fill
-        f=h5py.File(str(directory),'r')
-        
-        
-        dset_x=f['/entry/data0/amplitude']
-        dset_y=f['/entry/data0/phase']
-        
-        #if dset_x.attrs['z_unit']=='dB':
-        #z_data=to.convert_to_complex_array(dset_x,dset_y,sformat='Amp[dB]/Phase')
-        #else:
-        z_data=to.convert_to_complex_array(dset_x,dset_y,sformat='Amp/Phase')
-        
-        ni,nf=dset_x.shape
-            
-        #except KeyError:
-        
-            
-        x0=dset_x.attrs['x0']
-        dx=dset_x.attrs['dx']
-        y0=dset_x.attrs['y0']
-        dy=dset_x.attrs['dy'] 
-        x_name=dset_x.attrs['x_name']
-        x_unit=dset_x.attrs['x_unit']
-        y_name=dset_x.attrs['y_name']
-        y_unit=dset_x.attrs['y_unit']
-        x_unit=dset_x.attrs['x_unit']
-        #fill=dset_x.attrs['fill']
-           
-        f.close()
-            
-        i_data=[]
-        for i in range(0,ni): 
-            i_data.append(x0+i*dx)
-        f_data=[]
-        for i in range(0,nf):
-            f_data.append(y0+i*dy)
-        
+        load_h5_minimal(str(directory))        
     else:
         i_data,f_data,z_data=to.loadspecdata2(filename=directory,y1_col=frame.comboBox_4.currentIndex(),
                                               y2_col=frame.comboBox_5.currentIndex(),
@@ -674,6 +660,60 @@ frame.show()
 application.exec_()        
 
 
-
-    
+##backup loading file
+#def load_data():
+#    global i_data,f_data,z_data
+#    
+#    if fileExtension=='.h5':
+#        global x0,dx,y0,dy,x_name,x_unit,y_name,y_unit,fill
+#        f=h5py.File(str(directory),'r')
+#        
+#        try:
+#            dset_x=f['/entry/data0/amplitude']
+#            dset_y=f['/entry/data0/phase']
+#            
+#            if dset_x.attrs['z_unit']=='dB':
+#                z_data=to.convert_to_complex_array(dset_x,dset_y,sformat='Amp[dB]/Phase')
+#            else:
+#                z_data=to.convert_to_complex_array(dset_x,dset_y,sformat='Amp/Phase')
+#            
+#            ni,nf=dset_x.shape
+#            
+#        except KeyError:
+#            dset_x=f['/entry/data0/real']
+#            dset_y=f['/entry/data0/imag']
+#            
+#            z_data=to.convert_to_complex_array(dset_x,dset_y,sformat='Real/Imag')
+#            ni,nf=dset_x.shape
+#            
+#        x0=dset_x.attrs['x0']
+#        dx=dset_x.attrs['dx']
+#        y0=dset_x.attrs['y0']
+#        dy=dset_x.attrs['dy'] 
+#        x_name=dset_x.attrs['x_name']
+#        x_unit=dset_x.attrs['x_unit']
+#        y_name=dset_x.attrs['y_name']
+#        y_unit=dset_x.attrs['y_unit']
+#        x_unit=dset_x.attrs['x_unit']
+#        fill=dset_x.attrs['fill']
+#           
+#        f.close()
+#            
+#        i_data=[]
+#        for i in range(0,ni): 
+#            i_data.append(x0+i*dx)
+#        f_data=[]
+#        for i in range(0,nf):
+#            f_data.append(y0+i*dy)
+#        
+#    else:
+#        i_data,f_data,z_data=to.loadspecdata2(filename=directory,y1_col=frame.comboBox_4.currentIndex(),
+#                                              y2_col=frame.comboBox_5.currentIndex(),
+#                                              sformat=frame.comboBox.currentText())
+#    i_data = np.array(i_data)
+#    f_data = np.array(f_data) 
+#    z_data = np.array(z_data)                                             
+#    fit_data()
+#    comboBoxes_set_items()
+#    initialize_gui()
     
