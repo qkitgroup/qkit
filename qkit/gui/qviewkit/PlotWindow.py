@@ -23,16 +23,16 @@ class PlotWindow(QWidget,Ui_Form):
     def myquit(self):
         exit()
 
-    def __init__(self,parent,data,dataset_path):
+    def __init__(self,parent,data,dataset_url):
         self.DATA = data
-        self.dataset_path = dataset_path
+        self.dataset_url = dataset_url
         self.obj_parent = parent
         super(PlotWindow , self).__init__() 
         Ui_Form.__init__(self)
         # set up User Interface (widgets, layout...)
         self.setupUi(self)
         self.graphicsView = None
-        self.setWindowTitle(dataset_path.split('/')[-1])
+        self.setWindowTitle(dataset_url.split('/')[-1])
         #self.menubar.setNativeMenuBar(False)
         #self._setPlotDefaults()
 
@@ -42,9 +42,11 @@ class PlotWindow(QWidget,Ui_Form):
     def _setup_signal_slots(self): 
         self.obj_parent.refresh_signal.connect(self.update_plots)
         #QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChange)
-
+        #QObject.connect(self,SIGNAL("aboutToQuit()"),self._close_plot_window)
+        
+        
     def _setPlotDefaults(self):
-        self.ds = self.obj_parent.h5file[self.dataset_path]
+        self.ds = self.obj_parent.h5file[self.dataset_url]
         if len(self.ds.shape) == 1:
             self.PlotTypeSelector.setCurrentIndex(0)
             self.PlotType = 0
@@ -52,31 +54,39 @@ class PlotWindow(QWidget,Ui_Form):
             self.PlotTypeSelector.setCurrentIndex(1)
             self.PlotType = 1
             #self.PlotTypeSelector.
+            
     def _onPlotTypeChange(self, index):
         if index == 0:
             self.PlotType = 0
         if index == 1:
             self.PlotType = 1
         #print self.PlotTypeSelector.currentText()
+    
+    def closeEvent(self, event):
+        "overwrite the closeEvent handler"
+        self.deleteLater()
+        self.DATA._toBe_deleted(self.dataset_url)
+        event.accept()
         
+
     @pyqtSlot()   
     def update_plots(self):
         #print "update_plots"
         try:
-            self.ds = self.obj_parent.h5file[self.dataset_path]
+            self.ds = self.obj_parent.h5file[self.dataset_url]
             self.view_type = self.ds.attrs.get("view_type",0)
             if self.view_type == 1:
                 if not self.graphicsView:
-                    self.graphicsView = pg.PlotWidget(name=self.dataset_path)
-                    self.graphicsView.setObjectName(self.dataset_path)
+                    self.graphicsView = pg.PlotWidget(name=self.dataset_url)
+                    self.graphicsView.setObjectName(self.dataset_url)
                     self.gridLayout.addWidget(self.graphicsView)
                     self.plot = self.graphicsView.plot()
                 self._display_1D_view(self.plot, self.graphicsView)
                 
             elif len(self.ds.shape) == 1:
                 if not self.graphicsView:
-                    self.graphicsView = pg.PlotWidget(name=self.dataset_path)# pg.ImageView(self.centralwidget,view=pg.PlotItem())
-                    self.graphicsView.setObjectName(self.dataset_path)
+                    self.graphicsView = pg.PlotWidget(name=self.dataset_url)# pg.ImageView(self.centralwidget,view=pg.PlotItem())
+                    self.graphicsView.setObjectName(self.dataset_url)
                     #self.graphicsView.setBackground(None)
                     #self.graphicsView.view.setAspectLocked(False)
                     self.gridLayout.addWidget(self.graphicsView)
@@ -86,7 +96,7 @@ class PlotWindow(QWidget,Ui_Form):
             elif len(self.ds.shape) == 2:
                 if not self.graphicsView:
                     self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
-                    self.graphicsView.setObjectName(self.dataset_path)
+                    self.graphicsView.setObjectName(self.dataset_url)
                     self.graphicsView.view.setAspectLocked(False)
                     self.gridLayout.addWidget(self.graphicsView)
                 self._display_2D_data(self.graphicsView)
@@ -95,7 +105,7 @@ class PlotWindow(QWidget,Ui_Form):
         except IOError:
         #except ValueError:
             #pass
-            print "PlotWindow: Value Error; Dataset not yet available", self.dataset_path
+            print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
 
 
     def _display_1D_view(self,plot,graphicsView):

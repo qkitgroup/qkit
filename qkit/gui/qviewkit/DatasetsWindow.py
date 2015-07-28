@@ -20,6 +20,8 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         self.DATA = DATA
         #QMainWindow.__init__(self,None,Qt.WindowStaysOnTopHint)
         QMainWindow.__init__(self)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
+        
         # set up User Interface (widgets, layout...)
         self.setupUi(self)
         self.setWindowTitle("Qviewkit")
@@ -70,8 +72,27 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         QObject.connect(self.refreshTime,SIGNAL("valueChanged(double)"),self._refresh_time_handler)
         QObject.connect(self.updateButton,SIGNAL("released()"),self.update_file)
         #QObject.connect(self.Quit,SIGNAL("released()"),self._quit_tip_gui)
+        #QObject.connect(self,SIGNAL("destroyed()"),self._close_plot_window)
         self.FileButton.clicked.connect(self.open_file)
         self.liveCheckBox.clicked.connect(self.live_update_onoff)
+        
+        
+    def closeEvent(self, event):
+        widgetList = QApplication.topLevelWidgets()
+        #print len(widgetList)
+        #print widgetList
+        #numWindows = len(widgetList)
+        #if numWindows > 1:
+        #    event.ignore()
+        #else:
+        self.DATA._remove_plot_widgets( closeAll = True)
+        event.accept()
+    
+    @pyqtSlot()
+    def _close_plot_window(self):
+        #print "Plot window closed"
+        self.DATA._remove_plot_widgets()
+        
         
     def live_update_onoff(self):
         if self.liveCheckBox.isChecked():
@@ -82,7 +103,6 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             else:
                 self.heardBeat.setChecked(False)
         else:
-            #print "stop timer"
             self.timer.stop()
             
     def _refresh_time_handler(self,refreshTime):
@@ -155,12 +175,17 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             #print "checked", item, item.text(column)
             #if not self.tree_refresh:
             self.DATA.append_plot(self,item,ds)
+
             # this is a not very sound hack of a concurrency problem!
-            # better to use a locking technique
+            # better to use a locking technique            
             if not self.h5file:
                 self.update_file()
             else:
                 self.update_plots()
+                
+            # uncheck 
+            window = self.DATA.open_plots[item]
+            QObject.connect(window,SIGNAL("destroyed()"),self._close_plot_window)
                 
         if item.checkState(column) == QtCore.Qt.Unchecked:
             #print "unchecked", item, item.text(column)
