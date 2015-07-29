@@ -11,7 +11,7 @@ import sys
 import qt
 
 from qkit.storage import hdf_lib as hdf
-from qkit.analysis.circle_fit import resonator_tools_xtras as rtx
+from qkit.analysis import resonator
 from qkit.gui.plot import plot as qviewkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 
@@ -279,7 +279,8 @@ class spectrum(object):
         if self.comment:
             self._data_hdf.add_comment(self.comment) 
         if self.fit_resonator:
-            self._prepare_fitting_hdf_file()
+            self._resonator = resonator(self._data_hdf, hdf_x = self._hdf_x, freq = self._hdf_freq)
+
 
     def _measure(self):
         qt.mstart()
@@ -346,22 +347,14 @@ class spectrum(object):
                         dat = np.append([x*np.ones(self._nop)],[self._freqpoints], axis = 0)
                         dat = np.append(dat,[data_amp],axis = 0)
                         dat = np.append(dat,[data_pha],axis = 0)
-                        if self.data_complex:
-                            data_real, data_imag = self.vna.get_tracedata('RealImag')
-                            dat = np.append(dat,[data_real],axis = 0)
-                            dat = np.append(dat,[data_imag],axis = 0)
                         self._data_dat.add_data_point(*dat)
                         self._data_dat.new_block()
                     if self.save_hdf:
                         self._hdf_amp.append(data_amp)
                         self._hdf_pha.append(data_pha)
-                        z_data_raw = np.array(data_amp)*np.exp(1j*np.array(data_pha))
-                        self._hdf_real.append(z_data_raw.real)
-                        self._hdf_imag.append(z_data_raw.imag)
-                        if x == self.x_vec[0]:
-                            self._hdf_real_imag = self._data_hdf.add_view('polar', x = self._hdf_real, y = self._hdf_imag)
                         if self.fit_resonator:
-                            self._resonator_fit(z_data_raw, x)
+                            self._resonator.fit_circle()
+
                     if self.progress_bar: 
                         self._p.iterate()
 
@@ -370,7 +363,7 @@ class spectrum(object):
                     self._plot_amp.update()
                     self._plot_pha.update()
             if self.save_hdf and self._fit_fail_comment != 'Circle fit failed for:\n':
-                self._data_hdf.add_comment(comment=self._fit_fail_comment[:-1], folder='analysis')
+                self._data_hdf.add_comment(comment=self._fit_fail_comment, folder='analysis')
 
         finally:
             if not self.save_hdf or self._scan_2D:
@@ -413,54 +406,6 @@ class spectrum(object):
                 self._plot_amp = qt.Plot2D(self._data_dat, name='Amplitude', coorddim=1, valdim=int(self._nop/2)+2)
                 self._plot_pha = qt.Plot2D(self._data_dat, name='Phase', coorddim=1, valdim=int(self._nop/2)+2+self._nop)
 
-    def _resonator_fit(self, z_data_raw, x_value):
-        '''
-        Calls circle fit from resonator_tools_xtras.py and resonator_tools.py in the qkit/analysis folder
-        '''
-        try:
-            delay, amp_norm, alpha, fr, Qr, A2, frcal = rtx.do_calibration(self._freqpoints, z_data_raw,ignoreslope=True)
-            z_data = rtx.do_normalization(self._freqpoints, z_data_raw,delay,amp_norm,alpha,A2,frcal)
-            results = rtx.circlefit(self._freqpoints,z_data,fr,Qr,refine_results=False,calc_errors=True)
-        except:
-            '''
-            If the fit does not converge due to bad data, the "bad" x_values get stored in a comment in the hdf file's analysis folder. All the fitting data for these values are set to 0.
-            '''
-
-            self._fit_fail_comment += str(self.x_coordname) + ' = ' + str(x_value)+str(self.x_unit)+'\n'
-            error_data_array = np.zeros(len(self._freqpoints))
-            self._hdf_amp_sim.append(error_data_array)
-            self._hdf_pha_sim.append(error_data_array)
-            for key in self._result_keys.iterkeys():
-                self._results[str(key)].append(0.)
-
-        else:
-            z_data_sim = np.array([A2 * (f - frcal) + rtx.S21(f, fr=float(results["fr"]), Qr=float(results["Qr"]), Qc=float(results["absQc"]), phi=float(results["phi0"]), a= amp_norm, alpha= alpha, delay=delay) for f in self._freqpoints])
-            self._hdf_amp_sim.append(np.absolute(z_data_sim))
-            self._hdf_pha_sim.append(np.angle(z_data_sim))
-            self._hdf_real_sim.append(np.real(z_data_sim))
-            self._hdf_imag_sim.append(np.imag(z_data_sim))
-            self._hdf_real_gen.append(z_data_sim.real)
-            self._hdf_imag_gen.append(z_data_sim.imag)
-            if x_value == self.x_vec[0]:
-                self._hdf_real_imag_gen = self._data_hdf.add_view('polar gen', x = self._hdf_real_gen, y = self._hdf_imag_gen)
-            
-
-            for key in self._results.iterkeys():
-                self._results[str(key)].append(float(results[str(key)]))
-
-    def _prepare_fitting_hdf_file(self):
-            self._hdf_amp_sim = self._data_hdf.add_value_matrix('Amplitude sim', folder = 'analysis', x = self._hdf_x, y = self._hdf_freq, unit = 'V')
-            self._hdf_pha_sim = self._data_hdf.add_value_matrix('Phase sim', folder = 'analysis', x = self._hdf_x, y = self._hdf_freq, unit='pi')
-            self._hdf_real_sim = self._data_hdf.add_value_matrix('Real sim', folder = 'analysis', x = self._hdf_x, y = self._hdf_freq, unit='')
-            self._hdf_imag_sim = self._data_hdf.add_value_matrix('Imag sim', folder = 'analysis', x = self._hdf_x, y = self._hdf_freq, unit='')
-            self._result_keys = {"Qi_dia_corr":'',"Qi_no_corr":'',"absQc":'',"Qc_dia_corr":'',
-            "Qr":'',"fr":'',"theta0":'',"phi0":'', "phi0_err":'', "Qr_err":'', "absQc_err":'', "fr_err":'',"chi_square":'',"Qi_no_corr_err":'',"Qi_dia_corr_err": ''}
-            self._results = {}
-            for key in self._result_keys.iterkeys():
-               self._results[str(key)] = self._data_hdf.add_value_vector(str(key), folder = 'analysis', x = self._hdf_x, unit ='')
-            self._hdf_real_gen = self._data_hdf.add_value_vector('real', folder = 'analysis', x = self._hdf_freq, unit = '')
-            self._hdf_imag_gen = self._data_hdf.add_value_vector('imag', folder = 'analysis', x = self._hdf_freq, unit = '')
- 
     def record_trace(self):
         '''
         measure method to record a single (averaged) VNA trace, S11 or S21 according to the setting on the VNA

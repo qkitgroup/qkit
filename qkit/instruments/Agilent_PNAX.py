@@ -94,7 +94,7 @@ class Agilent_PNAX(Instrument):
             
         self.add_parameter('power', type=types.FloatType,
             flags=Instrument.FLAG_GETSET,
-            minval=-25, maxval=30,
+            minval=-25, maxval=23,
             units='dBm', tags=['sweep'])
 
         self.add_parameter('zerospan', type=types.BooleanType,
@@ -177,7 +177,7 @@ class Agilent_PNAX(Instrument):
         
         self.get_all()
     
-    def get_all(self):        
+    def get_all(self):
         self.get_nop()
         self.get_power()
         self.get_centerfreq()
@@ -278,7 +278,7 @@ class Agilent_PNAX(Instrument):
             format (string) : 'AmpPha': Amp (lin) and Phase, 'RealImag',
 
         Output:
-            'AmpPha':_ Amplitude and Phase
+            'AmpPha': Amplitude [V] and Phase [pi]
         '''
         self._visainstrument.write(':FORMAT REAL,32; FORMat:BORDer SWAP;')
         self._visainstrument.write('CALC:FORM POL')
