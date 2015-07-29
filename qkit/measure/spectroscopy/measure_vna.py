@@ -50,7 +50,7 @@ class spectrum(object):
         self.comment = ''
         self.plot3D = True
         self.plotlive = True
-								
+
         self.x_set_obj = None
         self.y_set_obj = None
 
@@ -183,7 +183,7 @@ class spectrum(object):
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
-        if self.progress_bar: self._p = Progress_Bar(len(self.x_vec))
+        self._p = Progress_Bar(len(self.x_vec))
 
         self._prepare_measurement_vna()
         if self.save_dat:
@@ -245,7 +245,7 @@ class spectrum(object):
         if self._scan_1D2:
             self._data_dat.add_coordinate('Frequency (Hz)')
             self._data_dat.add_value('Amplitude (V)')
-            self._data_dat.add_value('Phase (rad)')
+            self._data_dat.add_value('Phase (pi)')
             if self.data_complex:
                 self._data_dat.add_value('Real')
                 self._data_dat.add_value('Img')
@@ -260,21 +260,19 @@ class spectrum(object):
         self._data_dat.create_file()
     
     def _prepare_measurement_hdf_file(self):
-        filename = str(self._data_dat.get_filepath()).replace('.dat','_time.dat')
+        filename = str(self._data_dat.get_filepath()).replace('.dat','.h5')
         self._data_hdf = hdf.Data(name=self._file_name, path=filename)
         self._hdf_freq = self._data_hdf.add_coordinate('frequency', unit = 'Hz')
         self._hdf_freq.add(self._freqpoints)
         self._hdf_x = self._data_hdf.add_coordinate(self.x_coordname, unit = self.x_unit)
         self._hdf_x.add(self.x_vec)
+        self._hdf_real = self._data_hdf.add_value_vector('real', x = self._hdf_freq, unit = '')
+        self._hdf_imag = self._data_hdf.add_value_vector('imag', x = self._hdf_freq, unit = '')
         if self._scan_2D:
             self._hdf_y = self._data_hdf.add_coordinate(self.y_coordname, unit = self.y_unit)
             self._hdf_y.add(self.y_vec)
-            self._hdf_amp0 = self._data_hdf.add_value_matrix('amplitude', x = self._hdf_x, y = self._hdf_y, unit = 'V')
-            self._hdf_pha0 = self._data_hdf.add_value_matrix('phase', x = self._hdf_x, y = self._hdf_y, unit='rad')
-            """ CREATING 3D BOXES FOR 2D SCAN
-            self._hdf_amp = self._data_hdf.add_value_box('amplitudes', x = self._hdf_y, y = self._hdf_y, z = self._hdf_freq, unit = 'V')
-            self._hdf_pha = self._data_hdf.add_value_box('phases', x = self._hdf_y, y = self._hdf_y, z = self._hdf_freq, unit = 'V')
-            """
+            self._hdf_amp = self._data_hdf.add_value_box('amplitudes', x = self._hdf_x, y = self._hdf_y, z = self._hdf_freq, unit = 'V')
+            self._hdf_pha = self._data_hdf.add_value_box('phases', x = self._hdf_x, y = self._hdf_y, z = self._hdf_freq, unit = 'rad')
         else:
             self._hdf_amp = self._data_hdf.add_value_matrix('amplitude', x = self._hdf_x, y = self._hdf_freq, unit = 'V')
             self._hdf_pha = self._data_hdf.add_value_matrix('phase', x = self._hdf_x, y = self._hdf_freq, unit='rad')
@@ -287,7 +285,7 @@ class spectrum(object):
         qt.mstart()
         if not self.save_hdf or self._scan_2D:
             if self.plotlive:
-                plot_amp, plot_pha = self._plot_dat_file()
+                self._plot_dat_file()
 
         try:
             for x in self.x_vec:
@@ -297,17 +295,8 @@ class spectrum(object):
                 dat=[]
                 
                 if self._scan_2D:
-                    if self.save_hdf:
-                        name_amp = 'amplitude_'+str(self._x)+'_'+str(self.x_unit)
-                        name_pha = 'phase_'+str(self._x)+'_'+str(self.x_unit)
-
-                        hdf_amp = self._data_hdf.add_value_matrix(name_amp, x = self._hdf_y, y = self._hdf_freq, unit = 'V')
-                        hdf_pha = self._data_hdf.add_value_matrix(name_pha, x = self._hdf_y, y = self._hdf_freq, unit='rad')
-                        save_amp0 = []
-                        save_pha0 = []
-
                     for y in self.y_vec:
-                        if (np.min(np.abs(self.center_freqs[int(self._x)]-self._y*np.ones(len(self.center_freqs[int(self._x)])))) > self.span/2.) and self.landscape:   
+                        if (np.min(np.abs(self.center_freqs[int(x)]-y*np.ones(len(self.center_freqs[int(x)])))) > self.span/2.) and self.landscape:   
                         #if point is not of interest (not close to one of the functions)
                             data_amp = np.zeros(int(self._nop))
                             data_pha = np.zeros(int(self._nop))   #fill with zeros
@@ -323,24 +312,17 @@ class spectrum(object):
                             dat = np.append(dat,data_amp)
                             dat = np.append(dat,data_pha)
                             self._data_dat.add_data_point(*dat)
+                            self._data_dat.new_block()
                         if self.save_hdf:
-                            save_amp0 = np.append(save_amp0, data_amp[len(data_amp)/2])
-                            save_pha0 = np.append(save_pha0, data_pha[len(data_pha)/2])
-                            if self._y == self.y_vec[len(self.y_vec)-1]:
-                                self._hdf_amp0.append(save_amp0)
-                                self._hdf_pha0.append(save_pha0)
-                            hdf_amp.append(data_amp)
-                            hdf_pha.append(data_pha)
-                            ''' APPENDING DATA TO 3D BOXES
                             self._hdf_amp.append(data_amp)
                             self._hdf_pha.append(data_pha)
-                            '''
-                        qt.msleep(0.1)
-                        if self.plotlive:
-                            plot_amp.update()
-                            plot_pha.update()
-                        self._p.iterate()
-                    self._data_dat.new_block()
+
+                        if self.plotlive and not self.save_hdf:
+                            qt.msleep(0.1)
+                            self._plot_amp.update()
+                            self._plot_pha.update()
+                        if self.progress_bar:
+                            self._p.iterate()
 
                 if self._scan_1D:
                     self.vna.avg_clear()
@@ -353,10 +335,8 @@ class spectrum(object):
                     if self.save_hdf:
                         self._hdf_amp.append(data_amp)
                         self._hdf_pha.append(data_pha)
-                        if self.fit_resonator:
-                            self._z_data_raw = np.array(data_amp)*np.exp(1j*np.array(data_pha))
-                            self._resonator_fit(x)
-                    self._p.iterate()
+                    if self.progress_bar:
+                        self._p.iterate()
 
                 if self._scan_1D2:
                     self.vna.avg_clear()
@@ -375,29 +355,34 @@ class spectrum(object):
                     if self.save_hdf:
                         self._hdf_amp.append(data_amp)
                         self._hdf_pha.append(data_pha)
+                        z_data_raw = np.array(data_amp)*np.exp(1j*np.array(data_pha))
+                        self._hdf_real.append(z_data_raw.real)
+                        self._hdf_imag.append(z_data_raw.imag)
+                        if x == self.x_vec[0]:
+                            self._hdf_real_imag = self._data_hdf.add_view('polar', x = self._hdf_real, y = self._hdf_imag)
                         if self.fit_resonator:
-                            self._z_data_raw = np.array(data_amp)*np.exp(1j*np.array(data_pha))
-                            self._resonator_fit(x)
-                    if self.progress_bar: self._p.iterate()
+                            self._resonator_fit(z_data_raw, x)
+                    if self.progress_bar: 
+                        self._p.iterate()
 
-                qt.msleep(0.1)
                 if not self.save_hdf and self.plotlive:
-                    plot_amp.update()
-                    plot_pha.update()
+                    qt.msleep(0.1)
+                    self._plot_amp.update()
+                    self._plot_pha.update()
             if self.save_hdf and self._fit_fail_comment != 'Circle fit failed for:\n':
                 self._data_hdf.add_comment(comment=self._fit_fail_comment[:-1], folder='analysis')
 
         finally:
             if not self.save_hdf or self._scan_2D:
                 if not self.plotlive:
-                    plot_amp, plot_pha = self._plot_dat_file()
-                    plot_amp.update()
-                    plot_pha.update()
+                    self._plot_dat_file()
+                    self._plot_amp.update()
+                    self._plot_pha.update()
 
-                plot_amp.save_png()
-                plot_amp.save_gp()
-                plot_pha.save_png()
-                plot_pha.save_gp()
+                self._plot_amp.save_png()
+                self._plot_amp.save_gp()
+                self._plot_pha.save_png()
+                self._plot_pha.save_gp()
 
             qt.mend()
 
@@ -411,54 +396,54 @@ class spectrum(object):
 
     def _plot_dat_file(self):
         if self._scan_1D:
-            plot_amp = qt.Plot2D(self._data_dat, name='Amplitude', coorddim=0, valdim=int(self._nop/2)+1)
-            plot_pha = qt.Plot2D(self._data_dat, name='Phase', coorddim=0, valdim=self._nop+int(self._nop/2)+1)
+            self._plot_amp = qt.Plot2D(self._data_dat, name='Amplitude', coorddim=0, valdim=int(self._nop/2)+1)
+            self._plot_pha = qt.Plot2D(self._data_dat, name='Phase', coorddim=0, valdim=self._nop+int(self._nop/2)+1)
         if self._scan_1D2:
-            plot_amp = qt.Plot3D(self._data_dat, name='Amplitude 1D2', coorddims=(0,1), valdim=2, style=qt.Plot3D.STYLE_IMAGE)
-            plot_amp.set_palette('bluewhitered')
-            plot_pha = qt.Plot3D(self._data_dat, name='Phase 1D2', coorddims=(0,1), valdim=3, style=qt.Plot3D.STYLE_IMAGE)
-            plot_pha.set_palette('bluewhitered')
+            self._plot_amp = qt.Plot3D(self._data_dat, name='Amplitude 1D2', coorddims=(0,1), valdim=2, style=qt.Plot3D.STYLE_IMAGE)
+            self._plot_amp.set_palette('bluewhitered')
+            self._plot_pha = qt.Plot3D(self._data_dat, name='Phase 1D2', coorddims=(0,1), valdim=3, style=qt.Plot3D.STYLE_IMAGE)
+            self._plot_pha.set_palette('bluewhitered')
         if self._scan_2D:
             if self.plot3D:
-                plot_amp = qt.Plot3D(self._data_dat, name='Amplitude', coorddims=(0,1), valdim=int(self._nop/2)+2, style=qt.Plot3D.STYLE_IMAGE)
-                plot_amp.set_palette('bluewhitered')
-                plot_pha = qt.Plot3D(self._data_dat, name='Phase', coorddims=(0,1), valdim=int(self._nop/2)+2+self._nop, style=qt.Plot3D.STYLE_IMAGE)
-                plot_pha.set_palette('bluewhitered')
+                self._plot_amp = qt.Plot3D(self._data_dat, name='Amplitude', coorddims=(0,1), valdim=int(self._nop/2)+2, style=qt.Plot3D.STYLE_IMAGE)
+                self._plot_amp.set_palette('bluewhitered')
+                self._plot_pha = qt.Plot3D(self._data_dat, name='Phase', coorddims=(0,1), valdim=int(self._nop/2)+2+self._nop, style=qt.Plot3D.STYLE_IMAGE)
+                self._plot_pha.set_palette('bluewhitered')
             else:
-                plot_amp = qt.Plot2D(self._data_dat, name='Amplitude', coorddim=1, valdim=int(self._nop/2)+2)
-                plot_pha = qt.Plot2D(self._data_dat, name='Phase', coorddim=1, valdim=int(self._nop/2)+2+self._nop)
+                self._plot_amp = qt.Plot2D(self._data_dat, name='Amplitude', coorddim=1, valdim=int(self._nop/2)+2)
+                self._plot_pha = qt.Plot2D(self._data_dat, name='Phase', coorddim=1, valdim=int(self._nop/2)+2+self._nop)
 
-        return plot_amp, plot_pha
-
-    def _resonator_fit(self, x_value):
+    def _resonator_fit(self, z_data_raw, x_value):
         '''
-        Calls circle fir from resonator_tools_xtras.py and resonator_tools.py in the qkit/analysis folder
+        Calls circle fit from resonator_tools_xtras.py and resonator_tools.py in the qkit/analysis folder
         '''
         try:
-            delay, amp_norm, alpha, fr, Qr, A2, frcal = rtx.do_calibration(np.array(self._freqpoints),self._z_data_raw,ignoreslope=True)
-            z_data = rtx.do_normalization(np.array(self._freqpoints),self._z_data_raw,delay,amp_norm,alpha,A2,frcal)
-            results = rtx.circlefit(np.array(self._freqpoints),z_data,fr,Qr,refine_results=False,calc_errors=True)
-
-            z_data_sim = np.array([A2 * (f - frcal) + rtx.S21(f, fr=float(results["fr"]), Qr=float(results["Qr"]), Qc=float(results["absQc"]), phi=float(results["phi0"]), a= amp_norm, alpha= alpha, delay=delay) for f in self._freqpoints])
-
+            delay, amp_norm, alpha, fr, Qr, A2, frcal = rtx.do_calibration(self._freqpoints, z_data_raw,ignoreslope=True)
+            z_data = rtx.do_normalization(self._freqpoints, z_data_raw,delay,amp_norm,alpha,A2,frcal)
+            results = rtx.circlefit(self._freqpoints,z_data,fr,Qr,refine_results=False,calc_errors=True)
         except:
             '''
             If the fit does not converge due to bad data, the "bad" x_values get stored in a comment in the hdf file's analysis folder. All the fitting data for these values are set to 0.
             '''
 
             self._fit_fail_comment += str(self.x_coordname) + ' = ' + str(x_value)+str(self.x_unit)+'\n'
-
             error_data_array = np.zeros(len(self._freqpoints))
             self._hdf_amp_sim.append(error_data_array)
             self._hdf_pha_sim.append(error_data_array)
-            for key in self._results.iterkeys():
+            for key in self._result_keys.iterkeys():
                 self._results[str(key)].append(0.)
 
         else:
+            z_data_sim = np.array([A2 * (f - frcal) + rtx.S21(f, fr=float(results["fr"]), Qr=float(results["Qr"]), Qc=float(results["absQc"]), phi=float(results["phi0"]), a= amp_norm, alpha= alpha, delay=delay) for f in self._freqpoints])
             self._hdf_amp_sim.append(np.absolute(z_data_sim))
             self._hdf_pha_sim.append(np.angle(z_data_sim))
             self._hdf_real_sim.append(np.real(z_data_sim))
             self._hdf_imag_sim.append(np.imag(z_data_sim))
+            self._hdf_real_gen.append(z_data_sim.real)
+            self._hdf_imag_gen.append(z_data_sim.imag)
+            if x_value == self.x_vec[0]:
+                self._hdf_real_imag_gen = self._data_hdf.add_view('polar gen', x = self._hdf_real_gen, y = self._hdf_imag_gen)
+            
 
             for key in self._results.iterkeys():
                 self._results[str(key)].append(float(results[str(key)]))
@@ -473,6 +458,8 @@ class spectrum(object):
             self._results = {}
             for key in self._result_keys.iterkeys():
                self._results[str(key)] = self._data_hdf.add_value_vector(str(key), folder = 'analysis', x = self._hdf_x, unit ='')
+            self._hdf_real_gen = self._data_hdf.add_value_vector('real', folder = 'analysis', x = self._hdf_freq, unit = '')
+            self._hdf_imag_gen = self._data_hdf.add_value_vector('imag', folder = 'analysis', x = self._hdf_freq, unit = '')
  
     def record_trace(self):
         '''
