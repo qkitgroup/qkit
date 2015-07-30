@@ -139,6 +139,9 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 				print 'expecting peak'
 				s_a = np.abs((np.max(data[data_c])-np.mean(data[data_c])))
 				s_f0 = data[0][np.where(data[data_c] == max(data[data_c]))[0][0]]*freq_conversion_factor
+				print s_f0
+				print s_a
+				print s_offs
 			else:
 				print 'expecting dip'
 				s_a = -np.abs((np.min(data[data_c])-np.mean(data[data_c])))
@@ -153,10 +156,10 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 					m.append(dat_p)   #frequency of found mid point
 			#print m
 			if len(m) > 1:
-				s_k = data[0][m[-1]]-data[0][m[0]]
+				s_k = (data[0][m[-1]]-data[0][m[0]])*freq_conversion_factor
 				print 'assume k = %.2e'%s_k
 			else:
-				s_k = 0.15*(data[0][-1]-data[0][0])   #try 15% of window
+				s_k = 0.15*(data[0][-1]-data[0][0])*freq_conversion_factor   #try 15% of window
 				
 			#lorentzian fit
 			p0 = [s_f0, s_k, s_a, s_offs]
