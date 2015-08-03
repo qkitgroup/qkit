@@ -1258,7 +1258,10 @@ class Tektronix_AWG7062(Instrument):
 		sometimes the output buffer still contains something and you will always get the response to the previous command.
 		then you can use this function to emtpy the buffer.
 		'''
-		try:
-			return self._visainstrument.read()
-		except visa.VisaIOError:
-			return None
+		for i in range(20):
+			try:
+				print str(i) + ": " + self._visainstrument.read()
+			except visa.VisaIOError:
+				print "Buffer is empty now. There have been %i lines in queue"%i
+				break
+				
