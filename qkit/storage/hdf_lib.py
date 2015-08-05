@@ -305,21 +305,33 @@ class dataset_view(object):
         self.hf = hdf_file
         self.name = name
         self.folder = folder
+        self.ds_url = "/entry/" + folder + "/" + name
         self.comment = comment
         if not x or not y: 
             logging.ERROR("View: Please supply a x and y dataset.")
-        self.x_object = str(x.ds.name)
-        self.y_object = str(y.ds.name)
+        self.x_object = str(x.ds_url)
+        self.y_object = str(y.ds_url)
         
         self.ds = self.hf.create_dataset(self.name,0,folder=self.folder)
+        self.view_num = 0
         self._setup_metadata()
         self.hf.flush()
+    def add(self,name,x=None, y=None):
+            self.x_object = str(x.ds_url)
+            self.y_object = str(y.ds_url)
+            self._setup_metadata(init = False)
         
-    def _setup_metadata(self):
+    def _setup_metadata(self,init=True):
         ds = self.ds
-        ds.attrs.create("x",self.x_object)
-        ds.attrs.create("y",self.y_object)
-        ds.attrs.create("view_type",1)
+        if init:
+            ds.attrs.create("view_type",1)
+            #ds.attrs.create("x",self.x_object)
+            #ds.attrs.create("y",self.y_object)
+        ds.attrs.create("xy_"+str(self.view_num),self.x_object+":"+self.y_object)
+        ds.attrs.create("overlays",self.view_num)
+        self.view_num += 1
+        
+
         
         
 class hdf_dataset(object):
@@ -337,6 +349,7 @@ class hdf_dataset(object):
             self.hf = hdf_file
             self.name = name
             self.folder = folder
+            self.ds_url = "/entry/" + folder + "0/" + name
             self.unit = unit
             self.comment = comment
             self.meta = meta

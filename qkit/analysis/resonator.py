@@ -3,12 +3,13 @@
 import numpy as np
 
 from qkit.analysis.circle_fit import resonator_tools_xtras as rtx
+from scipy.optimize import leastsq
 
 
 class Resonator(object):
 
     '''
-    useage:
+    usage:
     
     '''
     
@@ -67,6 +68,31 @@ class Resonator(object):
                 self._prepare_hdf_lorentz()
 
             self._get_data_lorentz()
+            
+            
+        def fit_skewed_lorentzian(f_data,z_data):
+            amplitude = np.absolute(z_data)
+            amplitude_sqr = amplitude**2
+            A1a = np.minimum(amplitude_sqr[0],amplitude_sqr[-1])
+            A3a = -np.max(amplitude_sqr)
+            fra = f_data[np.argmin(amplitude_sqr)]
+            def residuals(p,x,y):
+                A2, A4, Qr = p
+                err = y -(A1a+A2*(x-fra)+(A3a+A4*(x-fra))/(1.+4.*Qr**2*((x-fra)/fra)**2))
+                return err
+            p0 = [0., 0., 1e3]
+            p_final = leastsq(residuals,p0,args=(np.array(f_data),np.array(amplitude_sqr)))
+            A2a, A4a, Qra = p_final[0]
+        
+            def residuals2(p,x,y):
+                A1, A2, A3, A4, fr, Qr = p
+                err = y -(A1+A2*(x-fr)+(A3+A4*(x-fr))/(1.+4.*Qr**2*((x-fr)/fr)**2))
+                return err
+            p0 = [A1a, A2a , A3a, A4a, fra, Qra]
+            p_final = leastsq(residuals2,p0,args=(np.array(f_data),np.array(amplitude_sqr)))
+            #A1, A2, A3, A4, fr, Qr = p_final[0]
+            #print p_final[0][5]
+            return p_final[0]
         
         def fit_fano(fit_all = False):
             self._fit_all = fit_all

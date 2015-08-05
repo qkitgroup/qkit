@@ -45,7 +45,8 @@ P_co = h5d.add_coordinate('power',   unit = "dBm",  comment = "microwave power")
 T_vec = h5d.add_value_vector('temperature', x = None, unit = "K", comment = "save temperature values") 
 Tc_vec = h5d.add_value_vector('critical_temperature', x = I_co, unit = "K", folder='analysis' ,comment = "save temperature values")
 
-
+TvsTc_view = h5d.add_view("f_vs_I", x= f_co, y = I_co)
+TvsTc_view.add("TvsTc",x=T_vec,y=Tc_vec)
 # add_value_matrix()    <- for measurement data
 # convention: the last coordiante should be the one with the fastest changes:
 #             e.g.  for a VNA scan x= magnetic field y= transmission frequency
@@ -96,6 +97,6 @@ for i in arange(nop):
     T_vec.append(float(rand(1)))
     Tc_vec.append(float(rand(1)))
 
-TvsTc_view = h5d.add_view("T_vs_Tc", x= f_co, y = I_co)
+
 print h5d.get_filepath()
 h5d.close_file()

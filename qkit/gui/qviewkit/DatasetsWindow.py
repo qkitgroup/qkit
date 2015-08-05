@@ -211,6 +211,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         try:
             
             self.h5file= h5py.File(str(self.DATA.DataFilePath),mode='r')
+            self.DATA.filename = self.h5file.filename.split(os.path.sep)[-1]
             self.populate_data_list()
             self.update_plots()
             self.h5file.close()
@@ -224,6 +225,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         self.DATA.DataFilePath=str(QFileDialog.getOpenFileName(filter="*.h5"))
         if self.DATA.DataFilePath:
             self.h5file= h5py.File(self.DATA.DataFilePath,mode='r')
+            self.DATA.filename = self.h5file.filename.split(os.path.sep)[-1]
             self.populate_data_list()
             self.h5file.close()
             s = (self.DATA.DataFilePath.split(os.path.sep)[-5:])
