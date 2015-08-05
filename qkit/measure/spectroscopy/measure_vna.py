@@ -154,7 +154,7 @@ class spectrum(object):
         self._scan_1D2 = False
         self._scan_2D = False
 
-        self._file_name = 'vna_sweep1D_'+ self.x_coordname
+        self._file_name = '_1D_'#+ self.x_coordname
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
@@ -179,7 +179,7 @@ class spectrum(object):
         self._scan_1D2 = True
         self._scan_2D = False
 
-        self._file_name = 'vna_sweep1D2_'+ self.x_coordname
+        self._file_name = '_1D2_' #+ self.x_coordname
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
@@ -208,7 +208,7 @@ class spectrum(object):
         self._scan_1D2 = False
         self._scan_2D = True
 
-        self._file_name = 'vna_sweep2D_'+ self.x_coordname + '_' + self.y_coordname
+        self._file_name = '_2D_' #+ self.x_coordname + '_' + self.y_coordname
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
