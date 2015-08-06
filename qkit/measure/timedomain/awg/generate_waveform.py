@@ -203,22 +203,35 @@ def ramsey(delay, sample, pi2_pulse = None, length = None,position = None, low =
 	return wfm
 
 
-def spinecho(delay, sample, pi2_pulse = None, pi_pulse = None, length = None,position = None, low = 0, high = 1, clock = None, readoutpulse=True,adddelay=0., freq=None):
+def spinecho(delay, sample, pi2_pulse = None, pi_pulse = None, length = None,position = None, low = 0, high = 1, clock = None, readoutpulse=True,adddelay=0., freq=None, n = 1):
 	'''
-		generate waveform with two pi/2 pulses, a pi pulse and delays
-		pi2 - delay - pi - delay - [pi2, if readoutpulse]
+		generate waveform with two pi/2 pulses at the ends and a number n of echo (pi) pilses in between
+		pi2 - delay/n - pi - delay/n - pi - ... - pp - delay/n - [pi2, if readoutpulse]
 		
-		(see awg_ramsey for parameter description)
+		pulse - pulse duration in seconds
+		length - length of the generated waveform
+		position - time instant of the end of the pulse
+		low - pulse 'off' sample value
+		high - pulse 'on' sample value
+		clock - sample rate of the DAC
+		
+		waveforms are contructed from right to left
 	'''
+	
 	if(clock == None): clock= sample.clock
 	if(length == None): length= sample.exc_T
 	if(position == None): position = length
 	if(pi2_pulse == None): pi2_pulse = sample.tpi2
 	if(pi_pulse == None): pi_pulse = sample.tpi
-	if(adddelay+2*delay+2*pi2_pulse+pi_pulse>position): logging.error(__name__ + ' : spin-echo pulses do not fit into waveform')
-	if readoutpulse: wfm = square(pi2_pulse, sample, length, position, clock = clock,freq=freq)
-	else: wfm = square(pi2_pulse, sample, length, position, 0,0, clock,freq=freq)
-	wfm += square(pi_pulse, sample, length, position-pi2_pulse-delay-adddelay, clock = clock,freq=freq)
-	wfm += square(pi2_pulse, sample, length, position-2*delay-1*pi2_pulse-pi_pulse-adddelay, clock = clock,freq=freq)
-	wfm = wfm * (high-low) + low
+	
+	if adddelay+delay+2*pi2_pulse+n*pi_pulse > position:
+		logging.error(__name__ + ' : sequence does not fit into waveform. delay is the sum of the waiting times in between the pi pulses')
+	if readoutpulse:   #last pi/2 pulse
+		wfm = square(pi2_pulse, sample, length, position, clock = clock,freq=freq)   #add pi/2 pulse
+	else:
+		wfm = square(pi2_pulse, sample, length, position, low, low, clock,freq=freq)   #create space (low) of the length of a pi/2 pulse
+	for ni in range(n):   #add pi pulses
+		wfm += square(pi_pulse, sample, length, position - pi2_pulse - ni*pi_pulse - float(delay)/(n+1)*(ni+1) - adddelay, clock = clock, freq=freq)
+	wfm += square(pi2_pulse, sample, length, position - pi2_pulse - n*pi_pulse - delay - adddelay, clock = clock, freq=freq)   #pi/2 pulse
+	wfm = wfm * (high-low) + low   #adjust offset
 	return wfm
