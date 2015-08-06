@@ -9,7 +9,7 @@ from qkit.gui.notebook.Progress_Bar import Progress_Bar
 import gc
 
 
-def update_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None):
+def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None):
 	'''
 		set awg to sequence mode and push a number of waveforms into the sequencer
 		
@@ -18,6 +18,8 @@ def update_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\
 		ts: array of times, len(ts) = #sequenzes
 		wfm_func: waveform function usually generated via generate_waveform using ts[i]; this can be a touple of arrays (for channels 0,1, heterodyne mode) or a single array (homodyne mode)
 		sample: sample object
+		
+		iq: Reference to iq mixer instrument. If None (default), the wfm will not be changed. Otherwise, the wfm will be converted via iq.convert()
 		
 		marker: marker array in the form [[ch1m1,ch1m2],[ch2m1,ch2m2]] and all entries arrays of sample length
 		markerfunc: analog to wfm_func, set marker to None when used
@@ -28,6 +30,9 @@ def update_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\
 	qt.mstart()
 	awg = sample.get_awg()
 	clock = sample.get_clock()
+	wfm_func2 = wfm_func
+	if iq != None:
+		wfm_func2 = lambda t, sample: iq.convert(wfm_func(t,sample))
 	
 	# create new sequence
 	if reset:
@@ -52,7 +57,7 @@ def update_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\
 		qt.msleep()
 		t = ts[ti]
 		# filter duplicates
-		wfm_samples = wfm_func(t,sample)   #generate waveform
+		wfm_samples = wfm_func2(t,sample)   #generate waveform
 		if not isinstance(wfm_samples[0],(list, tuple, np.ndarray)):   #homodyne
 			wfm_samples = [wfm_samples,np.zeros_like(wfm_samples)]
 		
@@ -106,7 +111,6 @@ def update_sequence(ts, wfm_func, sample, loop = False, drive = 'c:', path = '\\
 		awg.set_seq_goto(len(ts), 1)
 		awg.run()
 		awg.wait(10,False)
-		
 		
 	qt.mend()
 	return np.all([awg.get('ch%i_status'%i) for i in [1,2]])
