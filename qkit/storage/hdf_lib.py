@@ -243,11 +243,12 @@ class H5_file(object):
     def close_file(self):
         # before closing the file, reduce all arrays in the group 
         # to their "fill" length
+        """
         for ds in self.grp.itervalues():
                 fill  = ds.attrs.get("fill",-1)
                 if fill > 0:
                     ds.resize(fill,axis=0)
-              
+        """      
         self.hf.close()
 
 # Filename generator classes (taken from qtlab.source.data)
@@ -627,6 +628,8 @@ class Data(object):
     
     def flush(self):
         self.hf.flush()
-
+    
     def close_file(self):
+        self.hf.close_file()
+    def close(self):
         self.hf.close_file()

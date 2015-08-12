@@ -270,20 +270,20 @@ if __name__ == "__main__":
 
     parser.add_argument('-f','--file',     type=str, help='hdf filename to open')
     #parser.add_argument('-ds','--datasets', type=str, help='(optional) datasets opened by default')
-    parser.add_argument('-lf','--lorentz-fit',  default=True,action='store_true', help='(optional) lorentzian fit')
-    parser.add_argument('-ff','--fano-fit',     default=True,action='store_true', help='(optional) fano fit')
-    parser.add_argument('-cf','--circle-fit',   default=True,action='store_true', help='(optional) circle fit')
+    parser.add_argument('-lf','--lorentz-fit',  default=False,action='store_true', help='(optional) lorentzian fit')
+    parser.add_argument('-ff','--fano-fit',     default=False,action='store_true', help='(optional) fano fit')
+    parser.add_argument('-cf','--circle-fit',   default=False,action='store_true', help='(optional) circle fit')
 
     args=parser.parse_args()
     hf=None
     if args.file:
         hf = hdf_lib.Data(path=args.file)
         R = Resonator(hf)
-        if args.circle-fit:
+        if args.circle_fit:
             R.fit_circle()
-        if args.lorentz-fit:
+        if args.lorentz_fit:
             R.fit_lorentz()
-        if args.fano-fit:
+        if args.fano_fit:
             R.fit_fano()
     else:
         print "no file supplied. type -h for help"
