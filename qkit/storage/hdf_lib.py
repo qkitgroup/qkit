@@ -23,7 +23,7 @@ try:
         import qt
 except ImportError:
     import tempfile
-    print 'executing apparently not in the qt environment, set data root to:'+tempfile.gettempdir()
+    #print 'executing apparently not in the qt environment, set data root to:'+tempfile.gettempdir()
     config = {}
     config['datadir'] = tempfile.gettempdir()
 
@@ -41,11 +41,17 @@ class H5_file(object):
     def __init__(self,output_file,**kw):
         
         self.create_file(output_file)
-        self.set_base_attributes()
         
-        # set all standard attributes
-        for k in kw:
-            self.grp.attrs[k] = kw[k]
+        if self.hf.attrs.get("qt-file",None) or self.hf.attrs.get("qkit",None):
+            "File existed before and was created by qkit."
+            pass
+        else:
+            "new file or none qkit file"
+            self.set_base_attributes()
+        
+            # set all standard attributes
+            for k in kw:
+                self.grp.attrs[k] = kw[k]
         
 
         # the next block variable is used to itterate a block
@@ -57,8 +63,8 @@ class H5_file(object):
     def set_base_attributes(self,nexus=True):
         "stores some attributes and creates the default data group"
         # store version of the file format
-        self.hf.attrs.create("qt-file","1.0") # qtlab file version
-        self.hf.attrs.create("qtlab", "1.0")  # qtlab version
+        #self.hf.attrs.create("qt-file","1.0") # qtlab file version
+        self.hf.attrs.create("qkit", "1.0")  # qtlab version
         if nexus:
             # make the structure compatible with the nexus format
             # maybe some day the data can by analyzed by the software supporting nexus
@@ -534,7 +540,7 @@ class Data(object):
         self._filename_generator = DateTimeGenerator()
         self.generate_file_name(name, filepath = path, **kwargs)
         
-        "setup the new file"
+        "setup the  file"
         self.hf = H5_file(self._filepath)
         
         self.hf.flush()
@@ -557,7 +563,7 @@ class Data(object):
             self._filepath =  self._filename_generator.new_filename(self)
 
         self._folder, self._filename = os.path.split(self._filepath)
-        if not os.path.isdir(self._folder):
+        if self._folder and not os.path.isdir(self._folder):
             os.makedirs(self._folder)
         
 
