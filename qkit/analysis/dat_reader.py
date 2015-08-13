@@ -77,7 +77,7 @@ def load_data(file_name = None):
 	return data, nfile
 
 
-def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, save_pdf = False):
+def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, save_pdf = False, data=None, nfile=None):
 	
 	'''
 	fit the data in file_name to a function specified by fit_function
@@ -107,8 +107,11 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		return a*np.exp(-t/Td)+offs
 
 
-	#load data
-	data, nfile = load_data(file_name)
+	if file_name == 'dat_import':
+		print 'use imported data'
+	else:
+		#load data
+		data, nfile = load_data(file_name)
 
 
 	#check column identifier
