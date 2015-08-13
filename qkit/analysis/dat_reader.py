@@ -75,6 +75,22 @@ def load_data(file_name = None):
 		return
 		
 	return data, nfile
+	
+def _fill_p0(p0,ps):
+
+	'''
+	fill estimated p0 with specified initial values (in ps)
+	'''
+	
+	if ps != None:
+		try:
+			for n in range(len(ps)):
+				if ps[n] != None:
+					p0[n] = ps[n]
+		except Exception as m:
+			print 'list of given initial parameters invalid...aborting'
+			raise ValueError
+	return p0
 
 
 def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, save_pdf = False, data=None, nfile=None):
@@ -85,7 +101,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 	
 	fit_function can be 'lorentzian', 'damped_sine', 'sine', 'exp'
 	data_c: specifies the data column to be used (next to column 0 that is used as the coordinate axis)
-	ps: start parameters (optional)
+	ps: start parameters (optional), can be given in parts, set parameters not specified to None
 	xlabel: label for horizontal axis (optional)
 	ylabel: label for vertical axis (optional)
 	
@@ -134,41 +150,38 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		if show_plot:   plt.plot(data[0]*freq_conversion_factor,data[data_c],'*')
 		x_vec = np.linspace(data[0][0]*freq_conversion_factor,data[0][-1]*freq_conversion_factor,200)
 	
-		if ps == None:
-			#start parameters
-			s_offs = np.mean(np.array([data[data_c,:int(np.size(data,1)/10)],data[data_c,np.size(data,1)-int(np.size(data,1)/10):]])) #offset is calculated from the first and last 10% of the data to improve fitting on tight windows @andre20150318
-			if np.abs(np.max(data[data_c]) - np.mean(data[data_c])) > np.abs(np.min(data[data_c]) - np.mean(data[data_c])):
-				#expect a peak
-				print 'expecting peak'
-				s_a = np.abs((np.max(data[data_c])-np.mean(data[data_c])))
-				s_f0 = data[0][np.where(data[data_c] == max(data[data_c]))[0][0]]*freq_conversion_factor
-				print s_f0
-				print s_a
-				print s_offs
-			else:
-				print 'expecting dip'
-				s_a = -np.abs((np.min(data[data_c])-np.mean(data[data_c])))
-				s_f0 = data[0][np.where(data[data_c] == min(data[data_c]))[0][0]]*freq_conversion_factor
-			
-			#estimate peak/dip width
-			mid = s_offs + 0.5*s_a   #estimated mid region between base line and peak/dip
-			print mid
-			m = []   #mid points
-			for dat_p in range(len(data[data_c])-1):
-				if np.sign(data[data_c][dat_p] - mid) != np.sign(data[data_c][dat_p+1] - mid):   #mid level crossing
-					m.append(dat_p)   #frequency of found mid point
-			#print m
-			if len(m) > 1:
-				s_k = (data[0][m[-1]]-data[0][m[0]])*freq_conversion_factor
-				print 'assume k = %.2e'%s_k
-			else:
-				s_k = 0.15*(data[0][-1]-data[0][0])*freq_conversion_factor   #try 15% of window
-				
-			#lorentzian fit
-			p0 = [s_f0, s_k, s_a, s_offs]
+		#start parameters
+		s_offs = np.mean(np.array([data[data_c,:int(np.size(data,1)/10)],data[data_c,np.size(data,1)-int(np.size(data,1)/10):]])) #offset is calculated from the first and last 10% of the data to improve fitting on tight windows @andre20150318
+		if np.abs(np.max(data[data_c]) - np.mean(data[data_c])) > np.abs(np.min(data[data_c]) - np.mean(data[data_c])):
+			#expect a peak
+			print 'expecting peak'
+			s_a = np.abs((np.max(data[data_c])-np.mean(data[data_c])))
+			s_f0 = data[0][np.where(data[data_c] == max(data[data_c]))[0][0]]*freq_conversion_factor
+			print s_f0
+			print s_a
+			print s_offs
 		else:
-			p0 = ps
+			print 'expecting dip'
+			s_a = -np.abs((np.min(data[data_c])-np.mean(data[data_c])))
+			s_f0 = data[0][np.where(data[data_c] == min(data[data_c]))[0][0]]*freq_conversion_factor
+		
+		#estimate peak/dip width
+		mid = s_offs + 0.5*s_a   #estimated mid region between base line and peak/dip
+		print mid
+		m = []   #mid points
+		for dat_p in range(len(data[data_c])-1):
+			if np.sign(data[data_c][dat_p] - mid) != np.sign(data[data_c][dat_p+1] - mid):   #mid level crossing
+				m.append(dat_p)   #frequency of found mid point
+		#print m
+		if len(m) > 1:
+			s_k = (data[0][m[-1]]-data[0][m[0]])*freq_conversion_factor
+			print 'assume k = %.2e'%s_k
+		else:
+			s_k = 0.15*(data[0][-1]-data[0][0])*freq_conversion_factor   #try 15% of window
 			
+		p0 = _fill_p0()[s_f0, s_k, s_a, s_offs],ps)
+			
+		#lorentzian fit
 		try:
 			popt, pcov = curve_fit(f_Lorentzian, data[0]*freq_conversion_factor, data[data_c], p0 = p0)
 			print 'QL:', np.abs(np.round(float(popt[0])/popt[1]))
@@ -193,49 +206,46 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		if show_plot:   plt.plot(data[0],data[data_c],'*')
 		x_vec = np.linspace(data[0][0],data[0][-1],400)
 	
-		if ps == None:
-			#start parameters
-			s_offs = np.mean(data[data_c][int(0.9*len(data[data_c])):])
-			#print s_offs
-			a1 = np.abs(np.max(data[data_c]) - s_offs)
-			a2 = np.abs(np.min(data[data_c]) - s_offs)
-			s_a = np.max([a1,a2])
-			#print s_a
-			#damping
-			a_end = np.abs(np.max(data[data_c][int(0.7*len(data[data_c])):]))   #scan last 20% of values -> final amplitude
-			#print a_end
-			# -> calculate Td
-			t_end = data[0][-1]
-			#print t_end
-			s_Td = -t_end/(np.log((np.abs(a_end-np.abs(s_offs)))/s_a))
-			print 'assume T =', str(np.round(s_Td,4))
-			
-			#frequency
-			#s_fs = 1/data[0][int(np.round(np.abs(1/np.fft.fftfreq(len(data[data_c]))[np.where(np.abs(np.fft.fft(data[data_c]))==np.max(np.abs(np.fft.fft(data[data_c]))[1:]))]))[0])] #@andre20150318
-			
-			roots = 0
-			for dat_p in range(len(data[data_c])-1):
-				if np.sign(data[data_c][dat_p] - s_offs) != np.sign(data[data_c][dat_p+1] - s_offs):   #offset line crossing
-					roots = roots + 1
-			s_fs = float(roots)/(2*data[0][-1])   #number of roots/2 /measurement time
-			
-			#phase offset
-			dmax = np.abs(data[data_c][0] - np.max(data[data_c]))
-			dmean = np.abs(data[data_c][0] - np.mean(data[data_c]))
-			dmin = np.abs(data[data_c][0] - np.min(data[data_c]))
-			if dmax < dmean:   #start on upper side -> offset phase pi/2
-				s_ph = np.pi/2
-			elif dmin < dmean:   #start on lower side -> offset phase -pi/2
-				s_ph = -np.pi/2
-			else:   #ordinary sine
-				s_ph = 0
-			#print s_ph
-			
-			#damped sine fit
-			p0 = [s_fs, s_Td, s_a, s_offs, s_ph]
-		else:
-			p0 = ps
-			
+		#start parameters
+		s_offs = np.mean(data[data_c][int(0.9*len(data[data_c])):])
+		#print s_offs
+		a1 = np.abs(np.max(data[data_c]) - s_offs)
+		a2 = np.abs(np.min(data[data_c]) - s_offs)
+		s_a = np.max([a1,a2])
+		#print s_a
+		#damping
+		a_end = np.abs(np.max(data[data_c][int(0.7*len(data[data_c])):]))   #scan last 20% of values -> final amplitude
+		#print a_end
+		# -> calculate Td
+		t_end = data[0][-1]
+		#print t_end
+		s_Td = -t_end/(np.log((np.abs(a_end-np.abs(s_offs)))/s_a))
+		print 'assume T =', str(np.round(s_Td,4))
+		
+		#frequency
+		#s_fs = 1/data[0][int(np.round(np.abs(1/np.fft.fftfreq(len(data[data_c]))[np.where(np.abs(np.fft.fft(data[data_c]))==np.max(np.abs(np.fft.fft(data[data_c]))[1:]))]))[0])] #@andre20150318
+		
+		roots = 0
+		for dat_p in range(len(data[data_c])-1):
+			if np.sign(data[data_c][dat_p] - s_offs) != np.sign(data[data_c][dat_p+1] - s_offs):   #offset line crossing
+				roots = roots + 1
+		s_fs = float(roots)/(2*data[0][-1])   #number of roots/2 /measurement time
+		
+		#phase offset
+		dmax = np.abs(data[data_c][0] - np.max(data[data_c]))
+		dmean = np.abs(data[data_c][0] - np.mean(data[data_c]))
+		dmin = np.abs(data[data_c][0] - np.min(data[data_c]))
+		if dmax < dmean:   #start on upper side -> offset phase pi/2
+			s_ph = np.pi/2
+		elif dmin < dmean:   #start on lower side -> offset phase -pi/2
+			s_ph = -np.pi/2
+		else:   #ordinary sine
+			s_ph = 0
+		#print s_ph
+		
+		p0 = _fill_p0([s_fs, s_Td, s_a, s_offs, s_ph],ps)
+
+		#damped sine fit
 		try:
 			popt, pcov = curve_fit(f_damped_sine, data[0], data[data_c], p0 = p0)
 		except:
@@ -249,37 +259,34 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		if show_plot:   plt.plot(data[0],data[data_c],'*')
 		x_vec = np.linspace(data[0][0],data[0][-1],200)
 	
-		if ps == None:
-			#start parameters
-			s_offs = np.mean(data[data_c])
-			s_a = 0.5*np.abs(np.max(data[data_c]) - np.min(data[data_c]))
+		#start parameters
+		s_offs = np.mean(data[data_c])
+		s_a = 0.5*np.abs(np.max(data[data_c]) - np.min(data[data_c]))
+		
+		#frequency
+		#s_fs = 1/data[0][int(np.round(np.abs(1/np.fft.fftfreq(len(data[data_c]))[np.where(np.abs(np.fft.fft(data[data_c]))==np.max(np.abs(np.fft.fft(data[data_c]))[1:]))]))[0])] #@andre20150318
+		
+		roots = 0
+		for dat_p in range(len(data[data_c])-1):
+			if np.sign(data[data_c][dat_p] - s_offs) != np.sign(data[data_c][dat_p+1] - s_offs):   #offset line crossing
+				roots = roots + 1
+		s_fs = float(roots)/(2*data[0][-1])   #number of roots/2 /measurement time
+		
+		#phase offset
+		dmax = np.abs(data[data_c][0] - np.max(data[data_c]))
+		dmean = np.abs(data[data_c][0] - np.mean(data[data_c]))
+		dmin = np.abs(data[data_c][0] - np.min(data[data_c]))
+		if dmax < dmean:   #start on upper side -> offset phase pi/2
+			s_ph = np.pi/2
+		elif dmin < dmean:   #start on lower side -> offset phase -pi/2
+			s_ph = -np.pi/2
+		else:   #ordinary sine
+			s_ph = 0
+		#print s_ph
+		
+		p0 = _fill_p0([s_fs, s_a, s_offs, s_ph],ps)
 			
-			#frequency
-			#s_fs = 1/data[0][int(np.round(np.abs(1/np.fft.fftfreq(len(data[data_c]))[np.where(np.abs(np.fft.fft(data[data_c]))==np.max(np.abs(np.fft.fft(data[data_c]))[1:]))]))[0])] #@andre20150318
-			
-			roots = 0
-			for dat_p in range(len(data[data_c])-1):
-				if np.sign(data[data_c][dat_p] - s_offs) != np.sign(data[data_c][dat_p+1] - s_offs):   #offset line crossing
-					roots = roots + 1
-			s_fs = float(roots)/(2*data[0][-1])   #number of roots/2 /measurement time
-			
-			#phase offset
-			dmax = np.abs(data[data_c][0] - np.max(data[data_c]))
-			dmean = np.abs(data[data_c][0] - np.mean(data[data_c]))
-			dmin = np.abs(data[data_c][0] - np.min(data[data_c]))
-			if dmax < dmean:   #start on upper side -> offset phase pi/2
-				s_ph = np.pi/2
-			elif dmin < dmean:   #start on lower side -> offset phase -pi/2
-				s_ph = -np.pi/2
-			else:   #ordinary sine
-				s_ph = 0
-			#print s_ph
-			
-			#sine fit
-			p0 = [s_fs, s_a, s_offs, s_ph]
-		else:
-			p0 = ps
-			
+		#sine fit
 		try:
 			popt, pcov = curve_fit(f_sine, data[0], data[data_c], p0 = p0)
 		except:
@@ -291,18 +298,16 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 	elif fit_function == 'exp':
 	
 		x_vec = np.linspace(data[0][0],data[0][-1],200)
-		if ps == None:
-			#start parameters
-			s_offs = np.mean(data[data_c][int(0.9*len(data[data_c])):])   #average over the last 10% of entries
-			s_a = data[data_c][0] - s_offs
-			s_Td = np.abs(float(s_a)/np.mean(np.gradient(data[data_c],data[0][1]-data[0][0])[:5]))   #calculate gradient at t=0 which is equal to (+-)a/T
-			#s_Td = data[0][-1]/5   #assume Td to be roughly a fifth of total measurement range
-			
-			#exp fit
-			p0 = [s_Td, s_a, s_offs]
-		else:
-			p0 = ps
-			
+		
+		#start parameters
+		s_offs = np.mean(data[data_c][int(0.9*len(data[data_c])):])   #average over the last 10% of entries
+		s_a = data[data_c][0] - s_offs
+		s_Td = np.abs(float(s_a)/np.mean(np.gradient(data[data_c],data[0][1]-data[0][0])[:5]))   #calculate gradient at t=0 which is equal to (+-)a/T
+		#s_Td = data[0][-1]/5   #assume Td to be roughly a fifth of total measurement range
+
+		p0 = _fill_p0([s_Td, s_a, s_offs],ps)
+
+		#exp fit
 		try:
 			popt, pcov = curve_fit(f_exp, data[0], data[data_c], p0 = p0)
 			if xlabel == None:
