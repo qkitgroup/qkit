@@ -78,7 +78,9 @@ class Resonator(object):
     def _prepare_circle(self):
             self._result_keys = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Qr":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Qr_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
             self._results = {}
-
+            
+            #self._x = self._hf.get_dataset("")            
+            
             self._amp_gen = self._hf.add_value_matrix('amplitude_gen', folder = 'analysis', x = self._hdf_x, y = self._hdf_y, unit = 'V')
             self._pha_gen = self._hf.add_value_matrix('phase_gen', folder = 'analysis', x = self._hdf_x, y = self._hdf_y, unit='rad')
             self._real_gen = self._hf.add_value_matrix('real_gen', folder = 'analysis', x = self._hdf_x, y = self._hdf_y, unit='')
@@ -104,7 +106,7 @@ class Resonator(object):
             self._freqpoints = np.append(self._freqpoints, frequency)
 
 
-    def fit_lorentz(fit_all = False):
+    def fit_lorentz(self,fit_all = False):
         self._fit_all = fit_all
 
         if self._first_lorentz:
@@ -158,8 +160,10 @@ class Resonator(object):
             self._first_fano = False
             
         #self._get_data_fano()
-        
+        self.frequencies  = self._hf['/entry/data0/frequency']
         frequencies=self.frequencies
+        self.amplitudes  = self._hf['/entry/data0/amplitude']
+        
         if fit_all:
             traces = self.amplitudes[:]
         else:
@@ -170,19 +174,35 @@ class Resonator(object):
             amplitudes_gen = self.fano_reflection_from_fit(frequencies,fit)
             # calculate the chi2 of fit and data
             chi2 = self.fano_fit_chi2(frequencies,fit,amplitudes)
-            
+            print chi2
             # save the fitted data to the hdf_file
-            self._fano_amp_gen.append(amplitudes_gen)
+            self._fano_amp_gen.append(np.array(amplitudes_gen))
             
-            self._fano_q_fit.append(fit[0])
-            self._fano_bw_fit.append(fit[1]) 
-            self._fano_fr_fit.append(fit[2]) 
-            self._fano_a_fit.append(fit[3])
-            self._fano_chi2_fit.append(chi2)
+            self._fano_q_fit.append(float(fit[0]))
+            self._fano_bw_fit.append(float(fit[1])) 
+            self._fano_fr_fit.append(float(fit[2])) 
+            self._fano_a_fit.append(float(fit[3]))
+            self._fano_chi2_fit.append(float(chi2))
                 
-        
-        self._fano_chi2_fit  = self._hf.add_value_vector('fano_chi2_fit' , folder = 'analysis', x = self._hdf_x, unit = '')
 
+
+    def _prepare_fano(self):
+        "create the datasets in the hdf-file"
+        # self._hdf_y : frequency
+        #self._hdf_x = self._hf.add_coordinate("Power", unit = "dBm", comment = "",folder="analysis")
+        #self._hdf_y = self._hf.add_coordinate("freq",  unit = "Hz", comment = "",folder="analysis")
+        self._x_co  = self._hf.get_dataset("/entry/data0/power")
+        self._y_co  = self._hf.get_dataset("/entry/data0/frequency")
+        
+        self._fano_amp_gen = self._hf.add_value_matrix('fano_amp_gen', folder = 'analysis', x = self._x_co, 
+                                                       y = self._y_co, unit = 'a.u.')
+        self._fano_q_fit  = self._hf.add_value_vector('fano_q_fit' , folder = 'analysis', x = self._x_co, unit = '')
+        self._fano_bw_fit = self._hf.add_value_vector('fano_bw_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
+        self._fano_fr_fit = self._hf.add_value_vector('fano_fr_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
+        self._fano_a_fit  = self._hf.add_value_vector('fano_a_fit' , folder = 'analysis', x = self._x_co, unit = '')
+        
+        self._fano_chi2_fit  = self._hf.add_value_vector('fano_chi2_fit' , folder = 'analysis', x = self._x_co, unit = '')
+        
     def fano_reflection(self,f,q,bw,fr,a=1,b=1):
         """
         evaluates the fano function in reflection at the 
@@ -246,17 +266,7 @@ class Resonator(object):
         return chi2
         
         
-    def _prepare_fano(self):
-        "create the datasets in the hdf-file"
-        # self._hdf_y : frequency
-        self._fano_amp_gen = self._hf.add_value_matrix('fano_amp_gen', folder = 'analysis', x = self._hdf_x, 
-                                                       y = self._hdf_y, unit = 'a.u.')
-        self._fano_q_fit  = self._hf.add_value_vector('fano_q_fit' , folder = 'analysis', x = self._hdf_x, unit = '')
-        self._fano_bw_fit = self._hf.add_value_vector('fano_bw_fit', folder = 'analysis', x = self._hdf_x, unit = 'Hz')
-        self._fano_fr_fit = self._hf.add_value_vector('fano_fr_fit', folder = 'analysis', x = self._hdf_x, unit = 'Hz')
-        self._fano_a_fit  = self._hf.add_value_vector('fano_a_fit' , folder = 'analysis', x = self._hdf_x, unit = '')
-        
-        self._fano_chi2_fit  = self._hf.add_value_vector('fano_chi2_fit' , folder = 'analysis', x = self._hdf_x, unit = '')
+
         
 
     def _get_data_fano(self):
@@ -284,7 +294,7 @@ if __name__ == "__main__":
         if args.lorentz_fit:
             R.fit_lorentz()
         if args.fano_fit:
-            R.fit_fano()
+            R.fit_fano(fit_all=True)
     else:
         print "no file supplied. type -h for help"
     if hf:

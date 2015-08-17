@@ -44,7 +44,7 @@ class H5_file(object):
         
         if self.hf.attrs.get("qt-file",None) or self.hf.attrs.get("qkit",None):
             "File existed before and was created by qkit."
-            pass
+            self.setup_required_groups()
         else:
             "new file or none qkit file"
             self.set_base_attributes()
@@ -76,16 +76,33 @@ class H5_file(object):
             self.entry.attrs.create("data_latest",0)
             self.entry.attrs.create("analysis_latest",0)
             # create a nexus data group        
-            self.dgrp = self.entry.create_group("data0")
-            self.agrp = self.entry.create_group("analysis0")
-            self.vgrp = self.entry.create_group("views")
+            self.dgrp = self.entry.require_group("data0")
+            self.agrp = self.entry.require_group("analysis0")
+            self.vgrp = self.entry.require_group("views")
             self.dgrp.attrs.create("NX_class","NXdata")
             self.dgrp.attrs.create("NX_class","NXdata")
         else:
-            self.dgrp = self.create_group("data0")
-            self.agrp = self.create_group("analysis0")
-            self.vgrp = self.create_group("views")
-            
+            self.dgrp = self.create_require_group("data0")
+            self.agrp = self.create_require_group("analysis0")
+            self.vgrp = self.create_require_group("views")
+    
+    def setup_required_groups(self,nexus=True):
+        if nexus:
+            # make the structure compatible with the nexus format
+            # maybe some day the data can by analyzed by the software supporting nexus
+            # first the entry group
+            self.entry = self.hf.require_group("entry")
+            # create a nexus data group        
+            self.dgrp = self.entry.require_group("data0")
+            self.agrp = self.entry.require_group("analysis0")
+            self.vgrp = self.entry.require_group("views")
+
+        else:
+            self.dgrp = self.require_group("data0")
+            self.agrp = self.require_group("analysis0")
+            self.vgrp = self.require_group("views")
+        
+    
     def add_default_datasets(self):
         # add a empty string dataset to the group -> used by add_data
         self.create_dataset(name='datasets',tracelength=0, dtype='S32')
@@ -105,7 +122,7 @@ class H5_file(object):
             For 2D scans the traces have to have the same tracelength
             and are simply appended to the trace array
             
-            'group' is a optional group relative to the default group
+            'folder' is a optional group relative to the default group
             
             kwargs are appended as attributes to the dataset
         """
@@ -143,18 +160,24 @@ class H5_file(object):
             raise
             
         if name in self.grp.keys():
-            logging.error("Item '%s' already exists in data set '%s'" \
-                    % (name, self.name))
-            return False        
+            logging.info("Item '%s' already exists in data set." % (name))
+            #return False        
 
         # by default we create float datasets        
         dtype = kwargs.get('dtype','f')
 
-        #create the dataset            
+        #create the dataset ...;  delete it first if it exists, unless it is data
+        if name in self.grp.keys(): 
+            if folder == "data":
+                logging.error("Dataset '%s' in 'data' already exists. Cannot overwrite datasets in 'data'!" % (name))
+                raise ValueError
+            else:
+                del self.grp[name]
+                # comment: The above line does remove the reference to the dataset but does not free the space aquired
+                # fixme if possible ...
+                
         ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype)
         
-        # keep track of the actual fill of an array.
-        #ds.attrs.create("fill",0)
         
         ds.attrs.create("name",name)
         # add attibutes
@@ -170,8 +193,9 @@ class H5_file(object):
             reshapes the array and updates the attributes
             
         """
+        #print type(data)
         if len(ds.shape) == 1:
-            if type(data) == float:
+            if type(data) == float:# or numpy.float64:
                 dim1 = ds.shape[0]+1
                 ds.resize((dim1,))
                 ds[dim1-1] = data
@@ -208,30 +232,7 @@ class H5_file(object):
             ds[dim1-1][dim2-1] = data
             #print "3dim resize: "+ str(ds.name), ds.shape
 
-        """    
-        fill = ds.attrs.get("fill")
-        try:
-            if len(ds.shape) == 1:
-                if type(data) == float:
-                    ds[fill] = data
-                    ds.attrs.modify("fill",fill+1)
-                elif len(data.shape) == 1:
-                    ds.resize(len(data),axis = 0)
-                    ds.attrs.modify("fill",len(data))
-                    ds[:] = data
-            else:
-                ds[fill] = data
-                ds.attrs.modify("fill",fill+1)
-            
-        except ValueError:
-            # array full...
-            new_size = (ds.shape[0]) + extend_step
-            ds.resize(new_size, axis=0)
-            #print "resized at fill:", fill
-            
-            ds[fill] = data
-            ds.attrs.modify("fill",fill+1)
-        """
+
         self.flush()
         
     def next_block(self):
@@ -250,7 +251,9 @@ class H5_file(object):
                     ds.resize(fill,axis=0)
         """      
         self.hf.close()
-
+        
+    def __getitem__(self,s):
+        return self.hf[s]
 # Filename generator classes (taken from qtlab.source.data)
 class DateTimeGenerator(object):
     '''
@@ -314,6 +317,7 @@ class dataset_view(object):
         self.folder = folder
         self.ds_url = "/entry/" + folder + "/" + name
         self.comment = comment
+        self.filter = filter
         if not x or not y: 
             logging.ERROR("View: Please supply a x and y dataset.")
         self.x_object = str(x.ds_url)
@@ -323,20 +327,23 @@ class dataset_view(object):
         self.view_num = 0
         self._setup_metadata()
         self.hf.flush()
-    def add(self,name,x=None, y=None):
+        
+    def add(self,name,x, y,filter = None):
             self.x_object = str(x.ds_url)
             self.y_object = str(y.ds_url)
+            self.filter = filter
             self._setup_metadata(init = False)
         
     def _setup_metadata(self,init=True):
         ds = self.ds
         if init:
             ds.attrs.create("view_type",1)
-            #ds.attrs.create("x",self.x_object)
-            #ds.attrs.create("y",self.y_object)
         ds.attrs.create("xy_"+str(self.view_num),self.x_object+":"+self.y_object)
         ds.attrs.create("overlays",self.view_num)
+        ds.attrs.create("xy_"+str(self.view_num)+"_filter",self.filter)
         self.view_num += 1
+        
+
         
 
         
@@ -352,25 +359,31 @@ class hdf_dataset(object):
         of the datasets and derive all the unknown values from the real data.
         """
         
-        def __init__(self, hdf_file, name, x=None, y=None, z=None, unit= "" ,comment="",folder = 'data', **meta):
+        def __init__(self, hdf_file, name='', ds_url=None, x=None, y=None, z=None, unit= "" 
+                ,comment="",folder = 'data', overwrite=False ,**meta):
+
             self.hf = hdf_file
+            self.x_object = x
+            self.y_object = y
+            self.z_object = z
+            if (name and ds_url) or (not name and not ds_url) :
+                logging.ERROR("HDF_dataset: Please specify [only] one, 'name' or 'ds_url' ")
+                raise NameError
+            if name:
+                # 1d/2d attributes
+                self._new_ds_defaults(name,unit,folder=folder,comment=comment)
+            elif ds_url:
+                self._read_ds_from_hdf(ds_url)
+        
+        def _new_ds_defaults(self,name,unit,folder='data',comment=""):
             self.name = name
             self.folder = folder
             self.ds_url = "/entry/" + folder + "0/" + name
             self.unit = unit
             self.comment = comment
-            self.meta = meta
-            self.x_object = x
-            self.y_object = y
-            self.z_object = z            
-            
-
-            
             # the first dataset is used to extract a few attributes
             self.first = True
-            
-            
-            # 1d/2d attributes
+
             self.x_name = name
             self.x_unit = unit
             self.x0 = 0.0
@@ -393,6 +406,13 @@ class hdf_dataset(object):
                 self.dim = 2
             if self.z_object:
                 self.dim = 3
+                
+        def _read_ds_from_hdf(self,ds_url):
+            self.ds_url =  ds_url
+            ds = self.hf[ds_url]
+            for attr in ds.attrs.keys():
+                val = ds.attrs.get(attr)
+                setattr(self,attr,val)
             
         def _setup_metadata(self):
             ds = self.ds
@@ -404,16 +424,19 @@ class hdf_dataset(object):
                 ds.attrs.create("dx",self.x_object.dx)
                 ds.attrs.create("x_unit",self.x_object.x_unit)
                 ds.attrs.create("x_name",self.x_object.x_name)
+                ds.attrs.create("x_ds_url",self.x_object.ds_url)                
             else:
                 ds.attrs.create("x0",self.x0)
                 ds.attrs.create("dx",self.dx)
                 ds.attrs.create("x_unit",self.x_unit)
                 ds.attrs.create("x_name",self.x_name)
+                ds.attrs.create("x_ds_url",self.ds_url)
             if self.y_object:
                 ds.attrs.create("y0",self.y_object.x0)
                 ds.attrs.create("dy",self.y_object.dx)
                 ds.attrs.create("y_unit",self.y_object.x_unit)
                 ds.attrs.create("y_name",self.y_object.x_name)
+                ds.attrs.create("y_ds_url",self.y_object.ds_url)
             """
             else:
                 ds.attrs.create("y0",self.y0)
@@ -426,6 +449,7 @@ class hdf_dataset(object):
                 ds.attrs.create("dz",self.z_object.dx)
                 ds.attrs.create("z_unit",self.z_object.x_unit)
                 ds.attrs.create("z_name",self.z_object.x_name)
+                ds.attrs.create("z_ds_url",self.z_object.ds_url)
             """
             else:
                 ds.attrs.create("z0",self.y0)
@@ -451,9 +475,8 @@ class hdf_dataset(object):
                     tracelength = len(data)
                 else:
                     tracelength = 0
-                    
                 # create the dataset
-                self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,dim = self.dim,**self.meta)
+                self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,dim = self.dim)
                 self._setup_metadata()
                 
             if data is not None:
@@ -480,7 +503,7 @@ class hdf_dataset(object):
                 #print self.name, data.shape
                 tracelength = 0
                 # create the dataset
-                self.ds = self.hf.create_dataset(self.name,tracelength,dim = 1,**self.meta)
+                self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,dim = 1,**self.meta)
                 ds = self.ds
                 if not self.x_object:
                     # value data
@@ -622,6 +645,9 @@ class Data(object):
         return ds
         
         pass        
+    
+    def get_dataset(self,ds_url):
+        return hdf_dataset(self.hf,ds_url = ds_url)
         
     def save_finished():
         pass
