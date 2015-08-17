@@ -104,8 +104,13 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 	ps: start parameters (optional), can be given in parts, set parameters not specified to None
 	xlabel: label for horizontal axis (optional)
 	ylabel: label for vertical axis (optional)
+	show_plot: show and safe the plot (optional, default = True)
+	save_pdf: save plot also as pdf file (optional, default = False)
+	data, nfile: pass data object and file name which is used when file_name == 'dat_import'
 	
-	returns fit parameters, f in GHz
+	returns fit parameters, standard deviations concatenated: [popt1,pop2,...poptn,err_popt1,err_popt2,...err_poptn] in case fit does not converge, errors are filled with zeros
+	WARNING: errors might be returned as 'inf' which is NaN
+	frequency units in GHz
 	
 	f_Lorentzian expects its frequency parameter to be stated in GHz
 	'''
@@ -179,7 +184,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		else:
 			s_k = 0.15*(data[0][-1]-data[0][0])*freq_conversion_factor   #try 15% of window
 			
-		p0 = _fill_p0()[s_f0, s_k, s_a, s_offs],ps)
+		p0 = _fill_p0([s_f0, s_k, s_a, s_offs],ps)
 			
 		#lorentzian fit
 		try:
@@ -188,6 +193,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		except:
 			print 'fit not successful'
 			popt = p0
+			pcov = None
 		finally:
 			if show_plot:
 				plt.plot(x_vec, f_Lorentzian(x_vec, *popt))
@@ -251,6 +257,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		except:
 			print 'fit not successful'
 			popt = p0
+			pcov = None
 		finally:
 			if show_plot:   plt.plot(x_vec, f_damped_sine(x_vec, *popt))
 	
@@ -292,6 +299,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		except:
 			print 'fit not successful'
 			popt = p0
+			pcov = None
 		finally:
 			if show_plot:   plt.plot(x_vec, f_sine(x_vec, *popt))
 			
@@ -317,6 +325,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		except:
 			print 'fit not successful'
 			popt = p0
+			pcov = None
 		finally:
 			#plot data
 			if show_plot:
@@ -374,4 +383,8 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		except Exception as m:
 			print 'figure not stored:', m
 		plt.show()
-	return popt
+	
+	if pcov == None:
+		return np.concatenate((popt,[0,0,0,0]),axis=1)
+	else:
+		return np.concatenate((popt,np.sqrt(np.diag(pcov))),axis=1)   #shape of popt and np.sqrt(np.diag(pcov)) is (4,), respectively, so concatenation needs to take place along axis 1
