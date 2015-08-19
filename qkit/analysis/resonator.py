@@ -191,17 +191,22 @@ class Resonator(object):
         # self._hdf_y : frequency
         #self._hdf_x = self._hf.add_coordinate("Power", unit = "dBm", comment = "",folder="analysis")
         #self._hdf_y = self._hf.add_coordinate("freq",  unit = "Hz", comment = "",folder="analysis")
-        self._x_co  = self._hf.get_dataset("/entry/data0/power")
-        self._y_co  = self._hf.get_dataset("/entry/data0/frequency")
+        x_co  = self._hf.get_dataset("/entry/data0/power")
+        freq  = self._hf.get_dataset("/entry/data0/frequency")
         
-        self._fano_amp_gen = self._hf.add_value_matrix('fano_amp_gen', folder = 'analysis', x = self._x_co, 
-                                                       y = self._y_co, unit = 'a.u.')
-        self._fano_q_fit  = self._hf.add_value_vector('fano_q_fit' , folder = 'analysis', x = self._x_co, unit = '')
-        self._fano_bw_fit = self._hf.add_value_vector('fano_bw_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
-        self._fano_fr_fit = self._hf.add_value_vector('fano_fr_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
-        self._fano_a_fit  = self._hf.add_value_vector('fano_a_fit' , folder = 'analysis', x = self._x_co, unit = '')
+        self._fano_amp_gen = self._hf.add_value_matrix('fano_amp_gen', folder = 'analysis', x = x_co, 
+                                                       y = freq, unit = 'a.u.')
+        self._fano_q_fit  = self._hf.add_value_vector('fano_q_fit' , folder = 'analysis', x = x_co, unit = '')
+        self._fano_bw_fit = self._hf.add_value_vector('fano_bw_fit', folder = 'analysis', x = x_co, unit = 'Hz')
+        self._fano_fr_fit = self._hf.add_value_vector('fano_fr_fit', folder = 'analysis', x = x_co, unit = 'Hz')
+        self._fano_a_fit  = self._hf.add_value_vector('fano_a_fit' , folder = 'analysis', x = x_co, unit = '')
         
-        self._fano_chi2_fit  = self._hf.add_value_vector('fano_chi2_fit' , folder = 'analysis', x = self._x_co, unit = '')
+        self._fano_chi2_fit  = self._hf.add_value_vector('fano_chi2_fit' , folder = 'analysis', x = x_co, unit = '')
+        
+        fano_view = self._hf.add_view("fano_fit",x=freq, y=self.fano_amp_gen)
+        fano_view.add(x=freq, y=self.fano_amp_gen)
+                
+        
         
     def fano_reflection(self,f,q,bw,fr,a=1,b=1):
         """

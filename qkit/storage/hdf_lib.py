@@ -504,7 +504,7 @@ class hdf_dataset(object):
                 #print self.name, data.shape
                 tracelength = 0
                 # create the dataset
-                self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,dim = 1,**self.meta)
+                self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,dim = 1)
                 ds = self.ds
                 if not self.x_object:
                     # value data
