@@ -1,9 +1,3 @@
-# server for EdwardsActiveDigitalController by JB@KIT 03/2015 jochen.braumueller@kit.edu
-# using EdwardsBridgeReadout for serial connection to the bridge
-# pressure readout device @ UFO: G1, G2
-# model: D39591000 (enhanced)
-# use: run on pi-us74
-
 import SocketServer
 
 import os,sys
