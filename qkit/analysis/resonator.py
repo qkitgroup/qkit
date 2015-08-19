@@ -18,13 +18,14 @@ class Resonator(object):
     def __init__(self, hf=None):
 
         self._hf = hf
-        self._x_co = self._hf.get_dataset(self._hf.x_ds_url)
-        self._y_co = self._hf.get_dataset(self._hf.y_ds_url)
+
         
         self._first_circle = True
         self._first_lorentz = True
         self._first_fano = True
         self._first_skewed_lorentzian = True
+        
+        #self._prepare()        
         
     def set_file(self,name):
         self.hf = name
@@ -32,6 +33,10 @@ class Resonator(object):
         self._x_co = x_co
     def set_y_coord(self,y_co):
         self.y_co = y_co
+        
+    def _prepare(self):
+        self._x_co = self._hf.get_dataset(self._hf.x_ds_url)
+        self._y_co = self._hf.get_dataset(self._hf.y_ds_url)
         
     def fit_circle(self,fit_all = False):
         '''
@@ -268,8 +273,8 @@ class Resonator(object):
         
         self._fano_chi2_fit  = self._hf.add_value_vector('fano_chi2_fit' , folder = 'analysis', x = x_co, unit = '')
         
-        fano_view = self._hf.add_view("fano_fit",x=freq, y=self.fano_amp_gen)
-        fano_view.add(x=freq, y=self.fano_amp_gen)
+        fano_view = self._hf.add_view("fano_fit",x=freq, y=self._fano_q_fit)
+        fano_view.add(x=freq, y=self._fano_amp_gen)
                 
         
         

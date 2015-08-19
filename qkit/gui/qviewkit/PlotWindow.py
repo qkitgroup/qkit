@@ -168,10 +168,17 @@ class PlotWindow(QWidget,Ui_Form):
         ds = self.ds
         overlay_num = ds.attrs.get("overlays",0)
         overlay_urls = []
+        x_axis = []
+        y_axis = []
         for i in range(overlay_num+1):
             ov = ds.attrs.get("xy_"+str(i),"")
+            ax = ds.attrs.get("xy_"+str(i)+"_axis","0:0")
             if ov:
                 overlay_urls.append(ov.split(":"))
+                x_a, y_a = ax.split(":")
+                #print x_a, y_a
+                x_axis.append(int(x_a))
+                y_axis.append(int(y_a))
         ds_xs = []
         ds_ys = []
         for xy in overlay_urls:
@@ -179,7 +186,7 @@ class PlotWindow(QWidget,Ui_Form):
             ds_ys.append(self.obj_parent.h5file[xy[1]])
         
         
-        ### for compatibility ...
+        ### for compatibility ... to be removed
         ds_x_url = ds.attrs.get("x","")
         ds_y_url = ds.attrs.get("y","")
         if ds_x_url and ds_y_url:
@@ -193,8 +200,8 @@ class PlotWindow(QWidget,Ui_Form):
                 x_data = np.array(x_ds)
                 y_data = np.array(y_ds)
             if len(x_ds.shape) == 2 and len(y_ds.shape) == 2:
-                x_data = np.array(x_ds[self.TraceNum])
-                y_data = np.array(y_ds[self.TraceNum])
+                x_data = np.array(x_ds[self.TraceNum],axis=x_axis[i])
+                y_data = np.array(y_ds[self.TraceNum],axis=y_axis[i])
                 #print len(x_data)
                 #print len(y_data)
             else:
