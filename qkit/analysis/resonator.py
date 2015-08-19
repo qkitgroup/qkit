@@ -24,6 +24,8 @@ class Resonator(object):
         self._first_fano = True
         self._first_skewed_lorentzian = True
         
+        self._prepare()
+        
     def set_file(self,name):
         self.hf = name
     def set_x_coord(self,x_co):
