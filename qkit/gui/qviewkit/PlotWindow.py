@@ -20,6 +20,7 @@ import numpy as np
 
 #class PlotWindow(QMainWindow, Ui_MainWindow):
 class PlotWindow(QWidget,Ui_Form):
+    
     def myquit(self):
         exit()
 
@@ -31,34 +32,54 @@ class PlotWindow(QWidget,Ui_Form):
         Ui_Form.__init__(self)
         # set up User Interface (widgets, layout...)
         self.setupUi(self)
-        self.graphicsView = None
         window_title = str(dataset_url.split('/')[-1]) +" "+ str(self.DATA.filename)
         self.setWindowTitle(window_title)
+        
+        self.graphicsView = None
+        
+        self.justCreated = True
+        #self._setPlotDefaults()
         self._init_XY_add()
         #self.menubar.setNativeMenuBar(False)
-        #self._setPlotDefaults()
+        
 
         self._setup_signal_slots()
         #self.update_plots()
         
     def _setup_signal_slots(self): 
         self.obj_parent.refresh_signal.connect(self.update_plots)
-        #QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChange)
+        QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChange)
         #QObject.connect(self,SIGNAL("aboutToQuit()"),self._close_plot_window)
+        QObject.connect(self.TraceSelector,SIGNAL("valueChanged(int)"),self._setTraceNum)
         QObject.connect(self.addXPlotSelector,SIGNAL("currentIndexChanged(int)"),self._addXPlotChange)
         QObject.connect(self.addYPlotSelector,SIGNAL("currentIndexChanged(int)"),self._addYPlotChange)
         
         
-    def _setPlotDefaults(self):
+    def _setDefaultView(self):
+        self.TraceNum = -1
+        self.view_types = {'1D':0,'1D-V':1, '2D':2, '3D':3}
+        print self.dataset_url
         self.ds = self.obj_parent.h5file[self.dataset_url]
-        if len(self.ds.shape) == 1:
-            self.PlotTypeSelector.setCurrentIndex(0)
-            self.PlotType = 0
-        if len(self.ds.shape) == 2:
-            self.PlotTypeSelector.setCurrentIndex(1)
-            self.PlotType = 1
-            #self.PlotTypeSelector.
+        
+        #default view type is 1D
+        self.view_type = self.ds.attrs.get("view_type",None)
+        if not self.view_type:
+            if len(self.ds.shape) == 1:
+                self.PlotTypeSelector.setCurrentIndex(1)
+                self.view_type = self.view_types['1D']
+            elif len(self.ds.shape) == 2:
+                self.PlotTypeSelector.setCurrentIndex(0)
+                self.view_type = self.view_types['2D']
+            else:
+                self.view_type = self.view_types['1D']
+                
+        
     
+    def _setTraceNum(self,num):
+        self.TraceNum = num
+        #print self.TraceNum
+        self.obj_parent.pw_refresh_signal.emit()
+        
     def _addXPlotChange(self):
         pass
     def _addYPlotChange(self):
@@ -76,10 +97,14 @@ class PlotWindow(QWidget,Ui_Form):
            
         
     def _onPlotTypeChange(self, index):
+        self._onPlotTypeChanged = True
         if index == 0:
-            self.PlotType = 0
+            self.view_type = self.view_types['2D']
         if index == 1:
-            self.PlotType = 1
+            self.view_type = self.view_types['1D']
+        #print index
+        self.obj_parent.pw_refresh_signal.emit()
+            
         #print self.PlotTypeSelector.currentText()
     
     def closeEvent(self, event):
@@ -91,35 +116,45 @@ class PlotWindow(QWidget,Ui_Form):
 
     @pyqtSlot()   
     def update_plots(self):
+        
+        if self.justCreated:
+            self._setDefaultView()
+            self.justCreated = False
+            self._onPlotTypeChanged = True
         #print "update_plots"
+        
         try:
             self.ds = self.obj_parent.h5file[self.dataset_url]
-            self.view_type = self.ds.attrs.get("view_type",0)
-            if self.view_type == 1:
-                if not self.graphicsView:
+            if self.view_type == self.view_types['1D-V']: 
+                if not self.graphicsView or self._onPlotTypeChanged:
+                    #if self.graphicsView: del self.graphicsView
+                    self._onPlotTypeChanged = False
                     self.graphicsView = pg.PlotWidget(name=self.dataset_url)
                     self.graphicsView.setObjectName(self.dataset_url)
-                    self.gridLayout.addWidget(self.graphicsView)
+                    self.gridLayout.addWidget(self.graphicsView,0,0)
                     #self.plot = self.graphicsView.plot()
                 #self._display_1D_view(self.plot, self.graphicsView)
                 self._display_1D_view(self.graphicsView)
-                
-            elif len(self.ds.shape) == 1:
-                if not self.graphicsView:
-                    self.graphicsView = pg.PlotWidget(name=self.dataset_url)# pg.ImageView(self.centralwidget,view=pg.PlotItem())
+            
+            #elif len(self.ds.shape) == 0:
+            elif self.view_type == self.view_types['1D']: 
+                if not self.graphicsView or self._onPlotTypeChanged:
+                    self._onPlotTypeChanged = False
+                    self.graphicsView = pg.PlotWidget(name=self.dataset_url)
                     self.graphicsView.setObjectName(self.dataset_url)
                     #self.graphicsView.setBackground(None)
                     #self.graphicsView.view.setAspectLocked(False)
-                    self.gridLayout.addWidget(self.graphicsView)
-                    self.plot = self.graphicsView.plot()
-                self._display_1D_data(self.plot, self.graphicsView)
-                    
-            elif len(self.ds.shape) == 2:
-                if not self.graphicsView:
+                    self.gridLayout.addWidget(self.graphicsView,0,0)
+                    #self.plot = self.graphicsView.plot()
+                self._display_1D_data(self.graphicsView)
+
+            elif self.view_type == self.view_types['2D']:
+                if not self.graphicsView or self._onPlotTypeChanged:
+                    self._onPlotTypeChanged = False
                     self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
                     self.graphicsView.setObjectName(self.dataset_url)
                     self.graphicsView.view.setAspectLocked(False)
-                    self.gridLayout.addWidget(self.graphicsView)
+                    self.gridLayout.addWidget(self.graphicsView,0,0)
                 self._display_2D_data(self.graphicsView)
             else:
                 pass
@@ -134,8 +169,9 @@ class PlotWindow(QWidget,Ui_Form):
         overlay_num = ds.attrs.get("overlays",0)
         overlay_urls = []
         for i in range(overlay_num+1):
-            ov= ds.attrs.get("xy_"+str(i),0)
-            overlay_urls.append(ov.split(":"))
+            ov = ds.attrs.get("xy_"+str(i),"")
+            if ov:
+                overlay_urls.append(ov.split(":"))
         ds_xs = []
         ds_ys = []
         for xy in overlay_urls:
@@ -154,29 +190,34 @@ class PlotWindow(QWidget,Ui_Form):
         for i, x_ds in enumerate(ds_xs):
             y_ds = ds_ys[i]
             if len(x_ds.shape) == 1 and len(y_ds.shape) == 1:
-                
                 x_data = np.array(x_ds)
                 y_data = np.array(y_ds)
+            if len(x_ds.shape) == 2 and len(y_ds.shape) == 2:
+                x_data = np.array(x_ds[self.TraceNum])
+                y_data = np.array(y_ds[self.TraceNum])
                 #print len(x_data)
                 #print len(y_data)
-                x_name = x_ds.attrs.get("name","_none_")                
-                y_name = y_ds.attrs.get("name","_none_")
+            else:
+                return
+            x_name = x_ds.attrs.get("name","_none_")                
+            y_name = y_ds.attrs.get("name","_none_")
+            
+            x_unit = x_ds.attrs.get("unit","_none_")
+            y_unit = y_ds.attrs.get("unit","_none_")
+            #print x_name, y_name, x_unit, y_unit
+            #plot.setPen((200,200,100))
+            graphicsView.setLabel('left', y_name, units=y_unit)
+            graphicsView.setLabel('bottom', x_name , units=x_unit)
+            #plot.setData(y=y_data, x=x_data)
+            graphicsView.plot(y=y_data, x=x_data,pen=(i,3))
                 
-                x_unit = x_ds.attrs.get("unit","_none_")
-                y_unit = y_ds.attrs.get("unit","_none_")
-                #print x_name, y_name, x_unit, y_unit
-                #plot.setPen((200,200,100))
-                graphicsView.setLabel('left', y_name, units=y_unit)
-                graphicsView.setLabel('bottom', x_name , units=x_unit)
-                #plot.setData(y=y_data, x=x_data)
-                graphicsView.plot(y=y_data, x=x_data,pen=(i,3))
-                
-    def _display_1D_data(self,plot,graphicsView):
+    def _display_1D_data(self,graphicsView):
         ds = self.ds
-        
+        plot = graphicsView.plot()
         #fill = ds.attrs.get("fill",1)
         ydata = np.array(ds)
-        
+        if len(ydata.shape) == 2:
+            ydata = ydata[self.TraceNum]
         x0 = ds.attrs.get("x0",0)
         dx = ds.attrs.get("dx",1)
         x_data = [x0+dx*i for i in xrange(len(ydata))]
@@ -186,11 +227,11 @@ class PlotWindow(QWidget,Ui_Form):
         x_unit = ds.attrs.get("x_unit","_none_")
         unit = ds.attrs.get("unit","_none_")
         
-        #plot.clear()
-        plot.setPen((200,200,100))
+        #plot.setPen((200,200,100))
         graphicsView.setLabel('left', name, units=unit)
         graphicsView.setLabel('bottom', x_name , units=x_unit)
-        plot.setData(y=ydata, x=x_data)
+        graphicsView.plot(y=ydata, x=x_data, clear = True, pen=(200,200,100))
+        #plot.setData(y=ydata, x=x_data)
         
     def _display_2D_data(self,graphicsView):
         #load the dataset:

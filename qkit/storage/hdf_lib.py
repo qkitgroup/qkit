@@ -327,6 +327,7 @@ class dataset_view(object):
         self.view_num = 0
         self._setup_metadata()
         self.hf.flush()
+        self.view_types = {'1D':0,'1D-V':1, '2D':2, '3D':3}
         
     def add(self,name,x, y,filter = None):
             self.x_object = str(x.ds_url)
@@ -337,7 +338,7 @@ class dataset_view(object):
     def _setup_metadata(self,init=True):
         ds = self.ds
         if init:
-            ds.attrs.create("view_type",1)
+            ds.attrs.create("view_type",self.view_types['1D-V'])
         ds.attrs.create("xy_"+str(self.view_num),self.x_object+":"+self.y_object)
         ds.attrs.create("overlays",self.view_num)
         ds.attrs.create("xy_"+str(self.view_num)+"_filter",self.filter)

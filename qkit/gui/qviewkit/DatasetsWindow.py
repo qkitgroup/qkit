@@ -16,6 +16,7 @@ from main_view import Ui_MainWindow
 class DatasetsWindow(QMainWindow, Ui_MainWindow):
 #class DatasetsWindow(QtGui.QWidget):
     refresh_signal = pyqtSignal()
+    pw_refresh_signal = pyqtSignal()
     def __init__(self,DATA):
         self.DATA = DATA
         #QMainWindow.__init__(self,None,Qt.WindowStaysOnTopHint)
@@ -75,6 +76,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         #QObject.connect(self,SIGNAL("destroyed()"),self._close_plot_window)
         self.FileButton.clicked.connect(self.open_file)
         self.liveCheckBox.clicked.connect(self.live_update_onoff)
+        self.pw_refresh_signal.connect(self.update_file)
         
         
     def closeEvent(self, event):
