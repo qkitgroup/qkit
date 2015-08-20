@@ -193,7 +193,7 @@ class PlotWindow(QWidget,Ui_Form):
             ds_xs.append(self.obj_parent.h5file[ds_x_url])
             ds_ys.append(self.obj_parent.h5file[ds_y_url])
         ###
-            
+        graphicsView.clear()
         for i, x_ds in enumerate(ds_xs):
             y_ds = ds_ys[i]
             if len(x_ds.shape) == 1 and len(y_ds.shape) == 1:
@@ -202,6 +202,9 @@ class PlotWindow(QWidget,Ui_Form):
             if len(x_ds.shape) == 2 and len(y_ds.shape) == 2:
                 x_data = np.array(x_ds[self.TraceNum],axis=x_axis[i])
                 y_data = np.array(y_ds[self.TraceNum],axis=y_axis[i])
+            if len(x_ds.shape) == 1 and len(y_ds.shape) == 2:
+                x_data = np.array(x_ds)#,axis=x_axis[i])
+                y_data = np.array(y_ds[self.TraceNum])#y_axis[i])#,axis=y_axis[i])
                 #print len(x_data)
                 #print len(y_data)
             else:

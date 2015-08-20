@@ -121,17 +121,19 @@ class Data(object):
     
     
     
-    def add_view(self,name,x = None, y = None, filter  = None, comment = ""):
+    def add_view(self,name,x = None, y = None, x_axis=0, y_axis=0, filter  = None, comment = ""):
         """a view is a way to display plot x-y data.
             x, y are the datasets to display, e.g. 
             x = "data0/temperature"
             y = "analysis0/frequency_fit"
             (if "folder/" is omitted "data0" is assumed)
+            x_axis is the slice dimension on multidim arrays
+            y_axis is the slice dimension on multidim arrays
             filter is a string of reguar python code, which 
             accesses the x,y dataset returns arrays of (x,y) 
             (Fixme: not jet implemented)                                     
         """
-        ds =  dataset_view(self.hf,name, x=x, y=y, comment=comment)
+        ds =  dataset_view(self.hf,name, x=x, y=y, x_axis=x_axis, y_axis=y_axis, comment=comment)
         return ds
         
         pass        

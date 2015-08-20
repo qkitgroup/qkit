@@ -27,6 +27,7 @@ class dataset_view(object):
         self.y_object = str(y.ds_url)
         self.x_axis = x_axis
         self.y_axis = y_axis
+        
         self.view_types = {'1D':0,'1D-V':1, '2D':2, '3D':3}
         self.ds = self.hf.create_dataset(self.name,0,folder=self.folder)
         print self.hf
