@@ -220,9 +220,9 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             s = (self.DATA.DataFilePath.split(os.path.sep)[-5:])
             self.statusBar().showMessage((os.path.sep).join(s for s in s))
         #except IOError:
-        except ValueError:
+        except ValueError,e:
             print "Error in Dataset: File not yet available.", self.DATA.DataFilePath
-
+            print e
     def open_file(self):
         self.DATA.DataFilePath=str(QFileDialog.getOpenFileName(filter="*.h5"))
         if self.DATA.DataFilePath:

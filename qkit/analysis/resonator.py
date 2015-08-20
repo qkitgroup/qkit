@@ -33,7 +33,16 @@ class Resonator(object):
     def set_y_coord(self,y_co):
         self.y_co = y_co
     def fit_range(self, f_min, f_max):
-        pass
+        self._f_min = f_min
+        self._f_max = f_max
+        self._frequency = self._frequency[(self._frequency >= self._f_min) & (self._frequency <= self._f_max)]
+        print self._frequency
+    def _set_fit_range(self,amplitude):
+        #print (frequency >= self._f_min) & (frequency <= self._f_max)
+        #frequency = frequency[(frequency >= self._f_min) & (frequency <= self._f_max)]
+        amplitude = amplitude[(self._frequency >= self._f_min) & (self._frequency <= self._f_max)]
+        
+        return amplitude
     def _prepare(self):
         # these ds_url should always be present in a resonator measurement
         ds_url_amp   = "/entry/data0/amplitude"
@@ -125,6 +134,7 @@ class Resonator(object):
 
 
     def fit_lorentz(self,fit_all = False):
+        #self.fit_range(9.10e9,9.2e9)
         
         def f_Lorentzian(f, f0, k, a, offs):
             return np.sign(a) * np.sqrt(np.abs(a**2*(k/2)**2/((k/2)**2+((f-f0)**2))))+offs
@@ -141,6 +151,7 @@ class Resonator(object):
         # square ...
         #_amplitudes = (np.absolute(_amplitudes))**2
         for amplitudes in _amplitudes:
+            #amplitudes = self._set_fit_range(amplitudes)
             '''extract starting parameter for lorentzian from data'''
             
             s_offs = np.mean(np.array([amplitudes[:int(len(amplitudes)*.1)], amplitudes[int(len(amplitudes)-int(len(amplitudes)*.1)):]]))

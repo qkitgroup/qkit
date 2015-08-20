@@ -59,7 +59,7 @@ class PlotWindow(QWidget,Ui_Form):
         self.TraceNum = -1
         self.view_types = {'1D':0,'1D-V':1, '2D':2, '3D':3}
         print self.dataset_url
-        self.ds = self.obj_parent.h5file[self.dataset_url]
+        
         
         #default view type is 1D
         self.view_type = self.ds.attrs.get("view_type",None)
@@ -116,37 +116,32 @@ class PlotWindow(QWidget,Ui_Form):
 
     @pyqtSlot()   
     def update_plots(self):
-        
+        self.ds = self.obj_parent.h5file[self.dataset_url]
         if self.justCreated:
-            self._setDefaultView()
+            print "JC"
             self.justCreated = False
+            self._setDefaultView()
             self._onPlotTypeChanged = True
         #print "update_plots"
         
         try:
-            self.ds = self.obj_parent.h5file[self.dataset_url]
+            #self.ds = self.obj_parent.h5file[self.dataset_url]
             if self.view_type == self.view_types['1D-V']: 
                 if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
                     self.graphicsView = pg.PlotWidget(name=self.dataset_url)
                     self.graphicsView.setObjectName(self.dataset_url)
                     self.gridLayout.addWidget(self.graphicsView,0,0)
-                    #self.plot = self.graphicsView.plot()
-                #self._display_1D_view(self.plot, self.graphicsView)
                 self._display_1D_view(self.graphicsView)
-            
-            #elif len(self.ds.shape) == 0:
+                
             elif self.view_type == self.view_types['1D']: 
                 if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
                     self.graphicsView = pg.PlotWidget(name=self.dataset_url)
                     self.graphicsView.setObjectName(self.dataset_url)
-                    #self.graphicsView.setBackground(None)
-                    #self.graphicsView.view.setAspectLocked(False)
                     self.gridLayout.addWidget(self.graphicsView,0,0)
-                    #self.plot = self.graphicsView.plot()
                 self._display_1D_data(self.graphicsView)
-
+    
             elif self.view_type == self.view_types['2D']:
                 if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
@@ -159,8 +154,8 @@ class PlotWindow(QWidget,Ui_Form):
                 pass
         except NameError:#IOError:
         #except ValueError:
-            #pass
-            print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
+            pass
+       #     print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
 
 
     def _display_1D_view(self,graphicsView):
