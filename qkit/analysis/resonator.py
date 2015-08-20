@@ -1,4 +1,4 @@
-# MP@KIT 07/2015
+# MP@KIT 2015
 # HR@KIT 2015
 #import h5py
 import numpy as np
@@ -130,7 +130,6 @@ class Resonator(object):
             return np.sign(a) * np.sqrt(np.abs(a**2*(k/2)**2/((k/2)**2+((f-f0)**2))))+offs
 
         self._fit_all = fit_all
-        self._get_data_lorentz()
         if self._first_lorentz:
             self._prepare_lorentz()
             self._first_lorentz=False
@@ -173,22 +172,36 @@ class Resonator(object):
             except:
                 pass
             else:
+                chi2 = self._lorentz_fit_chi2(popt,amplitudes)
+                
                 self._lorentz_amp_gen.append(f_Lorentzian(self._frequency, *popt))
                 self._lorentz_f0.append(float(popt[0]))
                 self._lorentz_k.append(float(popt[1]))
                 self._lorentz_a.append(float(popt[2]))
                 self._lorentz_offs.append(float(popt[3]))
-                self._lorentz_Ql.append(np.abs(np.round(float(popt[0]/popt[1]))))
+                self._lorentz_Ql.append(np.abs(np.round(float(popt[0])/float(popt[1]))))
+                self._lorentz_chi2_fit.append(float(chi2))
 
-        
     def _prepare_lorentz(self):
         self._lorentz_amp_gen = self._hf.add_value_matrix('lorentz_amp_gen', folder = 'analysis', x = self._x_co, y = self._y_co, unit = 'dB')
-        self._lorentz_f0 = self._hf.add_value_vector('lorentz_f0', folder = 'analysis', x = self._x_co, unit = 'Hz')
-        self._lorentz_k = self._hf.add_value_vector('lorentz_k', folder = 'analysis', x = self._x_co, unit = 'Hz')
-        self._lorentz_a = self._hf.add_value_vector('lorentz_a', folder = 'analysis', x = self._x_co, unit = 'V')
-        self._lorentz_offs = self._hf.add_value_vector('lorentz_offs', folder = 'analysis', x = self._x_co, unit = 'V')
-        self._lorentz_Ql = self._hf.add_value_vector('lorentz_Ql', folder = 'analysis', x = self._x_co, unit = '')
+        self._lorentz_f0 = self._hf.add_value_vector('lorentz_f0_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
+        self._lorentz_k = self._hf.add_value_vector('lorentz_k_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
+        self._lorentz_a = self._hf.add_value_vector('lorentz_a_fit', folder = 'analysis', x = self._x_co, unit = 'V')
+        self._lorentz_offs = self._hf.add_value_vector('lorentz_offs_fit', folder = 'analysis', x = self._x_co, unit = 'V')
+        self._lorentz_Ql = self._hf.add_value_vector('lorentz_ql_fit', folder = 'analysis', x = self._x_co, unit = '')
         
+        self._lorentz_chi2_fit  = self._hf.add_value_vector('lorentz_chi2_fit' , folder = 'analysis', x = self._x_co, unit = '')
+        
+        lorentz_view = self._hf.add_view("lorentz_fit", x = self._y_co, y = self._ds_amp, y_axis=1)
+        lorentz_view.add(x=self._y_co, y=self._lorentz_amp_gen, y_axis=1)
+
+    def _lorentz_from_fit(self,fit):
+        return np.sign(fit[2]) * np.sqrt(np.abs(fit[2] ** 2 * (fit[1] / 2) ** 2 / ((fit[1] / 2) ** 2 + ((self._frequency-fit[0]) ** 2)))) + fit[3]
+        
+    def _lorentz_fit_chi2(self, fit, amplitudes):
+        chi2 = np.sum((self._lorentz_from_fit(fit)-amplitudes)**2) / (len(amplitudes)-len(fit))
+        return chi2
+
     def fit_skewed_lorentzian(self, fit_all = False):
         def residuals(p,x,y):
             A2, A4, Qr = p
@@ -284,7 +297,7 @@ class Resonator(object):
             self._fano_fr_fit.append(float(fit[2])) 
             self._fano_a_fit.append(float(fit[3]))
             self._fano_chi2_fit.append(float(chi2))
-                
+
     def _fano_reflection(self,f,q,bw,fr,a=1,b=1):
         """
         evaluates the fano function in reflection at the 
@@ -297,7 +310,6 @@ class Resonator(object):
         
         """
         return a*(1 - self._fano_transmission(f,q,bw,fr))
-        
 
     def _fano_transmission(self,f,q,bw,fr,a=1,b=1):
         """
@@ -312,8 +324,7 @@ class Resonator(object):
         """
         F = 2*(f-fr)/bw
         return ( 1/(1+q**2) * (F+q)**2 / (F**2+1))
-    
-    
+
     def _do_fit_fano(self, amplitudes_sq):
         #amplitudes = np.absolute(amplitudes)
         #amplitudes_sq = amplitudes**2
@@ -326,32 +337,21 @@ class Resonator(object):
 
         p0 = [q, bw, fr, a]
 
-            
         def fano_residuals(p,frequency,amplitude_sq):
             q, bw, fr, a = p
             err = amplitude_sq-self._fano_reflection(frequency,q,bw,fr=fr,a=a)
             return err
-        
-        
+
         p_fit = leastsq(fano_residuals,p0,args=(self._frequency,np.array(amplitudes_sq)))
         print ("q:%g bw:%g fr:%g a:%g")% (p_fit[0][0],p_fit[0][1],p_fit[0][2],p_fit[0][3])
         return p_fit[0]
-        
 
-        
     def _fano_reflection_from_fit(self,fit):
         return self._fano_reflection(self._frequency,fit[0],fit[1],fit[2],fit[3])
-        
+
     def _fano_fit_chi2(self,fit,amplitudes_sq):
         chi2 = np.sum((self._fano_reflection_from_fit(fit)-amplitudes_sq)**2) / (len(amplitudes_sq)-len(fit))
         return chi2
-        
-        
-
-        
-
-    def _get_data_fano(self):
-        pass
 
 
 if __name__ == "__main__":
