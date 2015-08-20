@@ -32,7 +32,8 @@ class Resonator(object):
         self._x_co = x_co
     def set_y_coord(self,y_co):
         self.y_co = y_co
-        
+    def fit_range(self, f_min, f_max):
+        pass
     def _prepare(self):
         # these ds_url should always be present
         ds_url_amp   = "/entry/data0/amplitude"
@@ -267,11 +268,11 @@ class Resonator(object):
         i=0
         for amplitude_sq in amplitudes_sq:
             print i; i+=1 
-            fit = self.do_fit_fano(amplitude_sq)
+            fit = self._do_fit_fano(amplitude_sq)
             
-            amplitudes_gen = self.fano_reflection_from_fit(fit)            
+            amplitudes_gen = self._fano_reflection_from_fit(fit)            
             # calculate the chi2 of fit and data
-            chi2 = self.fano_fit_chi2(fit, amplitude_sq)
+            chi2 = self._fano_fit_chi2(fit, amplitude_sq)
             print chi2
             # save the fitted data to the hdf_file
             #print (amplitudes_gen)
@@ -284,7 +285,7 @@ class Resonator(object):
             self._fano_a_fit.append(float(fit[3]))
             self._fano_chi2_fit.append(float(chi2))
                 
-    def fano_reflection(self,f,q,bw,fr,a=1,b=1):
+    def _fano_reflection(self,f,q,bw,fr,a=1,b=1):
         """
         evaluates the fano function in reflection at the 
         frequency f
@@ -295,10 +296,10 @@ class Resonator(object):
         bandwidth bw
         
         """
-        return a*(1 - self.fano_transmission(f,q,bw,fr))
+        return a*(1 - self._fano_transmission(f,q,bw,fr))
         
 
-    def fano_transmission(self,f,q,bw,fr,a=1,b=1):
+    def _fano_transmission(self,f,q,bw,fr,a=1,b=1):
         """
         evaluates the normalized transmission fano function at the 
         frequency f
@@ -313,7 +314,7 @@ class Resonator(object):
         return ( 1/(1+q**2) * (F+q)**2 / (F**2+1))
     
     
-    def do_fit_fano(self, amplitudes_sq):
+    def _do_fit_fano(self, amplitudes_sq):
         #amplitudes = np.absolute(amplitudes)
         #amplitudes_sq = amplitudes**2
         #print fr
@@ -328,7 +329,7 @@ class Resonator(object):
             
         def fano_residuals(p,frequency,amplitude_sq):
             q, bw, fr, a = p
-            err = amplitude_sq-self.fano_reflection(frequency,q,bw,fr=fr,a=a)
+            err = amplitude_sq-self._fano_reflection(frequency,q,bw,fr=fr,a=a)
             return err
         
         
@@ -338,11 +339,11 @@ class Resonator(object):
         
 
         
-    def fano_reflection_from_fit(self,fit):
-        return self.fano_reflection(self._frequency,fit[0],fit[1],fit[2],fit[3])
+    def _fano_reflection_from_fit(self,fit):
+        return self._fano_reflection(self._frequency,fit[0],fit[1],fit[2],fit[3])
         
-    def fano_fit_chi2(self,fit,amplitudes_sq):
-        chi2 = np.sum((self.fano_reflection_from_fit(fit)-amplitudes_sq)**2) / (len(amplitudes_sq)-len(fit))
+    def _fano_fit_chi2(self,fit,amplitudes_sq):
+        chi2 = np.sum((self._fano_reflection_from_fit(fit)-amplitudes_sq)**2) / (len(amplitudes_sq)-len(fit))
         return chi2
         
         
