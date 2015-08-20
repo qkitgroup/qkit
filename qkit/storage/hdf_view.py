@@ -30,7 +30,7 @@ class dataset_view(object):
         
         self.view_types = {'1D':0,'1D-V':1, '2D':2, '3D':3}
         self.ds = self.hf.create_dataset(self.name,0,folder=self.folder)
-        print self.hf
+        #print self.hf
         self.view_num = 0
         self._setup_metadata()
         self.hf.flush()

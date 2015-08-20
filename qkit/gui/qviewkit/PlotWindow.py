@@ -127,7 +127,6 @@ class PlotWindow(QWidget,Ui_Form):
             self.ds = self.obj_parent.h5file[self.dataset_url]
             if self.view_type == self.view_types['1D-V']: 
                 if not self.graphicsView or self._onPlotTypeChanged:
-                    #if self.graphicsView: del self.graphicsView
                     self._onPlotTypeChanged = False
                     self.graphicsView = pg.PlotWidget(name=self.dataset_url)
                     self.graphicsView.setObjectName(self.dataset_url)
@@ -158,7 +157,7 @@ class PlotWindow(QWidget,Ui_Form):
                 self._display_2D_data(self.graphicsView)
             else:
                 pass
-        except IOError:
+        except NameError:#IOError:
         #except ValueError:
             #pass
             print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
@@ -223,7 +222,8 @@ class PlotWindow(QWidget,Ui_Form):
                 
     def _display_1D_data(self,graphicsView):
         ds = self.ds
-        plot = graphicsView.plot()
+        
+        #plot = graphicsView.plot()
         #fill = ds.attrs.get("fill",1)
         ydata = np.array(ds)
         if len(ydata.shape) == 2:

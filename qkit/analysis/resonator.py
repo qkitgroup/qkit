@@ -35,7 +35,7 @@ class Resonator(object):
     def fit_range(self, f_min, f_max):
         pass
     def _prepare(self):
-        # these ds_url should always be present
+        # these ds_url should always be present in a resonator measurement
         ds_url_amp   = "/entry/data0/amplitude"
         ds_url_phase = "/entry/data0/phase"
         ds_url_freq  = "/entry/data0/frequency"
@@ -138,7 +138,8 @@ class Resonator(object):
             _amplitudes = self._amplitude[-1]
         else:
             _amplitudes = self._amplitude
-            
+        # square ...
+        #_amplitudes = (np.absolute(_amplitudes))**2
         for amplitudes in _amplitudes:
             '''extract starting parameter for lorentzian from data'''
             
@@ -161,7 +162,7 @@ class Resonator(object):
                 if np.sign(amplitudes[i]-mid) != np.sign(amplitudes[i+1] - mid):#mid level crossing
                     m.append(i)
             if len(m)>1:
-                s_k = self._frequency[m[-1]]-self._freqpoint[m[0]]
+                s_k = self._frequency[m[-1]]-self._frequency[m[0]]
             else:
                 s_k = .15*(self._frequency[-1]-self._frequency[0]) #try 15% of window
     
@@ -174,12 +175,14 @@ class Resonator(object):
             else:
                 chi2 = self._lorentz_fit_chi2(popt,amplitudes)
                 
+                #self._lorentz_amp_gen.append(np.sqrt(np.absolute(f_Lorentzian(self._frequency, *popt))))
                 self._lorentz_amp_gen.append(f_Lorentzian(self._frequency, *popt))
                 self._lorentz_f0.append(float(popt[0]))
                 self._lorentz_k.append(float(popt[1]))
                 self._lorentz_a.append(float(popt[2]))
                 self._lorentz_offs.append(float(popt[3]))
-                self._lorentz_Ql.append(np.abs(np.round(float(popt[0])/float(popt[1]))))
+                #self._lorentz_Ql.append(np.abs(np.round(float(popt[0])/float(popt[1]))))
+                self._lorentz_Ql.append(float(popt[0])/float(popt[1]))
                 self._lorentz_chi2_fit.append(float(chi2))
 
     def _prepare_lorentz(self):
@@ -258,6 +261,7 @@ class Resonator(object):
         self._fano_a_fit  = self._hf.add_value_vector('fano_a_fit' , folder = 'analysis', x = self._x_co, unit = '')
         
         self._fano_chi2_fit  = self._hf.add_value_vector('fano_chi2_fit' , folder = 'analysis', x = self._x_co, unit = '')
+        self._fano_Ql_fit    = self._hf.add_value_vector('fano_Ql_fit' , folder = 'analysis', x = self._x_co, unit = '')
         
         fano_view = self._hf.add_view("fano_fit", x = self._y_co, y = self._ds_amp, y_axis=1)
         fano_view.add(x=self._y_co, y=self._fano_amp_gen, y_axis=1)
@@ -273,20 +277,15 @@ class Resonator(object):
             _amplitudes = self._amplitude[-1]
         else:
             _amplitudes = self._amplitude
-        
-        print len(_amplitudes)
         amplitudes_sq = (np.absolute(_amplitudes))**2
-        #amplitudes_sq = amplitudes**2
-        print len(amplitudes_sq)
-        i=0
+        
         for amplitude_sq in amplitudes_sq:
-            print i; i+=1 
             fit = self._do_fit_fano(amplitude_sq)
             
             amplitudes_gen = self._fano_reflection_from_fit(fit)            
             # calculate the chi2 of fit and data
             chi2 = self._fano_fit_chi2(fit, amplitude_sq)
-            print chi2
+            #print chi2
             # save the fitted data to the hdf_file
             #print (amplitudes_gen)
             self._fano_amp_gen.append(np.sqrt(np.absolute(amplitudes_gen)))
@@ -297,6 +296,7 @@ class Resonator(object):
             self._fano_fr_fit.append(float(fit[2])) 
             self._fano_a_fit.append(float(fit[3]))
             self._fano_chi2_fit.append(float(chi2))
+            self._fano_Ql_fit.append(float(fit[2])/float(fit[1]))
 
     def _fano_reflection(self,f,q,bw,fr,a=1,b=1):
         """
@@ -373,7 +373,7 @@ if __name__ == "__main__":
         if args.circle_fit:
             R.fit_circle()
         if args.lorentz_fit:
-            R.fit_lorentz()
+            R.fit_lorentz(fit_all=True)
         if args.fano_fit:
             R.fit_fano(fit_all=True)
     else:

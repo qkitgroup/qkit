@@ -70,7 +70,8 @@ class hdf_dataset(object):
                 
         def _read_ds_from_hdf(self,ds_url):
             self.ds_url =  ds_url
-            ds = self.hf[ds_url]
+            ds = self.hf[str(ds_url)]
+
             for attr in ds.attrs.keys():
                 val = ds.attrs.get(attr)
                 setattr(self,attr,val)
@@ -97,7 +98,7 @@ class hdf_dataset(object):
                 ds.attrs.create("dy",self.y_object.dx)
                 ds.attrs.create("y_unit",self.y_object.x_unit)
                 ds.attrs.create("y_name",self.y_object.x_name)
-
+                ds.attrs.create("y_ds_url",self.y_object.ds_url) 
             if self.z_object:
                 ds.attrs.create("z0",self.z_object.x0)
                 ds.attrs.create("dz",self.z_object.dx)
