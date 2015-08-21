@@ -19,7 +19,7 @@ class Progress_Bar(object):
 		#create HTML progress bar
 		
 		self.divid = str(uuid.uuid4())
-		
+		display(Javascript("if(document.getElementById('finished_pb') !== null) document.getElementById('finished_pb').remove()"))
 		self.max_it = max_it
 		self.progr = 0
 		self.pb = HTML(
@@ -41,13 +41,21 @@ class Progress_Bar(object):
 		display(Javascript("document.getElementById('%st').innerHTML = '%s';"%(self.divid,outp)))
 		
 		if self.progr == self.max_it:   #end
+		
+			
 			#Turn the status bar into green
-			display(Javascript("document.getElementById('%s').style.backgroundColor = 'green';"%self.divid))
+			#display(Javascript("document.getElementById('%s').style.backgroundColor = 'green';"%self.divid))
 			#Delete all <div> containers
-			#display(Javascript("document.getElementById('%s').remove();"%self.divid)) #blue box
-			#display(Javascript("document.getElementById('%sh').remove();"%self.divid)) #frame
+			display(Javascript("document.getElementById('%s').remove();"%self.divid)) #blue box
+			display(Javascript("document.getElementById('%sh').remove();"%self.divid)) #frame
 			display(Javascript("document.getElementById('%st').remove();"%self.divid)) #text
+			self.pb = HTML(
+			"""
+			<div id="finished_pb" style="border: 1px solid black; width:900px;text-align: center; color:white; background-color:green;">%s
+			</div> 
+			"""%outp)
+			display(self.pb)
 			
 			#Print status text into progress bar (not below)
-			display(Javascript("document.getElementById('%s').innerHTML = '%s';"%(self.divid,outp)))
+			#display(Javascript("document.getElementById('%s').innerHTML = '%s';"%(self.divid,outp)))
 			
