@@ -25,8 +25,8 @@ class Progress_Bar(object):
 		self.progr = 0
 		
 		#delete existing progress bar with same name
-		display(Javascript("if(document.getElementById('%st') !== null) document.getElementById('%st').remove()"%(self.name,self.name)))
-		display(Javascript("if(document.getElementById('%s') !== null) document.getElementById('%s').remove()"%(self.name,self.name)))
+		display(Javascript("if(document.getElementById('%st') !== null) document.getElementById('%st').parentNode.remove()"%(self.name,self.name)))
+		#display(Javascript("if(document.getElementById('%s') !== null) document.getElementById('%s').remove()"%(self.name,self.name)))
 		
 		self.pb = HTML(
 		"""
@@ -51,10 +51,10 @@ class Progress_Bar(object):
 			#Turn the status bar into green
 			#display(Javascript("document.getElementById('%s').style.backgroundColor = 'green';"%self.divid))
 			#Delete all <div> containers
-			display(Javascript("document.getElementById('%s0').remove();"%self.divid)) #blue box
-			display(Javascript("document.getElementById('%s1').remove();"%self.divid)) #frame
-			display(Javascript("document.getElementById('%s_text').remove();"%self.divid)) #text
-			display(Javascript("document.getElementById('%s_title').remove();"%self.divid)) #title
+			#display(Javascript("document.getElementById('%s0').remove();"%self.divid)) #blue box
+			#display(Javascript("document.getElementById('%s1').remove();"%self.divid)) #frame
+			#display(Javascript("document.getElementById('%s_text').remove();"%self.divid)) #text
+			display(Javascript("document.getElementById('%s_title').parentNode.remove();"%self.divid)) #title
 			self.pb = HTML(
 			"""
 			<div id="%st"> %s</div>
