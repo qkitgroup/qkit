@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'plot_view.ui'
 #
-# Created: Sun Aug  2 23:08:30 2015
+# Created: Thu Aug 20 23:27:55 2015
 #      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -34,11 +34,21 @@ class Ui_Form(object):
         self.horizontalLayout.setSizeConstraint(QtGui.QLayout.SetMinimumSize)
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
         self.PlotTypeSelector = QtGui.QComboBox(Form)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Minimum)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.PlotTypeSelector.sizePolicy().hasHeightForWidth())
+        self.PlotTypeSelector.setSizePolicy(sizePolicy)
         self.PlotTypeSelector.setObjectName(_fromUtf8("PlotTypeSelector"))
         self.PlotTypeSelector.addItem(_fromUtf8(""))
         self.PlotTypeSelector.addItem(_fromUtf8(""))
         self.horizontalLayout.addWidget(self.PlotTypeSelector)
         self.TraceSelector = QtGui.QSpinBox(Form)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.TraceSelector.sizePolicy().hasHeightForWidth())
+        self.TraceSelector.setSizePolicy(sizePolicy)
         self.TraceSelector.setSuffix(_fromUtf8(""))
         self.TraceSelector.setMinimum(-99999)
         self.TraceSelector.setMaximum(99999)
@@ -47,29 +57,6 @@ class Ui_Form(object):
         self.horizontalLayout.addWidget(self.TraceSelector)
         spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
-        self.label = QtGui.QLabel(Form)
-        self.label.setObjectName(_fromUtf8("label"))
-        self.horizontalLayout.addWidget(self.label)
-        self.addXPlotSelector = QtGui.QComboBox(Form)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.addXPlotSelector.sizePolicy().hasHeightForWidth())
-        self.addXPlotSelector.setSizePolicy(sizePolicy)
-        self.addXPlotSelector.setMaximumSize(QtCore.QSize(150, 16777215))
-        self.addXPlotSelector.setBaseSize(QtCore.QSize(0, 0))
-        self.addXPlotSelector.setObjectName(_fromUtf8("addXPlotSelector"))
-        self.horizontalLayout.addWidget(self.addXPlotSelector)
-        self.label_2 = QtGui.QLabel(Form)
-        self.label_2.setObjectName(_fromUtf8("label_2"))
-        self.horizontalLayout.addWidget(self.label_2)
-        self.addYPlotSelector = QtGui.QComboBox(Form)
-        self.addYPlotSelector.setMaximumSize(QtCore.QSize(150, 16777215))
-        self.addYPlotSelector.setObjectName(_fromUtf8("addYPlotSelector"))
-        self.horizontalLayout.addWidget(self.addYPlotSelector)
-        self.addPlotBut = QtGui.QPushButton(Form)
-        self.addPlotBut.setObjectName(_fromUtf8("addPlotBut"))
-        self.horizontalLayout.addWidget(self.addPlotBut)
         self.gridLayout_2.addLayout(self.horizontalLayout, 0, 0, 1, 1)
         self.gridLayout = QtGui.QGridLayout()
         self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
@@ -83,7 +70,4 @@ class Ui_Form(object):
         self.PlotTypeSelector.setItemText(0, _translate("Form", "Color Plot", None))
         self.PlotTypeSelector.setItemText(1, _translate("Form", "Line Plot", None))
         self.TraceSelector.setPrefix(_translate("Form", "Trace: ", None))
-        self.label.setText(_translate("Form", "X:", None))
-        self.label_2.setText(_translate("Form", "Y:", None))
-        self.addPlotBut.setText(_translate("Form", "Add", None))
 

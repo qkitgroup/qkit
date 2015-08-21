@@ -150,11 +150,11 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                     s="shape\t"+str(self.h5file[tree_key].shape)+"\n"
                     for k in self.h5file[tree_key].attrs.keys(): 
                         s+=k +"\t" +str(self.h5file[tree_key].attrs[k])+"\n"
-                except ValueError:
+                except ValueError,e:
                 #except IOError:
                     # dataset is available, but the attrs are not yet readable
                     #print "Dataset:ValueError ", tree_key
-                    pass
+                    print e
                 #print tree_key
                 self.DATA.dataset_info[tree_key] = s
                

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-
 @author: hannes.rotzinger@kit.edu @ 2015
 """
 
@@ -36,10 +35,11 @@ class PlotWindow(QWidget,Ui_Form):
         self.setWindowTitle(window_title)
         
         self.graphicsView = None
-        
-        self.justCreated = True
+        #self.ds = self.obj_parent.h5file[self.dataset_url]
+        #self._setDefaultView()
+        self._windowJustCreated = True
         #self._setPlotDefaults()
-        self._init_XY_add()
+        #self._init_XY_add()
         #self.menubar.setNativeMenuBar(False)
         
 
@@ -51,28 +51,36 @@ class PlotWindow(QWidget,Ui_Form):
         QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChange)
         #QObject.connect(self,SIGNAL("aboutToQuit()"),self._close_plot_window)
         QObject.connect(self.TraceSelector,SIGNAL("valueChanged(int)"),self._setTraceNum)
-        QObject.connect(self.addXPlotSelector,SIGNAL("currentIndexChanged(int)"),self._addXPlotChange)
-        QObject.connect(self.addYPlotSelector,SIGNAL("currentIndexChanged(int)"),self._addYPlotChange)
+        #QObject.connect(self.addXPlotSelector,SIGNAL("currentIndexChanged(int)"),self._addXPlotChange)
+        #QObject.connect(self.addYPlotSelector,SIGNAL("currentIndexChanged(int)"),self._addYPlotChange)
         
         
     def _setDefaultView(self):
-        self.TraceNum = -1
         self.view_types = {'1D':0,'1D-V':1, '2D':2, '3D':3}
-        print self.dataset_url
-        
-        
+        self.TraceNum = -1
+        #self.TraceSelector.setEnabled(True)
+        #print self.dataset_url, " opened ..."
+
+        #
         #default view type is 1D
         self.view_type = self.ds.attrs.get("view_type",None)
         if not self.view_type:
             if len(self.ds.shape) == 1:
                 self.PlotTypeSelector.setCurrentIndex(1)
                 self.view_type = self.view_types['1D']
+                self.TraceSelector.setEnabled(False)
             elif len(self.ds.shape) == 2:
+                self.TraceSelector.setEnabled(True)
+                shape = self.ds.shape[0]
+                self.TraceSelector.setRange(-1*shape,shape-1)
                 self.PlotTypeSelector.setCurrentIndex(0)
                 self.view_type = self.view_types['2D']
             else:
+                self.TraceSelector.setEnabled(True)
                 self.view_type = self.view_types['1D']
-                
+        else:
+            self.TraceSelector.setEnabled(True)
+
         
     
     def _setTraceNum(self,num):
@@ -103,7 +111,8 @@ class PlotWindow(QWidget,Ui_Form):
         if index == 1:
             self.view_type = self.view_types['1D']
         #print index
-        self.obj_parent.pw_refresh_signal.emit()
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
             
         #print self.PlotTypeSelector.currentText()
     
@@ -117,11 +126,11 @@ class PlotWindow(QWidget,Ui_Form):
     @pyqtSlot()   
     def update_plots(self):
         self.ds = self.obj_parent.h5file[self.dataset_url]
-        if self.justCreated:
-            print "JC"
-            self.justCreated = False
+        if self._windowJustCreated:
+            #print "JC"
             self._setDefaultView()
             self._onPlotTypeChanged = True
+            self._windowJustCreated = False
         #print "update_plots"
         
         try:
@@ -136,6 +145,7 @@ class PlotWindow(QWidget,Ui_Form):
                 
             elif self.view_type == self.view_types['1D']: 
                 if not self.graphicsView or self._onPlotTypeChanged:
+                    #print "new graphics view"
                     self._onPlotTypeChanged = False
                     self.graphicsView = pg.PlotWidget(name=self.dataset_url)
                     self.graphicsView.setObjectName(self.dataset_url)
@@ -152,10 +162,10 @@ class PlotWindow(QWidget,Ui_Form):
                 self._display_2D_data(self.graphicsView)
             else:
                 pass
-        except NameError:#IOError:
-        #except ValueError:
-            pass
-       #     print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
+        #except NameError:#IOError:
+        except ValueError,e:
+            print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
+            print e
 
 
     def _display_1D_view(self,graphicsView):
@@ -188,19 +198,32 @@ class PlotWindow(QWidget,Ui_Form):
             ds_ys.append(self.obj_parent.h5file[ds_y_url])
         ###
         graphicsView.clear()
+        
+        
         for i, x_ds in enumerate(ds_xs):
             y_ds = ds_ys[i]
+            # this is a litte clumsy, but for the cases tested it works well 
             if len(x_ds.shape) == 1 and len(y_ds.shape) == 1:
+                self.TraceSelector.setEnabled(False)
                 x_data = np.array(x_ds)
                 y_data = np.array(y_ds)
+                
             if len(x_ds.shape) == 2 and len(y_ds.shape) == 2:
+                self.TraceSelector.setEnabled(True)
+                range_max = np.minimum( x_ds.shape[0],y_ds.shape[0])
+                self.TraceSelector.setRange(-1*range_max,range_max-1)
+                
                 x_data = np.array(x_ds[self.TraceNum],axis=x_axis[i])
                 y_data = np.array(y_ds[self.TraceNum],axis=y_axis[i])
+
             if len(x_ds.shape) == 1 and len(y_ds.shape) == 2:
+                self.TraceSelector.setEnabled(True)
+                range_max = y_ds.shape[0]
+                self.TraceSelector.setRange(-1*range_max,range_max-1)
+                
                 x_data = np.array(x_ds)#,axis=x_axis[i])
                 y_data = np.array(y_ds[self.TraceNum])#y_axis[i])#,axis=y_axis[i])
-                #print len(x_data)
-                #print len(y_data)
+
             else:
                 return
             x_name = x_ds.attrs.get("name","_none_")                
@@ -218,8 +241,6 @@ class PlotWindow(QWidget,Ui_Form):
     def _display_1D_data(self,graphicsView):
         ds = self.ds
         
-        #plot = graphicsView.plot()
-        #fill = ds.attrs.get("fill",1)
         ydata = np.array(ds)
         if len(ydata.shape) == 2:
             ydata = ydata[self.TraceNum]
