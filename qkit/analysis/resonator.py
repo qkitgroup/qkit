@@ -33,18 +33,6 @@ class Resonator(object):
     def set_y_coord(self,y_co):
         self.y_co = y_co
 
-    def _set_frequency_range(self, f_min, f_max):
-        if f_min == -1 or f_max == -1:
-            self._f_min = np.min(self._frequency)
-            self._f_max = np.max(self._frequency)
-        else:
-            self._f_min = f_min
-            self._f_max = f_max
-
-        self._fit_frequency = self._frequency[(self._frequency >= self._f_min) & (self._frequency <= self._f_max)]
-
-        self._x_co = self._x_co[(self._frequency >= self._f_min) & (self._frequency <= self._f_max)]
-
     def _set_data_range(self, data):
         return data[(self._frequency >= self._f_min) & (self._frequency <= self._f_max)]
 
@@ -71,13 +59,37 @@ class Resonator(object):
             # hardcode a std url
             self._x_co = self._hf.get_dataset(ds_url_power)
             self._y_co = self._hf.get_dataset(ds_url_freq)
+            
+    def _global_prepare(self,fit_all,fmin,fmax):
+        self._fit_all = fit_all
+
+        if fmin and fmax:
+            self._f_min = fmin
+            self._f_max = fmax
+        else:
+            self._f_min = np.min(self._frequency)
+            self._f_max = np.max(self._frequency)
         
-    def fit_circle(self,fit_all = False, f0 = -1, f1=-1):
+        self._fit_frequency = self._set_dat_range(self._frequency)
+        self._fit_amplitude = np.empty((self._amplitude.shape[0],self._fit_frequency.shape))
+        self._fit_phase = np.empty((self._phase.shape[0],self._fit_frequency.shape))
+        for i, amplitude in enumerate(self._amplitude):
+            self._fit_amplitude[i]=self._set_data_range(amplitude)
+        for i, phase in enumerate(self._phase):
+            self._fit_phase[i]=self._set_data_range(phase)
+
+        if not self._fit_all:
+            self._fit_amplitude = self._fit_amplitude[-1]
+            self._fit_phase = self._fit_phase[-1]
+
+        self._frequency_co = self._hf.add_coordinate('frequency',folder='analysis', unit = 'Hz')
+        self._frequency_co.add(self._fit_frequency)
+        
+    def fit_circle(self,fit_all = False, fmin = None, fmax=None):
         '''
         Calls circle fit from resonator_tools_xtras.py and resonator_tools.py in the qkit/analysis folder
         '''
-        self._fit_all = fit_all
-        self._set_frequency_range()
+        self._global_prepare(fit_all,fmin,fmax)
         if self._first_circle:
             self._prepare_circle()
             self._first_circle = False
@@ -92,69 +104,53 @@ class Resonator(object):
                 results = rtx.circlefit(self._fit_frequency,z_data,fr,Qr,refine_results=False,calc_errors=True)
 
             except:
+                pass
+                """
                 '''If the fit does not converge due to bad data, the "bad" x_values get stored in a comment in the hdf file's analysis folder. All the fitting data for these values are set to 0.'''
                 error_data_array = np.zeros(len(self._fit_frequency))
                 self._amp_gen.append(error_data_array)
                 self._pha_gen.append(error_data_array)
                 for key in self._result_keys.iterkeys():
                     self._results[str(key)].append(0.)
-
+                    """
             else:
                 z_data_gen = np.array([A2 * (f - frcal) + rtx.S21(f, fr=float(results["fr"]), Qr=float(results["Qr"]), Qc=float(results["absQc"]), phi=float(results["phi0"]), a= amp_norm, alpha= alpha, delay=delay) for f in self._fit_frequency])
                 self._amp_gen.append(np.absolute(z_data_gen))
                 self._pha_gen.append(np.angle(z_data_gen))
                 self._real_gen.append(np.real(z_data_gen))
                 self._imag_gen.append(np.imag(z_data_gen))
-                self._real_gen.append(z_data_gen.real)
-                self._imag_gen.append(z_data_gen.imag)
 
                 for key in self._results.iterkeys():
                     self._results[str(key)].append(float(results[str(key)]))
 
     def _prepare_circle(self):
-            self._result_keys = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Qr":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Qr_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
-            self._results = {}
-            
-            self._amp_gen = self._hf.add_value_matrix('amplitude_gen', folder = 'analysis', x = self._x_co, y = self._y_co, unit = 'V')
-            self._pha_gen = self._hf.add_value_matrix('phase_gen', folder = 'analysis', x = self._x_co, y = self._y_co, unit='rad')
-            self._real_gen = self._hf.add_value_matrix('real_gen', folder = 'analysis', x = self._x_co, y = self._y_co, unit='')
-            self._imag_gen = self._hf.add_value_matrix('imag_gen', folder = 'analysis', x = self._x_co, y = self._y_co, unit='')
+        self._result_keys = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Qr":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Qr_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
+        self._results = {}
 
-            for key in self._result_keys.iterkeys():
-               self._results[str(key)] = self._hf.add_value_vector(str(key), folder = 'analysis', x = self._x_co, unit ='')
-            self._real_gen = self._hf.add_value_vector('real', folder = 'analysis', x = self._y_co, unit = '')
-            self._imag_gen = self._hf.add_value_vector('imag', folder = 'analysis', x = self._y_co, unit = '')
-            
+        self._amp_gen = self._hf.add_value_matrix('amplitude_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'V')
+        self._pha_gen = self._hf.add_value_matrix('phase_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='rad')
+        self._real_gen = self._hf.add_value_matrix('real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+        self._imag_gen = self._hf.add_value_matrix('imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+
+        for key in self._result_keys.iterkeys():
+           self._results[str(key)] = self._hf.add_value_vector(str(key), folder = 'analysis', x = self._x_co, unit ='')
+
     def _get_data_circle(self):
-        if self._fit_all:
-            self._z_data_raw = np.empty((self._amplitude.shape), dtype=np.complex64)
-            for i, amplitude in enumerate(self._amplitude):
-                self._z_data_raw[i] = amplitude*np.exp(1j*self._phase[i])
-        else:
-            self._z_data_raw = np.empty((1, self._amplitude.shape[1]), dtype=np.complex64)
-            self._z_data_raw[1] = self._amplitude[-1]*np.exp(1j*self._phase[-1])
+        self._z_data_raw = np.empty((self._fit_amplitude.shape), dtype=np.complex64)
+        for i, amplitude in enumerate(self._fit_amplitude):
+            self._z_data_raw[i] = self._fit_amplitude*np.exp(1j*self._fit_phase[i])
 
-
-    def fit_lorentz(self,fit_all = False, f0 = -1, f1=-1):
-        #self.fit_range(9.10e9,9.2e9)
+    def fit_lorentz(self,fit_all = False,fmin=None,fmax=None):
         
         def f_Lorentzian(f, f0, k, a, offs):
-            return np.sign(a) * np.sqrt(np.abs(a**2*(k/2)**2/((k/2)**2+((f-f0)**2))))+offs
+            return np.sign(a) * np.sqrt(np.abs(a**2*(k/2.)**2/((k/2.)**2+((f-f0)**2))))+offs
 
-        self._fit_all = fit_all
-        self._set_frequency_range()
+        self._global_prepare(fit_all,fmin,fmax)
         if self._first_lorentz:
             self._prepare_lorentz()
             self._first_lorentz=False
-        
-        if not self._fit_all: 
-            _amplitudes = self._amplitude[-1]
-        else:
-            _amplitudes = self._amplitude
-        # square ...
-        #_amplitudes = (np.absolute(_amplitudes))**2
-        for amplitudes in _amplitudes:
-            amplitudes = self._set_data_range(amplitudes)
+
+        for amplitudes in self._fit_amplitudes:
             '''extract starting parameter for lorentzian from data'''
             
             s_offs = np.mean(np.array([amplitudes[:int(len(amplitudes)*.1)], amplitudes[int(len(amplitudes)-int(len(amplitudes)*.1)):]]))
@@ -199,7 +195,7 @@ class Resonator(object):
                 self._lorentz_chi2_fit.append(float(chi2))
 
     def _prepare_lorentz(self):
-        self._lorentz_amp_gen = self._hf.add_value_matrix('lorentz_amp_gen', folder = 'analysis', x = self._x_co, y = self._y_co, unit = 'dB')
+        self._lorentz_amp_gen = self._hf.add_value_matrix('lorentz_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'dB')
         self._lorentz_f0 = self._hf.add_value_vector('lorentz_f0_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
         self._lorentz_k = self._hf.add_value_vector('lorentz_k_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
         self._lorentz_a = self._hf.add_value_vector('lorentz_a_fit', folder = 'analysis', x = self._x_co, unit = 'V')
@@ -209,16 +205,16 @@ class Resonator(object):
         self._lorentz_chi2_fit  = self._hf.add_value_vector('lorentz_chi2_fit' , folder = 'analysis', x = self._x_co, unit = '')
 
         lorentz_view = self._hf.add_view("lorentz_fit", x = self._y_co, y = self._ds_amp, y_axis=1)
-        lorentz_view.add(x=self._y_co, y=self._lorentz_amp_gen, y_axis=1)
+        lorentz_view.add(x=self._frequency_co, y=self._lorentz_amp_gen, y_axis=1)
 
     def _lorentz_from_fit(self,fit):
-        return np.sign(fit[2]) * np.sqrt(np.abs(fit[2] ** 2 * (fit[1] / 2) ** 2 / ((fit[1] / 2) ** 2 + ((self._fit_frequency-fit[0]) ** 2)))) + fit[3]
+        return np.sign(fit[2]) * np.sqrt(np.abs(fit[2] ** 2 * (fit[1]/2.) ** 2 / ((fit[1]/2.) ** 2 + ((self._fit_frequency-fit[0]) ** 2)))) + fit[3]
         
     def _lorentz_fit_chi2(self, fit, amplitudes):
         chi2 = np.sum((self._lorentz_from_fit(fit)-amplitudes)**2) / (len(amplitudes)-len(fit))
         return chi2
 
-    def fit_skewed_lorentzian(self, fit_all = False, f0 = -1, f1=-1):
+    def fit_skewed_lorentzian(self, fit_all = False, fmin=None, fmax=None):
         def residuals(p,x,y):
             A2, A4, Qr = p
             err = y -(A1a+A2*(x-fra)+(A3a+A4*(x-fra))/(1.+4.*Qr**2*((x-fra)/fra)**2))
@@ -228,19 +224,12 @@ class Resonator(object):
             err = y -(A1+A2*(x-fr)+(A3+A4*(x-fr))/(1.+4.*Qr**2*((x-fr)/fr)**2))
             return err
 
-        self._fit_all = fit_all
-        self._set_frequency_range()
+        self._global_prepare(fit_all,fmin,fmax)
         if self._first_skewed_lorentzian:
             self._prepare_skewed_lorentzian()
             self._first_skewed_lorentzian = False
-        
-        if not self._fit_all: 
-            _amplitudes = self._fit_amplitude[-1]
-        else:
-            _amplitudes = self._fit_amplitudes
-            
-        for amplitudes in _amplitudes:
-            amplitudes = self._set_data_range(amplitudes)
+
+        for amplitudes in self._fit_amplitudes:
             "fits a skewed lorenzian to reflection amplitudes of a resonator"
             amplitudes = np.absolute(amplitudes)
             amplitudes_sq = amplitudes**2
@@ -273,7 +262,7 @@ class Resonator(object):
     def _prepare_fano(self):
         "create the datasets in the hdf-file"
         
-        self._fano_amp_gen = self._hf.add_value_matrix('fano_amp_gen', folder = 'analysis', x = self._x_co, y = self._y_co, unit = 'a.u.')
+        self._fano_amp_gen = self._hf.add_value_matrix('fano_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
         self._fano_q_fit  = self._hf.add_value_vector('fano_q_fit' , folder = 'analysis', x = self._x_co, unit = '')
         self._fano_bw_fit = self._hf.add_value_vector('fano_bw_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
         self._fano_fr_fit = self._hf.add_value_vector('fano_fr_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
@@ -283,24 +272,16 @@ class Resonator(object):
         self._fano_Ql_fit    = self._hf.add_value_vector('fano_Ql_fit' , folder = 'analysis', x = self._x_co, unit = '')
 
         fano_view = self._hf.add_view("fano_fit", x = self._y_co, y = self._ds_amp, y_axis=1)
-        fano_view.add(x=self._y_co, y=self._fano_amp_gen, y_axis=1)
+        fano_view.add(x=self._frequency_co, y=self._fano_amp_gen, y_axis=1)
     
-    def fit_fano(self,fit_all = False, f0 = -1, f1=-1):
-        self._fit_all = fit_all
-
-        self._set_data_range()
+    def fit_fano(self,fit_all = False, fmin=None, fmax=None):
+        self._global_prepare(fit_all,fmin,fmax)
         if self._first_fano:
             self._prepare_fano()
             self._first_fano = False
-        
-        if not self._fit_all: 
-            _amplitudes = self._amplitude[-1]
-        else:
-            _amplitudes = self._amplitude
-        amplitudes_sq = (np.absolute(_amplitudes))**2
-        
-        for amplitude_sq in amplitudes_sq:
-            amplitude_sq = self._set_data_range(amplitude_sq)
+
+        for amplitudes in self._fit_amplitude:
+            amplitude_sq = (np.absolute(amplitudes))**2
             try:
                 fit = self._do_fit_fano(amplitude_sq)
                 amplitudes_gen = self._fano_reflection_from_fit(fit)
@@ -403,8 +384,8 @@ if __name__ == "__main__":
             f0=int(freq_range[0])
             f1=int(freq_range[1])
         else:
-            f0=-1
-            f1=-1
+            f0=None
+            f1=None
             
         if args.circle_fit:
             R.fit_circle(fit_all=fit_all, f0=f0,f1=f1)
