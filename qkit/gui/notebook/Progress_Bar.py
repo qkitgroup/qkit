@@ -30,7 +30,7 @@ class Progress_Bar(object):
 		
 		self.pb = HTML(
 		"""
-		<div id="%s"> %s</div>
+		<div id="%stitle"> %s</div>
 		<div id="%sbar" style="border: 1px solid black; width:900px">
 		  <div id="%s" style="text-align: center; color:white; background-color:blue; width:0%%">&nbsp;</div>
 		</div> 
@@ -54,6 +54,7 @@ class Progress_Bar(object):
 			display(Javascript("document.getElementById('%s').remove();"%self.divid)) #blue box
 			display(Javascript("document.getElementById('%sbar').remove();"%self.divid)) #frame
 			display(Javascript("document.getElementById('%stext').remove();"%self.divid)) #text
+			display(Javascript("document.getElementById('%stitle').remove();"%self.divid)) #text
 			self.pb = HTML(
 			"""
 			<div id="%st"> %s</div>
