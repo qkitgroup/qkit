@@ -30,11 +30,11 @@ class Progress_Bar(object):
 		
 		self.pb = HTML(
 		"""
-		<div id="%stitle"> %s</div>
-		<div id="%sbar" style="border: 1px solid black; width:900px">
-		  <div id="%s" style="text-align: center; color:white; background-color:blue; width:0%%">&nbsp;</div>
+		<div id="%s_title"> %s</div>
+		<div id="%s1" style="border: 1px solid black; width:900px">
+		  <div id="%s0" style="text-align: center; color:white; background-color:blue; width:0%%">&nbsp;</div>
 		</div> 
-		<div id="%stext">(0/%i) Starting</div>
+		<div id="%s_text">(0/%i) Starting</div>
 		""" % (self.divid,self.name,self.divid,self.divid,self.divid,max_it))
 		display(self.pb)
 		display(Javascript("$('div#%s').width('%i%%')" % (self.divid, 100*self.progr/self.max_it)))
@@ -43,18 +43,18 @@ class Progress_Bar(object):
 		
 	def iterate(self):
 		self.progr += 1
-		display(Javascript("$('div#%s').width('%i%%');" % (self.divid, 100*self.progr/self.max_it)))
+		display(Javascript("$('div#%s0').width('%i%%');" % (self.divid, 100*self.progr/self.max_it)))
 		outp = "(%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s"%(self.progr,self.max_it,time.ctime(time.time() + float(time.time()-self.starttime)/self.progr * (self.max_it - self.progr)),time.strftime('%H:%M:%S',time.gmtime(time.time()-self.starttime)))
-		display(Javascript("document.getElementById('%stext').innerHTML = '%s';"%(self.divid,outp)))
+		display(Javascript("document.getElementById('%s_text').innerHTML = '%s';"%(self.divid,outp)))
 		
 		if self.progr == self.max_it:   #end of progress bar
 			#Turn the status bar into green
 			#display(Javascript("document.getElementById('%s').style.backgroundColor = 'green';"%self.divid))
 			#Delete all <div> containers
-			display(Javascript("document.getElementById('%s').remove();"%self.divid)) #blue box
-			display(Javascript("document.getElementById('%sbar').remove();"%self.divid)) #frame
-			display(Javascript("document.getElementById('%stext').remove();"%self.divid)) #text
-			display(Javascript("document.getElementById('%stitle').remove();"%self.divid)) #text
+			display(Javascript("document.getElementById('%s0').remove();"%self.divid)) #blue box
+			display(Javascript("document.getElementById('%s1').remove();"%self.divid)) #frame
+			display(Javascript("document.getElementById('%s_text').remove();"%self.divid)) #text
+			display(Javascript("document.getElementById('%s_title').remove();"%self.divid)) #title
 			self.pb = HTML(
 			"""
 			<div id="%st"> %s</div>
