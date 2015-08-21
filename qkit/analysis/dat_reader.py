@@ -8,6 +8,7 @@ from scipy.optimize import curve_fit
 import fnmatch
 import os, glob
 import time
+import logging
 
 no_qt = False
 try:
@@ -213,20 +214,30 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		x_vec = np.linspace(data[0][0],data[0][-1],400)
 	
 		#start parameters
-		s_offs = np.mean(data[data_c][int(0.9*len(data[data_c])):])
+		#offset
+		#print np.max(np.abs(np.diff(data[data_c][int(0.75*len(data[data_c])):])))
+		#print 0.3*np.abs(np.max(data[data_c])-np.min(data[data_c]))/(len(data[0][0.75*len(data[0]):])*(data[0][-1]-data[0][0.75*len(data[data_c])]))
+		if np.max(np.abs(np.diff(data[data_c][int(0.75*len(data[data_c])):]))) < 0.3*np.abs(np.max(data[data_c])-np.min(data[data_c]))/(len(data[0][0.75*len(data[0]):])*(data[0][-1]-data[0][0.75*len(data[data_c])])):   #if slope in last part small
+			s_offs = np.mean(data[data_c][int(0.9*len(data[data_c])):])
+		else:   #larger slope
+			s_offs = (np.max(data[data_c]) + np.min(data[data_c]))/2
 		#print s_offs
+		#amplitude
 		a1 = np.abs(np.max(data[data_c]) - s_offs)
 		a2 = np.abs(np.min(data[data_c]) - s_offs)
 		s_a = np.max([a1,a2])
 		#print s_a
 		#damping
-		a_end = np.abs(np.max(data[data_c][int(0.7*len(data[data_c])):]))   #scan last 20% of values -> final amplitude
+		a_end = np.abs(np.max(data[data_c][int(0.7*len(data[data_c])):]))   #scan last 30% of values -> final amplitude
 		#print a_end
 		# -> calculate Td
 		t_end = data[0][-1]
 		#print t_end
 		s_Td = -t_end/(np.log((np.abs(a_end-np.abs(s_offs)))/s_a))
-		print 'assume T =', str(np.round(s_Td,4))
+		if np.abs(s_Td) == float('inf'):
+			s_Td = float('inf')
+			logging.warning('Consider using the sine fit routine for non-decaying sines.')
+		#print 'assume T =', str(np.round(s_Td,4))
 		
 		#frequency
 		#s_fs = 1/data[0][int(np.round(np.abs(1/np.fft.fftfreq(len(data[data_c]))[np.where(np.abs(np.fft.fft(data[data_c]))==np.max(np.abs(np.fft.fft(data[data_c]))[1:]))]))[0])] #@andre20150318
@@ -236,6 +247,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 			if np.sign(data[data_c][dat_p] - s_offs) != np.sign(data[data_c][dat_p+1] - s_offs):   #offset line crossing
 				roots = roots + 1
 		s_fs = float(roots)/(2*data[0][-1])   #number of roots/2 /measurement time
+		#print s_fs
 		
 		#phase offset
 		dmax = np.abs(data[data_c][0] - np.max(data[data_c]))
@@ -385,6 +397,6 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		plt.show()
 	
 	if pcov == None:
-		return np.concatenate((popt,[0,0,0,0]),axis=1)
+		return np.concatenate((popt,float('inf')*np.ones(len(popt))),axis=1)
 	else:
 		return np.concatenate((popt,np.sqrt(np.diag(pcov))),axis=1)   #shape of popt and np.sqrt(np.diag(pcov)) is (4,), respectively, so concatenation needs to take place along axis 1
