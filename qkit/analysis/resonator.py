@@ -15,19 +15,25 @@ class Resonator(object):
     
     '''
     
-    def __init__(self, hf=None):
-
-        self._hf = hf
-
+    def __init__(self, h_file):
+        self._hf_path =  h_file
+        self._hf = None
+        self._hf = hdf_lib.Data(path=self._hf_path)
+        
         self._first_circle = True
         self._first_lorentz = True
         self._first_fano = True
         self._first_skewed_lorentzian = True
         
-        self._prepare()
+        self._refresh()
         
-    def set_file(self,name):
-        self.hf = name
+    def _refresh(self,live = False):
+        if live:
+            if self._hf:
+                self._hf.close()
+            self._hf = hdf_lib.Data(path=self._hf_path)
+        self._prepare()
+
     def set_x_coord(self,x_co):
         self._x_co = x_co
     def set_y_coord(self,y_co):
@@ -71,8 +77,28 @@ class Resonator(object):
             self._f_max = np.max(self._frequency)
         
         self._fit_frequency = self._set_dat_range(self._frequency)
+
+        self._frequency_co = self._hf.add_coordinate('frequency_fit',folder='analysis', unit = 'Hz')
+        self._frequency_co.add(self._fit_frequency)
+       
+    def _get_amplitude(self):
+        self._refresh()
+        if not self._fit_all:
+            return self._set_dat_range(self._amplitude[-1])
+        else:
+            return self._set_dat_range(self._amplitude)
+            
+    def _get_phase(self, i):
+        self._refresh()
+        if not self._fit_all:
+            return self._set_dat_range(self._phase[-1])
+        else:
+            return self._set_dat_range(self._phase)
+        
+        """
         self._fit_amplitude = np.empty((self._amplitude.shape[0],self._fit_frequency.shape))
         self._fit_phase = np.empty((self._phase.shape[0],self._fit_frequency.shape))
+        
         for i, amplitude in enumerate(self._amplitude):
             self._fit_amplitude[i]=self._set_data_range(amplitude)
         for i, phase in enumerate(self._phase):
@@ -81,10 +107,7 @@ class Resonator(object):
         if not self._fit_all:
             self._fit_amplitude = self._fit_amplitude[-1]
             self._fit_phase = self._fit_phase[-1]
-
-        self._frequency_co = self._hf.add_coordinate('frequency',folder='analysis', unit = 'Hz')
-        self._frequency_co.add(self._fit_frequency)
-        
+        """
     def fit_circle(self,fit_all = False, fmin = None, fmax=None):
         '''
         Calls circle fit from resonator_tools_xtras.py and resonator_tools.py in the qkit/analysis folder
@@ -141,16 +164,18 @@ class Resonator(object):
             self._z_data_raw[i] = self._fit_amplitude*np.exp(1j*self._fit_phase[i])
 
     def fit_lorentz(self,fit_all = False,fmin=None,fmax=None):
+        self._global_prepare(fit_all,fmin,fmax)
         
+
         def f_Lorentzian(f, f0, k, a, offs):
             return np.sign(a) * np.sqrt(np.abs(a**2*(k/2.)**2/((k/2.)**2+((f-f0)**2))))+offs
 
-        self._global_prepare(fit_all,fmin,fmax)
+
         if self._first_lorentz:
             self._prepare_lorentz()
             self._first_lorentz=False
 
-        for amplitudes in self._fit_amplitudes:
+        for amplitudes in self._get_amplitude():
             '''extract starting parameter for lorentzian from data'''
             
             s_offs = np.mean(np.array([amplitudes[:int(len(amplitudes)*.1)], amplitudes[int(len(amplitudes)-int(len(amplitudes)*.1)):]]))
@@ -373,10 +398,10 @@ if __name__ == "__main__":
     parser.add_argument('-fr','--frequency-range', type=str, help='(optional) frequency range for fitting, comma separated')
 
     args=parser.parse_args()
-    hf=None
+    #argsfile=None
     if args.file:
-        hf = hdf_lib.Data(path=args.file)
-        R = Resonator(hf)
+        
+        R = Resonator(args.file)
         fit_all = args.fit_all
 
         if args.frequency_range:

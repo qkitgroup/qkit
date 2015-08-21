@@ -21,6 +21,7 @@ from instrument import Instrument
 import visa
 import types
 import logging
+from time import sleep
 import numpy
 
 class Agilent_PNAX(Instrument):
@@ -133,17 +134,17 @@ class Agilent_PNAX(Instrument):
         self.add_parameter('source_attenuation', type=types.IntType,
             flags=Instrument.FLAG_GETSET,channels=(1,2),
             minval=0, maxval=60,
-            units='dB',tags=['sweep'])
+            tags=['sweep'])
             
         self.add_parameter('source_power_start', type=types.FloatType,
             flags=Instrument.FLAG_GETSET,channels=(1,2),
             minval=-2.9e1, maxval=3e1,
-            units='dBm', tags=['sweep'])
+            tags=['sweep'])
             
         self.add_parameter('source_power_stop', type=types.FloatType,
             flags=Instrument.FLAG_GETSET,channels=(1,2),
             minval=-2.9e1, maxval=3e1,
-            units='dBm', tags=['sweep'])
+            tags=['sweep'])
             
         self.add_parameter('calibration_state', type=types.BooleanType,
             flags=Instrument.FLAG_GETSET) 
@@ -298,11 +299,11 @@ class Agilent_PNAX(Instrument):
             datareal = numpy.mean(datareal)
             dataimag = numpy.mean(dataimag)
             dataamp = numpy.sqrt(datareal*datareal+dataimag*dataimag)
-            datapha = numpy.arctan(dataimag/datareal)/numpy.pi
+            datapha = numpy.arctan(dataimag/datareal)
             return dataamp, datapha
           else:
             dataamp = numpy.sqrt(datareal*datareal+dataimag*dataimag)
-            datapha = numpy.arctan2(dataimag,datareal)/numpy.pi
+            datapha = numpy.arctan2(dataimag,datareal)
             return dataamp, datapha
         else:
           raise ValueError('get_tracedata(): Format must be AmpPha or RealImag') 
@@ -684,10 +685,7 @@ class Agilent_PNAX(Instrument):
         return self._ci
         
     def do_get_sweeptime_averages(self):
-        if self.get_Average():
-            return self.get_sweeptime() * self.get_averages()
-        else:
-            return self.get_sweeptime()
+        return self.get_sweeptime() * self.get_averages()
 
     def do_get_sweeptime(self):
 
@@ -701,7 +699,7 @@ class Agilent_PNAX(Instrument):
         return float(self.get_nop()) / self.get_bandwidth()
         
         
-    def do_set_edel(self, val, unit = 'S'):
+    def do_set_edel(self, val, unit = 's'):
         '''
         Sets the electrical delay for the selected measurement.
 
@@ -711,11 +709,8 @@ class Agilent_PNAX(Instrument):
         Output:
             None
         '''
-        logging.debug(__name__ + ' : setting electrical delay to "%i"' % val)
-        if val > -10. and val < 10.:
-            self._visainstrument.write('SENS:CORR:EXT:PORT%i %i' %(self._ci, val))        
-        else:
-            raise ValueError('set_electrical_delay(): must be between -10.00 - 10.00 [s]') 
+        logging.debug(__name__ + ' : setting electrical delay to "%f"' % val)
+        self._visainstrument.write('SENS:CORR:EXT:PORT%i %f' %(self._ci, val))        
             
     def do_get_edel(self):
         '''
@@ -984,7 +979,7 @@ class Agilent_PNAX(Instrument):
             return self._visainstrument.write('SENS%i:AVER:MODE %s' %(self._ci,avgtype))
             
         else:
-            logging.debug(__name__ + ' : Illegal argument %s'%(avgtype))
+            logging.debug(__name__ + ' : Illegal argument %s'%(swtype))
         
     def read(self):
         return self._visainstrument.read()
