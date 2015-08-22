@@ -119,16 +119,20 @@ def gauss(pulse, sample, length = None,position = None, low = 0, high = 1, clock
 			float array of samples
 	'''
 	if(clock == None): clock= sample.clock
-	if(length == None): length= sample.exc_T
+	if(length == None): 
+		length= sample.exc_T
+		sample_length = int(np.round(length*clock)/4)*4
+	else:
+		sample_length = int(length*clock)
 	if(position == None): position = length
 	if(pulse>position): logging.error(__name__ + ' : pulse does not fit into waveform')
-	sample_start = clock*(position-pulse)
-	sample_end = clock*position
-	sample_length = int(np.round(length*clock)/4)*4
+	sample_start = int(clock*(position-pulse))
+	sample_end = int(clock*position)
+	
 	wfm = low*np.ones(sample_length)
 	if(sample_start < sample_end): wfm[int(sample_start)] = 0.#high + (low-high)*(sample_start-int(sample_start))
 	#wfm[int(np.ceil(sample_start)):int(sample_end)] = high
-	pulsesamples = int(int(sample_end)-np.ceil(sample_start))
+	pulsesamples = int(int(sample_end)-int(sample_start))
 	for i in range(pulsesamples):
 		wfm[np.ceil(sample_start)+i] = high*np.exp(-(i-pulsesamples/2.)**2/(2.*(pulsesamples/5.)**2))
 	if(np.ceil(sample_end) != np.floor(sample_end)): wfm[int(sample_end)] = low + (high-low)*(sample_end-int(sample_end))
