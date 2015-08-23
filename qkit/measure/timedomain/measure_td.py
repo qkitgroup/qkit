@@ -13,6 +13,7 @@ from qkit.gui.notebook.Progress_Bar import Progress_Bar
 readout = qt.instruments.get('readout')
 mspec = qt.instruments.get('mspec')
 
+
 class Measure_td(object):
 	
 	'''
