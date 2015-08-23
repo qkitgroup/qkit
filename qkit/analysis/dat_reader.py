@@ -92,6 +92,60 @@ def _fill_p0(p0,ps):
 			print 'list of given initial parameters invalid...aborting'
 			raise ValueError
 	return p0
+	
+def _extract_initial_oscillating_parameters(data):
+	
+	#offset
+	# testing last 25% of data for its maximum slope; take offset as last 10% of data for a small slope (and therefore strong damping)
+	if np.max(np.abs(np.diff(data[data_c][int(0.75*len(data[data_c])):]))) < 0.3*np.abs(np.max(data[data_c])-np.min(data[data_c]))/(len(data[0][0.75*len(data[0]):])*(data[0][-1]-data[0][0.75*len(data[data_c])])):   #if slope in last part small
+		s_offs = np.mean(data[data_c][int(0.9*len(data[data_c])):])
+	else:   #larger slope: calculate initial offset from min/max in data
+		s_offs = (np.max(data[data_c]) + np.min(data[data_c]))/2
+	#print s_offs
+	
+	#amplitude
+	a1 = np.abs(np.max(data[data_c]) - s_offs)
+	a2 = np.abs(np.min(data[data_c]) - s_offs)
+	s_a = np.max([a1,a2])
+	#print s_a
+	
+	#damping
+	a_end = np.abs(np.max(data[data_c][int(0.7*len(data[data_c])):]))   #scan last 30% of values -> final amplitude
+	#print a_end
+	# -> calculate Td
+	t_end = data[0][-1]
+	try:
+		s_Td = -t_end/(np.log((np.abs(a_end-np.abs(s_offs)))/s_a))
+	except RuntimeWarning:
+		logging.warning('Invalid value encountered in log. Continuing...')
+		s_Td = float('inf')
+	if np.abs(s_Td) == float('inf'):
+		s_Td = float('inf')
+		logging.warning('Consider using the sine fit routine for non-decaying sines.')
+	#print 'assume T =', str(np.round(s_Td,4))
+	
+	#frequency
+	#s_fs = 1/data[0][int(np.round(np.abs(1/np.fft.fftfreq(len(data[data_c]))[np.where(np.abs(np.fft.fft(data[data_c]))==np.max(np.abs(np.fft.fft(data[data_c]))[1:]))]))[0])] #@andre20150318
+	roots = 0   #number of offset line crossings ~ period of oscillation
+	for dat_p in range(len(data[data_c])-1):
+		if np.sign(data[data_c][dat_p] - s_offs) != np.sign(data[data_c][dat_p+1] - s_offs):   #offset line crossing
+			roots+=1
+	s_fs = float(roots)/(2*data[0][-1])   #number of roots/2 /measurement time
+	#print s_fs
+	
+	#phase offset
+	dmax = np.abs(data[data_c][0] - np.max(data[data_c]))
+	dmean = np.abs(data[data_c][0] - np.mean(data[data_c]))
+	dmin = np.abs(data[data_c][0] - np.min(data[data_c]))
+	if dmax < dmean:   #start on upper side -> offset phase pi/2
+		s_ph = np.pi/2
+	elif dmin < dmean:   #start on lower side -> offset phase -pi/2
+		s_ph = -np.pi/2
+	else:   #ordinary sine
+		s_ph = 0
+	#print s_ph
+	
+	return s_offs, s_a, s_Td, s_fs, s_ph
 
 
 def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, save_pdf = False, data=None, nfile=None):
@@ -109,14 +163,10 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 	save_pdf: save plot also as pdf file (optional, default = False)
 	data, nfile: pass data object and file name which is used when file_name == 'dat_import'
 	
-<<<<<<< .mine
-	returns an array of fit parameters followed by parameter fit errors: [p1,p2,...,pn,err_p1,err_p2,...,err_pn]
-	frequency units are returned in GHz
-=======
-	returns fit parameters, standard deviations concatenated: [popt1,pop2,...poptn,err_popt1,err_popt2,...err_poptn] in case fit does not converge, errors are filled with zeros
-	WARNING: errors might be returned as 'inf' which is NaN
+	returns fit parameters, standard deviations concatenated: [popt1,pop2,...poptn,err_popt1,err_popt2,...err_poptn]
+	in case fit does not converge, errors are filled with 'inf'
+	WARNING: errors might be returned as 'inf' which is 'nan'
 	frequency units in GHz
->>>>>>> .r242
 	
 	f_Lorentzian expects its frequency parameter to be stated in GHz
 	'''
@@ -140,13 +190,12 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		#load data
 		data, nfile = load_data(file_name)
 
-
 	#check column identifier
 	if data_c >= len(data):
 		print 'bad data column identifier, out of bonds...aborting'
 		return
 	
-	
+	# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	if fit_function == 'lorentzian':
 	
 		#check for unit in frequency
@@ -161,7 +210,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		if show_plot:   plt.plot(data[0]*freq_conversion_factor,data[data_c],'*')
 		x_vec = np.linspace(data[0][0]*freq_conversion_factor,data[0][-1]*freq_conversion_factor,200)
 	
-		#start parameters
+		#start parameters ----------------------------------------------------------------------
 		s_offs = np.mean(np.array([data[data_c,:int(np.size(data,1)/10)],data[data_c,np.size(data,1)-int(np.size(data,1)/10):]])) #offset is calculated from the first and last 10% of the data to improve fitting on tight windows @andre20150318
 		if np.abs(np.max(data[data_c]) - np.mean(data[data_c])) > np.abs(np.min(data[data_c]) - np.mean(data[data_c])):
 			#expect a peak
@@ -191,8 +240,8 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 			s_k = 0.15*(data[0][-1]-data[0][0])*freq_conversion_factor   #try 15% of window
 			
 		p0 = _fill_p0([s_f0, s_k, s_a, s_offs],ps)
-			
-		#lorentzian fit
+
+		#lorentzian fit ----------------------------------------------------------------------
 		try:
 			popt, pcov = curve_fit(f_Lorentzian, data[0]*freq_conversion_factor, data[data_c], p0 = p0)
 			print 'QL:', np.abs(np.round(float(popt[0])/popt[1]))
@@ -212,63 +261,18 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 				if ylabel == '':
 					#ax.set_ylabel('arg(S21) (a.u.)', fontsize=13)
 					pass
-		
+					
+	# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 	elif fit_function == 'damped_sine':
 		#plot data
 		if show_plot:   plt.plot(data[0],data[data_c],'*')
 		x_vec = np.linspace(data[0][0],data[0][-1],400)
 	
-		#start parameters
-		#offset
-		#print np.max(np.abs(np.diff(data[data_c][int(0.75*len(data[data_c])):])))
-		#print 0.3*np.abs(np.max(data[data_c])-np.min(data[data_c]))/(len(data[0][0.75*len(data[0]):])*(data[0][-1]-data[0][0.75*len(data[data_c])]))
-		if np.max(np.abs(np.diff(data[data_c][int(0.75*len(data[data_c])):]))) < 0.3*np.abs(np.max(data[data_c])-np.min(data[data_c]))/(len(data[0][0.75*len(data[0]):])*(data[0][-1]-data[0][0.75*len(data[data_c])])):   #if slope in last part small
-			s_offs = np.mean(data[data_c][int(0.9*len(data[data_c])):])
-		else:   #larger slope
-			s_offs = (np.max(data[data_c]) + np.min(data[data_c]))/2
-		#print s_offs
-		#amplitude
-		a1 = np.abs(np.max(data[data_c]) - s_offs)
-		a2 = np.abs(np.min(data[data_c]) - s_offs)
-		s_a = np.max([a1,a2])
-		#print s_a
-		#damping
-		a_end = np.abs(np.max(data[data_c][int(0.7*len(data[data_c])):]))   #scan last 30% of values -> final amplitude
-		#print a_end
-		# -> calculate Td
-		t_end = data[0][-1]
-		#print t_end
-		s_Td = -t_end/(np.log((np.abs(a_end-np.abs(s_offs)))/s_a))
-		if np.abs(s_Td) == float('inf'):
-			s_Td = float('inf')
-			logging.warning('Consider using the sine fit routine for non-decaying sines.')
-		#print 'assume T =', str(np.round(s_Td,4))
-		
-		#frequency
-		#s_fs = 1/data[0][int(np.round(np.abs(1/np.fft.fftfreq(len(data[data_c]))[np.where(np.abs(np.fft.fft(data[data_c]))==np.max(np.abs(np.fft.fft(data[data_c]))[1:]))]))[0])] #@andre20150318
-		
-		roots = 0
-		for dat_p in range(len(data[data_c])-1):
-			if np.sign(data[data_c][dat_p] - s_offs) != np.sign(data[data_c][dat_p+1] - s_offs):   #offset line crossing
-				roots = roots + 1
-		s_fs = float(roots)/(2*data[0][-1])   #number of roots/2 /measurement time
-		#print s_fs
-		
-		#phase offset
-		dmax = np.abs(data[data_c][0] - np.max(data[data_c]))
-		dmean = np.abs(data[data_c][0] - np.mean(data[data_c]))
-		dmin = np.abs(data[data_c][0] - np.min(data[data_c]))
-		if dmax < dmean:   #start on upper side -> offset phase pi/2
-			s_ph = np.pi/2
-		elif dmin < dmean:   #start on lower side -> offset phase -pi/2
-			s_ph = -np.pi/2
-		else:   #ordinary sine
-			s_ph = 0
-		#print s_ph
-		
+		#start parameters ----------------------------------------------------------------------
+		s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data)
 		p0 = _fill_p0([s_fs, s_Td, s_a, s_offs, s_ph],ps)
 
-		#damped sine fit
+		#damped sine fit ----------------------------------------------------------------------
 		try:
 			popt, pcov = curve_fit(f_damped_sine, data[0], data[data_c], p0 = p0)
 		except:
@@ -278,39 +282,19 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		finally:
 			if show_plot:   plt.plot(x_vec, f_damped_sine(x_vec, *popt))
 	
+	# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	elif fit_function == 'sine':
 		#plot data
 		if show_plot:   plt.plot(data[0],data[data_c],'*')
 		x_vec = np.linspace(data[0][0],data[0][-1],200)
 	
-		#start parameters
+		#start parameters ----------------------------------------------------------------------
+		s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data)
 		s_offs = np.mean(data[data_c])
 		s_a = 0.5*np.abs(np.max(data[data_c]) - np.min(data[data_c]))
-		
-		#frequency
-		#s_fs = 1/data[0][int(np.round(np.abs(1/np.fft.fftfreq(len(data[data_c]))[np.where(np.abs(np.fft.fft(data[data_c]))==np.max(np.abs(np.fft.fft(data[data_c]))[1:]))]))[0])] #@andre20150318
-		
-		roots = 0
-		for dat_p in range(len(data[data_c])-1):
-			if np.sign(data[data_c][dat_p] - s_offs) != np.sign(data[data_c][dat_p+1] - s_offs):   #offset line crossing
-				roots = roots + 1
-		s_fs = float(roots)/(2*data[0][-1])   #number of roots/2 /measurement time
-		
-		#phase offset
-		dmax = np.abs(data[data_c][0] - np.max(data[data_c]))
-		dmean = np.abs(data[data_c][0] - np.mean(data[data_c]))
-		dmin = np.abs(data[data_c][0] - np.min(data[data_c]))
-		if dmax < dmean:   #start on upper side -> offset phase pi/2
-			s_ph = np.pi/2
-		elif dmin < dmean:   #start on lower side -> offset phase -pi/2
-			s_ph = -np.pi/2
-		else:   #ordinary sine
-			s_ph = 0
-		#print s_ph
-		
 		p0 = _fill_p0([s_fs, s_a, s_offs, s_ph],ps)
 			
-		#sine fit
+		#sine fit ----------------------------------------------------------------------
 		try:
 			popt, pcov = curve_fit(f_sine, data[0], data[data_c], p0 = p0)
 		except:
@@ -319,20 +303,21 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 			pcov = None
 		finally:
 			if show_plot:   plt.plot(x_vec, f_sine(x_vec, *popt))
-			
+	
+	# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	elif fit_function == 'exp':
 	
 		x_vec = np.linspace(data[0][0],data[0][-1],200)
 		
-		#start parameters
+		#start parameters ----------------------------------------------------------------------
 		s_offs = np.mean(data[data_c][int(0.9*len(data[data_c])):])   #average over the last 10% of entries
 		s_a = data[data_c][0] - s_offs
 		s_Td = np.abs(float(s_a)/np.mean(np.gradient(data[data_c],data[0][1]-data[0][0])[:5]))   #calculate gradient at t=0 which is equal to (+-)a/T
 		#s_Td = data[0][-1]/5   #assume Td to be roughly a fifth of total measurement range
-
+		
 		p0 = _fill_p0([s_Td, s_a, s_offs],ps)
 
-		#exp fit
+		#exp fit ----------------------------------------------------------------------
 		try:
 			popt, pcov = curve_fit(f_exp, data[0], data[data_c], p0 = p0)
 			if xlabel == None:
@@ -402,6 +387,6 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		plt.show()
 	
 	if pcov == None:
-		return np.concatenate((popt,float('inf')*np.ones(len(popt))),axis=1)
+		return np.concatenate((popt,float('inf')*np.ones(len(popt))),axis=1)   #fill up errors with 'inf' in case fit did not converge
 	else:
 		return np.concatenate((popt,np.sqrt(np.diag(pcov))),axis=1)   #shape of popt and np.sqrt(np.diag(pcov)) is (4,), respectively, so concatenation needs to take place along axis 1
