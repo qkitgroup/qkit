@@ -5,7 +5,7 @@ data reading and fitting script JB@KIT 01/2015 jochen.braumueller@kit.edu
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-import fnmatch
+#import fnmatch
 import os, glob
 import time
 import logging
@@ -109,9 +109,14 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 	save_pdf: save plot also as pdf file (optional, default = False)
 	data, nfile: pass data object and file name which is used when file_name == 'dat_import'
 	
+<<<<<<< .mine
+	returns an array of fit parameters followed by parameter fit errors: [p1,p2,...,pn,err_p1,err_p2,...,err_pn]
+	frequency units are returned in GHz
+=======
 	returns fit parameters, standard deviations concatenated: [popt1,pop2,...poptn,err_popt1,err_popt2,...err_poptn] in case fit does not converge, errors are filled with zeros
 	WARNING: errors might be returned as 'inf' which is NaN
 	frequency units in GHz
+>>>>>>> .r242
 	
 	f_Lorentzian expects its frequency parameter to be stated in GHz
 	'''
