@@ -12,7 +12,6 @@ from qkit.gui.notebook.Progress_Bar import Progress_Bar
 
 readout = qt.instruments.get('readout')
 mspec = qt.instruments.get('mspec')
-vcoil = qt.instruments.get('vcoil')
 
 class Measure_td(object):
 	
@@ -94,7 +93,7 @@ class Measure_td(object):
 				plots.append(plot_amp)
 				plots.append(plot_pha)
 
-		p = Progress_Bar(len(self.x_vec))
+		p = Progress_Bar(len(self.x_vec),name=self.dirname)
 		# save plot even when aborted
 		try:
 			# measurement loop
@@ -157,9 +156,11 @@ class Measure_td(object):
 			data_time.add_comment(self.comment)
 		data_time.add_coordinate(self.x_coordname)
 		data_time.add_coordinate(self.y_coordname)
-		for i in range(readout._ins._mspec.get_samples()):
+		#for i in range(readout._ins._mspec.get_samples()): ##AS 20150811
+		for i in range(mspec.get_samples()):
 			data_time.add_coordinate('I%3d'%i)
-		for i in range(readout._ins._mspec.get_samples()):
+		#for i in range(readout._ins._mspec.get_samples()):
+		for i in range(mspec.get_samples()):
 			data_time.add_coordinate('Q%3d'%i)
 		data_time.add_value('timestamp')
 
@@ -184,7 +185,7 @@ class Measure_td(object):
 					plots.append(plot_amp_2d)
 					plots.append(plot_pha_2d)
 
-		p = Progress_Bar(len(self.x_vec*len(self.y_vec)*self.iterations))
+		p = Progress_Bar(len(self.x_vec)*len(self.y_vec)*self.iterations,name=self.dirname)
 		# save plot even when aborted
 		try:
 			for it in range(self.iterations):
@@ -324,7 +325,7 @@ class Measure_td(object):
 		dat_ampa = np.zeros_like((len(self.x_vec), ndev))
 		dat_phaa = np.zeros_like(dat_ampa)
 
-		p = Progress_Bar(len(self.y_vec))
+		p = Progress_Bar(len(self.y_vec),name=self.dirname)
 		# save plot even when aborted
 		try:
 			# measurement loop
