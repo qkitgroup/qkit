@@ -2,7 +2,6 @@ import qt
 import numpy as np
 import os.path
 import time
-#import qubit #remove it if not further needed (AS 2015-04-16)
 import logging
 import numpy
 import sys
@@ -10,8 +9,6 @@ import sys
 '''
 	TODO:
 	- low and high are not well defined, as various pulses are summmed up
-	
-	
 '''
 
 # creates dummy objects to have everything well-defined.
