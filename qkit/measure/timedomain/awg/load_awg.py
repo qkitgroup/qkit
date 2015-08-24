@@ -50,14 +50,16 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
 	wfm_samples_prev = [None,None]
 	wfm_fn = [None,None]
 	wfm_pn = [None,None]
-	p = Progress_Bar(len(ts)*2)   #init progress bar
+	p = Progress_Bar(len(ts)*2,'Load AWG')   #init progress bar
 	
 	#update all channels and times
-	for ti in range(len(ts)):   #run through all sequences
+	for ti, t in enumerate(ts):   #run through all sequences
 		qt.msleep()
-		t = ts[ti]
 		# filter duplicates
-		wfm_samples = wfm_func2(t,sample)   #generate waveform
+		if isinstance(wfm_func2,(list,tuple,np.ndarray)):
+			wfm_samples = wfm_func2[ti](t,sample)   #if wfm is array, generate wafeform
+		else:
+			wfm_samples = wfm_func2(t,sample)   #generate waveform
 		if not isinstance(wfm_samples[0],(list, tuple, np.ndarray)):   #homodyne
 			wfm_samples = [wfm_samples,np.zeros_like(wfm_samples)]
 		
@@ -98,7 +100,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
 			# assign waveform to channel/time slot
 			awg.wfm_assign(chan+1, ti+1, wfm_fn[chan])
 			
-			if(loop):
+			if loop:
 				awg.set_seq_loop(ti+1, np.infty)
 			p.iterate()
 
