@@ -93,7 +93,7 @@ def _fill_p0(p0,ps):
 			raise ValueError
 	return p0
 	
-def _extract_initial_oscillating_parameters(data):
+def _extract_initial_oscillating_parameters(data,data_c):
 	
 	#offset
 	# testing last 25% of data for its maximum slope; take offset as last 10% of data for a small slope (and therefore strong damping)
@@ -269,7 +269,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		x_vec = np.linspace(data[0][0],data[0][-1],400)
 	
 		#start parameters ----------------------------------------------------------------------
-		s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data)
+		s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data,data_c)
 		p0 = _fill_p0([s_fs, s_Td, s_a, s_offs, s_ph],ps)
 
 		#damped sine fit ----------------------------------------------------------------------
@@ -289,7 +289,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		x_vec = np.linspace(data[0][0],data[0][-1],200)
 	
 		#start parameters ----------------------------------------------------------------------
-		s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data)
+		s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data,data_c)
 		s_offs = np.mean(data[data_c])
 		s_a = 0.5*np.abs(np.max(data[data_c]) - np.min(data[data_c]))
 		p0 = _fill_p0([s_fs, s_a, s_offs, s_ph],ps)
