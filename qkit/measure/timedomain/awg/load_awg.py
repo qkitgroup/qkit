@@ -55,11 +55,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
 	#update all channels and times
 	for ti, t in enumerate(ts):   #run through all sequences
 		qt.msleep()
-		# filter duplicates
-		if isinstance(wfm_func2,(list,tuple,np.ndarray)):
-			wfm_samples = wfm_func2[ti](t,sample)   #if wfm is array, generate wafeform
-		else:
-			wfm_samples = wfm_func2(t,sample)   #generate waveform
+		wfm_samples = wfm_func2(t,sample)   #generate waveform
 		if not isinstance(wfm_samples[0],(list, tuple, np.ndarray)):   #homodyne
 			wfm_samples = [wfm_samples,np.zeros_like(wfm_samples)]
 		
