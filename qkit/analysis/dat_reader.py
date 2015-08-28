@@ -68,7 +68,7 @@ def load_data(file_name = None):
 
 
 	try:
-		print 'Reading file '+str(nfile)
+		print 'Reading file '+str(nfile).replace('\\','/')
 		data = np.loadtxt(nfile, comments='#').T
 		#print 'Reading successful!'
 	except Exception as message:
