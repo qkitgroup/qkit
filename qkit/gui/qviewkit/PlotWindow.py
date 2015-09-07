@@ -110,6 +110,10 @@ class PlotWindow(QWidget,Ui_Form):
             self.view_type = self.view_types['2D']
         if index == 1:
             self.view_type = self.view_types['1D']
+        """
+        if index == 2:
+            self.view_type = self.view_types['1D-V']
+        """
         #print index
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
@@ -226,7 +230,7 @@ class PlotWindow(QWidget,Ui_Form):
 
             else:
                 return
-            x_name = x_ds.attrs.get("name","_none_")                
+            x_name = x_ds.attrs.get("name","_none_")
             y_name = y_ds.attrs.get("name","_none_")
             
             x_unit = x_ds.attrs.get("unit","_none_")
@@ -244,13 +248,13 @@ class PlotWindow(QWidget,Ui_Form):
         ydata = np.array(ds)
         if len(ydata.shape) == 2:
             ydata = ydata[self.TraceNum]
-        x0 = ds.attrs.get("x0",0)
-        dx = ds.attrs.get("dx",1)
+        x0 = ds.attrs.get("y0",0)
+        dx = ds.attrs.get("dy",1)
         x_data = [x0+dx*i for i in xrange(len(ydata))]
         
-        x_name = ds.attrs.get("x_name","_none_")
+        x_name = ds.attrs.get("y_name","_none_")
         name = ds.attrs.get("name","_none_")
-        x_unit = ds.attrs.get("x_unit","_none_")
+        x_unit = ds.attrs.get("y_unit","_none_")
         unit = ds.attrs.get("unit","_none_")
         
         #plot.setPen((200,200,100))
@@ -305,7 +309,3 @@ class PlotWindow(QWidget,Ui_Form):
         
         #graphicsView.setImage(data)
         #graphicsView.show()
-        
-        
- 
-

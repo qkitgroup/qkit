@@ -69,5 +69,6 @@ class Ui_Form(object):
         Form.setWindowTitle(_translate("Form", "Form", None))
         self.PlotTypeSelector.setItemText(0, _translate("Form", "Color Plot", None))
         self.PlotTypeSelector.setItemText(1, _translate("Form", "Line Plot", None))
+        #self.PlotTypeSelector.setItemText(2._translate("Form", "View", None))
         self.TraceSelector.setPrefix(_translate("Form", "Trace: ", None))
 
