@@ -11,7 +11,7 @@ import sys
 import qt
 
 from qkit.storage import hdf_lib as hdf
-from qkit.analysis import resonator
+from qkit.analysis.resonator import Resonator as resonator
 from qkit.gui.plot import plot as qviewkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 
@@ -58,9 +58,7 @@ class spectrum(object):
 		self.save_dat = True
 		self.save_hdf = False
 		self.progress_bar = True
-
-		self.fit_resonator = False
-		self._fit_fail_comment = 'Circle fit failed for:\n'
+		self._fit_resonator = False
 
 
 	def set_x_parameters(self, x_vec, x_coordname, x_instrument, x_unit = ""):
@@ -257,6 +255,35 @@ class spectrum(object):
 
 		self._measure()
 		self._end_measurement()
+		
+	def set_fit(self,fit_resonator=True,fit_function='',f_min=None,f_max=None):
+		if not fit_resonator:
+			self._fit_resonator = False
+			return
+		self._functions = {'lorentzian':0,'skewed_lorentzian':1,'circle_fit':2,'fano':3,'all':4}
+		try:
+			self._fit_function = self._functions[fit_function]
+		except KeyError:
+			logging.error('Fit function not properly set. Must be either \'lorentzian\', \'skewed_lorentzian\', \'circle_fit\', \'fano\', or \'all\'.')
+		else:
+			self._fit_resonator = True
+			self._f_min = f_min
+			self._f_max = f_max
+
+	def _do_fit_resonator(self):
+		"""
+		if self._fit_function == self._function['lorentzian']:
+			self._resonator.fit_lorentzian(f_min=self._f_min, f_max = self._f_max)
+		if self._fit_function == self._function['skewed_lorentzian']:
+			self._resonator.fit_skewed_lorentzian(f_min=self._f_min, f_max = self._f_max)
+		if self._fit_function == self._function['circle']:
+			self._resonator.fit_circle(f_min=self._f_min, f_max = self._f_max)
+		if self._fit_function == self._function['fano']:
+			self._resonator.fit_fano(f_min=self._f_min, f_max = self._f_max)
+		#if self._fit_function == self._function['all']:
+			#self._resonator.fit_all(f_min=self._f_min, f_max = self._f_max)
+		"""
+		pass
 
 	def _prepare_measurement_vna(self):
 		self.vna.get_all()
@@ -309,8 +336,8 @@ class spectrum(object):
 			self._hdf_pha = self._data_hdf.add_value_matrix('phase', x = self._hdf_x, y = self._hdf_freq, unit='rad')
 		if self.comment:
 			self._data_hdf.add_comment(self.comment) 
-		if self.fit_resonator:
-			self._resonator = resonator(self._data_hdf, hdf_x = self._hdf_x, freq = self._hdf_freq)
+		if self._fit_resonator:
+			self._resonator = resonator(self._data_hdf)
 
 
 	def _measure(self):
@@ -345,6 +372,8 @@ class spectrum(object):
 						if self.save_hdf:
 							self._hdf_amp.append(data_amp)
 							self._hdf_pha.append(data_pha)
+							if self._fit_resonator:
+								self._do_fit_resonator()
 
 						if self.plotlive and not self.save_hdf:
 							qt.msleep(0.1)
@@ -364,6 +393,8 @@ class spectrum(object):
 					if self.save_hdf:
 						self._hdf_amp.append(data_amp)
 						self._hdf_pha.append(data_pha)
+						if self._fit_resonator:
+							self._do_fit_resonator()
 					if self.progress_bar:
 						self._p.iterate()
 
@@ -380,9 +411,8 @@ class spectrum(object):
 					if self.save_hdf:
 						self._hdf_amp.append(data_amp)
 						self._hdf_pha.append(data_pha)
-						if self.fit_resonator:
-							self._resonator.fit_circle()
-
+						if self._fit_resonator:
+							self._do_fit_resonator()
 					if self.progress_bar: 
 						self._p.iterate()
 
@@ -390,8 +420,6 @@ class spectrum(object):
 					qt.msleep(0.1)
 					self._plot_amp.update()
 					self._plot_pha.update()
-			if self.save_hdf and self._fit_fail_comment != 'Circle fit failed for:\n':
-				self._data_hdf.add_comment(comment=self._fit_fail_comment, folder='analysis')
 
 		finally:
 			if self.save_dat:
@@ -458,7 +486,7 @@ class spectrum(object):
 		self._file_name = self.dirname
 		if self.exp_name:
 			self._file_name += '_' + self.exp_name
-		_prepare_measurement_dat_file()
+		self._prepare_measurement_dat_file()
 
 		p = Progress_Bar(self.vna.get_averages(),self.dirname)
 		self.vna.avg_clear()
@@ -475,18 +503,18 @@ class spectrum(object):
 
 		if self.save_dat:
 			for i in np.arange(self._nop):
-				data.add_data_point(self._freqpoints[i], data_amp[i], data_pha[i], data_real[i], data_imag[i])
+				self._data_dat.add_data_point(self._freqpoints[i], data_amp[i], data_pha[i], data_real[i], data_imag[i])
 		if self.save_hdf:
 			self._hdf_amp.append(data_amp)
 			self._hdf_pha.append(data_pha)
 			self._hdf_real.append(data_real)
 			self._hdf_imag.append(data_imag)
-			if self.fit_resonator:
-				self._resonator.fit_circle()
+			if self._fit_resonator:
+				self._do_fit_resonator()
 
-		plot_amp = qt.Plot2D(data, name='amplitude', clear=True, needtempfile=True, autoupdate=True, coorddim=0, valdim=1)
-		plot_pha = qt.Plot2D(data, name='phase', clear=True, needtempfile=True, autoupdate=True, coorddim=0, valdim=2)
-		plot_complex = qt.Plot2D(data, name='Complex Plane', clear=True, needtempfile=True, autoupdate=True, coorddim=3, valdim=4)
+		plot_amp = qt.Plot2D(self._data.dat, name='amplitude', clear=True, needtempfile=True, autoupdate=True, coorddim=0, valdim=1)
+		plot_pha = qt.Plot2D(self._data.dat, name='phase', clear=True, needtempfile=True, autoupdate=True, coorddim=0, valdim=2)
+		plot_complex = qt.Plot2D(self._data.dat, name='Complex Plane', clear=True, needtempfile=True, autoupdate=True, coorddim=3, valdim=4)
 
 		plot_amp.save_png()
 		plot_amp.save_gp()
@@ -495,7 +523,7 @@ class spectrum(object):
 		plot_complex.save_png()
 		plot_complex.save_png()
 
-		data.close_file()
+		self._data.dat.close_file()
 		qt.mend()
 		#print 'Done.'
 		if self.return_dat: return self._freqpoints, data_amp, data_pha
