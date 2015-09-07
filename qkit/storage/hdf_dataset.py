@@ -153,6 +153,8 @@ class hdf_dataset(object):
                 tracelength = 0
                 # create the dataset
                 self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,dim = 1)
+                self._setup_metadata()
+                """
                 ds = self.ds
                 if not self.x_object:
                     # value data
@@ -172,7 +174,7 @@ class hdf_dataset(object):
                     
                 ds.attrs.create("x_unit",self.x_unit)
                 ds.attrs.create("x_name",self.x_name)
-                
+                """
                 
             if data is not None:
                 #print "hf  #: ",self.hf, self.ds
