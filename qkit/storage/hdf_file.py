@@ -135,7 +135,7 @@ class H5_file(object):
 #           self.grp = self.grp.require_group(group)
         elif folder == "views":
             self.grp = self.vgrp
-            
+
         else:
             logging.error("please specify either no folder, folder = 'data' , folder = 'analysis' or folder ='view' ")
             raise

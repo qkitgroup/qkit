@@ -153,29 +153,18 @@ class hdf_dataset(object):
                 tracelength = 0
                 # create the dataset
                 self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,dim = 1)
-                self._setup_metadata()
-                """
-                ds = self.ds
+
                 if not self.x_object:
                     # value data
                     if len(data) > 2:                
                         self.x0 = data[0]
                         self.dx = data[1]-data[0]
-                
-                    ds.attrs.create("x0",self.x0)
-                    ds.attrs.create("dx",self.dx)
                 else:
                     # coordinate vector
                     self.x0 = self.x_object.x0
                     self.dx = self.x_object.dx
-                
-                    ds.attrs.create("x0",self.x0)
-                    ds.attrs.create("dx",self.dx)
-                    
-                ds.attrs.create("x_unit",self.x_unit)
-                ds.attrs.create("x_name",self.x_name)
-                """
-                
+                self._setup_metadata()
+
             if data is not None:
                 #print "hf  #: ",self.hf, self.ds
                 self.hf.append(self.ds,data)

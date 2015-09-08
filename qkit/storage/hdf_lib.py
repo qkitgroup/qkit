@@ -99,8 +99,14 @@ class Data(object):
     
     def add_comment(self,comment, folder = "data" ):
         if folder == "data":
-            self.hf.dgrp.attrs.create("comment",comment)
+            #existing_comment = self.hf.dgrp.attrs.get('comment',None)
+            #if existing_comment:
+            #    comment = existing_comment+\n+comment
+            self.hf.dgrp.attrs.create('comment',comment)
         if folder == "analysis":
+            #existing_comment = self.hf.agrp.attrs.get('comment',None)
+            #if existing_comment:
+            #    comment = existing_comment+\n+comment
             self.hf.agrp.attrs.create("comment",comment)
             
     def add_coordinate(self,  name, unit = "", comment = "",folder="data",**meta):
@@ -135,8 +141,6 @@ class Data(object):
         """
         ds =  dataset_view(self.hf,name, x=x, y=y, x_axis=x_axis, y_axis=y_axis, comment=comment)
         return ds
-        
-        pass        
     
     def get_dataset(self,ds_url):
         return hdf_dataset(self.hf,ds_url = ds_url)
