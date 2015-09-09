@@ -213,17 +213,17 @@ class Resonator(object):
         self._result_keys = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Qr":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Qr_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
         self._results = {}
 
-        self._circ_amp_gen = self._hf.add_value_matrix('circle_fit_amplitude_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
-        self._circ_pha_gen = self._hf.add_value_matrix('circle_fit_phase_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='rad')
-        self._circ_real_gen = self._hf.add_value_matrix('circle_fit_real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
-        self._circ_imag_gen = self._hf.add_value_matrix('circle_fit_imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+        self._circ_amp_gen = self._hf.add_value_matrix('circ_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
+        self._circ_pha_gen = self._hf.add_value_matrix('circ_pha_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='rad')
+        self._circ_real_gen = self._hf.add_value_matrix('circ_real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+        self._circ_imag_gen = self._hf.add_value_matrix('circ_imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
 
         for key in self._result_keys.iterkeys():
-           self._results[str(key)] = self._hf.add_value_vector('circle_fit_'+str(key), folder = 'analysis', x = self._x_co, unit ='')
+           self._results[str(key)] = self._hf.add_value_vector('circ_'+str(key), folder = 'analysis', x = self._x_co, unit ='')
 
-        circ_view_amp = self._hf.add_view("circle_fit_amp", x = self._y_co, y = self._ds_amp)
+        circ_view_amp = self._hf.add_view('circ_amp', x = self._y_co, y = self._ds_amp)
         circ_view_amp.add(x=self._frequency_co, y=self._circ_amp_gen)
-        circ_view_pha = self._hf.add_view("circle_fit_amp", x = self._y_co, y = self._ds_pha)
+        circ_view_pha = self._hf.add_view('circ_pha', x = self._y_co, y = self._ds_pha)
         circ_view_pha.add(x=self._frequency_co, y=self._circ_pha_gen)
 
     def _get_data_circle(self):
@@ -311,16 +311,16 @@ class Resonator(object):
         '''
         creates the datasets for the lorentzian fit in the hdf-file
         '''
-        self._lrnz_amp_gen = self._hf.add_value_matrix('lorentzian_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
-        self._lrnz_f0 = self._hf.add_value_vector('lorentzian_f0_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
-        self._lrnz_k = self._hf.add_value_vector('lorentzian_k_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
-        self._lrnz_a = self._hf.add_value_vector('lorentzian_a_fit', folder = 'analysis', x = self._x_co, unit = '')
-        self._lrnz_offs = self._hf.add_value_vector('lorentzian_offs_fit', folder = 'analysis', x = self._x_co, unit = '')
-        self._lrnz_Ql = self._hf.add_value_vector('lorentzian_ql_fit', folder = 'analysis', x = self._x_co, unit = '')
+        self._lrnz_amp_gen = self._hf.add_value_matrix('lrnz_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
+        self._lrnz_f0 = self._hf.add_value_vector('lrnz_f0', folder = 'analysis', x = self._x_co, unit = 'Hz')
+        self._lrnz_k = self._hf.add_value_vector('lrnz_k', folder = 'analysis', x = self._x_co, unit = 'Hz')
+        self._lrnz_a = self._hf.add_value_vector('lrnz_a', folder = 'analysis', x = self._x_co, unit = '')
+        self._lrnz_offs = self._hf.add_value_vector('lrnz_offs', folder = 'analysis', x = self._x_co, unit = '')
+        self._lrnz_Ql = self._hf.add_value_vector('lrnz_ql', folder = 'analysis', x = self._x_co, unit = '')
 
-        self._lrnz_chi2_fit  = self._hf.add_value_vector('lorentzian_chi2_fit' , folder = 'analysis', x = self._x_co, unit = '')
+        self._lrnz_chi2_fit  = self._hf.add_value_vector('lrnz_chi2' , folder = 'analysis', x = self._x_co, unit = '')
 
-        lrnz_view = self._hf.add_view("lorentzian_fit", x = self._y_co, y = self._ds_amp)
+        lrnz_view = self._hf.add_view("lrnz_fit", x = self._y_co, y = self._ds_amp)
         lrnz_view.add(x=self._frequency_co, y=self._lrnz_amp_gen)
 
     def _lorentzian_from_fit(self,fit):
@@ -399,17 +399,17 @@ class Resonator(object):
         '''
         creates the datasets for the skewed lorentzian fit in the hdf-file
         '''
-        self._skwd_amp_gen = self._hf.add_value_matrix('skewed_lorentzian_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
-        self._skwd_f0 = self._hf.add_value_vector('skewed_lorentzian_f0_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
-        self._skwd_a1 = self._hf.add_value_vector('skewed_lorentzian_a1_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
-        self._skwd_a2 = self._hf.add_value_vector('skewed_lorentzian_a2_fit', folder = 'analysis', x = self._x_co, unit = '')
-        self._skwd_a3 = self._hf.add_value_vector('skewed_lorentzian_a3_fit', folder = 'analysis', x = self._x_co, unit = '')
-        self._skwd_a4 = self._hf.add_value_vector('skewed_lorentzian_a4_fit', folder = 'analysis', x = self._x_co, unit = '')
-        self._skwd_Qr = self._hf.add_value_vector('skewed_lorentzian_qr_fit', folder = 'analysis', x = self._x_co, unit = '')
+        self._skwd_amp_gen = self._hf.add_value_matrix('sklr_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
+        self._skwd_f0 = self._hf.add_value_vector('sklr_f0', folder = 'analysis', x = self._x_co, unit = 'Hz')
+        self._skwd_a1 = self._hf.add_value_vector('sklr_a1', folder = 'analysis', x = self._x_co, unit = 'Hz')
+        self._skwd_a2 = self._hf.add_value_vector('sklr_a2', folder = 'analysis', x = self._x_co, unit = '')
+        self._skwd_a3 = self._hf.add_value_vector('sklr_a3', folder = 'analysis', x = self._x_co, unit = '')
+        self._skwd_a4 = self._hf.add_value_vector('sklr_a4', folder = 'analysis', x = self._x_co, unit = '')
+        self._skwd_Qr = self._hf.add_value_vector('sklr_qr', folder = 'analysis', x = self._x_co, unit = '')
 
-        self._skwd_chi2_fit  = self._hf.add_value_vector('skewed_lorentzian_chi2_fit' , folder = 'analysis', x = self._x_co, unit = '')
+        self._skwd_chi2_fit  = self._hf.add_value_vector('sklr_chi2' , folder = 'analysis', x = self._x_co, unit = '')
 
-        skwd_view = self._hf.add_view("skewed_lorentzian_fit", x = self._y_co, y = self._ds_amp)
+        skwd_view = self._hf.add_view('sklr_fit', x = self._y_co, y = self._ds_amp)
         skwd_view.add(x=self._frequency_co, y=self._skwd_amp_gen)
 
     def _skewed_fit_chi2(self, fit, amplitudes_sq):
@@ -425,16 +425,16 @@ class Resonator(object):
         "create the datasets for the fano fit in the hdf-file"
 
         self._fano_amp_gen = self._hf.add_value_matrix('fano_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
-        self._fano_q_fit  = self._hf.add_value_vector('fano_q_fit' , folder = 'analysis', x = self._x_co, unit = '')
-        self._fano_bw_fit = self._hf.add_value_vector('fano_bw_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
-        self._fano_fr_fit = self._hf.add_value_vector('fano_fr_fit', folder = 'analysis', x = self._x_co, unit = 'Hz')
-        self._fano_a_fit  = self._hf.add_value_vector('fano_a_fit' , folder = 'analysis', x = self._x_co, unit = '')
+        self._fano_q_fit  = self._hf.add_value_vector('fano_q' , folder = 'analysis', x = self._x_co, unit = '')
+        self._fano_bw_fit = self._hf.add_value_vector('fano_bw', folder = 'analysis', x = self._x_co, unit = 'Hz')
+        self._fano_fr_fit = self._hf.add_value_vector('fano_fr', folder = 'analysis', x = self._x_co, unit = 'Hz')
+        self._fano_a_fit  = self._hf.add_value_vector('fano_a' , folder = 'analysis', x = self._x_co, unit = '')
 
-        self._fano_chi2_fit  = self._hf.add_value_vector('fano_chi2_fit' , folder = 'analysis', x = self._x_co, unit = '')
-        self._fano_Ql_fit    = self._hf.add_value_vector('fano_Ql_fit' , folder = 'analysis', x = self._x_co, unit = '')
-        self._fano_Q0_fit    = self._hf.add_value_vector('fano_Q0_fit' , folder = 'analysis', x = self._x_co, unit = '')
+        self._fano_chi2_fit  = self._hf.add_value_vector('fano_chi2' , folder = 'analysis', x = self._x_co, unit = '')
+        self._fano_Ql_fit    = self._hf.add_value_vector('fano_Ql' , folder = 'analysis', x = self._x_co, unit = '')
+        self._fano_Q0_fit    = self._hf.add_value_vector('fano_Q0' , folder = 'analysis', x = self._x_co, unit = '')
 
-        fano_view = self._hf.add_view("fano_fit", x = self._y_co, y = self._ds_amp)
+        fano_view = self._hf.add_view('fano_fit', x = self._y_co, y = self._ds_amp)
         fano_view.add(x=self._frequency_co, y=self._fano_amp_gen)
 
     def fit_fano(self,fit_all = False, f_min=None, f_max=None):
@@ -562,7 +562,6 @@ if __name__ == "__main__":
         description="resonator.py hdf-based simple resonator fit frontend / KIT 2015")
 
     parser.add_argument('-f','--file',     type=str, help='hdf filename to open')
-    #parser.add_argument('-ds','--datasets', type=str, help='(optional) datasets opened by default')
     parser.add_argument('-lf','--lorentz-fit',  default=False,action='store_true', help='(optional) lorentzian fit')
     parser.add_argument('-ff','--fano-fit',     default=False,action='store_true', help='(optional) fano fit')
     parser.add_argument('-cf','--circle-fit',   default=False,action='store_true', help='(optional) circle fit')
@@ -573,8 +572,8 @@ if __name__ == "__main__":
     args=parser.parse_args()
     #argsfile=None
     if args.file:
-
-        R = Resonator(args.file)
+        hf = hdf_lib.Data(path=args.file.encode("string-escape"))
+        R = Resonator(hf)
         fit_all = args.fit_all
 
         if args.frequency_range:
