@@ -1,5 +1,5 @@
 # qkit
-Qkit framework -- an extension to qtlab
+Qkit framework -- an extension to qtlab written in python
 
 ### Features:
   * a collection of ipython notebooks for measurement and data anaysis tasks 
@@ -14,14 +14,14 @@ Qkit framework -- an extension to qtlab
  
 ### Requirements:
 #### Basic:
-  * An up to date python distribution, including the qt gui libs. 
-    e.g.  anaconda python http://continuum.io/downloads 
+  * An up to date python distribution, including the qt gui libs.  
+    e.g.  anaconda python http://continuum.io/downloads  
           python xy http://pythonxynews.blogspot.de/
   * pyqtgraph is required by the viewer (qkit/gui/qviewkit) : http://www.pyqtgraph.org/
 
 
 #### Full:
-  * For a full installation, qtlab is required, e.g from https://github.com/heeres/qtlab
+  * For a full installation, qtlab is required, e.g. from https://github.com/heeres/qtlab
 
 
 ### Installation:
@@ -37,7 +37,7 @@ Qkit framework -- an extension to qtlab
 
 
 
-### Extended 2015- by
+### Extended 2015+ by
 
 J.C. Braumueller  
 M. Pfirrmann  
