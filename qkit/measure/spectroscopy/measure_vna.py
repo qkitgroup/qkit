@@ -303,7 +303,6 @@ class spectrum(object):
         only the last 'slice' of data is fitted, since we fit live while measuring.
         '''
 
-        """
         if self._fit_function == self._function['lorentzian']:
             self._resonator.fit_lorentzian(f_min=self._f_min, f_max = self._f_max)
         if self._fit_function == self._function['skewed_lorentzian']:
@@ -314,8 +313,6 @@ class spectrum(object):
             self._resonator.fit_fano(f_min=self._f_min, f_max = self._f_max)
         #if self._fit_function == self._function['all_fits']:
             #self._resonator.fit_all_fits(f_min=self._f_min, f_max = self._f_max)
-        """
-        pass
 
     def _prepare_measurement_vna(self):
         '''
@@ -504,6 +501,7 @@ class spectrum(object):
             self._data_dat.close_file()
         if self.save_hdf:
             print self._data_hdf.get_filepath()
+            qviewkit.save(self._data_hdf.get_filepath())
             self._data_hdf.close_file()
 
     def _plot_dat_file(self):

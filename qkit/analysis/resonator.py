@@ -47,16 +47,35 @@ class Resonator(object):
     """
 
     def set_file(self,hf):
+        """
+        sets hf file
+        input:
+        hf (HDF5-file)
+        """
         self._hf=hf
         self._prepare()
 
-    def close_file(self):
-        self._hf.close()
-
     def set_x_coord(self,x_co):
-        self._x_co = x_co
+        """
+        sets x-coordinate for the datasets
+        input:
+        x_co (string): url of the x-coordinate
+        """
+        try:
+            self._x_co = self._hf.get_dataset(x_co)
+        except KeyError:
+            logging.warning('Unable to open any x_coordinate. Please set manually using \'set_x_coord()\'.')
+
     def set_y_coord(self,y_co):
-        self._y_co = y_co
+        """
+        sets y-coordinate for the datasets
+        input:
+        y_co (string): url of the y-coordinate
+        """
+        try:
+            self._y_co = self._hf.get_dataset(y_co)
+        except KeyError:
+            logging.warning('Unable to open any y_coordinate. Please set manually using \'set_y_coord()\'.')
 
     def _set_data_range(self, data):
         '''
@@ -87,7 +106,6 @@ class Resonator(object):
 
         # these ds_url depend on the measurement and may not exist
         ds_url_power  = "/entry/data0/power"
-        ds_url_temp = "/entry/data0/temperature"
 
         self._ds_amp = self._hf.get_dataset(ds_url_amp)
         self._ds_pha = self._hf.get_dataset(ds_url_pha)
@@ -98,15 +116,16 @@ class Resonator(object):
 
         try:
             self._x_co = self._hf.get_dataset(self._ds_amp.x_ds_url)
-        except AttributeError:
-            try: self._x_co = self._hf.get_dataset(ds_url_power) # hardcode a std url
-            except AttributeError:
+        except KeyError:
+            try: 
+                self._x_co = self._hf.get_dataset(ds_url_power) # hardcode a std url
+            except KeyError:
                 logging.warning('Unable to open any x_coordinate. Please set manually using \'set_x_coord()\'.')
         try:
             self._y_co = self._hf.get_dataset(self._ds_amp.y_ds_url)
-        except AttributeError:
+        except KeyError:
             try: self._y_co = self._hf.get_dataset(ds_url_freq) # hardcode a std url
-            except AttributeError:
+            except KeyError:
                 logging.warning('Unable to open any y_coordinate. Please set manually using \'set_y_coord()\'.')
 
     def _global_prepare(self,fit_all,f_min,f_max):
@@ -578,22 +597,20 @@ if __name__ == "__main__":
 
         if args.frequency_range:
             freq_range=args.frequency_range.split(',')
-            f0=int(freq_range[0])
-            f1=int(freq_range[1])
+            f_min=int(freq_range[0])
+            f_max=int(freq_range[1])
         else:
-            f0=None
-            f1=None
+            f_min=None
+            f_max=None
 
         if args.circle_fit:
-            R.fit_circle(fit_all=fit_all, f0=f0,f1=f1)
+            R.fit_circle(fit_all=fit_all, fmin=f_min,f_max=f_max)
         if args.lorentzian_fit:
-            R.fit_lorentzian(fit_all=fit_all, f0=f0,f1=f1)
+            R.fit_lorentzian(fit_all=fit_all, f_min=f_min,f_max=f_max)
         if args.skewed_lorentzian_fit:
-            R.fit_skewed_lorentzian(fit_all=fit_all, f0=f0,f1=f1)
+            R.fit_skewed_lorentzian(fit_all=fit_all, f_min=f_min,f_max=f_max)
         if args.fano_fit:
-            R.fit_fano(fit_all=fit_all, f0=f0,f1=f1)
+            R.fit_fano(fit_all=fit_all, f_min=f_min,f_max=f_max)
+        hf.close()
     else:
         print "no file supplied. type -h for help"
-    try:
-        R.close_file()
-    finally: pass

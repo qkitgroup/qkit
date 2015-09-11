@@ -277,7 +277,7 @@ class PlotWindow(QWidget,Ui_Form):
                 symbols=['+','o','s','t','d']
                 graphicsView.plot(y=y_data, x=x_data,pen=(i,3), name = y_name, connect='finite',symbol=symbols[i%len(symbols)])
             if self.plot_style==self.plot_styles['point']:
-                symbols=['+','o','s','t','d']
+                symbols=['+','o','s','d','t']
                 graphicsView.plot(y=y_data, x=x_data, name = y_name,pen=None,symbol=symbols[i%len(symbols)])
 
     def _display_1D_data(self,graphicsView):
