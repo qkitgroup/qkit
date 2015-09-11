@@ -501,7 +501,7 @@ class spectrum(object):
             self._data_dat.close_file()
         if self.save_hdf:
             print self._data_hdf.get_filepath()
-            qviewkit.save(self._data_hdf.get_filepath())
+            qviewkit.save_plots(self._data_hdf.get_filepath())
             self._data_hdf.close_file()
 
     def _plot_dat_file(self):

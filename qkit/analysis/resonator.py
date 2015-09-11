@@ -5,7 +5,7 @@ import numpy as np
 import logging
 
 from qkit.storage import hdf_lib
-from qkit.analysis.circle_fit import resonator_tools_xtras as rtx
+#from qkit.analysis.circle_fit import resonator_tools_xtras as rtx
 from scipy.optimize import leastsq
 
 
@@ -28,8 +28,8 @@ class Resonator(object):
         res.fit_circle(fit_all=True,f_max=5.668e9)
     '''
 
-    def __init__(self, hf=None):
-        self._hf = hf
+    def __init__(self, hf_path=None):
+        self._hf = hdf_lib.Data(path=hf_path)
 
         self._first_circle = True
         self._first_lorentzian = True
@@ -55,6 +55,9 @@ class Resonator(object):
         self._hf=hf
         self._prepare()
 
+    def close(self):
+        self._hf.close()
+
     def set_x_coord(self,x_co):
         """
         sets x-coordinate for the datasets
@@ -63,7 +66,7 @@ class Resonator(object):
         """
         try:
             self._x_co = self._hf.get_dataset(x_co)
-        except KeyError:
+        except:
             logging.warning('Unable to open any x_coordinate. Please set manually using \'set_x_coord()\'.')
 
     def set_y_coord(self,y_co):
@@ -74,7 +77,7 @@ class Resonator(object):
         """
         try:
             self._y_co = self._hf.get_dataset(y_co)
-        except KeyError:
+        except:
             logging.warning('Unable to open any y_coordinate. Please set manually using \'set_y_coord()\'.')
 
     def _set_data_range(self, data):
@@ -116,16 +119,16 @@ class Resonator(object):
 
         try:
             self._x_co = self._hf.get_dataset(self._ds_amp.x_ds_url)
-        except KeyError:
+        except:
             try: 
                 self._x_co = self._hf.get_dataset(ds_url_power) # hardcode a std url
-            except KeyError:
+            except:
                 logging.warning('Unable to open any x_coordinate. Please set manually using \'set_x_coord()\'.')
         try:
             self._y_co = self._hf.get_dataset(self._ds_amp.y_ds_url)
-        except KeyError:
+        except:
             try: self._y_co = self._hf.get_dataset(ds_url_freq) # hardcode a std url
-            except KeyError:
+            except:
                 logging.warning('Unable to open any y_coordinate. Please set manually using \'set_y_coord()\'.')
 
     def _global_prepare(self,fit_all,f_min,f_max):
@@ -213,7 +216,7 @@ class Resonator(object):
                 self._imag_gen.append(err)
 
                 for key in self._results.iterkeys():
-                    self._results[str(key)].append(float('nan'))
+                    self._results[str(key)].append(np.nan)
 
             else:
                 z_data_gen = np.array([A2 * (f - frcal) + rtx.S21(f, fr=float(results["fr"]), Qr=float(results["Qr"]), Qc=float(results["absQc"]), phi=float(results["phi0"]), a= amp_norm, alpha= alpha, delay=delay) for f in self._fit_frequency])
@@ -308,13 +311,13 @@ class Resonator(object):
             try:
                 fit = leastsq(residuals,p0,args=(self._fit_frequency,amplitudes_sq))
             except:
-                self._lrnz_amp_gen.append(np.array([float('nan') for f in self._fit_frequency]))
-                self._lrnz_f0.append(float('nan'))
-                self._lrnz_k.append(float('nan'))
-                self._lrnz_a.append(float('nan'))
-                self._lrnz_offs.append(float('nan'))
-                self._lrnz_Ql.append(float('nan'))
-                self._lrnz_chi2_fit.append(float('nan'))
+                self._lrnz_amp_gen.append(np.array([np.nan for f in self._fit_frequency]))
+                self._lrnz_f0.append(np.nan)
+                self._lrnz_k.append(np.nan)
+                self._lrnz_a.append(np.nan)
+                self._lrnz_offs.append(np.nan)
+                self._lrnz_Ql.append(np.nan)
+                self._lrnz_chi2_fit.append(np.nan)
             else:
                 popt=fit[0]
                 chi2 = self._lorentzian_fit_chi2(popt,amplitudes_sq)
@@ -393,14 +396,14 @@ class Resonator(object):
                 p_final = leastsq(residuals2,p0,args=(self._fit_frequency,amplitudes_sq))
                 popt=p_final[0]
             except:
-                self._skwd_amp_gen.append(np.array([float('nan') for f in self._fit_frequency]))
-                self._skwd_f0.append(float('nan'))
-                self._skwd_a1.append(float('nan'))
-                self._skwd_a2.append(float('nan'))
-                self._skwd_a3.append(float('nan'))
-                self._skwd_a4.append(float('nan'))
-                self._skwd_Qr.append(float('nan'))
-                self._skwd_chi2_fit.append(float('nan'))
+                self._skwd_amp_gen.append(np.array([np.nan for f in self._fit_frequency]))
+                self._skwd_f0.append(np.nan)
+                self._skwd_a1.append(np.nan)
+                self._skwd_a2.append(np.nan)
+                self._skwd_a3.append(np.nan)
+                self._skwd_a4.append(np.nan)
+                self._skwd_Qr.append(np.nan)
+                self._skwd_chi2_fit.append(np.nan)
             else:
                 chi2 = self._skewed_fit_chi2(popt,amplitudes_sq)
                 amp_gen = np.sqrt(np.array(self._skewed_from_fit(popt)))
@@ -482,14 +485,14 @@ class Resonator(object):
                 chi2 = self._fano_fit_chi2(fit, amplitude_sq)
 
             except:
-                self._fano_amp_gen.append(np.array([float('nan') for f in self._fit_frequency]))
-                self._fano_q_fit.append(float('nan'))
-                self._fano_bw_fit.append(float('nan'))
-                self._fano_fr_fit.append(float('nan'))
-                self._fano_a_fit.append(float('nan'))
-                self._fano_chi2_fit.append(float('nan'))
-                self._fano_Ql_fit.append(float('nan'))
-                self._fano_Q0_fit.append(float('nan'))
+                self._fano_amp_gen.append(np.array([np.nan for f in self._fit_frequency]))
+                self._fano_q_fit.append(np.nan)
+                self._fano_bw_fit.append(np.nan)
+                self._fano_fr_fit.append(np.nan)
+                self._fano_a_fit.append(np.nan)
+                self._fano_chi2_fit.append(np.nan)
+                self._fano_Ql_fit.append(np.nan)
+                self._fano_Q0_fit.append(np.nan)
 
             else:
                 ''' save the fitted data to the hdf_file'''
@@ -566,7 +569,7 @@ class Resonator(object):
         if len(f_3dB)>1:
             q0 = fr/(f_3dB[1]-f_3dB[0])
             return float(q0)
-        else: return float('nan')
+        else: return np.nan
 
     def fit_all_fits(self,fit_all=False,f_min=None,f_max=None):
         self.fit_lorentzian(fit_all,f_min,f_max)
@@ -591,8 +594,7 @@ if __name__ == "__main__":
     args=parser.parse_args()
     #argsfile=None
     if args.file:
-        hf = hdf_lib.Data(path=args.file.encode("string-escape"))
-        R = Resonator(hf)
+        R = Resonator(args.file)
         fit_all = args.fit_all
 
         if args.frequency_range:
@@ -611,6 +613,6 @@ if __name__ == "__main__":
             R.fit_skewed_lorentzian(fit_all=fit_all, f_min=f_min,f_max=f_max)
         if args.fano_fit:
             R.fit_fano(fit_all=fit_all, f_min=f_min,f_max=f_max)
-        hf.close()
+        R.close()
     else:
         print "no file supplied. type -h for help"
