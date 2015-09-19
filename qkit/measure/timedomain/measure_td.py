@@ -1,4 +1,4 @@
-# modified and adapted by JB@KIT 04/2015, 08/2015
+# modified and adapted by JB@KIT 04/2015, 09/2015
 # time domain measurement class
 
 import qt
