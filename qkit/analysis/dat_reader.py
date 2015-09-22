@@ -10,6 +10,13 @@ import os, glob
 import time
 import logging
 
+no_do = False
+try:
+	import data_optimizer as do
+except ImportError as m:
+	print 'Warning: data optimizer not available.'
+	no_do = True
+
 no_qt = False
 try:
 	import qt
@@ -148,7 +155,7 @@ def _extract_initial_oscillating_parameters(data,data_c):
 	return s_offs, s_a, s_Td, s_fs, s_ph
 
 
-def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, save_pdf = False, data=None, nfile=None):
+def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, save_pdf = False, data=None, nfile=None, opt=None):
 	
 	'''
 	fit the data in file_name to a function specified by fit_function
@@ -162,6 +169,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 	show_plot: show and safe the plot (optional, default = True)
 	save_pdf: save plot also as pdf file (optional, default = False)
 	data, nfile: pass data object and file name which is used when file_name == 'dat_import'
+	opt: bool, set to True if data is to be optimized prior to fitting
 	
 	returns fit parameters, standard deviations concatenated: [popt1,pop2,...poptn,err_popt1,err_popt2,...err_poptn]
 	in case fit does not converge, errors are filled with 'inf'
@@ -194,6 +202,13 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 	if data_c >= len(data):
 		print 'bad data column identifier, out of bonds...aborting'
 		return
+		
+	#data optimization
+	if opt:
+		if no_do:
+			logging.warning('Data is not optimized since package is not loaded.')
+		data = do.optimize(data,data_c,data_c+1)
+		data_c = 1
 	
 	# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	if fit_function == 'lorentzian':
