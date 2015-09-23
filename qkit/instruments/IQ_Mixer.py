@@ -292,7 +292,7 @@ class IQ_Mixer(Instrument):
 		self._sample.awg.set({'ch1_waveform':self._ch1_filename,
 							'ch1_offset':0,
 							'ch1_amplitude':2,
-							'ch1_waveform':self._ch2_filename,
+							'ch2_waveform':self._ch2_filename,
 							'ch1_offset':0,
 							'ch1_amplitude':2})
 		self._sample.awg.run()
@@ -395,6 +395,10 @@ class IQ_Mixer(Instrument):
 		sweeptime = self._fsup.get_sweeptime()
 		self._fsup.sweep()
 		qt.msleep(sweeptime)
+		plt.plot(self._fsup.get_frequencies()/1e9,self._fsup.get_trace())
+		plt.xlabel('Frequency (GHz)')
+		plt.ylabel('Power (dBm)')
+		plt.grid()
 
 		if self._swb != None: #switching back
 			self._swb.set_position('1')
@@ -422,7 +426,7 @@ class IQ_Mixer(Instrument):
 			pass
 		data=data.reshape((data.size/18,18))
 		np.savetxt(qt.config.get('datadir')+"\\IQMixer\%s.cal"%(self.mixer_name),data,("%.2f","%.2f","%.2f","%i","%.3f","%.3f","%.3f","%.3f","%.6f","%.3f","%.3f","%.4f","%.4f","%.4f","%.4f","%.4f","%.4f","%.4f"))
-		return currentdata
+		return currentdata[0]
 
 	def initial_calibrate(self):
 		if not self._FSUP_connected: 
@@ -435,8 +439,8 @@ class IQ_Mixer(Instrument):
 		qt.mstart()
 		(hx_amp,hx_phase,hy_amp,hy_phase,phaseoffset)=(0,0,0,0,0) 
 		mw_freq=self._f_rounded - self._iq_frequency
-				if self._iq_frequency == 0:	logging.warning(__name__+': Your IQ Frequency is 0. It is better to calibrate with a finite IQ frequency because you will get inconsistent data in the calibration file otherwise. If you calibrate with iq!=0, the right values for iq=0 are extracted.')
-				
+		if self._iq_frequency == 0:	logging.warning(__name__+': Your IQ Frequency is 0. It is better to calibrate with a finite IQ frequency because you will get inconsistent data in the calibration file otherwise. If you calibrate with iq!=0, the right values for iq=0 are extracted.')
+		
 		#self._sample.awg.stop()
 		self._sample.awg.set({'ch1_output':0,'ch2_output':0,'runmode':'CONT'})
 		self._sample.qubit_mw_src.set({'frequency':mw_freq, 'power':self._mw_power, 'status':1})
@@ -534,13 +538,14 @@ class IQ_Mixer(Instrument):
 			if NeedForInterpolation:
 				if left_border==-np.inf: #Within interpol_freqspan, only higher calibrated frequencies could be found
 					print "initial calibration for this frequency required, because only higher frequencies are calibrated yet."
-					self._f_rounded = np.floor(self._sideband_frequency/1e3)*1e3
+					self._f_rounded = np.floor(self._sideband_frequency/1e4)*1e4-100e6
 					return self.initial_calibrate()    
 				if right_border==+np.inf: #same for lower frequencies
 					print "initial calibration for this frequency required, because only lower frequencies are calibrated yet."
-					self._f_rounded = np.ceil(self._sideband_frequency/1e3)*1e3
+					self._f_rounded = np.ceil(self._sideband_frequency/1e4)*1e4+100e6
 					return self.initial_calibrate() 
 				if (left_border==right_border):
+					print "Same frequency for different powers found"
 					return self.recalibrate(storedvalues[left_border][4],storedvalues[left_border][5],storedvalues[left_border][6],storedvalues[left_border][7],storedvalues[left_border][8],storedvalues[left_border][9],storedvalues[left_border][10])
 				interpolated=storedvalues[left_border]+(storedvalues[right_border]-storedvalues[left_border])*(self._sideband_frequency-storedvalues[left_border][0])/(storedvalues[right_border][0]-storedvalues[left_border][0])
 				if (storedvalues[right_border][0]-storedvalues[left_border][0])<=self.trust_region: #No need for recalibration
@@ -548,7 +553,12 @@ class IQ_Mixer(Instrument):
 						return self.recalibrate(interpolated[4],interpolated[5],interpolated[6],interpolated[7],interpolated[8],interpolated[9],interpolated[10])
 					#print "using interpolated values"
 					return interpolated
-				else: 
+				else:
+					print "recalibrate interpolated values"
+					if storedvalues[right_border][0] - self._sideband_frequency > self._sideband_frequency - storedvalues[left_border][0]: #sideband_frequency is closer to left border
+						self._f_rounded = np.ceil(self._sideband_frequency/1e3)*1e3
+					else:
+						self._f_rounded = np.floor(self._sideband_frequency/1e3)*1e3
 					return self.recalibrate(interpolated[4],interpolated[5],interpolated[6],interpolated[7],interpolated[8],interpolated[9],interpolated[10])
 			else:
 				print "initial calibration for this frequency required. Think about using the interpol_freqspan option!"
@@ -559,9 +569,9 @@ class IQ_Mixer(Instrument):
 			print "initial calibration required"
 			if self._sideband_frequency != np.round(self._sideband_frequency,-3): #If we only calibrate the rounded frequency, we will get problems later, because there is nothing to interpolate against
 				self._f_rounded = np.floor(self._sideband_frequency/1e3)*1e3
-				self.initial_calibrate()
+				dcx,dcy,x,y,phaseoffset,relamp,relamp2 = self.initial_calibrate()[4:11]
 				self._f_rounded = np.ceil(self._sideband_frequency/1e3)*1e3
-			return self.initial_calibrate()
+			return self.recalibrate(dcx,dcy,x,y,phaseoffset,relamp,relamp2)
 		
 	def get_calibration(self,frequency=None,power=None,iq_frequency=None):
 		return self.calibrate(recalibrate=False,frequency=frequency,power=power,iq_frequency=iq_frequency)
@@ -581,10 +591,13 @@ class IQ_Mixer(Instrument):
 		self.do_set_iq_frequency(self._sample.iq_frequency) #This is unnecessary, because it's done in calibrate()
 		self.get_all()
 		dcx,dcy,x,y,phaseoffset,relamp,relamp2=params[4:11]
-		if self._iq_frequency == 0: x,y,phaseoffset,relamp,relamp2 = 0,0,0,1,1 #homodyne
+		if self._iq_frequency == 0: x,y,phaseoffset,relamp,relamp2 = 0.,0.,0.,1.,1. #homodyne
 		t=np.arange(len(wfm))/self._sample.clock
 		#Relamp is Peak-to-Peak
 		relamp,relamp2=relamp/2,relamp2/2
 		angle = np.angle(wfm)
+		wfm1 = dcx+np.abs(wfm)*(relamp*self.ch1(2*np.pi*self._iq_frequency*t+angle+phaseoffset)-dcx+x)
+		wfm2 = dcy+np.abs(wfm)*(relamp2*self.ch2(2*np.pi*self._iq_frequency*t+angle)-dcy+y)
+		del dcx,dcy,x,y,phaseoffset,relamp,relamp2,t,angle
 		gc.collect()
-		return (dcx+np.abs(wfm)*(relamp*self.ch1(2*np.pi*self._iq_frequency*t+angle+phaseoffset)-dcx+x),dcy+np.abs(wfm)*(relamp2*self.ch2(2*np.pi*self._iq_frequency*t+angle)-dcy+y) )
+		return (wfm1,wfm2 )

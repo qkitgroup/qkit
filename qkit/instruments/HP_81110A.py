@@ -65,10 +65,14 @@ class HP_81110A(Instrument):
         self.add_parameter('low', type=types.FloatType,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, self._channels), minval=-10.0, maxval=9.90, units='Volts',channel_prefix='ch%d_')
-        self.add_parameter('status', type=types.BooleanType, channels=(1, self._channels),
+        self.add_parameter('status', type=types.StringType, channels=(1, self._channels),
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,channel_prefix='ch%d_')
-        self.add_parameter('display', type=types.BooleanType,
+        self.add_parameter('add_channels', type=types.StringType,
+            flags=Instrument.FLAG_GETSET)# | Instrument.FLAG_GET_AFTER_SET)
+        self.add_parameter('display', type=types.StringType,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET)
+        self.add_parameter('frequency', type=types.FloatType, 
+            flags=Instrument.FLAG_GETSET, units = 'Hz')
 
         self.add_function('reset')
         self.add_function('get_all')
@@ -122,8 +126,27 @@ class HP_81110A(Instrument):
             self.get('ch%d_status' % i)
 
         self.get_display()
+        self.get_frequency()
 
     # communication with device
+    def do_get_frequency(self):
+    	'''
+    	Gets the pulse repetition frequency
+    	
+    	Output:
+    		frequency (float): pulse repetition frequency in Hz
+    	'''
+    	return float(self._visainstrument.ask(':FREQ?'))
+		
+    def do_set_frequency(self, frequency):
+    	'''
+    	Sets the pulse repetition frequency
+    	
+    	Input:
+    		frequency (float): pulse repetition frequency in Hz
+    	'''
+    	self._visainstrument.write(':FREQ %e'%frequency)
+
     def do_get_delay(self, channel):
         '''
         Reads the pulse delay from the specified channel
@@ -147,8 +170,7 @@ class HP_81110A(Instrument):
 
         Output:
             None
-        '''
-        logging.debug(__name__ + ' : set delay for channel %d to %f' % (channel, val))
+       
         self._visainstrument.write(':PULS:DEL' + str(channel) + " " + str(val) + "S")
 
     def do_get_width(self, channel):
@@ -244,7 +266,11 @@ class HP_81110A(Instrument):
         '''
         logging.debug(__name__ + ' : getting status for channel %d' % channel)
         val = self._visainstrument.ask('OUTP' + str(channel) + '?')
-        return bool(val)
+        if (val=='1'):
+            return 'on'
+        elif (val=='0'):
+            return 'off'
+        return 'error'
 
     def do_set_status(self, val, channel):
         '''
@@ -258,9 +284,9 @@ class HP_81110A(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting status for channel %d to %s' % (channel, val))
-        try:
-            self._visainstrument.write('OUTP' + str(channel) + " %s", val)
-        except:
+        if ((val.upper()=='ON') | (val.upper()=='OFF')):
+            self._visainstrument.write('OUTP' + str(channel) + " " + val)
+        else:
             logging.error('Try tot set OUTP to ' + str(val))
 
     def do_get_display(self):
@@ -281,19 +307,53 @@ class HP_81110A(Instrument):
             return 'off'
         return 'error'
 
+    def do_set_add_channels(self, val):
+        '''
+        Digitally add the pulses of the two channels
+
+        Input:
+            val (string)  : 'on' or 'off'
+
+        Output:
+            None
+        '''
+        logging.debug(__name__ + ' : setting channel addition to %s' % (val))
+        if (val.upper()=='ON'):
+            self._visainstrument.write('CHAN:MATH DIG')
+        elif (val.upper()=='OFF'):
+            self._visainstrument.write('CHAN:MATH OFF')
+        else:
+            logging.error('Try tot set MATH to ' + str(val))
+
+    def do_get_add_channels(self):
+        '''
+        Digitally add the pulses of the two channels
+
+        Input:
+            None
+
+        Output:
+            status (string) : 'on' or 'off'
+        '''
+        logging.debug(__name__ + ' : getting display status')
+        val = self._visainstrument.ask('CHAN:MATH?')
+        if (val=='DIG'):  return 'on'
+        elif (val=='OFF'): return 'off'
+        return 'error'
+
     def do_set_display(self, val):
         '''
         Sets the display status of the device
 
         Input:
-            val (boolean) 
+            val (string) : 'on' or 'off'
 
         Output:
             None
         '''
         logging.debug(__name__ + ' : setting display status to %s' % val)
-        try
-            self._visainstrument.write('DISP %s', val)
+        if ((val.upper()=='ON') | (val.upper()=='OFF')):
+            self._visainstrument.write('DISP ' + val)
         else:
             logging.error('Try to set display to ' +val)
 
@@ -348,5 +408,7 @@ class HP_81110A(Instrument):
             Number of installed channels (int)
 
         '''
+        print "PULSER-Notice: Number of channels is hardcoded to 1 for a quick fix"
+        return 1
         opt = self._visainstrument.ask('*OPT?').split()
         return int(len(opt)-opt.count(0))
