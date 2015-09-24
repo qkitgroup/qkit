@@ -57,7 +57,7 @@ class PlotWindow(QWidget,Ui_Form):
 
 
     def _setDefaultView(self):
-        self.view_types = {'1D':0,'1D-V':1, '2D':2, '3D':3}
+        self.view_types = {'1D':0,'1D-V':1, '2D':2, '3D':3, 'table':4}
         self.TraceNum = -1
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
         self.plot_style = 0
@@ -125,6 +125,10 @@ class PlotWindow(QWidget,Ui_Form):
             self.view_type = self.view_types['1D']
             self.TraceSelector.setEnabled(True)
             self.PlotStyleSelector.setEnabled(True)
+        if index  == 2:
+            self.view_type = self.view_types['table']
+            self.TraceSelector.setEnabled(False)
+            self.PlotStyleSelector.setEnabled(False)
         #print index
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
@@ -191,8 +195,19 @@ class PlotWindow(QWidget,Ui_Form):
                     self.graphicsView.view.setAspectLocked(False)
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 self._display_2D_data(self.graphicsView)
+            elif self.view_type == self.view_types['table']:
+                if not self.graphicsView or self._onPlotTypeChanged or self._onPlotStyleChanged:
+                    self._onPlotTypeChanged = False
+                    self._onPlotStyleChanged = False
+                    self.graphicsView = pg.TableWidget()
+                    self.graphicsView.setWindowTitle('xyz')
+                    #self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
+                    self.graphicsView.setObjectName(self.dataset_url)
+                    #self.graphicsView.view.setAspectLocked(False)
+                    self.gridLayout.addWidget(self.graphicsView,0,0)
+                self._display_table(self.graphicsView)
             else:
-                pass
+                print "This should not be here: View Type:"+str(self.view_type)
         #except NameError:#IOError:
         except ValueError,e:
             print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
@@ -353,3 +368,34 @@ class PlotWindow(QWidget,Ui_Form):
 
         #graphicsView.setImage(data)
         #graphicsView.show()
+    def _display_table(self,graphicsView):
+        #load the dataset:
+        ds = self.ds
+        data = np.array(ds).transpose()
+        
+        """
+        x0 = ds.attrs.get("x0",0)
+        dx = ds.attrs.get("dx",1)
+        y0 = ds.attrs.get("y0",0)
+        dy = ds.attrs.get("dy",1)
+
+        xmin = x0
+        xmax = x0+fill_x*dx
+        ymin = y0
+        ymax = y0+fill_y*dy
+
+        x_name = ds.attrs.get("x_name","_none_")
+        y_name = ds.attrs.get("y_name","_none_")
+        name = ds.attrs.get("name","_none_")
+
+        x_unit = ds.attrs.get("x_unit","_none_")
+        y_unit = ds.attrs.get("y_unit","_none_")
+        unit = ds.attrs.get("unit","_none_")
+
+
+        pos = (xmin,ymin)
+
+        #scale=(xmax/float(data.shape[0]),ymax/float(data.shape[1]))
+        scale=((abs(xmax-xmin))/float(data.shape[0]),(ymax-ymin)/float(data.shape[1]))
+        """
+        graphicsView.setData(data)

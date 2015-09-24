@@ -40,6 +40,11 @@
          <string>Line Plot</string>
         </property>
        </item>
+       <item>
+        <property name="text">
+         <string>Table</string>
+        </property>
+       </item>
       </widget>
      </item>
      <item>
@@ -65,6 +70,38 @@
        <property name="value">
         <number>-1</number>
        </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="TraceValue">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="PlotStyleSelector">
+       <item>
+        <property name="text">
+         <string>Line</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Line and Point</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Point</string>
+        </property>
+       </item>
       </widget>
      </item>
      <item>
