@@ -153,7 +153,41 @@ class PlotWindow(QWidget,Ui_Form):
         self.DATA._toBe_deleted(self.dataset_url)
         event.accept()
 
+    def addQvkMenu(self,menu):
+        self.qvkMenu = QMenu("Qviewkit")
 
+        point = QAction(u'Point', self.qvkMenu)
+        self.qvkMenu.addAction(point)
+        point.triggered.connect(self.setPointMode)
+        
+        line = QAction(u'Line', self.qvkMenu)
+        self.qvkMenu.addAction(line)
+        line.triggered.connect(self.setLineMode)
+        
+        pointLine = QAction(u'Point+Line', self.qvkMenu)
+        self.qvkMenu.addAction(pointLine)
+        pointLine.triggered.connect(self.setPointLineMode)
+        
+        menu.addMenu(self.qvkMenu)
+    
+    @pyqtSlot()    
+    def setPointMode(self):
+        self.plot_style = self.plot_styles['point']
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+            
+    @pyqtSlot()    
+    def setLineMode(self):
+        self.plot_style = self.plot_styles['line']
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+            
+    @pyqtSlot()    
+    def setPointLineMode(self):
+        self.plot_style = self.plot_styles['linepoint']
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+        
     @pyqtSlot()
     def update_plots(self):
         self.ds = self.obj_parent.h5file[self.dataset_url]
@@ -173,6 +207,7 @@ class PlotWindow(QWidget,Ui_Form):
                     self._onPlotStyleChanged = False
                     self.graphicsView = pg.PlotWidget(name=self.dataset_url)
                     self.graphicsView.setObjectName(self.dataset_url)
+                    self.addQvkMenu(self.graphicsView.plotItem.getMenu())
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 self._display_1D_view(self.graphicsView)
 
@@ -183,6 +218,7 @@ class PlotWindow(QWidget,Ui_Form):
                     self._onPlotStyleChanged = False
                     self.graphicsView = pg.PlotWidget(name=self.dataset_url)
                     self.graphicsView.setObjectName(self.dataset_url)
+                    self.addQvkMenu(self.graphicsView.plotItem.getMenu())
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 self._display_1D_data(self.graphicsView)
 
@@ -193,6 +229,7 @@ class PlotWindow(QWidget,Ui_Form):
                     self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
                     self.graphicsView.setObjectName(self.dataset_url)
                     self.graphicsView.view.setAspectLocked(False)
+                    self.addQvkMenu(self.graphicsView.view.getMenu())
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 self._display_2D_data(self.graphicsView)
             elif self.view_type == self.view_types['table']:
@@ -319,7 +356,7 @@ class PlotWindow(QWidget,Ui_Form):
         if self.plot_style==self.plot_styles['linepoint']:
             graphicsView.plot(y=ydata, x=x_data, clear = True, pen=(200,200,100),connect='finite',symbol='+')
         if self.plot_style==self.plot_styles['point']:
-            graphicsView.plot(y=ydata, x=x_data, clear = True,pen=None, symbol='+')
+            graphicsView.plot(y=ydata, x=x_data, clear = True, pen=None, symbol='+')
         #plot.setData(y=ydata, x=x_data)
 
     def _display_2D_data(self,graphicsView):
@@ -370,32 +407,5 @@ class PlotWindow(QWidget,Ui_Form):
         #graphicsView.show()
     def _display_table(self,graphicsView):
         #load the dataset:
-        ds = self.ds
-        data = np.array(ds).transpose()
-        
-        """
-        x0 = ds.attrs.get("x0",0)
-        dx = ds.attrs.get("dx",1)
-        y0 = ds.attrs.get("y0",0)
-        dy = ds.attrs.get("dy",1)
-
-        xmin = x0
-        xmax = x0+fill_x*dx
-        ymin = y0
-        ymax = y0+fill_y*dy
-
-        x_name = ds.attrs.get("x_name","_none_")
-        y_name = ds.attrs.get("y_name","_none_")
-        name = ds.attrs.get("name","_none_")
-
-        x_unit = ds.attrs.get("x_unit","_none_")
-        y_unit = ds.attrs.get("y_unit","_none_")
-        unit = ds.attrs.get("unit","_none_")
-
-
-        pos = (xmin,ymin)
-
-        #scale=(xmax/float(data.shape[0]),ymax/float(data.shape[1]))
-        scale=((abs(xmax-xmin))/float(data.shape[0]),(ymax-ymin)/float(data.shape[1]))
-        """
+        data = np.array(self.ds).transpose()
         graphicsView.setData(data)
