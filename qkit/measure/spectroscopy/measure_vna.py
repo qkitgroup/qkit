@@ -57,7 +57,7 @@ class spectrum(object):
         self.save_hdf = False
         self.progress_bar = True
         self._fit_resonator = False
-
+        self._plot_comment=""
 
     def set_x_parameters(self, x_vec, x_coordname, x_instrument, x_unit = ""):
         '''
@@ -90,6 +90,12 @@ class spectrum(object):
         self.y_set_obj = y_instrument
         self.delete_fit_function()
         self.y_unit = y_unit
+
+    def set_plot_comment(self, comment):
+        '''
+        Small comment to add at the end of plot pics for more information i.e. good for wiki entries.
+        '''
+        self._plot_comment=comment
 
     def gen_fit_function(self, curve_f, curve_p, units = '', p0 = [-1,0.1,7]):
         '''
@@ -501,7 +507,7 @@ class spectrum(object):
             self._data_dat.close_file()
         if self.save_hdf:
             print self._data_hdf.get_filepath()
-            qviewkit.save_plots(self._data_hdf.get_filepath())
+            qviewkit.save_plots(self._data_hdf.get_filepath(),comment=self._plot_comment)
             self._data_hdf.close_file()
 
     def _plot_dat_file(self):
