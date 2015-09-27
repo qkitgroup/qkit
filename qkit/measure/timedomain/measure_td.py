@@ -42,7 +42,7 @@ class Measure_td(object):
 		self.hold = False
 		
 		self.save_dat = True
-		self.save_hdf = False
+		self.save_hdf = True
 		
 	def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit = ''):
 		self.x_vec = x_vec
@@ -64,8 +64,8 @@ class Measure_td(object):
 
 		self.time_data = False
 		qt.mstart()
-		_prepare_measurement_dat_file(mode='1d')
-		_create_dat_plots(mode='1d')
+		self._prepare_measurement_dat_file(mode='1d')
+		self._create_dat_plots(mode='1d')
 
 		p = Progress_Bar(len(self.x_vec),name=self.dirname)
 		try:
@@ -73,12 +73,12 @@ class Measure_td(object):
 			for x in self.x_vec:
 				self.x_set_obj(x)
 				qt.msleep() # better done during measurement (waiting for trigger)
-				_append_data(x,trace=False)
-				_update_plots()
+				self._append_data([x],trace=False)
+				self._update_plots()
 				p.iterate()
 		finally:
-			_safe_plots()
-			_close_files()
+			self._safe_plots()
+			self._close_files()
 			qt.mend()
 
 
@@ -89,8 +89,8 @@ class Measure_td(object):
 			return
 		
 		qt.mstart()
-		_prepare_measurement_dat_file(mode='2d')
-		_create_dat_plots(mode='2d')
+		self._prepare_measurement_dat_file(mode='2d')
+		self._create_dat_plots(mode='2d')
 
 		p = Progress_Bar(len(self.x_vec)*len(self.y_vec),name=self.dirname)
 		try:
@@ -103,12 +103,12 @@ class Measure_td(object):
 					self.y_set_obj(y)
 					#sleep(self.tdy)
 					qt.msleep() # better done during measurement (waiting for trigger)
-					_append_data([x,y],trace=False)
-					_update_plots()
+					self._append_data([x,y],trace=False)
+					self._update_plots()
 					p.iterate()
 		finally:
-			_safe_plots()
-			_close_files()
+			self._safe_plots()
+			self._close_files()
 			qt.mend()
 
 
@@ -119,6 +119,7 @@ class Measure_td(object):
 			self.y_vec = range(iterations)
 			self.y_coordname = '#iteration'
 			self.y_set_obj = lambda y: True
+			self.y_unit = ''
 			return self.measure_2D_AWG()
 
 
@@ -134,8 +135,8 @@ class Measure_td(object):
 		qt.mstart()
 		qt.msleep()   #if stop button was pressed by now, abort without creating data files
 		
-		_prepare_measurement_dat_file(mode='2dAWG')
-		_create_dat_plots(mode='2d')
+		self._prepare_measurement_dat_file(mode='2dAWG')
+		self._create_dat_plots(mode='2dAWG')
 
 		p = Progress_Bar(len(self.y_vec),name=self.dirname)
 		try:
@@ -143,16 +144,17 @@ class Measure_td(object):
 			for it in range(len(self.y_vec)):
 				qt.msleep() # better done during measurement (waiting for trigger)
 				self.y_set_obj(self.y_vec[it])
-				_append_data(self.y_vec[it],trace=True)
-				_update_plots()
+				self._append_data([self.y_vec[it]],trace=True,it=it)
+				self._update_plots()
 				p.iterate()
-		except Exception as e:
-			print e
+		#except Exception as e:
+		#	print e
+		
 		finally:
-			_safe_plots()
-			_generate_avg_data()
-			_close_files()
-			
+			self._safe_plots()
+			self._generate_avg_data(final=True)
+			self._close_files()
+		
 			qt.mend()
 
 
@@ -169,33 +171,34 @@ class Measure_td(object):
 			
 			if self.dirname == None:
 				self.dirname = self.x_coordname
-			self.data_raw = qt.Data(name='raw_%s_%s'%(mode,self.dirname))
-			self.data_raw.add_coordinate(self.y_coordname)
+			self.data_raw = qt.Data(name='%s_%s'%(mode,self.dirname))
+			
+			if mode == '2dAWG':
+				self.data_raw.add_coordinate(self.y_coordname)
 			
 			if self.comment:
-				data_raw.add_comment(self.comment)
+				self.data_raw.add_comment(self.comment)
+				
 			self.data_raw.add_coordinate(self.x_coordname)
-			self.ndev = len(readout.get_tone_freq())   #mspec.get_samples()   #number of frequency points returned by adc card   #differs in sweep 1d, needs to be checked
+			self.ndev = len(readout.get_tone_freq())   #returns array of readout frequencies (=1 for non-multiplexed readout)
 			for i in range(self.ndev):
-				data_raw.add_value('amp_%d'%i)
+				self.data_raw.add_value('amp_%d'%i)
 			for i in range(self.ndev):
-				data_raw.add_value('pha_%d'%i)
+				self.data_raw.add_value('pha_%d'%i)
 			self.data_raw.add_value('timestamp')
 			self.data_raw.create_file()
 			
+			self.data_fn, self.data_fext = os.path.splitext(self.data_raw.get_filepath())
 			if mode == '2dAWG':
-				self.data_sum = qt.Data(name='avgs_%s'%self.dirname)
 				self.data_avg = qt.Data(name='avga_%s'%self.dirname)
-				self.data_sum.add_coordinate(self.y_coordname)
-				self.data_time.add_coordinate(self.y_coordname)
-			for data in [self.data_sum, self.data_avg]:
 				if self.comment:
-					data.add_comment(self.comment)
-				data.add_coordinate(self.x_coordname)
+					self.data_avg.add_comment(self.comment)
+				self.data_avg.add_coordinate(self.x_coordname)
 				for i in range(self.ndev):
-					data.add_value('amp_%d'%i)
+					self.data_avg.add_value('amp_%d'%i)
 				for i in range(self.ndev):
-					data.add_value('pha_%d'%i)
+					self.data_avg.add_value('pha_%d'%i)
+				#self.data_avg.create_file(None, '%s_avg.dat'%self.data_fn, False)
 			
 			if self.time_data:
 				self.data_time = qt.Data(name='avgt_%s'%self.dirname)
@@ -209,7 +212,6 @@ class Measure_td(object):
 				for i in range(mspec.get_samples()):
 					self.data_time.add_coordinate('Q%3d'%i)
 				self.data_time.add_value('timestamp')
-				self.data_fn, self.data_fext = os.path.splitext(self.data_raw.get_filepath())
 				if self.save_dat: self.data_time.create_file(None, '%s_time.dat'%self.data_fn, False)
 				
 		if self.save_hdf:
@@ -223,47 +225,48 @@ class Measure_td(object):
 			if mode == '2d' or mode == '2dAWG':
 				self._hdf_y = self._data_hdf.add_coordinate(self.y_coordname, unit = self.y_unit)
 				self._hdf_y.add(self.y_vec)
-				self._hdf_amp = self._data_hdf.add_value_matrix('amplitude', x = self._hdf_x, y = self._hdf_y, unit = 'V')
-				self._hdf_pha = self._data_hdf.add_value_matrix('phase', x = self._hdf_x, y = self._hdf_y, unit='rad')
+				self._hdf_amp = self._data_hdf.add_value_matrix('amplitude', x = self._hdf_y, y = self._hdf_x, unit = 'V')
+				self._hdf_pha = self._data_hdf.add_value_matrix('phase', x = self._hdf_y, y = self._hdf_x, unit='rad')
 			else:   #1d
-				self._hdf_amp = self._data_hdf.add_value_matrix('amplitude', y = self._hdf_x, unit = 'V')
-				self._hdf_pha = self._data_hdf.add_value_matrix('phase', y = self._hdf_x, unit='rad')
+				self._hdf_amp = self._data_hdf.add_value_vector('amplitude', x = self._hdf_x, unit = 'V')
+				self._hdf_pha = self._data_hdf.add_value_vector('phase', x = self._hdf_x, unit='rad')
 			if self.comment:
 				self._data_hdf.add_comment(self.comment)
+			qviewkit.plot(self._data_hdf.get_filepath(), datasets=['amplitude', 'phase'])
 			
 	def _create_dat_plots(self,mode):
 		
 		self.plots = []
 		if mode == '1d':
 			for i in range(self.ndev):
-				self.plot_amp = qt.plots.get('amplitude_%d%s'%(i, self.plotSuffix))
-				self.plot_pha = qt.plots.get('phase_%d%s'%(i, self.plotSuffix))
-				if not self.plot_amp or not self.plot_pha:
+				plot_amp = qt.plots.get('amplitude_%d%s'%(i, self.plotSuffix))
+				plot_pha = qt.plots.get('phase_%d%s'%(i, self.plotSuffix))
+				if not plot_amp or not plot_pha:
 					plot_amp = qt.Plot2D(name='amplitude_%d%s'%(i, self.plotSuffix))
 					plot_pha = qt.Plot2D(name='phase_%d%s'%(i, self.plotSuffix))
 				elif not self.hold:
 					plot_amp.clear()
 					plot_pha.clear()
-				plot_amp.add(data, name='amplitude_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+i)
-				plot_pha.add(data, name='phase_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+ndev+i)
-				plots.append(plot_amp)
-				plots.append(plot_pha)
-		elif mode == '2d'
+				plot_amp.add(self.data_raw, name='amplitude_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+i)
+				plot_pha.add(self.data_raw, name='phase_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+self.ndev+i)
+				self.plots.append(plot_amp)
+				self.plots.append(plot_pha)
+		elif mode == '2d' or mode == '2dAWG':
 			for i in range(self.ndev):
 				#3d plot
-				self.plot_amp = qt.Plot3D(self.data_raw, name='amplitude_%d_3d%s'%(i, self.plotSuffix), coorddims=(0,1), valdim=2+i)
-				self.plot_amp.set_palette('bluewhitered')
-				self.plots.append(self.plot_amp)
-				self.plot_pha = qt.Plot3D(self.data_raw, name='phase_%d_3d%s'%(i, self.plotSuffix), coorddims=(0,1), valdim=2+self.ndev+i)
-				self.plot_pha.set_palette('bluewhitered')
-				self.plots.append(self.plot_pha)
+				plot_amp = qt.Plot3D(self.data_raw, name='amplitude_%d_3d%s'%(i, self.plotSuffix), coorddims=(0,1), valdim=2+i)
+				plot_amp.set_palette('bluewhitered')
+				self.plots.append(plot_amp)
+				plot_pha = qt.Plot3D(self.data_raw, name='phase_%d_3d%s'%(i, self.plotSuffix), coorddims=(0,1), valdim=2+self.ndev+i)
+				plot_pha.set_palette('bluewhitered')
+				self.plots.append(plot_pha)
 				
 				if mode == '2dAWG':
 					#averaged plot
-					self.plot_amp = qt.Plot2D(self.data_sum, name='amplitude_%d%s'%(i, self.plotSuffix), coorddim=1, valdim=2+i, maxtraces = 2)
-					self.plot_pha = qt.Plot2D(self.data_sum, name='phase_%d%s'%(i, self.plotSuffix), coorddim=1, valdim=2+self.ndev+i, maxtraces = 2)
-					self.plots.append(self.plot_amp)
-					self.plots.append(self.plot_pha)
+					plot_amp = qt.Plot2D(self.data_avg, name='amplitude_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+i, maxtraces = 2)
+					plot_pha = qt.Plot2D(self.data_avg, name='phase_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+self.ndev+i, maxtraces = 2)
+					self.plots.append(plot_amp)
+					self.plots.append(plot_pha)
 
 			if mode == '2dAWG':
 				# buffer successive sum for averaged plot
@@ -271,7 +274,7 @@ class Measure_td(object):
 				self.dat_ampa = np.zeros_like((len(self.x_vec), self.ndev))
 				self.dat_phaa = np.zeros_like(self.dat_ampa)
 		
-	def _append_data(self,it_v,trace=True):
+	def _append_data(self,it_v,trace=True,it=None):
 
 		if trace:
 			dat_amp, dat_pha, Is, Qs = readout.readout(timeTrace = trace)
@@ -280,14 +283,19 @@ class Measure_td(object):
 		timestamp = time.time()
 		
 		if self.save_hdf:
-			self._hdf_amp.append(dat_amp)
-			self._hdf_pha.append(dat_pha)
+			#print np.array(dat_amp).flatten()
+			if len(np.array(dat_amp).flatten()) == 1:
+				self._hdf_amp.append(float(np.array(dat_amp).flatten()))
+				self._hdf_pha.append(float(np.array(dat_pha).flatten()))
+			else:
+				self._hdf_amp.append(np.array(dat_amp).flatten())
+				self._hdf_pha.append(np.array(dat_pha).flatten())
 		
 		if not trace:
 			if isinstance(it_v, (list, tuple, np.ndarray)):   #2d
 				dat = np.array(it_v)
 			else:   #1d
-				dat = np.array([it_v[0])
+				dat = np.array([it_v[0]])
 			dat = np.append(dat, dat_amp)
 			dat = np.append(dat, dat_pha)
 			dat = np.append(dat, time.time())   #add time stamp
@@ -315,6 +323,7 @@ class Measure_td(object):
 			self.dat_cmpls += dat_amp * np.exp(1j*dat_pha)
 			self.dat_ampa = np.abs(self.dat_cmpls/(it+1))
 			self.dat_phaa = np.angle(self.dat_cmpls/(it+1))
+			self._generate_avg_data()
 			
 			#time domain data
 			if self.time_data:
@@ -327,6 +336,7 @@ class Measure_td(object):
 					self.data_time.add_data_point(*dat)
 		
 	def _update_plots(self):
+		#print len(self.plots)
 		for plot in self.plots:
 			plot.update()
 				
@@ -336,19 +346,26 @@ class Measure_td(object):
 			plot.save_gp()
 			plot.save_png()
 			
-	def _generate_avg_data(self):
-		# save final averaged data in a separate file
-		if self.dat_ampa != None:   #if data exists
-			self.data_avg.create_file(None, '%s_avg.dat'%self.data_fn, False)
-			dat = np.concatenate((np.atleast_2d(self.x_vec).transpose(), self.dat_ampa, self.dat_phaa), 1)
-			for xi in range(dat.shape[0]):
-				self.data_avg.add_data_point(*dat[xi, :])
-			self.data_avg.close_file()
-			
+	def _generate_avg_data(self,final=False):
+		# save averaged data in a separate file
+		self.data_avg.create_file(None, '%s_avg.dat'%self.data_fn, False)
+		dat = np.concatenate((np.atleast_2d(self.x_vec).transpose(), self.dat_ampa, self.dat_phaa), 1)
+		for xi in range(dat.shape[0]):
+			self.data_avg.add_data_point(*dat[xi, :])
+		self.data_avg.close_file()
+		
+		if final and self.save_hdf:
+			self._hdf_amp_avg = self._data_hdf.add_value_vector('amplitude_avg', x = self._hdf_x, unit = 'V')
+			self._hdf_pha_avg = self._data_hdf.add_value_vector('phase_avg', x = self._hdf_x, unit='rad')
+			self._hdf_amp_avg.append(np.array(dat[:,1]))
+			self._hdf_pha_avg.append(np.array(dat[:,2]))
+
 	def _close_files(self):
 		if self.time_data: self.data_time.close_file()
 		try:
-			data_avg.close_file()
+			self.data_avg.close_file()
+		except AttributeError:
+			pass
 		finally:
-			data_raw.close_file()
+			self.data_raw.close_file()
 			if self.save_hdf: self._data_hdf.close_file()
