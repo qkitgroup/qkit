@@ -359,7 +359,7 @@ class spectrum(object):
 
 		self._data_dat.create_file()
 
-	def _prepare_measurement_hdf_file(self):
+	def _prepare_measurement_hdf_file(self,trace=False):
 		'''
 		creates the output .h5-file with distinct dataset structures for each measurement type.
 		the filename is borrowed from the .dat-file to put them into the same folder.
@@ -372,17 +372,21 @@ class spectrum(object):
 		self._data_hdf = hdf.Data(name=self._file_name, path=filename)
 		self._hdf_freq = self._data_hdf.add_coordinate('frequency', unit = 'Hz')
 		self._hdf_freq.add(self._freqpoints)
-		self._hdf_x = self._data_hdf.add_coordinate(self.x_coordname, unit = self.x_unit)
-		self._hdf_x.add(self.x_vec)
+		if not trace:
+			self._hdf_x = self._data_hdf.add_coordinate(self.x_coordname, unit = self.x_unit)
+			self._hdf_x.add(self.x_vec)
 		self._hdf_real = self._data_hdf.add_value_vector('real', x = self._hdf_freq, unit = '')
 		self._hdf_imag = self._data_hdf.add_value_vector('imag', x = self._hdf_freq, unit = '')
-		if self._scan_2D:
+		if trace:
+			self._hdf_real = self._data_hdf.add_value_vector('amplitude', x = self._hdf_freq, unit = 'V')
+			self._hdf_imag = self._data_hdf.add_value_vector('phase', x = self._hdf_freq, unit = 'rad')
+		elif self._scan_2D:
 			self._hdf_y = self._data_hdf.add_coordinate(self.y_coordname, unit = self.y_unit)
 			self._hdf_y.add(self.y_vec)
-			self._hdf_amp = self._data_hdf.add_value_box('amplitudes', x = self._hdf_x, y = self._hdf_y, z = self._hdf_freq, unit = 'a.u.')
+			self._hdf_amp = self._data_hdf.add_value_box('amplitudes', x = self._hdf_x, y = self._hdf_y, z = self._hdf_freq, unit = 'V')
 			self._hdf_pha = self._data_hdf.add_value_box('phases', x = self._hdf_x, y = self._hdf_y, z = self._hdf_freq, unit = 'rad')
 		else:
-			self._hdf_amp = self._data_hdf.add_value_matrix('amplitude', x = self._hdf_x, y = self._hdf_freq, unit = 'a.u.')
+			self._hdf_amp = self._data_hdf.add_value_matrix('amplitude', x = self._hdf_x, y = self._hdf_freq, unit = 'V')
 			self._hdf_pha = self._data_hdf.add_value_matrix('phase', x = self._hdf_x, y = self._hdf_freq, unit='rad')
 		if self.comment:
 			self._data_hdf.add_comment(self.comment)
@@ -561,7 +565,6 @@ class spectrum(object):
 		self._file_name = self.dirname
 		if self.exp_name:
 			self._file_name += '_' + self.exp_name
-		#self.set_x_parameters(None, 'vna frequency (Hz)', None)
 		self._prepare_measurement_dat_file(trace=True)
 
 		p = Progress_Bar(self.vna.get_averages(),self.dirname)
@@ -581,6 +584,7 @@ class spectrum(object):
 			for i in np.arange(self._nop):
 				self._data_dat.add_data_point(self._freqpoints[i], data_amp[i], data_pha[i], data_real[i], data_imag[i])
 		if self.save_hdf:
+			self._prepare_measurement_hdf_file(trace=True)
 			self._hdf_amp.append(data_amp)
 			self._hdf_pha.append(data_pha)
 			self._hdf_real.append(data_real)
