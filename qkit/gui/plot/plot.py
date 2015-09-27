@@ -39,15 +39,15 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
         Popen(cmd+options, shell=True)
 
 # this is for saving plots
-def save_plots(h5_filepath, datasets=[], save_pdf=False):
+def save_plots(h5_filepath, datasets=[], comment='', save_pdf=False):
     """ 
     Save plots is a helper function to extract and save image plots from hdf-files
     
     """
-    h5p = h5plot(h5_filepath, datasets=[], save_pdf=False)
+    h5p = h5plot(h5_filepath, datasets=[], comment=comment,  save_pdf=False)
     
 class h5plot(object):
-    def __init__(self,h5_filepath, datasets=[], save_pdf=False):
+    def __init__(self,h5_filepath, datasets=[], comment='', save_pdf=False):
         self.save_pdf = save_pdf
         # some path limbo
         cwd = os.getcwd()
@@ -169,6 +169,8 @@ class h5plot(object):
             tight_layout()
         
             save_name=(dataset.replace('/entry/','')).replace('/','_')
+            if comment:
+                save_name=save_name+'_'+comment
             if self.save_pdf:
                 savefig(save_name+'.pdf')
             else:
@@ -186,6 +188,7 @@ if __name__ == "__main__":
 
     parser.add_argument('-f','--file',required=True,type=str, help='hdf/h5 filename to open')
     parser.add_argument('-ds','--datasets', type=str, help='(optional) datasets opened by default')
+    parser.add_argument('-c', '--comment', type=str, help='(optional) comment to append at filenames')
     parser.add_argument('-pdf','--save-pdf', default=False,action='store_true', help='(optional) save default plots')
 
     args=parser.parse_args()
@@ -196,4 +199,4 @@ if __name__ == "__main__":
         for ds in dss: datasets.append(ds)
     # get the full path    
     filepath= os.path.abspath(args.file)
-    save_plots(filepath, datasets=datasets,save_pdf=args.save_pdf)
+    save_plots(filepath, datasets=datasets,comment=args.comment,save_pdf=args.save_pdf)

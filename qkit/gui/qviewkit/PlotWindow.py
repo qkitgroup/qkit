@@ -57,7 +57,7 @@ class PlotWindow(QWidget,Ui_Form):
 
 
     def _setDefaultView(self):
-        self.view_types = {'1D':0,'1D-V':1, '2D':2, '3D':3}
+        self.view_types = {'1D':0,'1D-V':1, '2D':2, '3D':3, 'table':4}
         self.TraceNum = -1
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
         self.plot_style = 0
@@ -125,6 +125,10 @@ class PlotWindow(QWidget,Ui_Form):
             self.view_type = self.view_types['1D']
             self.TraceSelector.setEnabled(True)
             self.PlotStyleSelector.setEnabled(True)
+        if index  == 2:
+            self.view_type = self.view_types['table']
+            self.TraceSelector.setEnabled(False)
+            self.PlotStyleSelector.setEnabled(False)
         #print index
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
@@ -149,7 +153,41 @@ class PlotWindow(QWidget,Ui_Form):
         self.DATA._toBe_deleted(self.dataset_url)
         event.accept()
 
+    def addQvkMenu(self,menu):
+        self.qvkMenu = QMenu("Qviewkit")
 
+        point = QAction(u'Point', self.qvkMenu)
+        self.qvkMenu.addAction(point)
+        point.triggered.connect(self.setPointMode)
+        
+        line = QAction(u'Line', self.qvkMenu)
+        self.qvkMenu.addAction(line)
+        line.triggered.connect(self.setLineMode)
+        
+        pointLine = QAction(u'Point+Line', self.qvkMenu)
+        self.qvkMenu.addAction(pointLine)
+        pointLine.triggered.connect(self.setPointLineMode)
+        
+        menu.addMenu(self.qvkMenu)
+    
+    @pyqtSlot()    
+    def setPointMode(self):
+        self.plot_style = self.plot_styles['point']
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+            
+    @pyqtSlot()    
+    def setLineMode(self):
+        self.plot_style = self.plot_styles['line']
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+            
+    @pyqtSlot()    
+    def setPointLineMode(self):
+        self.plot_style = self.plot_styles['linepoint']
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+        
     @pyqtSlot()
     def update_plots(self):
         self.ds = self.obj_parent.h5file[self.dataset_url]
@@ -169,6 +207,7 @@ class PlotWindow(QWidget,Ui_Form):
                     self._onPlotStyleChanged = False
                     self.graphicsView = pg.PlotWidget(name=self.dataset_url)
                     self.graphicsView.setObjectName(self.dataset_url)
+                    self.addQvkMenu(self.graphicsView.plotItem.getMenu())
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 self._display_1D_view(self.graphicsView)
 
@@ -179,6 +218,7 @@ class PlotWindow(QWidget,Ui_Form):
                     self._onPlotStyleChanged = False
                     self.graphicsView = pg.PlotWidget(name=self.dataset_url)
                     self.graphicsView.setObjectName(self.dataset_url)
+                    self.addQvkMenu(self.graphicsView.plotItem.getMenu())
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 self._display_1D_data(self.graphicsView)
 
@@ -189,10 +229,22 @@ class PlotWindow(QWidget,Ui_Form):
                     self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
                     self.graphicsView.setObjectName(self.dataset_url)
                     self.graphicsView.view.setAspectLocked(False)
+                    self.addQvkMenu(self.graphicsView.view.getMenu())
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 self._display_2D_data(self.graphicsView)
+            elif self.view_type == self.view_types['table']:
+                if not self.graphicsView or self._onPlotTypeChanged or self._onPlotStyleChanged:
+                    self._onPlotTypeChanged = False
+                    self._onPlotStyleChanged = False
+                    self.graphicsView = pg.TableWidget()
+                    self.graphicsView.setWindowTitle('xyz')
+                    #self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
+                    self.graphicsView.setObjectName(self.dataset_url)
+                    #self.graphicsView.view.setAspectLocked(False)
+                    self.gridLayout.addWidget(self.graphicsView,0,0)
+                self._display_table(self.graphicsView)
             else:
-                pass
+                print "This should not be here: View Type:"+str(self.view_type)
         #except NameError:#IOError:
         except ValueError,e:
             print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
@@ -304,7 +356,7 @@ class PlotWindow(QWidget,Ui_Form):
         if self.plot_style==self.plot_styles['linepoint']:
             graphicsView.plot(y=ydata, x=x_data, clear = True, pen=(200,200,100),connect='finite',symbol='+')
         if self.plot_style==self.plot_styles['point']:
-            graphicsView.plot(y=ydata, x=x_data, clear = True,pen=None, symbol='+')
+            graphicsView.plot(y=ydata, x=x_data, clear = True, pen=None, symbol='+')
         #plot.setData(y=ydata, x=x_data)
 
     def _display_2D_data(self,graphicsView):
@@ -353,3 +405,7 @@ class PlotWindow(QWidget,Ui_Form):
 
         #graphicsView.setImage(data)
         #graphicsView.show()
+    def _display_table(self,graphicsView):
+        #load the dataset:
+        data = np.array(self.ds).transpose()
+        graphicsView.setData(data)

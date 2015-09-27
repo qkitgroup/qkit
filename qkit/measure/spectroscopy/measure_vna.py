@@ -22,12 +22,12 @@ class spectrum(object):
 	useage:
 
 	m = spectrum(vna = 'vna1')
-	m2 = spectrum(vna = 'vna2', mw_src = 'mw_src1')   #where 'vna2'/'mw_src1' is the qt.instruments name
+	m2 = spectrum(vna = 'vna2', mw_src = 'mw_src1')	  #where 'vna2'/'mw_src1' is the qt.instruments name
 
 	m.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current',coil.set_current, unit = 'mA')
 	m.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency',mw_src1.set_frequency, unit = 'Hz')
 
-	m.gen_fit_function(...)   several times
+	m.gen_fit_function(...)	  several times
 
 	m.measure_XX()
 	'''
@@ -38,7 +38,7 @@ class spectrum(object):
 		self.exp_name = exp_name
 
 		self.landscape = None
-		self.span = 200e6   #[Hz]
+		self.span = 200e6	#[Hz]
 		self.tdx = 0.002   #[s]
 		self.tdy = 0.002   #[s]
 		self.data_complex = False
@@ -57,7 +57,7 @@ class spectrum(object):
 		self.save_hdf = False
 		self.progress_bar = True
 		self._fit_resonator = False
-
+		self._plot_comment=""
 
 	def set_x_parameters(self, x_vec, x_coordname, x_instrument, x_unit = ""):
 		'''
@@ -90,6 +90,12 @@ class spectrum(object):
 		self.y_set_obj = y_instrument
 		self.delete_fit_function()
 		self.y_unit = y_unit
+
+	def set_plot_comment(self, comment):
+		'''
+		Small comment to add at the end of plot pics for more information i.e. good for wiki entries.
+		'''
+		self._plot_comment=comment
 
 	def gen_fit_function(self, curve_f, curve_p, units = '', p0 = [-1,0.1,7]):
 		'''
@@ -267,7 +273,7 @@ class spectrum(object):
 		if self.landscape:
 			self.center_freqs = np.array(self.landscape).T
 		else:
-			self.center_freqs = []   #load default sequence
+			self.center_freqs = []	 #load default sequence
 			for i in range(len(self.x_vec)):
 				self.center_freqs.append([0])
 
@@ -325,9 +331,11 @@ class spectrum(object):
 		self._sweeptime_averages = self.vna.get_sweeptime_averages()
 		self._freqpoints = self.vna.get_freqpoints()
 
-	def _prepare_measurement_dat_file(self,trace=False):
+	def _prepare_measurement_dat_file(self, trace=False):
 		'''
 		creates the output .dat-file with distict structure for each meaurement type.
+		
+		trace indicates single trace recording, x_coordinate needs not to be written
 		'''
 
 		self._data_dat = qt.Data(name=self._file_name)
@@ -408,9 +416,9 @@ class spectrum(object):
 						"""
 						loop: x_obj with data from x_vec (only 2D measurement)
 						"""
-						if (np.min(np.abs(self.center_freqs[i]-y*np.ones(len(self.center_freqs[i])))) > self.span/2.) and self.landscape:   #if point is not of interest (not close to one of the functions)
+						if (np.min(np.abs(self.center_freqs[i]-y*np.ones(len(self.center_freqs[i])))) > self.span/2.) and self.landscape:	#if point is not of interest (not close to one of the functions)
 							data_amp = np.zeros(int(self._nop))
-							data_pha = np.zeros(int(self._nop))   #fill with zeros
+							data_pha = np.zeros(int(self._nop))	  #fill with zeros
 						else:
 							self.y_set_obj(y)
 							sleep(self.tdy)
@@ -501,7 +509,7 @@ class spectrum(object):
 			self._data_dat.close_file()
 		if self.save_hdf:
 			print self._data_hdf.get_filepath()
-			qviewkit.save_plots(self._data_hdf.get_filepath())
+			qviewkit.save_plots(self._data_hdf.get_filepath(),comment=self._plot_comment)
 			self._data_hdf.close_file()
 
 	def _plot_dat_file(self):
@@ -553,17 +561,17 @@ class spectrum(object):
 		self._file_name = self.dirname
 		if self.exp_name:
 			self._file_name += '_' + self.exp_name
-		self.set_x_parameters(None, 'vna frequency (Hz)', None)
+		#self.set_x_parameters(None, 'vna frequency (Hz)', None)
 		self._prepare_measurement_dat_file(trace=True)
 
 		p = Progress_Bar(self.vna.get_averages(),self.dirname)
 		self.vna.avg_clear()
-		if self.vna.get_averages() == 1 or self.vna.get_Average == False:   #no averaging
-			qt.msleep(self.vna.get_sweeptime())   #wait single sweep
+		if self.vna.get_averages() == 1 or self.vna.get_Average == False:	#no averaging
+			qt.msleep(self.vna.get_sweeptime())	  #wait single sweep
 			p.iterate()
 		else:
 			for a in range(self.vna.get_averages()):
-				qt.msleep(self.vna.get_sweeptime())   #wait single sweep time
+				qt.msleep(self.vna.get_sweeptime())	  #wait single sweep time
 				p.iterate()
 
 		data_amp, data_pha = self.vna.get_tracedata()

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'plot_view.ui'
 #
-# Created: Thu Aug 20 23:27:55 2015
+# Created: Thu Sep 24 16:09:52 2015
 #      by: PyQt4 UI code generator 4.11.3
 #
 # WARNING! All changes made in this file will be lost!
@@ -42,6 +42,7 @@ class Ui_Form(object):
         self.PlotTypeSelector.setObjectName(_fromUtf8("PlotTypeSelector"))
         self.PlotTypeSelector.addItem(_fromUtf8(""))
         self.PlotTypeSelector.addItem(_fromUtf8(""))
+        self.PlotTypeSelector.addItem(_fromUtf8(""))
         self.horizontalLayout.addWidget(self.PlotTypeSelector)
         self.TraceSelector = QtGui.QSpinBox(Form)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
@@ -55,13 +56,17 @@ class Ui_Form(object):
         self.TraceSelector.setProperty("value", -1)
         self.TraceSelector.setObjectName(_fromUtf8("TraceSelector"))
         self.horizontalLayout.addWidget(self.TraceSelector)
-        self.PlotStyleSelector = QtGui.QComboBox(Form)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Minimum)
+        self.TraceValue = QtGui.QLineEdit(Form)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.PlotStyleSelector.sizePolicy().hasHeightForWidth())
-        self.PlotStyleSelector.setSizePolicy(sizePolicy)
-        self.PlotStyleSelector.setObjectName(_fromUtf8("PlotTypeSelector"))
+        sizePolicy.setHeightForWidth(self.TraceValue.sizePolicy().hasHeightForWidth())
+        self.TraceValue.setSizePolicy(sizePolicy)
+        self.TraceValue.setReadOnly(True)
+        self.TraceValue.setObjectName(_fromUtf8("TraceValue"))
+        self.horizontalLayout.addWidget(self.TraceValue)
+        self.PlotStyleSelector = QtGui.QComboBox(Form)
+        self.PlotStyleSelector.setObjectName(_fromUtf8("PlotStyleSelector"))
         self.PlotStyleSelector.addItem(_fromUtf8(""))
         self.PlotStyleSelector.addItem(_fromUtf8(""))
         self.PlotStyleSelector.addItem(_fromUtf8(""))
@@ -80,9 +85,9 @@ class Ui_Form(object):
         Form.setWindowTitle(_translate("Form", "Form", None))
         self.PlotTypeSelector.setItemText(0, _translate("Form", "Color Plot", None))
         self.PlotTypeSelector.setItemText(1, _translate("Form", "Line Plot", None))
-        #self.PlotTypeSelector.setItemText(2, _translate("Form", "View", None))
-        self.PlotStyleSelector.setItemText(0, _translate("Form", "Line Style", None))
-        self.PlotStyleSelector.setItemText(1, _translate("Form", "Line and Point Style", None))
-        self.PlotStyleSelector.setItemText(2, _translate("Form", "Point Style", None))
+        self.PlotTypeSelector.setItemText(2, _translate("Form", "Table", None))
         self.TraceSelector.setPrefix(_translate("Form", "Trace: ", None))
+        self.PlotStyleSelector.setItemText(0, _translate("Form", "Line", None))
+        self.PlotStyleSelector.setItemText(1, _translate("Form", "Line and Point", None))
+        self.PlotStyleSelector.setItemText(2, _translate("Form", "Point", None))
 
