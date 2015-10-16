@@ -19,10 +19,10 @@ from qkit.gui.notebook.Progress_Bar import Progress_Bar
 
 class spectrum(object):
 	'''
-	useage:
+	usage:
 
-	m = spectrum(vna = 'vna1')
-	m2 = spectrum(vna = 'vna2', mw_src = 'mw_src1')	  #where 'vna2'/'mw_src1' is the qt.instruments name
+	m = spectrum(vna = vna1)
+	m2 = spectrum(vna = vna2, mw_src = mw_src1)	  #where 'vna2'/'mw_src1' is the qt.instruments name
 
 	m.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current',coil.set_current, unit = 'mA')
 	m.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency',mw_src1.set_frequency, unit = 'Hz')
@@ -66,7 +66,7 @@ class spectrum(object):
 		Input:
 		x_vec (array): conains the sweeping values
 		x_coordname (string)
-		x_instrument (obj): callable object to exectute with x_vec-values (i.e. vna.set_power())
+		x_instrument (obj): callable object to execute with x_vec-values (i.e. vna.set_power())
 		x_unit (string): optional
 		'''
 		self.x_vec = x_vec
@@ -80,10 +80,10 @@ class spectrum(object):
 		Sets parameters for sweep. In a 2D measurement, the x-parameters will be the "outer" sweep.
 		For every x value all y values are swept
 		Input:
-		x_vec (array): conains the sweeping values
-		x_coordname (string)
-		x_instrument (obj): callable object to exectute with x_vec-values (i.e. vna.set_power())
-		x_unit (string): optional
+		y_vec (array): contains the sweeping values
+		y_coordname (string)
+		y_instrument (obj): callable object to execute with x_vec-values (i.e. vna.set_power())
+		y_unit (string): optional
 		'''
 		self.y_vec = y_vec
 		self.y_coordname = y_coordname
@@ -182,7 +182,7 @@ class spectrum(object):
 		self.data_complex = False
 
 		if self.dirname == None:
-			self.dirname = self.x_coordname.replace()
+			self.dirname = self.x_coordname.replace(' ', '')
 		self._file_name = '1D_' + self.dirname
 		if self.exp_name:
 			self._file_name += '_' + self.exp_name
@@ -217,7 +217,7 @@ class spectrum(object):
 		self.data_complex = False
 
 		if self.dirname == None:
-			self.dirname = self.x_coordname.replace()
+			self.dirname = self.x_coordname.replace(' ', '')
 		self._file_name = '1D2_' + self.dirname
 		if self.exp_name:
 			self._file_name += '_' + self.exp_name
@@ -255,7 +255,7 @@ class spectrum(object):
 		self.data_complex = False
 
 		if self.dirname == None:
-			self.dirname = self.x_coordname.replace() + '_' + self.y_coordname.replace()
+			self.dirname = self.x_coordname.replace(' ', '') + '_' + self.y_coordname.replace(' ', '')
 		self._file_name = '2D_' + self.dirname
 		if self.exp_name:
 			self._file_name += '_' + self.exp_name
