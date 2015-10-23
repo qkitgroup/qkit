@@ -567,12 +567,13 @@ class spectrum(object):
 			self._file_name += '_' + self.exp_name
 		self._prepare_measurement_dat_file(trace=True)
 
-		p = Progress_Bar(self.vna.get_averages(),self.dirname)
 		self.vna.avg_clear()
-		if self.vna.get_averages() == 1 or self.vna.get_Average == False:	#no averaging
+		if self.vna.get_averages() == 1 or self.vna.get_Average() == False:   #no averaging
+			p = Progress_Bar(1,self.dirname)
 			qt.msleep(self.vna.get_sweeptime())	  #wait single sweep
 			p.iterate()
-		else:
+		else:   #with averaging
+			p = Progress_Bar(self.vna.get_averages(),self.dirname)
 			for a in range(self.vna.get_averages()):
 				qt.msleep(self.vna.get_sweeptime())	  #wait single sweep time
 				p.iterate()
