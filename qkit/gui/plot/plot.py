@@ -1,7 +1,8 @@
 from subprocess import Popen, PIPE
 from qkit.storage import hdf_lib
 import os
-from pylab import *
+from matplotlib.pyplot import *
+ioff()
 import numpy as np
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -48,6 +49,7 @@ def save_plots(h5_filepath, datasets=[], comment='', save_pdf=False):
     
 class h5plot(object):
     def __init__(self,h5_filepath, datasets=[], comment='', save_pdf=False):
+        self.comment = comment
         self.save_pdf = save_pdf
         # some path limbo
         cwd = os.getcwd()
@@ -55,12 +57,12 @@ class h5plot(object):
         filedir  = os.path.dirname(filepath)
         #os.chdir(filedir)
         save_dir = os.path.join(filedir,'images')
-        os.chdir(save_dir)
         try:
             os.mkdir(save_dir)
         except OSError:
             pass
         
+        os.chdir(save_dir)
         # open the h5 file and get the hdf_lib object
         self.hf = hdf_lib.Data(path=h5_filepath)
         
@@ -169,8 +171,8 @@ class h5plot(object):
             tight_layout()
         
             save_name=(dataset.replace('/entry/','')).replace('/','_')
-            if comment:
-                save_name=save_name+'_'+comment
+            if self.comment:
+                save_name=save_name+'_'+self.comment
             if self.save_pdf:
                 savefig(save_name+'.pdf')
             else:
