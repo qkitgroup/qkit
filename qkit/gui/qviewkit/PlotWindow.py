@@ -170,6 +170,19 @@ class PlotWindow(QWidget,Ui_Form):
         
         menu.addMenu(self.qvkMenu)
     
+    
+    
+    def _getXValueFromTraceNum(self,ds,num):
+        x0 = ds.attrs.get("x0",0)
+        dx = ds.attrs.get("dx",1)
+        unit = ds.attrs.get("x_unit","")
+        max_len = ds.shape[0]
+        if num>-1:
+            xval = x0+num*dx
+        else:
+            xval = x0+(max_len+num)*dx
+        return str(xval)+" "+unit
+        
     @pyqtSlot()    
     def setPointMode(self):
         self.plot_style = self.plot_styles['point']
@@ -338,6 +351,7 @@ class PlotWindow(QWidget,Ui_Form):
         ydata = np.array(ds)
         if len(ydata.shape) == 2:
             ydata = ydata[self.TraceNum]
+            self.TraceValue.setText(self._getXValueFromTraceNum(ds,self.TraceNum))
         x0 = ds.attrs.get("y0",ds.attrs.get("x0",0))
         dx = ds.attrs.get("dy",ds.attrs.get("dx",1))
         x_data = [x0+dx*i for i in xrange(len(ydata))]
