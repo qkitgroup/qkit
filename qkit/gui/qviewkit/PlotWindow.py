@@ -390,7 +390,7 @@ class PlotWindow(QWidget,Ui_Form):
         pos = (xmin,ymin)
 
         #scale=(xmax/float(data.shape[0]),ymax/float(data.shape[1]))
-        scale=((abs(xmax-xmin))/float(data.shape[0]),(ymax-ymin)/float(data.shape[1]))
+        scale=((xmax-xmin)/float(data.shape[0]),(ymax-ymin)/float(data.shape[1]))
         graphicsView.view.setLabel('left', y_name, units=y_unit)
         graphicsView.view.setLabel('bottom', x_name, units=x_unit)
         graphicsView.view.setTitle(name+" ("+unit+")")
