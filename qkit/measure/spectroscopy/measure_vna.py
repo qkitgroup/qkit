@@ -497,10 +497,10 @@ class spectrum(object):
 					self._plot_amp.update()
 					self._plot_pha.update()
 
-				self._plot_amp.save_png()
-				self._plot_amp.save_gp()
-				self._plot_pha.save_png()
-				self._plot_pha.save_gp()
+				#self._plot_amp.save_png()
+				#self._plot_amp.save_gp()
+				#self._plot_pha.save_png()
+				#self._plot_pha.save_gp()
 
 			qt.mend()
 
