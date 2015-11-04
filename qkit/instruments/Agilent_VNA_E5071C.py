@@ -1,7 +1,4 @@
-# Anritsu driver, modified MW July 2013
-
-# Anritsu_VNA.py 
-# Pascal Macha <pascalmacha@googlemail.com>, 2010
+# Agilent_VNA_E5071C driver, P. Macha, modified by M. Weides July 2013, J. Braumueller 2015
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -133,14 +130,9 @@ class Agilent_VNA_E5071C(Instrument):
 		self.add_function('avg_status')
 		self.add_function('def_trig')
 		self.add_function('get_hold')
-		self.add_function('set_hold')
+		self.add_function('hold')
 		self.add_function('get_sweeptime')
-		
-		
-		#self._oldspan = self.get_span()
-		#self._oldnop = self.get_nop()
-		#if self._oldspan==0.002:
-		#  self.set_zerospan(True)
+		self.add_function('get_sweeptime_averages')
 		
 		self.get_all()
 	
@@ -159,10 +151,11 @@ class Agilent_VNA_E5071C(Instrument):
 		self.get_channel_index()
 		self.get_zerospan()
 		self.get_sweeptime()
+		self.get_sweeptime_averages()
 		
 	###
 	#Communication with device
-	###	
+	###
 	
 	def init(self):
 		if self._zerospan:
@@ -174,7 +167,7 @@ class Agilent_VNA_E5071C(Instrument):
 		  else:
 			  self._visainstrument.write('INIT1;*wai')
 			  
-	def set_hold(self, status):     # added MW July 13
+	def hold(self, status):     # added MW July 13
 		if status:
 			self._visainstrument.write(':INIT%i:CONT OFF'%(self._ci))
 			#print 'continuous off'
@@ -186,7 +179,7 @@ class Agilent_VNA_E5071C(Instrument):
 		#self._visainstrument.read(':INIT%i:CONT?'%(self._ci))
 		self._hold=self._visainstrument.ask(':INIT%i:CONT?'%(self._ci))
 		return self._hold     
-			  #
+
 	def def_trig(self):
 		self._visainstrument.write(':TRIG:AVER ON')
 		self._visainstrument.write(':TRIG:SOUR bus')
@@ -218,11 +211,10 @@ class Agilent_VNA_E5071C(Instrument):
 			#print 'single shot readout'
 			self._visainstrument.write('TRIG:SOUR INT') #added MW July 2013. start single sweep.
 			self._visainstrument.write('INIT%i:CONT ON'%(self._ci)) #added MW July 2013. start single sweep.
-			self.set_hold(True)
+			self.hold(True)
 			sleep(float(self._visainstrument.ask('SENS1:SWE:TIME?'))) 
 		
 		sleep(0.1) # required to avoid timing issues    MW August 2013   ???
-		   
 			
 		#self._visainstrument.write(':FORMAT REALform; FORMat:BORDer SWAP;')
 		#data = self._visainstrument.ask_for_values( "CALCulate:DATA? SDATA",format = visa.single)
@@ -521,6 +513,7 @@ class Agilent_VNA_E5071C(Instrument):
 		self.get_centerfreq();
 		self.get_stopfreq();
 		self.get_span();
+		
 	def do_get_startfreq(self):
 		'''
 		Get Start frequency
@@ -564,7 +557,7 @@ class Agilent_VNA_E5071C(Instrument):
 		logging.debug(__name__ + ' : getting stop frequency')
 		self._stop = float(self._visainstrument.ask('SENS%i:FREQ:STOP?' %(self._ci) ))
 		return  self._stop
-			   
+
 	def do_set_bandwidth(self,band):
 		'''
 		Set Bandwidth
