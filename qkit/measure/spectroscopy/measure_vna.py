@@ -497,10 +497,10 @@ class spectrum(object):
 					self._plot_amp.update()
 					self._plot_pha.update()
 
-				#self._plot_amp.save_png()
-				#self._plot_amp.save_gp()
-				#self._plot_pha.save_png()
-				#self._plot_pha.save_gp()
+				self._plot_amp.save_png()
+				self._plot_amp.save_gp()
+				self._plot_pha.save_png()
+				self._plot_pha.save_gp()
 
 			qt.mend()
 
@@ -549,7 +549,13 @@ class spectrum(object):
 		'''
 		qt.mstart()
 		self._prepare_measurement_vna()
-		self.vna.hold(0)   #switch VNA to continuous mode
+		try:
+			self.vna.hold(0)   #switch VNA to continuous mode
+		except AttributeError:
+			try:
+				self.vna.set_hold(0)
+			except Exception as message:
+				print 'VNA might be in hold mode', message
 
 		print 'recording trace...'
 		sys.stdout.flush()
