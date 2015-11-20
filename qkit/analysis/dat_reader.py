@@ -193,7 +193,8 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 
 
 	if file_name == 'dat_import':
-		print 'use imported data'
+		if show_plot:
+			print 'use imported data'
 	else:
 		#load data
 		data, nfile = load_data(file_name)
