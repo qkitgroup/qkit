@@ -65,11 +65,11 @@ def load_data(file_name = None):
 				return
 		except Exception as message:
 			print message
-			return
+			return None, None
 
 	elif file_name == None and no_qt == True:
 		print 'Cannot retrieve datadir...aborting'
-		return
+		return None, None
 	else:
 		nfile = file_name
 
@@ -80,7 +80,7 @@ def load_data(file_name = None):
 		#print 'Reading successful!'
 	except Exception as message:
 		print 'invalid file name...aborting:', message
-		return
+		return None, None
 		
 	return data, nfile
 	
@@ -193,10 +193,14 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 
 
 	if file_name == 'dat_import':
-		print 'use imported data'
+		pass
+		#print 'use imported data'
 	else:
 		#load data
 		data, nfile = load_data(file_name)
+		print data
+		if data == None:
+			return
 
 	#check column identifier
 	if data_c >= len(data):
