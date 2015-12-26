@@ -10,80 +10,220 @@ import os, glob
 import time
 import logging
 
+try:
+	from qkit.storage import hdf_lib
+except ImportError:
+	logging.warning('hdf_lib not found')
+
 no_do = False
 try:
 	import data_optimizer as do
-except ImportError as m:
-	print 'Warning: data optimizer not available.'
+except ImportError:
+	logging.warning('data optimizer not available')
 	no_do = True
 
 no_qt = False
 try:
 	import qt
 	data_dir_config = qt.config.get('datadir')
-except ImportError as message:
-	print 'Warning:', message
+except ImportError:
+	logging.warning('no qtLAB environment')
 	no_qt = True
 
 
 '''
 	rootPath = 'D:\\'
 	pattern = '*.dat'
-	 
+	
 	for root, dirs, files in os.walk(rootPath):
 		for filename in fnmatch.filter(files, pattern):
 			print(os.path.join(root, filename))
 '''
 
+# =================================================================================================================
 
-def load_data(file_name = None):
+def find_latest_file(ftype=None):
+	
+	'''
+	find latest file
+	priorize hdf file over dat file
+	'''
+	
+	global no_qt
+	
+	###
+	no_qt = False
+	data_dir_config = 'd:/qkit/qkit/analysis/data/'
+	file_name = None
+	###
+	
+	if no_qt:
+		print 'Cannot retrieve datadir...aborting'
+		return
+	elif file_name == None and no_qt == False:
+		#extract newest file in specified folder
+		data_dir = os.path.join(data_dir_config, time.strftime('%Y%m%d'))
+		try:
+			nfile = max(glob.iglob(str(data_dir)+'\*\*.'+ftype), key=os.path.getctime)   #find newest file in directory
+		except ValueError:
+			print 'no .%s file in todays directory '%ftype +str(data_dir)+':'
+
+			i = 0
+			while i < 10:
+				data_dir = os.path.join(data_dir_config, time.strftime('%Y%m%d',time.localtime(time.time()-3600*24*(i+1))))   #check older directories
+				try:
+					nfile = max(glob.iglob(str(data_dir)+'\*\*.'+ftype), key=os.path.getctime)
+					break
+				except ValueError:
+					print 'no .%s file in the directory '%ftype +str(data_dir)
+					i+=1
+
+			if i == 10:
+				print 'no .%s files found within the last %i days...aborting' %(ftype,i)
+				return
+		except Exception as message:   #other exception than ValueError thrown
+			print message
+			return
+
+	return str(nfile).replace('\\','/')
+
+# =================================================================================================================
+
+def read_hdf_data(nfile,entries=None):
+	
+	'''
+	- read hdf data file, store data in 2d numpy array and return
+	- entries (optional): specify entries in h5 file to be read and returned
+	- returns numpy data array
+	
+	- the function is used by the function load_data as part of the general fitter fit_data
+	- currently one can pass a set of keywords (entries) in the form of a string array ['string1',string2',...,'stringn']
+	  with stringi the keywords to be read and returned as numpy array
+	- when no entries are specified, read_hdf_data looks for a frequency axis or a pulse length axis for the numpy array's first axis
+	  and also searches amplitude_avg and phase_avg. If not present, regular amplitude and phase data is used
+	- for the near future I have in mind that each data taking script saves a hint in the
+	  h5 file which entries to use for quick fitting with the dat_reader
+	'''
+	
+	try:
+		hf = hdf_lib.Data(path = nfile)
+	except IOError,NameError:
+		print 'Error: No h5 file read.'
+		return
+	
+	keys = hf['/entry/data0'].keys()
+	print 'Data entries:', keys
+	
+	url_tree = '/entry/data0/'
+	urls = []
+	
+	if entries == None:   #no entries specified
+		for k in keys:   #go through all keys
+			try:
+				if str(k[:4]).lower() == 'freq' or str(k[:4]).lower() == 'puls':
+					urls.append(url_tree + k)
+					break
+			except IndexError:
+				print 'Entries cannot be identified. Parameter names too short. Aborting.'
+				return
+		if len(urls) == 0:
+			print 'No parameter axis found. Aborting.'
+			return
+			
+		for k in keys:
+			try:
+				if 'avg' in str(k).lower() and str(k[:3]).lower() == 'amp':
+					urls.append(url_tree + k)
+					break
+			except IndexError:
+				print 'Entries cannot be identified. Aborting.'
+				return
+			
+		for k in keys:
+			try:
+				if 'avg' in str(k).lower() and str(k[:3]).lower() == 'pha':
+					urls.append(url_tree + k)
+					break
+			except IndexError:
+				print 'Entries cannot be identified. Aborting.'
+				return
+			
+		if len(urls) != 3:
+			for k in keys:
+				try:
+					if str(k[:3]).lower() == 'amp':
+						urls.append(url_tree + k)
+						break
+				except IndexError:
+					print 'Entries cannot be identified. No amplitude data found. Aborting.'
+					return
+			for k in keys:
+				try:
+					if str(k[:3]).lower() == 'pha':
+						urls.append(url_tree + k)
+						break
+				except IndexError:
+					print 'Entries cannot be identified. No phase data found. Aborting.'
+					return
+				
+		#c1 = np.array(hf[urls[0]],dtype=np.float64)
+		#amp = np.array(hf[urls[1]],dtype=np.float64)
+		#pha = np.array(hf[urls[2]],dtype=np.float64)
+		#return np.array([c1,amp,pha])
+		
+	else:   #use specified entries
+		for e in entries:
+			for k in keys:
+				try:
+					if str(e).lower() in str(k).lower():
+						urls.append(url_tree + k)
+				except IndexError:
+					print 'Entries cannot be identified. No data for >> %s << found. Aborting.'%str(e)
+					return
+		
+	print 'Entries identified:',urls
+	data = []
+	for u in urls:
+		data.append(np.array(hf[u],dtype=np.float64))
+	return np.array(data)
+
+# =================================================================================================================
+
+def load_data(file_name = None,columns=['frequency','amplitude','phase']):
 	
 	'''
 	load recent or specified data file and return the data array
 	'''
 	
-	global no_qt
-	if file_name == None and no_qt == False:
-		#extract newest file in specified folder
-		data_dir = os.path.join(data_dir_config, time.strftime('%Y%m%d'))
+	if file_name == None:
+		#test whether hdf lib is available
 		try:
-			nfile = max(glob.iglob(str(data_dir)+'\*\*.dat'), key=os.path.getctime)   #find newest file in directory
-		except ValueError as message:
-			print 'no .dat file in todays directory '+str(data_dir)+':', message
-			i = 0
-			while i < 10:
-				data_dir = os.path.join(data_dir_config, time.strftime('%Y%m%d',time.localtime(time.time()-3600*24*(i+1))))   #check older directories
-				try:
-					nfile = max(glob.iglob(str(data_dir)+'\*\*.dat'), key=os.path.getctime)
-					break
-				except ValueError:
-					print 'no .dat file in the directory '+str(data_dir)
-					i = i+1
-
-			if i == 10:
-				print 'no .dat files found within the last %i days...aborting' % i
-				return
-		except Exception as message:
-			print message
-			return None, None
-
-	elif file_name == None and no_qt == True:
-		print 'Cannot retrieve datadir...aborting'
-		return None, None
+			hdf_lib
+		except NameError:
+			ftype = 'dat'
+		else:
+			ftype = 'h5'
+		nfile = find_latest_file(ftype)
 	else:
-		nfile = file_name
-
+		nfile = str(file_name).replace('\\','/')
 
 	try:
-		print 'Reading file '+str(nfile).replace('\\','/')
-		data = np.loadtxt(nfile, comments='#').T
-		#print 'Reading successful!'
+		print 'Reading file '+nfile
+		if nfile[-2:] == 'h5':   #hdf file
+			data = read_hdf_data(nfile)
+		else:   #dat file
+			data = np.loadtxt(nfile, comments='#').T
+	except NameError:
+		print 'hdf package not available...aborting'
+		return
 	except Exception as message:
 		print 'invalid file name...aborting:', message
-		return None, None
+		return
 		
 	return data, nfile
-	
+
+# =================================================================================================================
+
 def _fill_p0(p0,ps):
 
 	'''
@@ -99,7 +239,9 @@ def _fill_p0(p0,ps):
 			print 'list of given initial parameters invalid...aborting'
 			raise ValueError
 	return p0
-	
+
+# =================================================================================================================
+
 def _extract_initial_oscillating_parameters(data,data_c):
 	
 	#offset
@@ -154,22 +296,29 @@ def _extract_initial_oscillating_parameters(data,data_c):
 	
 	return s_offs, s_a, s_Td, s_fs, s_ph
 
+# =================================================================================================================
 
 def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, save_pdf = False, data=None, nfile=None, opt=None):
 	
 	'''
 	fit the data in file_name to a function specified by fit_function
-	leaving file_name to None makes the code try to find the newest .dat file in today's data_dir
+	setting file_name to None makes the code try to find the newest .dat file in today's data_dir
+	works only in qtLAB invironment where qt.config.get('data_dir') is defined
 	
-	fit_function can be 'lorentzian', 'damped_sine', 'sine', 'exp'
-	data_c: specifies the data column to be used (next to column 0 that is used as the coordinate axis)
-	ps: start parameters (optional), can be given in parts, set parameters not specified to None
-	xlabel: label for horizontal axis (optional)
-	ylabel: label for vertical axis (optional)
-	show_plot: show and safe the plot (optional, default = True)
-	save_pdf: save plot also as pdf file (optional, default = False)
+	dat_reader supports the h5 file format. In case the hf libraries are available when setting file_name to None (automatic search for latest data file),
+	 dat_reader looks for the latest h5 file
+	
+	fit_function (optional, default = 'lorentzian'): can be 'lorentzian', 'damped_sine', 'sine', 'exp'
+	data_c (optional, default = 2, phase): specifies the data column to be used (next to column 0 that is used as the coordinate axis)
+	 string specifying 'amplitude' or 'phase' or similar spellings are accepted as well
+	 when data is read from h5 file, the usual column ordering is [freq,amp,pha], [0,1,2]
+	ps (optional): start parameters, can be given in parts, set parameters not specified to None
+	xlabel (optional): label for horizontal axis
+	ylabel (optional): label for vertical axis
+	show_plot (optional): show and safe the plot (optional, default = True)
+	save_pdf (optional): save plot also as pdf file (optional, default = False)
 	data, nfile: pass data object and file name which is used when file_name == 'dat_import'
-	opt: bool, set to True if data is to be optimized prior to fitting
+	opt: bool, set to True if data is to be optimized prior to fitting using the data_optimizer
 	
 	returns fit parameters, standard deviations concatenated: [popt1,pop2,...poptn,err_popt1,err_popt2,...err_poptn]
 	in case fit does not converge, errors are filled with 'inf'
@@ -193,16 +342,17 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 
 
 	if file_name == 'dat_import':
-		if show_plot:
-			print 'use imported data'
+		print 'use imported data'
 	else:
 		#load data
 		data, nfile = load_data(file_name)
-		print data
-		if data == None:
-			return
 
 	#check column identifier
+	if type(data_c) == str:
+		if 'amp' in str(data_c).lower():
+			data_c = 1
+		else:
+			data_c = 2
 	if data_c >= len(data):
 		print 'bad data column identifier, out of bonds...aborting'
 		return
@@ -236,9 +386,9 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 			print 'expecting peak'
 			s_a = np.abs((np.max(data[data_c])-np.mean(data[data_c])))
 			s_f0 = data[0][np.where(data[data_c] == max(data[data_c]))[0][0]]*freq_conversion_factor
-			print s_f0
-			print s_a
-			print s_offs
+			#print s_f0
+			#print s_a
+			#print s_offs
 		else:
 			print 'expecting dip'
 			s_a = -np.abs((np.min(data[data_c])-np.mean(data[data_c])))
@@ -246,12 +396,12 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		
 		#estimate peak/dip width
 		mid = s_offs + 0.5*s_a   #estimated mid region between base line and peak/dip
-		print mid
+		#print mid
 		m = []   #mid points
 		for dat_p in range(len(data[data_c])-1):
 			if np.sign(data[data_c][dat_p] - mid) != np.sign(data[data_c][dat_p+1] - mid):   #mid level crossing
 				m.append(dat_p)   #frequency of found mid point
-		#print m
+
 		if len(m) > 1:
 			s_k = (data[0][m[-1]]-data[0][m[0]])*freq_conversion_factor
 			print 'assume k = %.2e'%s_k
