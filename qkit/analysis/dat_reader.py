@@ -51,11 +51,11 @@ def find_latest_file(ftype=None):
 	
 	global no_qt
 	
-	
+	'''
 	no_qt = False
 	data_dir_config = 'd:/qkit/qkit/analysis/data/'
 	file_name = None
-	
+	'''
 	
 	if ftype == None:
 		ftype = 'h5'
