@@ -45,17 +45,20 @@ except ImportError:
 def find_latest_file(ftype=None):
 	
 	'''
-	find latest file
+	find latest file of type ftype in qt data directory
 	priorize hdf file over dat file
 	'''
 	
 	global no_qt
 	
-	###
+	
 	no_qt = False
 	data_dir_config = 'd:/qkit/qkit/analysis/data/'
 	file_name = None
-	###
+	
+	
+	if ftype == None:
+		ftype = 'h5'
 	
 	if no_qt:
 		print 'Cannot retrieve datadir...aborting'
@@ -242,7 +245,7 @@ def _fill_p0(p0,ps):
 
 # =================================================================================================================
 
-def _extract_initial_oscillating_parameters(data,data_c):
+def _extract_initial_oscillating_parameters(data,data_c,damping):
 	
 	#offset
 	# testing last 25% of data for its maximum slope; take offset as last 10% of data for a small slope (and therefore strong damping)
@@ -252,26 +255,31 @@ def _extract_initial_oscillating_parameters(data,data_c):
 		s_offs = (np.max(data[data_c]) + np.min(data[data_c]))/2
 	#print s_offs
 	
-	#amplitude
-	a1 = np.abs(np.max(data[data_c]) - s_offs)
-	a2 = np.abs(np.min(data[data_c]) - s_offs)
-	s_a = np.max([a1,a2])
-	#print s_a
+	if damping:
+		#amplitude
+		a1 = np.abs(np.max(data[data_c]) - s_offs)
+		a2 = np.abs(np.min(data[data_c]) - s_offs)
+		s_a = np.max([a1,a2])
+		#print s_a
+		
+		#damping
+		a_end = np.abs(np.max(data[data_c][int(0.7*len(data[data_c])):]))   #scan last 30% of values -> final amplitude
+		#print a_end
+		# -> calculate Td
+		t_end = data[0][-1]
+		try:
+			s_Td = -t_end/(np.log((np.abs(a_end-np.abs(s_offs)))/s_a))
+		except RuntimeWarning:
+			logging.warning('Invalid value encountered in log. Continuing...')
+			s_Td = float('inf')
+		if np.abs(s_Td) == float('inf'):
+			s_Td = float('inf')
+			logging.warning('Consider using the sine fit routine for non-decaying sines.')
+		#print 'assume T =', str(np.round(s_Td,4))
 	
-	#damping
-	a_end = np.abs(np.max(data[data_c][int(0.7*len(data[data_c])):]))   #scan last 30% of values -> final amplitude
-	#print a_end
-	# -> calculate Td
-	t_end = data[0][-1]
-	try:
-		s_Td = -t_end/(np.log((np.abs(a_end-np.abs(s_offs)))/s_a))
-	except RuntimeWarning:
-		logging.warning('Invalid value encountered in log. Continuing...')
-		s_Td = float('inf')
-	if np.abs(s_Td) == float('inf'):
-		s_Td = float('inf')
-		logging.warning('Consider using the sine fit routine for non-decaying sines.')
-	#print 'assume T =', str(np.round(s_Td,4))
+	else:
+		s_a = 0
+		s_Td = 0
 	
 	#frequency
 	#s_fs = 1/data[0][int(np.round(np.abs(1/np.fft.fftfreq(len(data[data_c]))[np.where(np.abs(np.fft.fft(data[data_c]))==np.max(np.abs(np.fft.fft(data[data_c]))[1:]))]))[0])] #@andre20150318
@@ -295,6 +303,33 @@ def _extract_initial_oscillating_parameters(data,data_c):
 	#print s_ph
 	
 	return s_offs, s_a, s_Td, s_fs, s_ph
+
+# =================================================================================================================
+
+def _safe_fit_data_in_h5_file(fname,x_vec,fvalues):
+	
+	'''
+	appends fitted data to the h5 file in folder analysis with a newly created parameter axis containing
+	 a fixed number of points
+	 
+	fname: file name of the h5 file
+	x_vec: generated x vector (parameter vector) of constant length
+	fvalues: fitted function values, array of length len(x_vec)
+	
+	So far I hope that hdf_lib throws away old fit data when refitting and generating the same axes in the analysis folder. (JB)
+	'''
+	
+	try:
+		hf = hdf_lib.Data(path=fname)
+		hdf_x = hf.add_coordinate('param',folder='analysis')
+		hdf_x.add(x_vec)
+		hdf_fit = hf.add_value_vector('fit', folder='analysis', x = hdf_x)
+		hdf_fit.append(np.array(fvalues))
+		hf.close_file()
+	except Exception as m:
+		print 'Error while attempting to save fit data in h5 file:', m
+		return False
+	return True
 
 # =================================================================================================================
 
@@ -420,7 +455,8 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 			pcov = None
 		finally:
 			if show_plot:
-				plt.plot(x_vec, f_Lorentzian(x_vec, *popt))
+				fvalues = f_Lorentzian(x_vec, *popt)
+				plt.plot(x_vec, fvalues)
 				ax = plt.gca()
 				if xlabel == '':
 					ax.set_xlabel('f (GHz)', fontsize=13)
@@ -438,7 +474,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		x_vec = np.linspace(data[0][0],data[0][-1],400)
 	
 		#start parameters ----------------------------------------------------------------------
-		s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data,data_c)
+		s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data,data_c,damping=True)
 		p0 = _fill_p0([s_fs, s_Td, s_a, s_offs, s_ph],ps)
 
 		#damped sine fit ----------------------------------------------------------------------
@@ -449,7 +485,9 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 			popt = p0
 			pcov = None
 		finally:
-			if show_plot:   plt.plot(x_vec, f_damped_sine(x_vec, *popt))
+			if show_plot:
+				fvalues = f_damped_sine(x_vec, *popt)
+				plt.plot(x_vec, fvalues)
 	
 	# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	elif fit_function == 'sine':
@@ -458,10 +496,11 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		x_vec = np.linspace(data[0][0],data[0][-1],200)
 	
 		#start parameters ----------------------------------------------------------------------
-		s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data,data_c)
+		s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data,data_c,damping=False)
 		s_offs = np.mean(data[data_c])
 		s_a = 0.5*np.abs(np.max(data[data_c]) - np.min(data[data_c]))
 		p0 = _fill_p0([s_fs, s_a, s_offs, s_ph],ps)
+		#print p0
 			
 		#sine fit ----------------------------------------------------------------------
 		try:
@@ -471,7 +510,9 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 			popt = p0
 			pcov = None
 		finally:
-			if show_plot:   plt.plot(x_vec, f_sine(x_vec, *popt))
+			if show_plot:
+				fvalues = f_sine(x_vec, *popt)
+				plt.plot(x_vec, fvalues)
 	
 	# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	elif fit_function == 'exp':
@@ -503,7 +544,8 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 				fig, axes = plt.subplots(1, 2, figsize=(15,4))
 				
 				axes[0].plot(data[0],data[data_c],'*')
-				axes[0].plot(x_vec, f_exp(x_vec, *popt))
+				fvalues = f_exp(x_vec, *popt)
+				axes[0].plot(x_vec, fvalues)
 				if xlabel == '':
 					axes[0].set_xlabel('t (us)', fontsize=13)
 					pass
@@ -547,12 +589,16 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 			plt.title(str(popt),y=1.03)
 			
 		try:
-			plt.savefig(str(nfile[0:-4])+'_dr.png', dpi=300)
+			plt.savefig(nfile.replace('.dat','_dr.png').replace('.h5','_dr.png'), dpi=300)
 			if save_pdf:
-				plt.savefig(str(nfile[0:-4])+'_dr.pdf', dpi=300)
-			print 'plot saved:', str(nfile[0:-4])+'_dr.png'
+				plt.savefig(nfile.replace('.dat','_dr.pdf').replace('.h5','_dr.pdf'), dpi=300)
+			print 'plot saved:', nfile.replace('.dat','_dr.png').replace('.h5','_dr.png')
 		except Exception as m:
 			print 'figure not stored:', m
+			
+		if pcov != None and nfile[-2:] == 'h5':   #in case fit was successful
+			if _safe_fit_data_in_h5_file(nfile,x_vec,np.array(fvalues)):
+				print 'Fit data successfully stored in h5 file.'
 		plt.show()
 	
 	if pcov == None:
