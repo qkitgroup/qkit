@@ -113,14 +113,14 @@ class Measure_td(object):
 
 
 	def measure_1D_AWG(self, iterations = 100):
-			'''
-			use AWG sequence for x_vec, averaging over iterations
-			'''
-			self.y_vec = range(iterations)
-			self.y_coordname = '#iteration'
-			self.y_set_obj = lambda y: True
-			self.y_unit = ''
-			return self.measure_2D_AWG()
+		'''
+		use AWG sequence for x_vec, averaging over iterations
+		'''
+		self.y_vec = range(iterations)
+		self.y_coordname = '#iteration'
+		self.y_set_obj = lambda y: True
+		self.y_unit = ''
+		return self.measure_2D_AWG()
 
 
 	def measure_2D_AWG(self):
@@ -160,17 +160,10 @@ class Measure_td(object):
 
 	def _prepare_measurement_dat_file(self,mode):
 	
-		if self.save_dat:
-			'''
-			create data files for:
-			* time resolved raw data
-			* time resolved successively averaged data
-			* time-averaged data
-			* (optionally) raw I/Q data
-			'''
+		if self.dirname == None:
+			self.dirname = self.x_coordname
 			
-			if self.dirname == None:
-				self.dirname = self.x_coordname
+		if self.save_dat:
 			self.data_raw = qt.Data(name='%s_%s'%(mode,self.dirname))
 			
 			if mode == '2dAWG':
