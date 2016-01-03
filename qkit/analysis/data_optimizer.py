@@ -9,29 +9,29 @@ in the complex plane.
 This approach is equivalent to a rotation of the principal axis and the projection onto a quadrature with minimum
 information loss.
 
+We assume that the possible qubit states |0>, |1> lead to two distinct positions of the resonance dip of our dispersive readout resonator.
+The reason that not only two hot spots are visible in a typical qubit measurement is the averaging the adc card does before tranferring a "single"
+data point to the measurment script. However, since this averaging takes place in the complex plane, all points recorded in such a measurement
+should be located on a line. This justifies the projection of measurement data to an arbitrary axis without any loss in the shape of measured data.
+When using the data_optimizer, all measurement values are output with respect to one of the edge points of the line in the complex plane and normalized.
+This leads to a possible offset in the x axis parameter.
+
 input: data array of the form the dat_reader returns it: data = [[f1,f2,...,fn],...,[a1,a2,...,an],[ph1,ph2,...,phn],...] together with two column identifiers.
 output: data array of the form data_ret = [[f1,f2,...,fn],[n1,n2,...,nn]], with ni denoting normalized values; len(data_ret[i]) = len(data[j]) for all i in len(data_ret), j in len(data)
 '''
 
 import numpy as np
-import os, glob
-import time
-import logging
-
-no_qt = False
-try:
-	import qt
-	data_dir_config = qt.config.get('datadir')
-except ImportError as message:
-	print 'Warning:', message
-	no_qt = True
 
 
 def optimize(data, c_amp = 1, c_pha = 2):
 	
 	'''
-	input: data array of the form the dat_reader returns it: data = [[f1,f2,...,fn],...,[a1,a2,...,an],[ph1,ph2,...,phn],...] together with two column identifiers.
-	output: data array of the form data_ret = [[f1,f2,...,fn],[n1,n2,...,nn]], with ni denoting normalized values; len(data_ret[i]) = len(data[j]) for all i in len(data_ret), j in len(data)
+	input:
+	* data array of the form the dat_reader returns it: data = [[f1,f2,...,fn],...,[a1,a2,...,an],[ph1,ph2,...,phn],...]
+	* column identifiers c_amp, c_pha (optional, default: 1,2)
+	output:
+	* data array of the form data_ret = [[f1,f2,...,fn],[n1,n2,...,nn]], with ni denoting normalized values;
+	  len(data_ret[i]) = len(data[j]) for all i in len(data_ret), j in len(data)
 	'''
 
 	#generate complex data array
