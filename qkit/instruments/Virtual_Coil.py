@@ -43,34 +43,30 @@ class Virtual_Coil(Instrument):
 	def get_c_range(self):
 		return self.c_range
 		
-	def round_to_x_valids(self, x, f):
-			return round(f, -int(np.floor(np.log10(np.abs(f))))+(x-1))
-		
 	def do_set_current(self, current):     #current in mA
 		try:  
-			val = (current * 1000 * np.power(10.,-dac_val[self.c_range]))
+			val = np.round((current * 1000 * np.power(10.,-dac_val[self.c_range])),10)
 			
 			if val > 2000 or val < -2000:
 				print 'Error: Value exceeds upper threshold!'
 				raise ArithmeticError
 			else:
 				if (val < 1 and val > -1 and val != 0) or np.round(val,0) != val:
-					print 'Warning: Bad current setting!'
-					print str(np.round(val,0))
-					print 'setting ' + str(np.round(val,0) * 1e-3 * np.power(10.,dac_val[self.c_range])) + ' mA'
-				IVVI.set_dac(self.dac_rout,val)    
+					logging.warning('Warning: Possible resolution not enough for the value you are attempting to set. Instead setting '+str(np.round(val,0) * 1e-3 * np.power(10.,dac_val[self.c_range])) + ' mA')
+				IVVI.set_dac(self.dac_rout,np.round(val))
 			   
 		except IndexError as detail:
 			print 'Error: Electronics might be disconnected. ',detail
 		except ArithmeticError as detail:
-			print 'Invalid current setting. ',detail
+			print 'Invalid current setting. No changees made.',detail
 
 
 	def do_get_current(self):
 		
-		val = IVVI.get_dac(self.dac_rout)/1000   #val = voltage in Volts
+		val = float(np.round(IVVI.get_dac(self.dac_rout)))/1000   #val = voltage in Volts
+		#print val
 		try:
-			return self.round_to_x_valids(4,val*np.power(10.,dac_val[self.c_range]))
+			return val#self.round_to_x_valids(4,val*np.power(10.,dac_val[self.c_range]))
 		except IndexError as detail:
 			print 'Error: Electronics might be disconnected. ',detail
 		except Exception as detail:
