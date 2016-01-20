@@ -1,8 +1,8 @@
 from subprocess import Popen, PIPE
 from qkit.storage import hdf_lib
 import os
-from matplotlib.pyplot import *
-ioff()
+import matplotlib.pyplot as plt
+plt.ioff()
 import numpy as np
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -119,7 +119,7 @@ class h5plot(object):
 				
 				x_label = ds.attrs.get('name','_xname_')+' / ' + ds.attrs.get('unit','_xunit_')
 				x_ds = self.hf['/entry/data0/'+ds.attrs.get('x_name')]
-			fig, ax = subplots()
+			fig, ax = plt.subplots(figsize=(20,10))
 
 			if len(ds.shape)==1: 
 			#checking the shape is a little hack to save plots from earlier .h5 files without propper metadata settings
@@ -131,7 +131,7 @@ class h5plot(object):
 				
 				data_y = ds
 				
-				y_label = ds_label        
+				y_label = ds_label
 				ax.plot(x_ds,data_y, '-')
 				
 			elif len(ds.shape)==2:
@@ -171,7 +171,7 @@ class h5plot(object):
 				i.set_fontsize(16)
 			for i in ax.get_yticklabels():
 				i.set_fontsize(16)
-			tight_layout()
+			fig.tight_layout()
 		
 			save_name=(dataset.replace('/entry/','')).replace('/','_')
 			if self.comment:
@@ -179,8 +179,8 @@ class h5plot(object):
 			image_path = str(os.path.join(self.image_dir,save_name))
 			#print 'image path', image_path
 			if self.save_pdf:
-				savefig(image_path+'.pdf')
-			savefig(image_path+'.png')
+				fig.savefig(image_path+'.pdf')
+			fig.savefig(image_path+'.png')
 		
 	def plt_views(self,key):
 			# not (yet?) implemented. we'll see ...
