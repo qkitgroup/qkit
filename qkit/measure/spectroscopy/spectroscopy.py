@@ -347,9 +347,9 @@ class spectrum(object):
                     self._data_amp.append(data_amp)
                     self._data_pha.append(data_pha)
                     if self._nop < 10:
-                        print data_amp[self._nop/2]
-                        self._data_amp_mid.append(data_amp[self._nop/2])
-                        self._data_pha_mid.append(data_pha[self._nop/2])
+                        #print data_amp[self._nop/2]
+                        self._data_amp_mid.append(float(data_amp[self._nop/2]))
+                        self._data_pha_mid.append(float(data_pha[self._nop/2]))
                     if self._fit_resonator:
                         self._do_fit_resonator()
                     if self.progress_bar:
