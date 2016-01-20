@@ -179,5 +179,5 @@ class hdf_dataset(object):
             self.hf[name] = val
         """
         def __repr__(self):
-            ret = "HDF5Data '%s', filename '%s'" % (self._name, self._filename)
+            ret = "HDF5Data '%s'" % (self.name)
             return ret
