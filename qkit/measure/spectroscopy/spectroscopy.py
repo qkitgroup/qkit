@@ -147,8 +147,7 @@ class spectrum(object):
         at this point all measurement parameters are known and put in the output file
         '''
 
-        filename = str(self._file_name) + '.h5'
-        self._data_file = hdf.Data(name=self._file_name, path=filename)
+        self._data_file = hdf.Data(name=self._file_name)
         
         self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
         self._data_freq.add(self._freqpoints)
@@ -164,6 +163,11 @@ class spectrum(object):
             self._data_x.add(self.x_vec)
             self._data_amp = self._data_file.add_value_matrix('amplitude', x = self._data_x, y = self._data_freq, unit = '')
             self._data_pha = self._data_file.add_value_matrix('phase', x = self._data_x, y = self._data_freq, unit='rad')
+            if self._nop < 10:
+                """creates view: plot middle point vs x-parameter, for qubit measurements"""
+                self._data_amp_mid = self._data_file.add_value_vector('amplitude_midpoint', unit = '', x = self._data_x)
+                self._data_pha_mid = self._data_file.add_value_vector('phase_midpoint', unit = 'rad', x = self._data_x)
+                #self._view = self._data_file.add_view("amplitude vs. " + self.x_coordname, x = self._data_x, y = self._data_amp[self._nop/2])
 
         if self._scan_3D:
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit = self.x_unit)
@@ -248,12 +252,12 @@ class spectrum(object):
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
-        qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
+        if self._nop < 10:
+            qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude_midpoint', 'phase_midpoint'])
+        else:
+            qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
         if self._fit_resonator:
             self._resonator = resonator(self._data_file)
-        if self._nop < 10:
-            """creates view: plot middle point vs x-parameter, for qubit measurements"""
-            self._view = self._data_file.add_view("amplitude vs. " + self.x_coordname, x = self._data_x, y = self._data_amp[self._nop/2])
         self._measure()
         self._end_measurement()
 
@@ -342,6 +346,9 @@ class spectrum(object):
                     data_amp, data_pha = self.vna.get_tracedata()
                     self._data_amp.append(data_amp)
                     self._data_pha.append(data_pha)
+                    if self._nop < 10:
+                        self._data_amp_mid.append(data_amp[self._nop/2])
+                        self._data_pha_mid.append(data_pha[self._nop/2])
                     if self._fit_resonator:
                         self._do_fit_resonator()
                     if self.progress_bar:
