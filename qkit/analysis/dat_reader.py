@@ -54,7 +54,6 @@ def find_latest_file(ftype=None):
 	'''
 	no_qt = False
 	data_dir_config = 'd:/qkit/qkit/analysis/data/'
-	file_name = None
 	'''
 	
 	if ftype == None:
@@ -63,7 +62,7 @@ def find_latest_file(ftype=None):
 	if no_qt:
 		print 'Cannot retrieve datadir...aborting'
 		return
-	elif file_name == None and no_qt == False:
+	else:
 		#extract newest file in specified folder
 		data_dir = os.path.join(data_dir_config, time.strftime('%Y%m%d'))
 		try:
