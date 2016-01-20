@@ -56,19 +56,15 @@ class h5plot(object):
 		self.comment = comment
 		self.save_pdf = save_pdf
 		
-		# some path limbo
-		#cwd = os.getcwd()
 		filepath = os.path.abspath(h5_filepath)   #put filepath to platform standards
 		filedir  = os.path.dirname(filepath)   #return directory component of the given pathname, here filepath
-		#os.chdir(filedir)
-		image_dir = os.path.join(filedir,'images')
+
+		self.image_dir = os.path.join(filedir,'images')
 		try:
-			os.mkdir(image_dir)
+			os.mkdir(self.image_dir)
 		except OSError:
 			logging.warning('Error creating image directory.')
 			pass
-		
-		#os.chdir(save_dir)
 		
 		# open the h5 file and get the hdf_lib object
 		self.hf = hdf_lib.Data(path=h5_filepath)
@@ -98,9 +94,9 @@ class h5plot(object):
 					else:
 						self.plt_ds(key)
 						
-		# cleanup and return to the old working directory
+		#close hf file
 		self.hf.close()
-		os.chdir(cwd)
+		print 'Plots saved in', self.image_dir
 		
 	def plt_ds(self,dataset):
 			logging.info(" -> plotting dataset: "+str(dataset))
@@ -180,7 +176,8 @@ class h5plot(object):
 			save_name=(dataset.replace('/entry/','')).replace('/','_')
 			if self.comment:
 				save_name=save_name+'_'+self.comment
-			image_path = str(os.path.join(image_dir,save_name))
+			image_path = str(os.path.join(self.image_dir,save_name))
+			#print 'image path', image_path
 			if self.save_pdf:
 				savefig(image_path+'.pdf')
 			savefig(image_path+'.png')
