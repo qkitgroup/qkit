@@ -338,6 +338,7 @@ class spectrum(object):
                             self._do_fit_resonator()
                         if self.progress_bar:
                             self._p.iterate()
+                            qt.msleep()
 
                 if self._scan_2D:
                     self.vna.avg_clear()
@@ -354,6 +355,7 @@ class spectrum(object):
                         self._do_fit_resonator()
                     if self.progress_bar:
                         self._p.iterate()
+                        qt.msleep()
         finally:
             qt.mend()
 
