@@ -190,7 +190,7 @@ class spectrum(object):
 
         if not self.dirname:
             self.dirname = 'VNA_tracedata'
-        self._file_name = self.dirname
+        self._file_name = self.dirname.replace(' ', '').replace(',','_')
         if self.exp_name:
             self._file_name += '_' + self.exp_name
         self._prepare_measurement_vna()
@@ -242,12 +242,12 @@ class spectrum(object):
         self._scan_3D = False
 
         if not self.dirname:
-            self.dirname = self.x_coordname.replace(' ', '')
-        self._file_name = '2D_' + self.dirname
+            self.dirname = self.x_coordname
+        self._file_name = '2D_' + self.dirname.replace(' ', '').replace(',','_')
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
-        self._p = Progress_Bar(len(self.x_vec),self.dirname)
+        self._p = Progress_Bar(len(self.x_vec),'2D VNA sweep '+self.dirname)
 
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
@@ -278,12 +278,12 @@ class spectrum(object):
         self._scan_3D = True
 
         if not self.dirname:
-            self.dirname = self.x_coordname.replace(' ', '') + '_' + self.y_coordname.replace(' ', '')
-        self._file_name = '3D_' + self.dirname
+            self.dirname = self.x_coordname + ', ' + self.y_coordname
+        self._file_name = '3D_' + self.dirname.replace(' ', '').replace(',','_')
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
-        self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec),self.dirname)
+        self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec),'3D VNA sweep '+self.dirname)
 
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
@@ -347,6 +347,7 @@ class spectrum(object):
                     self._data_amp.append(data_amp)
                     self._data_pha.append(data_pha)
                     if self._nop < 10:
+                        print data_amp[self._nop/2]
                         self._data_amp_mid.append(data_amp[self._nop/2])
                         self._data_pha_mid.append(data_pha[self._nop/2])
                     if self._fit_resonator:
@@ -363,6 +364,7 @@ class spectrum(object):
         print self._data_file.get_filepath()
         qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment)
         self._data_file.close_file()
+        self.dirname = None
         
     def set_fit(self,fit_resonator=True,fit_function='',f_min=None,f_max=None):
         '''
