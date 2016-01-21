@@ -245,6 +245,16 @@ class PlotWindow(QWidget,Ui_Form):
                     self.addQvkMenu(self.graphicsView.view.getMenu())
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 self._display_2D_data(self.graphicsView)
+            elif self.view_type == self.view_types['3D']:
+                if not self.graphicsView or self._onPlotTypeChanged or self._onPlotStyleChanged:
+                    self._onPlotTypeChanged = False
+                    self._onPlotStyleChanged = False
+                    self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
+                    self.graphicsView.setObjectName(self.dataset_url)
+                    self.graphicsView.view.setAspectLocked(False)
+                    self.addQvkMenu(self.graphicsView.view.getMenu())
+                    self.gridLayout.addWidget(self.graphicsView,0,0)
+                self._display_3D_data(self.graphicsView)
             elif self.view_type == self.view_types['table']:
                 if not self.graphicsView or self._onPlotTypeChanged or self._onPlotStyleChanged:
                     self._onPlotTypeChanged = False
@@ -419,6 +429,60 @@ class PlotWindow(QWidget,Ui_Form):
 
         #graphicsView.setImage(data)
         #graphicsView.show()
+
+    def _display_3D_data(self,graphicsView):
+        #load the dataset:
+        ds = self.ds
+        #fill = ds.attrs.get("fill",1)
+        fill_x = ds.shape[0]
+        fill_y = ds.shape[1]
+        #data = np.array(ds[:fill])
+        """
+        This is the data-part: make a 2d array from the 3D data
+        first idea:
+        convert dataset to numpy array and "slice" it at the midpoint of the z dimension
+        """
+        data_array = np.array(ds)
+        data = data_array[:,:,data_array.shape[2]/2]
+
+        x0 = ds.attrs.get("x0",0)
+        dx = ds.attrs.get("dx",1)
+        y0 = ds.attrs.get("y0",0)
+        dy = ds.attrs.get("dy",1)
+
+        xmin = x0
+        xmax = x0+fill_x*dx
+        ymin = y0
+        ymax = y0+fill_y*dy
+
+        x_name = ds.attrs.get("x_name","_none_")
+        y_name = ds.attrs.get("y_name","_none_")
+        name = ds.attrs.get("name","_none_")
+
+        x_unit = ds.attrs.get("x_unit","_none_")
+        y_unit = ds.attrs.get("y_unit","_none_")
+        unit = ds.attrs.get("unit","_none_")
+
+
+        pos = (xmin,ymin)
+
+        #scale=(xmax/float(data.shape[0]),ymax/float(data.shape[1]))
+        scale=((xmax-xmin)/float(data.shape[0]),(ymax-ymin)/float(data.shape[1]))
+        graphicsView.view.setLabel('left', y_name, units=y_unit)
+        graphicsView.view.setLabel('bottom', x_name, units=x_unit)
+        graphicsView.view.setTitle(name+" ("+unit+")")
+        graphicsView.view.invertY(False)
+
+        graphicsView.setImage(data,pos=pos,scale=scale)
+        graphicsView.show()
+
+        # Fixme roi ...
+        graphicsView.roi.setPos([xmin,ymin])
+        graphicsView.roi.setSize([xmax-xmin,ymax-ymin])
+
+        #graphicsView.setImage(data)
+        #graphicsView.show()
+
     def _display_table(self,graphicsView):
         #load the dataset:
         data = np.array(self.ds).transpose()
