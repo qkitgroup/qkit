@@ -122,8 +122,8 @@ class Data(object):
         return ds
  
     def add_value_box(self, name, x = None , y = None, z = None, unit = "", comment = "",folder="data",**meta):
-        #ds =  hdf_dataset(self.hf,name, x=x, y=y, z=z, unit=unit, comment=comment, folder=folder)
-        pass
+        ds =  hdf_dataset(self.hf,name, x=x, y=y, z=z, unit=unit, comment=comment, folder=folder)
+        return ds
     
     
     
