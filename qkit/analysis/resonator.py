@@ -5,7 +5,7 @@ import numpy as np
 import logging
 
 from qkit.storage import hdf_lib
-#from qkit.analysis.circle_fit import resonator_tools_xtras as rtx
+from qkit.analysis.circle_fit import resonator_tools_xtras as rtx
 from scipy.optimize import leastsq
 
 
@@ -139,21 +139,18 @@ class Resonator(object):
         f_max (float): upper boundary
         '''
         self._fit_all = fit_all
-
+        self._f_min = np.min(self._frequency)
+        self._f_max = np.max(self._frequency)
         if f_min:
-            self._f_min = f_min
-            if not self._f_min in self._frequency:
-                self._f_min = np.min(self._frequency)
-                logging.warning('f_min not in frequency array. Taking smallest value in frequency array.')
-        else:
-            self._f_min = np.min(self._frequency)
+            for freq in self._frequency:
+                if freq > f_min: 
+                    self._f_min = freq
+                    break
         if f_max:
-            self._f_max = f_max
-            if not self._f_max in self._frequency:
-                self._f_max = np.max(self._frequency)
-                logging.warning('f_max not in frequency array. Taking largest value in frequency array.')
-        else:
-            self._f_max = np.max(self._frequency)
+            for freq in self._frequency:
+                if freq > f_max: 
+                    self._f_max = freq
+                    break
 
         '''
         cut the data-arrays with f_min/f_max and fit_all information
