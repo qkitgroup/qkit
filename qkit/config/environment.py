@@ -19,10 +19,10 @@ if in_qt:
         if entry in cfg.iterkeys():
             cfg[entry] = qt_cfg[entry]
 
-# there can also be a local config file for qkit
+# there can also be a local config file for qkit (qkit/config/local.py) with variable cfg_local = {...}
 try:
     from qkit.config.local import cfg_local
-    for entry in cfg_local:
+    for entry in cfg_local.iterkeys():
         cfg[entry] = cfg_local[entry]
 
 except ImportError:
