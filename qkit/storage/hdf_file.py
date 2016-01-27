@@ -189,8 +189,8 @@ class H5_file(object):
             #print "1dim resize: "+ str(ds.name)
                 
         if len(ds.shape) == 2:
-            if self.next_block:
-                self.next_block = False
+            if self.next_matrix:
+                self.next_matrix = False
             dim1 = ds.shape[0]+1
             ds.resize((dim1,len(data)))
             ds[dim1-1] = data
@@ -201,7 +201,7 @@ class H5_file(object):
         if len(ds.shape) == 3:
             dim1 = ds.shape[0]
             dim2 = ds.shape[1]
-            if self.next_block:
+            if self.next_matrix:
                 self.next_block = False
                 dim1 += 1
                 dim2  = 0
@@ -216,8 +216,8 @@ class H5_file(object):
 
         self.flush()
         
-    def next_block(self):
-        self.next_block = True
+    def next_matrix(self):
+        self.next_matrix = True
     
     def flush(self):
         self.hf.flush()
