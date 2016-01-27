@@ -6,6 +6,7 @@ Created 2015
 """
 import time
 import os
+from qkit.config.environment import cfg
 
 class DateTimeGenerator(object):
     '''
@@ -47,7 +48,7 @@ class DateTimeGenerator(object):
     def new_filename(self, data_obj):
         '''Return a new filename, based on name and timestamp.'''
 
-        dir = self.create_data_dir(config['datadir'], name=data_obj._name,
+        dir = self.create_data_dir(cfg['datadir'], name=data_obj._name,
                 ts=data_obj._localtime)
         tstr = time.strftime('%H%M%S', data_obj._localtime)
         filename = '%s_%s.h5' % (tstr, data_obj._name)
