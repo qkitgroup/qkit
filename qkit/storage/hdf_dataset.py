@@ -107,8 +107,8 @@ class hdf_dataset(object):
                 ds.attrs.create("z_ds_url",self.z_object.ds_url)
 
 
-        def next_block(self):
-            self.hf.next_block()
+        def next_matrix(self):
+            self.hf.next_matrix()
             
         def append(self,data):
             """
