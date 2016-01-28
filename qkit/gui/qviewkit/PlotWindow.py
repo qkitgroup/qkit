@@ -82,6 +82,12 @@ class PlotWindow(QWidget,Ui_Form):
                 self.PlotTypeSelector.setCurrentIndex(0)
                 self.view_type = self.view_types['2D']
                 self.PlotStyleSelector.setEnabled(False)
+            elif len(self.ds.shape) == 3:
+                self.TraceSelector.setEnabled(False)
+                shape = self.ds.shape[0]
+                self.view_type = self.view_types['3D']
+                self.PlotTypeSelector.setEnabled(False)
+                self.PlotStyleSelector.setEnabled(False)
             else:
                 self.TraceSelector.setEnabled(True)
                 self.view_type = self.view_types['1D']
@@ -127,6 +133,10 @@ class PlotWindow(QWidget,Ui_Form):
             self.PlotStyleSelector.setEnabled(True)
         if index  == 2:
             self.view_type = self.view_types['table']
+            self.TraceSelector.setEnabled(False)
+            self.PlotStyleSelector.setEnabled(False)
+        if index == 3:
+            self.view_type = self.view_types['3D']
             self.TraceSelector.setEnabled(False)
             self.PlotStyleSelector.setEnabled(False)
         #print index
