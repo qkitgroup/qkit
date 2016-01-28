@@ -23,6 +23,7 @@ class hdf_dataset(object):
         def __init__(self, hdf_file, name='', ds_url=None, x=None, y=None, z=None, unit= "" 
                 ,comment="",folder = 'data', overwrite=False ,**meta):
 
+            name = name.lower()
             self.hf = hdf_file
             self.x_object = x
             self.y_object = y
@@ -35,7 +36,8 @@ class hdf_dataset(object):
                 self._new_ds_defaults(name,unit,folder=folder,comment=comment)
             elif ds_url:
                 self._read_ds_from_hdf(ds_url)
-        
+            self._next_matrix = False
+
         def _new_ds_defaults(self,name,unit,folder='data',comment=""):
             self.name = name
             self.folder = folder
@@ -108,7 +110,8 @@ class hdf_dataset(object):
 
 
         def next_matrix(self):
-            self.hf.next_matrix()
+            self._next_matrix = True
+            self._y_pos = 0
             
         def append(self,data):
             """
@@ -126,12 +129,17 @@ class hdf_dataset(object):
                     tracelength = 0
                 # create the dataset
                 self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,dim = self.dim)
+                #print self.ds
                 self._setup_metadata()
                 
             if data is not None:
                 # we cast everything to a float numpy array
                 #data = numpy.array(data,dtype=float)
-                self.hf.append(self.ds,data)
+                if self._next_matrix:
+                    self.hf.append(self.ds,data, next_matrix=True)
+                    self._next_matrix = False
+                else:
+                    self.hf.append(self.ds,data)
             self.hf.flush()
                 
                 
