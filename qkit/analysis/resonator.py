@@ -14,7 +14,7 @@ class Resonator(object):
     Resonator class for fitting (live or after measurement) amplitude and phase data at multiple functions. The data is stored in .h5-files, having a NeXus compatible organization.
     Required are datasets frequency (/entry/data0/frequency), amplitude (/entry/data0/amplitude), and phase (/entry/data0/phase).
     input:
-    hf (HDF5-file, optional): File containing datasets to be fitted
+    hf_path (HDF5-filepath, optional): Path to file containing datasets to be fitted
 
     Possible fits are 'lorentzian', 'skewed lorentzian', 'circle', and 'fano' with each fit taking arguments
     fit_all (boolean, optional): True or False, default: False, fit all entries in the amplitude dataset or only last one
@@ -35,23 +35,23 @@ class Resonator(object):
         self._first_lorentzian = True
         self._first_fano = True
         self._first_skewed_lorentzian = True
-
-        self._prepare()
-    """
-    def _refresh(self,live = False):
-        if live:
-            if self._hf:
-                self._hf.close()
-            self._hf = hdf_lib.Data(path=self._hf_path)
-        self._prepare()
-    """
+        
+        '''
+        catching error if datasets are empty while creating resonator object
+        i.g. while live-fitting
+        '''
+        try:
+            self._prepare_datasets()
+            self._prepared_datasets = True
+        except KeyError:
+            self._prepared_datasets = False
 
     def set_file(self,hf):
-        """
+        '''
         sets hf file
         input:
         hf (HDF5-file)
-        """
+        '''
         self._hf=hf
         self._prepare()
 
@@ -59,22 +59,22 @@ class Resonator(object):
         self._hf.close()
 
     def set_x_coord(self,x_co):
-        """
+        '''
         sets x-coordinate for the datasets
         input:
         x_co (string): url of the x-coordinate
-        """
+        '''
         try:
             self._x_co = self._hf.get_dataset(x_co)
         except:
             logging.warning('Unable to open any x_coordinate. Please set manually using \'set_x_coord()\'.')
 
     def set_y_coord(self,y_co):
-        """
+        '''
         sets y-coordinate for the datasets
         input:
         y_co (string): url of the y-coordinate
-        """
+        '''
         try:
             self._y_co = self._hf.get_dataset(y_co)
         except:
@@ -94,7 +94,7 @@ class Resonator(object):
                 ret_array[i]=data[i][(self._frequency >= self._f_min) & (self._frequency <= self._f_max)]
             return ret_array
 
-    def _prepare(self):
+    def _prepare_datasets(self):
         '''
         reads out the file
         '''
@@ -130,8 +130,9 @@ class Resonator(object):
             try: self._y_co = self._hf.get_dataset(ds_url_freq) # hardcode a std url
             except:
                 logging.warning('Unable to open any y_coordinate. Please set manually using \'set_y_coord()\'.')
+        self._prepared_datasets = True
 
-    def _global_prepare(self,fit_all,f_min,f_max):
+    def _prepare_fit_range(self,fit_all,f_min,f_max):
         '''
         prepares the data to be fitted:
         fit_all (bool): True or False, fits the whole dataset or only the last entry
@@ -141,6 +142,10 @@ class Resonator(object):
         self._fit_all = fit_all
         self._f_min = np.min(self._frequency)
         self._f_max = np.max(self._frequency)
+        
+        '''
+        f_min f_max do not have to be exactly an entry in the freq-array
+        '''
         if f_min:
             for freq in self._frequency:
                 if freq > f_min: 
@@ -165,14 +170,14 @@ class Resonator(object):
         for 2dim data, shape: (# amplitude slices (i.e. power values in scan), # fit frequency points)
         '''
         if not self._fit_all:
-            tmp=np.empty((1,self._fit_frequency.shape[1]))
+            tmp=np.empty((1,self._fit_frequency.shape[0]))
             tmp[0]=self._fit_amplitude[-1]
             self._fit_amplitude=np.empty(tmp.shape)
             self._fit_amplitude[0] = tmp[0]
             tmp[0]=self._fit_phase[-1]
             self._fit_phase=np.empty(tmp.shape)
             self._fit_phase[0] = tmp[0]
-
+        
         self._frequency_co = self._hf.add_coordinate('frequency',folder='analysis', unit = 'Hz')
         self._frequency_co.add(self._fit_frequency)
 
@@ -187,12 +192,13 @@ class Resonator(object):
         fit parameter, errors, and generated amp/pha data are stored in the hdf-file
 
         input:
-        fit_all (bool): True or False, default: False. Whole data or only last "slice" is fitted (optional)
+        fit_all (bool): True or False, default: False. Whole data (True) or only last "slice" (False) is fitted (optional)
         f_min (float): lower boundary for data to be fitted (optional, default: None, results in min(frequency-array))
         f_max (float): upper boundary for data to be fitted (optional, default: None, results in max(frequency-array))
         '''
-
-        self._global_prepare(fit_all,f_min,f_max)
+        if not self._prepared_datasets:
+            self._prepare_datasets()
+        self._prepare_fit_range(fit_all,f_min,f_max)
         if self._first_circle:
             self._prepare_circle()
             self._first_circle = False
@@ -207,20 +213,20 @@ class Resonator(object):
 
             except:
                 err=np.array(['nan' for f in self._fit_frequency])
-                self._amp_gen.append(err)
-                self._pha_gen.append(err)
-                self._real_gen.append(err)
-                self._imag_gen.append(err)
+                self._circ_amp_gen.append(err)
+                self._circ_pha_gen.append(err)
+                self._circ_real_gen.append(err)
+                self._circ_imag_gen.append(err)
 
                 for key in self._results.iterkeys():
                     self._results[str(key)].append(np.nan)
 
             else:
                 z_data_gen = np.array([A2 * (f - frcal) + rtx.S21(f, fr=float(results["fr"]), Qr=float(results["Qr"]), Qc=float(results["absQc"]), phi=float(results["phi0"]), a= amp_norm, alpha= alpha, delay=delay) for f in self._fit_frequency])
-                self._amp_gen.append(np.absolute(z_data_gen))
-                self._pha_gen.append(np.angle(z_data_gen))
-                self._real_gen.append(np.real(z_data_gen))
-                self._imag_gen.append(np.imag(z_data_gen))
+                self._circ_amp_gen.append(np.absolute(z_data_gen))
+                self._circ_pha_gen.append(np.angle(z_data_gen))
+                self._circ_real_gen.append(np.real(z_data_gen))
+                self._circ_imag_gen.append(np.imag(z_data_gen))
 
                 for key in self._results.iterkeys():
                     self._results[str(key)].append(float(results[str(key)]))
@@ -264,7 +270,7 @@ class Resonator(object):
         fit parameter, chi2, and generated amp are stored in the hdf-file
 
         input:
-        fit_all (bool): True or False, default: False. Whole data or only last "slice" is fitted (optional)
+        fit_all (bool): True or False, default: False. Whole data (True) or only last "slice" (False) is fitted (optional)
         f_min (float): lower boundary for data to be fitted (optional, default: None, results in min(frequency-array))
         f_max (float): upper boundary for data to be fitted (optional, default: None, results in max(frequency-array))
         '''
@@ -272,8 +278,10 @@ class Resonator(object):
             f0,k,a,offs=p
             err = y-(a/(1+4*((x-f0)/k)**2)+offs)
             return err
-
-        self._global_prepare(fit_all,f_min,f_max)
+            
+        if not self._prepared_datasets:
+            self._prepare_datasets()
+        self._prepare_fit_range(fit_all,f_min,f_max)
         if self._first_lorentzian:
             self._prepare_lorentzian()
             self._first_lorentzian=False
@@ -356,7 +364,7 @@ class Resonator(object):
         fit parameter, chi2, and generated amp are stored in the hdf-file
 
         input:
-        fit_all (bool): True or False, default: False. Whole data or only last "slice" is fitted (optional)
+        fit_all (bool): True or False, default: False. Whole data (True) or only last "slice" (False) is fitted (optional)
         f_min (float): lower boundary for data to be fitted (optional, default: None, results in min(frequency-array))
         f_max (float): upper boundary for data to be fitted (optional, default: None, results in max(frequency-array))
         '''
@@ -369,7 +377,9 @@ class Resonator(object):
             err = y -(A1+A2*(x-fr)+(A3+A4*(x-fr))/(1.+4.*Qr**2*((x-fr)/fr)**2))
             return err
 
-        self._global_prepare(fit_all,f_min,f_max)
+        if not self._prepared_datasets:
+            self._prepare_datasets()
+        self._prepare_fit_range(fit_all,f_min,f_max)
         if self._first_skewed_lorentzian:
             self._prepare_skewed_lorentzian()
             self._first_skewed_lorentzian = False
@@ -463,11 +473,14 @@ class Resonator(object):
         fit parameter, chi2, q0, and generated amp are stored in the hdf-file
 
         input:
-        fit_all (bool): True or False, default: False. Whole data or only last "slice" is fitted (optional)
+        fit_all (bool): True or False, default: False. Whole data (True) or only last "slice" (False) is fitted (optional)
         f_min (float): lower boundary for data to be fitted (optional, default: None, results in min(frequency-array))
         f_max (float): upper boundary for data to be fitted (optional, default: None, results in max(frequency-array))
         '''
-        self._global_prepare(fit_all,f_min,f_max)
+        
+        if not self._prepared_datasets:
+            self._prepare_datasets()
+        self._prepare_fit_range(fit_all,f_min,f_max)
         if self._first_fano:
             self._prepare_fano()
             self._first_fano = False
@@ -504,7 +517,7 @@ class Resonator(object):
                 self._fano_Q0_fit.append(q0)
 
     def _fano_reflection(self,f,q,bw,fr,a=1,b=1):
-        """
+        '''
         evaluates the fano function in reflection at the
         frequency f
         with
@@ -512,11 +525,11 @@ class Resonator(object):
         attenuation a (linear)
         fano-factor q
         bandwidth bw
-        """
+        '''
         return a*(1 - self._fano_transmission(f,q,bw,fr))
 
     def _fano_transmission(self,f,q,bw,fr,a=1,b=1):
-        """
+        '''
         evaluates the normalized transmission fano function at the
         frequency f
         with
@@ -524,7 +537,7 @@ class Resonator(object):
         attenuation a (linear)
         fano-factor q
         bandwidth bw
-        """
+        '''
         F = 2*(f-fr)/bw
         return ( 1/(1+q**2) * (F+q)**2 / (F**2+1))
 
@@ -581,10 +594,10 @@ if __name__ == "__main__":
         description="resonator.py hdf-based simple resonator fit frontend / KIT 2015")
 
     parser.add_argument('-f','--file',     type=str, help='hdf filename to open')
-    parser.add_argument('-lf','--lorentz-fit',  default=False,action='store_true', help='(optional) lorentzian fit')
+    parser.add_argument('-lf','--lorentzian-fit',  default=False,action='store_true', help='(optional) lorentzian fit')
     parser.add_argument('-ff','--fano-fit',     default=False,action='store_true', help='(optional) fano fit')
     parser.add_argument('-cf','--circle-fit',   default=False,action='store_true', help='(optional) circle fit')
-    parser.add_argument('-slf','--skewed-lorentz-fit', default=False,action='store_true',help='(optional) skewed lorentzian fit')
+    parser.add_argument('-slf','--skewed-lorentzian-fit', default=False,action='store_true',help='(optional) skewed lorentzian fit')
     parser.add_argument('-all','--fit-all', default=False,action='store_true',help='(optional) fit all entries in dataset')
     parser.add_argument('-fr','--frequency-range', type=str, help='(optional) frequency range for fitting, comma separated')
 
@@ -603,7 +616,7 @@ if __name__ == "__main__":
             f_max=None
 
         if args.circle_fit:
-            R.fit_circle(fit_all=fit_all, fmin=f_min,f_max=f_max)
+            R.fit_circle(fit_all=fit_all, f_min=f_min,f_max=f_max)
         if args.lorentzian_fit:
             R.fit_lorentzian(fit_all=fit_all, f_min=f_min,f_max=f_max)
         if args.skewed_lorentzian_fit:
