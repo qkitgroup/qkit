@@ -181,6 +181,8 @@ class h5plot(object):
 			if self.save_pdf:
 				fig.savefig(image_path+'.pdf')
 			fig.savefig(image_path+'.png')
+            
+            fig.close()
 		
 	def plt_views(self,key):
 			# not (yet?) implemented. we'll see ...
