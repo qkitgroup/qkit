@@ -154,7 +154,7 @@ class h5plot(object):
 				ymin = y_ds.attrs.get('x0',0)
 				ymax = ymin+y_ds.attrs.get('dx',1)*y_ds.shape[0]
 		
-				cax = ax.imshow(data_z.T, aspect='auto', extent=[xmin,xmax,ymin,ymax])
+				cax = ax.imshow(data_z.T, aspect='auto', extent=[xmin,xmax,ymin,ymax], origin = 'lower')
 				cbar = fig.colorbar(cax)
 				cbar.ax.set_ylabel(ds_label)
 				cbar.ax.yaxis.label.set_fontsize(20)
