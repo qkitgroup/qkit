@@ -108,7 +108,7 @@ class h5plot(object):
 			ds_label = ds.attrs.get('name','_name_')+' / '+ds.attrs.get('unit','_unit_')        
 		
 			if x_ds_url:
-				logging.info("x_ds_url excists.")
+				logging.info("x_ds_url exists.")
 				x_ds = self.hf[x_ds_url]
 				data_x = np.array(x_ds)
 				x_label = x_ds.attrs.get('name','_xname_')+' / '+x_ds.attrs.get('unit','_xunit_')
@@ -122,7 +122,7 @@ class h5plot(object):
 			fig, ax = plt.subplots(figsize=(20,10))
 
 			if len(ds.shape)==1: 
-			#checking the shape is a little hack to save plots from earlier .h5 files without propper metadata settings
+			#checking the shape is a little hack to save plots from earlier .h5 files without proper metadata settings
 				"""
 				dataset is only one-dimensional
 				print data vs. x-coordinate
@@ -132,7 +132,7 @@ class h5plot(object):
 				data_y = ds
 				
 				y_label = ds_label
-				ax.plot(x_ds,data_y, '-')
+				ax.plot(x_ds,data_y[0:len(x_ds)], '-')   #JB: avoid crash after pressing the stop button when arrays are of different lengths
 				
 			elif len(ds.shape)==2:
 				"""
