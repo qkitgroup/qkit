@@ -57,9 +57,9 @@ class h5plot(object):
 		self.save_pdf = save_pdf
 		
 		filepath = os.path.abspath(h5_filepath)   #put filepath to platform standards
-		filedir  = os.path.dirname(filepath)   #return directory component of the given pathname, here filepath
+		self.filedir  = os.path.dirname(filepath)   #return directory component of the given pathname, here filepath
 
-		self.image_dir = os.path.join(filedir,'images')
+		self.image_dir = os.path.join(self.filedir,'images')
 		try:
 			os.mkdir(self.image_dir)
 		except OSError:
@@ -173,9 +173,9 @@ class h5plot(object):
 				i.set_fontsize(16)
 			fig.tight_layout()
 		
-			save_name=(dataset.replace('/entry/','')).replace('/','_')
+			save_name = str(os.path.basename(self.filedir))[0:6] + '_' + self.file(dataset.replace('/entry/','')).replace('/','_')
 			if self.comment:
-				save_name=save_name+'_'+self.comment
+				save_name = save_name+'_'+self.comment
 			image_path = str(os.path.join(self.image_dir,save_name))
 			#print 'image path', image_path
 			if self.save_pdf:
