@@ -110,7 +110,6 @@ class h5plot(object):
             if x_ds_url:
                 logging.info("x_ds_url exists.")
                 x_ds = self.hf[x_ds_url]
-                data_x = np.array(x_ds)
                 x_label = x_ds.attrs.get('name','_xname_')+' / '+x_ds.attrs.get('unit','_xunit_')
 
             else:
@@ -119,6 +118,11 @@ class h5plot(object):
 
                 x_label = ds.attrs.get('name','_xname_')+' / ' + ds.attrs.get('unit','_xunit_')
                 x_ds = self.hf['/entry/data0/'+ds.attrs.get('x_name')]
+            
+            # Hack to detect (and not plot) coordinate-datasets
+            if x_ds == ds:
+                return
+            
             fig, ax = plt.subplots(figsize=(20,10))
 
             if len(ds.shape)==1:
@@ -175,16 +179,17 @@ class h5plot(object):
                 i.set_fontsize(16)
             fig.tight_layout()
 
-            save_name = str(os.path.basename(self.filedir))[0:6] + '_' + self.file(dataset.replace('/entry/','')).replace('/','_')
+            save_name = str(os.path.basename(self.filedir))[0:6] + '_' + dataset.replace('/entry/','').replace('/','_')
             if self.comment:
                 save_name = save_name+'_'+self.comment
             image_path = str(os.path.join(self.image_dir,save_name))
             #print 'image path', image_path
+            #
             if self.save_pdf:
                 fig.savefig(image_path+'.pdf')
             fig.savefig(image_path+'.png')
 
-            fig.close()
+            plt.close()
 
     def plt_views(self,key):
             # not (yet?) implemented. we'll see ...
