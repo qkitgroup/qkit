@@ -105,24 +105,15 @@ class h5plot(object):
             x_ds_url = ds.attrs.get('x_ds_url','')
             y_ds_url = ds.attrs.get('y_ds_url','')
 
+            x_ds = self.hf[x_ds_url]
+
+            x_label = x_ds.attrs.get('name','_xname_')+' / '+x_ds.attrs.get('unit','_xunit_')
             ds_label = ds.attrs.get('name','_name_')+' / '+ds.attrs.get('unit','_unit_')
 
-            if x_ds_url:
-                logging.info("x_ds_url exists.")
-                x_ds = self.hf[x_ds_url]
-                x_label = x_ds.attrs.get('name','_xname_')+' / '+x_ds.attrs.get('unit','_xunit_')
-
-            else:
-                #x_ds = self.hf[x_ds_url]
-                #data_x = np.array(x_ds)
-
-                x_label = ds.attrs.get('name','_xname_')+' / ' + ds.attrs.get('unit','_xunit_')
-                x_ds = self.hf['/entry/data0/'+ds.attrs.get('x_name')]
-            
             # Hack to detect (and not plot) coordinate-datasets
             if x_ds == ds:
                 return
-            
+
             fig, ax = plt.subplots(figsize=(20,10))
 
             if len(ds.shape)==1:
@@ -134,8 +125,8 @@ class h5plot(object):
                 logging.info("ds is one dimensional.")
 
                 data_y = ds
-
                 y_label = ds_label
+
                 ax.plot(x_ds,data_y[0:len(x_ds)], '-')   #JB: avoid crash after pressing the stop button when arrays are of different lengths
 
             elif len(ds.shape)>=2:
@@ -144,16 +135,15 @@ class h5plot(object):
                 print data color-coded y-coordinate vs. x-coordinate
                 """
                 logging.info("ds is two dimensional.")
-                if not y_ds_url:
-                    y_ds = self.hf['/entry/data0/'+ds.attrs.get('y_name')] #hack for 'older' datasets that do not yet have y_ds_url entries
-                else:
-                    y_ds = self.hf[y_ds_url]
+
+                y_ds = self.hf[y_ds_url]
                 data_y = np.array(y_ds)
-                if len(ds.shape)==3:
-                    data_y = data_y[:,:,data_y.shape[2]/2]
                 y_label = y_ds.attrs.get('name','_yname_')+' / '+y_ds.attrs.get('unit','_yunit_')
 
                 data_z = np.array(ds)
+                #slice the value-box in the midpoint of the z-axis
+                if len(ds.shape)==3:
+                    data_z = data_z[:,:,data_y.shape[2]/2]
 
                 xmin = x_ds.attrs.get('x0',0)
                 xmax = xmin+x_ds.attrs.get('dx',1)*x_ds.shape[0]
@@ -168,6 +158,7 @@ class h5plot(object):
                     i.set_fontsize(16)
             else:
                 pass
+
             ax.set_xlabel(x_label)
             ax.set_ylabel(y_label)
             ax.xaxis.label.set_fontsize(20)
@@ -183,8 +174,7 @@ class h5plot(object):
             if self.comment:
                 save_name = save_name+'_'+self.comment
             image_path = str(os.path.join(self.image_dir,save_name))
-            #print 'image path', image_path
-            #
+
             if self.save_pdf:
                 fig.savefig(image_path+'.pdf')
             fig.savefig(image_path+'.png')
