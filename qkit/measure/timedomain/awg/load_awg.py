@@ -36,8 +36,12 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
 	
 	# create new sequence
 	if reset:
-		awg.set_runmode('SEQ')
-		awg.set_seq_length(0)   #clear sequence, necessary?
+		if "Tektronix" in awg.get_type():
+			awg.set_runmode('SEQ')
+			awg.set_seq_length(0)   #clear sequence, necessary?
+		elif "Tabor" in awg.get_type():
+			awg.set_p1_runmode('SEQ')
+		
 		awg.set_seq_length(len(ts))   #create empty sequence
 		
 		#amplitude settings of analog output
@@ -50,7 +54,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
 	wfm_samples_prev = [None,None]
 	wfm_fn = [None,None]
 	wfm_pn = [None,None]
-	p = Progress_Bar(len(ts)*2,'Load AWG')   #init progress bar
+	p = Progress_Bar(len(ts)*(2 if "Tektronix" in awg.get_type() else 1),'Load AWG')   #init progress bar
 	
 	#update all channels and times
 	for ti, t in enumerate(ts):   #run through all sequences
@@ -83,32 +87,43 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
 				c_marker1, c_marker2 = marker[chan]
 				marker1 = c_marker1[ti]
 				marker2 = c_marker2[ti]
+			
+			if "Tektronix" in awg.get_type():
+				wfm_fn[chan] = 'ch%d_t%05d'%(chan+1, ti) # filename is kept until changed
+				if len(wfm_samples) == 1 and chan == 1:
+					wfm_pn[chan] = '%s%s\\%s'%(drive, path, np.zeros_like(wfm_fn[0]))   #create empty array
+				else:
+					wfm_pn[chan] = '%s%s\\%s'%(drive, path, wfm_fn[chan])
+				awg.wfm_send(wfm_samples[chan], marker1, marker2, wfm_pn[chan], clock)
 				
-			wfm_fn[chan] = 'ch%d_t%05d'%(chan+1, ti) # filename is kept until changed
-			if len(wfm_samples) == 1 and chan == 1:
-				wfm_pn[chan] = '%s%s\\%s'%(drive, path, np.zeros_like(wfm_fn[0]))   #create empty array
+				awg.wfm_import(wfm_fn[chan], wfm_pn[chan], 'WFM')
+				
+				# assign waveform to channel/time slot
+				awg.wfm_assign(chan+1, ti+1, wfm_fn[chan])
+				
+				if loop:
+					awg.set_seq_loop(ti+1, np.infty)
+			elif "Tabor" in awg.get_type():
+				if chan == 0:
+					awg.wfm_send2(wfm_samples[0],wfm_samples[1],marker1,marker2,chan+1,ti+1)
+				else: continue
 			else:
-				wfm_pn[chan] = '%s%s\\%s'%(drive, path, wfm_fn[chan])
-			awg.wfm_send(wfm_samples[chan], marker1, marker2, wfm_pn[chan], clock)
-			
-			awg.wfm_import(wfm_fn[chan], wfm_pn[chan], 'WFM')
-			
-			# assign waveform to channel/time slot
-			awg.wfm_assign(chan+1, ti+1, wfm_fn[chan])
-			
-			if loop:
-				awg.set_seq_loop(ti+1, np.infty)
+				raise ValueError("AWG type not known")
 			p.iterate()
 
 		gc.collect()
 
-	if reset:
+	if reset and "Tektronix" in awg.get_type():
 		# enable channels
 		awg.set_ch1_status(True)
 		awg.set_ch2_status(True)
 		awg.set_seq_goto(len(ts), 1)
 		awg.run()
 		awg.wait(10,False)
-		
+	elif reset and "Tabor" in awg.get_type():
+		# enable channels
+		awg.preset()
+		awg.set_ch1_status(True)
+		awg.set_ch2_status(True)
 	qt.mend()
 	return np.all([awg.get('ch%i_status'%i) for i in [1,2]])
