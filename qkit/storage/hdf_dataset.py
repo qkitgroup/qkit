@@ -8,6 +8,7 @@ Created 2015
 
 import logging
 import numpy
+import time
 
 class hdf_dataset(object):
         """
@@ -21,8 +22,9 @@ class hdf_dataset(object):
         """
         
         def __init__(self, hdf_file, name='', ds_url=None, x=None, y=None, z=None, unit= "" 
-                ,comment="",folder = 'data', overwrite=False ,**meta):
+                ,comment="",folder = 'data', save_timestamp = False, overwrite=False ,**meta):
 
+            name = name.lower()
             self.hf = hdf_file
             self.x_object = x
             self.y_object = y
@@ -35,7 +37,9 @@ class hdf_dataset(object):
                 self._new_ds_defaults(name,unit,folder=folder,comment=comment)
             elif ds_url:
                 self._read_ds_from_hdf(ds_url)
-        
+            self._next_matrix = False
+            self._save_timestamp = save_timestamp
+
         def _new_ds_defaults(self,name,unit,folder='data',comment=""):
             self.name = name
             self.folder = folder
@@ -82,33 +86,34 @@ class hdf_dataset(object):
             ds.attrs.create("comment",self.comment)
             # 2d/matrix 
             if self.x_object:
+                ds.attrs.create("x_name",self.x_object.x_name)
+                ds.attrs.create("x_unit",self.x_object.x_unit)
                 ds.attrs.create("x0",self.x_object.x0)
                 ds.attrs.create("dx",self.x_object.dx)
-                ds.attrs.create("x_unit",self.x_object.x_unit)
-                ds.attrs.create("x_name",self.x_object.x_name)
-                ds.attrs.create("x_ds_url",self.x_object.ds_url)                
+                ds.attrs.create("x_ds_url",self.x_object.ds_url)
             else:
+                ds.attrs.create("x_name",self.x_name)
+                ds.attrs.create("x_unit",self.x_unit)
                 ds.attrs.create("x0",self.x0)
                 ds.attrs.create("dx",self.dx)
-                ds.attrs.create("x_unit",self.x_unit)
-                ds.attrs.create("x_name",self.x_name)
                 ds.attrs.create("x_ds_url",self.ds_url)
             if self.y_object:
+                ds.attrs.create("y_name",self.y_object.x_name)
+                ds.attrs.create("y_unit",self.y_object.x_unit)
                 ds.attrs.create("y0",self.y_object.x0)
                 ds.attrs.create("dy",self.y_object.dx)
-                ds.attrs.create("y_unit",self.y_object.x_unit)
-                ds.attrs.create("y_name",self.y_object.x_name)
-                ds.attrs.create("y_ds_url",self.y_object.ds_url) 
+                ds.attrs.create("y_ds_url",self.y_object.ds_url)
             if self.z_object:
+                ds.attrs.create("z_name",self.z_object.x_name)
+                ds.attrs.create("z_unit",self.z_object.x_unit)
                 ds.attrs.create("z0",self.z_object.x0)
                 ds.attrs.create("dz",self.z_object.dx)
-                ds.attrs.create("z_unit",self.z_object.x_unit)
-                ds.attrs.create("z_name",self.z_object.x_name)
                 ds.attrs.create("z_ds_url",self.z_object.ds_url)
 
 
-        def next_block(self):
-            self.hf.next_block()
+        def next_matrix(self):
+            self._next_matrix = True
+            self._y_pos = 0
             
         def append(self,data):
             """
@@ -126,12 +131,22 @@ class hdf_dataset(object):
                     tracelength = 0
                 # create the dataset
                 self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,dim = self.dim)
+                if self._save_timestamp:
+                    self._create_timestamp_ds()
+                #print self.ds
                 self._setup_metadata()
                 
             if data is not None:
                 # we cast everything to a float numpy array
                 #data = numpy.array(data,dtype=float)
-                self.hf.append(self.ds,data)
+                if self._next_matrix:
+                    self.hf.append(self.ds,data, next_matrix=True)
+                    self._next_matrix = False
+                else:
+                    self.hf.append(self.ds,data)
+                if self._save_timestamp:
+                    self.hf.append(self.ds_ts,time.time())
+
             self.hf.flush()
                 
                 
@@ -170,7 +185,16 @@ class hdf_dataset(object):
                 self.hf.append(self.ds,data)
             self.hf.flush()
             
-
+        def _create_timestamp_ds(self):
+            self.ds_ts = self.hf.create_dataset(self.name+'_ts', tracelength = 1,folder=self.folder,dim=max(self.dim-1, 1), dtype='float64')
+            self.ds_ts.attrs.create('unit', 's')
+            self.ds_ts.attrs.create("x_name",'entry_x')
+            self.ds_ts.attrs.create("x0",0)
+            self.ds_ts.attrs.create("dx",0)
+            if self.dim == 3:
+                self.ds_ts.attrs.create("y_name",'entry_y')
+                self.ds_ts.attrs.create("y0",0)
+                self.ds_ts.attrs.create("dy",0)
         """
         def __getitem__(self, name):
             return self.hf[name]

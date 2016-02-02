@@ -6,6 +6,7 @@ Created 2015
 """
 import logging
 import h5py
+import numpy as np
 
 
 class H5_file(object):
@@ -35,8 +36,6 @@ class H5_file(object):
                 self.grp.attrs[k] = kw[k]
         
 
-        # the next block variable is used to itterate a block
-        self.next_block  = False        
         
     def create_file(self,output_file):
         self.hf = h5py.File(output_file,'a')
@@ -161,6 +160,7 @@ class H5_file(object):
         
         
         ds.attrs.create("name",name)
+        ds.attrs.create("fill", [0,0,0])
         # add attibutes
         for a in kwargs:
              ds.attrs.create(a,kwargs[a])
@@ -168,7 +168,7 @@ class H5_file(object):
         self.flush()
         return ds
         
-    def append(self,ds,data, extend_step = 100):
+    def append(self,ds,data, next_matrix=False):
         """ Append method for hdf5 data. 
             A simple append method for data traces
             reshapes the array and updates the attributes
@@ -176,49 +176,52 @@ class H5_file(object):
         """
         #print type(data)
         if len(ds.shape) == 1:
+            fill = ds.attrs.get('fill')
             if type(data) == float:# or numpy.float64:
                 dim1 = ds.shape[0]+1
+                fill[0] += 1
                 ds.resize((dim1,))
-                ds[dim1-1] = data
+                ds[fill[0]-1] = data
             elif len(data.shape) == 1:
-                #dim1 = ds.shape[0]+1
-                #ds.resize(dim1,)
-                #ds[dim1] = data
                 ds.resize((len(data),))
+                fill[0] += len(data)
                 ds[:] = data
-            #print "1dim resize: "+ str(ds.name)
-                
+                #ds.attrs.fill[0] += len(data)
+            ds.attrs.modify("fill", fill)
+
         if len(ds.shape) == 2:
-            if self.next_block:
-                self.next_block = False
+            fill = ds.attrs.get('fill')
             dim1 = ds.shape[0]+1
             ds.resize((dim1,len(data)))
-            ds[dim1-1] = data
-            #print "2dim resize: "+ str(ds.name), ds.shape
-            
-            
-            
+            fill[0] += 1
+            fill[1] = len(data)
+            ds.attrs.modify('fill', fill)
+            ds[fill[0]-1,:] = data
+
+
         if len(ds.shape) == 3:
-            dim1 = ds.shape[0]
+            dim1 = max(1, ds.shape[0])
             dim2 = ds.shape[1]
-            if self.next_block:
-                self.next_block = False
+            fill = ds.attrs.get('fill')
+            if next_matrix:
                 dim1 += 1
-                dim2  = 0
+                fill[0] += 1
+                fill[1] = 0
                 ds.resize((dim1,dim2,len(data)))
-            else:
+            if dim1 == 1:
+                fill[0] = 1
                 dim2 += 1
                 ds.resize((dim1,dim2,len(data)))
-            
-            ds[dim1-1][dim2-1] = data
-            #print "3dim resize: "+ str(ds.name), ds.shape
-
+            fill[1] += 1
+            ds.attrs.modify("fill", fill)
+            ds[fill[0]-1,fill[1]-1] = data
 
         self.flush()
         
-    def next_block(self):
-        self.next_block = True
-    
+    """
+    def next_matrix(self):
+        self._next_matrix = True
+    """
     def flush(self):
         self.hf.flush()
         
@@ -230,7 +233,7 @@ class H5_file(object):
                 fill  = ds.attrs.get("fill",-1)
                 if fill > 0:
                     ds.resize(fill,axis=0)
-        """      
+        """
         self.hf.close()
         
     def __getitem__(self,s):
