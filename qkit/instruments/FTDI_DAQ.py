@@ -18,8 +18,10 @@ import logging
 import re
 from bitstring import BitArray # http://packages.python.org/bitstring/
 from instrument import Instrument
-from pyftdi.ftdi import Ftdi
-from pyftdi.usbtools import UsbTools 
+try: from pyftdi.ftdi import Ftdi
+except: from pyftdi.pyftdi.ftdi import Ftdi
+try: from pyftdi.usbtools import UsbTools 
+except: from pyftdi.pyftdi.usbtools import UsbTools
 
 '''
     FTDI USB interface as replacement of the NI-DAQ digital out
@@ -115,15 +117,16 @@ class FTDI_DAQ(Instrument):
     def digital_stream(self, channel, samples, rate):
         '''
             write a serial bit/byte stream to the device
+            rate max 6 MHz for ft4232h chip
         '''
         (port, bit) = self._parse_channel_string(channel)
         # convert bit stream into byte stream
         if(bit != None):
             byte = 1<<bit
-            samples = [(chr(ord(self._lastbyte) | byte) if x else (chr(ord(self._lastbyte) & ~byte))) for x in BitArray(samples)]
+            samples = [(chr(ord(self._last_byte) | byte) if x else (chr(ord(self._last_byte) & ~byte))) for x in BitArray(samples)]
         # output data on the device
         self._set_baudrate(rate)
-        self._conn.write_data(samples)
+        self._conn.write_data(''.join(samples))
         self._last_byte = samples[-1]
 
     def _parse_channel_string(self, channel):
