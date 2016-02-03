@@ -178,7 +178,7 @@ class RS_FSUP(Instrument):
 		return float(self._visainstrument.ask('freq:stop?'))		
 		
 	def do_set_nop(self, nop):
-		self._visainstrument.write('swe:poin %i'%(freq))
+		self._visainstrument.write('swe:poin %i'%(nop))
 
 	def do_get_nop(self):
 		return int(self._visainstrument.ask('swe:poin?'))	
