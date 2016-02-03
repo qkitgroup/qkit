@@ -15,7 +15,7 @@ except ImportError:
     in_qt = False
 
 if in_qt:
-    for entry in qt_cfg:
+    for entry in qt_cfg.get_all():
         if entry in cfg.keys():
             cfg[entry] = qt_cfg[entry]
 
