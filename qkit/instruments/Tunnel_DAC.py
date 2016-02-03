@@ -30,8 +30,8 @@ except:
             pass
         def add_function(self, func):
             pass
-from pyftdi.ftdi import Ftdi
-from pyftdi.usbtools import UsbTools 
+from pyftdi.pyftdi.ftdi import Ftdi
+from pyftdi.pyftdi.usbtools import UsbTools 
 
 '''
     Tunnelelektronik DAC w/ FTDI USB interface
