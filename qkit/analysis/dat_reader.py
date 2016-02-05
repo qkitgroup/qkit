@@ -122,7 +122,7 @@ def read_hdf_data(nfile,entries=None):
 	if entries == None:   #no entries specified
 		for k in keys:   #go through all keys
 			try:
-				if str(k[:4]).lower() == 'freq' or str(k[:4]).lower() == 'puls':
+				if str(k[:4]).lower() == 'freq' or str(k[:2]).lower() == 'f ' or str(k[:4]).lower() == 'puls' or str(k[:4]).lower() == 'dacf':
 					urls.append(url_tree + k)
 					break
 			except IndexError:
@@ -201,6 +201,7 @@ def load_data(file_name = None,columns=['frequency','amplitude','phase']):
 		#test whether hdf lib is available
 		try:
 			hdf_lib
+			#raise NameError
 		except NameError:
 			ftype = 'dat'
 		else:
