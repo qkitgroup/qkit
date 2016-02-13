@@ -122,7 +122,7 @@ def read_hdf_data(nfile,entries=None):
 	if entries == None:   #no entries specified
 		for k in keys:   #go through all keys
 			try:
-				if str(k[:4]).lower() == 'freq' or str(k[:2]).lower() == 'f ' or str(k[:4]).lower() == 'puls' or str(k[:4]).lower() == 'dacf':
+				if str(k[:4]).lower() == 'freq' or str(k[:2]).lower() == 'f ' or str(k[:4]).lower() == 'puls' or str(k[:4]).lower() == 'dacf' or str(k[:5]).lower() == 'delay':
 					urls.append(url_tree + k)
 					break
 			except IndexError:
@@ -552,7 +552,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 				else:
 					axes[0].set_xlabel(str(xlabel), fontsize=13)
 				if ylabel == '':
-					axes[0].set_ylabel('arg(S21) (a.u.)', fontsize=13)
+					axes[0].set_ylabel('arg(S11) (a.u.)', fontsize=13)
 					pass
 				else:
 					axes[0].set_ylabel(str(ylabel), fontsize=13)
