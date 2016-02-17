@@ -225,7 +225,7 @@ class Measure_td(object):
 				self._hdf_pha = self._data_hdf.add_value_vector('phase', x = self._hdf_x, unit='rad')
 			if self.comment:
 				self._data_hdf.add_comment(self.comment)
-			qviewkit.close('all')
+			#qviewkit.close('all') #as20160202
 			qviewkit.plot(self._data_hdf.get_filepath(), datasets=['amplitude', 'phase'])
 			
 	def _create_dat_plots(self,mode):
