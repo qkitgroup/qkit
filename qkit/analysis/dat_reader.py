@@ -122,7 +122,7 @@ def read_hdf_data(nfile,entries=None):
 	if entries == None:   #no entries specified
 		for k in keys:   #go through all keys
 			try:
-				if str(k[:4]).lower() == 'freq' or str(k[:2]).lower() == 'f ' or str(k[:4]).lower() == 'puls' or str(k[:4]).lower() == 'dacf' or str(k[:5]).lower() == 'delay':
+				if str(k[:4]).lower() == 'freq' or str(k[:2]).lower() == 'f ' or str(k[:4]).lower() == 'puls' or str(k[:4]).lower() == 'dacf' or str(k[:5]).lower() == 'delay' or str(k[:8	]).lower() == 'pi pulse':
 					urls.append(url_tree + k)
 					break
 			except IndexError:
@@ -374,6 +374,9 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		
 	def f_exp(t, Td, a, offs):
 		return a*np.exp(-t/Td)+offs
+		
+	def f_damped_exp(t, fs, Td, a, offs, ph):
+		return a*np.exp(-t/Td)*(0.5*(1+np.cos(2*np.pi*fs*t+ph)))+offs
 
 
 	if file_name == 'dat_import':
@@ -575,6 +578,29 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 				
 				#axes[1].set_title('exponential decay', fontsize=15)
 				fig.tight_layout()
+				
+	# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	elif fit_function == 'damped_exp':
+	
+		#plot data
+		if show_plot:   plt.plot(data[0],data[data_c],'*')
+		x_vec = np.linspace(data[0][0],data[0][-1],400)
+
+		#start parameters ----------------------------------------------------------------------
+		s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data,data_c,damping=True)
+		p0 = _fill_p0([s_fs, s_Td, s_a, s_offs, s_ph],ps)
+
+		#damped sine fit ----------------------------------------------------------------------
+		try:
+			popt, pcov = curve_fit(f_damped_exp, data[0], data[data_c], p0 = p0)
+		except:
+			print 'fit not successful'
+			popt = p0
+			pcov = None
+		finally:
+			if show_plot:
+				fvalues = f_damped_exp(x_vec, *popt)
+				plt.plot(x_vec, fvalues)
 	
 	else:
 		print 'fit function not known...aborting'
