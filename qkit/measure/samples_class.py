@@ -24,6 +24,7 @@ class Sample(object):
 		self.qubit_mw_src = None
 		self.iq_frequency = 0
 		self.exc_T = None
+		self.mw_power_offset = 0
 		
 	def update_instruments(self):
 		'''
@@ -43,7 +44,7 @@ class Sample(object):
 			logging.error(__name__ + ' : qubit_mw_src not defined')
 		else:
 			self.qubit_mw_src.set_frequency(self.f01-self.iq_frequency)
-			self.qubit_mw_src.set_power(self.mw_power)
+			self.qubit_mw_src.set_power(self.mw_power + self.mw_power_offset)   #JB
 			
 	def set_exc_T(self,exc_T):
 		self.exc_T = exc_T
