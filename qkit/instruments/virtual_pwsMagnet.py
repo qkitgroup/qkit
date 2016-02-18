@@ -115,6 +115,7 @@ class virtual_pwsMagnet(Instrument):
         getattr(self._PWS2, 'set_current')(curr/2.)
         time.sleep(wait)
         self._current = self.do_get_current()
+        self.get_all()
         
     def do_get_voltage(self):
         '''
@@ -144,7 +145,7 @@ class virtual_pwsMagnet(Instrument):
         status1 = bool(getattr(self._PWS1, 'get_status')())
         status2 = bool(getattr(self._PWS2, 'get_status')())
         if status1 and status2:
-            self._status = True
+            self._status = status1
         else:
             self._status = False
             getattr(self._PWS1, 'off')()
@@ -165,7 +166,7 @@ class virtual_pwsMagnet(Instrument):
         logging.debug(__name__+'do_set_status()')
         getattr(self._PWS1, 'set_status')(status)
         getattr(self._PWS2, 'set_status')(status)
-        self._status = status
+        self._status = self._do_get_statur()
 
     def do_get_magneticField(self):
         logging.debug(__name__+'do_get_magneticField()')
