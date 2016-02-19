@@ -103,33 +103,35 @@ class hdf_dataset(object):
             
         def _setup_metadata(self):
             ds = self.ds
-            ds.attrs.create('unit', self.unit)
+            ds.attrs.create('ds_type',self.ds_type)            
             ds.attrs.create("comment",self.comment)
-            # 2d/matrix 
-            if self.x_object:
-                ds.attrs.create("x_name",self.x_object.x_name)
-                ds.attrs.create("x_unit",self.x_object.x_unit)
-                ds.attrs.create("x0",self.x_object.x0)
-                ds.attrs.create("dx",self.x_object.dx)
-                ds.attrs.create("x_ds_url",self.x_object.ds_url)
-            else:
-                ds.attrs.create("x_name",self.x_name)
-                ds.attrs.create("x_unit",self.x_unit)
-                ds.attrs.create("x0",self.x0)
-                ds.attrs.create("dx",self.dx)
-                ds.attrs.create("x_ds_url",self.ds_url)
-            if self.y_object:
-                ds.attrs.create("y_name",self.y_object.x_name)
-                ds.attrs.create("y_unit",self.y_object.x_unit)
-                ds.attrs.create("y0",self.y_object.x0)
-                ds.attrs.create("dy",self.y_object.dx)
-                ds.attrs.create("y_ds_url",self.y_object.ds_url)
-            if self.z_object:
-                ds.attrs.create("z_name",self.z_object.x_name)
-                ds.attrs.create("z_unit",self.z_object.x_unit)
-                ds.attrs.create("z0",self.z_object.x0)
-                ds.attrs.create("dz",self.z_object.dx)
-                ds.attrs.create("z_ds_url",self.z_object.ds_url)
+            if self.ds_type != ds_types['txt']:
+                ds.attrs.create('unit', self.unit)
+                # 2d/matrix 
+                if self.x_object:
+                    ds.attrs.create("x_name",self.x_object.x_name)
+                    ds.attrs.create("x_unit",self.x_object.x_unit)
+                    ds.attrs.create("x0",self.x_object.x0)
+                    ds.attrs.create("dx",self.x_object.dx)
+                    ds.attrs.create("x_ds_url",self.x_object.ds_url)
+                else:
+                    ds.attrs.create("x_name",self.x_name)
+                    ds.attrs.create("x_unit",self.x_unit)
+                    ds.attrs.create("x0",self.x0)
+                    ds.attrs.create("dx",self.dx)
+                    ds.attrs.create("x_ds_url",self.ds_url)
+                if self.y_object:
+                    ds.attrs.create("y_name",self.y_object.x_name)
+                    ds.attrs.create("y_unit",self.y_object.x_unit)
+                    ds.attrs.create("y0",self.y_object.x0)
+                    ds.attrs.create("dy",self.y_object.dx)
+                    ds.attrs.create("y_ds_url",self.y_object.ds_url)
+                if self.z_object:
+                    ds.attrs.create("z_name",self.z_object.x_name)
+                    ds.attrs.create("z_unit",self.z_object.x_unit)
+                    ds.attrs.create("z0",self.z_object.x0)
+                    ds.attrs.create("dz",self.z_object.dx)
+                    ds.attrs.create("z_ds_url",self.z_object.ds_url)
 
 
         def next_matrix(self):
