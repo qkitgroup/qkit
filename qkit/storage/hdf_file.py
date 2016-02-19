@@ -7,7 +7,7 @@ Created 2015
 import logging
 import h5py
 import numpy as np
-
+from hdf_constants import ds_types
 
 class H5_file(object):
     """ This base hdf5 class ist intended for QTlab as a base class for a 
@@ -91,7 +91,8 @@ class H5_file(object):
         # add a empty string dataset to the group -> used by add_data
         self.create_dataset(name='datasets',tracelength=0, dtype='S32')
     """    
-    def create_dataset(self,name, tracelength, folder = "data", dim = 1,**kwargs):
+    def create_dataset(self,name, tracelength, ds_type = ds_types['vector'],
+                       folder = "data", dim = 1,  **kwargs):
         """ handles one, two and three dimensional data
         
             tracelength:
@@ -106,6 +107,7 @@ class H5_file(object):
             
             kwargs are appended as attributes to the dataset
         """
+        self.ds_type = ds_type
         
         if dim == 1:
             shape    = (0,)
@@ -142,9 +144,15 @@ class H5_file(object):
         if name in self.grp.keys():
             logging.info("Item '%s' already exists in data set." % (name))
             #return False        
-
+            
+        
         # by default we create float datasets        
         dtype = kwargs.get('dtype','f')
+        
+        # we store text as unicode; this seems somewhat non-standard for hdf
+        if ds_type == ds_types['txt']:
+            dtype = h5py.special_dtype(vlen=unicode)
+        
 
         #create the dataset ...;  delete it first if it exists, unless it is data
         if name in self.grp.keys(): 
@@ -182,6 +190,10 @@ class H5_file(object):
                 fill[0] += 1
                 ds.resize((dim1,))
                 ds[fill[0]-1] = data
+            elif self.ds_type == ds_types['txt']:
+                dim1 = ds.shape[0]+1
+                ds.resize((dim1,))
+                ds[dim1-1] = data
             elif len(data.shape) == 1:
                 ds.resize((len(data),))
                 fill[0] += len(data)

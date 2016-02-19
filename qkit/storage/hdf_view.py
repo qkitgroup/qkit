@@ -5,7 +5,7 @@ Created 2015
 @author: hrotzing
 """
 import logging
-
+from hdf_constants import ds_types
 class dataset_view(object):
 
     """
@@ -13,7 +13,9 @@ class dataset_view(object):
     
     """
     
-    def __init__(self, hdf_file, name, x=None, y=None, x_axis=0, y_axis=0, filter = None ,comment="",folder = 'views'):
+    def __init__(self, hdf_file, name, x=None, y=None, x_axis=0, y_axis=0, filter = None,
+                 label = "", ds_type =  ds_types['view'],
+                 comment="", folder = 'views'):
         
         self.hf = hdf_file
         self.name = name
@@ -29,14 +31,14 @@ class dataset_view(object):
         self.y_axis = y_axis
         
         self.view_types = {'1D':0,'1D-V':1, '2D':2, '3D':3}
-        self.ds = self.hf.create_dataset(self.name,0,folder=self.folder)
+        self.ds = self.hf.create_dataset(self.name,0,folder=self.folder,dim=1)
         #print self.hf
         self.view_num = 0
         self._setup_metadata()
         self.hf.flush()
 
         
-    def add(self,x, y, x_axis=0, y_axis=0,filter = None):
+    def add(self,x, y, x_axis=0, y_axis=0,filter = None, label=""):
             self.x_object = str(x.ds_url)
             self.y_object = str(y.ds_url)
             self.x_axis = x_axis

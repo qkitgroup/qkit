@@ -9,6 +9,7 @@ Created 2015
 import logging
 import numpy
 import time
+from hdf_constants import ds_types
 
 class hdf_dataset(object):
         """
@@ -21,14 +22,33 @@ class hdf_dataset(object):
         of the datasets and derive all the unknown values from the real data.
         """
         
-        def __init__(self, hdf_file, name='', ds_url=None, x=None, y=None, z=None, unit= "" 
-                ,comment="",folder = 'data', save_timestamp = False, overwrite=False ,**meta):
+        def __init__(self, hdf_file, name='', 
+                     ds_url=None, 
+                     x=None, 
+                     y=None, 
+                     z=None, 
+                     unit= "", 
+                     comment="",
+                     folder = 'data', 
+                     save_timestamp = False, 
+                     overwrite=False,
+                     ds_type = ds_types['vector'],
+                     **meta):
 
             name = name.lower()
             self.hf = hdf_file
             self.x_object = x
             self.y_object = y
             self.z_object = z
+            
+            # evaluate the dimension parameter; if not specified, dimension will be set 
+            # by the supplied x,y,z dimensions
+            self.dim = meta.get('dim',None)
+            
+            # override the default dataset    
+            self.dtype = meta.get('dtype','f')
+            self.ds_type = ds_type
+            
             if (name and ds_url) or (not name and not ds_url) :
                 logging.ERROR("HDF_dataset: Please specify [only] one, 'name' or 'ds_url' ")
                 raise NameError
@@ -63,15 +83,16 @@ class hdf_dataset(object):
             self.z_unit = ""            
             self.z0 = 0.0
             self.dz = 1.0
+            
             # simple dimension check -- Fixme: too simple
-            self.dim = 1
-            if self.x_object:
-                self.dim = 1    
-            if self.y_object:
-                self.dim = 2
-            if self.z_object:
-                self.dim = 3
-                
+            
+            if not self.dim:
+                self.dim = 1
+                if self.x_object: self.dim = 1    
+                if self.y_object: self.dim = 2
+                if self.z_object: self.dim = 3
+
+
         def _read_ds_from_hdf(self,ds_url):
             self.ds_url =  ds_url
             ds = self.hf[str(ds_url)]
@@ -117,28 +138,39 @@ class hdf_dataset(object):
             
         def append(self,data):
             """
-            The add method is used to save a growing 2-Dim matrix to the hdf file, 
+            The append method is used to save a growing 2-Dim matrix to the hdf file, 
             one line/vector at a time.
             For example, data can be a frequency scan of a 1D scan.
             """
             # at this point the reference data should be around
             if self.first:
                 self.first = False
-                #print self.name, data.shape
+                
+                #print "entering first"
                 if type(data) == numpy.ndarray:
                     tracelength = len(data)
+                elif self.ds_type == ds_types['txt']:
+                    tracelength = 0
                 else:
                     tracelength = 0
                 # create the dataset
-                self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,dim = self.dim)
+                
+                self.ds = self.hf.create_dataset(self.name,tracelength,
+                                                 folder=self.folder,
+                                                 dim = self.dim,
+                                                 ds_type = self.ds_type,
+                                                 dtype = self.dtype)
+                
                 if self._save_timestamp:
                     self._create_timestamp_ds()
-                #print self.ds
+                
                 self._setup_metadata()
                 
             if data is not None:
                 # we cast everything to a float numpy array
                 #data = numpy.array(data,dtype=float)
+                if self.ds_type == ds_types['txt']:
+                    data = unicode(data)
                 if self._next_matrix:
                     self.hf.append(self.ds,data, next_matrix=True)
                     self._next_matrix = False
