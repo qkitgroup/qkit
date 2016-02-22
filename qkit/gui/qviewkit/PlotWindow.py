@@ -52,6 +52,7 @@ class PlotWindow(QWidget,Ui_Form):
         #QObject.connect(self,SIGNAL("aboutToQuit()"),self._close_plot_window)
         QObject.connect(self.TraceSelector,SIGNAL("valueChanged(int)"),self._setTraceNum)
         QObject.connect(self.PlotStyleSelector,SIGNAL("currentIndexChanged(int)"), self._onPlotStyleChange)
+        QObject.connect(self.TraceValue,SIGNAL("valueChanged(float)"),self._setTraceValue)
         #QObject.connect(self.addXPlotSelector,SIGNAL("currentIndexChanged(int)"),self._addXPlotChange)
         #QObject.connect(self.addYPlotSelector,SIGNAL("currentIndexChanged(int)"),self._addYPlotChange)
 
@@ -98,7 +99,16 @@ class PlotWindow(QWidget,Ui_Form):
             self.TraceSelector.setEnabled(True)
             self.PlotTypeSelector.setEnabled(False)
             self.PlotStyleSelector.setCurrentIndex(0)
+    
+    def _setTraceValue(self,xval):
+        try:
+            xval = float(xval.split()[0])
+        except ValueError:
+            return
 
+        dx = ds.attrs.get("dx",1)
+        num = int(xval/dx)
+        self._setTraceNum(num)
 
     def _setTraceNum(self,num):
         self.TraceNum = num
@@ -179,8 +189,6 @@ class PlotWindow(QWidget,Ui_Form):
         pointLine.triggered.connect(self.setPointLineMode)
         
         menu.addMenu(self.qvkMenu)
-    
-    
     
     def _getXValueFromTraceNum(self,ds,num):
         x0 = ds.attrs.get("x0",0)
@@ -324,7 +332,7 @@ class PlotWindow(QWidget,Ui_Form):
                 x_data = np.array(x_ds)
                 y_data = np.array(y_ds)
 
-            if len(x_ds.shape) == 2 and len(y_ds.shape) == 2:
+            elif len(x_ds.shape) == 2 and len(y_ds.shape) == 2:
                 self.TraceSelector.setEnabled(True)
                 range_max = np.minimum( x_ds.shape[0],y_ds.shape[0])
                 self.TraceSelector.setRange(-1*range_max,range_max-1)
@@ -332,14 +340,13 @@ class PlotWindow(QWidget,Ui_Form):
                 x_data = np.array(x_ds[self.TraceNum],axis=x_axis[i])
                 y_data = np.array(y_ds[self.TraceNum],axis=y_axis[i])
 
-            if len(x_ds.shape) == 1 and len(y_ds.shape) == 2:
+            elif len(x_ds.shape) == 1 and len(y_ds.shape) == 2:
                 self.TraceSelector.setEnabled(True)
                 range_max = y_ds.shape[0]
                 self.TraceSelector.setRange(-1*range_max,range_max-1)
 
                 x_data = np.array(x_ds)#,axis=x_axis[i])
                 y_data = np.array(y_ds[self.TraceNum])#y_axis[i])#,axis=y_axis[i])
-
             else:
                 return
             x_name = x_ds.attrs.get("name","_none_")
@@ -352,6 +359,7 @@ class PlotWindow(QWidget,Ui_Form):
             graphicsView.setLabel('left', y_name, units=y_unit)
             graphicsView.setLabel('bottom', x_name , units=x_unit)
             #plot.setData(y=y_data, x=x_data)
+
             try:
                 graphicsView.plotItem.legend.removeItem(y_name)
             except:
