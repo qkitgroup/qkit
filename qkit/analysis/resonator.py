@@ -22,7 +22,7 @@ class Resonator(object):
     f_max (float, optional): Upper boundary for fit function
 
     usage:
-        res=Resonator(hf=hdf_lib.Data(path=path))
+        res=Resonator(path=filepath))
         res.fit_lorentzian(fit_all=True,f_min=5.667e9,f_max=5.668e9)
         res.fit_fano(fit_all=True)
         res.fit_circle(fit_all=True,f_max=5.668e9)
@@ -89,7 +89,7 @@ class Resonator(object):
         if data.ndim == 1:
             return data[(self._frequency >= self._f_min) & (self._frequency <= self._f_max)]
         if data.ndim == 2:
-            ret_array=np.empty(shape=(data.shape[0],self._fit_frequency.shape[0]))
+            ret_array=np.empty(shape=(data.shape[0],self._fit_frequency.shape[0]),dtype=np.float64)
             for i,a in enumerate(data):
                 ret_array[i]=data[i][(self._frequency >= self._f_min) & (self._frequency <= self._f_max)]
             return ret_array
@@ -115,8 +115,8 @@ class Resonator(object):
 
         self._amplitude = np.array(self._hf[ds_url_amp],dtype=np.float64)
         self._phase = np.array(self._hf[ds_url_pha],dtype=np.float64)
-        self._frequency = np.array(self._hf[ds_url_freq],dtype=np.float64)
-
+        self._frequency = np.array([float(self._ds_amp.x0)+float(self._ds_amp.dx)*i for i in xrange(self._amplitude.shape[0])],dtype=np.float64)
+        
         try:
             self._x_co = self._hf.get_dataset(self._ds_amp.x_ds_url)
         except:
@@ -140,6 +140,7 @@ class Resonator(object):
         f_max (float): upper boundary
         '''
         self._fit_all = fit_all
+        if self._amplitude.ndim == 1: self._fit_all = False #hack for 1D datasets
         self._f_min = np.min(self._frequency)
         self._f_max = np.max(self._frequency)
         
@@ -171,16 +172,19 @@ class Resonator(object):
         '''
         if not self._fit_all:
             tmp=np.empty((1,self._fit_frequency.shape[0]))
-            tmp[0]=self._fit_amplitude[-1]
+            if self._fit_amplitude.ndim==1: tmp[0]=self._fit_amplitude
+            else: tmp[0]=self._fit_amplitude[-1]
             self._fit_amplitude=np.empty(tmp.shape)
             self._fit_amplitude[0] = tmp[0]
-            tmp[0]=self._fit_phase[-1]
+            if self._fit_phase.ndim==1: tmp[0]=self._fit_phase
+            else: tmp[0]=self._fit_phase[-1]
             self._fit_phase=np.empty(tmp.shape)
             self._fit_phase[0] = tmp[0]
-        
-        self._frequency_co = self._hf.add_coordinate('frequency',folder='analysis', unit = 'Hz')
-        self._frequency_co.add(self._fit_frequency)
 
+        self._frequency_co = self._hf.add_coordinate('frequency',folder='analysis', unit = 'Hz',dtype='float64')
+        self._frequency_co.add(self._fit_frequency)
+        print
+        
     def _get_starting_values(self):
         pass
 
@@ -238,7 +242,7 @@ class Resonator(object):
         self._result_keys = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Qr":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Qr_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
         self._results = {}
 
-        self._circ_amp_gen = self._hf.add_value_matrix('circ_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
+        self._circ_amp_gen = self._hf.add_value_matrix('circ_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = '')
         self._circ_pha_gen = self._hf.add_value_matrix('circ_pha_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='rad')
         self._circ_real_gen = self._hf.add_value_matrix('circ_real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
         self._circ_imag_gen = self._hf.add_value_matrix('circ_imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
@@ -338,7 +342,7 @@ class Resonator(object):
         '''
         creates the datasets for the lorentzian fit in the hdf-file
         '''
-        self._lrnz_amp_gen = self._hf.add_value_matrix('lrnz_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
+        self._lrnz_amp_gen = self._hf.add_value_matrix('lrnz_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = '')
         self._lrnz_f0 = self._hf.add_value_vector('lrnz_f0', folder = 'analysis', x = self._x_co, unit = 'Hz')
         self._lrnz_k = self._hf.add_value_vector('lrnz_k', folder = 'analysis', x = self._x_co, unit = 'Hz')
         self._lrnz_a = self._hf.add_value_vector('lrnz_a', folder = 'analysis', x = self._x_co, unit = '')
@@ -388,7 +392,7 @@ class Resonator(object):
             "fits a skewed lorenzian to reflection amplitudes of a resonator"
             amplitudes = np.absolute(amplitudes)
             amplitudes_sq = amplitudes**2
-
+            
             A1a = np.minimum(amplitudes_sq[0],amplitudes_sq[-1])
             A3a = -np.max(amplitudes_sq)
             fra = self._fit_frequency[np.argmin(amplitudes_sq)]
@@ -428,7 +432,7 @@ class Resonator(object):
         '''
         creates the datasets for the skewed lorentzian fit in the hdf-file
         '''
-        self._skwd_amp_gen = self._hf.add_value_matrix('sklr_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
+        self._skwd_amp_gen = self._hf.add_value_matrix('sklr_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = '')
         self._skwd_f0 = self._hf.add_value_vector('sklr_f0', folder = 'analysis', x = self._x_co, unit = 'Hz')
         self._skwd_a1 = self._hf.add_value_vector('sklr_a1', folder = 'analysis', x = self._x_co, unit = 'Hz')
         self._skwd_a2 = self._hf.add_value_vector('sklr_a2', folder = 'analysis', x = self._x_co, unit = '')
@@ -453,7 +457,7 @@ class Resonator(object):
     def _prepare_fano(self):
         "create the datasets for the fano fit in the hdf-file"
 
-        self._fano_amp_gen = self._hf.add_value_matrix('fano_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
+        self._fano_amp_gen = self._hf.add_value_matrix('fano_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = '')
         self._fano_q_fit  = self._hf.add_value_vector('fano_q' , folder = 'analysis', x = self._x_co, unit = '')
         self._fano_bw_fit = self._hf.add_value_vector('fano_bw', folder = 'analysis', x = self._x_co, unit = 'Hz')
         self._fano_fr_fit = self._hf.add_value_vector('fano_fr', folder = 'analysis', x = self._x_co, unit = 'Hz')
@@ -587,7 +591,7 @@ class Resonator(object):
         self.fit_circle(fit_all,f_min,f_max)
         self.fit_fano(fit_all,f_min,f_max)
 
-
+    
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(
