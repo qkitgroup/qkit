@@ -21,6 +21,7 @@ class dataset_view(object):
         self.name = name
         self.folder = folder
         self.ds_url = "/entry/" + folder + "/" + name
+        self.ds_type = ds_type
         self.comment = comment
         self.filter = filter
         if not x or not y: 
@@ -50,6 +51,7 @@ class dataset_view(object):
         ds = self.ds
         if init:
             ds.attrs.create("view_type",self.view_types['1D-V'])
+            ds.attrs.create('ds_type',self.ds_type)
         ds.attrs.create("xy_"+str(self.view_num),str(self.x_object)+":"+str(self.y_object))
         ds.attrs.create("xy_"+str(self.view_num)+"_axis",str(self.x_axis)+":"+str(self.y_axis))
         ds.attrs.create("overlays",self.view_num)

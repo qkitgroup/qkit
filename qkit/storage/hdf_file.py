@@ -82,15 +82,7 @@ class H5_file(object):
             self.agrp = self.require_group("analysis0")
             self.vgrp = self.require_group("views")
         
-    """
-    def add_default_datasets(self):
-        # add a empty string dataset to the group -> used by add_data
-        self.create_dataset(name='datasets',tracelength=0, dtype='S32')
-        
-    def add_string_datasets(self):
-        # add a empty string dataset to the group -> used by add_data
-        self.create_dataset(name='datasets',tracelength=0, dtype='S32')
-    """    
+
     def create_dataset(self,name, tracelength, ds_type = ds_types['vector'],
                        folder = "data", dim = 1,  **kwargs):
         """ handles one, two and three dimensional data
@@ -230,22 +222,11 @@ class H5_file(object):
 
         self.flush()
         
-    """
-    def next_matrix(self):
-        self._next_matrix = True
-    """
     def flush(self):
         self.hf.flush()
         
     def close_file(self):
-        # before closing the file, reduce all arrays in the group 
-        # to their "fill" length
-        """
-        for ds in self.grp.itervalues():
-                fill  = ds.attrs.get("fill",-1)
-                if fill > 0:
-                    ds.resize(fill,axis=0)
-        """
+        # delegate close 
         self.hf.close()
         
     def __getitem__(self,s):
