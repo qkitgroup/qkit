@@ -95,22 +95,22 @@ class Data(object):
         
     def add_coordinate(self,  name, unit = "", comment = "",folder="data",**meta):
         ds =  hdf_dataset(self.hf, name,unit=unit, ds_type = ds_types['coordinate'],
-                          comment= comment, folder=folder)
+                          comment= comment, folder=folder,**meta)
         return ds
 
     def add_value_vector(self, name, x = None, unit = "", comment = "",folder="data",**meta):
         ds =  hdf_dataset(self.hf, name, x=x, unit=unit, ds_type = ds_types['vector'],
-                          comment=comment, folder=folder)
+                          comment=comment, folder=folder,**meta)
         return ds
 
     def add_value_matrix(self, name, x = None , y = None, unit = "", comment = "",folder="data",**meta):
         ds =  hdf_dataset(self.hf, name, x=x, y=y, unit=unit, ds_type = ds_types['matrix'],
-                          comment=comment, folder=folder)
+                          comment=comment, folder=folder,**meta)
         return ds
 
     def add_value_box(self, name, x = None , y = None, z = None, unit = "", comment = "",folder="data",**meta):
         ds =  hdf_dataset(self.hf,name, x=x, y=y, z=z, unit=unit, ds_type = ds_types['box'],
-                          comment=comment, folder=folder)
+                          comment=comment, folder=folder,**meta)
         return ds
 
     def add_view(self,name,x = None, y = None, x_axis=0, y_axis=0, filter  = None, comment = ""):
