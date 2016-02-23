@@ -7,10 +7,9 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-
 from plot_view import Ui_Form
 import pyqtgraph as pg
-
+from qkit.storage.hdf_constants import ds_types
 #import argparse
 #import ConfigParser
 import numpy as np
@@ -38,6 +37,7 @@ class PlotWindow(QWidget,Ui_Form):
         #self.ds = self.obj_parent.h5file[self.dataset_url]
         #self._setDefaultView()
         self._windowJustCreated = True
+        self.TraceValueChanged = False
         #self._setPlotDefaults()
         #self._init_XY_add()
         #self.menubar.setNativeMenuBar(False)
@@ -52,7 +52,7 @@ class PlotWindow(QWidget,Ui_Form):
         #QObject.connect(self,SIGNAL("aboutToQuit()"),self._close_plot_window)
         QObject.connect(self.TraceSelector,SIGNAL("valueChanged(int)"),self._setTraceNum)
         QObject.connect(self.PlotStyleSelector,SIGNAL("currentIndexChanged(int)"), self._onPlotStyleChange)
-        QObject.connect(self.TraceValue,SIGNAL("valueChanged(float)"),self._setTraceValue)
+        QObject.connect(self.TraceValue,SIGNAL("returnPressed()"),self._setTraceValue)
         #QObject.connect(self.addXPlotSelector,SIGNAL("currentIndexChanged(int)"),self._addXPlotChange)
         #QObject.connect(self.addYPlotSelector,SIGNAL("currentIndexChanged(int)"),self._addYPlotChange)
 
@@ -62,13 +62,65 @@ class PlotWindow(QWidget,Ui_Form):
         self.TraceNum = -1
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
         self.plot_style = 0
-        #self.TraceSelector.setEnabled(True)
-        #print self.dataset_url, " opened ..."
 
-        #
-        #default view type is 1D
         self.view_type = self.ds.attrs.get("view_type",None)
-        if not self.view_type:
+        self.ds_type = self.ds.attrs.get("ds_type",None)
+        if self.ds_type == ds_types["coordinate"]:
+            self._defaultCoord()
+        elif self.ds_type == ds_types["vector"]:
+            self._defaultVector()
+        elif self.ds_type == ds_types["matrix"]:
+            self._defaultMatrix()
+        elif self.ds_type== ds_types["box"]:
+            self._defaultBox()
+        elif self.ds_type == ds_types["txt"]:
+            self._defaultTxt
+        elif self.ds_type == ds_types["view"]:
+            self._defaultView()
+        else:
+            self._defaultOld()
+
+    def _defaultCoord(self):
+        self._defaultOld()
+
+    def _defaultVector(self):
+        self._defaultOld()
+        """
+        self.PlotTypeSelector.setCurrentIndex(0)
+        self.view_type = self.view_types['1D']
+        """
+
+    def _defaultMatrix(self):
+        self.TraceSelector.setEnabled(False)
+        shape = self.ds.shape[0]
+        self.TraceSelector.setRange(-1*shape,shape-1)
+        self.PlotTypeSelector.setCurrentIndex(0)
+        self.view_type = self.view_types['2D']
+
+    def _defaultBox(self):
+        self._defaultOld()
+        """
+        self.SliceSelector.setEnabled(True)
+        self.SliceSelector.setRange(-1*self.ds.shape[2],self.ds.shape[2]-1)
+        self.TraceXSelector.setEnabled(False)
+        self.TraceXSelector.setRange(-1*self.ds.shape[0],self.ds.shape[0]-1)
+        self.TraceYSelector.setEnabled(False)
+        self.TraceYSelector.setRange(-1*self.ds.shape[1],self.ds.shape[1]-1)
+        self.PlotTypeSelector.setCurrentIndex(0)
+        self.view_type = self.view_types['3D']
+        """
+
+    def _defaultTxt(self):
+        self._defaultOld()
+
+    def _defaultView(self):
+        self._defaultOld()
+        """
+        self.TraceSelector.setEnabled(True)
+        """
+
+    def _defaultOld(self):
+        if not self.view_type and not self.ds_type == ds_types["txt"]:
             if len(self.ds.shape) == 1:
                 self.PlotTypeSelector.setCurrentIndex(1)
                 self.view_type = self.view_types['1D']
@@ -76,6 +128,9 @@ class PlotWindow(QWidget,Ui_Form):
                 self.PlotTypeSelector.setEnabled(False)
                 self.PlotStyleSelector.setCurrentIndex(0)
                 self.plot_style = self.plot_styles['line']
+                #only one entry in ds, line style does not make any sense
+                if self.ds.shape[0]==1:
+                    self.plot_style = self.plot_styles['point']
             elif len(self.ds.shape) == 2:
                 self.TraceSelector.setEnabled(False)
                 shape = self.ds.shape[0]
@@ -94,26 +149,33 @@ class PlotWindow(QWidget,Ui_Form):
                 self.view_type = self.view_types['1D']
                 self.PlotStyleSelector.setCurrentIndex(0)
                 self.plot_style = self.plot_styles['line']
+        elif self.ds_type == ds_types["txt"]:
+            #self.PlotTypeSelector.setCurrentIndex(1)
+            self.view_type = self.view_types['table']
+            self.TraceSelector.setEnabled(False)
+            self.PlotTypeSelector.setEnabled(False)
+            #self.PlotStyleSelector.setCurrentIndex(0)
 
         else:
             self.TraceSelector.setEnabled(True)
             self.PlotTypeSelector.setEnabled(False)
             self.PlotStyleSelector.setCurrentIndex(0)
-    
-    def _setTraceValue(self,xval):
+
+    def _setTraceValue(self):
+        xval = self.TraceValue.displayText()
+        xval = str(xval)
         try:
-            xval = float(xval.split()[0])
+            self.value = float(xval.split()[0])
         except ValueError:
             return
-
-        dx = ds.attrs.get("dx",1)
-        num = int(xval/dx)
-        self._setTraceNum(num)
+        self.TraceValueChanged = True
+        self.obj_parent.pw_refresh_signal.emit()
 
     def _setTraceNum(self,num):
         self.TraceNum = num
         #print self.TraceNum
-        self.obj_parent.pw_refresh_signal.emit()
+        if not self.TraceValueChanged:
+            self.obj_parent.pw_refresh_signal.emit()
 
     def _addXPlotChange(self):
         pass
@@ -179,17 +241,17 @@ class PlotWindow(QWidget,Ui_Form):
         point = QAction(u'Point', self.qvkMenu)
         self.qvkMenu.addAction(point)
         point.triggered.connect(self.setPointMode)
-        
+
         line = QAction(u'Line', self.qvkMenu)
         self.qvkMenu.addAction(line)
         line.triggered.connect(self.setLineMode)
-        
+
         pointLine = QAction(u'Point+Line', self.qvkMenu)
         self.qvkMenu.addAction(pointLine)
         pointLine.triggered.connect(self.setPointLineMode)
-        
+
         menu.addMenu(self.qvkMenu)
-    
+
     def _getXValueFromTraceNum(self,ds,num):
         x0 = ds.attrs.get("x0",0)
         dx = ds.attrs.get("dx",1)
@@ -200,25 +262,25 @@ class PlotWindow(QWidget,Ui_Form):
         else:
             xval = x0+(max_len+num)*dx
         return str(xval)+" "+unit
-        
-    @pyqtSlot()    
+
+    @pyqtSlot()
     def setPointMode(self):
         self.plot_style = self.plot_styles['point']
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
-            
-    @pyqtSlot()    
+
+    @pyqtSlot()
     def setLineMode(self):
         self.plot_style = self.plot_styles['line']
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
-            
-    @pyqtSlot()    
+
+    @pyqtSlot()
     def setPointLineMode(self):
         self.plot_style = self.plot_styles['linepoint']
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
-        
+
     @pyqtSlot()
     def update_plots(self):
         self.ds = self.obj_parent.h5file[self.dataset_url]
@@ -332,7 +394,7 @@ class PlotWindow(QWidget,Ui_Form):
                 x_data = np.array(x_ds)
                 y_data = np.array(y_ds)
 
-            if len(x_ds.shape) == 2 and len(y_ds.shape) == 2:
+            elif len(x_ds.shape) == 2 and len(y_ds.shape) == 2:
                 self.TraceSelector.setEnabled(True)
                 range_max = np.minimum( x_ds.shape[0],y_ds.shape[0])
                 self.TraceSelector.setRange(-1*range_max,range_max-1)
@@ -340,7 +402,7 @@ class PlotWindow(QWidget,Ui_Form):
                 x_data = np.array(x_ds[self.TraceNum],axis=x_axis[i])
                 y_data = np.array(y_ds[self.TraceNum],axis=y_axis[i])
 
-            if len(x_ds.shape) == 1 and len(y_ds.shape) == 2:
+            elif len(x_ds.shape) == 1 and len(y_ds.shape) == 2:
                 self.TraceSelector.setEnabled(True)
                 range_max = y_ds.shape[0]
                 self.TraceSelector.setRange(-1*range_max,range_max-1)
@@ -355,11 +417,10 @@ class PlotWindow(QWidget,Ui_Form):
 
             x_unit = x_ds.attrs.get("unit","_none_")
             y_unit = y_ds.attrs.get("unit","_none_")
-            #print x_name, y_name, x_unit, y_unit
-            #plot.setPen((200,200,100))
+
             graphicsView.setLabel('left', y_name, units=y_unit)
             graphicsView.setLabel('bottom', x_name , units=x_unit)
-            #plot.setData(y=y_data, x=x_data)
+
             try:
                 graphicsView.plotItem.legend.removeItem(y_name)
             except:
@@ -375,9 +436,15 @@ class PlotWindow(QWidget,Ui_Form):
 
     def _display_1D_data(self,graphicsView):
         ds = self.ds
-
         ydata = np.array(ds)
         if len(ydata.shape) == 2:
+            if self.TraceValueChanged:
+                dx = ds.attrs.get("dx",1)
+                x0 = ds.attrs.get("x0",0)
+                num = int(self.value/dx-x0)
+                self.TraceNum = num
+                self.TraceSelector.setValue(self.TraceNum)
+                self.TraceValueChanged = False
             ydata = ydata[self.TraceNum]
             self.TraceValue.setText(self._getXValueFromTraceNum(ds,self.TraceNum))
         x0 = ds.attrs.get("y0",ds.attrs.get("x0",0))
@@ -392,7 +459,7 @@ class PlotWindow(QWidget,Ui_Form):
         #plot.setPen((200,200,100))
         graphicsView.setLabel('left', name, units=unit)
         graphicsView.setLabel('bottom', x_name , units=x_unit)
-        #graphicsView.plot(y=ydata, x=x_data, clear = True, pen=(200,200,100))
+
         if self.plot_style==self.plot_styles['line']:
             graphicsView.plot(y=ydata, x=x_data, clear = True, pen=(200,200,100),connect='finite')
         if self.plot_style==self.plot_styles['linepoint']:
@@ -444,9 +511,18 @@ class PlotWindow(QWidget,Ui_Form):
         # Fixme roi ...
         graphicsView.roi.setPos([xmin,ymin])
         graphicsView.roi.setSize([xmax-xmin,ymax-ymin])
+        graphicsView.roi.setAcceptedMouseButtons(Qt.RightButton)
+        graphicsView.roi.sigClicked.connect(lambda: self.clickRoi(graphicsView.roi.pos(), graphicsView.roi.size()))
 
-        #graphicsView.setImage(data)
-        #graphicsView.show()
+    def clickRoi(self, pos, size):
+        """
+        pos1 =[pos[0],pos[1]]
+        pos2 = [pos1[0]+size[0],pos1[1]+size[1]]
+        rangeX = [pos1[0], pos2[0]]
+        rangeY = [pos1[1], pos2[1]]
+        print [rangeX, rangeY]
+        view=pg.TextItem(text=str(rangeX[0])+', '+str(rangeX[1]))
+        """
 
     def _display_3D_data(self,graphicsView):
         #load the dataset:
@@ -504,4 +580,10 @@ class PlotWindow(QWidget,Ui_Form):
     def _display_table(self,graphicsView):
         #load the dataset:
         data = np.array(self.ds).transpose()
+        data_tmp = []
+        if self.ds_type == ds_types["txt"]:
+            for d in data:
+                data_tmp.append([d])
+            data = np.array(data_tmp)
+            graphicsView.setFormat(unicode(data))
         graphicsView.setData(data)
