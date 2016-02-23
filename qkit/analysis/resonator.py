@@ -115,7 +115,11 @@ class Resonator(object):
 
         self._amplitude = np.array(self._hf[ds_url_amp],dtype=np.float64)
         self._phase = np.array(self._hf[ds_url_pha],dtype=np.float64)
-        self._frequency = np.array([float(self._ds_amp.x0)+float(self._ds_amp.dx)*i for i in xrange(self._amplitude.shape[0])],dtype=np.float64)
+        self._frequency = self._hf[ds_url_freq]
+        freq_x0 = self._frequency.attrs.get('x0',0)
+        freq_dx = self._frequency.attrs.get('dx',1)
+        # we create a new frequency array from x0 and dx in 64bit floats to avoid 32bit limitations
+        self._frequency = np.array([float(freq_x0)+float(freq_dx)*i for i in xrange(self._frequency.shape[0])],dtype=np.float64)
         
         try:
             self._x_co = self._hf.get_dataset(self._ds_amp.x_ds_url)
@@ -183,7 +187,6 @@ class Resonator(object):
 
         self._frequency_co = self._hf.add_coordinate('frequency',folder='analysis', unit = 'Hz',dtype='float64')
         self._frequency_co.add(self._fit_frequency)
-        print
         
     def _get_starting_values(self):
         pass
