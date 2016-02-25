@@ -46,12 +46,12 @@ class PlotWindow(QWidget,Ui_Form):
 
     def _setup_signal_slots(self):
         self.obj_parent.refresh_signal.connect(self.update_plots)
-        if self.ds_type == ds_types['matrix'] or self.ds_type == -1:
+        if self.ds_type == ds_types['matrix']:
             QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeMatrix)
             QObject.connect(self.TraceSelector,SIGNAL("valueChanged(int)"),self._setTraceNum)
             QObject.connect(self.TraceValue,SIGNAL("returnPressed()"),self._setTraceValue)
 
-        if self.ds_type == ds_types['box']:
+        elif self.ds_type == ds_types['box']:
             QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeBox)
             QObject.connect(self.SliceSelector,SIGNAL("valueChanged(int)"),self._setSliceNum)
             QObject.connect(self.SliceValue,SIGNAL("returnPressed()"),self._setSliceValue)
@@ -60,10 +60,15 @@ class PlotWindow(QWidget,Ui_Form):
             QObject.connect(self.TraceYValue,SIGNAL("returnPressed()"),self._setTraceYValue)
             QObject.connect(self.TraceYSelector,SIGNAL("valueChanged(int)"),self._setTraceYNum)
 
-        if self.ds_type == ds_types['vector']:
+        elif self.ds_type == ds_types['vector']:
             QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeVector)
 
-        if self.ds_type == ds_types['view']:
+        elif self.ds_type == ds_types['view']:
+            QObject.connect(self.TraceSelector,SIGNAL("valueChanged(int)"),self._setTraceNum)
+            QObject.connect(self.TraceValue,SIGNAL("returnPressed()"),self._setTraceValue)
+            
+        if self.ds_type == -1:
+            QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeMatrix)
             QObject.connect(self.TraceSelector,SIGNAL("valueChanged(int)"),self._setTraceNum)
             QObject.connect(self.TraceValue,SIGNAL("returnPressed()"),self._setTraceValue)
 
@@ -464,7 +469,7 @@ class PlotWindow(QWidget,Ui_Form):
     def _display_1D_data(self,graphicsView):
         ds = self.ds
         y_data = np.array(ds)
-        if self.ds_type == ds_types['matrix'] or self.ds_type == -1:
+        if self.ds_type == ds_types['matrix'] or (self.ds_type == -1 and len(self.ds.shape) == 2):
             if self.TraceValueChanged:
                 dx = ds.attrs.get("dx",1)
                 x0 = ds.attrs.get("x0",0)
