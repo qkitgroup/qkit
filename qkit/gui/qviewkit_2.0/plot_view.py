@@ -56,8 +56,8 @@ class Ui_Form(object):
         Form.setWindowTitle(_translate("Form", "Form", None))
         QtCore.QMetaObject.connectSlotsByName(Form)
 
-    def setupCoordinate(self):
-        self.setupMatrix()
+    def setupCoordinate(self,Form):
+        self.setupMatrix(Form)
 
     def setupVector(self,Form):
         self.PlotTypeSelector = QtGui.QComboBox(Form)
@@ -162,7 +162,7 @@ class Ui_Form(object):
         self.TraceYValue.setObjectName(_fromUtf8("TraceYValue"))
         self.horizontalLayout.addWidget(self.TraceYValue)
         
-    def setupTxt(self):
+    def setupTxt(self,Form):
         self.setupMatrix()
 
     def setupView(self,Form):
