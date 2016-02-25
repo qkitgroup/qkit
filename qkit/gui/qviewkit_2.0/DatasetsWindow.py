@@ -9,6 +9,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 import h5py
 from time import sleep
+from qkit.storage.hdf_constants import ds_types
 
 from main_view import Ui_MainWindow
 
@@ -141,7 +142,8 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                     ds_type = self.h5file[tree_key].attrs.get('ds_type', None)
                     entry = QtCore.QString(str(ds_type))
                     item.setWhatsThis(column,entry)
-
+                    if ds_type == ds_types['coordinate']:
+                        item.setFlags(QtCore.Qt.ItemIsSelectable)
                     if self.DATA.ds_cmd_open.has_key(tree_key):
                         item.setCheckState(0,QtCore.Qt.Checked)
                         self.DATA.append_plot(self,item,tree_key)
