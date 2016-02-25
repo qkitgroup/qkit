@@ -138,7 +138,9 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                 if not self.DATA.ds_tree_items.has_key(tree_key):
                     item = self.addChild(parent, column, str(centry),tree_key)
                     self.DATA.ds_tree_items[tree_key] = item
-                    
+                    ds_type = self.h5file[tree_key].attrs.get('ds_type', None)
+                    entry = QtCore.QString(str(ds_type))
+                    item.setWhatsThis(column,entry)
 
                     if self.DATA.ds_cmd_open.has_key(tree_key):
                         item.setCheckState(0,QtCore.Qt.Checked)

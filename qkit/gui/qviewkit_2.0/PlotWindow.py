@@ -22,40 +22,50 @@ class PlotWindow(QWidget,Ui_Form):
     def myquit(self):
         exit()
 
-    def __init__(self,parent,data,dataset_url):
+    def __init__(self,parent,data,dataset_url,ds_type):
         self.DATA = data
         self.dataset_url = dataset_url
         self.obj_parent = parent
+        try: self.ds_type = int(ds_type)
+        except: self.ds_type = -1
         super(PlotWindow , self).__init__()
         Ui_Form.__init__(self)
-        # set up User Interface (widgets, layout...)
-        self.setupUi(self)
+
+        self.setupUi(self,self.ds_type)
         window_title = str(dataset_url.split('/')[-1]) +" "+ str(self.DATA.filename)
         self.setWindowTitle(window_title)
 
         self.graphicsView = None
-        #self.ds = self.obj_parent.h5file[self.dataset_url]
-        #self._setDefaultView()
         self._windowJustCreated = True
         self.TraceValueChanged = False
-        #self._setPlotDefaults()
-        #self._init_XY_add()
-        #self.menubar.setNativeMenuBar(False)
-
+        self.SliceValueChanged = False
+        self.TraceXValueChanged = False
+        self.TraceYValueChanged = False
 
         self._setup_signal_slots()
-        #self.update_plots()
 
     def _setup_signal_slots(self):
         self.obj_parent.refresh_signal.connect(self.update_plots)
-        QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChange)
-        #QObject.connect(self,SIGNAL("aboutToQuit()"),self._close_plot_window)
-        QObject.connect(self.TraceSelector,SIGNAL("valueChanged(int)"),self._setTraceNum)
-        QObject.connect(self.PlotStyleSelector,SIGNAL("currentIndexChanged(int)"), self._onPlotStyleChange)
-        QObject.connect(self.TraceValue,SIGNAL("returnPressed()"),self._setTraceValue)
-        #QObject.connect(self.addXPlotSelector,SIGNAL("currentIndexChanged(int)"),self._addXPlotChange)
-        #QObject.connect(self.addYPlotSelector,SIGNAL("currentIndexChanged(int)"),self._addYPlotChange)
+        if self.ds_type == ds_types['matrix'] or self.ds_type == -1:
+            QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeMatrix)
+            QObject.connect(self.TraceSelector,SIGNAL("valueChanged(int)"),self._setTraceNum)
+            QObject.connect(self.TraceValue,SIGNAL("returnPressed()"),self._setTraceValue)
 
+        if self.ds_type == ds_types['box']:
+            QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeBox)
+            QObject.connect(self.SliceSelector,SIGNAL("valueChanged(int)"),self._setSliceNum)
+            QObject.connect(self.SliceValue,SIGNAL("returnPressed()"),self._setSliceValue)
+            QObject.connect(self.TraceXSelector,SIGNAL("valueChanged(int)"),self._setTraceXNum)
+            QObject.connect(self.TraceXValue,SIGNAL("returnPressed()"),self._setTraceXValue)
+            QObject.connect(self.TraceYValue,SIGNAL("returnPressed()"),self._setTraceYValue)
+            QObject.connect(self.TraceYSelector,SIGNAL("valueChanged(int)"),self._setTraceYNum)
+
+        if self.ds_type == ds_types['vector']:
+            QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeVector)
+
+        if self.ds_type == ds_types['view']:
+            QObject.connect(self.TraceSelector,SIGNAL("valueChanged(int)"),self._setTraceNum)
+            QObject.connect(self.TraceValue,SIGNAL("returnPressed()"),self._setTraceValue)
 
     def _setDefaultView(self):
         self.view_types = {'1D':0,'1D-V':1, '2D':2, '3D':3, 'table':4}
@@ -64,7 +74,6 @@ class PlotWindow(QWidget,Ui_Form):
         self.plot_style = 0
 
         self.view_type = self.ds.attrs.get("view_type",None)
-        self.ds_type = self.ds.attrs.get("ds_type",None)
         if self.ds_type == ds_types["coordinate"]:
             self._defaultCoord()
         elif self.ds_type == ds_types["vector"]:
@@ -84,11 +93,8 @@ class PlotWindow(QWidget,Ui_Form):
         self._defaultOld()
 
     def _defaultVector(self):
-        self._defaultOld()
-        """
         self.PlotTypeSelector.setCurrentIndex(0)
         self.view_type = self.view_types['1D']
-        """
 
     def _defaultMatrix(self):
         self.TraceSelector.setEnabled(False)
@@ -98,26 +104,28 @@ class PlotWindow(QWidget,Ui_Form):
         self.view_type = self.view_types['2D']
 
     def _defaultBox(self):
-        self._defaultOld()
-        """
+        shape = self.ds.shape
         self.SliceSelector.setEnabled(True)
-        self.SliceSelector.setRange(-1*self.ds.shape[2],self.ds.shape[2]-1)
+        self.SliceSelector.setRange(-1*shape[2],shape[2]-1)
+        self.SliceSelector.setValue(shape[2]/2)
+
         self.TraceXSelector.setEnabled(False)
-        self.TraceXSelector.setRange(-1*self.ds.shape[0],self.ds.shape[0]-1)
+        self.TraceXSelector.setRange(-1*shape[0],shape[0]-1)
+
         self.TraceYSelector.setEnabled(False)
-        self.TraceYSelector.setRange(-1*self.ds.shape[1],self.ds.shape[1]-1)
+        self.TraceYSelector.setRange(-1*shape[1],shape[1]-1)
+
         self.PlotTypeSelector.setCurrentIndex(0)
-        self.view_type = self.view_types['3D']
-        """
+        self.view_type = self.view_types['2D']
 
     def _defaultTxt(self):
         self._defaultOld()
 
     def _defaultView(self):
-        self._defaultOld()
-        """
         self.TraceSelector.setEnabled(True)
-        """
+        shape = self.ds.shape[0]
+        self.TraceSelector.setRange(-1*shape,shape-1)
+        self.view_type = self.view_types['1D-V']
 
     def _defaultOld(self):
         if not self.view_type and not self.ds_type == ds_types["txt"]:
@@ -126,7 +134,6 @@ class PlotWindow(QWidget,Ui_Form):
                 self.view_type = self.view_types['1D']
                 self.TraceSelector.setEnabled(False)
                 self.PlotTypeSelector.setEnabled(False)
-                self.PlotStyleSelector.setCurrentIndex(0)
                 self.plot_style = self.plot_styles['line']
                 #only one entry in ds, line style does not make any sense
                 if self.ds.shape[0]==1:
@@ -137,35 +144,27 @@ class PlotWindow(QWidget,Ui_Form):
                 self.TraceSelector.setRange(-1*shape,shape-1)
                 self.PlotTypeSelector.setCurrentIndex(0)
                 self.view_type = self.view_types['2D']
-                self.PlotStyleSelector.setEnabled(False)
             elif len(self.ds.shape) == 3:
                 self.TraceSelector.setEnabled(False)
                 shape = self.ds.shape[0]
                 self.view_type = self.view_types['3D']
                 self.PlotTypeSelector.setEnabled(False)
-                self.PlotStyleSelector.setEnabled(False)
             else:
                 self.TraceSelector.setEnabled(True)
                 self.view_type = self.view_types['1D']
-                self.PlotStyleSelector.setCurrentIndex(0)
-                self.plot_style = self.plot_styles['line']
         elif self.ds_type == ds_types["txt"]:
             #self.PlotTypeSelector.setCurrentIndex(1)
             self.view_type = self.view_types['table']
             self.TraceSelector.setEnabled(False)
             self.PlotTypeSelector.setEnabled(False)
-            #self.PlotStyleSelector.setCurrentIndex(0)
-
         else:
             self.TraceSelector.setEnabled(True)
             self.PlotTypeSelector.setEnabled(False)
-            self.PlotStyleSelector.setCurrentIndex(0)
 
     def _setTraceValue(self):
-        xval = self.TraceValue.displayText()
-        xval = str(xval)
+        xval = str(self.TraceValue.displayText())
         try:
-            self.value = float(xval.split()[0])
+            self._trace_value = float(xval.split()[0])
         except ValueError:
             return
         self.TraceValueChanged = True
@@ -173,8 +172,94 @@ class PlotWindow(QWidget,Ui_Form):
 
     def _setTraceNum(self,num):
         self.TraceNum = num
-        #print self.TraceNum
         if not self.TraceValueChanged:
+            self.obj_parent.pw_refresh_signal.emit()
+            
+    def _setSliceValue(self):
+        xval = str(self.SliceValue.displayText())
+        try:
+            self._slice_value = float(xval.split()[0])
+        except ValueError:
+            return
+        self.SliceValueChanged = True
+        self.obj_parent.pw_refresh_signal.emit()
+    
+    def _setSliceNum(self,num):
+        self.SliceNum = num
+        if not self.SliceValueChanged:
+            self.obj_parent.pw_refresh_signal.emit()
+
+    def _setTraceXValue(self):
+        xval = str(self.TraceXValue.displayText())
+        try:
+            self._traceX_value = float(xval.split()[0])
+        except ValueError:
+            return
+        self.TraceXValueChanged = True
+        self.obj_parent.pw_refresh_signal.emit()
+    
+    def _setTraceXNum(self,num):
+        self.TraceXNum = num
+        if not self.TraceXValueChanged:
+            self.obj_parent.pw_refresh_signal.emit()
+    
+    def _setTraceYValue(self):
+        xval = str(self.TraceYValue.displayText())
+        try:
+            self._traceY_value = float(xval.split()[0])
+        except ValueError:
+            return
+        self.TraceYValueChanged = True
+        self.obj_parent.pw_refresh_signal.emit()
+    
+    def _setTraceYNum(self,num):
+        self.TraceYNum = num
+        if not self.TraceYValueChanged:
+            self.obj_parent.pw_refresh_signal.emit()
+
+    def _onPlotTypeChangeVector(self, index):
+        self._onPlotTypeChanged = True
+        if index == 0:
+            self.view_type = self.view_types['1D']
+        if index == 1:
+            self.view_type = self.view_types['table']
+
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+
+    def _onPlotTypeChangeMatrix(self, index):
+        self._onPlotTypeChanged = True
+        if index == 0:
+            self.view_type = self.view_types['2D']
+            self.TraceSelector.setEnabled(False)
+        if index == 1:
+            self.view_type = self.view_types['1D']
+            self.TraceSelector.setEnabled(True)
+        if index == 2:
+            self.view_type = self.view_types['table']
+            self.TraceSelector.setEnabled(False)
+
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+
+    def _onPlotTypeChangeBox(self, index):
+        self._onPlotTypeChanged = True
+        if index == 0:
+            self.view_type = self.view_types['2D']
+        if index == 1:
+            self.view_type = self.view_types['2D']
+            self.TraceXSelector.setEnabled(True)
+            self.TraceYSelector.setEnabled(False)
+        if index == 2:
+            self.view_type = self.view_types['2D']
+            self.TraceYSelector.setEnabled(True)
+            self.TraceXSelector.setEnabled(False)
+        if index == 3:
+            self.view_type = self.view_types['1D']
+            self.TraceXSelector.setEnabled(True)
+            self.TraceYSelector.setEnabled(True)
+
+        if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
 
     def _addXPlotChange(self):
@@ -192,48 +277,22 @@ class PlotWindow(QWidget,Ui_Form):
             self.addYPlotSelector.setItemText(i, str(key))
             #print i,key
 
-
-    def _onPlotTypeChange(self, index):
-        self._onPlotTypeChanged = True
-        if index == 0:
-            self.view_type = self.view_types['2D']
-            self.TraceSelector.setEnabled(False)
-            self.PlotStyleSelector.setEnabled(False)
-        if index == 1:
-            self.view_type = self.view_types['1D']
-            self.TraceSelector.setEnabled(True)
-            self.PlotStyleSelector.setEnabled(True)
-        if index  == 2:
-            self.view_type = self.view_types['table']
-            self.TraceSelector.setEnabled(False)
-            self.PlotStyleSelector.setEnabled(False)
-        if index == 3:
-            self.view_type = self.view_types['3D']
-            self.TraceSelector.setEnabled(False)
-            self.PlotStyleSelector.setEnabled(False)
-        #print index
-        if not self._windowJustCreated:
-            self.obj_parent.pw_refresh_signal.emit()
-
-        #print self.PlotTypeSelector.currentText()
-
-    def _onPlotStyleChange(self, index):
-        self._onPlotStyleChenged = True
-        if index == 0:
-            self.plot_style = self.plot_styles['line']
-        if index == 1:
-            self.plot_style = self.plot_styles['linepoint']
-        if index == 2:
-            self.plot_style = self.plot_styles['point']
-
-        if not self._windowJustCreated:
-            self.obj_parent.pw_refresh_signal.emit()
-
     def closeEvent(self, event):
         "overwrite the closeEvent handler"
         self.deleteLater()
         self.DATA._toBe_deleted(self.dataset_url)
         event.accept()
+
+    def _getXValueFromTraceNum(self,ds,num):
+        x0 = ds.attrs.get("x0",0)
+        dx = ds.attrs.get("dx",1)
+        unit = ds.attrs.get("x_unit","")
+        max_len = ds.shape[0]
+        if num>-1:
+            xval = x0+num*dx
+        else:
+            xval = x0+(max_len+num)*dx
+        return str(xval)+" "+unit
 
     def addQvkMenu(self,menu):
         self.qvkMenu = QMenu("Qviewkit")
@@ -251,17 +310,6 @@ class PlotWindow(QWidget,Ui_Form):
         pointLine.triggered.connect(self.setPointLineMode)
 
         menu.addMenu(self.qvkMenu)
-
-    def _getXValueFromTraceNum(self,ds,num):
-        x0 = ds.attrs.get("x0",0)
-        dx = ds.attrs.get("dx",1)
-        unit = ds.attrs.get("x_unit","")
-        max_len = ds.shape[0]
-        if num>-1:
-            xval = x0+num*dx
-        else:
-            xval = x0+(max_len+num)*dx
-        return str(xval)+" "+unit
 
     @pyqtSlot()
     def setPointMode(self):
@@ -285,19 +333,14 @@ class PlotWindow(QWidget,Ui_Form):
     def update_plots(self):
         self.ds = self.obj_parent.h5file[self.dataset_url]
         if self._windowJustCreated:
-            #print "JC"
             self._setDefaultView()
             self._onPlotTypeChanged = True
-            self._onPlotStyleChanged = True
             self._windowJustCreated = False
-        #print "update_plots"
 
         try:
-            #self.ds = self.obj_parent.h5file[self.dataset_url]
             if self.view_type == self.view_types['1D-V']:
-                if not self.graphicsView or self._onPlotTypeChanged or self._onPlotStyleChanged:
+                if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
-                    self._onPlotStyleChanged = False
                     self.graphicsView = pg.PlotWidget(name=self.dataset_url)
                     self.graphicsView.setObjectName(self.dataset_url)
                     self.addQvkMenu(self.graphicsView.plotItem.getMenu())
@@ -305,10 +348,8 @@ class PlotWindow(QWidget,Ui_Form):
                 self._display_1D_view(self.graphicsView)
 
             elif self.view_type == self.view_types['1D']:
-                if not self.graphicsView or self._onPlotTypeChanged or self._onPlotStyleChanged:
-                    #print "new graphics view"
+                if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
-                    self._onPlotStyleChanged = False
                     self.graphicsView = pg.PlotWidget(name=self.dataset_url)
                     self.graphicsView.setObjectName(self.dataset_url)
                     self.addQvkMenu(self.graphicsView.plotItem.getMenu())
@@ -316,34 +357,20 @@ class PlotWindow(QWidget,Ui_Form):
                 self._display_1D_data(self.graphicsView)
 
             elif self.view_type == self.view_types['2D']:
-                if not self.graphicsView or self._onPlotTypeChanged or self._onPlotStyleChanged:
+                if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
-                    self._onPlotStyleChanged = False
                     self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
                     self.graphicsView.setObjectName(self.dataset_url)
                     self.graphicsView.view.setAspectLocked(False)
-                    self.addQvkMenu(self.graphicsView.view.getMenu())
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 self._display_2D_data(self.graphicsView)
-            elif self.view_type == self.view_types['3D']:
-                if not self.graphicsView or self._onPlotTypeChanged or self._onPlotStyleChanged:
-                    self._onPlotTypeChanged = False
-                    self._onPlotStyleChanged = False
-                    self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
-                    self.graphicsView.setObjectName(self.dataset_url)
-                    self.graphicsView.view.setAspectLocked(False)
-                    self.addQvkMenu(self.graphicsView.view.getMenu())
-                    self.gridLayout.addWidget(self.graphicsView,0,0)
-                self._display_3D_data(self.graphicsView)
+
             elif self.view_type == self.view_types['table']:
-                if not self.graphicsView or self._onPlotTypeChanged or self._onPlotStyleChanged:
+                if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
-                    self._onPlotStyleChanged = False
                     self.graphicsView = pg.TableWidget()
-                    self.graphicsView.setWindowTitle('xyz')
-                    #self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
+                    self.graphicsView.setWindowTitle(self.dataset_url+'_table')
                     self.graphicsView.setObjectName(self.dataset_url)
-                    #self.graphicsView.view.setAspectLocked(False)
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 self._display_table(self.graphicsView)
             else:
@@ -436,36 +463,44 @@ class PlotWindow(QWidget,Ui_Form):
 
     def _display_1D_data(self,graphicsView):
         ds = self.ds
-        ydata = np.array(ds)
-        if len(ydata.shape) == 2:
+        y_data = np.array(ds)
+        if self.ds_type == ds_types['matrix'] or self.ds_type == -1:
             if self.TraceValueChanged:
                 dx = ds.attrs.get("dx",1)
                 x0 = ds.attrs.get("x0",0)
-                num = int(self.value/dx-x0)
+                num = int(self._trace_value/dx-x0)
                 self.TraceNum = num
                 self.TraceSelector.setValue(self.TraceNum)
                 self.TraceValueChanged = False
-            ydata = ydata[self.TraceNum]
+            y_data = y_data[self.TraceNum]
             self.TraceValue.setText(self._getXValueFromTraceNum(ds,self.TraceNum))
         x0 = ds.attrs.get("y0",ds.attrs.get("x0",0))
         dx = ds.attrs.get("dy",ds.attrs.get("dx",1))
-        x_data = [x0+dx*i for i in xrange(len(ydata))]
+        x_data = [x0+dx*i for i in xrange(len(y_data))]
 
         name = ds.attrs.get("name","_none_")
         unit = ds.attrs.get("unit","_none_")
         x_name = ds.attrs.get("y_name",ds.attrs.get("x_name","_none_"))
         x_unit = ds.attrs.get("y_unit",ds.attrs.get("x_unit","_none_"))
-
+        
+        if self.ds_type == ds_types['box']:
+            x0 = ds.attrs.get('z0',0)
+            dx = ds.attrs.get('dz',1)
+            x_name = ds.attrs.get('z_name','_none_')
+            x_unit = ds.attrs.get('z_unit','_none_')
+            x_data = [x0+dx*i for i in ydata.shape[2]]
+            y_data = y_data[self.TraceXNum,self.TraceYNum,:]
+            
         #plot.setPen((200,200,100))
         graphicsView.setLabel('left', name, units=unit)
         graphicsView.setLabel('bottom', x_name , units=x_unit)
 
         if self.plot_style==self.plot_styles['line']:
-            graphicsView.plot(y=ydata, x=x_data, clear = True, pen=(200,200,100),connect='finite')
+            graphicsView.plot(y=y_data, x=x_data, clear = True, pen=(200,200,100),connect='finite')
         if self.plot_style==self.plot_styles['linepoint']:
-            graphicsView.plot(y=ydata, x=x_data, clear = True, pen=(200,200,100),connect='finite',symbol='+')
+            graphicsView.plot(y=y_data, x=x_data, clear = True, pen=(200,200,100),connect='finite',symbol='+')
         if self.plot_style==self.plot_styles['point']:
-            graphicsView.plot(y=ydata, x=x_data, clear = True, pen=None, symbol='+')
+            graphicsView.plot(y=y_data, x=x_data, clear = True, pen=None, symbol='+')
         #plot.setData(y=ydata, x=x_data)
 
     def _display_2D_data(self,graphicsView):
@@ -475,31 +510,57 @@ class PlotWindow(QWidget,Ui_Form):
         fill_x = ds.shape[0]
         fill_y = ds.shape[1]
         #data = np.array(ds[:fill])
-        data = np.array(ds)
-
         x0 = ds.attrs.get("x0",0)
         dx = ds.attrs.get("dx",1)
         y0 = ds.attrs.get("y0",0)
         dy = ds.attrs.get("dy",1)
+        data = np.array(ds)
+
+        name = ds.attrs.get("name","_none_")
+        unit = ds.attrs.get("unit","_none_")
+        x_name = ds.attrs.get("x_name","_none_")
+        x_unit = ds.attrs.get("x_unit","_none_")
+        y_name = ds.attrs.get("y_name","_none_")
+        y_unit = ds.attrs.get("y_unit","_none_")
+
+        if self.ds_type == ds_types['box']:
+            if self.PlotTypeSelector.currentIndex() == 0:
+                data = data[:,:,self.SliceNum]
+            if self.PlotTypeSelector.currentIndex() == 1:
+                data = data[self.TraceXNum,:,:]
+                fill_x = ds.shape[0]
+                fill_y = ds.shape[2]
+                x0 = ds.attrs.get("y0",0)
+                dx = ds.attrs.get("dy",1)
+                y0 = ds.attrs.get("z0",0)
+                dy = ds.attrs.get("dz",1)
+                x_name = ds.attrs.get("y_name","_none_")
+                x_unit = ds.attrs.get("y_unit","_none_")
+                y_name = ds.attrs.get("z_name","_none_")
+                y_unit = ds.attrs.get("z_unit","_none_")
+
+            if self.PlotTypeSelector.currentIndex() == 2:
+                data = data[:,self.TraceYNum,:]
+                fill_x = ds.shape[1]
+                fill_y = ds.shape[2]
+                x0 = ds.attrs.get("x0",0)
+                dx = ds.attrs.get("dx",1)
+                y0 = ds.attrs.get("z0",0)
+                dy = ds.attrs.get("dz",1)
+                x_name = ds.attrs.get("x_name","_none_")
+                x_unit = ds.attrs.get("x_unit","_none_")
+                y_name = ds.attrs.get("z_name","_none_")
+                y_unit = ds.attrs.get("z_unit","_none_")
 
         xmin = x0
         xmax = x0+fill_x*dx
         ymin = y0
         ymax = y0+fill_y*dy
 
-        x_name = ds.attrs.get("x_name","_none_")
-        y_name = ds.attrs.get("y_name","_none_")
-        name = ds.attrs.get("name","_none_")
-
-        x_unit = ds.attrs.get("x_unit","_none_")
-        y_unit = ds.attrs.get("y_unit","_none_")
-        unit = ds.attrs.get("unit","_none_")
-
-
         pos = (xmin,ymin)
 
         #scale=(xmax/float(data.shape[0]),ymax/float(data.shape[1]))
-        scale=((xmax-xmin)/float(data.shape[0]),(ymax-ymin)/float(data.shape[1]))
+        scale=((xmax-xmin)/float(fill_x),(ymax-ymin)/float(fill_y))
         graphicsView.view.setLabel('left', y_name, units=y_unit)
         graphicsView.view.setLabel('bottom', x_name, units=x_unit)
         graphicsView.view.setTitle(name+" ("+unit+")")
@@ -520,68 +581,24 @@ class PlotWindow(QWidget,Ui_Form):
         pos2 = [pos1[0]+size[0],pos1[1]+size[1]]
         rangeX = [pos1[0], pos2[0]]
         rangeY = [pos1[1], pos2[1]]
-        print [rangeX, rangeY]
-        view=pg.TextItem(text=str(rangeX[0])+', '+str(rangeX[1]))
+        txt = 'x: '+str(rangeX[0])+', '+str(rangeX[1])+"\ny: "+str(rangeY[0])+', '+str(rangeY[1])
+        print txt
+        txtItem = pg.TextItem(text=txt)
+        vb=self.graphicsView.getView()
+        vb.addItem(txtItem)
         """
-
-    def _display_3D_data(self,graphicsView):
-        #load the dataset:
-        ds = self.ds
-        #fill = ds.attrs.get("fill",1)
-        fill_x = ds.shape[0]
-        fill_y = ds.shape[1]
-        #data = np.array(ds[:fill])
-        """
-        This is the data-part: make a 2d array from the 3D data
-        first idea:
-        convert dataset to numpy array and "slice" it at the midpoint of the z dimension
-        """
-        data_array = np.array(ds)
-        data = data_array[:,:,data_array.shape[2]/2]
-
-        x0 = ds.attrs.get("x0",0)
-        dx = ds.attrs.get("dx",1)
-        y0 = ds.attrs.get("y0",0)
-        dy = ds.attrs.get("dy",1)
-
-        xmin = x0
-        xmax = x0+fill_x*dx
-        ymin = y0
-        ymax = y0+fill_y*dy
-
-        x_name = ds.attrs.get("x_name","_none_")
-        y_name = ds.attrs.get("y_name","_none_")
-        name = ds.attrs.get("name","_none_")
-
-        x_unit = ds.attrs.get("x_unit","_none_")
-        y_unit = ds.attrs.get("y_unit","_none_")
-        unit = ds.attrs.get("unit","_none_")
-
-
-        pos = (xmin,ymin)
-
-        #scale=(xmax/float(data.shape[0]),ymax/float(data.shape[1]))
-        scale=((xmax-xmin)/float(data.shape[0]),(ymax-ymin)/float(data.shape[1]))
-        graphicsView.view.setLabel('left', y_name, units=y_unit)
-        graphicsView.view.setLabel('bottom', x_name, units=x_unit)
-        graphicsView.view.setTitle(name+" ("+unit+")")
-        graphicsView.view.invertY(False)
-
-        graphicsView.setImage(data,pos=pos,scale=scale)
-        graphicsView.show()
-
-        # Fixme roi ...
-        graphicsView.roi.setPos([xmin,ymin])
-        graphicsView.roi.setSize([xmax-xmin,ymax-ymin])
-
-        #graphicsView.setImage(data)
-        #graphicsView.show()
 
     def _display_table(self,graphicsView):
         #load the dataset:
-        data = np.array(self.ds).transpose()
-        data_tmp = []
+        data = np.array(self.ds)
+        if self.ds_type == ds_types['matrix']:
+            data = data.transpose()
+        if self.ds_type == ds_types['vector']:
+            data_tmp = np.empty((1,data.shape[0]),dtype=np.float64)
+            data_tmp[0] = data
+            data = data_tmp.transpose()
         if self.ds_type == ds_types["txt"]:
+            data_tmp = []
             for d in data:
                 data_tmp.append([d])
             data = np.array(data_tmp)

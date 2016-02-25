@@ -28,11 +28,11 @@ class DATA(QObject):
         
     def append_plot(self,parent,window_id,ds):
         # self, item, dataset
-        
-        window = PlotWindow(parent,self,ds)
+        ds_type = str(window_id.whatsThis(0))
+        window = PlotWindow(parent,self,ds,ds_type)
         self.open_plots[window_id]=window
         self.open_ds[ds]=window_id
-        
+
         window.show()   # non-modal
         #window.exec_() # modal
         #window.raise_()
@@ -66,6 +66,7 @@ class DATA(QObject):
             self.open_plots.pop(window_id)
         if self.open_ds.has_key(ds):
             self.open_ds.pop(ds)
+
     def plot_is_open(self,ds):
         #print ds, self.open_ds.has_key(ds)
         return self.open_ds.has_key(ds)
