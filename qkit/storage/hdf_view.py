@@ -39,12 +39,12 @@ class dataset_view(object):
         self.hf.flush()
 
         
-    def add(self,x, y, x_axis=0, y_axis=0,filter = None, label=""):
+    def add(self,x, y, x_axis=0, y_axis=0, pyfilter = None, label=""):
             self.x_object = str(x.ds_url)
             self.y_object = str(y.ds_url)
             self.x_axis = x_axis
             self.y_axis = y_axis
-            self.filter = filter
+            self.filter = pyfilter
             self._setup_metadata(init = False)
         
     def _setup_metadata(self,init=True):
@@ -57,3 +57,24 @@ class dataset_view(object):
         ds.attrs.create("overlays",self.view_num)
         ds.attrs.create("xy_"+str(self.view_num)+"_filter",str(self.filter))
         self.view_num += 1
+        
+    def _exec_filter(self,view_num):
+        # this is a somewhat dangerous function, since it allows to modify the 
+        # hdf file while it is being updated by another program
+        # as usual, power comes with responsibility...
+    
+        # prepare filter
+        x_ds_url,y_ds_url = self.ds.attrs.get("xy_" + str(view_num)).split(':')
+        print x_ds_url,y_ds_url
+        
+        locs = { 'x' : x_ds_url,
+                  'y' : y_ds_url }
+        head = "from qkit.config.environment import *\n"
+        flt = head + self.filter
+        
+        try:
+            exec(flt, globals(), locs)
+            #exec(self.filter,locs)
+        except SyntaxError,e:
+            print "The filter code has to be proper python code!", e
+        
