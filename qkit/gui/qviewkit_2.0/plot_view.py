@@ -57,7 +57,7 @@ class Ui_Form(object):
         QtCore.QMetaObject.connectSlotsByName(Form)
 
     def setupCoordinate(self,Form):
-        self.setupMatrix(Form)
+        self.setupVector(Form)
 
     def setupVector(self,Form):
         self.PlotTypeSelector = QtGui.QComboBox(Form)
@@ -161,9 +161,10 @@ class Ui_Form(object):
         self.TraceYValue.setReadOnly(False)
         self.TraceYValue.setObjectName(_fromUtf8("TraceYValue"))
         self.horizontalLayout.addWidget(self.TraceYValue)
-        
+
     def setupTxt(self,Form):
-        self.setupMatrix()
+        pass
+        #self.setupMatrix()
 
     def setupView(self,Form):
         self.TraceSelector = QtGui.QSpinBox(Form)
@@ -179,6 +180,7 @@ class Ui_Form(object):
         self.TraceSelector.setObjectName(_fromUtf8("TraceSelector"))
         self.horizontalLayout.addWidget(self.TraceSelector)
         self.TraceSelector.setPrefix(_translate("Form", "Trace: ", None))
+
         self.TraceValue = QtGui.QLineEdit(Form)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -188,7 +190,7 @@ class Ui_Form(object):
         self.TraceValue.setReadOnly(False)
         self.TraceValue.setObjectName(_fromUtf8("TraceValue"))
         self.horizontalLayout.addWidget(self.TraceValue)
-        
+
     def setupMatrix(self,Form):
         self.PlotTypeSelector = QtGui.QComboBox(Form)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Minimum)
