@@ -242,13 +242,18 @@ class Resonator(object):
         '''
         creates the datasets for the circle fit in the hdf-file
         '''
-        self._result_keys = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Qr":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Qr_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
-        self._results = {}
+
+        self._data_real_gen = self._hf.add_value_matrix('data_real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+        self._data_imag_gen = self._hf.add_value_matrix('data_imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
 
         self._circ_amp_gen = self._hf.add_value_matrix('circ_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = '')
         self._circ_pha_gen = self._hf.add_value_matrix('circ_pha_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='rad')
         self._circ_real_gen = self._hf.add_value_matrix('circ_real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
         self._circ_imag_gen = self._hf.add_value_matrix('circ_imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+        
+        self._result_keys = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Qr":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Qr_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
+        self._results = {}
+
 
         for key in self._result_keys.iterkeys():
            self._results[str(key)] = self._hf.add_value_vector('circ_'+str(key), folder = 'analysis', x = self._x_co, unit ='')
@@ -257,6 +262,8 @@ class Resonator(object):
         circ_view_amp.add(x=self._frequency_co, y=self._circ_amp_gen)
         circ_view_pha = self._hf.add_view('circ_pha', x = self._y_co, y = self._ds_pha)
         circ_view_pha.add(x=self._frequency_co, y=self._circ_pha_gen)
+        circ_view_iq = self._hf.add_view('circ_IQ', x = self._circ_real_gen, y = self._circ_imag_gen,view_params={'aspect':1.0})
+        circ_view_iq.add(x=self._data_real_gen, y=self._data_imag_gen)
 
     def _get_data_circle(self):
         '''
@@ -265,11 +272,15 @@ class Resonator(object):
         if not self._fit_all:
             self._z_data_raw = np.empty((1,self._fit_amplitude.shape[1]), dtype=np.complex64)
             self._z_data_raw[0] = np.array(self._fit_amplitude*np.exp(1j*self._fit_phase),dtype=np.complex64)
+            self._data_real_gen.append(self._z_data_raw[0].real)
+            self._data_imag_gen.append(self._z_data_raw[0].imag)
+            
         if self._fit_all:
             self._z_data_raw = np.empty((self._fit_amplitude.shape), dtype=np.complex64)
             for i,a in enumerate(self._fit_amplitude):
                 self._z_data_raw[i] = self._fit_amplitude[i]*np.exp(1j*self._fit_phase[i])
-
+                self._data_real_gen.append(self._z_data_raw[i].real)
+                self._data_imag_gen.append(self._z_data_raw[i].imag)
     def fit_lorentzian(self,fit_all = False,f_min=None,f_max=None):
         '''
         lorentzian fit for amp data in the f_min-f_max frequency range
@@ -616,8 +627,8 @@ if __name__ == "__main__":
 
         if args.frequency_range:
             freq_range=args.frequency_range.split(',')
-            f_min=int(freq_range[0])
-            f_max=int(freq_range[1])
+            f_min=int(float(freq_range[0]))
+            f_max=int(float(freq_range[1]))
         else:
             f_min=None
             f_max=None

@@ -13,6 +13,7 @@ from qkit.storage.hdf_constants import ds_types
 #import argparse
 #import ConfigParser
 import numpy as np
+import json
 #import h5py
 
 
@@ -452,7 +453,17 @@ class PlotWindow(QWidget,Ui_Form):
 
             graphicsView.setLabel('left', y_name, units=y_unit)
             graphicsView.setLabel('bottom', x_name , units=x_unit)
+            
+            
+            view_params = json.loads(ds.attrs.get("view_params",{}))
+            
+            # this allows to set a couple of plot related settings
+            if view_params:
+                aspect = view_params.pop('aspect',False)
+                if aspect:
+                    graphicsView.setAspectLocked(lock=True,ratio=aspect)
 
+                    
             try:
                 graphicsView.plotItem.legend.removeItem(y_name)
             except:
