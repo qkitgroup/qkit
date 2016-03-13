@@ -462,7 +462,10 @@ class PlotWindow(QWidget,Ui_Form):
                 aspect = view_params.pop('aspect',False)
                 if aspect:
                     graphicsView.setAspectLocked(lock=True,ratio=aspect)
-
+                #bgcolor = view_params.pop('bgcolor',False)
+                #if bgcolor:
+                #    print tuple(bgcolor)
+                #    graphicsView.setBackgroundColor(tuple(bgcolor))
                     
             try:
                 graphicsView.plotItem.legend.removeItem(y_name)

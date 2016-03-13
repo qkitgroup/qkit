@@ -56,7 +56,7 @@ Tc_vec = h5d.add_value_vector('critical_temperature', x = I_co, unit = "K", fold
 TvsTc_view = h5d.add_view("f_vs_I", x = f_co, y = I_co)
 TvsTc_view.add(x=T_vec,y=Tc_vec, label = "T vs Tc")
 
-Laspect_view = h5d.add_view("locked_aspect", x = f_co, y = f_co)#, view_params={'aspect':1.0})
+Laspect_view = h5d.add_view("locked_aspect", x = f_co, y = f_co, view_params={'aspect':1.0, 'bgcolor':(100,200,100)})
 
 # add_value_matrix()    <- for measurement data
 # convention: the last coordiante should be the one with the fastest changes:
