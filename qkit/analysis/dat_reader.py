@@ -122,7 +122,7 @@ def read_hdf_data(nfile,entries=None):
 	if entries == None:   #no entries specified
 		for k in keys:   #go through all keys
 			try:
-				if str(k[:4]).lower() == 'freq' or str(k[:2]).lower() == 'f ' or str(k[:4]).lower() == 'puls' or str(k[:4]).lower() == 'dacf' or str(k[:5]).lower() == 'delay':
+				if str(k[:4]).lower() == 'freq' or str(k[:2]).lower() == 'f ' or str(k[:4]).lower() == 'puls' or str(k[:4]).lower() == 'dacf' or str(k[:5]).lower() == 'delay' or str(k[:8	]).lower() == 'pi pulse':
 					urls.append(url_tree + k)
 					break
 			except IndexError:
@@ -191,7 +191,7 @@ def read_hdf_data(nfile,entries=None):
 
 # =================================================================================================================
 
-def load_data(file_name = None,columns=['frequency','amplitude','phase']):
+def load_data(file_name = None,entries = None):
 	
 	'''
 	load recent or specified data file and return the data array
@@ -213,7 +213,7 @@ def load_data(file_name = None,columns=['frequency','amplitude','phase']):
 	try:
 		print 'Reading file '+nfile
 		if nfile[-2:] == 'h5':   #hdf file
-			data = read_hdf_data(nfile)
+			data = read_hdf_data(nfile, entries)
 		else:   #dat file
 			data = np.loadtxt(nfile, comments='#').T
 	except NameError:
@@ -245,7 +245,7 @@ def _fill_p0(p0,ps):
 
 # =================================================================================================================
 
-def _extract_initial_oscillating_parameters(data,data_c,damping):
+def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp = False):
 	
 	#offset
 	# testing last 25% of data for its maximum slope; take offset as last 10% of data for a small slope (and therefore strong damping)
@@ -257,6 +257,10 @@ def _extract_initial_oscillating_parameters(data,data_c,damping):
 	
 	if damping:
 		#amplitude
+		if asymmetric_exp:
+			s_a = np.abs(np.max(data[data_c]) - np.min(data[data_c]))
+			if np.abs(np.max(data[data_c]) - s_offs) < np.abs(np.min(data[data_c]) - s_offs):   #if maximum closer to offset than minimum
+				s_a = -s_a
 		a1 = np.abs(np.max(data[data_c]) - s_offs)
 		a2 = np.abs(np.min(data[data_c]) - s_offs)
 		s_a = np.max([a1,a2])
@@ -374,13 +378,20 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 		
 	def f_exp(t, Td, a, offs):
 		return a*np.exp(-t/Td)+offs
+		
+	def f_damped_exp(t, fs, Td, a, offs, ph):
+		return a*np.exp(-t/Td)*(0.5*(1+np.cos(2*np.pi*fs*t+ph)))+offs
 
-
+	entries = None
+	if isinstance(data_c,(list, tuple, np.ndarray)):   #got list of entries to be plotted
+		entries = data_c
+		data_c = 1
+		
 	if file_name == 'dat_import':
 		print 'use imported data'
 	else:
 		#load data
-		data, nfile = load_data(file_name)
+		data, nfile = load_data(file_name, entries)
 
 	#check column identifier
 	if type(data_c) == str:
@@ -557,7 +568,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 				else:
 					axes[0].set_ylabel(str(ylabel), fontsize=13)
 				#axes[0].set_title('exponential decay', fontsize=15)
-				axes[0].set_title(str(popt), fontsize=15)
+				axes[0].set_title(str(['%.4g'%entry for entry in popt]), fontsize=15)
 				
 				axes[1].plot(data[0],np.abs(data[data_c]-popt[2]),'*')
 				axes[1].plot(x_vec, np.abs(f_exp(x_vec, *popt)-popt[2]))   #subtract offset for log plot
@@ -575,6 +586,29 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 				
 				#axes[1].set_title('exponential decay', fontsize=15)
 				fig.tight_layout()
+				
+	# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	elif fit_function == 'damped_exp':
+	
+		#plot data
+		if show_plot:   plt.plot(data[0],data[data_c],'*')
+		x_vec = np.linspace(data[0][0],data[0][-1],400)
+
+		#start parameters ----------------------------------------------------------------------
+		s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data,data_c,damping=True)
+		p0 = _fill_p0([s_fs, s_Td, s_a, s_offs, s_ph],ps)
+
+		#damped sine fit ----------------------------------------------------------------------
+		try:
+			popt, pcov = curve_fit(f_damped_exp, data[0], data[data_c], p0 = p0)
+		except:
+			print 'fit not successful'
+			popt = p0
+			pcov = None
+		finally:
+			if show_plot:
+				fvalues = f_damped_exp(x_vec, *popt)
+				plt.plot(x_vec, fvalues)
 	
 	else:
 		print 'fit function not known...aborting'
@@ -586,7 +620,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 				plt.xlabel(xlabel)
 			if ylabel != '':
 				plt.ylabel(ylabel)
-			plt.title(str(popt),y=1.03)
+			plt.title(str(['%.4g'%entry for entry in popt]),y=1.03)
 			
 		try:
 			plt.savefig(nfile.replace('.dat','_dr.png').replace('.h5','_dr.png'), dpi=300)
