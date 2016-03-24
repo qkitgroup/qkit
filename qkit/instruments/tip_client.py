@@ -80,7 +80,7 @@ class tip_client(Instrument):
             raise Error("communication error")
             
     def r_get_T(self):
-        self.send("get T")
+        self.send("get/T//T")
         return float(self.recv())
 
     def new_T(self,T,dT_max=0.0005):
