@@ -488,7 +488,15 @@ class IQ_Mixer(Instrument):
 		
 		samples_per_1_iqfreq = float(self._sample.clock) / self._sample.iq_frequency
 		if samples_per_1_iqfreq % 2 != 0:   #if number not integer and even
-			self._sample.iq_frequency = round(self._sample.clock / (2*floor(samples_per_1_iqfreq / 2)),-6)
+			self._sample.iq_frequency = self._sample.clock / (2*np.floor(samples_per_1_iqfreq / 2))
+			if samples_per_1_iqfreq < 4:
+					raise ValueError('samples per iq frequency too small')
+			while round(self._sample.iq_frequency,-4) != self._sample.iq_frequency:
+				print self._sample.iq_frequency
+				samples_per_1_iqfreq = float(self._sample.clock) / self._sample.iq_frequency - 1
+				if samples_per_1_iqfreq < 4:
+					raise ValueError('samples per iq frequency too small')
+				self._sample.iq_frequency = self._sample.clock / (2*np.floor(samples_per_1_iqfreq / 2))
 			logging.warning('Invalid iq frequency for AWG clock setting. Setting iq frequency to '+str(self._sample.iq_frequency*1e-6)+' MHz')
 		return self._sample.iq_frequency
 		
@@ -514,7 +522,7 @@ class IQ_Mixer(Instrument):
 		self.do_set_mw_power(power)
 		self.do_set_iq_frequency(iq_frequency)
 		
-		#self._sample.iq_frequency = self._validate_iq_setting()
+		self._sample.iq_frequency = self._validate_iq_setting()
 		self._sample.update_instruments()
 		
 		self._f_rounded = np.round(self._sideband_frequency,-3) #The FSUP can only resolve 7 digits in frequency, so for Frequencies <10GHz, you can not set frequencies finer than kHz. But as the MW source can, there will be a missmatch if we do not round here.
