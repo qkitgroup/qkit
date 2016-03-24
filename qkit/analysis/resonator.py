@@ -7,7 +7,8 @@ import logging
 from qkit.storage import hdf_lib
 from qkit.analysis.circle_fit import resonator_tools_xtras as rtx
 from scipy.optimize import leastsq
-
+from scipy.ndimage import gaussian_filter1d
+from scipy.ndimage.filters import median_filter
 
 class Resonator(object):
     '''
@@ -22,7 +23,7 @@ class Resonator(object):
     f_max (float, optional): Upper boundary for fit function
 
     usage:
-        res=Resonator(hf=hdf_lib.Data(path=path))
+        res=Resonator(path=filepath)
         res.fit_lorentzian(fit_all=True,f_min=5.667e9,f_max=5.668e9)
         res.fit_fano(fit_all=True)
         res.fit_circle(fit_all=True,f_max=5.668e9)
@@ -35,7 +36,11 @@ class Resonator(object):
         self._first_lorentzian = True
         self._first_fano = True
         self._first_skewed_lorentzian = True
-        
+
+        self._do_prefilter_data = False
+        self.pre_filter_params = []
+        self._debug = False
+
         '''
         catching error if datasets are empty while creating resonator object
         i.g. while live-fitting
@@ -45,6 +50,10 @@ class Resonator(object):
             self._prepared_datasets = True
         except KeyError:
             self._prepared_datasets = False
+
+    def debug(self,message):
+        if self._debug:
+            print(message)
 
     def set_file(self,hf):
         '''
@@ -80,6 +89,35 @@ class Resonator(object):
         except:
             logging.warning('Unable to open any y_coordinate. Please set manually using \'set_y_coord()\'.')
 
+    def set_prefilter(self,gaussian = False, median = False, params = []):
+        self._do_prefilter_data = False
+        if gaussian or median:
+            self._do_prefilter_data = True
+
+        #print gaussian, median
+        if median:
+            self._prefilter = median_filter
+            #print "median_filter"
+            if params:
+                self._prefilter_params = params[0]
+            else:
+                self._prefilter_params = 6
+
+        if gaussian:
+            self._prefilter = gaussian_filter1d
+            #print "gaussian_filter1d"
+            if params:
+                self._prefilter_params = params[0]
+            else:
+                self._prefilter_params = 6 # 0.4
+
+    def _pre_filter_data(self,data):
+        # in the moment only gaussian and median are suported
+        if self._do_prefilter_data:
+                return self._prefilter(data,self._prefilter_params)
+        else:
+            return data
+
     def _set_data_range(self, data):
         '''
         cuts the data array to the positions where f>=f_min and f<=f_max in the frequency-array
@@ -89,7 +127,7 @@ class Resonator(object):
         if data.ndim == 1:
             return data[(self._frequency >= self._f_min) & (self._frequency <= self._f_max)]
         if data.ndim == 2:
-            ret_array=np.empty(shape=(data.shape[0],self._fit_frequency.shape[0]))
+            ret_array=np.empty(shape=(data.shape[0],self._fit_frequency.shape[0]),dtype=np.float64)
             for i,a in enumerate(data):
                 ret_array[i]=data[i][(self._frequency >= self._f_min) & (self._frequency <= self._f_max)]
             return ret_array
@@ -115,12 +153,16 @@ class Resonator(object):
 
         self._amplitude = np.array(self._hf[ds_url_amp],dtype=np.float64)
         self._phase = np.array(self._hf[ds_url_pha],dtype=np.float64)
-        self._frequency = np.array(self._hf[ds_url_freq],dtype=np.float64)
+        self._frequency = self._hf[ds_url_freq]
+        freq_x0 = self._frequency.attrs.get('x0',0)
+        freq_dx = self._frequency.attrs.get('dx',1)
+        # we create a new frequency array from x0 and dx in 64bit floats to avoid 32bit limitations
+        self._frequency = np.array([float(freq_x0)+float(freq_dx)*i for i in xrange(self._frequency.shape[0])],dtype=np.float64)
 
         try:
             self._x_co = self._hf.get_dataset(self._ds_amp.x_ds_url)
         except:
-            try: 
+            try:
                 self._x_co = self._hf.get_dataset(ds_url_power) # hardcode a std url
             except:
                 logging.warning('Unable to open any x_coordinate. Please set manually using \'set_x_coord()\'.')
@@ -140,20 +182,21 @@ class Resonator(object):
         f_max (float): upper boundary
         '''
         self._fit_all = fit_all
+        if self._amplitude.ndim == 1: self._fit_all = False #hack for 1D datasets
         self._f_min = np.min(self._frequency)
         self._f_max = np.max(self._frequency)
-        
+
         '''
         f_min f_max do not have to be exactly an entry in the freq-array
         '''
         if f_min:
             for freq in self._frequency:
-                if freq > f_min: 
+                if freq > f_min:
                     self._f_min = freq
                     break
         if f_max:
             for freq in self._frequency:
-                if freq > f_max: 
+                if freq > f_max:
                     self._f_max = freq
                     break
 
@@ -171,18 +214,21 @@ class Resonator(object):
         '''
         if not self._fit_all:
             tmp=np.empty((1,self._fit_frequency.shape[0]))
-            tmp[0]=self._fit_amplitude[-1]
+            if self._fit_amplitude.ndim==1: tmp[0]=self._fit_amplitude
+            else: tmp[0]=self._fit_amplitude[-1]
             self._fit_amplitude=np.empty(tmp.shape)
             self._fit_amplitude[0] = tmp[0]
-            tmp[0]=self._fit_phase[-1]
+            if self._fit_phase.ndim==1: tmp[0]=self._fit_phase
+            else: tmp[0]=self._fit_phase[-1]
             self._fit_phase=np.empty(tmp.shape)
             self._fit_phase[0] = tmp[0]
-        
-        self._frequency_co = self._hf.add_coordinate('frequency',folder='analysis', unit = 'Hz')
+
+        self._frequency_co = self._hf.add_coordinate('frequency',folder='analysis', unit = 'Hz',dtype='float64')
         self._frequency_co.add(self._fit_frequency)
 
     def _get_starting_values(self):
         pass
+
 
 
     def fit_circle(self,fit_all = False, f_min = None, f_max=None):
@@ -204,7 +250,12 @@ class Resonator(object):
             self._first_circle = False
 
         self._get_data_circle()
+        trace = 0
+        self.debug("circle fit:")
         for z_data_raw in self._z_data_raw:
+            z_data_raw.real = self._pre_filter_data(z_data_raw.real)
+            z_data_raw.imag = self._pre_filter_data(z_data_raw.imag)
+            self.debug("fitting trace: "+str(trace))
             #z_data_raw = self._set_data_range(z_data_raw)
             try:
                 delay, amp_norm, alpha, fr, Qr, A2, frcal = rtx.do_calibration(self._fit_frequency, z_data_raw,ignoreslope=True)
@@ -230,18 +281,24 @@ class Resonator(object):
 
                 for key in self._results.iterkeys():
                     self._results[str(key)].append(float(results[str(key)]))
+            trace+=1
 
     def _prepare_circle(self):
         '''
         creates the datasets for the circle fit in the hdf-file
         '''
-        self._result_keys = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Qr":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Qr_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
-        self._results = {}
 
-        self._circ_amp_gen = self._hf.add_value_matrix('circ_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
+        self._data_real_gen = self._hf.add_value_matrix('data_real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+        self._data_imag_gen = self._hf.add_value_matrix('data_imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+
+        self._circ_amp_gen = self._hf.add_value_matrix('circ_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = '')
         self._circ_pha_gen = self._hf.add_value_matrix('circ_pha_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='rad')
         self._circ_real_gen = self._hf.add_value_matrix('circ_real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
         self._circ_imag_gen = self._hf.add_value_matrix('circ_imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+
+        self._result_keys = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Qr":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Qr_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
+        self._results = {}
+
 
         for key in self._result_keys.iterkeys():
            self._results[str(key)] = self._hf.add_value_vector('circ_'+str(key), folder = 'analysis', x = self._x_co, unit ='')
@@ -250,6 +307,8 @@ class Resonator(object):
         circ_view_amp.add(x=self._frequency_co, y=self._circ_amp_gen)
         circ_view_pha = self._hf.add_view('circ_pha', x = self._y_co, y = self._ds_pha)
         circ_view_pha.add(x=self._frequency_co, y=self._circ_pha_gen)
+        circ_view_iq = self._hf.add_view('circ_IQ', x = self._circ_real_gen, y = self._circ_imag_gen,view_params={'aspect':1.0})
+        circ_view_iq.add(x=self._data_real_gen, y=self._data_imag_gen)
 
     def _get_data_circle(self):
         '''
@@ -258,12 +317,16 @@ class Resonator(object):
         if not self._fit_all:
             self._z_data_raw = np.empty((1,self._fit_amplitude.shape[1]), dtype=np.complex64)
             self._z_data_raw[0] = np.array(self._fit_amplitude*np.exp(1j*self._fit_phase),dtype=np.complex64)
+            self._data_real_gen.append(self._z_data_raw[0].real)
+            self._data_imag_gen.append(self._z_data_raw[0].imag)
+
         if self._fit_all:
             self._z_data_raw = np.empty((self._fit_amplitude.shape), dtype=np.complex64)
             for i,a in enumerate(self._fit_amplitude):
                 self._z_data_raw[i] = self._fit_amplitude[i]*np.exp(1j*self._fit_phase[i])
-
-    def fit_lorentzian(self,fit_all = False,f_min=None,f_max=None):
+                self._data_real_gen.append(self._z_data_raw[i].real)
+                self._data_imag_gen.append(self._z_data_raw[i].imag)
+    def fit_lorentzian(self,fit_all = False,f_min=None,f_max=None,pre_filter_data=None):
         '''
         lorentzian fit for amp data in the f_min-f_max frequency range
         squared amps are fitted at lorentzian using scipy.leastsq
@@ -278,7 +341,7 @@ class Resonator(object):
             f0,k,a,offs=p
             err = y-(a/(1+4*((x-f0)/k)**2)+offs)
             return err
-            
+
         if not self._prepared_datasets:
             self._prepare_datasets()
         self._prepare_fit_range(fit_all,f_min,f_max)
@@ -332,13 +395,13 @@ class Resonator(object):
                 self._lrnz_a.append(float(popt[2]))
                 self._lrnz_offs.append(float(popt[3]))
                 self._lrnz_Ql.append(float(float(popt[0])/np.fabs(float(popt[1]))))
-                self._lrnz_chi2_fit.append(float(chi2)) 
+                self._lrnz_chi2_fit.append(float(chi2))
 
     def _prepare_lorentzian(self):
         '''
         creates the datasets for the lorentzian fit in the hdf-file
         '''
-        self._lrnz_amp_gen = self._hf.add_value_matrix('lrnz_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
+        self._lrnz_amp_gen = self._hf.add_value_matrix('lrnz_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = '')
         self._lrnz_f0 = self._hf.add_value_vector('lrnz_f0', folder = 'analysis', x = self._x_co, unit = 'Hz')
         self._lrnz_k = self._hf.add_value_vector('lrnz_k', folder = 'analysis', x = self._x_co, unit = 'Hz')
         self._lrnz_a = self._hf.add_value_vector('lrnz_a', folder = 'analysis', x = self._x_co, unit = '')
@@ -357,7 +420,7 @@ class Resonator(object):
         chi2 = np.sum((self._lorentzian_from_fit(fit)-amplitudes_sq)**2) / (len(amplitudes_sq)-len(fit))
         return chi2
 
-    def fit_skewed_lorentzian(self, fit_all = False, f_min=None, f_max=None):
+    def fit_skewed_lorentzian(self, fit_all = False, f_min=None, f_max=None,pre_filter_data=None):
         '''
         skewed lorentzian fit for amp data in the f_min-f_max frequency range
         squared amps are fitted at skewed lorentzian using scipy.leastsq
@@ -386,6 +449,9 @@ class Resonator(object):
 
         for amplitudes in self._fit_amplitude:
             "fits a skewed lorenzian to reflection amplitudes of a resonator"
+            # prefilter the data
+            amplitudes = self._pre_filter_data(amplitudes)
+
             amplitudes = np.absolute(amplitudes)
             amplitudes_sq = amplitudes**2
 
@@ -424,17 +490,20 @@ class Resonator(object):
                 self._skwd_Qr.append(float(popt[5]))
                 self._skwd_chi2_fit.append(float(chi2))
 
+            self._skwd_Qi.append(self._skewed_estimate_Qi(popt))
+
     def _prepare_skewed_lorentzian(self):
         '''
         creates the datasets for the skewed lorentzian fit in the hdf-file
         '''
-        self._skwd_amp_gen = self._hf.add_value_matrix('sklr_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
+        self._skwd_amp_gen = self._hf.add_value_matrix('sklr_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = '')
         self._skwd_f0 = self._hf.add_value_vector('sklr_f0', folder = 'analysis', x = self._x_co, unit = 'Hz')
         self._skwd_a1 = self._hf.add_value_vector('sklr_a1', folder = 'analysis', x = self._x_co, unit = 'Hz')
         self._skwd_a2 = self._hf.add_value_vector('sklr_a2', folder = 'analysis', x = self._x_co, unit = '')
         self._skwd_a3 = self._hf.add_value_vector('sklr_a3', folder = 'analysis', x = self._x_co, unit = '')
         self._skwd_a4 = self._hf.add_value_vector('sklr_a4', folder = 'analysis', x = self._x_co, unit = '')
         self._skwd_Qr = self._hf.add_value_vector('sklr_qr', folder = 'analysis', x = self._x_co, unit = '')
+        self._skwd_Qi = self._hf.add_value_vector('sklr_qi', folder = 'analysis', x = self._x_co, unit = '')
 
         self._skwd_chi2_fit  = self._hf.add_value_vector('sklr_chi2' , folder = 'analysis', x = self._x_co, unit = '')
 
@@ -449,11 +518,35 @@ class Resonator(object):
         A1, A2, A3, A4, fr, Qr = p
         return A1+A2*(self._fit_frequency-fr)+(A3+A4*(self._fit_frequency-fr))/(1.+4.*Qr**2*((self._fit_frequency-fr)/fr)**2)
 
+    def _skewed_estimate_Qi(self,p):
+
+        #this is a very clumsy numerical estimate of the Qi factor based on the +3dB method.#
+        A1, A2, A3, A4, fr, Qr = p
+        def skewed_from_fit(p,f):
+            A1, A2, A3, A4, fr, Qr = p
+            return A1+A2*(f-fr)+(A3+A4*(f-fr))/(1.+4.*Qr**2*((f-fr)/fr)**2)
+
+        #df = fr/(Qr*10000)
+        fmax = fr+fr/Qr
+        fs = np.linspace(fr,fmax,1000,dtype=np.float64)
+        Amin = skewed_from_fit(p,fr)
+        #print "---"
+        #print "Amin, 2*Amin",Amin, 2*Amin
+
+        for f in fs:
+            A = skewed_from_fit(p,f)
+            #print A, f
+            if A>2*Amin:
+                break
+        qi = fr/(2*(f-fr))
+        #print "f, A, fr/2*(f-fr)", f,A, qi
+
+        return float(qi)
 
     def _prepare_fano(self):
         "create the datasets for the fano fit in the hdf-file"
 
-        self._fano_amp_gen = self._hf.add_value_matrix('fano_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'a.u.')
+        self._fano_amp_gen = self._hf.add_value_matrix('fano_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = '')
         self._fano_q_fit  = self._hf.add_value_vector('fano_q' , folder = 'analysis', x = self._x_co, unit = '')
         self._fano_bw_fit = self._hf.add_value_vector('fano_bw', folder = 'analysis', x = self._x_co, unit = 'Hz')
         self._fano_fr_fit = self._hf.add_value_vector('fano_fr', folder = 'analysis', x = self._x_co, unit = 'Hz')
@@ -466,7 +559,7 @@ class Resonator(object):
         fano_view = self._hf.add_view('fano_fit', x = self._y_co, y = self._ds_amp)
         fano_view.add(x=self._frequency_co, y=self._fano_amp_gen)
 
-    def fit_fano(self,fit_all = False, f_min=None, f_max=None):
+    def fit_fano(self,fit_all = False, f_min=None, f_max=None,pre_filter_data=None):
         '''
         fano fit for amp data in the f_min-f_max frequency range
         squared amps are fitted at fano using scipy.leastsq
@@ -477,7 +570,7 @@ class Resonator(object):
         f_min (float): lower boundary for data to be fitted (optional, default: None, results in min(frequency-array))
         f_max (float): upper boundary for data to be fitted (optional, default: None, results in max(frequency-array))
         '''
-        
+
         if not self._prepared_datasets:
             self._prepare_datasets()
         self._prepare_fit_range(fit_all,f_min,f_max)
@@ -600,20 +693,42 @@ if __name__ == "__main__":
     parser.add_argument('-slf','--skewed-lorentzian-fit', default=False,action='store_true',help='(optional) skewed lorentzian fit')
     parser.add_argument('-all','--fit-all', default=False,action='store_true',help='(optional) fit all entries in dataset')
     parser.add_argument('-fr','--frequency-range', type=str, help='(optional) frequency range for fitting, comma separated')
-
+    parser.add_argument('-fg','--filter-gaussian', default=False, action='store_true', help='(optional) (pre-) filter data: gaussian')
+    parser.add_argument('-fm','--filter-median', default=False, action='store_true', help='(optional) (pre-) filter data: median')
+    parser.add_argument('-fp','--filter-params',type=str, help='(optional) (pre-) filter data: parameter')
+    parser.add_argument('-d','--debug-output', default=False, action='store_true', help='(optional) debug: more verbose')
     args=parser.parse_args()
     #argsfile=None
     if args.file:
         R = Resonator(args.file)
+        if args.debug_output:
+            R._debug = True
+
         fit_all = args.fit_all
 
         if args.frequency_range:
             freq_range=args.frequency_range.split(',')
-            f_min=int(freq_range[0])
-            f_max=int(freq_range[1])
+            f_min=int(float(freq_range[0]))
+            f_max=int(float(freq_range[1]))
         else:
             f_min=None
             f_max=None
+
+
+
+        if args.filter_median:
+            if args.filter_params:
+                filter_params = args.filter_params.split(',')
+                R.set_prefilter(median=True,params=[float(filter_params[0])])
+            else:
+                R.set_prefilter(median=True)
+
+        if args.filter_gaussian:
+            if args.filter_params:
+                filter_params = args.filter_params.split(',')
+                R.set_prefilter(gaussian=True,params=[float(filter_params[0])])
+            else:
+                R.set_prefilter(gaussian=True)
 
         if args.circle_fit:
             R.fit_circle(fit_all=fit_all, f_min=f_min,f_max=f_max)

@@ -12,13 +12,14 @@ import time
 
 from hdf_file import H5_file
 from hdf_dataset import hdf_dataset
+from hdf_constants import ds_types
 from hdf_view import dataset_view
 from hdf_DateTimeGenerator import DateTimeGenerator
 from qkit.config.environment import *
 
 class Data(object):
     "this is a basic hdf5 class adopted to our needs"
-
+    # a types
     def __init__(self, *args, **kwargs):
         """
         Creates an empty data set including the file, for which the currently
@@ -88,24 +89,31 @@ class Data(object):
             #if existing_comment:
             #    comment = existing_comment+\n+comment
             self.hf.agrp.attrs.create("comment",comment)
-
+    def add_textlist(self,name,comment = "" ,folder="data", **meta):
+        ds =  hdf_dataset(self.hf, name, comment = comment, folder=folder, ds_type = ds_types['txt'], dim=1, **meta)
+        return ds
+        
     def add_coordinate(self,  name, unit = "", comment = "",folder="data",**meta):
-        ds =  hdf_dataset(self.hf,name,unit=unit,comment= comment, folder=folder)
+        ds =  hdf_dataset(self.hf, name,unit=unit, ds_type = ds_types['coordinate'],
+                          comment= comment, folder=folder,**meta)
         return ds
 
     def add_value_vector(self, name, x = None, unit = "", comment = "",folder="data",**meta):
-        ds =  hdf_dataset(self.hf,name, x=x, unit=unit, comment=comment, folder=folder)
+        ds =  hdf_dataset(self.hf, name, x=x, unit=unit, ds_type = ds_types['vector'],
+                          comment=comment, folder=folder,**meta)
         return ds
 
     def add_value_matrix(self, name, x = None , y = None, unit = "", comment = "",folder="data",**meta):
-        ds =  hdf_dataset(self.hf,name, x=x, y=y, unit=unit, comment=comment, folder=folder)
+        ds =  hdf_dataset(self.hf, name, x=x, y=y, unit=unit, ds_type = ds_types['matrix'],
+                          comment=comment, folder=folder,**meta)
         return ds
 
     def add_value_box(self, name, x = None , y = None, z = None, unit = "", comment = "",folder="data",**meta):
-        ds =  hdf_dataset(self.hf,name, x=x, y=y, z=z, unit=unit, comment=comment, folder=folder)
+        ds =  hdf_dataset(self.hf,name, x=x, y=y, z=z, unit=unit, ds_type = ds_types['box'],
+                          comment=comment, folder=folder,**meta)
         return ds
 
-    def add_view(self,name,x = None, y = None, x_axis=0, y_axis=0, filter  = None, comment = ""):
+    def add_view(self,name,x = None, y = None, x_axis=0, y_axis=0, filter  = None, view_params = {} ,comment = ""):
         """a view is a way to display plot x-y data.
             x, y are the datasets to display, e.g.
             x = "data0/temperature"
@@ -117,7 +125,8 @@ class Data(object):
             accesses the x,y dataset returns arrays of (x,y)
             (Fixme: not jet implemented)
         """
-        ds =  dataset_view(self.hf,name, x=x, y=y, x_axis=x_axis, y_axis=y_axis, comment=comment)
+        ds =  dataset_view(self.hf,name, x=x, y=y, x_axis=x_axis, y_axis=y_axis, ds_type = ds_types['view'],
+                           comment=comment,view_params = view_params)
         return ds
 
     def get_dataset(self,ds_url):

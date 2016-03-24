@@ -13,6 +13,7 @@ from qkit.storage import hdf_lib as hdf
 from qkit.analysis.resonator import Resonator as resonator
 from qkit.gui.plot import plot as qviewkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
+from qkit.measure.additional_files import *
 
 ##################################################################
 
@@ -180,7 +181,11 @@ class spectrum(object):
         '''
 
         self._data_file = hdf.Data(name=self._file_name)
-
+        
+        # write logfile and instrument settings
+        #write_settings_file(self._data_file.get_filepath())
+        #self._log = open_log_file(self._data_file.get_filepath())
+        
         self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
         self._data_freq.add(self._freqpoints)
 
@@ -232,10 +237,11 @@ class spectrum(object):
             self._file_name += '_' + self.exp_name
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
+        
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
         if self._fit_resonator:
-            self._resonator = resonator(self._data_file)
+            self._resonator = resonator(self._data_file.get_filepath())
 
         print 'recording trace...'
         sys.stdout.flush()
@@ -288,13 +294,14 @@ class spectrum(object):
 
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
+
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         if self._nop < 10:
             qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude_midpoint', 'phase_midpoint'])
         else:
             qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
         if self._fit_resonator:
-            self._resonator = resonator(self._data_file)
+            self._resonator = resonator(self._data_file.get_filepath())
         self._measure()
         self._end_measurement()
 
@@ -326,9 +333,9 @@ class spectrum(object):
         self._prepare_measurement_file()
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         """only middle point in freq array is plotted vs x and y"""
-        #qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
+        qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
         if self._fit_resonator:
-            self._resonator = resonator(self._data_file)
+            self._resonator = resonator(self._data_file.get_filepath())
 
         if self.landscape:
             self.center_freqs = np.array(self.landscape).T
@@ -412,6 +419,7 @@ class spectrum(object):
         print self._data_file.get_filepath()
         qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment)
         self._data_file.close_file()
+        #close_log_file(self._log)
         self.dirname = None
 
     def set_fit(self,fit_resonator=True,fit_function='',f_min=None,f_max=None):
