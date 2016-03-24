@@ -41,10 +41,10 @@ class Progress_Bar(object):
 		sys.stdout.flush()
 		self.starttime = time.time()
 		
-	def iterate(self):
+	def iterate(self,param=""):
 		self.progr += 1
 		display(Javascript("$('div#%s0').width('%i%%');" % (self.divid, 100*self.progr/self.max_it)))
-		outp = "(%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s"%(self.progr,self.max_it,time.ctime(time.time() + float(time.time()-self.starttime)/self.progr * (self.max_it - self.progr)),time.strftime('%H:%M:%S',time.gmtime(time.time()-self.starttime)))
+		outp = "%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s"%(param,self.progr,self.max_it,time.ctime(time.time() + float(time.time()-self.starttime)/self.progr * (self.max_it - self.progr)),time.strftime('%H:%M:%S',time.gmtime(time.time()-self.starttime)))
 		display(Javascript("document.getElementById('%s_text').innerHTML = '%s';"%(self.divid,outp)))
 		
 		if self.progr == self.max_it:   #end of progress bar
