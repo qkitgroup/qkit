@@ -13,7 +13,7 @@ from qkit.storage import hdf_lib as hdf
 from qkit.analysis.resonator import Resonator as resonator
 from qkit.gui.plot import plot as qviewkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
-from qkit.measure.additional_files import *
+#from qkit.measure.additional_files import *
 
 ##################################################################
 
