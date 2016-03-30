@@ -21,7 +21,7 @@ import types
 import logging
 import numpy
 
-class Anritsu_VNA(Instrument):
+class Anritsu_VNA_MS4642B(Instrument):
 	'''
 	This is the python driver for the Anritsu MS4642B Vector Network Analyzer
 
@@ -97,7 +97,7 @@ class Anritsu_VNA(Instrument):
 
 		self.add_parameter('power', type=types.FloatType,
 			flags=Instrument.FLAG_GETSET,
-			minval=-30, maxval=30,
+			minval=-30, maxval=15,
 			units='dBm', tags=['sweep'])
 
 		self.add_parameter('cw', type=types.BooleanType,
@@ -140,7 +140,7 @@ class Anritsu_VNA(Instrument):
 		
 		self.add_parameter('edel', type=types.FloatType,   #added by MW
 			flags=Instrument.FLAG_GETSET,
-			minval=0, maxval=1e-3,
+			minval=-1, maxval=1,
 			units='s', tags=['sweep'])
 		
 		self.add_parameter('sweeptime', type=types.FloatType,   #JB
@@ -162,6 +162,7 @@ class Anritsu_VNA(Instrument):
 		self.add_function('get_tracedata')
 		self.add_function('init')
 		self.add_function('returnToLocal')
+		self.add_function('set_edel_auto')
 		#self.add_function('avg_clear')
 		#self.add_function('avg_status')
 		
@@ -557,28 +558,38 @@ class Anritsu_VNA(Instrument):
 		
 		return float(self.get_nop()) / self.get_bandwidth()
 
-	def do_get_edel(self):   # added by MW
+	def do_get_edel(self):   
 
 
 		'''
-		Get electrical delay
+		Get electrical delay in seconds for trace 1
 
 		'''
 		logging.debug(__name__ + ' : getting electrical delay')
-		self._edel = float(self._visainstrument.ask('SENS%i:CORR:EXT:PORT1?'% (self._ci)))
+		self._edel = float(self._visainstrument.ask(":CALC1:PAR1:REF:EXT:TIM?"))
 		return  self._edel   
 		
 	
-	def do_set_edel(self,val):   # added by MW
+	def do_set_edel(self,val):   
 
 		'''
-		Set electrical delay
+		Set electrical delay in seconds for trace 1.
 
 		'''
 		logging.debug(__name__ + ' : setting electrical delay to %s sec' % val)
-		self._visainstrument.write('SENS%i:CORR:EXT:PORT1  %.12f' % (self._ci, val))
+		self._visainstrument.write(":CALC1:PAR1:REF:EXT:TIM %e"%(val))
 			   
 			   
+	def set_edel_auto(self):
+		
+		'''
+		Uses the VNA auto edel function for trace 1 and returns it.
+		'''
+		
+		logging.debug(__name__ + ' : setting electrical delay to auto')
+		self._visainstrument.write(":CALC1:PAR1:REF:EXT:AUTO")
+		return self.get_edel()
+		
 	def do_set_bandwidth(self,band):
 		'''
 		Set Bandwidth
