@@ -5,7 +5,7 @@ import numpy as np
 import logging
 import matplotlib.pylab as plt
 from scipy.optimize import curve_fit
-from time import sleep
+from time import sleep,time
 import sys
 import qt
 
@@ -52,12 +52,14 @@ class spectrum(object):
         self._fit_resonator = False
         self._plot_comment=""
 
-        self.log_function = None
+        self.set_log_function()
 
-    def set_log_function(self, func, name = None, unit = None):
+    def set_log_function(self, func=None, name = None, unit = None):
         '''
         A function (object) can be passed to the measurement loop which is excecuted after every x iteration in the measurement.
         The return value of the function of type float or similar is stored in a value vector in the h5 file.
+        
+        Call without any arguments to delete all log functions. The timestamp is automatically saved.
 
         func: function object in list form
         name: name of logging parameter appearing in h5 file, default: 'log_param'
@@ -75,14 +77,23 @@ class spectrum(object):
             except Exception:
                 unit = None
 
+        self.log_function = []
+        self.log_name = []
+        self.log_unit = []
+        self.log_dtype = []
+        
         if func != None:
-            self.log_function = []
-            self.log_name = []
-            self.log_unit = []
             for i,f in enumerate(func):
                 self.log_function.append(f)
                 self.log_name.append(name[i])
                 self.log_unit.append(unit[i])
+                self.log_dtype.append('f')
+                
+        self.log_function.append(time) #add the timestamp
+        self.log_name.append("timestamp")
+        self.log_unit.append("s")
+        self.log_dtype.append("float64")
+        
 
     def set_x_parameters(self, x_vec, x_coordname, x_instrument, x_unit = ""):
         '''
@@ -204,7 +215,8 @@ class spectrum(object):
             if self.log_function != None:   #use logging
                 self._log_value = []
                 for i in range(len(self.log_function)):
-                    self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i]))
+                    self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i],dtype=self.log_dtype[i]))
+            
             if self._nop < 10:
                 """creates view: plot middle point vs x-parameter, for qubit measurements"""
                 self._data_amp_mid = self._data_file.add_value_vector('amplitude_midpoint', unit = '', x = self._data_x)
