@@ -13,7 +13,7 @@ from qkit.storage import hdf_lib as hdf
 from qkit.analysis.resonator import Resonator as resonator
 from qkit.gui.plot import plot as qviewkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
-#from qkit.measure.additional_files import *
+import qkit.measure.write_additional_files as waf
 
 ##################################################################
 
@@ -58,7 +58,7 @@ class spectrum(object):
         '''
         A function (object) can be passed to the measurement loop which is excecuted after every x iteration in the measurement.
         The return value of the function of type float or similar is stored in a value vector in the h5 file.
-        
+
         Call without any arguments to delete all log functions. The timestamp is automatically saved.
 
         func: function object in list form
@@ -88,14 +88,8 @@ class spectrum(object):
                 self.log_name.append(name[i])
                 self.log_unit.append(unit[i])
                 self.log_dtype.append('f')
-                
-        self.log_function.append(time) #add the timestamp
-        self.log_name.append("timestamp")
-        self.log_unit.append("s")
-        self.log_dtype.append("float64")
-        
 
-    def set_x_parameters(self, x_vec, x_coordname, x_instrument, x_unit = ""):
+    def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit = ""):
         '''
         Sets parameters for sweep. In a 3D measurement, the x-parameters will be the "outer" sweep.
         For every x value all y values are swept
@@ -107,11 +101,11 @@ class spectrum(object):
         '''
         self.x_vec = x_vec
         self.x_coordname = x_coordname
-        self.x_set_obj = x_instrument
+        self.x_set_obj = x_set_obj
         self.delete_fit_function()
         self.x_unit = x_unit
 
-    def set_y_parameters(self, y_vec, y_coordname, y_instrument, y_unit = ""):
+    def set_y_parameters(self, y_vec, y_coordname, y_set_obj, y_unit = ""):
         '''
         Sets parameters for sweep. In a 3D measurement, the x-parameters will be the "outer" sweep.
         For every x value all y values are swept
@@ -123,7 +117,7 @@ class spectrum(object):
         '''
         self.y_vec = y_vec
         self.y_coordname = y_coordname
-        self.y_set_obj = y_instrument
+        self.y_set_obj = y_set_obj
         self.delete_fit_function()
         self.y_unit = y_unit
 
@@ -194,23 +188,23 @@ class spectrum(object):
         self._data_file = hdf.Data(name=self._file_name)
         
         # write logfile and instrument settings
-        #write_settings_file(self._data_file.get_filepath())
-        #self._log = open_log_file(self._data_file.get_filepath())
+        waf.write_settings_file(self._data_file.get_filepath())
+        self._log = waf.open_log_file(self._data_file.get_filepath())
         
         self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
         self._data_freq.add(self._freqpoints)
 
         if self._scan_1D:
-            self._data_real = self._data_file.add_value_vector('real', x = self._data_freq, unit = '')
-            self._data_imag = self._data_file.add_value_vector('imag', x = self._data_freq, unit = '')
-            self._data_amp = self._data_file.add_value_vector('amplitude', x = self._data_freq, unit = '')
-            self._data_pha = self._data_file.add_value_vector('phase', x = self._data_freq, unit = 'rad')
+            self._data_real = self._data_file.add_value_vector('real', x = self._data_freq, unit = '', save_timestamp = True)
+            self._data_imag = self._data_file.add_value_vector('imag', x = self._data_freq, unit = '', save_timestamp = True)
+            self._data_amp = self._data_file.add_value_vector('amplitude', x = self._data_freq, unit = '', save_timestamp = True)
+            self._data_pha = self._data_file.add_value_vector('phase', x = self._data_freq, unit = 'rad', save_timestamp = True)
 
         if self._scan_2D:
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit = self.x_unit)
             self._data_x.add(self.x_vec)
-            self._data_amp = self._data_file.add_value_matrix('amplitude', x = self._data_x, y = self._data_freq, unit = '')
-            self._data_pha = self._data_file.add_value_matrix('phase', x = self._data_x, y = self._data_freq, unit='rad')
+            self._data_amp = self._data_file.add_value_matrix('amplitude', x = self._data_x, y = self._data_freq, unit = '', save_timestamp = True)
+            self._data_pha = self._data_file.add_value_matrix('phase', x = self._data_x, y = self._data_freq, unit='rad', save_timestamp = True)
 
             if self.log_function != None:   #use logging
                 self._log_value = []
@@ -219,8 +213,8 @@ class spectrum(object):
             
             if self._nop < 10:
                 """creates view: plot middle point vs x-parameter, for qubit measurements"""
-                self._data_amp_mid = self._data_file.add_value_vector('amplitude_midpoint', unit = '', x = self._data_x)
-                self._data_pha_mid = self._data_file.add_value_vector('phase_midpoint', unit = 'rad', x = self._data_x)
+                self._data_amp_mid = self._data_file.add_value_vector('amplitude_midpoint', unit = '', x = self._data_x, save_timestamp = True)
+                self._data_pha_mid = self._data_file.add_value_vector('phase_midpoint', unit = 'rad', x = self._data_x, save_timestamp = True)
                 #self._view = self._data_file.add_view("amplitude vs. " + self.x_coordname, x = self._data_x, y = self._data_amp[self._nop/2])
 
         if self._scan_3D:
@@ -228,8 +222,8 @@ class spectrum(object):
             self._data_x.add(self.x_vec)
             self._data_y = self._data_file.add_coordinate(self.y_coordname, unit = self.y_unit)
             self._data_y.add(self.y_vec)
-            self._data_amp = self._data_file.add_value_box('amplitude', x = self._data_x, y = self._data_y, z = self._data_freq, unit = '')
-            self._data_pha = self._data_file.add_value_box('phase', x = self._data_x, y = self._data_y, z = self._data_freq, unit = 'rad')
+            self._data_amp = self._data_file.add_value_box('amplitude', x = self._data_x, y = self._data_y, z = self._data_freq, unit = '', save_timestamp = True)
+            self._data_pha = self._data_file.add_value_box('phase', x = self._data_x, y = self._data_y, z = self._data_freq, unit = 'rad', save_timestamp = True)
 
         if self.comment:
             self._data_file.add_comment(self.comment)
@@ -431,7 +425,7 @@ class spectrum(object):
         print self._data_file.get_filepath()
         qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment)
         self._data_file.close_file()
-        #close_log_file(self._log)
+        waf.close_log_file(self._log)
         self.dirname = None
 
     def set_fit(self,fit_resonator=True,fit_function='',f_min=None,f_max=None):
