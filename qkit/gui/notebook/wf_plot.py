@@ -38,7 +38,7 @@ except ImportError:
 	logging.warning('no qtLAB environment')
 	no_qt = True
 
-def wfplot(analog_wfm, complete_marker = None, sample = None):
+def wfplot(analog_wfm, seq = 1, complete_marker = None, x_range = None, sample = None):
 
 	font = {'weight' : 'normal', 'size' : 16}
 	plt.rc('font', **font)
@@ -60,26 +60,33 @@ def wfplot(analog_wfm, complete_marker = None, sample = None):
 			logging.warning('readout pulse not plotted: sample parameters not found')
 	else:
 		axis.set_xlabel('# samples', fontsize=labelsize)
-		if isinstance(analog_wfm[0],(list, tuple, np.ndarray)):   #heterodyne mode
-			xval = np.arange(0,len(analog_wfm[0]))
+		if isinstance(analog_wfm[seq][0],(list, tuple, np.ndarray)):   #heterodyne mode
+			xval = np.arange(0,len(analog_wfm[seq][0]))
 		else:
-			xval = np.arange(0,len(analog_wfm))
+			xval = np.arange(0,len(analog_wfm[seq]))
 	
-	if isinstance(analog_wfm[0],(list, tuple, np.ndarray)):   #heterodyne mode
-		axis.plot(xval,2*analog_wfm[0]/np.max(analog_wfm[0]), 'red', label='I')
-		axis.plot(xval,2*analog_wfm[1]/np.max(analog_wfm[1]), 'blue', label='Q')
+	if isinstance(analog_wfm[seq][0],(list, tuple, np.ndarray)):   #heterodyne mode
+		axis.plot(xval,analog_wfm[seq][0], 'red', alpha = 0.7, label='I')
+		axis.plot(xval,analog_wfm[seq][1], 'blue', alpha = 0.7, label='Q')
 	else:
-		axis.fill_between(xval,0,2*analog_wfm/np.max(analog_wfm), color='red', alpha=0.7)
-		axis.plot(xval,2*analog_wfm/np.max(analog_wfm), 'r-', alpha=0.7, label = 'homodyne')
+		axis.fill_between(xval,0,analog_wfm[seq], color='red', alpha=0.7)
+		axis.plot(xval,analog_wfm[seq], 'r-', alpha=0.7, label = 'homodyne')
 	
 	if complete_marker != None:
-		clr_dict = {1 : 'grey', 2 : 'magneta', 3 : 'green', 4 : 'tan'}
-		i = 0
-		for m in [mi for msub in complete_marker for mi in msub]:
-			i = i+1
-			if not (np.array(m) == np.zeros_like(np.array(m))).all() and m != None:
-				axis.fill_between(xval, 0, float(4-i)/2*m, color = clr_dict[i], alpha = 0.7)
-				axis.plot(xval, float(4-i)/2*m, color = clr_dict[i], alpha = 0.7, label = 'm%d'%i)
+		clr_dict = {0 : 'grey', 1 : 'magneta', 2 : 'green', 3 : 'tan'}
+		if len(np.array(complete_marker).shape) > 2:   #more than one single marker
+			markers = np.array(complete_marker).reshape(4,np.array(complete_marker).shape[2],np.array(complete_marker).shape[3])
+		else:
+			markers = [np.array(complete_marker)]
+		
+		maxis = axis.twinx()
+		for mi, m in enumerate(markers):
+			if (m != np.zeros_like(m)).any() and m != None:
+				maxis.fill_between(xval, 0, float(4-mi)/2*m[seq], color = clr_dict[mi], alpha = 0.7)
+				maxis.plot(xval, float(4-mi)/2*m[seq], color = clr_dict[mi], alpha = 0.7, label = 'm%d'%mi)
+		maxis.legend(loc = 1)
 				
 	axis.legend(loc = 2)
+	if xrange != None:
+		plt.xlim(x_range)
 	fig.tight_layout()
