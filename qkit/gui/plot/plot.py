@@ -19,13 +19,13 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
     live (bool, optional): checks constantly the file for changes, default: True
     echo (bool, optional): echo settings for debugging, default: False
     """
-
+    plot_viewer = 'qkit.gui.qviewkit.main'
     ds = ""
     for s in datasets: ds+=s+","
     ds = ds.strip(",")
 
     cmd = "python"
-    cmd += " -m qkit.gui.qviewkit.main" #load qviewkit/main.py as module, so we do not need to know it's folder
+    cmd += " -m "+ plot_viewer #load qviewkit/main.py as module, so we do not need to know it's folder
     options =  " -f " + h5_filepath.encode("string-escape") #raw string encoding
     if ds:
         options += " -ds "+ str(ds)
@@ -105,6 +105,10 @@ class h5plot(object):
             x_ds_url = ds.attrs.get('x_ds_url','')
             y_ds_url = ds.attrs.get('y_ds_url','')
 
+            " if no x or y references exist skip the dataset, e.g. for timestamps"
+            if not x_ds_url:
+                 return
+
             x_ds = self.hf[x_ds_url]
 
             x_label = x_ds.attrs.get('name','_xname_')+' / '+x_ds.attrs.get('unit','_xunit_')
@@ -135,7 +139,8 @@ class h5plot(object):
                 print data color-coded y-coordinate vs. x-coordinate
                 """
                 logging.info("ds is two dimensional.")
-
+                if not y_ds_url:
+                    return
                 y_ds = self.hf[y_ds_url]
                 data_y = np.array(y_ds)
                 y_label = y_ds.attrs.get('name','_yname_')+' / '+y_ds.attrs.get('unit','_yunit_')
