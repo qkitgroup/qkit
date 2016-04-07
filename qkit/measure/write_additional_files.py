@@ -23,7 +23,7 @@ def close_log_file(log_file_handler):
         log_file_handler.close()
         log_file_handler = None
 
-def write_settings_file(self, path):
+def write_settings_file(path):
     fn, ext = os.path.splitext(path)
     fn_log = fn + '.set'
     f = open(fn_log, 'w+')
