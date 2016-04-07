@@ -709,9 +709,9 @@ class Agilent_PNAX(Instrument):
         Output:
             None
         '''
-        logging.debug(__name__ + ' : setting electrical delay to "%f"' % val)
-        self._visainstrument.write('SENS:CORR:EXT:PORT%i %f' %(self._ci, val))        
-            
+        logging.debug(__name__ + ' : setting electrical delay to "%g"' % val)
+        self._visainstrument.write('SENS:CORR:EXT:PORT%i %g' %(self._ci, val))        
+                                    
     def do_get_edel(self):
         '''
         Gets the electrical delay for the selected measurement.
