@@ -436,6 +436,7 @@ class spectrum(object):
         fit_function (string): function which will be fitted to the data (optional)
         f_min (float): lower frequency boundary for the fitting function, default: None (optional)
         f_max (float): upper frequency boundary for the fitting function, default: None (optional)
+        fit types: 'lorentzian','skewed_lorentzian','circle_fit','fano'
         '''
         if not fit_resonator:
             self._fit_resonator = False
