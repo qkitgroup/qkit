@@ -4,25 +4,14 @@ wafeform plotter JB@KIT 02/2016 jochen.braumueller@kit.edu
 The waveform plotter wf_plot.py visualizes the waveform generated and employed for a measurement.
 Prospectively, the plotter may be called by default to save a picture of the pulse sequence.
 
-input: list of waveforms
+input:		analog_wfm: single (homodyne) or tuple of matrices carrying analog entries for traces and points in AWG window
+			seq: sequence to be plotted, default 1
+			complete_marker: single marker matrice or set of up to for marker lists (possibly arranged as [[...],[...]])
+			xrange: xrange to be plotted
+			sample
 output: -
 '''
 
-'''
-+++ Sample marker waveform  +++
-
-zmarker = []
-for t in ts:
-    zmarker.append(gwf.square(p_idle_time*1e-9 + qubit.tpi + t_idle_after_exc*1e-9, qubit, 
-                    position = qubit.exc_T - qubit.overlap*1e-9 - t*1e-6 - t_idle*1e-9)
-                   + gwf.square(1e-9*t_idle + qubit.readout_tone_length + t_after_readout, qubit, 
-                    position = qubit.exc_T - qubit.overlap*1e-9 + qubit.readout_tone_length + t_after_readout))
-zeromarker = np.zeros_like(zmarker)
-complete_marker = [[zmarker,zeromarker],[zeromarker,zeromarker]]
-complete_zero_marker = [[zeromarker,zeromarker],[zeromarker,zeromarker]]
-
-load_awg.update_sequence(qubit.overlap*1e-9 + 1e-9*t_idle + ts*1e-6, gwf.t1, qubit, iq, marker = complete_marker)
-'''
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -80,13 +69,37 @@ def wfplot(analog_wfm, seq = 1, complete_marker = None, x_range = None, sample =
 			markers = [np.array(complete_marker)]
 		
 		maxis = axis.twinx()
+		xl = len(xval)
+		xr = 0
 		for mi, m in enumerate(markers):
 			if (m != np.zeros_like(m)).any() and m != None:
 				maxis.fill_between(xval, 0, float(4-mi)/2*m[seq], color = clr_dict[mi], alpha = 0.7)
 				maxis.plot(xval, float(4-mi)/2*m[seq], color = clr_dict[mi], alpha = 0.7, label = 'm%d'%mi)
+				''' find appropriate boundaries for the plot window '''
+				xl = np.min(xlm,np.where(np.array(m[seq]) > 0)[0][0])
+				xr = np.max(xrm,np.where(np.array(m[seq]) > 0)[0][-1])
 		maxis.legend(loc = 1)
 				
 	axis.legend(loc = 2)
 	if xrange != None:
 		plt.xlim(x_range)
+	else:
+		''' find appropriate window by cutting off edge regions filled with zeros '''
+		if isinstance(analog_wfm[seq][0],(list, tuple, np.ndarray)):   #heterodyne mode
+			xl = np.min(xl,np.where(np.gradient(analog_wfm[seq][0]) > 0)[0][0])
+			xr = np.max(xr,np.where(np.gradient(analog_wfm[seq][0]) > 0)[0][-1])
+		else:
+			xl = np.min(xl,np.where(np.gradient(analog_wfm[seq]) > 0)[0][0])
+			xr = np.max(xr,np.where(np.gradient(analog_wfm[seq]) > 0)[0][-1])
+		
+		#put some space left and right and check whether this is still a valid window
+		xl -= 100
+		if xl < 0:
+			xl = 0
+		xr += 100
+		if xr > len(xval):
+			xr = len(xval)
+			
+		plt.xlim([xl,xr])
+		
 	fig.tight_layout()
