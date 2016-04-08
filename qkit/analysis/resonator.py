@@ -6,6 +6,7 @@ import logging
 
 from qkit.storage import hdf_lib
 from qkit.analysis.circle_fit import resonator_tools_xtras as rtx
+from qkit.analysis.circle_fit_new import circuit
 from scipy.optimize import leastsq
 from scipy.ndimage import gaussian_filter1d
 from scipy.ndimage.filters import median_filter
@@ -32,7 +33,8 @@ class Resonator(object):
     def __init__(self, hf_path=None):
         self._hf = hdf_lib.Data(path=hf_path)
 
-        self._first_circle = True
+        self._first_circle_reflection = True
+        self._first_circle_notch = True
         self._first_lorentzian = True
         self._first_fano = True
         self._first_skewed_lorentzian = True
@@ -229,11 +231,35 @@ class Resonator(object):
     def _get_starting_values(self):
         pass
 
+    def fit_circle_reflection(self,fit_all = False, f_min = None, f_max=None):
+        self._circle_reflection = True
+        self._circle_notch = False
+        if not self._prepared_datasets:
+            self._prepare_datasets()
+        self._prepare_fit_range(fit_all,f_min,f_max)
+        if self._first_circle_reflection:
+            self._prepare_circle()
+            self._first_circle_reflection = False
+        
+        self._circle_port = circuit.reflection_port(f_data = self._fit_frequency)
+        self._fit_circle(fit_all = fit_all, f_min = f_min, f_max = f_max)
+        
+    def fit_circle_notch(self,fit_all = False, f_min = None, f_max=None):
+        self._circle_notch = True
+        self._circle_reflection = False
+        if not self._prepared_datasets:
+            self._prepare_datasets()
+        self._prepare_fit_range(fit_all,f_min,f_max)
+        if self._first_circle_notch:
+            self._prepare_circle()
+            self._first_circle_notch = False
+        
+        self._circle_port = circuit.notch_port(f_data = self._fit_frequency)
+        self._fit_circle(fit_all = fit_all, f_min = f_min, f_max = f_max)
 
-
-    def fit_circle(self,fit_all = False, f_min = None, f_max=None):
+    def _fit_circle(self,fit_all = False, f_min = None, f_max=None):
         '''
-        Calls circle fit from resonator_tools_xtras.py and resonator_tools.py in the qkit/analysis folder
+        Creates corresponding ports in circuit.py in the qkit/analysis folder
         circle fit for amp and pha data in the f_min-f_max frequency range
         fit parameter, errors, and generated amp/pha data are stored in the hdf-file
 
@@ -242,12 +268,6 @@ class Resonator(object):
         f_min (float): lower boundary for data to be fitted (optional, default: None, results in min(frequency-array))
         f_max (float): upper boundary for data to be fitted (optional, default: None, results in max(frequency-array))
         '''
-        if not self._prepared_datasets:
-            self._prepare_datasets()
-        self._prepare_fit_range(fit_all,f_min,f_max)
-        if self._first_circle:
-            self._prepare_circle()
-            self._first_circle = False
 
         self._get_data_circle()
         trace = 0
@@ -256,11 +276,10 @@ class Resonator(object):
             z_data_raw.real = self._pre_filter_data(z_data_raw.real)
             z_data_raw.imag = self._pre_filter_data(z_data_raw.imag)
             self.debug("fitting trace: "+str(trace))
+            self._circle_port.z_data_raw = z_data_raw
             #z_data_raw = self._set_data_range(z_data_raw)
             try:
-                delay, amp_norm, alpha, fr, Qr, A2, frcal = rtx.do_calibration(self._fit_frequency, z_data_raw,ignoreslope=True)
-                z_data = rtx.do_normalization(self._fit_frequency, z_data_raw,delay,amp_norm,alpha,A2,frcal)
-                results = rtx.circlefit(self._fit_frequency,z_data,fr,Qr,refine_results=False,calc_errors=True)
+                self._circle_port.autofit()
 
             except:
                 err=np.array(['nan' for f in self._fit_frequency])
@@ -273,41 +292,47 @@ class Resonator(object):
                     self._results[str(key)].append(np.nan)
 
             else:
-                z_data_gen = np.array([A2 * (f - frcal) + rtx.S21(f, fr=float(results["fr"]), Qr=float(results["Qr"]), Qc=float(results["absQc"]), phi=float(results["phi0"]), a= amp_norm, alpha= alpha, delay=delay) for f in self._fit_frequency])
-                self._circ_amp_gen.append(np.absolute(z_data_gen))
-                self._circ_pha_gen.append(np.angle(z_data_gen))
-                self._circ_real_gen.append(np.real(z_data_gen))
-                self._circ_imag_gen.append(np.imag(z_data_gen))
+                self._circ_amp_gen.append(np.absolute(self._circle_port.z_data_gen))
+                self._circ_pha_gen.append(np.angle(self._circle_port.z_data_gen))
+                self._circ_real_gen.append(np.real(self._circle_port.z_data_gen))
+                self._circ_imag_gen.append(np.imag(self._circle_port.z_data_gen))
 
                 for key in self._results.iterkeys():
-                    self._results[str(key)].append(float(results[str(key)]))
+                    self._results[str(key)].append(float(self._circle_port.fitresults[str(key)]))
             trace+=1
 
     def _prepare_circle(self):
         '''
         creates the datasets for the circle fit in the hdf-file
         '''
-
-        self._data_real_gen = self._hf.add_value_matrix('data_real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
-        self._data_imag_gen = self._hf.add_value_matrix('data_imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
-
-        self._circ_amp_gen = self._hf.add_value_matrix('circ_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = '')
-        self._circ_pha_gen = self._hf.add_value_matrix('circ_pha_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='rad')
-        self._circ_real_gen = self._hf.add_value_matrix('circ_real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
-        self._circ_imag_gen = self._hf.add_value_matrix('circ_imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
-
-        self._result_keys = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Qr":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Qr_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
+        self._result_keys_notch = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Qr":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Qr_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
         self._results = {}
+        self._result_keys_reflection = {"Qi":'',"Qc":'',"Ql":'',"fr":'',"theta0":'',"Ql_err":'', "Qc_err":'', "fr_err":'',"chi_square":'',"Qi_err":''}
+        
+        if self._circle_notch:
+            self._result_keys = self.result_keys_notch
+            circ_type = 'notch_'
 
+        if self._circle_reflection:
+            self._result_keys = self.result_keys_reflection
+            circ_type = 'refl_'
+
+        self._data_real_gen = self._hf.add_value_matrix('data_'+circ_type+'real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+        self._data_imag_gen = self._hf.add_value_matrix('data_'+circ_type+'imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+
+        self._circ_amp_gen = self._hf.add_value_matrix('circ_'+circ_type+'amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = '')
+        self._circ_pha_gen = self._hf.add_value_matrix('circ_'+circ_type+'pha_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='rad')
+        self._circ_real_gen = self._hf.add_value_matrix('circ_'+circ_type+'real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+        self._circ_imag_gen = self._hf.add_value_matrix('circ_'+circ_type+'imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
 
         for key in self._result_keys.iterkeys():
-           self._results[str(key)] = self._hf.add_value_vector('circ_'+str(key), folder = 'analysis', x = self._x_co, unit ='')
+           self._results[str(key)] = self._hf.add_value_vector('circ_'+circ_type+str(key), folder = 'analysis', x = self._x_co, unit ='')
 
-        circ_view_amp = self._hf.add_view('circ_amp', x = self._y_co, y = self._ds_amp)
+        circ_view_amp = self._hf.add_view('circ_'+circ_type+'amp', x = self._y_co, y = self._ds_amp)
         circ_view_amp.add(x=self._frequency_co, y=self._circ_amp_gen)
-        circ_view_pha = self._hf.add_view('circ_pha', x = self._y_co, y = self._ds_pha)
+        circ_view_pha = self._hf.add_view('circ_'+circ_type+'pha', x = self._y_co, y = self._ds_pha)
         circ_view_pha.add(x=self._frequency_co, y=self._circ_pha_gen)
-        circ_view_iq = self._hf.add_view('circ_IQ', x = self._circ_real_gen, y = self._circ_imag_gen,view_params={'aspect':1.0})
+        circ_view_iq = self._hf.add_view('circ_'+circ_type+'IQ', x = self._circ_real_gen, y = self._circ_imag_gen,view_params={'aspect':1.0})
         circ_view_iq.add(x=self._data_real_gen, y=self._data_imag_gen)
 
     def _get_data_circle(self):
@@ -326,6 +351,7 @@ class Resonator(object):
                 self._z_data_raw[i] = self._fit_amplitude[i]*np.exp(1j*self._fit_phase[i])
                 self._data_real_gen.append(self._z_data_raw[i].real)
                 self._data_imag_gen.append(self._z_data_raw[i].imag)
+
     def fit_lorentzian(self,fit_all = False,f_min=None,f_max=None,pre_filter_data=None):
         '''
         lorentzian fit for amp data in the f_min-f_max frequency range
