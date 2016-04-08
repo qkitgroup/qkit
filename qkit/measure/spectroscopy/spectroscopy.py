@@ -191,7 +191,7 @@ class spectrum(object):
         waf.write_settings_file(self._data_file.get_filepath())
         self._log = waf.open_log_file(self._data_file.get_filepath())
         
-        self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
+        self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz', dtype='float64')
         self._data_freq.add(self._freqpoints)
 
         if self._scan_1D:
