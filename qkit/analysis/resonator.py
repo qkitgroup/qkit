@@ -291,10 +291,10 @@ class Resonator(object):
                     self._results[str(key)].append(np.nan)
 
             else:
-                self._circ_amp_gen.append(np.absolute(self._circle_port.z_data_gen))
-                self._circ_pha_gen.append(np.angle(self._circle_port.z_data_gen))
-                self._circ_real_gen.append(np.real(self._circle_port.z_data_gen))
-                self._circ_imag_gen.append(np.imag(self._circle_port.z_data_gen))
+                self._circ_amp_gen.append(np.absolute(self._circle_port.z_data_sim))
+                self._circ_pha_gen.append(np.angle(self._circle_port.z_data_sim))
+                self._circ_real_gen.append(np.real(self._circle_port.z_data_sim))
+                self._circ_imag_gen.append(np.imag(self._circle_port.z_data_sim))
 
                 for key in self._results.iterkeys():
                     self._results[str(key)].append(float(self._circle_port.fitresults[str(key)]))
@@ -309,11 +309,11 @@ class Resonator(object):
         self._result_keys_reflection = {"Qi":'',"Qc":'',"Ql":'',"fr":'',"theta0":'',"Ql_err":'', "Qc_err":'', "fr_err":'',"chi_square":'',"Qi_err":''}
         
         if self._circle_notch:
-            self._result_keys = self.result_keys_notch
+            self._result_keys = self._result_keys_notch
             circ_type = 'notch_'
 
         if self._circle_reflection:
-            self._result_keys = self.result_keys_reflection
+            self._result_keys = self._result_keys_reflection
             circ_type = 'refl_'
 
         self._data_real_gen = self._hf.add_value_matrix('data_'+circ_type+'real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
