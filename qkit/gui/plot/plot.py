@@ -86,6 +86,9 @@ class h5plot(object):
                         self.plt_ds(key)
         else:
             for i, pentry in enumerate(self.hf['/entry'].keys()):
+                # do not plot analysis-datasets
+                if pentry == 'analysis0':
+                    return
                 key='/entry/'+pentry
                 for j, centry in enumerate(self.hf[key].keys()):
                     key='/entry/'+pentry+"/"+centry
