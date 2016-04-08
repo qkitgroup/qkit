@@ -5,8 +5,7 @@ import numpy as np
 import logging
 
 from qkit.storage import hdf_lib
-from qkit.analysis.circle_fit import resonator_tools_xtras as rtx
-from qkit.analysis.circle_fit_new import circuit
+from qkit.analysis.circle_fit import circuit
 from scipy.optimize import leastsq
 from scipy.ndimage import gaussian_filter1d
 from scipy.ndimage.filters import median_filter
