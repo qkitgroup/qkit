@@ -428,7 +428,7 @@ class spectrum(object):
         waf.close_log_file(self._log)
         self.dirname = None
 
-    def set_fit(self,fit_resonator=True,fit_function='',f_min=None,f_max=None):
+    def set_resonator_fit(self,fit_resonator=True,fit_function='',f_min=None,f_max=None):
         '''
         sets fit parameter for resonator
 
@@ -436,16 +436,16 @@ class spectrum(object):
         fit_function (string): function which will be fitted to the data (optional)
         f_min (float): lower frequency boundary for the fitting function, default: None (optional)
         f_max (float): upper frequency boundary for the fitting function, default: None (optional)
-        fit types: 'lorentzian','skewed_lorentzian','circle_fit','fano'
+        fit types: 'lorentzian','skewed_lorentzian','circle_fit_reflection', 'circle_fit_notch','fano'
         '''
         if not fit_resonator:
             self._fit_resonator = False
             return
-        self._functions = {'lorentzian':0,'skewed_lorentzian':1,'circle_fit':2,'fano':3,'all_fits':4}
+        self._functions = {'lorentzian':0,'skewed_lorentzian':1,'circle_fit_reflection':2,'circle_fit_notch':3,'fano':5,'all_fits':5}
         try:
             self._fit_function = self._functions[fit_function]
         except KeyError:
-            logging.error('Fit function not properly set. Must be either \'lorentzian\', \'skewed_lorentzian\', \'circle_fit\', \'fano\', or \'all_fits\'.')
+            logging.error('Fit function not properly set. Must be either \'lorentzian\', \'skewed_lorentzian\', \'circle_fit_reflection\', \'circle_fit_notch\', \'fano\', or \'all_fits\'.')
         else:
             self._fit_resonator = True
             self._f_min = f_min
@@ -462,11 +462,13 @@ class spectrum(object):
             self._resonator.fit_lorentzian(f_min=self._f_min, f_max = self._f_max)
         if self._fit_function == 1: #skewed_lorentzian
             self._resonator.fit_skewed_lorentzian(f_min=self._f_min, f_max = self._f_max)
-        if self._fit_function == 2: #circle
-            self._resonator.fit_circle(f_min=self._f_min, f_max = self._f_max)
-        if self._fit_function == 3: #fano
+        if self._fit_function == 2: #circle_reflection
+            self._resonator.fit_circle_reflection(f_min=self._f_min, f_max = self._f_max)
+        if self._fit_function == 3: #circle_notch
+            self._resonator.fit_circle_notch(f_min=self._f_min, f_max = self._f_max)
+        if self._fit_function == 4: #fano
             self._resonator.fit_fano(f_min=self._f_min, f_max = self._f_max)
-        #if self._fit_function == 4: #all fits
+        #if self._fit_function == 5: #all fits
             #self._resonator.fit_all_fits(f_min=self._f_min, f_max = self._f_max)
 
     def delete_fit_function(self, n = None):

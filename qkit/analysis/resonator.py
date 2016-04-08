@@ -702,7 +702,8 @@ class Resonator(object):
     def fit_all_fits(self,fit_all=False,f_min=None,f_max=None):
         self.fit_lorentzian(fit_all,f_min,f_max)
         self.fit_skewed_lorentzian(fit_all,f_min,f_max)
-        self.fit_circle(fit_all,f_min,f_max)
+        self.fit_circle_reflection(fit_all,f_min,f_max)
+        self.fit_circle_notch(fit_all,f_min,f_max)
         self.fit_fano(fit_all,f_min,f_max)
 
 
@@ -722,6 +723,7 @@ if __name__ == "__main__":
     parser.add_argument('-fm','--filter-median', default=False, action='store_true', help='(optional) (pre-) filter data: median')
     parser.add_argument('-fp','--filter-params',type=str, help='(optional) (pre-) filter data: parameter')
     parser.add_argument('-d','--debug-output', default=False, action='store_true', help='(optional) debug: more verbose')
+    parser.add_argument('-t','--type',   type=str, help='resonator type: (r)eflection or (n)otch')
     args=parser.parse_args()
     #argsfile=None
     if args.file:
@@ -756,7 +758,12 @@ if __name__ == "__main__":
                 R.set_prefilter(gaussian=True)
 
         if args.circle_fit:
-            R.fit_circle(fit_all=fit_all, f_min=f_min,f_max=f_max)
+            if args.type == 'r':
+                R.fit_circle_reflection(fit_all=fit_all, f_min=f_min,f_max=f_max)
+            elif args.type == 'n':
+                R.fit_circle_notch(fit_all=fit_all, f_min=f_min,f_max=f_max)
+            else:
+                R.fit_circle_notch(fit_all=fit_all, f_min=f_min,f_max=f_max)
         if args.lorentzian_fit:
             R.fit_lorentzian(fit_all=fit_all, f_min=f_min,f_max=f_max)
         if args.skewed_lorentzian_fit:
