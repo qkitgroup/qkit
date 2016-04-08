@@ -277,11 +277,11 @@ class Resonator(object):
             self.debug("fitting trace: "+str(trace))
             self._circle_port.z_data_raw = z_data_raw
             #z_data_raw = self._set_data_range(z_data_raw)
-            #try:
-            self._circle_port.autofit()
-            """
+            
+            try:
+                self._circle_port.autofit()
             except:
-                err=np.array(['nan' for f in self._fit_frequency])
+                err=np.array([np.nan for f in self._fit_frequency])
                 self._circ_amp_gen.append(err)
                 self._circ_pha_gen.append(err)
                 self._circ_real_gen.append(err)
@@ -291,21 +291,20 @@ class Resonator(object):
                     self._results[str(key)].append(np.nan)
 
             else:
-            """
-            self._circ_amp_gen.append(np.absolute(self._circle_port.z_data_sim))
-            self._circ_pha_gen.append(np.angle(self._circle_port.z_data_sim))
-            self._circ_real_gen.append(np.real(self._circle_port.z_data_sim))
-            self._circ_imag_gen.append(np.imag(self._circle_port.z_data_sim))
+                self._circ_amp_gen.append(np.absolute(self._circle_port.z_data_sim))
+                self._circ_pha_gen.append(np.angle(self._circle_port.z_data_sim))
+                self._circ_real_gen.append(np.real(self._circle_port.z_data_sim))
+                self._circ_imag_gen.append(np.imag(self._circle_port.z_data_sim))
 
-            for key in self._results.iterkeys():
-                self._results[str(key)].append(float(self._circle_port.fitresults[str(key)]))
+                for key in self._results.iterkeys():
+                    self._results[str(key)].append(float(self._circle_port.fitresults[str(key)]))
             trace+=1
 
     def _prepare_circle(self):
         '''
         creates the datasets for the circle fit in the hdf-file
         '''
-        self._result_keys_notch = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Qr":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Qr_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
+        self._result_keys_notch = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Ql":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Ql_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
         self._results = {}
         self._result_keys_reflection = {"Qi":'',"Qc":'',"Ql":'',"fr":'',"theta0":'',"Ql_err":'', "Qc_err":'', "fr_err":'',"chi_square":'',"Qi_err":''}
         
