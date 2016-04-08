@@ -277,9 +277,9 @@ class Resonator(object):
             self.debug("fitting trace: "+str(trace))
             self._circle_port.z_data_raw = z_data_raw
             #z_data_raw = self._set_data_range(z_data_raw)
-            try:
-                self._circle_port.autofit()
-
+            #try:
+            self._circle_port.autofit()
+            """
             except:
                 err=np.array(['nan' for f in self._fit_frequency])
                 self._circ_amp_gen.append(err)
@@ -291,13 +291,14 @@ class Resonator(object):
                     self._results[str(key)].append(np.nan)
 
             else:
-                self._circ_amp_gen.append(np.absolute(self._circle_port.z_data_sim))
-                self._circ_pha_gen.append(np.angle(self._circle_port.z_data_sim))
-                self._circ_real_gen.append(np.real(self._circle_port.z_data_sim))
-                self._circ_imag_gen.append(np.imag(self._circle_port.z_data_sim))
+            """
+            self._circ_amp_gen.append(np.absolute(self._circle_port.z_data_sim))
+            self._circ_pha_gen.append(np.angle(self._circle_port.z_data_sim))
+            self._circ_real_gen.append(np.real(self._circle_port.z_data_sim))
+            self._circ_imag_gen.append(np.imag(self._circle_port.z_data_sim))
 
-                for key in self._results.iterkeys():
-                    self._results[str(key)].append(float(self._circle_port.fitresults[str(key)]))
+            for key in self._results.iterkeys():
+                self._results[str(key)].append(float(self._circle_port.fitresults[str(key)]))
             trace+=1
 
     def _prepare_circle(self):
@@ -310,28 +311,26 @@ class Resonator(object):
         
         if self._circle_notch:
             self._result_keys = self._result_keys_notch
-            circ_type = 'notch_'
 
         if self._circle_reflection:
             self._result_keys = self._result_keys_reflection
-            circ_type = 'refl_'
 
-        self._data_real_gen = self._hf.add_value_matrix('data_'+circ_type+'real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
-        self._data_imag_gen = self._hf.add_value_matrix('data_'+circ_type+'imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+        self._data_real_gen = self._hf.add_value_matrix('data_real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+        self._data_imag_gen = self._hf.add_value_matrix('data_imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
 
-        self._circ_amp_gen = self._hf.add_value_matrix('circ_'+circ_type+'amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = '')
-        self._circ_pha_gen = self._hf.add_value_matrix('circ_'+circ_type+'pha_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='rad')
-        self._circ_real_gen = self._hf.add_value_matrix('circ_'+circ_type+'real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
-        self._circ_imag_gen = self._hf.add_value_matrix('circ_'+circ_type+'imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+        self._circ_amp_gen = self._hf.add_value_matrix('circ_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = '')
+        self._circ_pha_gen = self._hf.add_value_matrix('circ_pha_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='rad')
+        self._circ_real_gen = self._hf.add_value_matrix('circ_real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+        self._circ_imag_gen = self._hf.add_value_matrix('circ_imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
 
         for key in self._result_keys.iterkeys():
-           self._results[str(key)] = self._hf.add_value_vector('circ_'+circ_type+str(key), folder = 'analysis', x = self._x_co, unit ='')
+           self._results[str(key)] = self._hf.add_value_vector('circ_'+str(key), folder = 'analysis', x = self._x_co, unit ='')
 
-        circ_view_amp = self._hf.add_view('circ_'+circ_type+'amp', x = self._y_co, y = self._ds_amp)
+        circ_view_amp = self._hf.add_view('circ_amp', x = self._y_co, y = self._ds_amp)
         circ_view_amp.add(x=self._frequency_co, y=self._circ_amp_gen)
-        circ_view_pha = self._hf.add_view('circ_'+circ_type+'pha', x = self._y_co, y = self._ds_pha)
+        circ_view_pha = self._hf.add_view('circ_pha', x = self._y_co, y = self._ds_pha)
         circ_view_pha.add(x=self._frequency_co, y=self._circ_pha_gen)
-        circ_view_iq = self._hf.add_view('circ_'+circ_type+'IQ', x = self._circ_real_gen, y = self._circ_imag_gen,view_params={'aspect':1.0})
+        circ_view_iq = self._hf.add_view('circ_IQ', x = self._circ_real_gen, y = self._circ_imag_gen,view_params={'aspect':1.0})
         circ_view_iq.add(x=self._data_real_gen, y=self._data_imag_gen)
 
     def _get_data_circle(self):
