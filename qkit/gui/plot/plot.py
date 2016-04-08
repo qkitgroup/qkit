@@ -87,15 +87,14 @@ class h5plot(object):
         else:
             for i, pentry in enumerate(self.hf['/entry'].keys()):
                 # do not plot analysis-datasets
-                if pentry == 'analysis0':
-                    return
-                key='/entry/'+pentry
-                for j, centry in enumerate(self.hf[key].keys()):
-                    key='/entry/'+pentry+"/"+centry
-                    if pentry == 'views':
-                        self.plt_views(key)
-                    else:
-                        self.plt_ds(key)
+                if pentry != 'analysis0':
+                    key='/entry/'+pentry
+                    for j, centry in enumerate(self.hf[key].keys()):
+                        key='/entry/'+pentry+"/"+centry
+                        if pentry == 'views':
+                            self.plt_views(key)
+                        else:
+                            self.plt_ds(key)
 
         #close hf file
         self.hf.close()
