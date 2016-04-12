@@ -192,11 +192,11 @@ class notch_port(circlefit, save_load, plotting, calibration):
         self.porttype = 'notch'
         self.fitresults = {}
         self.z_data = None
-        if f_data:
+        if f_data is not None:
             self.f_data = np.array(f_data)
         else:
             self.f_data=None
-        if z_data_raw:
+        if z_data_raw is not None:
             self.z_data_raw = np.array(z_data_raw)
         else:
             self.z_data_raw=None
@@ -291,7 +291,7 @@ class notch_port(circlefit, save_load, plotting, calibration):
             chi_square, cov = self._get_cov_fast_notch(f_data,z_data,p)
             #chi_square, cov = rt.get_cov(rt.residuals_notch_ideal,f_data,z_data,p)
     
-            if cov:
+            if cov is not None:
                 errors = np.sqrt(np.diagonal(cov))
                 fr_err,absQc_err,Ql_err,phi0_err = errors
                 #calc Qi with error prop (sum the squares of the variances and covariaces)

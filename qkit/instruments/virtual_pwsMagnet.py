@@ -218,23 +218,25 @@ class virtual_pwsMagnet(Instrument):
             Is=np.arange(current, target+step, step)
             for I in Is:
                 self.do_set_current(I, wait)
+                """
                 if print_mag:
                     value_print = 'B = ' + str(self.do_get_current()*conversion_factor) + 'mT'
                 else:
                     value_print = 'I = ' + str(self.do_get_current()) + 'A'
                 #if showvalue:
                     #print value_print+ ", V1=" + str(getattr(self._PWS1, 'get_voltage')()) + "V, " + "V2=" + str(getattr(self._PWS2, 'get_voltage')()) + "V"
+                    """
         voltage = self.do_get_voltage()
         current = self.do_get_current()
         if target!=0: res = int(np.trunc(voltage/current*1000))
         else: res=0
-        
+        """
         if print_mag:
             value_print = 'B= '+str(current*conversion_factor) + 'mT'
         else:
             value_print = 'I= '+str(current) + 'A'
         print "Target value reached: " + value_print+", Voltage is " + str(voltage) + " V, resistance = " + str(res) + " mOhm"
-
+        """
     def check_for_quench(self, wait=5,threshold=0.95,repetitions=1000):
         '''
         Checks the magent for quench
