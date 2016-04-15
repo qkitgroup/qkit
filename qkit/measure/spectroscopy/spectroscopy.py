@@ -463,9 +463,9 @@ class spectrum(object):
         if self._fit_function == 1: #skewed_lorentzian
             self._resonator.fit_skewed_lorentzian(f_min=self._f_min, f_max = self._f_max)
         if self._fit_function == 2: #circle_reflection
-            self._resonator.fit_circle_reflection(f_min=self._f_min, f_max = self._f_max)
+            self._resonator.fit_circle(reflection = True, f_min=self._f_min, f_max = self._f_max)
         if self._fit_function == 3: #circle_notch
-            self._resonator.fit_circle_notch(f_min=self._f_min, f_max = self._f_max)
+            self._resonator.fit_circle(notch = True, f_min=self._f_min, f_max = self._f_max)
         if self._fit_function == 4: #fano
             self._resonator.fit_fano(f_min=self._f_min, f_max = self._f_max)
         #if self._fit_function == 5: #all fits
