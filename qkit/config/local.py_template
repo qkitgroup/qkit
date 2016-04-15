@@ -1,0 +1,2 @@
+cfg_local = {}
+cfg_local['SomeGlobalVar'] = 42
