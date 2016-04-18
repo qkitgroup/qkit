@@ -81,7 +81,7 @@ class spectrum(object):
         self.log_name = []
         self.log_unit = []
         self.log_dtype = []
-        
+
         if func != None:
             for i,f in enumerate(func):
                 self.log_function.append(f)
@@ -186,11 +186,11 @@ class spectrum(object):
         '''
 
         self._data_file = hdf.Data(name=self._file_name)
-        
+
         # write logfile and instrument settings
-        waf.write_settings_file(self._data_file.get_filepath())
+        self._write_settings_dataset()
         self._log = waf.open_log_file(self._data_file.get_filepath())
-        
+
         self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz', dtype='float64')
         self._data_freq.add(self._freqpoints)
 
@@ -210,7 +210,7 @@ class spectrum(object):
                 self._log_value = []
                 for i in range(len(self.log_function)):
                     self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i],dtype=self.log_dtype[i]))
-            
+
             if self._nop < 10:
                 """creates view: plot middle point vs x-parameter, for qubit measurements"""
                 self._data_amp_mid = self._data_file.add_value_vector('amplitude_midpoint', unit = '', x = self._data_x, save_timestamp = True)
@@ -228,6 +228,11 @@ class spectrum(object):
         if self.comment:
             self._data_file.add_comment(self.comment)
 
+    def _write_settings_dataset(self):
+        self._settings = self._data_file.add_textlist('settings')
+        settings = waf.get_instrument_settings(self._data_file.get_filepath())
+        self._settings.append(settings)
+
     def measure_1D(self):
         '''
         measure method to record a single (averaged) VNA trace, S11 or S21 according to the setting on the VNA
@@ -243,7 +248,7 @@ class spectrum(object):
             self._file_name += '_' + self.exp_name
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
-        
+
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
         if self._fit_resonator:
