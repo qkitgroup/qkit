@@ -47,9 +47,9 @@ class Resonator(object):
         '''
         try:
             self._get_datasets()
-            self._prepared_datasets = True
+            self._datasets_loaded = True
         except KeyError:
-            self._prepared_datasets = False
+            self._datasets_loaded = False
 
     def debug(self,message):
         if self._debug:
@@ -172,7 +172,7 @@ class Resonator(object):
             try: self._y_co = self._hf.get_dataset(ds_url_freq) # hardcode a std url
             except:
                 logging.warning('Unable to open any y_coordinate. Please set manually using \'set_y_coord()\'.')
-        self._prepared_datasets = True
+        self._datasets_loaded = True
 
     def _prepare_f_range(self,f_min,f_max):
         '''
@@ -208,6 +208,10 @@ class Resonator(object):
         self._frequency_co = self._hf.add_coordinate('frequency',folder='analysis', unit = 'Hz',dtype='float64')
         self._frequency_co.add(self._fit_frequency)
 
+    def _update_data(self):
+        self._amplitude = np.array(self._hf["/entry/data0/amplitude"],dtype=np.float64)
+        self._phase = np.array(self._hf["/entry/data0/phase"],dtype=np.float64)
+
     def _get_starting_values(self):
         pass
     
@@ -218,8 +222,10 @@ class Resonator(object):
         if not reflection and not notch:
             self._circle_notch = True
         
-        if not self._prepared_datasets:
+        if not self._datasets_loaded:
             self._get_datasets()
+
+        self._update_data()
         self._prepare_f_range(f_min, f_max)
         
         if self._first_circle:
@@ -252,7 +258,6 @@ class Resonator(object):
             z_data_raw.imag = self._pre_filter_data(z_data_raw.imag)
             self.debug("fitting trace: "+str(trace))
             self._circle_port.z_data_raw = z_data_raw
-            #z_data_raw = self._set_data_range(z_data_raw)
             
             try:
                 self._circle_port.autofit()
@@ -330,6 +335,15 @@ class Resonator(object):
                 self._data_real_gen.append(self._z_data_raw[i].real)
                 self._data_imag_gen.append(self._z_data_raw[i].imag)
 
+    def _get_last_amp_trace(self):
+        tmp_amp = np.empty((1,self._fit_frequency.shape[0]))
+        if self._fit_amplitude.ndim==1: 
+            tmp_amp[0] = self._fit_amplitude
+        else:
+            tmp_amp[0] = self._fit_amplitude[-1]
+        self._fit_amplitude = np.empty((1,self._fit_frequency.shape[0]))
+        self._fit_amplitude[0] = tmp_amp[0]
+
     def fit_lorentzian(self,fit_all = False,f_min=None,f_max=None,pre_filter_data=None):
         '''
         lorentzian fit for amp data in the f_min-f_max frequency range
@@ -345,17 +359,29 @@ class Resonator(object):
             f0,k,a,offs=p
             err = y-(a/(1+4*((x-f0)/k)**2)+offs)
             return err
+        
+        self._fit_all = fit_all
 
-        if not self._prepared_datasets:
+        if not self._datasets_loaded:
             self._get_datasets()
-        self._prepare_fit_range(fit_all,f_min,f_max)
+
+        self._update_data()
+        self._prepare_f_range(f_min,f_max)
         if self._first_lorentzian:
             self._prepare_lorentzian()
             self._first_lorentzian=False
+
+        '''
+        fit_amplitude is always 2dim np array.
+        for 1dim data, shape: (1, # fit frequency points)
+        for 2dim data, shape: (# amplitude slices (i.e. power values in scan), # fit frequency points)
+        '''
+        if not self._fit_all:
+            self._get_last_amp_trace()
+
         for amplitudes in self._fit_amplitude:
             amplitudes = np.absolute(amplitudes)
             amplitudes_sq = amplitudes**2
-
             '''extract starting parameter for lorentzian from data'''
             s_offs = np.mean(np.array([amplitudes_sq[:int(np.size(amplitudes_sq)*.1)], amplitudes_sq[int(np.size(amplitudes_sq)-int(np.size(amplitudes_sq)*.1)):]]))
             '''offset is calculated from the first and last 10% of the data to improve fitting on tight windows'''
@@ -444,12 +470,24 @@ class Resonator(object):
             err = y -(A1+A2*(x-fr)+(A3+A4*(x-fr))/(1.+4.*Qr**2*((x-fr)/fr)**2))
             return err
 
-        if not self._prepared_datasets:
+        self._fit_all = fit_all
+
+        if not self._datasets_loaded:
             self._get_datasets()
-        self._prepare_fit_range(fit_all,f_min,f_max)
+        self._update_data()
+
+        self._prepare_f_range(f_min,f_max)
         if self._first_skewed_lorentzian:
             self._prepare_skewed_lorentzian()
             self._first_skewed_lorentzian = False
+
+        '''
+        fit_amplitude is always 2dim np array.
+        for 1dim data, shape: (1, # fit frequency points)
+        for 2dim data, shape: (# amplitude slices (i.e. power values in scan), # fit frequency points)
+        '''
+        if not self._fit_all:
+            self._get_last_amp_trace()
 
         for amplitudes in self._fit_amplitude:
             "fits a skewed lorenzian to reflection amplitudes of a resonator"
@@ -575,12 +613,22 @@ class Resonator(object):
         f_max (float): upper boundary for data to be fitted (optional, default: None, results in max(frequency-array))
         '''
 
-        if not self._prepared_datasets:
+        self._fit_all = fit_all
+        if not self._datasets_loaded:
             self._get_datasets()
-        self._prepare_fit_range(fit_all,f_min,f_max)
+        self._update_data()
+        self._prepare_fit_range(f_min,f_max)
         if self._first_fano:
             self._prepare_fano()
             self._first_fano = False
+
+        '''
+        fit_amplitude is always 2dim np array.
+        for 1dim data, shape: (1, # fit frequency points)
+        for 2dim data, shape: (# amplitude slices (i.e. power values in scan), # fit frequency points)
+        '''
+        if not self._fit_all:
+            self._get_last_amp_trace()
 
         for amplitudes in self._fit_amplitude:
             amplitude_sq = (np.absolute(amplitudes))**2
@@ -678,14 +726,6 @@ class Resonator(object):
             return float(q0)
         else: return np.nan
 
-    def fit_all_fits(self,fit_all=False,f_min=None,f_max=None):
-        self.fit_lorentzian(fit_all,f_min,f_max)
-        self.fit_skewed_lorentzian(fit_all,f_min,f_max)
-        self.fit_circle_reflection(fit_all,f_min,f_max)
-        self.fit_circle_notch(fit_all,f_min,f_max)
-        self.fit_fano(fit_all,f_min,f_max)
-
-
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(
@@ -719,8 +759,6 @@ if __name__ == "__main__":
         else:
             f_min=None
             f_max=None
-
-
 
         if args.filter_median:
             if args.filter_params:
