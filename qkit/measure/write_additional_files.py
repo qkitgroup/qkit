@@ -23,20 +23,23 @@ def close_log_file(log_file_handler):
         log_file_handler.close()
         log_file_handler = None
 
-def write_settings_file(path):
+def get_instrument_settings(path):
     fn, ext = os.path.splitext(path)
     fn_log = fn + '.set'
     f = open(fn_log, 'w+')
     f.write('Filename: %s\n' % fn)
+    settings = ''
 
     inslist = _dict_to_ordered_tuples(qt.instruments.get_instruments())
     for (iname, ins) in inslist:
-        f.write('Instrument: %s\n' % iname)
+        settings += 'Instrument: %s\n' % iname
         parlist = _dict_to_ordered_tuples(ins.get_parameters())
         for (param, popts) in parlist:
-            f.write('\t%s: %s\n' % (param, ins.get(param, query=False)))
+            settings += '\t%s: %s\n' % (param, ins.get(param, query=False))
 
+    f.write(settings)
     f.close()
+    return settings
 
 def _dict_to_ordered_tuples(dic):
     '''Convert a dictionary to a list of tuples, sorted by key.'''
