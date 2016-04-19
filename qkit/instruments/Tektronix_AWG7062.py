@@ -88,9 +88,13 @@ class Tektronix_AWG7062(Instrument):
 		self.add_parameter('trigger_level', type=types.FloatType,
 			flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
 			minval=-5, maxval=5, units='Volts')
+		self.add_parameter('trigger_source', type=types.StringType,
+			flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET)
 		self.add_parameter('clock', type=types.FloatType,
 			flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
 			minval=1e6, maxval=6e9, units='Hz')
+		self.add_parameter('clock_source', type=types.StringType,
+			flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET)
 		self.add_parameter('numpoints', type=types.IntType,
 			flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
 			minval=100, maxval=1e9, units='Int')
@@ -203,6 +207,8 @@ class Tektronix_AWG7062(Instrument):
 		self.get_clock()
 		self.get_seq_length()
 		self.get_seq_position()
+		self.get_trigger_source()
+		self.get_clock_source()
 
 		
 		for i in range(1,3):
@@ -1264,4 +1270,51 @@ class Tektronix_AWG7062(Instrument):
 			except visa.VisaIOError:
 				print "Buffer is empty now. There have been %i lines in queue"%i
 				break
+	
+	def do_set_clock_source(self,source):
+		'''
+		sets the source for the external 10MHz reference clock
+		Input:
+			INT : For internal reference
+			EXT : Using the reference clock input
+		'''
+		source = source.upper()
+		if source in ["INT","EXT"]:
+			logging.debug(__name__ + ' : Set clock source to %s'%source)
+			return self._visainstrument.write('AWGC:CLOC:SOUR %s'%source)
+		else:
+			raise ValueError("You wanted to set the clock source to %s, but I can only accept INT or EXT."%source)
 				
+	def do_get_clock_source(self):
+		'''
+		gets the source for the external 10MHz reference clock
+		Output:
+			INT : For internal reference
+			EXT : Using the reference clock input
+		'''
+		logging.debug(__name__ + ' : Get clock source')
+		return self._visainstrument.ask('AWGC:CLOC:SOUR?')
+		
+	def do_set_trigger_source(self,source):
+		'''
+		sets the source for the trigger
+		Input:
+			INT : Self-triggered-mode
+			EXT : External trigger input
+		'''
+		source = source.upper()
+		if source in ["INT","EXT"]:
+			logging.debug(__name__ + ' : Set trigger source to %s'%source)
+			return self._visainstrument.write('TRIG:SEQ:SOUR %s'%source)
+		else:
+			raise ValueError("You wanted to set the trigger source to %s, but I can only accept INT or EXT."%source)
+				
+	def do_get_trigger_source(self):
+		'''
+		gets the source for the trigger
+		Output:
+			INT : Self-triggered-mode
+			EXT : External trigger input
+		'''
+		logging.debug(__name__ + ' : Get trigger source')
+		return self._visainstrument.ask('TRIG:SEQ:SOUR?')
