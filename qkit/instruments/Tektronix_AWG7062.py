@@ -159,6 +159,7 @@ class Tektronix_AWG7062(Instrument):
 		self.add_function('force_trigger')
 		self.add_function('set_seq_jump')
 		self.add_function('read_queue')
+		self.add_function('jump_to')
 		
 
 		# Make Load/Delete Waveform functions for each channel
@@ -208,6 +209,7 @@ class Tektronix_AWG7062(Instrument):
 		self.get_seq_length()
 		self.get_seq_position()
 		self.get_trigger_source()
+		self.get_clock_source()
 		self.get_clock_source()
 
 		
@@ -1318,3 +1320,9 @@ class Tektronix_AWG7062(Instrument):
 		'''
 		logging.debug(__name__ + ' : Get trigger source')
 		return self._visainstrument.ask('TRIG:SEQ:SOUR?')
+	def jump_to(self, target):
+		'''
+		Forces the sequencer to output the sequence with index "target"
+		'''
+		logging.debug(__name__ + ' : Sequencer force jump to %i'%target)
+		return self._visainstrument.write('SEQ:JUMP:IMMEDIATE %i'%target)
