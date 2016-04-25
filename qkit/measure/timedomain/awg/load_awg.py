@@ -9,7 +9,7 @@ from qkit.gui.notebook.Progress_Bar import Progress_Bar
 import gc
 
 
-def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None):
+def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None, ch2_amp = 2):
 	'''
 		set awg to sequence mode and push a number of waveforms into the sequencer
 		
@@ -48,7 +48,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
 		awg.set_ch1_offset(0)
 		awg.set_ch2_offset(0)
 		awg.set_ch1_amplitude(2)
-		awg.set_ch2_amplitude(2)
+		awg.set_ch2_amplitude(ch2_amp)
 
 	#generate empty tuples
 	wfm_samples_prev = [None,None]
@@ -61,7 +61,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
 		qt.msleep()
 		wfm_samples = wfm_func2(t,sample)   #generate waveform
 		if not isinstance(wfm_samples[0],(list, tuple, np.ndarray)):   #homodyne
-			wfm_samples = [wfm_samples,np.zeros_like(wfm_samples)]
+			wfm_samples = [wfm_samples,np.zeros_like(wfm_samples, dtype=np.int8)]
 		
 		for chan in [0,1]:
 			if markerfunc != None:   #use markerfunc
