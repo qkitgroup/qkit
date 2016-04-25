@@ -1,3 +1,8 @@
+'''
+generate_waveform.py
+M. Jerger, S. Probst, A. Schneider (04/2015), J. Braumueller (04/2016)
+'''
+
 import qt
 import numpy as np
 import os.path
@@ -6,20 +11,18 @@ import logging
 import numpy
 import sys
 
+import scipy.special
+
 '''
 	TODO:
 	- low and high are not well defined, as various pulses are summmed up
 '''
 
 # creates dummy objects to have everything well-defined.
-
 #global sample
 #sample = type('Sample', (object,),{  'exc_T' : 1e-6 , 'tpi' : 2e-9 , 'tpi2' : 1e-9, 'clock' : 1e9   })
 
-
-
-# awg-supported multiple measurement system
-def erf(pulse, attack, decay, length=None, position = None, clock = None):
+def erf(pulse, attack, decay, sample, length=None, position = None, low=0, high=1, clock = None):
 	'''
 		create an erf-shaped envelope function
 		erf(\pm 2) is almost 0/1, erf(\pm 1) is ~15/85%
@@ -28,25 +31,45 @@ def erf(pulse, attack, decay, length=None, position = None, clock = None):
 			tstart, tstop - erf(-2) times
 			attack, decay - attack/decay times
 	'''
-	import scipy.special
-	if(clock == None): clock= sample.clock
-	if(length == None): length= sample.exc_T
+	if(clock == None): clock = sample.clock
+	if(length == None): length = sample.exc_T
 	if(position == None): position = length
+	if(pulse>position):
+		logging.error(__name__ + ' : pulse does not fit into waveform')
+	if attack < 2./clock:
+		logging.warning(__name__ + ' : attack too small compared to AWG sample frequency, setting to %.4g s'%(2./clock))
+		attack = 2./clock
+	if decay < 2./clock:
+		logging.warning(__name__ + ' : decay too small compared to AWG sample frequency, setting to %.4g s'%(2./clock))
+		decay = 2./clock
 	sample_start = int(clock*(position-pulse))
 	sample_end = int(clock*position)
 	sample_length = int(np.ceil(length*clock))
-	wfm = np.ones(sample_length)
+	wfm = low * np.ones(sample_length)
 	nAttack = int(clock*attack)
 	sAttack = 0.5*(1+scipy.special.erf(np.linspace(-2, 2, nAttack)))
-	wfm[sample_start:sample_start+nAttack] *= sAttack
-	wfm[0:sample_start] *= 0
+	wfm[sample_start:sample_start+nAttack] += sAttack * (high-low)
 	nDecay = int(clock*decay)
 	sDecay = 0.5*(1+scipy.special.erf(np.linspace(2, -2, nDecay)))
-	wfm[(sample_end-nDecay):sample_end] *= sDecay 
-	wfm[sample_end:sample_length] *= 0
+	wfm[sample_end-nDecay:sample_end] += sDecay * (high-low)
+	wfm[sample_start+nAttack:sample_end-nDecay] = high
 	return wfm
 	
-def triangle(pulse, attack, decay, length = None,position = None, clock = None):
+def exp(pulse, decay, sample, position = None, low=0, high=1, clock = None):
+	'''
+	create and exponential decaying waveform
+	'''
+	if(clock == None): clock = sample.clock
+	if(position == None): position = sample.exc_T
+	sample_length = int(np.ceil(sample.exc_T*clock))
+	wfm = low * np.ones(sample_length)
+	sample_start = int(clock*(position-pulse))
+	sample_end = int(clock*position)
+	
+	wfm[sample_start:sample_end] += np.exp(-np.arange(sample_end-sample_start)/(decay*clock)) * (high-low)
+	return wfm
+	
+def triangle(pulse, attack, decay, sample, length = None, position = None, clock = None):
 	'''
 		create a pulse with triangular shape
 		
@@ -55,8 +78,8 @@ def triangle(pulse, attack, decay, length = None,position = None, clock = None):
 			length - length of the resulting waveform in seconds
 			position - position of the end of the pulse
 	'''
-	if(clock == None): clock= sample.clock
-	if(length == None): length= sample.exc_T
+	if(clock == None): clock = sample.clock
+	if(length == None): length = sample.exc_T
 	if(position == None): position = length
 	sample_start = int(clock*(position-pulse))
 	sample_end = int(clock*position)
