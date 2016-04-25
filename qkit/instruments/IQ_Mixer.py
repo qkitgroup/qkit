@@ -437,14 +437,14 @@ class IQ_Mixer(Instrument):
 		else:
 			logging.warning(__name__ + ' : Switch was not switched. Define switchbox instrument via iq.connect_switchbox(swb). If you do not have a switchbox, make sure your cables are connected and go on.')
 		qt.mstart()
-		(hx_amp,hx_phase,hy_amp,hy_phase,phaseoffset)=(0,0,0,0,0) 
+		(hx_amp,hx_phase,hy_amp,hy_phase,phaseoffset)=(0,0,0,0,0)
+		self._f_rounded = np.round(self._sideband_frequency,-3)
 		mw_freq=self._f_rounded - self._iq_frequency
 		if self._iq_frequency == 0:	logging.warning(__name__+': Your IQ Frequency is 0. It is better to calibrate with a finite IQ frequency because you will get inconsistent data in the calibration file otherwise. If you calibrate with iq!=0, the right values for iq=0 are extracted.')
 		
 		#self._sample.awg.stop()
 		self._sample.awg.set({'ch1_output':0,'ch2_output':0,'runmode':'CONT'})
 		self._sample.qubit_mw_src.set({'frequency':mw_freq, 'power':self._mw_power, 'status':1})
-		
 		
 		print "Starting an initial calibration of %s for Frequency: %.2fGHz (MW-Freq: %.2fGHz), MW Power: %.2fdBm"%(self.mixer_name,self._sideband_frequency/1e9,mw_freq/1e9,self._mw_power)
 		sys.stdout.flush()
