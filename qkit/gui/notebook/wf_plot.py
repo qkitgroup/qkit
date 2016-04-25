@@ -69,8 +69,8 @@ def wfplot(analog_wfm, seq = 1, complete_marker = None, x_range = None, sample =
 			markers = [np.array(complete_marker)]
 		
 		maxis = axis.twinx()
-		xl = len(xval)
-		xr = 0
+		xlm = len(xval)
+		xrm = 0
 		for mi, m in enumerate(markers):
 			if (m != np.zeros_like(m)).any() and m != None:
 				maxis.fill_between(xval, 0, float(4-mi)/2*m[seq], color = clr_dict[mi], alpha = 0.7)
