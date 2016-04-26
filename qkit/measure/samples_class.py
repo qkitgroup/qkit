@@ -1,5 +1,7 @@
 # AS @ KIT 04/2015
+# modified JB 04/2016
 # Sample Class to define all values necessary to measure a sample
+
 import time
 import pickle
 import qt
@@ -33,7 +35,6 @@ class Sample(object):
 		- qubit_mw_src power
 		- qubit_mw_src f01-iq_frequency
 		'''
-		
 		
 		if (self.awg == None):
 			logging.error(__name__ + ' : awg not defined')
@@ -127,57 +128,56 @@ class Sample(object):
 		self.tpi  = tpi
 		self.tpi2 = tpi/2.
 	
-	def get_all(self):
-		msg = ""
-	
+	def _prepare_entries(self):
 		copydict = copy.copy(self.__dict__)
-		if type(copydict['awg']) == types.InstanceType: 
-			copydict['awg']="Instrument "+copydict['awg'].get_name()
-		if type(copydict['qubit_mw_src']) == types.InstanceType: 
-			copydict['qubit_mw_src'] = "Instrument "+copydict['qubit_mw_src'].get_name()
-			
-		for key in sorted(copydict):   				# There is a block readable by humans
-			msg+= str(key) + ":	" + str(copydict[key])+"\n"
-			
-		print msg
+		for key in sorted(copydict):
+			if type(copydict[key]) == types.InstanceType:   #instrument
+				copydict[key] = str(copydict[key].get_name()) + ' ins'
+		return copydict
+	
+	def get_all(self):
+		'''
+		return all keys and entries of sample instance
+		'''
+		msg = ""
+		copydict = self._prepare_entries()
+		for key in sorted(copydict):
+			msg+= str(key) + ":   " + str(copydict[key])+"\n"
+		return msg
 	
 	def save(self,filename=None):
+		'''
+		save sample object in the data directory
+		'''
 		if not os.path.exists(os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d"))):
-				os.makedirs(os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d")))
-				
-		if filename==None:
+			os.makedirs(os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d")))
 			
+		if filename==None:
 			filename=time.strftime("%H%M%S.sample")
-		msg = ""
-		
-		copydict = copy.copy(self.__dict__)
-		if type(copydict['awg']) == types.InstanceType: 
-			copydict['awg']=copydict['awg'].get_name()
-		if type(copydict['qubit_mw_src']) == types.InstanceType: 
-			copydict['qubit_mw_src'] = copydict['qubit_mw_src'].get_name()
-		
-		for key in sorted(copydict):   				# There is a block readable by humans
-			msg+= str(key) + ":	" + str(copydict[key])+"\n"
-		
+			
+		msg = self.get_all()
 		msg+="\n\n\n<PICKLE PACKET BEGINS HERE>\n" # A Separator
 		
+		copydict = self._prepare_entries()
 		msg+=pickle.dumps(copydict) # And a block which can be easily converted back to a dict
 		filehandle=open(os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d"),filename),'w+')
-		print "Saved to "+os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d"),filename)
+		print "Saved to " + str(os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d"),filename)).replace('\\','/')
 		filehandle.write(msg)
 		filehandle.close()
-	
-	
-		
 		
 	def load(self, filename):
+		'''
+		load sample keys and entries to current sample instance
+		'''
 		if not os.path.isabs(filename):
 			filename = os.path.join(qt.config.get('datadir'),filename)
 		filehandle=open(filename,'r')
 		self.__dict__ = pickle.loads(filehandle.read().split("<PICKLE PACKET BEGINS HERE>\n")[1])
 		#print pickle.loads(filehandle.read().split("<PICKLE PACKET BEGINS HERE>\n")[1]).__dict__
 		filehandle.close()
-		if self.awg != None:
-			self.awg = qt.instruments.get(self.awg)
-		if self.qubit_mw_src != None:
-			self.qubit_mw_src = qt.instruments.get(self.qubit_mw_src)
+		
+		copydict = copy.copy(self.__dict__)
+		for key in sorted(copydict):
+			if ('xxxx'+str(copydict[key]))[-4:] == ' ins':   #instrument
+				copydict[key] = qt.instruments.get(copydict[key][:-4])
+			
