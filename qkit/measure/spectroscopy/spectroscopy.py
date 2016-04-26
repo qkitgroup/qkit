@@ -222,8 +222,13 @@ class spectrum(object):
             self._data_x.add(self.x_vec)
             self._data_y = self._data_file.add_coordinate(self.y_coordname, unit = self.y_unit)
             self._data_y.add(self.y_vec)
-            self._data_amp = self._data_file.add_value_box('amplitude', x = self._data_x, y = self._data_y, z = self._data_freq, unit = '', save_timestamp = True)
-            self._data_pha = self._data_file.add_value_box('phase', x = self._data_x, y = self._data_y, z = self._data_freq, unit = 'rad', save_timestamp = True)
+            
+            if self._nop == 0:   # dos not work yet     # the pnax can measure only one value, saving it in a 2D matrix instead of a 3D box, no timestamp
+                self._data_amp = self._data_file.add_value_matrix('amplitude', x = self._data_x, y = self._data_y,  unit = '1',   save_timestamp = False)
+                self._data_pha = self._data_file.add_value_matrix('phase',     x = self._data_x, y = self._data_y,  unit = 'rad', save_timestamp = False)
+            else:
+                self._data_amp = self._data_file.add_value_box('amplitude', x = self._data_x, y = self._data_y, z = self._data_freq, unit = '1', save_timestamp = False)
+                self._data_pha = self._data_file.add_value_box('phase', x = self._data_x, y = self._data_y, z = self._data_freq, unit = 'rad', save_timestamp = False)
 
         if self.comment:
             self._data_file.add_comment(self.comment)
@@ -387,8 +392,14 @@ class spectrum(object):
                             sleep(self._sweeptime_averages)
                             """ measurement """
                             data_amp, data_pha = self.vna.get_tracedata()
-                        self._data_amp.append(data_amp)
-                        self._data_pha.append(data_pha)
+
+                        if self._nop == 0: # this does not work yet.
+                           print data_amp[0], data_amp, self._nop
+                           self._data_amp.append(data_amp[0])
+                           self._data_pha.append(data_pha[0])
+                        else:
+                           self._data_amp.append(data_amp)
+                           self._data_pha.append(data_pha)
                         if self._fit_resonator:
                             self._do_fit_resonator()
                         if self.progress_bar:
