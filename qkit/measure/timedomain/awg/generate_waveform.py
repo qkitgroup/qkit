@@ -34,24 +34,33 @@ def erf(pulse, attack, decay, sample, length=None, position = None, low=0, high=
 	if(clock == None): clock = sample.clock
 	if(length == None): length = sample.exc_T
 	if(position == None): position = length
+	
 	if(pulse>position):
 		logging.error(__name__ + ' : pulse does not fit into waveform')
-	if attack < 2./clock:
-		logging.warning(__name__ + ' : attack too small compared to AWG sample frequency, setting to %.4g s'%(2./clock))
-		attack = 2./clock
-	if decay < 2./clock:
-		logging.warning(__name__ + ' : decay too small compared to AWG sample frequency, setting to %.4g s'%(2./clock))
-		decay = 2./clock
+		
 	sample_start = int(clock*(position-pulse))
 	sample_end = int(clock*position)
 	sample_length = int(np.ceil(length*clock))
 	wfm = low * np.ones(sample_length)
-	nAttack = int(clock*attack)
-	sAttack = 0.5*(1+scipy.special.erf(np.linspace(-2, 2, nAttack)))
-	wfm[sample_start:sample_start+nAttack] += sAttack * (high-low)
-	nDecay = int(clock*decay)
-	sDecay = 0.5*(1+scipy.special.erf(np.linspace(2, -2, nDecay)))
-	wfm[sample_end-nDecay:sample_end] += sDecay * (high-low)
+	
+	if attack != 0:
+		if attack < 2./clock:
+			logging.warning(__name__ + ' : attack too small compared to AWG sample frequency, setting to %.4g s'%(2./clock))
+			attack = 2./clock
+		nAttack = int(clock*attack)
+		sAttack = 0.5*(1+scipy.special.erf(np.linspace(-2, 2, nAttack)))
+		wfm[sample_start:sample_start+nAttack] += sAttack * (high-low)
+	else:
+		nAttack = 0
+	if decay != 0:
+		if decay < 2./clock:
+			logging.warning(__name__ + ' : decay too small compared to AWG sample frequency, setting to %.4g s'%(2./clock))
+			decay = 2./clock
+		nDecay = int(clock*decay)
+		sDecay = 0.5*(1+scipy.special.erf(np.linspace(2, -2, nDecay)))
+		wfm[sample_end-nDecay:sample_end] += sDecay * (high-low)
+	else:
+		nDecay = 0
 	wfm[sample_start+nAttack:sample_end-nDecay] = high
 	return wfm
 	
