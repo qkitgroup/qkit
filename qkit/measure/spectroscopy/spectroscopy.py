@@ -275,7 +275,7 @@ class spectrum(object):
             self._do_fit_resonator()
 
         qt.mend()
-        self._end_measurement()
+        #self._end_measurement()
 
     def measure_2D(self):
         '''
@@ -309,7 +309,7 @@ class spectrum(object):
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath())
         self._measure()
-        self._end_measurement()
+        #self._end_measurement()
 
 
     def measure_3D(self):
@@ -351,7 +351,7 @@ class spectrum(object):
                 self.center_freqs.append([0])
 
         self._measure()
-        self._end_measurement()
+        #self._end_measurement()
 
     def _measure(self):
         '''
@@ -416,6 +416,7 @@ class spectrum(object):
                         self._p.iterate()
                         qt.msleep()
         finally:
+            self._end_measurement()
             qt.mend()
 
     def _end_measurement(self):
