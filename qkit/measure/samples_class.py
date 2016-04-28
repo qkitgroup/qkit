@@ -12,21 +12,9 @@ class Sample(object):
 	'''
 	Sample Class to define all values necessary to measure a sample
 	'''
-	
 	def __init__(self):
 		self.name = 'Arbitray Sample'
 		self.comment = ''
-		self.fr = None
-		self.f01 = None
-		self.mw_power = -50
-		self.tpi = 0
-		self.tpi2 = 0
-		self.clock = 1e9
-		self.awg = None
-		self.qubit_mw_src = None
-		self.iq_frequency = 0
-		self.exc_T = None
-		self.mw_power_offset = 0
 		
 	def update_instruments(self):
 		'''
@@ -35,17 +23,32 @@ class Sample(object):
 		- qubit_mw_src power
 		- qubit_mw_src f01-iq_frequency
 		'''
+<<<<<<< HEAD
 		
 		if (self.awg == None):
 			logging.error(__name__ + ' : awg not defined')
+=======
+		try:
+			self.awg
+			self.clock
+			self.qubit_mw_src
+			self.f01
+			self.iq_frequency
+			self.mw_power
+		except AttributeError or NameError:
+			logging.error('Relevant instruments and attributes not properly specified.')
+>>>>>>> 7669eb464525ea8ce25bad1073c1520e787ca595
 		else:
-			self.awg.set_clock(self.clock)
-			
-		if (self.qubit_mw_src == None):
-			logging.error(__name__ + ' : qubit_mw_src not defined')
-		else:
-			self.qubit_mw_src.set_frequency(self.f01-self.iq_frequency)
-			self.qubit_mw_src.set_power(self.mw_power + self.mw_power_offset)   #JB
+			if self.awg == None:
+				logging.error(__name__ + ' : awg not defined')
+			else:
+				self.awg.set_clock(self.clock)
+				
+			if self.qubit_mw_src == None:
+				logging.error(__name__ + ' : qubit_mw_src not defined')
+			else:
+				self.qubit_mw_src.set_frequency(self.f01-self.iq_frequency)
+				self.qubit_mw_src.set_power(self.mw_power)
 			
 	def set_exc_T(self,exc_T):
 		self.exc_T = exc_T
@@ -71,14 +74,12 @@ class Sample(object):
 	def get_awg(self):
 		return self.awg
 		
-		
 	def set_clock(self,clock):
 		self.clock = clock
 	
 	def get_clock(self):
 		return self.clock
 
-		
 	def set_name(self,name):
 		self.name = name
 	
@@ -89,7 +90,7 @@ class Sample(object):
 		self.comment = comment
 	
 	def get_comment(self):
-		return self.comment	
+		return self.comment
 	
 	def set_fr(self,fr):
 		self.fr = fr

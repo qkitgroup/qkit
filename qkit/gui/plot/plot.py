@@ -6,6 +6,7 @@ plt.ioff()
 import numpy as np
 import logging
 logging.basicConfig(level=logging.INFO)
+from qkit.config.environment import cfg
 
 # this is for live-plots
 def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
@@ -19,7 +20,8 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
     live (bool, optional): checks constantly the file for changes, default: True
     echo (bool, optional): echo settings for debugging, default: False
     """
-    plot_viewer = 'qkit.gui.qviewkit.main'
+    # the plot engine for live plots is set in the environement
+    plot_viewer = cfg['plot_engine']
     ds = ""
     for s in datasets: ds+=s+","
     ds = ds.strip(",")
@@ -86,13 +88,15 @@ class h5plot(object):
                         self.plt_ds(key)
         else:
             for i, pentry in enumerate(self.hf['/entry'].keys()):
-                key='/entry/'+pentry
-                for j, centry in enumerate(self.hf[key].keys()):
-                    key='/entry/'+pentry+"/"+centry
-                    if pentry == 'views':
-                        self.plt_views(key)
-                    else:
-                        self.plt_ds(key)
+                # do not plot analysis-datasets
+                if pentry != 'analysis0':
+                    key='/entry/'+pentry
+                    for j, centry in enumerate(self.hf[key].keys()):
+                        key='/entry/'+pentry+"/"+centry
+                        if pentry == 'views':
+                            self.plt_views(key)
+                        else:
+                            self.plt_ds(key)
 
         #close hf file
         self.hf.close()

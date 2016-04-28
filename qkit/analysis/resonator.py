@@ -5,7 +5,7 @@ import numpy as np
 import logging
 
 from qkit.storage import hdf_lib
-from qkit.analysis.circle_fit import resonator_tools_xtras as rtx
+from qkit.analysis.circle_fit import circuit
 from scipy.optimize import leastsq
 from scipy.ndimage import gaussian_filter1d
 from scipy.ndimage.filters import median_filter
@@ -46,10 +46,10 @@ class Resonator(object):
         i.g. while live-fitting
         '''
         try:
-            self._prepare_datasets()
-            self._prepared_datasets = True
+            self._get_datasets()
+            self._datasets_loaded = True
         except KeyError:
-            self._prepared_datasets = False
+            self._datasets_loaded = False
 
     def debug(self,message):
         if self._debug:
@@ -132,7 +132,7 @@ class Resonator(object):
                 ret_array[i]=data[i][(self._frequency >= self._f_min) & (self._frequency <= self._f_max)]
             return ret_array
 
-    def _prepare_datasets(self):
+    def _get_datasets(self):
         '''
         reads out the file
         '''
@@ -172,17 +172,15 @@ class Resonator(object):
             try: self._y_co = self._hf.get_dataset(ds_url_freq) # hardcode a std url
             except:
                 logging.warning('Unable to open any y_coordinate. Please set manually using \'set_y_coord()\'.')
-        self._prepared_datasets = True
+        self._datasets_loaded = True
 
-    def _prepare_fit_range(self,fit_all,f_min,f_max):
+    def _prepare_f_range(self,f_min,f_max):
         '''
         prepares the data to be fitted:
-        fit_all (bool): True or False, fits the whole dataset or only the last entry
         f_min (float): lower boundary
         f_max (float): upper boundary
         '''
-        self._fit_all = fit_all
-        if self._amplitude.ndim == 1: self._fit_all = False #hack for 1D datasets
+
         self._f_min = np.min(self._frequency)
         self._f_max = np.max(self._frequency)
 
@@ -207,63 +205,64 @@ class Resonator(object):
         self._fit_amplitude = np.array(self._set_data_range(self._amplitude))
         self._fit_phase = np.array(self._set_data_range(self._phase))
 
-        '''
-        fit_amplitude and fit_phase are always 2dim np arrays.
-        for 1dim data, shape: (1, # fit frequency points)
-        for 2dim data, shape: (# amplitude slices (i.e. power values in scan), # fit frequency points)
-        '''
-        if not self._fit_all:
-            tmp=np.empty((1,self._fit_frequency.shape[0]))
-            if self._fit_amplitude.ndim==1: tmp[0]=self._fit_amplitude
-            else: tmp[0]=self._fit_amplitude[-1]
-            self._fit_amplitude=np.empty(tmp.shape)
-            self._fit_amplitude[0] = tmp[0]
-            if self._fit_phase.ndim==1: tmp[0]=self._fit_phase
-            else: tmp[0]=self._fit_phase[-1]
-            self._fit_phase=np.empty(tmp.shape)
-            self._fit_phase[0] = tmp[0]
-
         self._frequency_co = self._hf.add_coordinate('frequency',folder='analysis', unit = 'Hz',dtype='float64')
         self._frequency_co.add(self._fit_frequency)
 
+    def _update_data(self):
+        self._amplitude = np.array(self._hf["/entry/data0/amplitude"],dtype=np.float64)
+        self._phase = np.array(self._hf["/entry/data0/phase"],dtype=np.float64)
+
     def _get_starting_values(self):
         pass
+    
+    def fit_circle(self,reflection = False, notch = False, fit_all = False, f_min = None, f_max=None):
+        self._fit_all = fit_all
+        self._circle_reflection = reflection
+        self._circle_notch = notch
+        if not reflection and not notch:
+            self._circle_notch = True
+        
+        if not self._datasets_loaded:
+            self._get_datasets()
 
+        self._update_data()
+        self._prepare_f_range(f_min, f_max)
+        
+        if self._first_circle:
+            self._prepare_circle()
+            self._first_circle = False
 
+        if self._circle_reflection:
+           self._circle_port = circuit.reflection_port(f_data = self._fit_frequency)
+        elif self._circle_notch:
+            self._circle_port = circuit.notch_port(f_data = self._fit_frequency)
+            
+        self._do_fit_circle()
 
-    def fit_circle(self,fit_all = False, f_min = None, f_max=None):
+    def _do_fit_circle(self):
         '''
-        Calls circle fit from resonator_tools_xtras.py and resonator_tools.py in the qkit/analysis folder
+        Creates corresponding ports in circuit.py in the qkit/analysis folder
         circle fit for amp and pha data in the f_min-f_max frequency range
         fit parameter, errors, and generated amp/pha data are stored in the hdf-file
 
         input:
         fit_all (bool): True or False, default: False. Whole data (True) or only last "slice" (False) is fitted (optional)
-        f_min (float): lower boundary for data to be fitted (optional, default: None, results in min(frequency-array))
-        f_max (float): upper boundary for data to be fitted (optional, default: None, results in max(frequency-array))
         '''
-        if not self._prepared_datasets:
-            self._prepare_datasets()
-        self._prepare_fit_range(fit_all,f_min,f_max)
-        if self._first_circle:
-            self._prepare_circle()
-            self._first_circle = False
 
         self._get_data_circle()
         trace = 0
         self.debug("circle fit:")
         for z_data_raw in self._z_data_raw:
+            
             z_data_raw.real = self._pre_filter_data(z_data_raw.real)
             z_data_raw.imag = self._pre_filter_data(z_data_raw.imag)
             self.debug("fitting trace: "+str(trace))
-            #z_data_raw = self._set_data_range(z_data_raw)
+            self._circle_port.z_data_raw = z_data_raw
+            
             try:
-                delay, amp_norm, alpha, fr, Qr, A2, frcal = rtx.do_calibration(self._fit_frequency, z_data_raw,ignoreslope=True)
-                z_data = rtx.do_normalization(self._fit_frequency, z_data_raw,delay,amp_norm,alpha,A2,frcal)
-                results = rtx.circlefit(self._fit_frequency,z_data,fr,Qr,refine_results=False,calc_errors=True)
-
+                self._circle_port.autofit()
             except:
-                err=np.array(['nan' for f in self._fit_frequency])
+                err=np.array([np.nan for f in self._fit_frequency])
                 self._circ_amp_gen.append(err)
                 self._circ_pha_gen.append(err)
                 self._circ_real_gen.append(err)
@@ -273,20 +272,28 @@ class Resonator(object):
                     self._results[str(key)].append(np.nan)
 
             else:
-                z_data_gen = np.array([A2 * (f - frcal) + rtx.S21(f, fr=float(results["fr"]), Qr=float(results["Qr"]), Qc=float(results["absQc"]), phi=float(results["phi0"]), a= amp_norm, alpha= alpha, delay=delay) for f in self._fit_frequency])
-                self._circ_amp_gen.append(np.absolute(z_data_gen))
-                self._circ_pha_gen.append(np.angle(z_data_gen))
-                self._circ_real_gen.append(np.real(z_data_gen))
-                self._circ_imag_gen.append(np.imag(z_data_gen))
+                self._circ_amp_gen.append(np.absolute(self._circle_port.z_data_sim))
+                self._circ_pha_gen.append(np.angle(self._circle_port.z_data_sim))
+                self._circ_real_gen.append(np.real(self._circle_port.z_data_sim))
+                self._circ_imag_gen.append(np.imag(self._circle_port.z_data_sim))
 
                 for key in self._results.iterkeys():
-                    self._results[str(key)].append(float(results[str(key)]))
+                    self._results[str(key)].append(float(self._circle_port.fitresults[str(key)]))
             trace+=1
 
     def _prepare_circle(self):
         '''
         creates the datasets for the circle fit in the hdf-file
         '''
+        self._result_keys_notch = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Ql":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Ql_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
+        self._result_keys_reflection = {"Qi":'',"Qc":'',"Ql":'',"fr":'',"theta0":'',"Ql_err":'', "Qc_err":'', "fr_err":'',"chi_square":'',"Qi_err":''}
+        self._results = {}
+        
+        if self._circle_notch:
+            self._result_keys = self._result_keys_notch
+
+        if self._circle_reflection:
+            self._result_keys = self._result_keys_reflection
 
         self._data_real_gen = self._hf.add_value_matrix('data_real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
         self._data_imag_gen = self._hf.add_value_matrix('data_imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
@@ -295,10 +302,6 @@ class Resonator(object):
         self._circ_pha_gen = self._hf.add_value_matrix('circ_pha_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='rad')
         self._circ_real_gen = self._hf.add_value_matrix('circ_real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
         self._circ_imag_gen = self._hf.add_value_matrix('circ_imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
-
-        self._result_keys = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Qr":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Qr_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
-        self._results = {}
-
 
         for key in self._result_keys.iterkeys():
            self._results[str(key)] = self._hf.add_value_vector('circ_'+str(key), folder = 'analysis', x = self._x_co, unit ='')
@@ -315,8 +318,13 @@ class Resonator(object):
         calc complex data from amp and pha
         '''
         if not self._fit_all:
-            self._z_data_raw = np.empty((1,self._fit_amplitude.shape[1]), dtype=np.complex64)
-            self._z_data_raw[0] = np.array(self._fit_amplitude*np.exp(1j*self._fit_phase),dtype=np.complex64)
+            self._z_data_raw = np.empty((1,self._fit_frequency.shape[0]), dtype=np.complex64)
+
+            if self._fit_amplitude.ndim == 1: 
+                self._z_data_raw[0] = np.array(self._fit_amplitude*np.exp(1j*self._fit_phase),dtype=np.complex64)
+            else: 
+                self._z_data_raw[0] = np.array(self._fit_amplitude[-1]*np.exp(1j*self._fit_phase[-1]),dtype=np.complex64)
+
             self._data_real_gen.append(self._z_data_raw[0].real)
             self._data_imag_gen.append(self._z_data_raw[0].imag)
 
@@ -326,6 +334,16 @@ class Resonator(object):
                 self._z_data_raw[i] = self._fit_amplitude[i]*np.exp(1j*self._fit_phase[i])
                 self._data_real_gen.append(self._z_data_raw[i].real)
                 self._data_imag_gen.append(self._z_data_raw[i].imag)
+
+    def _get_last_amp_trace(self):
+        tmp_amp = np.empty((1,self._fit_frequency.shape[0]))
+        if self._fit_amplitude.ndim==1: 
+            tmp_amp[0] = self._fit_amplitude
+        else:
+            tmp_amp[0] = self._fit_amplitude[-1]
+        self._fit_amplitude = np.empty((1,self._fit_frequency.shape[0]))
+        self._fit_amplitude[0] = tmp_amp[0]
+
     def fit_lorentzian(self,fit_all = False,f_min=None,f_max=None,pre_filter_data=None):
         '''
         lorentzian fit for amp data in the f_min-f_max frequency range
@@ -341,17 +359,29 @@ class Resonator(object):
             f0,k,a,offs=p
             err = y-(a/(1+4*((x-f0)/k)**2)+offs)
             return err
+        
+        self._fit_all = fit_all
 
-        if not self._prepared_datasets:
-            self._prepare_datasets()
-        self._prepare_fit_range(fit_all,f_min,f_max)
+        if not self._datasets_loaded:
+            self._get_datasets()
+
+        self._update_data()
+        self._prepare_f_range(f_min,f_max)
         if self._first_lorentzian:
             self._prepare_lorentzian()
             self._first_lorentzian=False
+
+        '''
+        fit_amplitude is always 2dim np array.
+        for 1dim data, shape: (1, # fit frequency points)
+        for 2dim data, shape: (# amplitude slices (i.e. power values in scan), # fit frequency points)
+        '''
+        if not self._fit_all:
+            self._get_last_amp_trace()
+
         for amplitudes in self._fit_amplitude:
             amplitudes = np.absolute(amplitudes)
             amplitudes_sq = amplitudes**2
-
             '''extract starting parameter for lorentzian from data'''
             s_offs = np.mean(np.array([amplitudes_sq[:int(np.size(amplitudes_sq)*.1)], amplitudes_sq[int(np.size(amplitudes_sq)-int(np.size(amplitudes_sq)*.1)):]]))
             '''offset is calculated from the first and last 10% of the data to improve fitting on tight windows'''
@@ -440,12 +470,24 @@ class Resonator(object):
             err = y -(A1+A2*(x-fr)+(A3+A4*(x-fr))/(1.+4.*Qr**2*((x-fr)/fr)**2))
             return err
 
-        if not self._prepared_datasets:
-            self._prepare_datasets()
-        self._prepare_fit_range(fit_all,f_min,f_max)
+        self._fit_all = fit_all
+
+        if not self._datasets_loaded:
+            self._get_datasets()
+        self._update_data()
+
+        self._prepare_f_range(f_min,f_max)
         if self._first_skewed_lorentzian:
             self._prepare_skewed_lorentzian()
             self._first_skewed_lorentzian = False
+
+        '''
+        fit_amplitude is always 2dim np array.
+        for 1dim data, shape: (1, # fit frequency points)
+        for 2dim data, shape: (# amplitude slices (i.e. power values in scan), # fit frequency points)
+        '''
+        if not self._fit_all:
+            self._get_last_amp_trace()
 
         for amplitudes in self._fit_amplitude:
             "fits a skewed lorenzian to reflection amplitudes of a resonator"
@@ -571,12 +613,22 @@ class Resonator(object):
         f_max (float): upper boundary for data to be fitted (optional, default: None, results in max(frequency-array))
         '''
 
-        if not self._prepared_datasets:
-            self._prepare_datasets()
-        self._prepare_fit_range(fit_all,f_min,f_max)
+        self._fit_all = fit_all
+        if not self._datasets_loaded:
+            self._get_datasets()
+        self._update_data()
+        self._prepare_fit_range(f_min,f_max)
         if self._first_fano:
             self._prepare_fano()
             self._first_fano = False
+
+        '''
+        fit_amplitude is always 2dim np array.
+        for 1dim data, shape: (1, # fit frequency points)
+        for 2dim data, shape: (# amplitude slices (i.e. power values in scan), # fit frequency points)
+        '''
+        if not self._fit_all:
+            self._get_last_amp_trace()
 
         for amplitudes in self._fit_amplitude:
             amplitude_sq = (np.absolute(amplitudes))**2
@@ -674,13 +726,6 @@ class Resonator(object):
             return float(q0)
         else: return np.nan
 
-    def fit_all_fits(self,fit_all=False,f_min=None,f_max=None):
-        self.fit_lorentzian(fit_all,f_min,f_max)
-        self.fit_skewed_lorentzian(fit_all,f_min,f_max)
-        self.fit_circle(fit_all,f_min,f_max)
-        self.fit_fano(fit_all,f_min,f_max)
-
-
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(
@@ -697,6 +742,7 @@ if __name__ == "__main__":
     parser.add_argument('-fm','--filter-median', default=False, action='store_true', help='(optional) (pre-) filter data: median')
     parser.add_argument('-fp','--filter-params',type=str, help='(optional) (pre-) filter data: parameter')
     parser.add_argument('-d','--debug-output', default=False, action='store_true', help='(optional) debug: more verbose')
+    parser.add_argument('-t','--type',   type=str, help='resonator type: (r)eflection or (n)otch')
     args=parser.parse_args()
     #argsfile=None
     if args.file:
@@ -714,8 +760,6 @@ if __name__ == "__main__":
             f_min=None
             f_max=None
 
-
-
         if args.filter_median:
             if args.filter_params:
                 filter_params = args.filter_params.split(',')
@@ -731,7 +775,12 @@ if __name__ == "__main__":
                 R.set_prefilter(gaussian=True)
 
         if args.circle_fit:
-            R.fit_circle(fit_all=fit_all, f_min=f_min,f_max=f_max)
+            if args.type == 'r':
+                R.fit_circle(reflection = True, fit_all=fit_all, f_min=f_min,f_max=f_max)
+            elif args.type == 'n':
+                R.fit_circle(notch = True, fit_all=fit_all, f_min=f_min,f_max=f_max)
+            else:
+                R.fit_circle(notch = True, fit_all=fit_all, f_min=f_min,f_max=f_max)
         if args.lorentzian_fit:
             R.fit_lorentzian(fit_all=fit_all, f_min=f_min,f_max=f_max)
         if args.skewed_lorentzian_fit:

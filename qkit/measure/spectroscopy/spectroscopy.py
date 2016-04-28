@@ -81,7 +81,7 @@ class spectrum(object):
         self.log_name = []
         self.log_unit = []
         self.log_dtype = []
-        
+
         if func != None:
             for i,f in enumerate(func):
                 self.log_function.append(f)
@@ -186,12 +186,12 @@ class spectrum(object):
         '''
 
         self._data_file = hdf.Data(name=self._file_name)
-        
+
         # write logfile and instrument settings
-        waf.write_settings_file(self._data_file.get_filepath())
+        self._write_settings_dataset()
         self._log = waf.open_log_file(self._data_file.get_filepath())
-        
-        self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
+
+        self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz', dtype='float64')
         self._data_freq.add(self._freqpoints)
 
         if self._scan_1D:
@@ -210,7 +210,7 @@ class spectrum(object):
                 self._log_value = []
                 for i in range(len(self.log_function)):
                     self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i],dtype=self.log_dtype[i]))
-            
+
             if self._nop < 10:
                 """creates view: plot middle point vs x-parameter, for qubit measurements"""
                 self._data_amp_mid = self._data_file.add_value_vector('amplitude_midpoint', unit = '', x = self._data_x, save_timestamp = True)
@@ -222,11 +222,21 @@ class spectrum(object):
             self._data_x.add(self.x_vec)
             self._data_y = self._data_file.add_coordinate(self.y_coordname, unit = self.y_unit)
             self._data_y.add(self.y_vec)
-            self._data_amp = self._data_file.add_value_box('amplitude', x = self._data_x, y = self._data_y, z = self._data_freq, unit = '', save_timestamp = True)
-            self._data_pha = self._data_file.add_value_box('phase', x = self._data_x, y = self._data_y, z = self._data_freq, unit = 'rad', save_timestamp = True)
+            
+            if self._nop == 0:   # dos not work yet     # the pnax can measure only one value, saving it in a 2D matrix instead of a 3D box, no timestamp
+                self._data_amp = self._data_file.add_value_matrix('amplitude', x = self._data_x, y = self._data_y,  unit = '1',   save_timestamp = False)
+                self._data_pha = self._data_file.add_value_matrix('phase',     x = self._data_x, y = self._data_y,  unit = 'rad', save_timestamp = False)
+            else:
+                self._data_amp = self._data_file.add_value_box('amplitude', x = self._data_x, y = self._data_y, z = self._data_freq, unit = '1', save_timestamp = False)
+                self._data_pha = self._data_file.add_value_box('phase', x = self._data_x, y = self._data_y, z = self._data_freq, unit = 'rad', save_timestamp = False)
 
         if self.comment:
             self._data_file.add_comment(self.comment)
+
+    def _write_settings_dataset(self):
+        self._settings = self._data_file.add_textlist('settings')
+        settings = waf.get_instrument_settings(self._data_file.get_filepath())
+        self._settings.append(settings)
 
     def measure_1D(self):
         '''
@@ -243,7 +253,7 @@ class spectrum(object):
             self._file_name += '_' + self.exp_name
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
-        
+
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
         if self._fit_resonator:
@@ -382,8 +392,14 @@ class spectrum(object):
                             sleep(self._sweeptime_averages)
                             """ measurement """
                             data_amp, data_pha = self.vna.get_tracedata()
-                        self._data_amp.append(data_amp)
-                        self._data_pha.append(data_pha)
+
+                        if self._nop == 0: # this does not work yet.
+                           print data_amp[0], data_amp, self._nop
+                           self._data_amp.append(data_amp[0])
+                           self._data_pha.append(data_pha[0])
+                        else:
+                           self._data_amp.append(data_amp)
+                           self._data_pha.append(data_pha)
                         if self._fit_resonator:
                             self._do_fit_resonator()
                         if self.progress_bar:
@@ -429,7 +445,7 @@ class spectrum(object):
         waf.close_log_file(self._log)
         self.dirname = None
 
-    def set_fit(self,fit_resonator=True,fit_function='',f_min=None,f_max=None):
+    def set_resonator_fit(self,fit_resonator=True,fit_function='',f_min=None,f_max=None):
         '''
         sets fit parameter for resonator
 
@@ -437,16 +453,16 @@ class spectrum(object):
         fit_function (string): function which will be fitted to the data (optional)
         f_min (float): lower frequency boundary for the fitting function, default: None (optional)
         f_max (float): upper frequency boundary for the fitting function, default: None (optional)
-        fit types: 'lorentzian','skewed_lorentzian','circle_fit','fano'
+        fit types: 'lorentzian','skewed_lorentzian','circle_fit_reflection', 'circle_fit_notch','fano'
         '''
         if not fit_resonator:
             self._fit_resonator = False
             return
-        self._functions = {'lorentzian':0,'skewed_lorentzian':1,'circle_fit':2,'fano':3,'all_fits':4}
+        self._functions = {'lorentzian':0,'skewed_lorentzian':1,'circle_fit_reflection':2,'circle_fit_notch':3,'fano':5,'all_fits':5}
         try:
             self._fit_function = self._functions[fit_function]
         except KeyError:
-            logging.error('Fit function not properly set. Must be either \'lorentzian\', \'skewed_lorentzian\', \'circle_fit\', \'fano\', or \'all_fits\'.')
+            logging.error('Fit function not properly set. Must be either \'lorentzian\', \'skewed_lorentzian\', \'circle_fit_reflection\', \'circle_fit_notch\', \'fano\', or \'all_fits\'.')
         else:
             self._fit_resonator = True
             self._f_min = f_min
@@ -463,11 +479,13 @@ class spectrum(object):
             self._resonator.fit_lorentzian(f_min=self._f_min, f_max = self._f_max)
         if self._fit_function == 1: #skewed_lorentzian
             self._resonator.fit_skewed_lorentzian(f_min=self._f_min, f_max = self._f_max)
-        if self._fit_function == 2: #circle
-            self._resonator.fit_circle(f_min=self._f_min, f_max = self._f_max)
-        if self._fit_function == 3: #fano
+        if self._fit_function == 2: #circle_reflection
+            self._resonator.fit_circle(reflection = True, f_min=self._f_min, f_max = self._f_max)
+        if self._fit_function == 3: #circle_notch
+            self._resonator.fit_circle(notch = True, f_min=self._f_min, f_max = self._f_max)
+        if self._fit_function == 4: #fano
             self._resonator.fit_fano(f_min=self._f_min, f_max = self._f_max)
-        #if self._fit_function == 4: #all fits
+        #if self._fit_function == 5: #all fits
             #self._resonator.fit_all_fits(f_min=self._f_min, f_max = self._f_max)
 
     def delete_fit_function(self, n = None):
