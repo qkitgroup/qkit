@@ -23,11 +23,6 @@ class Sample(object):
 		- qubit_mw_src power
 		- qubit_mw_src f01-iq_frequency
 		'''
-<<<<<<< HEAD
-		
-		if (self.awg == None):
-			logging.error(__name__ + ' : awg not defined')
-=======
 		try:
 			self.awg
 			self.clock
@@ -37,7 +32,6 @@ class Sample(object):
 			self.mw_power
 		except AttributeError or NameError:
 			logging.error('Relevant instruments and attributes not properly specified.')
->>>>>>> 7669eb464525ea8ce25bad1073c1520e787ca595
 		else:
 			if self.awg == None:
 				logging.error(__name__ + ' : awg not defined')
