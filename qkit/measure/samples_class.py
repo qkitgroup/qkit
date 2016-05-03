@@ -13,7 +13,7 @@ class Sample(object):
 	Sample Class to define all values necessary to measure a sample
 	'''
 	def __init__(self):
-		self.name = 'Arbitray Sample'
+		self.name = 'Arbitrary Sample'
 		self.comment = ''
 		
 	def update_instruments(self):
@@ -122,7 +122,7 @@ class Sample(object):
 		'''
 		self.tpi  = tpi
 		self.tpi2 = tpi/2.
-	
+		
 	def _prepare_entries(self):
 		copydict = copy.copy(self.__dict__)
 		for key in sorted(copydict):
@@ -174,5 +174,5 @@ class Sample(object):
 		copydict = copy.copy(self.__dict__)
 		for key in sorted(copydict):
 			if ('xxxx'+str(copydict[key]))[-4:] == ' ins':   #instrument
-				copydict[key] = qt.instruments.get(copydict[key][:-4])
+				self.__dict__[key] = qt.instruments.get(copydict[key][:-4])
 			
