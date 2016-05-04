@@ -58,7 +58,7 @@ class Agilent_PNAX(Instrument):
         # Implement parameters
         self.add_parameter('nop', type=types.IntType,
             flags=Instrument.FLAG_GETSET,
-            minval=2, maxval=100000,
+            minval=1, maxval=100000,
             tags=['sweep'])
             
         self.add_parameter('bandwidth', type=types.FloatType,
@@ -95,7 +95,7 @@ class Agilent_PNAX(Instrument):
             
         self.add_parameter('power', type=types.FloatType,
             flags=Instrument.FLAG_GETSET,
-            minval=-25, maxval=23,
+            minval=-30, maxval=23,
             units='dBm', tags=['sweep'])
 
         self.add_parameter('zerospan', type=types.BooleanType,
@@ -110,12 +110,12 @@ class Agilent_PNAX(Instrument):
             
         self.add_parameter('sweeptime', type=types.FloatType,
             flags=Instrument.FLAG_GET,
-            minval=0, maxval=100,
+            minval=0, maxval=200,
             units='s', tags=['sweep'])
             
         self.add_parameter('sweeptime_averages', type=types.FloatType,
             flags=Instrument.FLAG_GET,
-            minval=0, maxval=500,
+            minval=0, maxval=1000,
             units='s', tags=['sweep'])
             
         self.add_parameter('edel', type=types.FloatType,
