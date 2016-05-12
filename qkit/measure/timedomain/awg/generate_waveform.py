@@ -15,12 +15,35 @@ import scipy.special
 
 '''
 	TODO:
-	- low and high are not well defined, as various pulses are summmed up
+	- low and high are not well defined for triangle (maybe obsolete anyway...)
 '''
 
 # creates dummy objects to have everything well-defined.
 #global sample
 #sample = type('Sample', (object,),{  'exc_T' : 1e-6 , 'tpi' : 2e-9 , 'tpi2' : 1e-9, 'clock' : 1e9   })
+
+
+def compensate(wfm, gamma, sample):
+	'''
+	Function that translates a given (analog) waveform wfm into a waveform wfc that needs to be programmed to the AWG
+	to effectively obtain the waveform wfm after the bias T.
+	This compensation is required due to the finite time constant of the bias Ts capacitor. The time constant in seconds 
+	is passed to the function as gamma.
+	Credits to A. Schneider
+	
+	Inputs:
+		- wfm: original waveform to be compensated
+		- gamma: bias T time constant in seconds
+		- sample: sample object form which the function reads the AWG clock
+	Outputs:
+		- wfc: corrected waveform to be loaded to the AWG
+	'''
+	wfc = np.zeros_like(wfm)
+	dif = np.diff(wfm)
+	for i in range(1,len(wfm)):
+		wfc[i]=wfc[i-1]+wfm[i-1]/(sample.clock*gamma)+dif[i-1]
+	return wfc
+
 
 def erf(pulse, attack, decay, sample, length=None, position = None, low=0, high=1, clock = None):
 	'''
