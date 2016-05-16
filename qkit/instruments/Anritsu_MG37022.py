@@ -1,7 +1,10 @@
-# qtLAB driver for microwave sources Anritsu MG37022, Anritsu MG3706
+# qtLAB driver for microwave sources Anritsu MG37022, Anritsu MG3692C (*)
 # filename: Anritsu_MG37022.py
 # Pascal Macha <pascalmacha@googlemail.com>, 2010
 # Jochen Braumueller <jochen.braumueller@kit.edu> 2016
+
+# (*) phase offset functions not supported by Anritsu MG3692C
+
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -221,7 +224,7 @@ class Anritsu_MG37022(Instrument):
 		Output:
 			Nones
 		'''
-		self._visainstrument.write('PHAS:ADJ %.1f' %phase_offset)
+		self._visainstrument.write('PHAS:ADJ %.1f DEG' %phase_offset)
 		self._visainstrument.write('PHAS:DISP ON')
 		
 		
