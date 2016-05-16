@@ -141,9 +141,9 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                     self.DATA.ds_tree_items[tree_key] = item
                     
                     if self.DATA.ds_cmd_open.has_key(tree_key):
-                        print "open from cmdline"
-                        item.setCheckState(0,QtCore.Qt.Checked)
+                        # the order of the following two lines are important! otherwise two plots are opened
                         self.DATA.append_plot(self,item,tree_key)
+                        item.setCheckState(0,QtCore.Qt.Checked)
                         self.update_plots()
                         
                 s = ""
@@ -180,6 +180,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             
             if not self.DATA.plot_is_open(ds):
                 "this condition occures when the ds is opened from the cmd-l"
+                #print "handle change append plot"
                 self.DATA.append_plot(self,item,ds)
 
             # this is a not very sound hack of a concurrency problem!
