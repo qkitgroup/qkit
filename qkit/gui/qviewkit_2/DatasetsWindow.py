@@ -9,7 +9,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 import h5py
 from time import sleep
-from qkit.storage.hdf_constants import ds_types
+
 
 from main_view import Ui_MainWindow
 
@@ -73,7 +73,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         self.treeWidget.itemSelectionChanged.connect((self.handleSelectionChanged))
         QObject.connect(self.refreshTime,SIGNAL("valueChanged(double)"),self._refresh_time_handler)
         QObject.connect(self.updateButton,SIGNAL("released()"),self.update_file)
-        #QObject.connect(self.Quit,SIGNAL("released()"),self._quit_tip_gui)
+        
         #QObject.connect(self,SIGNAL("destroyed()"),self._close_plot_window)
         self.FileButton.clicked.connect(self.open_file)
         self.liveCheckBox.clicked.connect(self.live_update_onoff)
@@ -93,7 +93,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
     
     @pyqtSlot()
     def _close_plot_window(self):
-        #print "Plot window closed"
+        #print "DSW: Plot window closed"
         self.DATA._remove_plot_widgets()
         
         
@@ -139,10 +139,9 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                 if not self.DATA.ds_tree_items.has_key(tree_key):
                     item = self.addChild(parent, column, str(centry),tree_key)
                     self.DATA.ds_tree_items[tree_key] = item
-                    ds_type = self.h5file[tree_key].attrs.get('ds_type', None)
-                    entry = QtCore.QString(str(ds_type))
-                    item.setWhatsThis(column,entry)
+                    
                     if self.DATA.ds_cmd_open.has_key(tree_key):
+                        print "open from cmdline"
                         item.setCheckState(0,QtCore.Qt.Checked)
                         self.DATA.append_plot(self,item,tree_key)
                         self.update_plots()
@@ -178,7 +177,10 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         if item.checkState(column) == QtCore.Qt.Checked:
             #print "checked", item, item.text(column)
             #if not self.tree_refresh:
-            self.DATA.append_plot(self,item,ds)
+            
+            if not self.DATA.plot_is_open(ds):
+                "this condition occures when the ds is opened from the cmd-l"
+                self.DATA.append_plot(self,item,ds)
 
             # this is a not very sound hack of a concurrency problem!
             # better to use a locking technique            
@@ -192,8 +194,11 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             QObject.connect(window,SIGNAL("destroyed()"),self._close_plot_window)
                 
         if item.checkState(column) == QtCore.Qt.Unchecked:
-            #print "unchecked", item, item.text(column)
-            self.DATA.remove_plot(item,ds)
+            #print "unchecked", item, item.text(column),ds
+            if self.DATA.plot_is_open(ds):
+                self.DATA.remove_plot(item,ds)
+        #objects = self.findChildren(QtCore.QObject)
+        #print "objects stil open ", objects
         
     def handleSelectionChanged(self):
         getSelected = self.treeWidget.selectedItems()
@@ -213,7 +218,6 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             
     def update_file(self):
         try:
-            
             self.h5file= h5py.File(str(self.DATA.DataFilePath),mode='r')
             self.DATA.filename = self.h5file.filename.split(os.path.sep)[-1]
             self.populate_data_list()

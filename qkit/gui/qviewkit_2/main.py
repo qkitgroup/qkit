@@ -28,11 +28,14 @@ class DATA(QObject):
         
     def append_plot(self,parent,window_id,ds):
         # self, item, dataset
-        ds_type = str(window_id.whatsThis(0))
-        window = PlotWindow(parent,self,ds,ds_type)
+        
+        window = PlotWindow(parent,self,ds)
+        
         self.open_plots[window_id]=window
         self.open_ds[ds]=window_id
-
+        
+        #print self.open_plots.keys()
+        #print self.open_ds.keys()
         window.show()   # non-modal
         #window.exec_() # modal
         #window.raise_()
@@ -41,15 +44,22 @@ class DATA(QObject):
     def _toBe_deleted(self,ds):
         if self.open_ds.has_key(ds):
             self.toBe_deleted.append(ds)
+            
     def _remove_plot_widgets(self, closeAll = False):
+        # helper func to close widgets
         def close_ds(ds):
             if self.open_ds.has_key(ds):
-                item = self.open_ds[ds]
-                item.setCheckState(0,QtCore.Qt.Unchecked)
+                window_id = self.open_ds[ds]
+                window_id.setCheckState(0,QtCore.Qt.Unchecked)
+                
                 # make sure data is consitent                
-                if self.open_plots.has_key(item):
-                    self.open_plots.pop(item)
-                if self.open_ds.has_key(ds):                
+                if self.open_plots.has_key(window_id):
+                    self.open_plots[window_id].deleteLater()
+                    self.open_plots.pop(window_id)
+                    #print "remove_plot_widget: open_plots:has key"
+                    
+                if self.open_ds.has_key(ds):  
+                    #print "remove_plot_widget: open_ds:has key"
                     self.open_ds.pop(ds)
 
         if closeAll:
@@ -58,15 +68,21 @@ class DATA(QObject):
         else:
             for ds in self.toBe_deleted:
                 close_ds(ds)
-                
+       
         self.toBe_deleted = []
             
     def remove_plot(self,window_id,ds):
+        #print "remove plot", window_id, ds
+
         if self.open_plots.has_key(window_id):
-            self.open_plots.pop(window_id)
+            #self.open_plots[window_id].deleteLater()
+            win = self.open_plots.pop(window_id)
+            win.deleteLater()
+            
         if self.open_ds.has_key(ds):
             self.open_ds.pop(ds)
 
+        
     def plot_is_open(self,ds):
         #print ds, self.open_ds.has_key(ds)
         return self.open_ds.has_key(ds)
