@@ -147,6 +147,37 @@ def _display_1D_data(self,graphicsView):
     if self.plot_style==self.plot_styles['point']:
         graphicsView.plot(y=y_data, x=x_data, clear = True, pen=None, symbol='+')
     #plot.setData(y=ydata, x=x_data)
+        
+    #print dir(graphicsView.plotItem.vb)
+   
+    def mouseMoved(mpos):
+        #print mpos[0]
+        if graphicsView.plotItem.sceneBoundingRect().contains(mpos):
+            #mousePoint_i = graphicsView.plotItem.vb.mapFromView(mpos)
+            
+            mousePoint = graphicsView.plotItem.vb.mapSceneToView(mpos)
+            self.PointX.setText("X: %.6e"%(mousePoint.x())) 
+            self.PointY.setText("Y: %.6e"%(mousePoint.x()))
+            #print mousePoint_i.x()
+            """
+            #x_index = int(mousePoint.x())
+            #y_index = int(mousePoint.y())
+            if x_index > 0: # and y_index > 0:
+                xval = x0+x_index*dx
+                #yval = y0+y_index*dy
+                yval = y_data[x_index]
+                 
+                self.PointZ.setText("V: %.6e"%(zval)) 
+                self.data_coord=  "%e\t%e" % (xval, yval)
+                
+                #label.setText("x=%0.1f,y1=%0.1f" % (mousePoint.x(), y[index], data2[index]))
+            """   
+            #vLine.setPos(mpos)
+            #hLine.setPos(mpos)
+    
+    
+    proxy = pg.SignalProxy(graphicsView.scene().sigMouseMoved, rateLimit=10, slot=mouseMoved)
+    graphicsView.scene().sigMouseMoved.connect(mouseMoved)
 
 def _display_2D_data(self,graphicsView):
     #load the dataset:
@@ -252,7 +283,7 @@ def _display_2D_data(self,graphicsView):
     
     
     proxy = pg.SignalProxy(graphicsView.view.scene().sigMouseMoved, rateLimit=10, slot=mouseMoved)
-    graphicsView.view.scene().sigMouseMoved.connect(mouseMoved)     
+    graphicsView.view.scene().sigMouseMoved.connect(mouseMoved)
     ################################
 
 
