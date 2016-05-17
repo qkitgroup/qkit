@@ -52,6 +52,7 @@ class PlotWindow(QWidget,Ui_Form):
     def update_plots(self):
         """ This brings up everything and is therefore the main function. 
         Update Plots is either periodically called e.g. by the timer or once on startup. """
+        #print "PWL update_plots:", self.obj_parent.h5file
         
         self.ds = self.obj_parent.h5file[self.dataset_url]
         self.ds_type = self.ds.attrs.get('ds_type', -1)
@@ -73,8 +74,9 @@ class PlotWindow(QWidget,Ui_Form):
             window_title = str(self.dataset_url.split('/')[-1]) +" "+ str(self.DATA.filename)
             self.setWindowTitle(window_title)
             
-            self._setup_signal_slots()
+            
             self._setDefaultView()
+            self._setup_signal_slots()
             
             
 
@@ -128,9 +130,9 @@ class PlotWindow(QWidget,Ui_Form):
                 print "This should not be here: View Type:"+str(self.view_type)
         except NameError:#IOError:
           pass
-        #except ValueError,e:
-            #print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
-            #print e
+        except ValueError,e:
+            print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
+            print e
 
 
     def _setup_signal_slots(self):
@@ -145,12 +147,12 @@ class PlotWindow(QWidget,Ui_Form):
 
         elif self.ds_type == ds_types['box']:
             QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeBox)
-            QObject.connect(self.SliceSelector,   SIGNAL("valueChanged(int)"),       self._setSliceNum)
-            QObject.connect(self.SliceValue,      SIGNAL("returnPressed()"),         self._setSliceValue)
-            QObject.connect(self.TraceXSelector,  SIGNAL("valueChanged(int)"),       self._setTraceXNum)
-            QObject.connect(self.TraceXValue,     SIGNAL("returnPressed()"),         self._setTraceXValue)
-            QObject.connect(self.TraceYValue,     SIGNAL("returnPressed()"),         self._setTraceYValue)
-            QObject.connect(self.TraceYSelector,  SIGNAL("valueChanged(int)"),       self._setTraceYNum)
+            QObject.connect(self.SliceSelector,   SIGNAL("valueChanged(int)"),       self._setBSliceNum)
+            QObject.connect(self.SliceValue,      SIGNAL("returnPressed()"),         self._setBSliceValue)
+            QObject.connect(self.TraceXSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceXNum)
+            QObject.connect(self.TraceXValue,     SIGNAL("returnPressed()"),         self._setBTraceXValue)
+            QObject.connect(self.TraceYValue,     SIGNAL("returnPressed()"),         self._setBTraceYValue)
+            QObject.connect(self.TraceYSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceYNum)
 
         elif self.ds_type == ds_types['view']:
             QObject.connect(self.TraceSelector,   SIGNAL("valueChanged(int)"),       self._setTraceNum)
@@ -222,13 +224,16 @@ class PlotWindow(QWidget,Ui_Form):
         self.SliceSelector.setEnabled(True)
         self.SliceSelector.setRange(-1*shape[2],shape[2]-1)
         self.SliceSelector.setValue(shape[2]/2)
+        self.SliceNum = shape[2]/2
 
         self.TraceXSelector.setEnabled(False)
         self.TraceXSelector.setRange(-1*shape[0],shape[0]-1)
-
+        self.TraceXNum = -1
+        
         self.TraceYSelector.setEnabled(False)
         self.TraceYSelector.setRange(-1*shape[1],shape[1]-1)
-
+        self.TraceYNum = -1
+        
         self.PlotTypeSelector.setCurrentIndex(0)
         
     def _defaultView(self):
@@ -260,7 +265,8 @@ class PlotWindow(QWidget,Ui_Form):
         else:
             self.TraceSelector.setEnabled(True)
             self.PlotTypeSelector.setEnabled(False)
-
+            
+    ####### this looks ugly
     def _setTraceValue(self):
         xval = str(self.TraceValue.displayText())
         try:
@@ -274,22 +280,24 @@ class PlotWindow(QWidget,Ui_Form):
         self.TraceNum = num
         if not self.TraceValueChanged:
             self.obj_parent.pw_refresh_signal.emit()
-            
-    def _setSliceValue(self):
+    #######
+
+    def _setBSliceValue(self):
         xval = str(self.SliceValue.displayText())
         try:
             self._slice_value = float(xval.split()[0])
         except ValueError:
             return
         self.SliceValueChanged = True
-        self.obj_parent.pw_refresh_signal.emit()
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
     
-    def _setSliceNum(self,num):
+    def _setBSliceNum(self,num):
         self.SliceNum = num
         if not self.SliceValueChanged:
             self.obj_parent.pw_refresh_signal.emit()
 
-    def _setTraceXValue(self):
+    def _setBTraceXValue(self):
         xval = str(self.TraceXValue.displayText())
         try:
             self._traceX_value = float(xval.split()[0])
@@ -298,12 +306,12 @@ class PlotWindow(QWidget,Ui_Form):
         self.TraceXValueChanged = True
         self.obj_parent.pw_refresh_signal.emit()
     
-    def _setTraceXNum(self,num):
+    def _setBTraceXNum(self,num):
         self.TraceXNum = num
         if not self.TraceXValueChanged:
             self.obj_parent.pw_refresh_signal.emit()
     
-    def _setTraceYValue(self):
+    def _setBTraceYValue(self):
         xval = str(self.TraceYValue.displayText())
         try:
             self._traceY_value = float(xval.split()[0])
@@ -312,7 +320,7 @@ class PlotWindow(QWidget,Ui_Form):
         self.TraceYValueChanged = True
         self.obj_parent.pw_refresh_signal.emit()
     
-    def _setTraceYNum(self,num):
+    def _setBTraceYNum(self,num):
         self.TraceYNum = num
         if not self.TraceYValueChanged:
             self.obj_parent.pw_refresh_signal.emit()

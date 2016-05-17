@@ -113,6 +113,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         
 
     def populate_data_list(self):
+        #print "populate_data_list:",self.h5file
         """
         populate_data_list is called regularly withing the refresh cycle to
         update the data tree.
@@ -145,17 +146,19 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                         self.DATA.append_plot(self,item,tree_key)
                         item.setCheckState(0,QtCore.Qt.Checked)
                         self.update_plots()
-                        
+                       
                 s = ""
                 try:
                     s="shape\t"+str(self.h5file[tree_key].shape)+"\n"
                     for k in self.h5file[tree_key].attrs.keys(): 
                         s+=k +"\t" +str(self.h5file[tree_key].attrs[k])+"\n"
+                    
                 except ValueError,e:
                 #except IOError:
+                #except NameError,e:
                     # dataset is available, but the attrs are not yet readable
                     #print "Dataset:ValueError ", tree_key
-                    print e
+                    print "catch: populate data list:",e
                 #print tree_key
                 self.DATA.dataset_info[tree_key] = s
                
@@ -218,21 +221,25 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
  
             
     def update_file(self):
+        "update_file is regularly called when _something_ has to be updated. open-> do something->close"
         try:
             self.h5file= h5py.File(str(self.DATA.DataFilePath),mode='r')
             self.DATA.filename = self.h5file.filename.split(os.path.sep)[-1]
             self.populate_data_list()
             self.update_plots()
             self.h5file.close()
+            
             s = (self.DATA.DataFilePath.split(os.path.sep)[-5:])
             self.statusBar().showMessage((os.path.sep).join(s for s in s))
             
             title = "Qviewkit: %s"%(self.DATA.DataFilePath.split(os.path.sep)[-1:][0][:6])
             self.setWindowTitle(title)
-        #except IOError:
-        except ValueError,e:
-            print "Error in Dataset: File not yet available.", self.DATA.DataFilePath
+        except IOError,e:
             print e
+
+        #except ValueError,e:
+        #    print "Error in Dataset: File not yet available.", self.DATA.DataFilePath
+        #    print e
     def open_file(self):
         self.DATA.DataFilePath=str(QFileDialog.getOpenFileName(filter="*.h5"))
         if self.DATA.DataFilePath:
@@ -240,6 +247,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             self.DATA.filename = self.h5file.filename.split(os.path.sep)[-1]
             self.populate_data_list()
             self.h5file.close()
+            
             s = (self.DATA.DataFilePath.split(os.path.sep)[-5:])
             self.statusBar().showMessage((os.path.sep).join(s for s in s))
             title = "Qviewkit: %s"%(self.DATA.DataFilePath.split(os.path.sep)[-1:][0][:6])
