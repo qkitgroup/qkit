@@ -226,6 +226,9 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             self.h5file.close()
             s = (self.DATA.DataFilePath.split(os.path.sep)[-5:])
             self.statusBar().showMessage((os.path.sep).join(s for s in s))
+            
+            title = "Qviewkit: %s"%(self.DATA.DataFilePath.split(os.path.sep)[-1:][0][:6])
+            self.setWindowTitle(title)
         #except IOError:
         except ValueError,e:
             print "Error in Dataset: File not yet available.", self.DATA.DataFilePath
@@ -239,6 +242,8 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             self.h5file.close()
             s = (self.DATA.DataFilePath.split(os.path.sep)[-5:])
             self.statusBar().showMessage((os.path.sep).join(s for s in s))
+            title = "Qviewkit: %s"%(self.DATA.DataFilePath.split(os.path.sep)[-1:][0][:6])
+            self.setWindowTitle(title)
             
     def update_plots(self):
         self.refresh_signal.emit()

@@ -20,19 +20,21 @@ class PlotWindow(QWidget,Ui_Form):
     def myquit(self):
         exit()
 
-    def __init__(self,parent,data,dataset_url):#,ds_type):
+    def __init__(self,parent,data,dataset_url):
         self.DATA = data
         self.dataset_url = dataset_url
         self.obj_parent = parent
         
-        #try: self.ds_type = int(ds_type)
-        #except: 
-        #self.ds_type = -1
         
         super(PlotWindow , self).__init__()
         Ui_Form.__init__(self)
+        # move forward ...
+        self.setWindowState(Qt.WindowActive)
+        self.activateWindow()
+        self.raise_()
+    
 
-
+        
         "This variable controlles if a window is new, see update_plots()."
         self._windowJustCreated = True
         "connect update_plots to the DatasetWindow"

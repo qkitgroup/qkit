@@ -81,7 +81,7 @@ class Ui_Form(object):
         spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
         self._addIndicatorLabels(Form,sizePolicy,indicators=["PointX","PointY"])
-        #self.horizontalLayout.addLayout(self.IndicatorLayout,stretch = -10)
+        
         
         
     def setupBox(self,Form):
@@ -141,8 +141,8 @@ class Ui_Form(object):
         #The indicators should be located at the most right side of the bar
         spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
-        self.IndicatorLayout = self._addIndicatorLabels(Form,indicators=["PointX","PointY"])
-        self.horizontalLayout.addLayout(self.IndicatorLayout,stretch = -10)
+        self._addIndicatorLabels(Form,indicators=["PointX","PointY"])
+        
 
     def setupMatrix(self,Form):
         self.PlotTypeSelector = QtGui.QComboBox(Form)
@@ -174,7 +174,7 @@ class Ui_Form(object):
         #The indicators should be located at the most right side of the bar
         spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)        
-        self.IndicatorLayout = self._addIndicatorLabels(Form,sizePolicy, indicators=["PointX","PointY","PointZ"])
+        self._addIndicatorLabels(Form,sizePolicy, indicators=["PointX","PointY","PointZ"])
 
         
     def _addIndicatorLabels(self,Form,sizePolicy,indicators=[]):
