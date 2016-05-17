@@ -33,13 +33,12 @@ class Ui_Form(object):
         self.horizontalLayout = QtGui.QHBoxLayout()
         self.horizontalLayout.setSizeConstraint(QtGui.QLayout.SetMinimumSize)
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
-        # we push for a tight layout
+
         self.horizontalLayout.setMargin(0);
         self.horizontalLayout.setContentsMargins(QtCore.QMargins(0,0,0,0));
         self.horizontalLayout.setSpacing(0);
         
-        #spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
-        #self.horizontalLayout.addItem(spacerItem)
+
         self.gridLayout_Top.addLayout(self.horizontalLayout, 0, 0, 1, 1)
         self.gridLayout = QtGui.QGridLayout()
         self.gridLayout.setObjectName(_fromUtf8("gridLayout"))
@@ -79,8 +78,6 @@ class Ui_Form(object):
         self.PlotTypeSelector.setItemText(0, _translate("Form", "Line Plot", None))
         self.PlotTypeSelector.setItemText(1, _translate("Form", "Table", None))
         
-        
-
         spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
         self._addIndicatorLabels(Form,sizePolicy,indicators=["PointX","PointY"])
@@ -89,100 +86,43 @@ class Ui_Form(object):
         
     def setupBox(self,Form):
         self.PlotTypeSelector = QtGui.QComboBox(Form)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Minimum)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.PlotTypeSelector.sizePolicy().hasHeightForWidth())
+        
         self.PlotTypeSelector.setSizePolicy(sizePolicy)
         self.PlotTypeSelector.setObjectName(_fromUtf8("PlotTypeSelector"))
         self.PlotTypeSelector.addItem(_fromUtf8(""))
         self.PlotTypeSelector.addItem(_fromUtf8(""))
         self.PlotTypeSelector.addItem(_fromUtf8(""))
         self.PlotTypeSelector.addItem(_fromUtf8(""))
-        self.horizontalLayout.addWidget(self.PlotTypeSelector)
+        #self.horizontalLayout.addWidget(self.PlotTypeSelector)
         self.PlotTypeSelector.setItemText(0, _translate("Form", "Color 3D Plot", None))
         self.PlotTypeSelector.setItemText(1, _translate("Form", "Color X Plot", None))
         self.PlotTypeSelector.setItemText(2, _translate("Form", "Color Y Plot", None))
         self.PlotTypeSelector.setItemText(3, _translate("Form", "Line Plot", None))
-
-        self.SliceSelector = QtGui.QSpinBox(Form)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.SliceSelector.sizePolicy().hasHeightForWidth())
-        self.SliceSelector.setSizePolicy(sizePolicy)
-        self.SliceSelector.setSuffix(_fromUtf8(""))
-        self.SliceSelector.setMinimum(-99999)
-        self.SliceSelector.setMaximum(99999)
-        self.SliceSelector.setProperty("value", -1)
-        self.SliceSelector.setObjectName(_fromUtf8("SliceSelector"))
-        self.horizontalLayout.addWidget(self.SliceSelector)
-        self.SliceSelector.setPrefix(_translate("Form", "Slice: ", None))
         
-        self.SliceValue = QtGui.QLineEdit(Form)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.SliceValue.sizePolicy().hasHeightForWidth())
-        self.SliceValue.setSizePolicy(sizePolicy)
-        self.SliceValue.setReadOnly(False)
-        self.SliceValue.setObjectName(_fromUtf8("SliceValue"))
-        self.horizontalLayout.addWidget(self.SliceValue)
-
-        self.TraceXSelector = QtGui.QSpinBox(Form)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.TraceXSelector.sizePolicy().hasHeightForWidth())
-        self.TraceXSelector.setSizePolicy(sizePolicy)
-        self.TraceXSelector.setSuffix(_fromUtf8(""))
-        self.TraceXSelector.setMinimum(-99999)
-        self.TraceXSelector.setMaximum(99999)
-        self.TraceXSelector.setProperty("value", -1)
-        self.TraceXSelector.setObjectName(_fromUtf8("TraceXSelector"))
-        self.horizontalLayout.addWidget(self.TraceXSelector)
-        self.TraceXSelector.setPrefix(_translate("Form", "TraceX: ", None))
-        self.TraceXValue = QtGui.QLineEdit(Form)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.TraceXValue.sizePolicy().hasHeightForWidth())
-        self.TraceXValue.setSizePolicy(sizePolicy)
-        self.TraceXValue.setReadOnly(False)
-        self.TraceXValue.setObjectName(_fromUtf8("TraceXValue"))
-        self.horizontalLayout.addWidget(self.TraceXValue)
-        
-        self.TraceYSelector = QtGui.QSpinBox(Form)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.TraceYSelector.sizePolicy().hasHeightForWidth())
-        self.TraceYSelector.setSizePolicy(sizePolicy)
-        self.TraceYSelector.setSuffix(_fromUtf8(""))
-        self.TraceYSelector.setMinimum(-99999)
-        self.TraceYSelector.setMaximum(99999)
-        self.TraceYSelector.setProperty("value", -1)
-        self.TraceYSelector.setObjectName(_fromUtf8("TraceYSelector"))
-        self.horizontalLayout.addWidget(self.TraceYSelector)
-        self.TraceYSelector.setPrefix(_translate("Form", "TraceY: ", None))
-        self.TraceYValue = QtGui.QLineEdit(Form)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.TraceYValue.sizePolicy().hasHeightForWidth())
-        self.TraceYValue.setSizePolicy(sizePolicy)
-        self.TraceYValue.setReadOnly(False)
-        self.TraceYValue.setObjectName(_fromUtf8("TraceYValue"))
-        
-        self.horizontalLayout.addWidget(self.TraceYValue)
-        
+        self.PlotTypeLayout = QtGui.QVBoxLayout()
+        self.PlotTypeLayout.addWidget(self.PlotTypeSelector)
+        # add a empty label to move the PlotTypeSelector to the top
+        emptyL = QtGui.QLabel(Form)
+        self.PlotTypeLayout.addWidget(emptyL)
+        self.horizontalLayout.addLayout(self.PlotTypeLayout,stretch = -10)
+       
+        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "SliceSelector",  
+                                        TraceIndicator="SliceValue",  prefix = "Slice: ")
+        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceXSelector", 
+                                        TraceIndicator="TraceXValue", prefix = "TraceX: ")
+        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceYSelector", 
+                                        TraceIndicator="TraceYValue", prefix = "TraceY: ")
         
 
-        #spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
-        #self.horizontalLayout.addItem(spacerItem)
+        spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem)
         
-        #self.IndicatorLayout = self._addIndicatorLabels(Form,sizePolicy,indicators=["PointX","PointY","PointZ"])
-        #self.horizontalLayout.addLayout(self.IndicatorLayout,stretch = -10)
+        self._addIndicatorLabels(Form,sizePolicy,indicators=["PointX","PointY","PointZ"])
+        
 
     def setupTxt(self,Form):
         pass
@@ -195,28 +135,9 @@ class Ui_Form(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.TraceSelector.sizePolicy().hasHeightForWidth())
         
-        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceSelector", TraceIndicator="TraceValue")
-        """
-        self.TraceSelector.setSizePolicy(sizePolicy)
-        self.TraceSelector.setSuffix(_fromUtf8(""))
-        self.TraceSelector.setMinimum(-99999)
-        self.TraceSelector.setMaximum(99999)
-        self.TraceSelector.setProperty("value", -1)
-        self.TraceSelector.setObjectName(_fromUtf8("TraceSelector"))
-        self.horizontalLayout.addWidget(self.TraceSelector)
-        self.TraceSelector.setPrefix(_translate("Form", "Trace: ", None))
+        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceSelector", 
+                                        TraceIndicator="TraceValue")
 
-        self.TraceValue = QtGui.QLineEdit(Form)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.TraceValue.sizePolicy().hasHeightForWidth())
-        self.TraceValue.setSizePolicy(sizePolicy)
-        self.TraceValue.setReadOnly(False)
-        self.TraceValue.setObjectName(_fromUtf8("TraceValue"))
-        self.horizontalLayout.addWidget(self.TraceValue)
-        """
-        
         #The indicators should be located at the most right side of the bar
         spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
@@ -247,12 +168,13 @@ class Ui_Form(object):
         self.PlotTypeLayout.addWidget(emptyL)
         self.horizontalLayout.addLayout(self.PlotTypeLayout,stretch = -10)
         
-        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceSelector", TraceIndicator="TraceValue")
+        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceSelector",
+                                        TraceIndicator="TraceValue")
         
         #The indicators should be located at the most right side of the bar
         spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)        
-        self.IndicatorLayout = self._addIndicatorLabels(Form,sizePolicy,indicators=["PointX","PointY","PointZ"])
+        self.IndicatorLayout = self._addIndicatorLabels(Form,sizePolicy, indicators=["PointX","PointY","PointZ"])
 
         
     def _addIndicatorLabels(self,Form,sizePolicy,indicators=[]):
@@ -274,7 +196,7 @@ class Ui_Form(object):
         self.horizontalLayout.addLayout(self.IndicatorLayout,stretch = -10)
 
 
-    def _addTraceSelectorIndicator(self,Form,sizePolicy,TraceSelector = "", TraceIndicator=""):
+    def _addTraceSelectorIndicator(self,Form,sizePolicy,TraceSelector = "", TraceIndicator="", prefix = "Trace: "):
         self.TraceSelIndLayout = QtGui.QVBoxLayout()
         self.TraceSelIndLayout.setSizeConstraint(QtGui.QLayout.SetMinimumSize)
         self.TraceSelIndLayout.setObjectName(_fromUtf8("TraceSelIndLayout"))
@@ -292,7 +214,8 @@ class Ui_Form(object):
         temp_SelInd.setMaximum(99999)
         temp_SelInd.setProperty("value", -1)
         temp_SelInd.setObjectName(_fromUtf8(TraceSelector))
-        temp_SelInd.setPrefix(_translate("Form", "Trace: ", None))
+        temp_SelInd.setPrefix(_translate("Form", prefix , None))
+
         
         self.TraceSelIndLayout.addWidget(temp_SelInd)
             
@@ -303,5 +226,5 @@ class Ui_Form(object):
         temp_SelInd.setObjectName(_fromUtf8("TraceValue"))
         self.TraceSelIndLayout.addWidget(temp_SelInd)
         self.horizontalLayout.addLayout(self.TraceSelIndLayout,stretch = -10)
-        #return self.TraceSelIndLayout
+        
         
