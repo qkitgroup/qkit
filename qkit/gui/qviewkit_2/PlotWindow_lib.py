@@ -259,7 +259,7 @@ def _display_2D_data(self,graphicsView):
     #graphicsView.addItem(hLine, ignoreBounds=True)
     
     #print dir(graphicsView.imageItem)
-    
+    z_unit = ""
     
     def mouseMoved(mpos):
         
@@ -271,9 +271,9 @@ def _display_2D_data(self,graphicsView):
                 xval = x0+x_index*dx
                 yval = y0+y_index*dy
                 zval = data[x_index][y_index]
-                self.PointX.setText("X: %.6e"%(xval)) 
-                self.PointY.setText("Y: %.6e"%(yval)) 
-                self.PointZ.setText("Z: %.6e"%(zval)) 
+                self.PointX.setText("X: %.6e %s"%(xval,x_unit)) 
+                self.PointY.setText("Y: %.6e %s"%(yval,y_unit)) 
+                self.PointZ.setText("Z: %.6e %s"%(zval,z_unit)) 
                 self.data_coord=  "%g\t%g\t%g" % (xval, yval,zval)
                 
                 #label.setText("x=%0.1f,y1=%0.1f" % (mousePoint.x(), y[index], data2[index]))
