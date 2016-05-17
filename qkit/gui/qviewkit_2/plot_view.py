@@ -176,12 +176,13 @@ class Ui_Form(object):
         
         self.horizontalLayout.addWidget(self.TraceYValue)
         
-        self.IndicatorLayout = self._addIndicatorLabels(Form,indicators=["PointX","PointY","PointZ"])
-
-        spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
-        self.horizontalLayout.addItem(spacerItem)
         
-        self.horizontalLayout.addLayout(self.IndicatorLayout,stretch = -10)
+
+        #spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        #self.horizontalLayout.addItem(spacerItem)
+        
+        #self.IndicatorLayout = self._addIndicatorLabels(Form,sizePolicy,indicators=["PointX","PointY","PointZ"])
+        #self.horizontalLayout.addLayout(self.IndicatorLayout,stretch = -10)
 
     def setupTxt(self,Form):
         pass

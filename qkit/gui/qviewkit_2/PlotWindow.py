@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-@author: hannes.rotzinger@kit.edu @ 2015
+@author: hannes.rotzinger@kit.edu @ 2015,2016
 """
 
 
@@ -55,6 +55,16 @@ class PlotWindow(QWidget,Ui_Form):
         self.ds_type = self.ds.attrs.get('ds_type', -1)
         
         if self._windowJustCreated:
+            # A few state variables:
+            self._onPlotTypeChanged = True
+            self._windowJustCreated = False
+            
+            self.graphicsView = None
+            self.TraceValueChanged  = False
+            self.SliceValueChanged  = False
+            self.TraceXValueChanged = False
+            self.TraceYValueChanged = False
+            
             # the following calls rely on ds_type and setup the layout of the plot window.
             self.setupUi(self,self.ds_type)
         
@@ -64,14 +74,7 @@ class PlotWindow(QWidget,Ui_Form):
             self._setup_signal_slots()
             self._setDefaultView()
             
-            self._onPlotTypeChanged = True
-            self._windowJustCreated = False
             
-            self.graphicsView = None
-            self.TraceValueChanged  = False
-            self.SliceValueChanged  = False
-            self.TraceXValueChanged = False
-            self.TraceYValueChanged = False
 
         try:
             if self.view_type == self.view_types['1D-V']:
@@ -121,10 +124,11 @@ class PlotWindow(QWidget,Ui_Form):
                 _display_text(self,self.graphicsView)
             else:
                 print "This should not be here: View Type:"+str(self.view_type)
-        #except NameError:#IOError:
-        except ValueError,e:
-            print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
-            print e
+        except NameError:#IOError:
+          pass
+        #except ValueError,e:
+            #print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
+            #print e
 
 
     def _setup_signal_slots(self):

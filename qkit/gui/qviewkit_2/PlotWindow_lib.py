@@ -182,6 +182,7 @@ def _display_1D_data(self,graphicsView):
 def _display_2D_data(self,graphicsView):
     #load the dataset:
     ds = self.ds
+    #print ds
     #fill = ds.attrs.get("fill",1)
     fill_x = ds.shape[0]
     fill_y = ds.shape[1]
