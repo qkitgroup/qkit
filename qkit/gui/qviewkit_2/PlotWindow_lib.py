@@ -191,7 +191,8 @@ def _display_2D_data(self,graphicsView):
     dx = ds.attrs.get("dx",1)
     y0 = ds.attrs.get("y0",0)
     dy = ds.attrs.get("dy",1)
-    data = np.array(ds)
+    #data = np.array(ds)
+    data = ds[()]
 
     name = ds.attrs.get("name","_none_")
     unit = ds.attrs.get("unit","_none_")
@@ -291,9 +292,9 @@ def _display_2D_data(self,graphicsView):
             self.PointZ.setText("Z: %.6e %s"%(zval,z_unit)) 
             self.data_coord=  "%g\t%g\t%g" % (xval, yval,zval)
         
-    proxy = pg.SignalProxy(graphicsView.view.scene().sigMouseMoved, rateLimit=10, slot=mouseMoved)
+    proxy = pg.SignalProxy(graphicsView.view.scene().sigMouseMoved, rateLimit=5, slot=mouseMoved)
     graphicsView.view.scene().sigMouseMoved.connect(mouseMoved)
-    
+    #graphicsView.view.scene().sigMouseMoved.connect(proxy)
     ################################
 
 
