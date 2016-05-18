@@ -263,28 +263,37 @@ def _display_2D_data(self,graphicsView):
     z_unit = ""
     
     def mouseMoved(mpos):
-        
-        if graphicsView.imageItem.sceneBoundingRect().contains(mpos):
-            mousePoint = graphicsView.imageItem.mapFromScene(mpos)
-            x_index = int(mousePoint.x())
-            y_index = int(mousePoint.y())
-            if x_index > 0 and y_index > 0:
-                xval = x0+x_index*dx
-                yval = y0+y_index*dy
-                zval = data[x_index][y_index]
-                self.PointX.setText("X: %.6e %s"%(xval,x_unit)) 
-                self.PointY.setText("Y: %.6e %s"%(yval,y_unit)) 
-                self.PointZ.setText("Z: %.6e %s"%(zval,z_unit)) 
-                self.data_coord=  "%g\t%g\t%g" % (xval, yval,zval)
+        if not self.obj_parent.liveCheckBox.isChecked():
+            if graphicsView.imageItem.sceneBoundingRect().contains(mpos):
+                mousePoint = graphicsView.imageItem.mapFromScene(mpos)
+                x_index = int(mousePoint.x())
+                y_index = int(mousePoint.y())
+                if x_index > 0 and y_index > 0:
+                    xval = x0+x_index*dx
+                    yval = y0+y_index*dy
+                    zval = data[x_index][y_index]
+                    self.PointX.setText("X: %.6e %s"%(xval,x_unit)) 
+                    self.PointY.setText("Y: %.6e %s"%(yval,y_unit)) 
+                    self.PointZ.setText("Z: %.6e %s"%(zval,z_unit)) 
+                    self.data_coord=  "%g\t%g\t%g" % (xval, yval,zval)
                 
                 #label.setText("x=%0.1f,y1=%0.1f" % (mousePoint.x(), y[index], data2[index]))
                 
             #vLine.setPos(mpos)
             #hLine.setPos(mpos)
     
-    
+        else:
+            xval = 0
+            yval = 0
+            zval = 0
+            self.PointX.setText("X: %.6e %s"%(xval,x_unit)) 
+            self.PointY.setText("Y: %.6e %s"%(yval,y_unit)) 
+            self.PointZ.setText("Z: %.6e %s"%(zval,z_unit)) 
+            self.data_coord=  "%g\t%g\t%g" % (xval, yval,zval)
+        
     proxy = pg.SignalProxy(graphicsView.view.scene().sigMouseMoved, rateLimit=10, slot=mouseMoved)
     graphicsView.view.scene().sigMouseMoved.connect(mouseMoved)
+    
     ################################
 
 
