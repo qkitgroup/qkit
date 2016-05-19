@@ -14,7 +14,7 @@ try_legacy = False
 
 try:
     "try using the jupyter progress bar"
-    import somemodule.that.doesnt.exist
+    #import somemodule.that.doesnt.exist
 
     from ipywidgets import IntProgress, HTML
     from IPython.display import display
