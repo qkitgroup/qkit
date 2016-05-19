@@ -14,12 +14,12 @@ try_legacy = False
 
 try:
     "try using the jupyter progress bar"
-    #import somemodule.that.doesnt.exist
+    import somemodule.that.doesnt.exist
 
     from ipywidgets import IntProgress, HTML
     from IPython.display import display
     class Progress_Bar(object):
-        def __init__(self,max_it,name= 'Progress:'):
+        def __init__(self,max_it,name= 'Progress:',est_cycle_time=None):
             if debug:
                 print("new style progress bar")
             self.starttime = time.time()
@@ -37,7 +37,14 @@ try:
                 )     
             
             self.pi = HTML(
-                value = "(0/%i) <br>&#9992; -?-    <br>&#128336;  --:--:--   (estimated)<br>&#10010;  00:00:00 (elapsed) <br>&#9866; --:--:--  (remaining)"% (self.max_it),
+                #value = "(0/%i) <br>&#9992; -?-    <br>&#128336;  --:--:--   (estimated)<br>&#10010;  00:00:00 (elapsed) <br>&#9866; --:--:--  (remaining)"% (self.max_it),
+                value = "<table style='width:100%%'><tr><td>%s (%i/%i) </td><td>&#9992; %s    </td><td>&#128336;  %s   (estimated)</td><td>&#10010;  %s (elapsed) </td><td>&#9866;  %s (remaining)</td></tr></table>"%("",
+                    0,
+                    self.max_it,
+                    "-?-" if est_cycle_time==None else time.ctime(time.time() + est_cycle_time * self.max_it ),
+                    "--:--:--" if est_cycle_time==None else time.strftime('%H:%M:%S', time.gmtime(est_cycle_time*self.max_it)),
+                    "00:00:00",
+                    "--:--:--" if est_cycle_time==None else time.strftime('%H:%M:%S', time.gmtime(est_cycle_time*self.max_it))),
                 )
 
             display(self.pi)
@@ -48,7 +55,7 @@ try:
             
 
             self.progr += 1
-            progr_info = "%s (%i/%i) <br>&#9992; %s    <br>&#128336;  %s   (estimated)<br>&#10010;  %s (elapsed) <br>&#9866;  %s (remaining)"%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
+            progr_info = "<table style='width:100%%'><tr><td>%s (%i/%i) </td><td>&#9992; %s    </td><td>&#128336;  %s   (estimated)</td><td>&#10010;  %s (elapsed) </td><td>&#9866;  %s (remaining)</td></tr></table>"%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
                     self.progr,
                     self.max_it,
                     time.ctime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it - 1  - self.progr)),
@@ -63,14 +70,14 @@ try:
                             
             if self.progr == self.max_it: #last iteration
                 self.pb.color = "green"
-                progr_info = "%s (%i/%i) &#9992; %s    &#10010;  %s  "%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
-                    self.progr,
-                    self.max_it,
-                    time.ctime(time.time() + float(time.time()-self.start_eta_time)/self.progr * (self.max_it - 1  - self.progr)),
-                    #time.strftime('%H:%M:%S', time.gmtime(self.start_eta_time-self.starttime+float(time.time()-self.start_eta_time)/self.progr * (self.max_it - 1 ))),
-                    time.strftime('%H:%M:%S', time.gmtime(time.time()-self.starttime)))
-                    #time.strftime('%H:%M:%S', time.gmtime(float(time.time()-self.start_eta_time)/self.progr * (self.max_it - 1  - self.progr))))
-                self.pi.value = progr_info
+                #progr_info = "%s (%i/%i) &#9992; %s    &#10010;  %s  "%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
+                #    self.progr,
+                #    self.max_it,
+                #    time.ctime(time.time() + float(time.time()-self.start_eta_time)/self.progr * (self.max_it - 1  - self.progr)),
+                #    #time.strftime('%H:%M:%S', time.gmtime(self.start_eta_time-self.starttime+float(time.time()-self.start_eta_time)/self.progr * (self.max_it - 1 ))),
+                #    time.strftime('%H:%M:%S', time.gmtime(time.time()-self.starttime)))
+                #    #time.strftime('%H:%M:%S', time.gmtime(float(time.time()-self.start_eta_time)/self.progr * (self.max_it - 1  - self.progr))))
+                #self.pi.value = progr_info
             
                     
 except ImportError,e:
@@ -84,7 +91,7 @@ except ImportError,e:
 
     class Progress_Bar(object):
 
-        def __init__(self, max_it, name = 'Progress:'):
+        def __init__(self, max_it, name = 'Progress:',est_cycle_time=None):
             if debug:
                 print("old style progress bar")
             #create HTML progress bar
@@ -97,15 +104,23 @@ except ImportError,e:
             #delete existing progress bar with same name
             display(Javascript("if(document.getElementById('%st') !== null) document.getElementById('%st').parentNode.remove()"%(self.name,self.name)))
             #display(Javascript("if(document.getElementById('%s') !== null) document.getElementById('%s').remove()"%(self.name,self.name)))
-
+               
+            outp = "<table style='width:100%%;border:none'><tr style='border:none'><td style='border:none'>%s (%i/%i) </td><td style='border:none'>&#9992; %s    </td><td style='border:none'>&#128336;  %s   (estimated)</td><td style='border:none'>&#10010;  %s (elapsed) </td><td style='border:none'>&#9866;  %s (remaining)</td></tr></table>"%("",
+                    0,
+                    self.max_it,
+                    "-?-" if est_cycle_time==None else time.ctime(time.time() + est_cycle_time * self.max_it ),
+                    "--:--:--" if est_cycle_time==None else time.strftime('%H:%M:%S', time.gmtime(est_cycle_time*self.max_it)),
+                    "00:00:00",
+                    "--:--:--" if est_cycle_time==None else time.strftime('%H:%M:%S', time.gmtime(est_cycle_time*self.max_it)))
+           
             self.pb = HTML(
             """
             <div id="%s_title"> %s</div>
             <div id="%s1" style="border: 1px solid black; width:900px">
               <div id="%s0" style="text-align: center; color:white; background-color:blue; width:0%%">&nbsp;</div>
             </div>
-            <div id="%s_text">(0/%i) Starting</div>
-            """ % (self.divid,self.name,self.divid,self.divid,self.divid,max_it))
+            <div id="%s_text">%s</div>
+            """ % (self.divid,self.name,self.divid,self.divid,self.divid,outp))
             display(self.pb)
             display(Javascript("$('div#%s').width('%i%%')" % (self.divid, 100*self.progr/self.max_it)))
             sys.stdout.flush()
@@ -115,7 +130,7 @@ except ImportError,e:
         def iterate(self,param=""):
             self.progr += 1
             display(Javascript("$('div#%s0').width('%i%%');" % (self.divid, 100*self.progr/self.max_it)))
-            outp = "%s (%i/%i) <br>&#9992; %s    <br>&#128336;  %s   (estimated)<br>&#10010;  %s (elapsed) <br>&#9866;  %s (remaining)"%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
+            outp = "<table style='width:100%%;border:none'><tr style='border:none'><td style='border:none'>%s (%i/%i) </td><td style='border:none'>&#9992; %s    </td><td style='border:none'>&#128336;  %s   (estimated)</td><td style='border:none'>&#10010;  %s (elapsed) </td><td style='border:none'>&#9866;  %s (remaining)</td></tr></table>"%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
                     self.progr,
                     self.max_it,
                     time.ctime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it - 1  - self.progr)),
@@ -126,7 +141,7 @@ except ImportError,e:
                 "this is a little academic, but the time between the first and the second iteration has usually a time lag."
                 self.start_eta_time = time.time()
             #outp = "%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s"%(param,self.progr,self.max_it,time.ctime(time.time() + float(time.time()-self.starttime)/self.progr * (self.max_it - self.progr)),time.strftime('%H:%M:%S',time.gmtime(time.time()-self.starttime)))
-            display(Javascript("document.getElementById('%s_text').innerHTML = '%s';"%(self.divid,outp)))
+            display(Javascript("document.getElementById('%s_text').innerHTML = \"%s\";"%(self.divid,outp)))
 
             if self.progr == self.max_it:   #end of progress bar
                 #Turn the status bar into green
