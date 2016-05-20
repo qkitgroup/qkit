@@ -292,8 +292,8 @@ def _display_2D_data(self,graphicsView):
             self.PointZ.setText("Z: %.6e %s"%(zval,z_unit)) 
             self.data_coord=  "%g\t%g\t%g" % (xval, yval,zval)
         
-    proxy = pg.SignalProxy(graphicsView.view.scene().sigMouseMoved, rateLimit=5, slot=mouseMoved)
-    graphicsView.view.scene().sigMouseMoved.connect(mouseMoved)
+    #proxy = pg.SignalProxy(graphicsView.view.scene().sigMouseMoved, rateLimit=5, slot=mouseMoved)
+    #graphicsView.view.scene().sigMouseMoved.connect(mouseMoved)
     #graphicsView.view.scene().sigMouseMoved.connect(proxy)
     ################################
 
