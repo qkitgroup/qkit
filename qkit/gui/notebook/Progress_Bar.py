@@ -58,10 +58,10 @@ try:
             progr_info = "<table style='width:100%%'><tr><td>%s (%i/%i) </td><td>&#9992; %s    </td><td>&#128336;  %s   (estimated)</td><td>&#10010;  %s (elapsed) </td><td>&#9866;  %s (remaining)</td></tr></table>"%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
                     self.progr,
                     self.max_it,
-                    time.ctime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it - 1  - self.progr)),
-                    time.strftime('%H:%M:%S', time.gmtime(self.start_eta_time-self.starttime+float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it - 1 ))),
+                    time.ctime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  - self.progr)),
+                    time.strftime('%H:%M:%S', time.gmtime(self.start_eta_time-self.starttime+float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it ))),
                     time.strftime('%H:%M:%S', time.gmtime(time.time()-self.starttime)),
-                    time.strftime('%H:%M:%S', time.gmtime(float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it - 1  - self.progr))))
+                    time.strftime('%H:%M:%S', time.gmtime(float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  - self.progr))))
             self.pi.value = progr_info
             self.pb.value = self.progr
             if self.progr == 1:
@@ -133,10 +133,10 @@ except ImportError,e:
             outp = "<table style='width:100%%;border:none'><tr style='border:none'><td style='border:none'>%s (%i/%i) </td><td style='border:none'>&#9992; %s    </td><td style='border:none'>&#128336;  %s   (estimated)</td><td style='border:none'>&#10010;  %s (elapsed) </td><td style='border:none'>&#9866;  %s (remaining)</td></tr></table>"%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
                     self.progr,
                     self.max_it,
-                    time.ctime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it - 1  - self.progr)),
-                    time.strftime('%H:%M:%S', time.gmtime(self.start_eta_time-self.starttime+float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it - 1 ))),
+                    time.ctime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it -  self.progr)),
+                    time.strftime('%H:%M:%S', time.gmtime(self.start_eta_time-self.starttime+float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it ))),
                     time.strftime('%H:%M:%S', time.gmtime(time.time()-self.starttime)),
-                    time.strftime('%H:%M:%S', time.gmtime(float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it - 1  - self.progr))))
+                    time.strftime('%H:%M:%S', time.gmtime(float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  - self.progr))))
             if self.progr == 1:
                 "this is a little academic, but the time between the first and the second iteration has usually a time lag."
                 self.start_eta_time = time.time()
