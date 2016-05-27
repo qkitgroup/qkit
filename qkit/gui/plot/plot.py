@@ -103,6 +103,7 @@ class h5plot(object):
         print 'Plots saved in', self.image_dir
 
     def plt_ds(self,dataset):
+        try:
             logging.info(" -> plotting dataset: "+str(dataset))
 
             ds=self.hf[dataset]
@@ -159,6 +160,7 @@ class h5plot(object):
                 ymin = y_ds.attrs.get('x0',0)
                 ymax = ymin+y_ds.attrs.get('dx',1)*y_ds.shape[0]
 
+
                 cax = ax.imshow(data_z.T, aspect='auto', extent=[xmin,xmax,ymin,ymax], origin = 'lower', interpolation='none')
                 cbar = fig.colorbar(cax)
                 cbar.ax.set_ylabel(ds_label)
@@ -189,6 +191,9 @@ class h5plot(object):
             fig.savefig(image_path+'.png')
 
             plt.close()
+        except Exception as e:
+            print "Exception in qkit/gui/plot/plot.py"
+            print e
 
     def plt_views(self,key):
             # not (yet?) implemented. we'll see ...
