@@ -1,5 +1,4 @@
 
-
 ''' !!! WORK IN PROGRESS !!! '''
 
 
@@ -48,9 +47,7 @@ class Tabor_WX1284C(Instrument):
 	Initialize with
 	<name> = instruments.create('name', 'Tabor_WX1284C', address='<GPIB address>',
 		reset=<bool>, numpoints=<int>)
-
 	think about:    clock, waveform length
-
 	TODO:
 	I) adjust commands 
 	1) Get All
@@ -59,16 +56,15 @@ class Tabor_WX1284C(Instrument):
 	4) Add 4-channel compatibility
 	'''
 
-	def __init__(self, name, address, reset=False, clock=6e9, numpoints=1000, numchannels = 4):
+	def __init__(self, name, address, chpair=None, reset=False, clock=6e9, numpoints=1000, numchannels = 4):    #<--
 		'''
 		Initializes the AWG WX1284C
-
 		Input:
 			name (string)    : name of the instrument
 			address (string) : GPIB address
 			reset (bool)     : resets to default values, default=false
 			numpoints (int)  : sets the number of datapoints
-
+            chpair (int)     : number of channel pair (1 for channels 1&2, 2 for channels 3&4)
 		Output:
 			None
 		'''
@@ -82,15 +78,33 @@ class Tabor_WX1284C(Instrument):
 		self._values['files'] = {}
 		self._clock = clock
 		self._numpoints = numpoints
+        
+		if chpair not in [None, 1, 2]:
+			raise ValueError("chpair should be 1, 2 or None.")
+                
+		if chpair and numchannels!=2:
+			raise ValueError("numchannels should be 2.")
+            
+		if chpair is None and numchannels !=4:
+			raise ValueError("numchannels should be 4.")
+            
 		self._numchannels = numchannels
-
+		self._choff = 0                                                            #<--
+        
+		if chpair == 2:
+			self._choff = 2
+            
 		# Add parameters
 		#self.add_parameter('waveform', type=types.StringType,
 		#	flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
 		#	channels=(1, self._numchannels), channel_prefix='ch%d_')
-		self.add_parameter('runmode', type=types.StringType,
-			flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-			channels=(1, 2), channel_prefix='p%d_')
+		if numchannels == 4:                                                #<--
+			self.add_parameter('runmode', type=types.StringType,
+				flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
+				channels=(1, 2), channel_prefix='p%d_')
+		else:
+			self.add_parameter('runmode', type=types.StringType,
+				flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET)
 		self.add_parameter('output', type=types.BooleanType,
 			flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
 			channels=(1, self._numchannels), channel_prefix='ch%d_')
@@ -127,15 +141,46 @@ class Tabor_WX1284C(Instrument):
 		self.add_parameter('status', type=types.BooleanType,
 			flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
 			channels=(1, self._numchannels),channel_prefix='ch%d_')
-		self.add_parameter('trigger_mode', type=types.StringType,
-			flags=Instrument.FLAG_GETSET,
-			channels=(1, 2), channel_prefix='p%d_')
-		self.add_parameter('trigger_delay', type=types.FloatType,
-			flags=Instrument.FLAG_GETSET,
-			channels=(1, 2), channel_prefix='p%d_')
-		self.add_parameter('sequence_mode', type=types.StringType,
-			flags=Instrument.FLAG_GETSET,
-			channels=(1, 2), channel_prefix='p%d_')
+		
+	
+		if numchannels == 4:
+			self.add_parameter('trigger_mode', type=types.StringType,
+				flags=Instrument.FLAG_GETSET,
+				channels=(1, 2), channel_prefix='p%d_')
+			self.add_parameter('trigger_delay', type=types.FloatType,
+				flags=Instrument.FLAG_GETSET,
+				channels=(1, 2), channel_prefix='p%d_')
+			self.add_parameter('sequence_mode', type=types.StringType,
+				flags=Instrument.FLAG_GETSET,
+				channels=(1, 2), channel_prefix='p%d_')
+			self.add_parameter('trigger_source', type=types.StringType,
+				flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
+				channels=(1, 2), channel_prefix='p%d_')
+			self.add_parameter('trigger_time', type=types.FloatType,
+				flags=Instrument.FLAG_GETSET,
+				channels=(1, 2), channel_prefix='p%d_')		
+			self.add_parameter('sync_output', type=types.BooleanType,
+				flags=Instrument.FLAG_GETSET| Instrument.FLAG_GET_AFTER_SET,
+				channels=(1, 2), channel_prefix='p%d_')
+			self.add_parameter('trigger_slope', type=types.StringType,
+				flags=Instrument.FLAG_GETSET| Instrument.FLAG_GET_AFTER_SET,
+				channels=(1, 2), channel_prefix='p%d_')
+			
+		else:
+			self.add_parameter('trigger_mode', type=types.StringType,
+				flags=Instrument.FLAG_GETSET)
+			self.add_parameter('trigger_delay', type=types.FloatType,
+				flags=Instrument.FLAG_GETSET)
+			self.add_parameter('sequence_mode', type=types.StringType,
+				flags=Instrument.FLAG_GETSET)
+			self.add_parameter('trigger_source', type=types.StringType,
+				flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET)
+			self.add_parameter('trigger_time', type=types.FloatType,
+				flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET)
+			self.add_parameter('sync_output', type=types.BooleanType,
+				flags=Instrument.FLAG_GETSET| Instrument.FLAG_GET_AFTER_SET)
+			self.add_parameter('trigger_slope', type=types.StringType,
+				flags=Instrument.FLAG_GETSET| Instrument.FLAG_GET_AFTER_SET)
 		#self.add_parameter('seq_length', type=types.IntType, flags = Instrument.FLAG_GETSET)
 		#self.add_parameter('seq_position', type=types.IntType, flags = Instrument.FLAG_GET)
 
@@ -151,6 +196,12 @@ class Tabor_WX1284C(Instrument):
 		self.add_function('ask') #for debug
 		self.add_function('write') #for debug
 		self.add_function('define_sequence')
+		self.add_function('close')
+		
+		
+		if numchannels==2:
+			self.add_function('preset_readout')
+			self.add_function('preset_manipulation')
 		
 		#self.add_function('set_sequence_mode')
 		#self.add_function('set_trigger_impedance_1e3')
@@ -175,6 +226,8 @@ class Tabor_WX1284C(Instrument):
 		else:
 			self.get_all()
 		self._visainstrument.write(":INST1;:MARK:SOUR USER;:INST3;:MARK:SOUR USER")
+		
+		print("The device is set up with %i channels. You use the channels %s" %(numchannels, str(range(self._choff+1, numchannels + self._choff+1))))
 
 	# Functions
 	def fix(self,verbose=True):
@@ -204,10 +257,8 @@ class Tabor_WX1284C(Instrument):
 	def reset(self):		#checked 
 		'''
 		Resets the instrument to default values
-
 		Input:
 			None
-
 		Output:
 			None
 		'''
@@ -222,13 +273,13 @@ class Tabor_WX1284C(Instrument):
 		self.reset()
 		self.set_trigger_impedance(50)
 		self.set_trigger_level(.2)
-		self.set_p1_trigger_mode('TRIG')
-		self.set_p2_trigger_mode('TRIG')
-		self.set_p1_runmode('SEQ')
-		self.set_p2_runmode('USER')
-		self.set_p1_sequence_mode('STEP')
-		self.set_p2_sequence_mode('STEP')
-		for i in range(self._numchannels):
+		#self.set_p1_trigger_mode('TRIG')
+		#self.set_p2_trigger_mode('TRIG')
+		#self.set_p1_runmode('SEQ')
+		#self.set_p2_runmode('USER')
+		#self.set_p1_sequence_mode('STEP')
+		#self.set_p2_sequence_mode('STEP')
+		for i in range(1,self._numchannels + 1):                      #<--
 			self.set('ch%i_amplitude'%i,2)
 			self.set('ch%i_marker_output'%i,True)
 			self.set('ch%i_marker_high'%i,1)
@@ -238,31 +289,85 @@ class Tabor_WX1284C(Instrument):
 		'''
 		Reads all implemented parameters from the instrument,
 		and updates the wrapper.
-
 		Input:
 			None
-
 		Output:
 			None
 		'''
 		self.fix(False)
 		logging.info(__name__ + ' : Reading all data from instrument')
 		#self.check()
-		#self.get_trigger_impedance()
+		self.get_trigger_impedance()
 		self.get_trigger_level()
 		self.get_clock()
-		for i in (1,2):
-			self.get('p%d_runmode' % i)
-			self.get('p%d_trigger_mode' % i)
-			self.get('p%d_sequence_mode' % i)
-		for i in range(1,self._numchannels+1):
+		if self._numchannels == 4:
+			for i in (1,2):                              #<--
+				self.get('p%d_runmode' % i)
+				self.get('p%d_trigger_mode' % i)
+				self.get('p%d_sequence_mode' % i)
+				self.get('p%d_sync_output' %i)
+				self.get('p%d_trigger_time' %i)
+				self.get('p%d_trigger_delay' %i)
+				self.get('p%d_trigger_source' %i)
+				self.get('p%d_trigger_slope' %i)
+		for i in range(1,self._numchannels + 1):                      #<--
 			self.get('ch%d_amplitude' % i)
 			self.get('ch%d_offset' % i)
 			self.get('ch%d_marker_high' % i)
 			self.get('ch%d_marker_output' % i)
 			self.get('ch%d_status' % i)
 			self.get('ch%d_output' % i)
-	
+		if self._numchannels == 2:                         #<--
+			self.get('runmode')
+			self.get('trigger_mode')
+			self.get('sequence_mode')
+			self.get('sync_output')
+			self.get('trigger_time')
+			self.get('trigger_delay')
+			self.get('trigger_source')
+			self.get('trigger_slope')
+            
+	def preset_readout(self, tr_slope = 'NEG'):
+		'''
+		prepare the specified AWG for readout mode
+		
+		inputs:
+			trigger edge
+		output:
+			None
+		'''
+		
+		self.set_runmode('USER')
+		self.set_ch1_output(True)
+		self.set_ch2_output(True)
+		self.set_trigger_mode('TRIG')
+		self.set_trigger_source('EXT')
+		try:
+			self.set_trigger_slope(tr_slope)
+		except Exception as m:
+			print 'Trigger slope has to be POS or NEG. Setting to NEG.', m
+			self.set_trigger_slope('NEG')
+		
+	def preset_manipulation(self):
+		'''
+		prepare the specified AWG for manipulation
+		default repitition time is 2e-4 
+		Input:
+			None
+		Output:
+			None
+		'''
+		self.set_runmode('SEQ')
+		self.set_ch1_output(True)
+		self.set_ch2_output(True)
+		self.set_trigger_mode('TRIG')
+		self.set_trigger_source('TIM')
+		self.set_sync_output(True)
+		self.set_trigger_time(2e-4)
+		self.set_sequence_mode("STEP")
+		
+		
+		
 	def ask(self,cmd):
 		return self._visainstrument.ask(cmd)
 	
@@ -272,15 +377,13 @@ class Tabor_WX1284C(Instrument):
 	def clear_waveforms(self): #done
 		'''
 		Clears the waveform on all channels.
-
 		Input:
 			None
-
 		Output:
 			None
 		'''
 		logging.debug(__name__ + ' : Clear waveforms from channels')
-		for idx in range(1, self._numchannels):
+		for idx in range(self._choff+1,self._numchannels + 1):              #<--
 			self._visainstrument.write(':INST%i; :TRAC:DEL:ALL'%idx)
 
 	def run(self): #done
@@ -288,10 +391,8 @@ class Tabor_WX1284C(Instrument):
 		Initiates the output of a waveform or a sequence. This is equivalent to pressing
 		Run/Delete/Stop button on the front panel. The instrument can be put in the run
 		state only when output waveforms are assigned to channels.
-
 		Input:
 			None
-
 		Output:
 			None
 		'''
@@ -302,10 +403,8 @@ class Tabor_WX1284C(Instrument):
 		'''
 		Terminates the output of a waveform or a sequence. This is equivalent to pressing
 		Run/Delete/Stop button on the front panel.
-
 		Input:
 			None
-
 		Output:
 			None
 		'''
@@ -338,7 +437,6 @@ class Tabor_WX1284C(Instrument):
 		Input:
 			channel (int) : the source channel
 			state (bool) : True or False
-
 		Output:
 			None
 		'''		
@@ -349,18 +447,19 @@ class Tabor_WX1284C(Instrument):
 		This command gets the output state of the AWG.
 		Input:
 			channel (int) : the source channel
-
 		Output:
 			state (bool) : True or False
 		'''
 		return self.get('ch%d_status'%channel)
 		
 	def do_set_marker_output(self,state,channel):
+		channel +=self._choff                                                 #<--
 		logging.debug(__name__ + ' : Set marker %i output state %s'%(channel,state))
 		self._visainstrument.write(':INST%s;:MARK:SEL%i;:MARK:STAT %i' % (channel,((int(channel)-1)%2+1),state))
 		self.check()
 		
 	def do_get_marker_output(self,channel):
+		channel +=self._choff                                                  #<--
 		logging.debug(__name__ + ' : Get marker %i output state '%(channel))
 		outp = self._visainstrument.ask(':INST%s;:MARK:SEL%i;:MARK:STAT?' % (channel,((int(channel)-1)%2+1)))
 		if ((outp=='0')|(outp == 'OFF')):
@@ -371,7 +470,7 @@ class Tabor_WX1284C(Instrument):
 			logging.debug(__name__ + ' : Read invalid status from instrument %s' % outp)
 			raise ValueError('an error occurred while reading status from instrument')
 	
-	def do_set_runmode(self,mode,channel):
+	def do_set_runmode(self,mode,channel=1):
 		'''
 		Set the output mode of the AWG:
 		FIX - Standard waveform shapes
@@ -382,66 +481,73 @@ class Tabor_WX1284C(Instrument):
 		PULS
 		PATT
 		'''
+		channel +=self._choff                                 #<--
 		mode = mode.upper()
 		if not mode in ("FIX","USER","SEQ","ASEQ","MOD","PULS","PATT"):
 			raise ValueError("The selected mode is not supported, your choice was %s, but I have FIX,USER,SEQ,ASEQ,MOD,PULS,PATT"%mode)
-		return self._visainstrument.write(":INST%s;:FUNC:MODE %s"%(2*channel-1,mode))
+		return self._visainstrument.write(":INST%s;:FUNC:MODE %s"%((2*channel-1 if self._numchannels == 4 else channel),mode))
 	
-	def do_get_runmode(self,channel):
+	def do_get_runmode(self,channel=1):
 		'''
 		returns the output mode of the AWG.
 		'''
-		return self._visainstrument.ask(":INST%s;:FUNC:MODE?"%(2*channel-1))
+		channel +=self._choff                                                        #<--
+		return self._visainstrument.ask(":INST%s;:FUNC:MODE?"%(2*channel-1 if self._numchannels == 4 else channel))
 		
 		
-	def do_set_sequence_mode(self,mode,channel):
+	def do_set_sequence_mode(self,mode,channel=1):      #<--?????
 		'''
 		Sequence Mode:
 		AUTO - repeatedly run through the whole sequence (ignoring trigger)
 		ONCE - play whole sequence once at trigger
 		STEP - play one step per trigger event
 		'''
+		channel +=self._choff                                     #<--
 		mode = mode.upper()
 		if not mode in ("AUTO","ONCE","STEP"):
 			raise ValueError("The selected sequence mode is not supported, your choice was %s, but I have AUTO,ONCE,STEP"%mode)
-		return self._visainstrument.write(":INST%s;:SEQ:ADV %s"%(2*channel-1,mode))
+		return self._visainstrument.write(":INST%s;:SEQ:ADV %s"%((2*channel-1 if self._numchannels == 4 else channel),mode))
 		
-	def do_get_sequence_mode(self,channel):
-		return self._visainstrument.ask(":INST%s;:SEQ:ADV?"%(2*channel-1))
+	def do_get_sequence_mode(self,channel=1):             #<--???????
+		channel +=self._choff                                                  #<--
+
+		return self._visainstrument.ask(":INST%s;:SEQ:ADV?"%(2*channel-1 if self._numchannels == 4 else channel))
 
 
-	def do_set_trigger_mode(self, runmode,channel): #done
+
+	def do_set_trigger_mode(self, runmode,channel=1): #done
 		'''
 		Set the Trigger Mode of the device to Continuous, Triggered or Gated.
 		Input:
 			runmode (str) : The Trigger mode which can be set to 'CONT', 'TRIG', 'GAT'.
-
 		Output:
 			None
 		'''
+		channel +=self._choff                                                 #<--
 		logging.debug(__name__ + ' : Set runmode to %s' % runmode)
 		runmode = runmode.upper()
 		if (runmode == 'TRIG'):
-			self._visainstrument.write(':INST%s;:INIT:CONT 0;GATE 0'%(2*channel-1))
+			self._visainstrument.write(':INST%s;:INIT:CONT 0;GATE 0'%(2*channel-1 if self._numchannels == 4 else channel))   #<--?????
 		else:
 			if (runmode == 'CONT'):
-				self._visainstrument.write(':INST%s;:INIT:CONT 1'%(2*channel-1))
+				self._visainstrument.write(':INST%s;:INIT:CONT 1'%(2*channel-1 if self._numchannels == 4 else channel))
 			else:
 				if (runmode == 'GATE'):
-					self._visainstrument.write(':INST%s;:INIT:CONT 0; GATE 1'%(2*channel-1))
+					self._visainstrument.write(':INST%s;:INIT:CONT 0; GATE 1'%(2*channel-1 if self._numchannels == 4 else channel))
 				else:
 					logging.error(__name__ + ' : Unable to set trigger mode to %s, expected "CONT", "TRIG" or "GATE"' % runmode)
 
-	def do_get_trigger_mode(self,channel): #done
+	def do_get_trigger_mode(self,channel=1): #done
 		'''
 		Get the Trigger Mode of the device
 		Output:
 			runmode (str) : The Trigger mode which can be set to 'CONT', 'TRIG' or 'GAT'.
 		'''
-		cont = self._visainstrument.ask(':INST%s;:INIT:CONT ?'%(2*channel-1))
+		channel +=self._choff                                                          #<--
+		cont = self._visainstrument.ask(':INST%s;:INIT:CONT ?'%(2*channel-1 if self._numchannels == 4 else channel))          #<--?????
 		
 		if (cont == 'OFF'):
-			gate = self._visainstrument.ask(':INST%s;:INIT:GATE ?'%(2*channel-1))
+			gate = self._visainstrument.ask(':INST%s;:INIT:GATE ?'%(2*channel-1 if self._numchannels == 4 else channel))
 			if (gate == 'OFF'):
 				return 'TRIG'
 			else:
@@ -449,27 +555,110 @@ class Tabor_WX1284C(Instrument):
 		else:
 			return 'CONT'
 
-	def do_get_trigger_delay(self,channel):
+	def do_get_trigger_delay(self,channel=1):           #<--?????
 		'''
 		gets the trigger delay for the specified pair of channels. Internally, the delay is counted in samples, but this function returns seconds.
 		'''
-		return float(self._visainstrument.ask(":INST%s;:TRIG:DEL?"%(2*channel-1)))/float(self.get_clock())
+		channel +=self._choff                                                                     #<--
+		return float(self._visainstrument.ask(":INST%s;:TRIG:DEL?"%(2*channel-1 if self._numchannels == 4 else channel)))/float(self.get_clock())
 		
-	def do_set_trigger_delay(self,delay,channel):
+	def do_set_trigger_delay(self,delay,channel=1):     #<--?????
 		'''
 		gets the trigger delay for the specified pair of channels. Internally, the delay is counted in samples, but this function returns seconds.
 		'''
+		channel +=self._choff                                #<--
 		clock = self.get_clock()
-		self._visainstrument.write(":INST%s;:TRIG:DEL%i"%(2*channel-1,round(delay*clock)))
+		self._visainstrument.write(":INST%s;:TRIG:DEL%i"%((2*channel-1 if self._numchannels == 4 else channel),round(delay*clock)))
 		
+	def do_set_trigger_source(self, source, channel=1):
+		'''
+		sets the source of the trigger signal external or internal (timer)
+		Input:
+			EXT: external trigger input
+			TIM: internal trigger
+		Output:
+			None	
+		'''
+		channel +=self._choff    
+		source = source.upper()
+		if source == "INT":
+			source = "TIM"
+			logging.warning("I assume you mean TIM. I fixed this for you :)")
+		if not source in ("EXT","TIM"):
+			raise ValueError("The selected source is not supported, your choice was %s, but I have EXT or TIM"%source)
+
+		return self._visainstrument.write(":INST%s;:TRIG:SOUR:ADV %s"%((2*channel-1 if self._numchannels == 4 else channel),source))
+	
+	def do_get_trigger_source(self, channel=1):
+		'''
+		returns the source of the trigger signal external or internal (timer)
+		Input:
+			None
+		Output:
+			EXT: external trigger input
+			TIM: internal trigger
+		'''                                    
+		channel +=self._choff                                              #<--
+		logging.debug(__name__ + ' : Get source of channel %s' % (2*channel-1 if self._numchannels == 4 else channel))
+		return self._visainstrument.ask(":INST%s;:TRIG:SOUR:ADV?" %(2*channel-1 if self._numchannels == 4 else channel))
 		
+	def do_set_trigger_time(self, time, channel=1):
+		'''
+		sets the repitition time of the trigger signal
+		Input:
+			time
+		Output:
+			None	
+		'''
+		channel +=self._choff    
+		
+		return self._visainstrument.write(":INST%s;:TRIG:TIM:TIME %e"%((2*channel-1 if self._numchannels == 4 else channel),time))
+		
+	def do_get_trigger_time(self, channel = 1):
+		'''
+		gets the repitition time of the trigger signal
+		Input:
+			None
+		Output:
+			time	
+		'''
+		channel +=self._choff                                              #<--
+		logging.debug(__name__ + ' : Get time of channel %s' % (2*channel-1 if self._numchannels == 4 else channel))
+		return self._visainstrument.ask(":INST%s;:TRIG:TIM:TIME?" % (2*channel-1 if self._numchannels == 4 else channel))
+	
+	def do_set_sync_output(self, state, channel = 1):
+		'''
+		sends a sync pulse to sync out, can be used for synchronisation with chpair 2
+		Input:
+			True or False
+		Output:
+			None
+		'''
+		channel+=self._choff
+		self._visainstrument.write(":OUTP:SYNC:SOUR%s"%(2*channel-1 if self._numchannels == 4 else channel))
+		self._visainstrument.write(":OUTP:SYNC%i"%state)
+		
+	
+	def do_get_sync_output(self, channel=1):
+		'''
+		checks if there is a synchronisation pulse
+		Input:
+			None
+		Output:
+			On or Off
+		'''
+		channel +=self._choff
+		if self._visainstrument.ask(":OUTP:SYNC:SOUR ?")==str(channel):
+			if self._visainstrument.ask(":OUTP:SYNC ?")=="ON":
+				return True
+		return False
+
+	
 	def set_trig_impedance(self, impedance): #done
 		'''
 		Sets the trigger impedance to 50 Ohm or 10 kOhm
-
 		Input:
 			'50' or '10k'
-
 		Output:
 			None
 		'''
@@ -484,15 +673,13 @@ class Tabor_WX1284C(Instrument):
 	def do_get_trigger_impedance(self): #done
 		'''
 		Reads the trigger impedance from the instrument
-
 		Input:
 			None
-
 		Output:
 			impedance: 10K or 50 (Ohm) 
 		'''
-		logging.error(__name__ + ' : getting trigger impedance does currently not work... (AS 01/2016)')
-		return 0
+		#logging.error(__name__ + ' : getting trigger impedance does currently not work... (AS 01/2016)')
+		#return 0
 		logging.debug(__name__  + ' : Get trigger impedance from instrument')
 		imp = self._visainstrument.ask('TRIG:INP:IMP ?')
 		if imp == "10K": imp = 1e4
@@ -501,10 +688,8 @@ class Tabor_WX1284C(Instrument):
 	def do_set_trigger_impedance(self, mod): #done
 		'''
 		Sets the trigger impedance of the instrument
-
 		Input:
 			mod (int) : Either 1e3 or 50 depending on the mode
-
 		Output:
 			None
 		'''
@@ -518,10 +703,8 @@ class Tabor_WX1284C(Instrument):
 	def do_get_trigger_level(self): #done
 		'''
 		Reads the trigger level from the instrument
-
 		Input:
 			None
-
 		Output:
 			None
 		'''
@@ -531,20 +714,43 @@ class Tabor_WX1284C(Instrument):
 	def do_set_trigger_level(self, level): #done
 		'''
 		Sets the trigger level of the instrument
-
 		Input:
 			level (float) : trigger level in volts
 		'''
 		logging.debug(__name__  + ' : Trigger level set to %.2f' % level)
 		self._visainstrument.write('TRIG:LEV %.2f' % level)
 
+	def do_set_trigger_slope(self, slope, channel=1):
+		'''
+		Trigger starts with positive or negative slope of trigger signal
+		Input:
+			slope: 'POS', 'NEG' or 'EIT'
+			channel
+		Output:
+			None
+		'''
+		slope=slope.upper()
+		if slope in ["POS", "NEG", "EIT"]:
+			channel+=self._choff
+			self._visainstrument.write(":INST%i;:TRIG:SLOP%s"%((2*channel-1 if self._numchannels == 4 else channel),slope))
+			
+	def do_get_trigger_slope(self, channel=1):
+		'''
+		with which slope does the trigger start?
+		Input:
+			channel
+		Output:
+			slope
+		'''
+		return self._visainstrument.ask(":INST%i;:TRIG:SLOP?"%(2*channel-1 if self._numchannels == 4 else channel))
+		
+	
+	
 	def do_get_numpoints(self):
 		'''
 		Returns the number of datapoints in each wave
-
 		Input:
 			None
-
 		Output:
 			numpoints (int) : Number of datapoints in each wave
 		'''
@@ -554,10 +760,8 @@ class Tabor_WX1284C(Instrument):
 		'''
 		Sets the number of datapoints in each wave.
 		This acts on all channels.
-
 		Input:
 			numpts (int) : The number of datapoints in each wave
-
 		Output:
 			None
 		'''
@@ -577,10 +781,8 @@ class Tabor_WX1284C(Instrument):
 		'''
 		Returns the clockfrequency, which is the rate at which the datapoints are
 		sent to the designated output
-
 		Input:
 			None
-
 		Output:
 			clock (int) : frequency in Hz
 		'''
@@ -590,10 +792,8 @@ class Tabor_WX1284C(Instrument):
 	def do_set_clock(self, clock): #done
 		'''
 		Sets the rate at which the datapoints are sent to the designated output channel
-
 		Input:
 			clock (int) : frequency in Hz (75e6 to 1.25e9)
-
 		Output:
 			None
 		'''
@@ -604,13 +804,12 @@ class Tabor_WX1284C(Instrument):
 	def do_get_amplitude(self, channel): #done
 		'''
 		Reads the amplitude of the designated channel from the instrument
-
 		Input:
 			channel (int) : 1, 2, 3 or 4: the number of the designated channel
-
 		Output:
 			amplitude (float) : the amplitude of the signal in Volts
 		'''
+		channel +=self._choff                                                           #<--
 		logging.debug(__name__ + ' : Get amplitude of channel %s from instrument'
 			% channel)
 		return float(self._visainstrument.ask(':INST%s;:VOLT ?' % channel))
@@ -618,14 +817,13 @@ class Tabor_WX1284C(Instrument):
 	def do_set_amplitude(self, amp, channel): #done
 		'''
 		Sets the amplitude of the designated channel of the instrument
-
 		Input:
 			amp (float)   : amplitude in Volts (0.050 V to 2.000 V)
 			channel (int) : 1, 2, 3 or 4: the number of the designated channel
-
 		Output:
 			None
 		'''
+		channel +=self._choff                                                   #<--
 		logging.debug(__name__ + ' : Set amplitude of channel %s to %.6f'
 			% (channel, amp))
 		if amp < 50e-3:
@@ -640,28 +838,26 @@ class Tabor_WX1284C(Instrument):
 	def do_get_offset(self, channel): #done
 		'''
 		Reads the offset of the designated channel of the instrument
-
 		Input:
 			channel (int) : 1, 2, 3 or 4: the number of the designated channel
-
 		Output:
 			offset (float) : offset of designated channel in Volts
-		'''
+		'''                                               
+		channel +=self._choff                                              #<--
 		logging.debug(__name__ + ' : Get offset of channel %s' % channel)
 		return float(self._visainstrument.ask(':INST%s;:VOLT:OFFS ?' % channel))
 
 	def do_set_offset(self, offset, channel): #done
 		'''
 		Sets the offset of the designated channel of the instrument
-
 		Input:
 			offset (float) : offset in Volts (-1.000 V to 1.000 V)
 			channel (int)  : 1, 2, 3 or 4: the number of the designated channel
-
 		Output:
 			None
 		'''
 		
+		channel +=self._choff                    #<--
 		if offset < -1.000:
 			offset = -1.000
 			print 'Offset was set to -1.000 V, which is smallest possible voltage'
@@ -676,13 +872,12 @@ class Tabor_WX1284C(Instrument):
 		'''
 		Gets the high level for marker1 on the designated channel.
 		Note that Channels 1&2 and 3&4 share the same two markers.
-
 		Input:
 			channel (int) : 1, 2, 3 or 4: the number of the designated channel
-
 		Output:
 			high (float) : high level in Volts
 		'''
+		channel +=self._choff                                                #<--
 		logging.debug(__name__ + ' : Get upper bound of marker %i of channel %s' %(((int(channel)-1)%2+1),channel))
 		return float(self._visainstrument.ask(':INST%s;:MARK:SEL%i;:MARK:VOLT:HIGH ?' % (channel,((int(channel)-1)%2+1))))
 
@@ -694,10 +889,10 @@ class Tabor_WX1284C(Instrument):
 		Input:
 			high (float)   : high level in Volts
 			channel (int)  : 1, 2, 3 or 4: the number of the designated channel
-
 		Output:
 			None
 		 '''
+		channel +=self._choff                                        #<--
 		logging.debug(__name__ + ' : Set upper bound of marker%i of channel %s to %.3f'% (((int(channel)-1)%2+1),channel, high))
 		self._visainstrument.write(':INST%s;:MARK:SEL%i;:MARK:VOLT:HIGH%.2f' % (channel,((int(channel)-1)%2+1),high))
 		self.check()
@@ -705,13 +900,12 @@ class Tabor_WX1284C(Instrument):
 	def do_get_status(self, channel): #done
 		'''
 		Gets the status of the designated channel.
-
 		Input:
 			channel (int) : 1, 2, 3 or 4: the number of the designated channel
-
 		Output:
 			status (bool)
 		'''
+		channel +=self._choff                                                  #<--
 		logging.debug(__name__ + ' : Get status of channel %s' % channel)
 		outp = self._visainstrument.ask(':INST%s;:OUTP ?' % channel)
 		if ((outp=='0')|(outp == 'OFF')):
@@ -721,26 +915,24 @@ class Tabor_WX1284C(Instrument):
 		else:
 			logging.debug(__name__ + ' : Read invalid status from instrument %s' % outp)
 			return 'an error occurred while reading status from instrument'
-		self.get("ch%i_output"%channel)
+		self.get("ch%i_output"%channel-self._choff)                             #<--
 
 	def do_set_status(self, status, channel):  #done
 		'''
 		Sets the status of designated channel.
-
 		Input:
 			status (bool) : True or False
 			channel (int)   : 1, 2, 3 or 4: the number of the designated channel
-
 		Output:
 			None
 		'''
-		logging.debug(__name__ + ' : Set status of channel %s to %s'
-			% (channel, status))
+		channel +=self._choff                                                 #<--
+		logging.debug(__name__ + ' : Set status of channel %s to %s' % (channel, status))
 		if status:
 			self._visainstrument.write(':INST%s;:OUTP ON' % channel)
 		else:
 			self._visainstrument.write(':INST%s;:OUTP OFF' % channel)
-		self.get("ch%i_output"%channel)
+		self.get("ch%i_output"%(channel-self._choff))                           #<--
 
 	# Send waveform to the device
 	def send_waveform(self, w, m1, m2, channel, seg):
@@ -753,11 +945,11 @@ class Tabor_WX1284C(Instrument):
 		then sends it to the memory of the specified channel into the specified segment.
 		
 		See also: resend_waveform()
-
 		Input:
 			w (float[numpoints]) : waveform (amplitude range 0 <-max amp.> to 1 <max amp.>)
 			m1 (int[numpoints])  : marker1 (either 1 or 0, i.e. marker on or off)
 			m2 (int[numpoints])  : marker2 (either 1 or 0, i.e. marker on or off)
+			use m1=None or m2=None to fill with zeros
 			channel (int)		 : channel 1, 2, 3, or 4 that waveform is sent to
 			seg (int)			 : # of data segment the waveform is sent to (1 to 16000)
 		Output:
@@ -765,6 +957,12 @@ class Tabor_WX1284C(Instrument):
 		'''
 		#logging.debug(__name__ + ' : Sending waveform %s to instrument' % filename)
 		# Check for errors
+		
+		if channel > self._numchannels:
+			raise ValueError("There are only channels 1 and 2.")
+		
+		channel +=self._choff                   #<--
+        
 		
 		dim = len(w)
 		
@@ -799,14 +997,13 @@ class Tabor_WX1284C(Instrument):
 		self._visainstrument.write(':TRAC#%i%i%s' %(int(numpy.log10(len(ws))+1), len(ws), ws))
 		print "transfering waveform with %i bytes."%len(ws)
 
-	def wfm_send2(self, w1, w2, m1=None, m2=None, channel=1, seg=1):
+	def wfm_send2(self, w1, w2, m1=None, m2=None, channel=1, seg=1):                #<--
 		'''
 		Sends two complete waveforms for channel pairs 1&2 or 3&4. All parameters need to be specified.
 		Takes a waveform as generated by generate_waveform from qkit and first converts it to data usable by the AWG 
 		then sends it to the memory of the specified channel into the specified segment.
 		
 		See also: resend_waveform()
-
 		Input:
 			w (float[numpoints]) : waveform (amplitude range 0 <-max amp.> to 1 <max amp.>)
 			m1 (int[numpoints])  : marker1 (either 1 or 0, i.e. marker on or off)
@@ -819,6 +1016,7 @@ class Tabor_WX1284C(Instrument):
 		#logging.debug(__name__ + ' : Sending waveform %s to instrument' % filename)
 		# Check for errors
 		#s0 = time.time()
+		channel +=self._choff                                                       #<--
 		if len(w1) != len(w2): raise ValueError("Waveform length is not equal.")
 		if len(w1)%16 != 0:	raise ValueError("Wfm length has to be divisible by 16")
 		
@@ -862,6 +1060,7 @@ class Tabor_WX1284C(Instrument):
 		loops (array of ints): How often should each segment be repeated? (1-16M)
 		jump_flags (array of 0,1): if set to 1, the sequencer will wait at this sequence element until an event happens.
 		'''
+		channel +=self._choff                                    #<--
 		if segments==None:
 			print "Amount of segments not specified, try to get it from AWG"
 			for i in range(1,32000):
@@ -892,20 +1091,19 @@ class Tabor_WX1284C(Instrument):
 	def set_seq_length(self,length):
 		self.define_sequence(1,length)
 		
+	def close(self):
+		self._visainstrument.close()
 #	def wfm_resend(self, channel, w=[], m1=[], m2=[], clock=[]):
 		'''
 		Resends the last sent waveform for the designated channel
 		Overwrites only the parameters specified
-
 		Input: (mandatory)
 			channel (int) : 1, 2, 3 or 4, the number of the designated channel
-
 		Input: (optional)
 			w (float[numpoints]) : waveform
 			m1 (int[numpoints])  : marker1
 			m2 (int[numpoints])  : marker2
 			clock (int) : frequency
-
 		Output:
 			None
 		'''
@@ -1021,3 +1219,7 @@ class Tabor_WX1284C(Instrument):
 			# return None
 		# else:
 			# return int(self._visainstrument.ask('SEQ:ELEM%d:GOTO:IND?'%position))
+
+
+
+
