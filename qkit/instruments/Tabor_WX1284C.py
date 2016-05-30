@@ -1071,13 +1071,16 @@ class Tabor_WX1284C(Instrument):
 			if segments==None:
 				raise ValueError("Could not find number of segments...")
 		if type(segments)==int:
-			segments = range(1,segments+1)
+            #the segement table needs at least 3 entries. So if it would be shorter, we just take it multiple times.
+            if segments == 1 : segments = [1,1,1]
+            elif segments = 2 : segments = [1,2,1,2]
+			else: segments = range(1,segments+1)
 			#print segments
 		if loops == None: loops = numpy.ones(len(segments))
 		if jump_flags == None: jump_flags = numpy.zeros(len(segments))
 		if not len(loops)==len(segments) or not len(jump_flags) == len(segments):
 			raise ValueError("Length of segments (%i) does not match length of loops (%i) or length of jump_flags(%i)"%(len(segments),len(loops),len(jump_flags)))
-		if len(segments)<3: raise ValueError("Sorry, you need at least 3 segments. Your command has %i segments"%(len(segments)))
+		if len(segments)<3: else raise ValueError("Sorry, you need at least 3 segments. Your command has %i segments"%(len(segments)))
 					
 		#Set specified channel
 		self._visainstrument.write(':INST%s' % (channel))
@@ -1088,8 +1091,8 @@ class Tabor_WX1284C(Instrument):
 		self._visainstrument.write(':SEQ#%i%i%s' %(int(numpy.log10(len(ws))+1), len(ws), ws))
 		#print "transfering sequence table with %i bytes."%len(ws)
 	
-	def set_seq_length(self,length):
-		self.define_sequence(1,length)
+	def set_seq_length(self,length,chpair=1):
+		self.define_sequence((2*chpair-1 if self._numchannels == 4 else chpair),length)
 		
 	def close(self):
 		self._visainstrument.close()

@@ -9,7 +9,7 @@ from qkit.gui.notebook.Progress_Bar import Progress_Bar
 import gc
 
 
-def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None, ch2_amp = 2):
+def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None, ch2_amp = 2,chpair=1,awg= None):
 	'''
 		set awg to sequence mode and push a number of waveforms into the sequencer
 		
@@ -26,9 +26,12 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
 		
 		for the 6GS/s AWG, the waveform length must be divisible by 64
 		for the 1.2GS/s AWG, it must be divisible by 4
+        
+        chpair: if you use the 4ch Tabor AWG as a single 5ch instrument, you can chose to take the second channel pair here (this can be either 1 or 2).
 	'''
 	qt.mstart()
-	awg = sample.get_awg()
+	if awg==None:
+        awg = sample.get_awg()
 	clock = sample.get_clock()
 	wfm_func2 = wfm_func
 	if iq != None:
@@ -39,10 +42,12 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
 		if "Tektronix" in awg.get_type():
 			awg.set_runmode('SEQ')
 			awg.set_seq_length(0)   #clear sequence, necessary?
+            awg.set_seq_length(len(ts))
 		elif "Tabor" in awg.get_type():
-			awg.set_p1_runmode('SEQ')
+			awg.set('p%i_runmode'%chpair,'SEQ')
+            awg.define_sequence(%chpair*2-1,len(ts))
 		
-		awg.set_seq_length(len(ts))   #create empty sequence
+		
 		
 		#amplitude settings of analog output
 		awg.set_ch1_offset(0)
@@ -105,7 +110,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
 					awg.set_seq_loop(ti+1, np.infty)
 			elif "Tabor" in awg.get_type():
 				if chan == 0:
-					awg.wfm_send2(wfm_samples[0],wfm_samples[1],marker1,marker2,chan+1,ti+1)
+					awg.wfm_send2(wfm_samples[0],wfm_samples[1],marker1,marker2,chpair*2-1+chan+1,ti+1)
 				else: continue
 			else:
 				raise ValueError("AWG type not known")
@@ -122,7 +127,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
 		awg.wait(10,False)
 	elif reset and "Tabor" in awg.get_type():
 		# enable channels
-		awg.preset()
+		#awg.preset()
 		awg.set_ch1_status(True)
 		awg.set_ch2_status(True)
 	qt.mend()
