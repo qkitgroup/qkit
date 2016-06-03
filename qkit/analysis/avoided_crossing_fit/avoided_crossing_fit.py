@@ -8,8 +8,21 @@ Avoided crossing module (ASt@KIT 2016):
 									of the initial parameters. Also provides the option to excecute a fit using crossing_fit.
 									
 		crossing_fit: Crossing to the peak data.
-		
 '''
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import os, sys, time
 import logging
@@ -151,87 +164,79 @@ def _segmentation(x, y, z, threshold, sigma = 5, data_type = 0):
 				delimiter[j] = int((i + lok_var)/2)
 			i+=1
 	
-	
 	delim_nonzero = np.nonzero(delimiter)[0]
-	#extrapolate delimiter, "find" regions, only possible if delimiter has sufficient points:
+	#extrapolate delimiter, find regions, only possible if delimiter has sufficient points:
+	
+	fit_success = False
+	
 	if np.size(delim_nonzero) > 0:
-		try:
-			seg_par,seg_pcov = fit.curve_fit(_line, x[delim_nonzero], delimiter[delim_nonzero],
-			p0=[max(delimiter), np.sum(np.gradient(delimiter[delim_nonzero]))])
-											
-			#extrapolate delimiter
-			#->Look for 0 elements in delimiter which are not at the start or the end, which can happen if the threshold is to low in the crossing region.
-			delimiter[min(delim_nonzero):max(delim_nonzero)+1] = _line(x[min(delim_nonzero):max(delim_nonzero)+1], seg_par[0], seg_par[1])
-			delimiter = delimiter.astype(int)
-			delim_nonzero = np.nonzero(delimiter)[0]
+		if np.size(delim_nonzero) > 3:
+			try:
+				seg_par,seg_pcov = fit.curve_fit(_line, x[delim_nonzero], delimiter[delim_nonzero],
+				p0=[max(delimiter), np.sum(np.gradient(delimiter[delim_nonzero]))])
 				
-			#change seg_par from index values to freq values
-			seg_par *= (max(y)-min(y))/float(ylen-1)
-			seg_par[1] += min(y)
-			
-			#Give an educated guess with delimiter parameters
-			guess = np.array([(np.mean(y[delimiter[delim_nonzero].astype(int)])-2*seg_par[0]*(np.mean(x[delim_nonzero]))), #par0
-							 np.mean(y[delimiter[delim_nonzero].astype(int)]), #par1
-							 2*seg_par[0], #par2
-							 0]) #par3
-			
-			delimiter[max(delim_nonzero)+1:xlen] = ylen
-			
-			
-		except:
-			print("Points not good enough to extrapolate delimiter.")
-			print("Excecuting rough fit to determine shape.")
-			
-			if np.size(delimiter) == 1:
-				z_max  = y[np.argmax(np.abs(np.gradient(z)[0]),axis = 0)]
-				x1, x2 = x[0:delim_nonzero[0]], x[delim_nonzero[0]+1:xlen]
-				z1, z2 = z_max[0:delim_nonzero[0]], z_max[delim_nonzero[0]+1:xlen]
-				try:
-					seg_par, guess = _rough_fit(x1, x2, z1, z2)
-					delimiter = _del_val(seg_par, x, y)
-				except:
-					print("Rough fit did not work. Please change threshold or prepare data manually and use crossing_fit routine"+
-						  " or try changing threshold and sigma..")
-					
-			else:
-				z_max  = y[np.argmax(np.abs(np.gradient(z)[0]), axis = 0)]
-				x1, x2 = x[0: np.argmax(np.gradient(z_max))], x[np.argmax(np.gradient(z_max)):xlen]
-				z1, z2 = z_max[0:np.argmax(np.gradient(z_max))], z_max[np.argmax(np.gradient(z_max)):xlen]
-				plt.plot(x1, z1)
-				plt.plot(x2, z2)
-				plt.show()
-				try:
-					seg_par, guess = _rough_fit(x1, x2, z1, z2)
-					delimiter = _del_val(seg_par, x, y)
-				except:
-					print "Rough fit did not work. Please change threshold or prepare data manually and use crossing_fit routine."
-					return np.logical_not(dz > threshold), 0, 0, 0
-			
-			delim_nonzero = np.nonzero(delimiter < ylen)[0]
-			
-		
+				
+				#change seg_par from index values to freq values
+				seg_par *= (max(y)-min(y))/float(ylen-1)
+				seg_par[1] += min(y)
+				
+				#extrapolate delimiter
+				#->Look for 0 elements in delimiter which are not at the start or the end, which can happen if the threshold is to low in the crossing region.
+				delimiter[min(delim_nonzero):max(delim_nonzero)+1] = _del_val(seg_par, x[min(delim_nonzero):max(delim_nonzero)+1], y)
+				delimiter = delimiter.astype(int)
+				delim_nonzero = np.nonzero(delimiter)[0]
+				
+				
+				seg_par[0] *= (y[-1] - y[0])/np.abs(y[-1] - y[0])
+				
+				#Give an educated guess with delimiter parameters
+				guess = np.array([(np.mean(y[delimiter[delim_nonzero].astype(int)])-2*seg_par[0]*(np.mean(x[delim_nonzero]))), #par0
+								 np.mean(y[delimiter[delim_nonzero].astype(int)]), #par1
+								 2*seg_par[0], #par2
+								 0]) #par3
+				
+				
+				delimiter[max(delim_nonzero)+1:] = ylen
+				
+				fit_success = True
+				
+			except:
+				print("Not enough points to extrapolate delimiter.")
+				print("Excecuting rough fit to determine shape.")
+				
+		if not fit_success:
+			z_max  = y[np.argmax(np.abs(np.gradient(z)[0]),axis = 0)]
+			x1, x2 = x[0:min(delim_nonzero)], x[max(delim_nonzero)+1:xlen]
+			z1, z2 = z_max[0:min(delim_nonzero)], z_max[max(delim_nonzero)+1:xlen]
+			try:
+				seg_par, guess = _rough_fit(x1, x2, z1, z2)
+				delimiter[min(delim_nonzero):max(delim_nonzero)+1] = _del_val(seg_par, x[min(delim_nonzero):max(delim_nonzero)+1], y)
+				delim_nonzero = np.nonzero(delimiter)
+				delimiter[max(delim_nonzero)+1:] = ylen
+			except:
+				print("Rough fit did not work. Please change threshold or prepare data manually and use crossing_fit routine"+
+					  " or try changing threshold and sigma..")
+	
 	else:
-		print("No overlap region... Excecuting rough fit to determine shape.")
-		z_max = y[np.argmax(np.abs(np.gradient(z)[0]),axis = 0)]
-		dz_max = np.argmax(np.abs(np.gradient(z_max)/np.gradient(x)))
-		x1, x2 = x[0:dz_max], x[dz_max+1:xlen]
-		z1, z2 = z_max[0:dz_max], z_max[dz_max+1:xlen]
-		
+		z_max  = y[np.argmax(np.abs(np.gradient(z)[0]), axis = 0)]
+		zmax = np.argmax(np.gradient(z_max)/np.gradient(x))
+		x1, x2 = x[0:zmax], x[zmax+1:xlen]
+		z1, z2 = z_max[0:zmax], z_max[zmax+1:xlen]
 		try:
 			seg_par, guess = _rough_fit(x1, x2, z1, z2)
-			delimiter = _del_val(seg_par, x, y)
 		except:
-			print "Rough fit did not work. Please change threshold or prepare data manually and use avoided_crossing_fit routine."
+			print "Rough fit did not work. Please change threshold or prepare data manually and use crossing_fit routine."
 			return np.logical_not(dz > threshold), 0, 0, 0
 		
+		delimiter[zmax] = _del_val(seg_par, x[zmax], y)
+		delim_nonzero = np.nonzero(delimiter)[0]
+		delimiter[zmax+1:] = ylen
 		
-		delim_nonzero = np.nonzero(delimiter< ylen)[0]
-
 			
 	#Fill segment
 	segment = np.zeros((ylen, xlen))
 	for j in range(0, xlen):
-		segment[delimiter[j]:ylen, j] = np.ones(ylen - delimiter[j])
+		segment[delimiter[j]:, j] = np.ones(ylen - delimiter[j])
 	
 	seg_sgn = ((np.median(np.where(np.logical_not(dz > threshold)[:, np.where(delimiter == ylen)[0]] == False)[0])-
 			   np.median(np.where(np.logical_not(dz > threshold)[:, np.where(delimiter == 0)[0]] == False)[0]))/
@@ -394,17 +399,18 @@ def avoided_crossing_peakdata(x, y, z, data_type = 0, mode = 'max', save_fig = F
 				p_index = int(0.5*(np.sign(np.mean(segment[:, j])) + 1))
 				peak_pos[j, p_index] = _val_max(y[0:ylen], z[0:ylen, j], x[j], data_type, mode)
 				j -= 1
-					
 			
 			for l in range(i, j+1):
 				p_index = int(0.5*(np.sign(np.mean(segment[0:delimiter[l],l]))+1))
 				peak_pos[l, p_index] = _val_max(y[0:delimiter[l]], z[0:delimiter[l], l], x[l], data_type, mode)
 				peak_pos[l, not p_index] = _val_max(y[delimiter[l]:ylen], z[delimiter[l]:ylen, l], x[l], data_type, mode)
 			
+			
 			index_p0 = np.where((peak_pos[:, 0] > _line(x, seg_par[0], seg_par[1])) & (peak_pos[:, 0] != 0))
 			index_p1 = np.where((peak_pos[:, 1] < _line(x, seg_par[0], seg_par[1])) & (peak_pos[:, 1] != 0))
 			peak_pos[index_p0, 1], peak_pos[index_p0, 0] = peak_pos[index_p0, 0], peak_pos[index_p0, 1]
 			peak_pos[index_p1, 0], peak_pos[index_p1, 1] = peak_pos[index_p1, 1], peak_pos[index_p1, 0]
+						
 			
 			#Guess half the minimal peak distance as coupling strength
 			if np.size(delimiter[(delimiter != 0) & (delimiter != ylen)]) != 0:
