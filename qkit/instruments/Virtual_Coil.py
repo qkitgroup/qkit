@@ -51,9 +51,11 @@ class Virtual_Coil(Instrument):
 				print 'Error: Value exceeds upper threshold!'
 				raise ArithmeticError
 			else:
-				if (val < 1 and val > -1 and val != 0) or np.round(val,0) != val:
-					logging.warning('Warning: Possible resolution not enough for the value you are attempting to set. Instead setting '+str(np.round(val,0) * 1e-3 * np.power(10.,dac_val[self.c_range])) + ' mA')
-				IVVI.set_dac(self.dac_rout,np.round(val))
+				#if (val < 1 and val > -1 and val != 0) or np.round(val,0) != val:
+				#	logging.warning('Warning: Possible resolution not enough for the value you are attempting to set. Instead setting '+str(np.round(val,0) * 1e-3 * np.power(10.,dac_val[self.c_range])) + ' mA')
+				#IVVI.set_dac(self.dac_rout,np.round(val))
+				print val
+				IVVI.set_dac(self.dac_rout,val)
 			   
 		except IndexError as detail:
 			print 'Error: Electronics might be disconnected. ',detail
@@ -63,7 +65,7 @@ class Virtual_Coil(Instrument):
 
 	def do_get_current(self):
 		
-		val = float(np.round(IVVI.get_dac(self.dac_rout)))/1000   #val = voltage in Volts
+		val = float(IVVI.get_dac(self.dac_rout))/1000   #val = voltage in Volts
 		#print val
 		try:
 			return val#self.round_to_x_valids(4,val*np.power(10.,dac_val[self.c_range]))
