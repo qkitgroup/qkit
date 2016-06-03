@@ -239,7 +239,7 @@ class Anritsu_MG37022(Instrument):
 		Output:
 			None
 		'''
-		self.do_set_status(False)
+		self.set_status(False)
 
 	def on(self):
 		'''
@@ -251,7 +251,7 @@ class Anritsu_MG37022(Instrument):
 		Output:
 			None
 		'''
-		self.do_set_status(True)
+		self.set_status(True)
 		
 	#sending customized messages
 	def write(self,msg):
