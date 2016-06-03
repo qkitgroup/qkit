@@ -122,7 +122,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
 		awg.wait(10,False)
 	elif reset and "Tabor" in awg.get_type():
 		# enable channels
-		awg.preset()
+		#awg.preset()
 		awg.set_ch1_status(True)
 		awg.set_ch2_status(True)
 	qt.mend()
