@@ -82,6 +82,54 @@ class Ui_Form(object):
         self.horizontalLayout.addItem(spacerItem)
         self._addIndicatorLabels(Form,sizePolicy,indicators=["PointX","PointY"])
         
+
+    def setupView(self,Form):
+        self.TraceSelector = QtGui.QSpinBox(Form)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.TraceSelector.sizePolicy().hasHeightForWidth())
+        
+        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceSelector", 
+                                        TraceIndicator="TraceValue")
+
+        #The indicators should be located at the most right side of the bar
+        spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem)
+        self._addIndicatorLabels(Form,sizePolicy,indicators=["PointX","PointY"])
+        
+
+    def setupMatrix(self,Form):
+        self.PlotTypeSelector = QtGui.QComboBox(Form)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Minimum)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.PlotTypeSelector.sizePolicy().hasHeightForWidth())
+        
+        self.PlotTypeSelector.setSizePolicy(sizePolicy)
+        self.PlotTypeSelector.setObjectName(_fromUtf8("PlotTypeSelector"))
+        self.PlotTypeSelector.addItem(_fromUtf8(""))
+        self.PlotTypeSelector.addItem(_fromUtf8(""))
+        self.PlotTypeSelector.addItem(_fromUtf8(""))
+        self.PlotTypeSelector.setItemText(0, _translate("Form", "Color Plot", None))
+        self.PlotTypeSelector.setItemText(1, _translate("Form", "Line Plot", None))
+        self.PlotTypeSelector.setItemText(2, _translate("Form", "Table", None))
+        
+        
+        self.PlotTypeLayout = QtGui.QVBoxLayout()
+        self.PlotTypeLayout.addWidget(self.PlotTypeSelector)
+        # add a empty label to move the PlotTypeSelector to the top
+        emptyL = QtGui.QLabel(Form)
+        self.PlotTypeLayout.addWidget(emptyL)
+        self.horizontalLayout.addLayout(self.PlotTypeLayout,stretch = -10)
+        
+        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceSelector",
+                                        TraceIndicator="TraceValue")
+        
+        #The indicators should be located at the most right side of the bar
+        spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem)        
+        self._addIndicatorLabels(Form,sizePolicy, indicators=["PointX","PointY","PointZ"])
         
         
     def setupBox(self,Form):
@@ -128,53 +176,7 @@ class Ui_Form(object):
         pass
         #self.setupMatrix()
 
-    def setupView(self,Form):
-        self.TraceSelector = QtGui.QSpinBox(Form)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.TraceSelector.sizePolicy().hasHeightForWidth())
-        
-        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceSelector", 
-                                        TraceIndicator="TraceValue")
 
-        #The indicators should be located at the most right side of the bar
-        spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
-        self.horizontalLayout.addItem(spacerItem)
-        self._addIndicatorLabels(Form,indicators=["PointX","PointY"])
-        
-
-    def setupMatrix(self,Form):
-        self.PlotTypeSelector = QtGui.QComboBox(Form)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Minimum)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.PlotTypeSelector.sizePolicy().hasHeightForWidth())
-        
-        self.PlotTypeSelector.setSizePolicy(sizePolicy)
-        self.PlotTypeSelector.setObjectName(_fromUtf8("PlotTypeSelector"))
-        self.PlotTypeSelector.addItem(_fromUtf8(""))
-        self.PlotTypeSelector.addItem(_fromUtf8(""))
-        self.PlotTypeSelector.addItem(_fromUtf8(""))
-        self.PlotTypeSelector.setItemText(0, _translate("Form", "Color Plot", None))
-        self.PlotTypeSelector.setItemText(1, _translate("Form", "Line Plot", None))
-        self.PlotTypeSelector.setItemText(2, _translate("Form", "Table", None))
-        
-        
-        self.PlotTypeLayout = QtGui.QVBoxLayout()
-        self.PlotTypeLayout.addWidget(self.PlotTypeSelector)
-        # add a empty label to move the PlotTypeSelector to the top
-        emptyL = QtGui.QLabel(Form)
-        self.PlotTypeLayout.addWidget(emptyL)
-        self.horizontalLayout.addLayout(self.PlotTypeLayout,stretch = -10)
-        
-        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceSelector",
-                                        TraceIndicator="TraceValue")
-        
-        #The indicators should be located at the most right side of the bar
-        spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
-        self.horizontalLayout.addItem(spacerItem)        
-        self._addIndicatorLabels(Form,sizePolicy, indicators=["PointX","PointY","PointZ"])
 
         
     def _addIndicatorLabels(self,Form,sizePolicy,indicators=[]):

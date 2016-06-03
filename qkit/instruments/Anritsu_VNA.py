@@ -339,10 +339,10 @@ class Anritsu_VNA(Instrument):
 		'''
 		logging.debug(__name__ + ' : setting Average to "%s"' % (status))
 		if status:
-			self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,status))
+			self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,'1'))
 			self._visainstrument.write('SENS%i:AVER:TYP SWE' % (self._ci))
 		else:
-			self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,status))             
+			self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,'0'))             
 	def do_get_Average(self):
 		'''
 		Get status of Average

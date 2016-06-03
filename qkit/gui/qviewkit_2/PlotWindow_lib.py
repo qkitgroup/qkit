@@ -148,17 +148,17 @@ def _display_1D_data(self,graphicsView):
         graphicsView.plot(y=y_data, x=x_data, clear = True, pen=None, symbol='+')
     #plot.setData(y=ydata, x=x_data)
         
-    #print dir(graphicsView.plotItem.vb)
-   
+    plIt = graphicsView.getPlotItem()
+    plVi = plIt.getViewBox()
+
+    
     def mouseMoved(mpos):
-        #print mpos[0]
-        if graphicsView.plotItem.sceneBoundingRect().contains(mpos):
-            #mousePoint_i = graphicsView.plotItem.vb.mapFromView(mpos)
-            
-            mousePoint = graphicsView.plotItem.vb.mapSceneToView(mpos)
+        mpos = mpos[0]
+        if plIt.sceneBoundingRect().contains(mpos):
+            mousePoint = plVi.mapSceneToView(mpos)
             self.PointX.setText("X: %.6e"%(mousePoint.x())) 
-            self.PointY.setText("Y: %.6e"%(mousePoint.x()))
-            #print mousePoint_i.x()
+            self.PointY.setText("Y: %.6e"%(mousePoint.y()))
+            
             """
             #x_index = int(mousePoint.x())
             #y_index = int(mousePoint.y())
@@ -175,9 +175,7 @@ def _display_1D_data(self,graphicsView):
             #vLine.setPos(mpos)
             #hLine.setPos(mpos)
     
-    
-    proxy = pg.SignalProxy(graphicsView.scene().sigMouseMoved, rateLimit=10, slot=mouseMoved)
-    graphicsView.scene().sigMouseMoved.connect(mouseMoved)
+    self.proxy = pg.SignalProxy(plVi.scene().sigMouseMoved, rateLimit=15, slot=mouseMoved)
 
 def _display_2D_data(self,graphicsView):
     #load the dataset:
@@ -236,7 +234,8 @@ def _display_2D_data(self,graphicsView):
     ymax = y0+fill_y*dy
 
     pos = (xmin,ymin)
-
+    
+    graphicsView.clear()
     #scale=(xmax/float(data.shape[0]),ymax/float(data.shape[1]))
     scale=((xmax-xmin)/float(fill_x),(ymax-ymin)/float(fill_y))
     graphicsView.view.setLabel('left', y_name, units=y_unit)
@@ -253,36 +252,27 @@ def _display_2D_data(self,graphicsView):
     graphicsView.roi.setAcceptedMouseButtons(Qt.RightButton)
     graphicsView.roi.sigClicked.connect(lambda: self.clickRoi(graphicsView.roi.pos(), graphicsView.roi.size()))
     
-
-    
-    #vLine = pg.InfiniteLine(angle=90, movable=True)
-    #hLine = pg.InfiniteLine(angle=0, movable=True)
-    #graphicsView.addItem(vLine, ignoreBounds=True)
-    #graphicsView.addItem(hLine, ignoreBounds=True)
-    
-    #print dir(graphicsView.imageItem)
     z_unit = ""
+    imIt = graphicsView.getImageItem()
+    imVi = graphicsView.getView()
     
     def mouseMoved(mpos):
+        mpos = mpos[0]
         if not self.obj_parent.liveCheckBox.isChecked():
-            if graphicsView.imageItem.sceneBoundingRect().contains(mpos):
-                mousePoint = graphicsView.imageItem.mapFromScene(mpos)
+            if imIt.sceneBoundingRect().contains(mpos):
+                mousePoint = imIt.mapFromScene(mpos)
                 x_index = int(mousePoint.x())
                 y_index = int(mousePoint.y())
                 if x_index > 0 and y_index > 0:
-                    xval = x0+x_index*dx
-                    yval = y0+y_index*dy
-                    zval = data[x_index][y_index]
-                    self.PointX.setText("X: %.6e %s"%(xval,x_unit)) 
-                    self.PointY.setText("Y: %.6e %s"%(yval,y_unit)) 
-                    self.PointZ.setText("Z: %.6e %s"%(zval,z_unit)) 
-                    self.data_coord=  "%g\t%g\t%g" % (xval, yval,zval)
-                
-                #label.setText("x=%0.1f,y1=%0.1f" % (mousePoint.x(), y[index], data2[index]))
-                
-            #vLine.setPos(mpos)
-            #hLine.setPos(mpos)
-    
+                    if x_index < fill_x and y_index < fill_y:
+                        xval = x0+x_index*dx
+                        yval = y0+y_index*dy
+                        zval = data[x_index][y_index]
+                        self.PointX.setText("X: %.6e %s"%(xval,x_unit)) 
+                        self.PointY.setText("Y: %.6e %s"%(yval,y_unit)) 
+                        self.PointZ.setText("Z: %.6e %s"%(zval,z_unit)) 
+                        self.data_coord=  "%g\t%g\t%g" % (xval, yval,zval)
+
         else:
             xval = 0
             yval = 0
@@ -291,12 +281,13 @@ def _display_2D_data(self,graphicsView):
             self.PointY.setText("Y: %.6e %s"%(yval,y_unit)) 
             self.PointZ.setText("Z: %.6e %s"%(zval,z_unit)) 
             self.data_coord=  "%g\t%g\t%g" % (xval, yval,zval)
-        
-    #proxy = pg.SignalProxy(graphicsView.view.scene().sigMouseMoved, rateLimit=5, slot=mouseMoved)
-    #graphicsView.view.scene().sigMouseMoved.connect(mouseMoved)
-    #graphicsView.view.scene().sigMouseMoved.connect(proxy)
-    ################################
+    
 
+    self.proxy = pg.SignalProxy(imVi.scene().sigMouseMoved, rateLimit=15, slot=mouseMoved)
+    ################################
+    #from guppy import hpy
+    #h = hpy()
+    #print h.heap()
 
 
 def _display_table(self,graphicsView):

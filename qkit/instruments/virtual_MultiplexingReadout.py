@@ -1,3 +1,18 @@
+'''
+
+virtual_MultiplexingReadout.py initiated and written by M. Jerger back in 2011/2012
+The script may be regarded <as a wrapper, handling data acquisition with the ADC (commonly known here as mspec)
+and the DAC (which is the AWG used for generating readout pulses) settings.
+
+Now, in 2016, the MArtinis AWGs are outdated (and still buggy) as they do not provide longer readout pulses
+due to a limitation in memory.
+The script is updated to also be usable with other AWGs (especially the Tabor AWG). JB 2016
+
+TODO:
+
++ add preset command in init -> for all awg different?!
+'''
+
 from instrument import Instrument
 import instruments
 import types
@@ -6,9 +21,10 @@ import numpy as np
 import scipy.special
 from time import sleep
 
+
 class virtual_MultiplexingReadout(Instrument):
 
-	def __init__(self, name, awg, mixer_up_src, mixer_down_src, mspec, awg_drive = 'c:', awg_path = '\\waveforms'):
+	def __init__(self, name, awg, mixer_up_src, mixer_down_src, mspec):   #, awg_drive = 'c:', awg_path = '\\waveforms'):
 		Instrument.__init__(self, name, tags=['virtual'])
 
 		#self._instruments = instruments.get_instruments()
@@ -26,19 +42,73 @@ class virtual_MultiplexingReadout(Instrument):
 		self.add_parameter('dac_channel_Q', type=types.IntType, flags=Instrument.FLAG_SET)
 		self.add_parameter('adc_channel_I', type=types.IntType, flags=Instrument.FLAG_SET)
 		self.add_parameter('adc_channel_Q', type=types.IntType, flags=Instrument.FLAG_SET)
+		self.add_parameter('dac_attack', type=types.FloatType, flags=Instrument.FLAG_SET)
+		self.add_parameter('dac_decay', type=types.FloatType, flags=Instrument.FLAG_SET)
+		self.add_parameter('global_pha', type=types.FloatType, flags=Instrument.FLAG_SET)
 
+		self.add_function('update')
+		self.add_function('readout')
 		self._awg = awg
-		self._awg_drive = awg_drive
-		self._awg_path = awg_path
-
+		#JB obsolete self._awg_drive = awg_drive
+		#JB obsolete self._awg_path = awg_path
 		self._mixer_up_src = mixer_up_src
 		self._mixer_down_src = mixer_down_src
 		self._mspec = mspec
-
-		self._dac_channel_I = 0
-		self._dac_channel_Q = 1
-		self._adc_channel_I = 0
-		self._adc_channel_Q = 1
+		
+		self._sample = sample
+		
+		#check that awg name exists
+		try:
+			self._awg.name
+		except NameError:
+			logging.error('Cannot resolve awg name. Provide name attribute in awg instrument driver.')
+			raise NameError
+			
+		if "GHzDAC" == self._awg.get_type():   #Martinis board
+			pass
+			#self._dac_duration = 10e-9
+			
+		elif "Tabor_WX1284C" == self._awg.get_type():   #Tabor AWG
+			self._awg.preset() #this sets various things like trigger level, modes etc. Remember to execute this each time you restart the AWG
+			self._awg.set_trigger_impedance(50)   #50 Ohms
+			self._awg.preset_readout()   #sets runmode = 'AUTO', trigger_mode='TRIG', starts with the end of the manipulation signal
+		else:
+			logging.error('Specified AWG unknown. Aborting.')
+			raise ImportError
+			
+		''' default settings '''
+		try:
+			self._mixer_up_src.set_power(12)
+			self._mixer_down_src.set_power(12)
+			self._dac_clock(1e9)
+			
+			#self._mspec.set_trigger_rate(1/float(qubit.T_rep))
+			self._mspec.spec_stop()
+			self._mspec.set_segments(1)
+			self._mspec.set_blocks(1)
+			self._mspec.set_spec_trigger_delay(0)
+			self._mspec.set_samples(1024)
+			
+			self._mspec.set_gate_func("lambda s: mm.awg_gate_fcn(s, qt.instruments.get('fastawg'), ni_daq = qt.instruments.get('ftdidaq'))")   #!!!???
+			
+			self._mspec.spec_stop()   #stop card before modifying a setting
+			self._mspec.set_samplerate(500e6)   #adc samplerate in Hz, 500MHz is maximum
+			
+			self._dac_channel_I = 0
+			self._dac_channel_Q = 1
+			self._adc_channel_I = 0
+			self._adc_channel_Q = 1
+			
+			self._dac_attack = 5e-9
+			self._dac_decay = 5e-9
+			self._phase = 0
+			
+			self._tone_freq = [30e6]
+			self._dac_duration = 400e-9
+			
+		except Exception as m:
+			logging.warning('Default not set properly.')
+			
 
 	def get_all(self):
 		self.get_LO()
@@ -88,7 +158,14 @@ class virtual_MultiplexingReadout(Instrument):
 		if(self._adc_channel_I == -1) and (self._adc_channel_Q == -1):
 			logging.warning(__name__ + 'no signal is acquired if -1dac_channel_I and dac_channel_Q are none')
 
-    # tone setup
+	def do_set_dac_attack(self, attack):
+		''' set attack time of the readout pulse '''
+		self._dac_attack = attack
+
+	def do_set_dac_decay(self, decay):
+		''' set decay time of the readout pulse '''
+		self._dac_decay = decay
+
 	def do_set_LO(self, frequency):
 		self._mixer_up_src.set_frequency(frequency)
 		self._mixer_down_src.set_frequency(frequency)
@@ -116,11 +193,128 @@ class virtual_MultiplexingReadout(Instrument):
 	def do_get_tone_pha(self):
 		return self._tone_pha
 
+	def do_set_global_pha(self, phase):
+		self._phase = float(phase)
+	def do_get_global_pha(self):
+		return self._phase
 
 
+	# +++++ ADC acquisition ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+	def _acquire_IQ(self):
+		'''
+		essentially do a mspec.acquire and return I and Q
+		'''
+		data = self._mspec.acquire().swapaxes(0, 1)
+		if(self._adc_channel_I == -1):
+			I = np.zeros(data.shape[1:])
+		else:
+			I = data[self._adc_channel_I]
+		if(self._adc_channel_Q == -1):
+			Q = np.zeros(data.shape[1:])
+		else:
+			Q = data[self._adc_channel_Q]
+		return I, Q
 
 
+	def readout(self, timeTrace = False):
+		'''
+			measure transmission of the tones set
+			--> return amplitude and phase data at the given IQ frequency and also the full I and Q time trace if set to true
+				using IQ_decode
+			
+			inputs:
+                timeTrace - also output raw trace for further processing
+		'''
+		Is, Qs = self._acquire_IQ()
+		if(len(Is.shape) == 2):
+			sig_amp = np.zeros((Is.shape[1], len(self._tone_freq)))
+			sig_pha = np.zeros((Is.shape[1], len(self._tone_freq)))
+			for idx in range(Is.shape[1]):
+				sig_amp[idx, :], sig_pha[idx, :] = self.IQ_decode(Is[:, idx], Qs[:, idx])
+		else:   #JB: more than one IQ frequency?
+			sig_amp, sig_pha = self.IQ_decode(Is, Qs)
+            
+		if(timeTrace):
+		    return sig_amp, sig_pha, Is, Qs
+		else:
+		    return sig_amp, sig_pha
+
+
+	def spectrum(self, segment = 0):
+		'''
+			measure transmission of the tones set
+		'''
+		I, Q = self._acquire_IQ()
+		if(len(I.shape) == 2):
+			# in segmented mode, take only one segment
+			return self.IQ_fft(I[:, segment], Q[:, segment])
+		else:
+			return self.IQ_fft(I, Q)
+
+
+	def IQ_fft(self, I, Q, samplerate = None):
+		'''
+			calculate fourier transform of the acquired waveform
+
+			Input:
+				I, Q       - signal acquired at rate samplerate
+				samplerate - rate at which I and Q were sampled
+		'''
+		if(samplerate == None): samplerate = self.get_adc_clock()
+
+		sig_t = np.array(I) + 1j*np.array(Q)
+		sig_f = np.fft.fftshift(np.fft.fft(sig_t))
+		sig_x = self._LO+np.fft.fftshift(np.fft.fftfreq(sig_t.size, 1./samplerate))
+
+		return sig_x, np.abs(sig_f), np.angle(sig_f)
+
+
+	def IQ_decode(self, I, Q, freqs = None, samplerate = None, phase = None):
+		'''
+			calculate fourier transform of the acquired waveform and
+			extract amplitude and phase of requested frequency components
+
+			Input:
+				I, Q       - signal acquired at rate samplerate
+				freqs      - interesting frequency components
+				samplerate - rate at which I and Q were sampled
+				phase      - apply additional rotation to I+1j*Q
+
+			Output:
+				currently three vectors: frequency, amplitude, phase of each fft point
+		'''
+		if(samplerate == None): samplerate = self.get_adc_clock()
+		if(freqs == None): freqs = self._tone_freq
+		if(phase == None): phase = self._phase
+		freqs = np.array(freqs)-self._LO
+
+		sig_t = (np.array(I) + 1j*np.array(Q))*np.exp(1j*phase)
+		sig_f = np.fft.fftshift(np.fft.fft(sig_t))
+		#sig_x = np.fft.fftshift(np.fft.fftfreq(sig_t.size, 1./samplerate))
+		sig_x_fact = 1.*samplerate/sig_t.size
+
+		# linear interpolation of two fft points
+		idxs = 1./sig_x_fact*np.array(freqs) + I.size/2
+		idxsH = np.array(np.ceil(idxs), dtype = np.integer)
+		idxsL = np.array(np.floor(idxs), dtype = np.integer)
+		idxsLw = idxsH-idxs
+		idxsHw = np.ones_like(idxsLw)-idxsLw
+		sig_amp = idxsHw*np.abs(sig_f[idxsH]) + np.abs(idxsLw*sig_f[idxsL])
+		sig_pha = np.angle(sig_f[idxsH]) # usually averages out between two points
+
+		return sig_amp, sig_pha
+
+		
+	# +++++ DAC (AWG) settings ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+		
 	def update(self):
+		'''
+		General method to update all (DAC) settings
+		
+		create DAC waveforms and update DAC, set DAC (AWG) to run mode (and switch outputs on)
+		using IQ.encode and the hidden method self._update_dac()
+		'''
 		# calculate required IF frequencies
 		tones = np.array(self._tone_freq)
 		ntones = len(tones)
@@ -143,63 +337,10 @@ class virtual_MultiplexingReadout(Instrument):
 			phases = np.zeros(ntones)
 		else:
 			phases = self._tone_pha
-		I, Q = self.IQ_encode(self._dac_duration, IFtones, [amplitudes, amplitudes], [phases, phases], self._dac_clock)
+		I, Q = self.IQ_encode(self._dac_duration, IFtones, [amplitudes, amplitudes], [phases, phases], self._dac_clock, self._dac_attack, self._dac_decay)
 		self._update_dac([self._dac_channel_I, self._dac_channel_Q], [I, Q])
-		# setup channel overall amplitude
-		for channel in [self._dac_channel_I, self._dac_channel_Q]:
-			getattr(self._awg, 'set_ch%d_amplitude'%(channel+1))(self._tone_amp)
-		self._awg.run()
-
-
-
-	def _acquire_IQ(self):
-		data = self._mspec.acquire().swapaxes(0, 1)
-		if(self._adc_channel_I == -1):
-			I = np.zeros(data.shape[1:])
-		else:
-			I = data[self._adc_channel_I]
-		if(self._adc_channel_Q == -1):
-			Q = np.zeros(data.shape[1:])
-		else:
-			Q = data[self._adc_channel_Q]
-		return I, Q
-
-
-	def readout(self, timeTrace = False):
-		'''
-			measure transmission of the tones set
-			
-			inputs:
-                timeTrace - also output raw trace for further processing
-		'''
-		Is, Qs = self._acquire_IQ()
-		if(len(Is.shape) == 2):
-			sig_amp = np.zeros((Is.shape[1], len(self._tone_freq)))
-			sig_pha = np.zeros((Is.shape[1], len(self._tone_freq)))
-			for idx in range(Is.shape[1]):
-				sig_amp[idx, :], sig_pha[idx, :] = self.IQ_decode(Is[:, idx], Qs[:, idx])
-		else:
-			sig_amp, sig_pha = self.IQ_decode(Is, Qs)
-            
-		if(timeTrace):
-		    return sig_amp, sig_pha, Is, Qs
-		else:
-		    return sig_amp, sig_pha
-
-
-	def spectrum(self, segment = 0):
-		'''
-			measure transmission of the tones set
-		'''
-		I, Q = self._acquire_IQ()
-		if(len(I.shape) == 2):
-			# in segmented mode, take only one segment
-			return self.IQ_fft(I[:, segment], Q[:, segment])
-		else:
-			return self.IQ_fft(I, Q)
-
-
-
+		
+		
 	def _update_dac(self, channels, samples, marker1 = None, marker2 = None, drive = None, path = None):
 		'''
 			update waveform data on the awg
@@ -207,28 +348,41 @@ class virtual_MultiplexingReadout(Instrument):
 			Input:
 				samples - matrix of samples to put on awg channels
 				channels - channels to install them on
-
-			Output:
-				currently none
 		'''
 		samples = np.array(samples)
-		if(drive == None): drive = self._awg_drive
-		if(path == None): path = self._awg_path
-		if(marker1 == None): marker1 = np.zeros(samples.shape)
-		if(marker2 == None): marker2 = np.zeros(samples.shape)
+		if(marker1 == None):
+			marker1 = np.zeros(samples.shape)
+			marker1[1:10]=1
+		if(marker2 == None):
+			marker2 = np.zeros(samples.shape)
+			marker2[1:10]=1
 
-		for idx in range(0, len(channels)):
-			if(channels[idx] == -1): continue # only apply I or Q if the user wishes that
-			channel = 1+channels[idx]
-			fn = drive + path + '\\ch%d'%channel
-			self._awg.send_waveform(samples[idx, :], marker1[idx, :], marker2[idx, :], fn, self._dac_clock)
-			self._awg.load_waveform(channel, 'ch%d'%channel, drive, path)
-
+			
+		if "GHzDAC" == self._awg.get_type():   #Martinis board
+			drive = 'c:'
+			path = '\\waveforms'
+			for idx in range(0, len(channels)):
+				if(channels[idx] == -1): continue # only apply I or Q if the user wishes that
+				channel = 1+channels[idx]
+				
+				fn = drive + path + '\\ch%d'%channel
+				self._awg.send_waveform(samples[idx, :], marker1[idx, :], marker2[idx, :], fn, self._dac_clock)
+				self._awg.load_waveform(channel, 'ch%d'%channel, drive, path)
+				
+			# setup channel overall amplitude
+			for channel in [self._dac_channel_I, self._dac_channel_Q]:
+				getattr(self._awg, 'set_ch%d_amplitude'%(channel+1))(self._tone_amp)
+			self._awg.run()
+			
+		elif "Tabor_WX1284C" == self._awg.get_type():   #Tabor AWG
+			self._awg.preset_readout()
+			self._awg.wfm_send2(samples[0],samples[1],m1 = marker1,m2 = marker2,seg=1)   #JB ?
 
 
 	def IQ_encode(self, duration, frequencies, amplitudes = None, phases = None, samplerate = None, attack = 2e-9, decay = 2e-9):
 		'''
 			provide I and Q data that will create a single side band multitone signal
+			--> generate sin and cos waveforms for I and Q with IF frequency
 
 			Input:
 				amplitudes   - normalized amplitudes (1xN) or I and Q amplitudes (2xN) of each tone
@@ -257,12 +411,14 @@ class virtual_MultiplexingReadout(Instrument):
 		else:
 			phases = np.array(phases)
 			if (phases.ndim == 1): phases = np.array([phases, phases])
+			
         # generate multitone waveform
-		I = np.zeros(nSamples)
-		Q = np.zeros(nSamples)
+		I = np.zeros(np.ceil((nSamples+1)/16.)*16)
+		Q = np.zeros(np.ceil((nSamples+1)/16.)*16)
 		for idx in range(0, frequencies.size):
-			I += amplitudes[0, idx]*np.sin(omegas[idx]*indices+phases[0, idx])
-			Q += amplitudes[1, idx]*np.cos(omegas[idx]*indices+phases[1, idx])
+			I[1:nSamples+1] += amplitudes[0, idx]*np.sin(omegas[idx]*indices+phases[0, idx])
+			Q[1:nSamples+1] += amplitudes[1, idx]*np.cos(omegas[idx]*indices+phases[1, idx])
+			
 		# apply envelope: erf, erf(\pm 2) is almost 0/1, erf(\pm 1) is ~15/85%
 		nAttack = int(2*samplerate*attack)
 		sAttack = 0.5*(1+scipy.special.erf(np.linspace(-2, 2, nAttack)))
@@ -273,56 +429,4 @@ class virtual_MultiplexingReadout(Instrument):
 		I[(nSamples-nDecay):nSamples] *= sDecay 
 		Q[(nSamples-nDecay):nSamples] *= sDecay 
 		return I, Q
-
-
-
-	def IQ_fft(self, I, Q, samplerate = None):
-		'''
-			calculate fourier transform of the acquired waveform
-
-			Input:
-				I, Q       - signal acquired at rate samplerate
-				samplerate - rate at which I and Q were sampled
-		'''
-		if(samplerate == None): samplerate = self.get_adc_clock()
-
-		sig_t = np.array(I) + 1j*np.array(Q)
-		sig_f = np.fft.fftshift(np.fft.fft(sig_t))
-		sig_x = self._LO+np.fft.fftshift(np.fft.fftfreq(sig_t.size, 1./samplerate))
-
-		return sig_x, np.abs(sig_f), np.angle(sig_f)
-
-
-
-	def IQ_decode(self, I, Q, freqs = None, samplerate = None):
-		'''
-			calculate fourier transform of the acquired waveform and
-			extract amplitude and phase of requested frequency components
-
-			Input:
-				I, Q       - signal acquired at rate samplerate
-				freqs      - interesting frequency components
-				samplerate - rate at which I and Q were sampled
-
-			Output:
-				currently three vectors: frequency, amplitude, phase of each fft point
-		'''
-		if(samplerate == None): samplerate = self.get_adc_clock()
-		if(freqs == None): freqs = self._tone_freq
-		freqs = np.array(freqs)-self._LO
-
-		sig_t = np.array(I) + 1j*np.array(Q)
-		sig_f = np.fft.fftshift(np.fft.fft(sig_t))
-		#sig_x = np.fft.fftshift(np.fft.fftfreq(sig_t.size, 1./samplerate))
-		sig_x_fact = 1.*samplerate/sig_t.size
-
-		# linear interpolation of two fft points
-		idxs = 1./sig_x_fact*np.array(freqs) + I.size/2
-		idxsH = np.array(np.ceil(idxs), dtype = np.integer)
-		idxsL = np.array(np.floor(idxs), dtype = np.integer)
-		idxsLw = idxsH-idxs
-		idxsHw = np.ones_like(idxsLw)-idxsLw
-		sig_amp = idxsHw*np.abs(sig_f[idxsH]) + np.abs(idxsLw*sig_f[idxsL])
-		sig_pha = np.angle(sig_f[idxsH]) # usually averages out between two points
-
-		return sig_amp, sig_pha
+		
