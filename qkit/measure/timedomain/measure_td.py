@@ -44,6 +44,8 @@ class Measure_td(object):
 		self.save_dat = True
 		self.save_hdf = True
 		
+		self.open_qviewkit = False
+		
 	def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit = ''):
 		self.x_vec = x_vec
 		self.x_coordname = x_coordname
@@ -62,7 +64,7 @@ class Measure_td(object):
 			print 'axes parameters not properly set...aborting'
 			return
 
-		self.time_data = False
+		#self.time_data = False
 		qt.mstart()
 		self._prepare_measurement_dat_file(mode='1d')
 		self._create_dat_plots(mode='1d')
@@ -73,7 +75,7 @@ class Measure_td(object):
 			for x in self.x_vec:
 				self.x_set_obj(x)
 				qt.msleep() # better done during measurement (waiting for trigger)
-				self._append_data([x],trace=False)
+				self._append_data([x],trace=self.time_data)
 				self._update_plots()
 				p.iterate()
 		finally:
@@ -199,7 +201,7 @@ class Measure_td(object):
 				if self.comment:
 					self.data_time.add_comment(self.comment)
 				self.data_time.add_coordinate(self.x_coordname)
-				if mode == '2d': self.data_time.add_coordinate(self.y_coordname)
+				if mode == '2d' or mode == '2dAWG': self.data_time.add_coordinate(self.y_coordname)
 				for i in range(mspec.get_samples()):
 					self.data_time.add_coordinate('I%3d'%i)
 				for i in range(mspec.get_samples()):
@@ -226,7 +228,8 @@ class Measure_td(object):
 			if self.comment:
 				self._data_hdf.add_comment(self.comment)
 			#qviewkit.close('all') #as20160202
-			qviewkit.plot(self._data_hdf.get_filepath(), datasets=['amplitude', 'phase'])
+			if self.open_qviewkit:
+				qviewkit.plot(self._data_hdf.get_filepath(), datasets=['amplitude', 'phase'])
 			
 	def _create_dat_plots(self,mode):
 		
