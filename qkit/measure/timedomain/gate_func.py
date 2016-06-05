@@ -1,5 +1,5 @@
 # gate_func.py
-# adapted from earlier versions by Jochen Braumueller <jochen.beraumueller@kit.edu>, 05/2016
+# adapted from earlier versions by Jochen Braumueller <jochen.braumueller@kit.edu>, 05/2016
 
 # The gate function resets an AWG to the first waveform of a sequence for state==False and sends a trigger
 # by raising a gate for state==True.
@@ -8,8 +8,7 @@
 """
 usage and inputs:
 
- from qkit.measure.timedomain import gate_func
- or: import gate_func
+ from qkit.measure.timedomain import gate_func / import gate_func
  mspec.set_gate_func(gate_func.Gate_Func(awg = tawg, ni_daq = ftdidaq).gate_fcn)
  #pass the name of the AWG as imported to qtLAB (e.g. fastawg or tawg)
  #with the spectrum card wrapper virtual_measure_spec.py:
@@ -114,7 +113,7 @@ class Gate_Func(object):
 		"""
 		reset Tabor AWG to first sequence
 		"""
-		# TODO adapt tabor commands
+		# workaround to intialize to first waveform and make the AWG ready
 		self.awg.set_p1_runmode('USER')
 		self.awg.set_p2_runmode('USER')
 		self.awg.set_p1_runmode('SEQ')
