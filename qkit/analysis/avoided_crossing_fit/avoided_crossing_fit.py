@@ -10,20 +10,6 @@ Avoided crossing module (ASt@KIT 2016):
 		crossing_fit: Crossing to the peak data.
 '''
 
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
 import os, sys, time
 import logging
 
@@ -415,7 +401,8 @@ def avoided_crossing_peakdata(x, y, z, data_type = 0, mode = 'max', save_fig = F
 			#Guess half the minimal peak distance as coupling strength
 			if np.size(delimiter[(delimiter != 0) & (delimiter != ylen)]) != 0:
 				guess[3] = 0.5*min(np.abs(peak_pos[:, 0] - peak_pos[:, 1]))
-				
+			
+			fig, axes = plt.subplots(figsize=(17,7))			
 			pltx = pltx - .5*(pltx[1]- pltx[0])*np.ones(pltx.shape)
 			plt.pcolormesh(pltx, y, z, cmap = "coolwarm", vmin = z.min(), vmax = z.max())
 			cbar = plt.colorbar()
@@ -437,6 +424,7 @@ def avoided_crossing_peakdata(x, y, z, data_type = 0, mode = 'max', save_fig = F
 				nz1=np.nonzero(peak_pos[:,1])[0]
 				fdat, ferr= crossing_fit(x[nz0], x[nz1], peak_pos[nz0,0], peak_pos[nz1,1], show_plot = False, show_fitdata = True)
 				
+				fig, axes = plt.subplots(figsize=(17,7))
 				plt.pcolormesh(pltx, y, z, cmap = "coolwarm", vmin = z.min(), vmax = z.max())
 				cbar = plt.colorbar()
 				plt.xlim(min(pltx), max(pltx))
@@ -451,6 +439,7 @@ def avoided_crossing_peakdata(x, y, z, data_type = 0, mode = 'max', save_fig = F
 				plt.show()
 				return fdat, ferr
 			else:
+				print "Finished."
 				return peak_pos, guess
 
 # ================================================================================================================= 
