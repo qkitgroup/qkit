@@ -297,7 +297,10 @@ class Tabor_WX1284C(Instrument):
         self.fix(False)
         logging.info(__name__ + ' : Reading all data from instrument')
         #self.check()
-        self.get_trigger_impedance()
+        try:
+            self.get_trigger_impedance()
+        except Exception:
+            logging.warning('command trigger impedance not supported')
         self.get_trigger_level()
         self.get_clock()
         if self._numchannels == 4:
