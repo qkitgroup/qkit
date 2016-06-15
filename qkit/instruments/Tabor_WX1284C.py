@@ -1,14 +1,6 @@
-
-''' !!! WORK IN PROGRESS !!! '''
-
-
-
-
-
-
-# Tabor_WX1284C.py class, to perform the communication between the Wrapper and the device
+# Tabor_WX1284C.py driver, to perform the communication between the Wrapper and the device
 # Lukas Gruenhaupt <gruenhaupt@gmail.com>, 04/2015 
-# Andre Schneider <andre.schneider@kit.edu> 01/2016
+# Andre Schneider <andre.schneider@kit.edu>, 01/2016
 #
 # based on Tektronix_AWG7062.py class coded by 
 # Pieter de Groot <pieterdegroot@gmail.com>, 2008
@@ -120,6 +112,13 @@ class Tabor_WX1284C(Instrument):
         self.add_parameter('clock', type=types.FloatType,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             minval=1e6, maxval=1.25e9, units='Hz')
+        self.add_parameter('reference_source', type=types.StringType,
+            flags=Instrument.FLAG_GETSET)
+        self.add_parameter('reference_source_freq', type=types.FloatType,
+            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
+            minval=10e6, maxval=100e6, units='Hz')
+        self.add_parameter('common_clock', type=types.BooleanType,
+                flags=Instrument.FLAG_GETSET| Instrument.FLAG_GET_AFTER_SET)
         self.add_parameter('numpoints', type=types.IntType,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             minval=100, maxval=1e9, units='Int')
@@ -937,7 +936,82 @@ class Tabor_WX1284C(Instrument):
             self._visainstrument.write(':INST%s;:OUTP OFF' % channel)
         self.get("ch%i_output"%(channel-self._choff))                           #<--
 
-    # Send waveform to the device
+    def do_set_reference_source(self,source='EXT'):
+        '''
+        Sets the clock reference source.
+        Input:
+            source (string) : 'INT' or 'EXT'
+        Output:
+            None
+        '''
+        if source == 'EXT' or source == 'INT':
+            logging.debug(__name__ + ' : Set clock reference source to %s' %source)
+            self._visainstrument.write(':ROSC:SOUR %s' %source)
+        else:
+            logging.warning('Clock source needs to be one of INT or EXT. No changes made.')
+            
+    def do_get_reference_source(self):
+        '''
+        Gets the clock reference source.
+        Input:
+            None
+        Output:
+            (string) : 'INT' or 'EXT'
+        '''
+        logging.debug(__name__ + ' : Get clock reference source.')
+        return str(self._visainstrument.ask(':ROSC:SOUR ?'))
+        
+    def do_set_reference_source_freq(self,freq=10e6):
+        '''
+        Sets the clock reference frequency.
+        Input:
+            freq (float) : 10e6, 20e6, 50e6, 100e6
+        Output:
+            None
+        '''
+        if freq in [10e6,20e6,50e6,100e6]:
+            logging.debug(__name__ + ' : Set clock reference frequency to %.2g' %freq)
+            self._visainstrument.write(':ROSC:FREQ %s' %str(freq))
+        else:
+            logging.warning('Clock source needs to be one of [10e6,20e6,50e6,100e6]. No changes made.')
+            
+    def do_get_reference_source_freq(self):
+        '''
+        Gets the clock reference frequency.
+        Input:
+            None
+        Output:
+            (string) : 10e6, 20e6, 50e6, 100e6
+        '''
+        logging.debug(__name__ + ' : Get clock reference frequency.')
+        return float(self._visainstrument.ask(':ROSC:FREQ ?'))
+        
+    def do_set_common_clock(self,status=True):
+        '''
+        Use a common trigger clock for both channel pairs.
+        Input:
+            status (bool)
+        Output:
+            None
+        '''
+        if status:
+            logging.debug(__name__ + ' : Set common clock.')
+            self._visainstrument.write(':INST:COUPLE:STAT ON')
+        else:
+            logging.debug(__name__ + ' : Set clocks to be separate.')
+            self._visainstrument.write(':INST:COUPLE:STAT OFF')
+            
+    def do_get_common_clock(self):
+        '''
+        Check whether a common clock for both channel pairs is used.
+        Input:
+            None
+        Output:
+            (bool)
+        '''
+        logging.debug(__name__ + ' : Check common clock.')
+        return int(self._visainstrument.ask(':INST:COUPLE:STAT ?'))
+
     def send_waveform(self, w, m1, m2, channel, seg):
         return self.wfm_send(w, m1, m2, channel, seg)
         
@@ -1099,6 +1173,7 @@ class Tabor_WX1284C(Instrument):
         
     def close(self):
         self._visainstrument.close()
+        
 #   def wfm_resend(self, channel, w=[], m1=[], m2=[], clock=[]):
         '''
         Resends the last sent waveform for the designated channel
