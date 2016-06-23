@@ -202,6 +202,7 @@ def _segmentation(x, y, z, threshold, sigma = 5, data_type = 0):
 			except:
 				print("Rough fit did not work. Please change threshold or prepare data manually and use crossing_fit routine"+
 					  " or try changing threshold and sigma..")
+				return np.logical_not(dz > threshold), 0, 0, 0
 	
 	else:
 		z_max  = y[np.argmax(np.abs(np.gradient(z)[0]), axis = 0)]
@@ -326,7 +327,7 @@ def avoided_crossing_peakdata(x, y, z, data_type = 0, mode = 'max', save_fig = F
 	'''
 	
 	y = y*10**-9   #frequency in GHz
-	
+	z=-z
 	xlen = np.size(x)
 	ylen = np.size(y)
 	sigma = 5   #seems good
