@@ -379,8 +379,8 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
     def f_exp(t, Td, a, offs):
         return a*np.exp(-t/Td)+offs
         
-    def f_damped_exp(t, fs, Td, a, offs, ph):
-        return a*np.exp(-t/Td)*(0.5*(1+np.cos(2*np.pi*fs*t+ph)))+offs
+    def f_damped_exp(t, fs, Td, a, offs, ph, d):
+        return a*np.exp(-t/Td)*0.5*(1+d*np.cos(2*np.pi*fs*t+ph))+offs
 
     entries = None
     if isinstance(data_c,(list, tuple, np.ndarray)):   #got list of entries to be plotted
@@ -389,6 +389,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
         
     if file_name == 'dat_import':
         print 'use imported data'
+        data_c = 1
     else:
         #load data
         data, nfile = load_data(file_name, entries)
@@ -596,7 +597,16 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 
         #start parameters ----------------------------------------------------------------------
         s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data,data_c,damping=True)
-        p0 = _fill_p0([s_fs, s_Td, s_a, s_offs, s_ph],ps)
+        # 1-d = (scaled) distance between first extremum and baseline
+        d_diff = np.gradient(data[data_c],data[0][1]-data[0][0])
+        i = 0
+        for i in range(len(data[0])):
+            if np.sign(d_diff[i]) != np.sign(d_diff[i+1]):   #go to first sign change -> extremum
+                break
+            i+=1
+        print 'first extremum detected at %.4g' %(data[0][i])
+        s_d = 1 - np.abs(data[data_c][i] - s_offs)
+        p0 = _fill_p0([s_fs, s_Td, s_a, s_offs, s_ph, s_d],ps)
 
         #damped sine fit ----------------------------------------------------------------------
         try:
