@@ -104,6 +104,7 @@ class PlotWindow(QWidget,Ui_Form):
                     self._onPlotTypeChanged = False
                     self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
                     self.graphicsView.setObjectName(self.dataset_url)
+                    #self.addQvkMenu(self.graphicsView.getImageItem().getMenu())
                     self.graphicsView.view.setAspectLocked(False)
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 _display_2D_data(self,self.graphicsView)
@@ -128,8 +129,8 @@ class PlotWindow(QWidget,Ui_Form):
                 _display_text(self,self.graphicsView)
             else:
                 print "This should not be here: View Type:"+str(self.view_type)
-        except NameError:#IOError:
-          pass
+        #except NameError:#IOError:
+        #  pass
         except ValueError,e:
             print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
             print e
@@ -174,10 +175,12 @@ class PlotWindow(QWidget,Ui_Form):
             (...)
         """
         
-        self.view_types = {'1D':0,'1D-V':1, '2D':2, '3D':3, 'table':4, 'txt':5}
+        self.view_types =  {'1D':0,'1D-V':1, '2D':2, '3D':3, 'table':4, 'txt':5}
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
+        self.plot_scales = {'linear':0,'dB':1}
 
         self.plot_style = 0
+        self.plot_scale = 0
         self.TraceNum = -1
         self.view_type = self.ds.attrs.get("view_type",None)
         
@@ -416,6 +419,10 @@ class PlotWindow(QWidget,Ui_Form):
         pointLine = QAction(u'Point+Line', self.qvkMenu)
         self.qvkMenu.addAction(pointLine)
         pointLine.triggered.connect(self.setPointLineMode)
+        
+        dB_scale = QAction(u'dB', self.qvkMenu)
+        self.qvkMenu.addAction(dB_scale)
+        dB_scale.triggered.connect(self.setdBScale)
 
         menu.addMenu(self.qvkMenu)
 
@@ -437,3 +444,8 @@ class PlotWindow(QWidget,Ui_Form):
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
     
+    @pyqtSlot()
+    def setdBScale(self):
+        self.plot_scale = self.plot_scales['dB']
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()

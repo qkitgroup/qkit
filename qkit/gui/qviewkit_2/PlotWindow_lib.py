@@ -94,6 +94,15 @@ def _display_1D_view(self,graphicsView):
             graphicsView.plotItem.legend.removeItem(y_name)
         except:
             pass
+        # to reset to original
+        if self.plot_scale == self.plot_scales['linear']:
+            y_data = pow(10,y_data/10.)
+            graphicsView.setLabel('left', y_name, units=y_unit)
+        # set the y data  to the decibel scale 
+        if self.plot_scale == self.plot_scales['dB']:
+            y_data = 10 *np.log10(y_data)
+            graphicsView.setLabel('left', y_name, units="dB") 
+        
         if self.plot_style==self.plot_styles['line']:
             graphicsView.plot(y=y_data, x=x_data,pen=(i,3), name = y_name, connect='finite')
         if self.plot_style==self.plot_styles['linepoint']:
@@ -102,6 +111,48 @@ def _display_1D_view(self,graphicsView):
         if self.plot_style==self.plot_styles['point']:
             symbols=['+','o','s','d','t']
             graphicsView.plot(y=y_data, x=x_data, name = y_name,pen=None,symbol=symbols[i%len(symbols)])
+            
+    
+    plIt = graphicsView.getPlotItem()
+    plVi = plIt.getViewBox()
+
+    self._last_x_pos = 0
+    
+    def mouseMoved(mpos):
+        mpos = mpos[0]
+        if plIt.sceneBoundingRect().contains(mpos):
+            mousePoint = plVi.mapSceneToView(mpos)
+            xval = mousePoint.x()
+            yval = mousePoint.y()
+            #self.PointX.setText("X: %.6e"%(mousePoint.x())) 
+            #self.PointY.setText("Y: %.6e"%(mousePoint.y()))
+            self.PointX.setText("X: %.6e"%(xval)) 
+            self.PointY.setText("Y: %.6e"%(yval))
+            
+            
+            #x_index = int(mousePoint.x())
+            #y_index = int(mousePoint.y())
+            """
+            if x_index > 0: # and y_index > 0:
+                xval = x0+x_index*dx
+                #yval = y0+y_index*dy
+                yval = y_data[x_index]
+                 
+                self.PointZ.setText("V: %.6e"%(zval))
+            """
+            try:
+                self.data_coord=  "%e\t%e\t%e\t%e" % (xval, yval,self._last_x_pos-xval,xval/(self._last_x_pos-xval))
+            except ZeroDivisionError:
+                pass
+                
+            self._last_x_pos = xval
+                
+                #label.setText("x=%0.1f,y1=%0.1f" % (mousePoint.x(), y[index], data2[index]))
+               
+            #vLine.setPos(mpos)
+            #hLine.setPos(mpos)
+    
+    self.proxy = pg.SignalProxy(plVi.scene().sigMouseMoved, rateLimit=15, slot=mouseMoved)
 
 def _display_1D_data(self,graphicsView):
     #only one entry in ds, line style does not make any sense
@@ -140,6 +191,11 @@ def _display_1D_data(self,graphicsView):
     graphicsView.setLabel('left', name, units=unit)
     graphicsView.setLabel('bottom', x_name , units=x_unit)
 
+    # set the y data  to the decibel scale 
+    if self.plot_scale == self.plot_scales['dB']:
+        y_data = 10 *np.log10(y_data)
+        graphicsView.setLabel('left', name, units="dB")
+    
     if self.plot_style==self.plot_styles['line']:
         graphicsView.plot(y=y_data, x=x_data, clear = True, pen=(200,200,100),connect='finite')
     if self.plot_style==self.plot_styles['linepoint']:
@@ -151,27 +207,39 @@ def _display_1D_data(self,graphicsView):
     plIt = graphicsView.getPlotItem()
     plVi = plIt.getViewBox()
 
+    self._last_x_pos = 0
     
     def mouseMoved(mpos):
         mpos = mpos[0]
         if plIt.sceneBoundingRect().contains(mpos):
             mousePoint = plVi.mapSceneToView(mpos)
-            self.PointX.setText("X: %.6e"%(mousePoint.x())) 
-            self.PointY.setText("Y: %.6e"%(mousePoint.y()))
+            xval = mousePoint.x()
+            yval = mousePoint.y()
+            #self.PointX.setText("X: %.6e"%(mousePoint.x())) 
+            #self.PointY.setText("Y: %.6e"%(mousePoint.y()))
+            self.PointX.setText("X: %.6e"%(xval)) 
+            self.PointY.setText("Y: %.6e"%(yval))
             
-            """
+            
             #x_index = int(mousePoint.x())
             #y_index = int(mousePoint.y())
+            """
             if x_index > 0: # and y_index > 0:
                 xval = x0+x_index*dx
                 #yval = y0+y_index*dy
                 yval = y_data[x_index]
                  
-                self.PointZ.setText("V: %.6e"%(zval)) 
-                self.data_coord=  "%e\t%e" % (xval, yval)
+                self.PointZ.setText("V: %.6e"%(zval))
+            """
+            try:
+                self.data_coord=  "%e\t%e\t%e\t%e" % (xval, yval,self._last_x_pos-xval,xval/(self._last_x_pos-xval))
+            except ZeroDivisionError:
+                pass
+                
+            self._last_x_pos = xval
                 
                 #label.setText("x=%0.1f,y1=%0.1f" % (mousePoint.x(), y[index], data2[index]))
-            """   
+               
             #vLine.setPos(mpos)
             #hLine.setPos(mpos)
     
