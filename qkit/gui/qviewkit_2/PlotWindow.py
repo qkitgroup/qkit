@@ -420,7 +420,7 @@ class PlotWindow(QWidget,Ui_Form):
         self.qvkMenu.addAction(pointLine)
         pointLine.triggered.connect(self.setPointLineMode)
         
-        dB_scale = QAction(u'dB', self.qvkMenu)
+        dB_scale = QAction(u'dB / linear', self.qvkMenu)
         self.qvkMenu.addAction(dB_scale)
         dB_scale.triggered.connect(self.setdBScale)
 
@@ -446,6 +446,9 @@ class PlotWindow(QWidget,Ui_Form):
     
     @pyqtSlot()
     def setdBScale(self):
-        self.plot_scale = self.plot_scales['dB']
+        if self.plot_scale == self.plot_scales['dB']:
+            self.plot_scale = self.plot_scales['linear']
+        else:
+            self.plot_scale = self.plot_scales['dB']
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
