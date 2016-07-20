@@ -146,9 +146,9 @@ class Ui_Form(object):
         self.PlotTypeSelector.addItem(_fromUtf8(""))
         self.PlotTypeSelector.addItem(_fromUtf8(""))
         #self.horizontalLayout.addWidget(self.PlotTypeSelector)
-        self.PlotTypeSelector.setItemText(0, _translate("Form", "Color 3D Plot", None))
-        self.PlotTypeSelector.setItemText(1, _translate("Form", "Color X Plot", None))
-        self.PlotTypeSelector.setItemText(2, _translate("Form", "Color Y Plot", None))
+        self.PlotTypeSelector.setItemText(0, _translate("Form", "Select Z", None))
+        self.PlotTypeSelector.setItemText(1, _translate("Form", "Select X", None))
+        self.PlotTypeSelector.setItemText(2, _translate("Form", "Select Y", None))
         self.PlotTypeSelector.setItemText(3, _translate("Form", "Line Plot", None))
         
         self.PlotTypeLayout = QtGui.QVBoxLayout()
@@ -158,8 +158,8 @@ class Ui_Form(object):
         self.PlotTypeLayout.addWidget(emptyL)
         self.horizontalLayout.addLayout(self.PlotTypeLayout,stretch = -10)
        
-        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "SliceSelector",  
-                                        TraceIndicator="SliceValue",  prefix = "Slice: ")
+        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceZSelector",  
+                                        TraceIndicator="TraceZValue",  prefix = "TraceZ: ")
         self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceXSelector", 
                                         TraceIndicator="TraceXValue", prefix = "TraceX: ")
         self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceYSelector", 

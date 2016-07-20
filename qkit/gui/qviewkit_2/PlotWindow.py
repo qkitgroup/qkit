@@ -64,7 +64,7 @@ class PlotWindow(QWidget,Ui_Form):
             
             self.graphicsView = None
             self.TraceValueChanged  = False
-            self.SliceValueChanged  = False
+            self.TraceZValueChanged = False
             self.TraceXValueChanged = False
             self.TraceYValueChanged = False
             
@@ -148,12 +148,13 @@ class PlotWindow(QWidget,Ui_Form):
 
         elif self.ds_type == ds_types['box']:
             QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeBox)
-            QObject.connect(self.SliceSelector,   SIGNAL("valueChanged(int)"),       self._setBSliceNum)
-            QObject.connect(self.SliceValue,      SIGNAL("returnPressed()"),         self._setBSliceValue)
+            QObject.connect(self.TraceZSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceZNum)
+            QObject.connect(self.TraceZValue,     SIGNAL("returnPressed()"),         self._setBTraceZValue)
             QObject.connect(self.TraceXSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceXNum)
             QObject.connect(self.TraceXValue,     SIGNAL("returnPressed()"),         self._setBTraceXValue)
-            QObject.connect(self.TraceYValue,     SIGNAL("returnPressed()"),         self._setBTraceYValue)
             QObject.connect(self.TraceYSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceYNum)
+            QObject.connect(self.TraceYValue,     SIGNAL("returnPressed()"),         self._setBTraceYValue)
+
 
         elif self.ds_type == ds_types['view']:
             QObject.connect(self.TraceSelector,   SIGNAL("valueChanged(int)"),       self._setTraceNum)
@@ -224,10 +225,10 @@ class PlotWindow(QWidget,Ui_Form):
         
     def _defaultBox(self):
         shape = self.ds.shape
-        self.SliceSelector.setEnabled(True)
-        self.SliceSelector.setRange(-1*shape[2],shape[2]-1)
-        self.SliceSelector.setValue(shape[2]/2)
-        self.SliceNum = shape[2]/2
+        self.TraceZSelector.setEnabled(True)
+        self.TraceZSelector.setRange(-1*shape[2],shape[2]-1)
+        self.TraceZSelector.setValue(shape[2]/2)
+        self.TraceZNum = shape[2]/2
 
         self.TraceXSelector.setEnabled(False)
         self.TraceXSelector.setRange(-1*shape[0],shape[0]-1)
@@ -279,25 +280,26 @@ class PlotWindow(QWidget,Ui_Form):
         self.TraceValueChanged = True
         self.obj_parent.pw_refresh_signal.emit()
 
+
     def _setTraceNum(self,num):
         self.TraceNum = num
         if not self.TraceValueChanged:
             self.obj_parent.pw_refresh_signal.emit()
     #######
 
-    def _setBSliceValue(self):
-        xval = str(self.SliceValue.displayText())
+    def _setBTraceZValue(self):
+        xval = str(self.TraceZValue.displayText())
         try:
-            self._slice_value = float(xval.split()[0])
+            self._traceZ_value = float(xval.split()[0])
         except ValueError:
             return
-        self.SliceValueChanged = True
+        self.TraceZValueChanged = True
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
     
-    def _setBSliceNum(self,num):
-        self.SliceNum = num
-        if not self.SliceValueChanged:
+    def _setBTraceZNum(self,num):
+        self.TraceZ = num
+        if not self.TraceZValueChanged:
             self.obj_parent.pw_refresh_signal.emit()
 
     def _setBTraceXValue(self):
@@ -357,20 +359,22 @@ class PlotWindow(QWidget,Ui_Form):
         self._onPlotTypeChanged = True
         if index == 0:
             self.view_type = self.view_types['2D']
-            self.SliceSelector.setEnabled(True)
+            self.TraceZSelector.setEnabled(True)
+            self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(False)
         if index == 1:
             self.view_type = self.view_types['2D']
-            self.SliceSelector.setEnabled(False)
+            self.TraceZSelector.setEnabled(False)
             self.TraceXSelector.setEnabled(True)
             self.TraceYSelector.setEnabled(False)
         if index == 2:
             self.view_type = self.view_types['2D']
-            self.SliceSelector.setEnabled(False)
-            self.TraceYSelector.setEnabled(True)
+            self.TraceZSelector.setEnabled(False)
             self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(True)
         if index == 3:
             self.view_type = self.view_types['1D']
-            self.SliceSelector.setEnabled(False)
+            self.TraceZSelector.setEnabled(False)
             self.TraceXSelector.setEnabled(True)
             self.TraceYSelector.setEnabled(True)
 
@@ -404,6 +408,28 @@ class PlotWindow(QWidget,Ui_Form):
         else:
             xval = x0+(max_len+num)*dx
         return str(xval)+" "+unit
+
+    def _getYValueFromTraceNum(self,ds,num):
+        y0 = ds.attrs.get("y0",0)
+        dy = ds.attrs.get("dy",1)
+        unit = ds.attrs.get("y_unit","")
+        max_len = ds.shape[1]
+        if num>-1:
+            yval = y0+num*dy
+        else:
+            yval = y0+(max_len+num)*dy
+        return str(yval)+" "+unit
+
+    def _getZValueFromTraceNum(self,ds,num):
+        z0 = ds.attrs.get("z0",0)
+        dz = ds.attrs.get("dz",1)
+        unit = ds.attrs.get("z_unit","")
+        max_len = ds.shape[2]
+        if num>-1:
+            zval = z0+num*dz
+        else:
+            zval = z0+(max_len+num)*dz
+        return str(zval)+" "+unit
 
     def addQvkMenu(self,menu):
         self.qvkMenu = QMenu("Qviewkit")
