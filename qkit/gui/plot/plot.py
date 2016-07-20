@@ -58,8 +58,9 @@ class h5plot(object):
 
         self.comment = comment
         self.save_pdf = save_pdf
+        self.path = h5_filepath
 
-        filepath = os.path.abspath(h5_filepath)   #put filepath to platform standards
+        filepath = os.path.abspath(self.path)   #put filepath to platform standards
         self.filedir  = os.path.dirname(filepath)   #return directory component of the given pathname, here filepath
 
         self.image_dir = os.path.join(self.filedir,'images')
@@ -71,7 +72,7 @@ class h5plot(object):
             pass
 
         # open the h5 file and get the hdf_lib object
-        self.hf = hdf_lib.Data(path=h5_filepath)
+        self.hf = hdf_lib.Data(path=self.path)
 
         # check for datasets
         for i, pentry in enumerate(self.hf['/entry'].keys()):
@@ -167,15 +168,24 @@ class h5plot(object):
         self.y_label = self.y_ds.attrs.get('name','_yname_')+' / '+self.y_ds.attrs.get('unit','_yunit_')
         self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
 
-        self.data = np.array(self.ds)
+        self.data = np.array(self.ds).T #transpose matrix to get x/y axis correct
 
         self.xmin = self.x_ds.attrs.get('x0',0)
         self.xmax = self.xmin+self.x_ds.attrs.get('dx',1)*self.x_ds.shape[0]
         self.ymin = self.y_ds.attrs.get('x0',0)
         self.ymax = self.ymin+self.y_ds.attrs.get('dx',1)*self.y_ds.shape[0]
 
+        # downsweeps in any direction have to be corrected
+        # this is triggered by dx/dy values < 0
+        # data-matrix and min/max-values have to be swapped
+        if self.x_ds.attrs.get('dx',0) < 0:
+            self.data = np.fliplr(self.data)
+            self.xmin, self.xmax = self.xmax, self.xmin
+        if self.y_ds.attrs.get('dy',0) < 0:
+            self.data = np.flipud(self.data)
+            self.ymin, self.ymax = self.ymax, self.ymin
 
-        self.cax = self.ax.imshow(self.data.T, aspect='auto', extent=[self.xmin,self.xmax,self.ymin,self.ymax], origin = 'lower', interpolation='none')
+        self.cax = self.ax.imshow(self.data, aspect='auto', extent=[self.xmin,self.xmax,self.ymin,self.ymax], origin = 'lower', interpolation='none')
         self.cbar = self.fig.colorbar(self.cax)
         self.cbar.ax.set_ylabel(self.ds_label)
         self.cbar.ax.yaxis.label.set_fontsize(20)
@@ -197,15 +207,24 @@ class h5plot(object):
         self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
 
         self.nop = self.z_ds.shape[0]
-        self.data = np.array(self.ds)[:,:,self.nop/2]
+        self.data = np.array(self.ds)[:,:,self.nop/2].T #transpose matrix to get x/y axis correct
 
         self.xmin = self.x_ds.attrs.get('x0',0)
         self.xmax = self.xmin+self.x_ds.attrs.get('dx',1)*self.x_ds.shape[0]
         self.ymin = self.y_ds.attrs.get('x0',0)
         self.ymax = self.ymin+self.y_ds.attrs.get('dx',1)*self.y_ds.shape[0]
 
+        # downsweeps in any direction have to be corrected
+        # this is triggered by dx/dy values < 0
+        # data-matrix and min/max-values have to be swapped
+        if self.x_ds.attrs.get('dx',0) < 0:
+            self.data = np.fliplr(self.data)
+            self.xmin, self.xmax = self.xmax, self.xmin
+        if self.y_ds.attrs.get('dy',0) < 0:
+            self.data = np.flipud(self.data)
+            self.ymin, self.ymax = self.ymax, self.ymin
 
-        self.cax = self.ax.imshow(self.data.T, aspect='auto', extent=[self.xmin,self.xmax,self.ymin,self.ymax], origin = 'lower', interpolation='none')
+        self.cax = self.ax.imshow(self.data, aspect='auto', extent=[self.xmin,self.xmax,self.ymin,self.ymax], origin = 'lower', interpolation='none')
         self.cbar = self.fig.colorbar(self.cax)
         self.cbar.ax.set_ylabel(self.ds_label)
         self.cbar.ax.yaxis.label.set_fontsize(20)
