@@ -197,13 +197,13 @@ class spectrum(object):
         if self._scan_1D:
             self._data_real = self._data_file.add_value_vector('real', x = self._data_freq, unit = '', save_timestamp = True)
             self._data_imag = self._data_file.add_value_vector('imag', x = self._data_freq, unit = '', save_timestamp = True)
-            self._data_amp = self._data_file.add_value_vector('amplitude', x = self._data_freq, unit = '', save_timestamp = True)
+            self._data_amp = self._data_file.add_value_vector('amplitude', x = self._data_freq, unit = 'arb. unit', save_timestamp = True)
             self._data_pha = self._data_file.add_value_vector('phase', x = self._data_freq, unit = 'rad', save_timestamp = True)
 
         if self._scan_2D:
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit = self.x_unit)
             self._data_x.add(self.x_vec)
-            self._data_amp = self._data_file.add_value_matrix('amplitude', x = self._data_x, y = self._data_freq, unit = '', save_timestamp = True)
+            self._data_amp = self._data_file.add_value_matrix('amplitude', x = self._data_x, y = self._data_freq, unit = 'arb. unit', save_timestamp = True)
             self._data_pha = self._data_file.add_value_matrix('phase', x = self._data_x, y = self._data_freq, unit='rad', save_timestamp = True)
 
             if self.log_function != None:   #use logging
@@ -213,7 +213,7 @@ class spectrum(object):
 
             if self._nop < 10:
                 """creates view: plot middle point vs x-parameter, for qubit measurements"""
-                self._data_amp_mid = self._data_file.add_value_vector('amplitude_midpoint', unit = '', x = self._data_x, save_timestamp = True)
+                self._data_amp_mid = self._data_file.add_value_vector('amplitude_midpoint', unit = 'arb. unit', x = self._data_x, save_timestamp = True)
                 self._data_pha_mid = self._data_file.add_value_vector('phase_midpoint', unit = 'rad', x = self._data_x, save_timestamp = True)
                 #self._view = self._data_file.add_view("amplitude vs. " + self.x_coordname, x = self._data_x, y = self._data_amp[self._nop/2])
 
@@ -224,10 +224,10 @@ class spectrum(object):
             self._data_y.add(self.y_vec)
             
             if self._nop == 0:   # dos not work yet     # the pnax can measure only one value, saving it in a 2D matrix instead of a 3D box, no timestamp
-                self._data_amp = self._data_file.add_value_matrix('amplitude', x = self._data_x, y = self._data_y,  unit = '1',   save_timestamp = False)
+                self._data_amp = self._data_file.add_value_matrix('amplitude', x = self._data_x, y = self._data_y,  unit = 'arb. unit',   save_timestamp = False)
                 self._data_pha = self._data_file.add_value_matrix('phase',     x = self._data_x, y = self._data_y,  unit = 'rad', save_timestamp = False)
             else:
-                self._data_amp = self._data_file.add_value_box('amplitude', x = self._data_x, y = self._data_y, z = self._data_freq, unit = '1', save_timestamp = False)
+                self._data_amp = self._data_file.add_value_box('amplitude', x = self._data_x, y = self._data_y, z = self._data_freq, unit = 'arb. unit', save_timestamp = False)
                 self._data_pha = self._data_file.add_value_box('phase', x = self._data_x, y = self._data_y, z = self._data_freq, unit = 'rad', save_timestamp = False)
 
         if self.comment:
@@ -285,7 +285,7 @@ class spectrum(object):
             self._do_fit_resonator()
 
         qt.mend()
-        #self._end_measurement()
+        self._end_measurement()
 
     def measure_2D(self):
         '''
@@ -319,7 +319,7 @@ class spectrum(object):
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath())
         self._measure()
-        #self._end_measurement()
+        self._end_measurement()
 
 
     def measure_3D(self):
@@ -361,7 +361,7 @@ class spectrum(object):
                 self.center_freqs.append([0])
 
         self._measure()
-        #self._end_measurement()
+        self._end_measurement()
 
     def _measure(self):
         '''
