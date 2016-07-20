@@ -28,233 +28,239 @@ import math
 from time import sleep
 
 class Anritsu_MG37022(Instrument):
-	'''
-	This is the python driver for the Anritsu_MG37022 microwave source
+    '''
+    This is the python driver for the Anritsu_MG37022 microwave source
 
-	Usage:
-	Initialise with
-	<name> = instruments.create('<name>', address='<GPIB address>')
-	'''
+    Usage:
+    Initialise with
+    <name> = instruments.create('<name>', address='<GPIB address>')
+    '''
 
-	def __init__(self, name, address, model = 'Anritsu'):
-		'''
-		Initializes the Anritsu_MG37022, and communicates with the wrapper.
-		
-		Input:
-			name (string)    : name of the instrument
-			address (string) : GPIB address
-		'''
-		logging.info(__name__ + ' : Initializing instrument')
-		Instrument.__init__(self, name, tags=['physical'])
+    def __init__(self, name, address, model = 'Anritsu'):
+        '''
+        Initializes the Anritsu_MG37022, and communicates with the wrapper.
+        
+        Input:
+            name (string)    : name of the instrument
+            address (string) : GPIB address
+        '''
+        logging.info(__name__ + ' : Initializing instrument')
+        Instrument.__init__(self, name, tags=['physical'])
 
-		self._address = address
-		self._model = model
-		self._visainstrument = visa.instrument(self._address)
-		self._slope = None   #set _slope to True if frequency dependent power compensation is requested
-		sleep(1)
+        self._address = address
+        self._model = model
+        self._visainstrument = visa.instrument(self._address)
+        self._slope = None   #set _slope to True if frequency dependent power compensation is requested
+        sleep(1)
 
-		# Implement parameters
-		self.add_parameter('frequency', type=types.FloatType,
-			flags=Instrument.FLAG_GETSET,
-			minval=0, maxval=20e9,
-			units='Hz',tags=['sweep'])
-		self.add_parameter('phase_offset', type=types.FloatType,
-			flags=Instrument.FLAG_GETSET,
-			minval=-360, maxval=360,
-			units='deg')
-		self.add_parameter('slope', type=types.FloatType,
-			flags=Instrument.FLAG_GETSET,
-			minval=0, maxval=100,
-			units='dB@10GHz')
-		self.add_parameter('power', type=types.FloatType,
-			flags=Instrument.FLAG_GETSET,
-			minval=-130, maxval=12,   #29dBm possible, this is security JB
-			units='dBm', tags=['sweep'])
-		self.add_parameter('status', type=types.BooleanType,
-			flags=Instrument.FLAG_GETSET)
-		
-		# Implement functions
-		self.add_function('get_all')
-		self.get_all()
-		
-	# initialization related
-	def get_all(self):
-		self.get_frequency()
-		self.get_power()
-		self.get_status()
+        # Implement parameters
+        self.add_parameter('frequency', type=types.FloatType,
+            flags=Instrument.FLAG_GETSET,
+            minval=0, maxval=20e9,
+            units='Hz',tags=['sweep'])
+        self.add_parameter('phase_offset', type=types.FloatType,
+            flags=Instrument.FLAG_GETSET,
+            minval=-360, maxval=360,
+            units='deg')
+        self.add_parameter('slope', type=types.FloatType,
+            flags=Instrument.FLAG_GETSET,
+            minval=0, maxval=100,
+            units='dB@10GHz')
+        self.add_parameter('power', type=types.FloatType,
+            flags=Instrument.FLAG_GETSET,
+            minval=-130, maxval=29,   #29dBm possible, this is security JB
+            units='dBm', tags=['sweep'])
+        self.add_parameter('status', type=types.BooleanType,
+            flags=Instrument.FLAG_GETSET)
+        
+        # Implement functions
+        self.add_function('get_all')
+        self.get_all()
+        
+        self.enable_high_power = False
+        
+    # initialization related
+    def get_all(self):
+        self.get_frequency()
+        self.get_power()
+        self.get_status()
 
-	#Communication with device
-	def do_get_frequency(self):
-		'''
-		Get frequency of device
+    #Communication with device
+    def do_get_frequency(self):
+        '''
+        Get frequency of device
 
-		Input:
-			-
+        Input:
+            -
 
-		Output:
-			microwave frequency (Hz)
-		'''
-		self._frequency = float(self._visainstrument.ask('SOUR:FREQ:CW?'))
-		return self._frequency
-		
-	def do_set_frequency(self, frequency):
-		'''
-		Set frequency of device
+        Output:
+            microwave frequency (Hz)
+        '''
+        self._frequency = float(self._visainstrument.ask('SOUR:FREQ:CW?'))
+        return self._frequency
+        
+    def do_set_frequency(self, frequency):
+        '''
+        Set frequency of device
 
-		Input:
-			freq (float) : Frequency in Hz
+        Input:
+            freq (float) : Frequency in Hz
 
-		Output:
-			None
-		'''
-		#logging.debug(__name__ + ' : setting frequency to %s Hz' % (frequency*1.0e9))
-		self._visainstrument.write('SOUR:FREQ:CW %i' % (int(frequency)))
-		self._frequency = float(frequency)
-		if(self._slope != None): 
-			self.do_set_power()
-			
-	def do_get_slope(self):
-		'''
-		Get attribute '_slope'
+        Output:
+            None
+        '''
+        #logging.debug(__name__ + ' : setting frequency to %s Hz' % (frequency*1.0e9))
+        self._visainstrument.write('SOUR:FREQ:CW %i' % (int(frequency)))
+        self._frequency = float(frequency)
+        if(self._slope != None): 
+            self.do_set_power()
+            
+    def do_get_slope(self):
+        '''
+        Get attribute '_slope'
 
-		Input:
-			-
+        Input:
+            -
 
-		Output:
-			slope applied to calculate power values
-			None if no slope is set
-		'''
-		return self._slope
-		
-	def do_set_slope(self, slope):
-		'''
-		Set slope of output power to use at different frequencies.
-		Assumes a cable attenuation of attn[dB] ~ attn(f0)*sqrt(f/f0), f0=10GHz
+        Output:
+            slope applied to calculate power values
+            None if no slope is set
+        '''
+        return self._slope
+        
+    def do_set_slope(self, slope):
+        '''
+        Set slope of output power to use at different frequencies.
+        Assumes a cable attenuation of attn[dB] ~ attn(f0)*sqrt(f/f0), f0=10GHz
 
-		Input:
-			slope (float) : Slope to apply to power values.
-		'''
-		self._slope = slope
-		
-	def do_get_power(self):
-		'''
-		Get output power of device
+        Input:
+            slope (float) : Slope to apply to power values.
+        '''
+        self._slope = slope
+        
+    def do_get_power(self):
+        '''
+        Get output power of device
 
-		Input:
-			-
+        Input:
+            -
 
-		Output:
-			microwave power (dBm)
-		'''
-		self._power = float(self._visainstrument.ask('POW:LEV?'))
-		return self._power
-		
-	def do_set_power(self,power = None):
-		'''
-		Set output power of device
+        Output:
+            microwave power (dBm)
+        '''
+        self._power = float(self._visainstrument.ask('POW:LEV?'))
+        return self._power
+        
+    def do_set_power(self,power = None):
+        '''
+        Set output power of device, limited to +12dBm
+        upper bound can be increased by setting self.enable_high_power to True
 
-		Input:
-			power (float) : Power in dBm
-			If a slope is set, this is the power at 10GHz.
+        Input:
+            power (float) : Power in dBm
+            If a slope is set, this is the power at 10GHz.
 
-		Output:
-			None
-		'''
-		logging.debug(__name__ + ' : setting power to %s dBm' % power)
-		if(power == None):
-			power = self._power
-		else:
-			self._power = power
-		# compensate cables
-		if(self._slope != None):
-			power = power+self._slope*(math.sqrt(self._frequency/10.e9)-1)
-		self._visainstrument.write('POW:LEV %.2f' % power)
-			
-	def do_get_status(self):
-		'''
-		Get status of output channel
+        Output:
+            None
+        '''
+        if not self.enable_high_power and power > 12:
+            logging.warning('power limited to 12dBm')
+        else:
+            logging.debug(__name__ + ' : setting power to %s dBm' % power)
+            if(power == None):
+                power = self._power
+            else:
+                self._power = power
+            # compensate cables
+            if(self._slope != None):
+                power = power+self._slope*(math.sqrt(self._frequency/10.e9)-1)
+            self._visainstrument.write('POW:LEV %.2f' % power)
+            
+    def do_get_status(self):
+        '''
+        Get status of output channel
 
-		Input:
-			-
+        Input:
+            -
 
-		Output:
-			True (on) or False (off)
-		'''
-		stat = bool(int(self._visainstrument.ask('OUTP:STAT?')))
-		return stat
-		
-	def do_set_status(self,status):
-		'''
-		Set status of output channel
+        Output:
+            True (on) or False (off)
+        '''
+        stat = bool(int(self._visainstrument.ask('OUTP:STAT?')))
+        return stat
+        
+    def do_set_status(self,status):
+        '''
+        Set status of output channel
 
-		Input:
-			status : True or False
+        Input:
+            status : True or False
 
-		Output:
-			None
-		'''
-		logging.debug(__name__ + ' : setting status to "%s"' % status)
-		if status == True:
-			self._visainstrument.write('OUTP:STAT ON')
-		elif status == False:
-			self._visainstrument.write('OUTP:STAT OFF')
-		else:
-			logging.error('set_status(): can only set True or False')
-		
-		
-	def do_get_phase_offset(self):
-		'''
-		Get the RF output phase offset
+        Output:
+            None
+        '''
+        logging.debug(__name__ + ' : setting status to "%s"' % status)
+        if status == True:
+            self._visainstrument.write('OUTP:STAT ON')
+        elif status == False:
+            self._visainstrument.write('OUTP:STAT OFF')
+        else:
+            logging.error('set_status(): can only set True or False')
+        
+        
+    def do_get_phase_offset(self):
+        '''
+        Get the RF output phase offset
 
-		Input:
-			-
+        Input:
+            -
 
-		Output:
-			phase offset (deg)
-		'''
-		return float(self._visainstrument.ask('PHAS:ADJ?'))
-		
-	def do_set_phase_offset(self, phase_offset):
-		'''
-		Set the RF output phase offset and display phase offset
+        Output:
+            phase offset (deg)
+        '''
+        return float(self._visainstrument.ask('PHAS:ADJ?'))
+        
+    def do_set_phase_offset(self, phase_offset):
+        '''
+        Set the RF output phase offset and display phase offset
 
-		Input:
-			phase offset in degrees (-360.0 .. 360.0)
+        Input:
+            phase offset in degrees (-360.0 .. 360.0)
 
-		Output:
-			Nones
-		'''
-		self._visainstrument.write('PHAS:ADJ %.1f DEG' %phase_offset)
-		self._visainstrument.write('PHAS:DISP ON')
-		
-		
-	#shortcuts
-	def off(self):
-		'''
-		Set status to 'off'
+        Output:
+            Nones
+        '''
+        self._visainstrument.write('PHAS:ADJ %.1f DEG' %phase_offset)
+        self._visainstrument.write('PHAS:DISP ON')
+        
+        
+    #shortcuts
+    def off(self):
+        '''
+        Set status to 'off'
 
-		Input:
-			None
+        Input:
+            None
 
-		Output:
-			None
-		'''
-		self.set_status(False)
+        Output:
+            None
+        '''
+        self.set_status(False)
 
-	def on(self):
-		'''
-		Set status to 'on'
+    def on(self):
+        '''
+        Set status to 'on'
 
-		Input:
-			None
+        Input:
+            None
 
-		Output:
-			None
-		'''
-		self.set_status(True)
-		
-	#sending customized messages
-	def write(self,msg):
-	  return self._visainstrument.write(msg)
-	def ask(self,msg):
-	  return self._visainstrument.ask(msg)
+        Output:
+            None
+        '''
+        self.set_status(True)
+        
+    #sending customized messages
+    def write(self,msg):
+      return self._visainstrument.write(msg)
+    def ask(self,msg):
+      return self._visainstrument.ask(msg)
