@@ -1,10 +1,35 @@
-'''
-data reading and fitting script JB@KIT 01/2015 jochen.braumueller@kit.edu
-'''
+# filename: dat_reader.py
+# Jochen Braumueller <jochen.braumueller@kit.edu>, 01/2015
+# updates: 2015, 06/2016
+# data reading and fitting script mainly used during time domain measurements but also for various data post processing purpuses
+# supported fit functions: 'lorentzian', 'lorentzian_sqrt', 'damped_sine', 'sine', 'exp', 'damped_exp'
+
+# import and usage
+"""
+from qkit import dat_reader as dr
+dr.fit_data(None, fit_function = 'exp')
+"""
+# for further information see doc strings
+
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+import scipy.interpolate
 #import fnmatch
 import os, glob
 import time
@@ -43,7 +68,6 @@ except ImportError:
 # =================================================================================================================
 
 def find_latest_file(ftype=None):
-    
     '''
     find latest file of type ftype in qt data directory
     priorize hdf file over dat file
@@ -92,7 +116,6 @@ def find_latest_file(ftype=None):
 # =================================================================================================================
 
 def read_hdf_data(nfile,entries=None):
-    
     '''
     - read hdf data file, store data in 2d numpy array and return
     - entries (optional): specify entries in h5 file to be read and returned
@@ -192,9 +215,8 @@ def read_hdf_data(nfile,entries=None):
 # =================================================================================================================
 
 def load_data(file_name = None,entries = None):
-    
     '''
-    load recent or specified data file and return the data array
+    load recent or specified data file and return the data array and the file name
     '''
     
     if file_name == None:
@@ -222,13 +244,12 @@ def load_data(file_name = None,entries = None):
     except Exception as message:
         print 'invalid file name...aborting:', message
         return
-        
+
     return data, nfile
 
 # =================================================================================================================
 
 def _fill_p0(p0,ps):
-
     '''
     fill estimated p0 with specified initial values (in ps)
     '''
@@ -246,6 +267,9 @@ def _fill_p0(p0,ps):
 # =================================================================================================================
 
 def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp = False):
+    '''
+    find initial parameters for oscillating fits
+    '''
     
     #offset
     # testing last 25% of data for its maximum slope; take offset as last 10% of data for a small slope (and therefore strong damping)
@@ -311,7 +335,6 @@ def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp =
 # =================================================================================================================
 
 def _safe_fit_data_in_h5_file(fname,x_vec,fvalues,entryname=''):
-    
     '''
     appends fitted data to the h5 file in folder analysis with a newly created parameter axis containing
      a fixed number of points
@@ -319,6 +342,7 @@ def _safe_fit_data_in_h5_file(fname,x_vec,fvalues,entryname=''):
     fname: file name of the h5 file
     x_vec: generated x vector (parameter vector) of constant length
     fvalues: fitted function values, array of length len(x_vec)
+    entryname: suffix to be added to the name of analysis entry
     
     So far I hope that hdf_lib throws away old fit data when refitting and generating the same axes in the analysis folder. (JB)
     '''
@@ -337,8 +361,17 @@ def _safe_fit_data_in_h5_file(fname,x_vec,fvalues,entryname=''):
 
 # =================================================================================================================
 
-def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, save_pdf = False, data=None, nfile=None, opt=None, entryname = ''):
+def spline_smooth_data(x_data, y_data, spline_order=1):
+    '''
+    applies a spline fit of order spline_order (default: 1) to the data, usually prior to fitting
+    returns the smoothened data (only)
+    '''
+    #spline smoothing
+    return scipy.interpolate.UnivariateSpline(x_data, y_data, s=spline_order)(x_data)
     
+# =================================================================================================================
+
+def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, save_pdf = False, data=None, nfile=None, opt=None, entryname = '', spline_order=None):
     '''
     fit the data in file_name to a function specified by fit_function
     setting file_name to None makes the code try to find the newest .dat file in today's data_dir
@@ -347,7 +380,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
     dat_reader supports the h5 file format. In case the hf libraries are available when setting file_name to None (automatic search for latest data file),
      dat_reader looks for the latest h5 file
     
-    fit_function (optional, default = 'lorentzian'): can be 'lorentzian', 'damped_sine', 'sine', 'exp'
+    fit_function (optional, default = 'lorentzian'): can be 'lorentzian', 'lorentzian_sqrt', 'damped_sine', 'sine', 'exp', 'damped_exp'
     data_c (optional, default = 2, phase): specifies the data column to be used (next to column 0 that is used as the coordinate axis)
      string specifying 'amplitude' or 'phase' or similar spellings are accepted as well
      when data is read from h5 file, the usual column ordering is [freq,amp,pha], [0,1,2]
@@ -358,6 +391,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
     save_pdf (optional): save plot also as pdf file (optional, default = False)
     data, nfile: pass data object and file name which is used when file_name == 'dat_import'
     opt: bool, set to True if data is to be optimized prior to fitting using the data_optimizer
+    entryname: suffix to be added to the name of analysis entry
     
     returns fit parameters, standard deviations concatenated: [popt1,pop2,...poptn,err_popt1,err_popt2,...err_poptn]
     in case fit does not converge, errors are filled with 'inf'
@@ -367,8 +401,11 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
     f_Lorentzian expects its frequency parameter to be stated in GHz
     '''
     
-    def f_Lorentzian(f, f0, k, a, offs):
+    def f_Lorentzian_sqrt(f, f0, k, a, offs):
         return np.sign(a) * np.sqrt(np.abs(a**2*(k/2)**2/((k/2)**2+(f-f0)**2)))+offs
+        
+    def f_Lorentzian(f, f0, k, a, offs):
+        return a*k/(2*np.pi)/((k/2)**2+(f-f0)**2)+offs
         
     def f_damped_sine(t, fs, Td, a, offs, ph):
         return a*np.exp(-t/Td)*np.sin(2*np.pi*fs*t+ph)+offs
@@ -410,9 +447,17 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
             logging.warning('Data is not optimized since package is not loaded.')
         data = do.optimize(data,data_c,data_c+1)
         data_c = 1
+        
+    if spline_order != None:
+        try:
+            data[data_c] = spline_smooth_data(data[0],data[data_c],spline_order)
+            print 'spline smoothing applied'
+        except ValueError:
+            logging.error('spline order has to be of type float')
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    if fit_function == 'lorentzian':
+    
+    if 'lorentzian' in fit_function:
     
         #check for unit in frequency
         if np.mean(data[0]) > 100:
@@ -457,27 +502,50 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
             
         p0 = _fill_p0([s_f0, s_k, s_a, s_offs],ps)
 
-        #lorentzian fit ----------------------------------------------------------------------
-        try:
-            popt, pcov = curve_fit(f_Lorentzian, data[0]*freq_conversion_factor, data[data_c], p0 = p0)
-            print 'QL:', np.abs(np.round(float(popt[0])/popt[1]))
-        except:
-            print 'fit not successful'
-            popt = p0
-            pcov = None
-        finally:
-            if show_plot:
-                fvalues = f_Lorentzian(x_vec, *popt)
-                plt.plot(x_vec, fvalues)
-                ax = plt.gca()
-                if xlabel == '':
-                    ax.set_xlabel('f (GHz)', fontsize=13)
-                    pass
-                else:
-                    ax.set_xlabel(str(xlabel), fontsize=13)
-                if ylabel == '':
-                    #ax.set_ylabel('arg(S21) (a.u.)', fontsize=13)
-                    pass
+        if fit_function == 'lorentzian_sqrt':
+            #lorentzian sqrt fit ----------------------------------------------------------------------
+            try:
+                popt, pcov = curve_fit(f_Lorentzian_sqrt, data[0]*freq_conversion_factor, data[data_c], p0 = p0)
+                print 'QL:', np.abs(np.round(float(popt[0])/popt[1]))
+            except:
+                print 'fit not successful'
+                popt = p0
+                pcov = None
+            finally:
+                if show_plot:
+                    fvalues = f_Lorentzian_sqrt(x_vec, *popt)
+                    plt.plot(x_vec, fvalues)
+                    ax = plt.gca()
+                    if xlabel == '':
+                        ax.set_xlabel('f (GHz)', fontsize=13)
+                        pass
+                    else:
+                        ax.set_xlabel(str(xlabel), fontsize=13)
+                    if ylabel == '':
+                        ax.set_ylabel('arg(S21) (a.u.)', fontsize=13)
+        
+        else:
+            #regular lorentzian fit ----------------------------------------------------------------------
+            try:
+                popt, pcov = curve_fit(f_Lorentzian, data[0]*freq_conversion_factor, data[data_c], p0 = p0)
+                print 'QL:', np.abs(np.round(float(popt[0])/popt[1]))
+            except:
+                print 'fit not successful'
+                popt = p0
+                pcov = None
+            finally:
+                if show_plot:
+                    fvalues = f_Lorentzian(x_vec, *popt)
+                    plt.plot(x_vec, fvalues)
+                    ax = plt.gca()
+                    if xlabel == '':
+                        ax.set_xlabel('f (GHz)', fontsize=13)
+                        pass
+                    else:
+                        ax.set_xlabel(str(xlabel), fontsize=13)
+                    if ylabel == '':
+                        #ax.set_ylabel('arg(S21) (a.u.)', fontsize=13)
+                        pass
                     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
     elif fit_function == 'damped_sine':

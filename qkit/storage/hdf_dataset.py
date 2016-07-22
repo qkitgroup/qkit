@@ -204,12 +204,15 @@ class hdf_dataset(object):
                 self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,dim = 1,dtype=self.dtype)
 
                 if not self.x_object:
-                    # value data
-                    if len(data) > 2:                
+                    # coordinate does not have x_object
+                    if len(data) > 1:                
                         self.x0 = data[0]
                         self.dx = data[1]-data[0]
+                    else:
+                        self.x0 = data[0]
+                        self.dx = 0
                 else:
-                    # coordinate vector
+                    # value vector
                     self.x0 = self.x_object.x0
                     self.dx = self.x_object.dx
                 self._setup_metadata()
