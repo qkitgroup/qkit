@@ -265,14 +265,20 @@ class spectrum(object):
         qt.mstart()
         self.vna.avg_clear()
         if self.vna.get_averages() == 1 or self.vna.get_Average() == False:   #no averaging
-            self._p = Progress_Bar(1,self.dirname)
+            self._p = Progress_Bar(1,self.dirname,vna.get_sweeptime())
             qt.msleep(self.vna.get_sweeptime())      #wait single sweep
             self._p.iterate()
         else:   #with averaging
-            self._p = Progress_Bar(self.vna.get_averages(),self.dirname)
-            for a in range(self.vna.get_averages()):
-                qt.msleep(self.vna.get_sweeptime())      #wait single sweep time
-                self._p.iterate()
+            self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime())
+            if "avg_status" in vna.get_function_names():
+                for a in range(self.vna.get_averages()):
+                    while self.vna.avg_status() <= a:
+                        qt.msleep(.2) #maybe one would like to adjust this at a later point
+                    self._p.iterate()
+            else: #old style
+                for a in range(self.vna.get_averages()):
+                    qt.msleep(self.vna.get_sweeptime())      #wait single sweep time
+                    self._p.iterate()
 
         data_amp, data_pha = self.vna.get_tracedata()
         data_real, data_imag = self.vna.get_tracedata('RealImag')
@@ -306,7 +312,7 @@ class spectrum(object):
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
-        self._p = Progress_Bar(len(self.x_vec),'2D VNA sweep '+self.dirname)
+        self._p = Progress_Bar(len(self.x_vec),'2D VNA sweep '+self.dirname,vna.get_sweeptime())
 
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
@@ -343,7 +349,7 @@ class spectrum(object):
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
-        self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec),'3D VNA sweep '+self.dirname)
+        self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec),'3D VNA sweep '+self.dirname,vna.get_sweeptime())
 
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
@@ -389,7 +395,13 @@ class spectrum(object):
                             self.y_set_obj(y)
                             sleep(self.tdy)
                             self.vna.avg_clear()
-                            sleep(self._sweeptime_averages)
+                            if "avg_status" in vna.get_function_names():
+                                    while self.vna.avg_status() < self.vna.get_averages():
+                                        qt.msleep(.2) #maybe one would like to adjust this at a later point
+                            else: #old style
+                                sleep(self._sweeptime_averages)     #wait single sweep time
+                                  
+                            
                             """ measurement """
                             data_amp, data_pha = self.vna.get_tracedata()
 
