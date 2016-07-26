@@ -53,6 +53,8 @@ class spectrum(object):
         self._plot_comment=""
 
         self.set_log_function()
+        
+        self.open_qviewkit = True
 
     def set_log_function(self, func=None, name = None, unit = None):
         '''
@@ -223,12 +225,17 @@ class spectrum(object):
             self._data_y = self._data_file.add_coordinate(self.y_coordname, unit = self.y_unit)
             self._data_y.add(self.y_vec)
             
-            if self._nop == 0:   # dos not work yet     # the pnax can measure only one value, saving it in a 2D matrix instead of a 3D box, no timestamp
+            if self._nop == 1:   #saving in a 2D matrix instead of a 3D box
                 self._data_amp = self._data_file.add_value_matrix('amplitude', x = self._data_x, y = self._data_y,  unit = 'arb. unit',   save_timestamp = False)
                 self._data_pha = self._data_file.add_value_matrix('phase',     x = self._data_x, y = self._data_y,  unit = 'rad', save_timestamp = False)
             else:
                 self._data_amp = self._data_file.add_value_box('amplitude', x = self._data_x, y = self._data_y, z = self._data_freq, unit = 'arb. unit', save_timestamp = False)
                 self._data_pha = self._data_file.add_value_box('phase', x = self._data_x, y = self._data_y, z = self._data_freq, unit = 'rad', save_timestamp = False)
+                
+            if self.log_function != None:   #use logging
+                self._log_value = []
+                for i in range(len(self.log_function)):
+                    self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i],dtype=self.log_dtype[i]))
 
         if self.comment:
             self._data_file.add_comment(self.comment)
@@ -255,7 +262,8 @@ class spectrum(object):
         self._prepare_measurement_file()
 
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
-        qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
+        if self.open_qviewkit:
+            qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath())
 
@@ -265,14 +273,20 @@ class spectrum(object):
         qt.mstart()
         self.vna.avg_clear()
         if self.vna.get_averages() == 1 or self.vna.get_Average() == False:   #no averaging
-            self._p = Progress_Bar(1,self.dirname)
+            self._p = Progress_Bar(1,self.dirname,self.vna.get_sweeptime())
             qt.msleep(self.vna.get_sweeptime())      #wait single sweep
             self._p.iterate()
         else:   #with averaging
-            self._p = Progress_Bar(self.vna.get_averages(),self.dirname)
-            for a in range(self.vna.get_averages()):
-                qt.msleep(self.vna.get_sweeptime())      #wait single sweep time
-                self._p.iterate()
+            self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime())
+            if "avg_status" in self.vna.get_function_names():
+                for a in range(self.vna.get_averages()):
+                    while self.vna.avg_status() <= a:
+                        qt.msleep(.2) #maybe one would like to adjust this at a later point
+                    self._p.iterate()
+            else: #old style
+                for a in range(self.vna.get_averages()):
+                    qt.msleep(self.vna.get_sweeptime())      #wait single sweep time
+                    self._p.iterate()
 
         data_amp, data_pha = self.vna.get_tracedata()
         data_real, data_imag = self.vna.get_tracedata('RealImag')
@@ -306,7 +320,7 @@ class spectrum(object):
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
-        self._p = Progress_Bar(len(self.x_vec),'2D VNA sweep '+self.dirname)
+        self._p = Progress_Bar(len(self.x_vec),'2D VNA sweep '+self.dirname,self.vna.get_sweeptime())
 
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
@@ -343,7 +357,7 @@ class spectrum(object):
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
-        self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec),'3D VNA sweep '+self.dirname)
+        self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec),'3D VNA sweep '+self.dirname,self.vna.get_sweeptime())
 
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
@@ -389,7 +403,13 @@ class spectrum(object):
                             self.y_set_obj(y)
                             sleep(self.tdy)
                             self.vna.avg_clear()
-                            sleep(self._sweeptime_averages)
+                            if "avg_status" in self.vna.get_function_names():
+                                    while self.vna.avg_status() < self.vna.get_averages():
+                                        qt.msleep(.2) #maybe one would like to adjust this at a later point
+                            else: #old style
+                                sleep(self._sweeptime_averages)     #wait single sweep time
+                                  
+                            
                             """ measurement """
                             data_amp, data_pha = self.vna.get_tracedata()
 

@@ -24,17 +24,17 @@ class PlotWindow(QWidget,Ui_Form):
         self.DATA = data
         self.dataset_url = dataset_url
         self.obj_parent = parent
-        
-        
+
+
         super(PlotWindow , self).__init__()
         Ui_Form.__init__(self)
         # move forward ...
         self.setWindowState(Qt.WindowActive)
         self.activateWindow()
         self.raise_()
-    
 
-        
+
+
         "This variable controlles if a window is new, see update_plots()."
         self._windowJustCreated = True
         "connect update_plots to the DatasetWindow"
@@ -47,38 +47,38 @@ class PlotWindow(QWidget,Ui_Form):
         self.DATA._toBe_deleted(self.dataset_url)
         self.DATA._remove_plot_widgets()
         event.accept()
-        
+
     @pyqtSlot()
     def update_plots(self):
-        """ This brings up everything and is therefore the main function. 
+        """ This brings up everything and is therefore the main function.
         Update Plots is either periodically called e.g. by the timer or once on startup. """
         #print "PWL update_plots:", self.obj_parent.h5file
-        
+
         self.ds = self.obj_parent.h5file[self.dataset_url]
         self.ds_type = self.ds.attrs.get('ds_type', -1)
-        
+
         if self._windowJustCreated:
             # A few state variables:
             self._onPlotTypeChanged = True
             self._windowJustCreated = False
-            
+
             self.graphicsView = None
             self.TraceValueChanged  = False
             self.TraceZValueChanged = False
             self.TraceXValueChanged = False
             self.TraceYValueChanged = False
-            
+
             # the following calls rely on ds_type and setup the layout of the plot window.
             self.setupUi(self,self.ds_type)
-        
+
             window_title = str(self.dataset_url.split('/')[-1]) +" "+ str(self.DATA.filename)
             self.setWindowTitle(window_title)
-            
-            
+
+
             self._setDefaultView()
             self._setup_signal_slots()
-            
-            
+
+
 
         try:
             if self.view_type == self.view_types['1D-V']:
@@ -117,7 +117,7 @@ class PlotWindow(QWidget,Ui_Form):
                     self.graphicsView.setObjectName(self.dataset_url)
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 _display_table(self,self.graphicsView)
-                
+
             elif self.view_type == self.view_types['txt']:
                 if not self.graphicsView or self._onPlotTypeChangeBox:
                     self._onPlotTypeChangeBox = False
@@ -126,6 +126,7 @@ class PlotWindow(QWidget,Ui_Form):
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                     #self.graphicsView.setObjectName(self.dataset_url)
                     self.gridLayout.addWidget(self.graphicsView,0,0)
+                self.graphicsView.clear()
                 _display_text(self,self.graphicsView)
             else:
                 print "This should not be here: View Type:"+str(self.view_type)
@@ -137,10 +138,10 @@ class PlotWindow(QWidget,Ui_Form):
 
 
     def _setup_signal_slots(self):
-        
+
         if self.ds_type == ds_types['vector'] or self.ds_type == ds_types['coordinate']:
             QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeVector)
-            
+
         elif self.ds_type == ds_types['matrix'] or self.ds_type == -1:
             QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeMatrix)
             QObject.connect(self.TraceSelector,   SIGNAL("valueChanged(int)"),       self._setTraceNum)
@@ -166,7 +167,7 @@ class PlotWindow(QWidget,Ui_Form):
             #print '# ',ev.key()
             print self.data_coord
             sys.stdout.flush()
-        
+
     def _setDefaultView(self):
         """Setup the view type: settle which type of window is displaying a dataset.
             It is distinguished with what layout a dataset is displayed.
@@ -175,7 +176,7 @@ class PlotWindow(QWidget,Ui_Form):
             matrix -> 2d
             (...)
         """
-        
+
         self.view_types =  {'1D':0,'1D-V':1, '2D':2, '3D':3, 'table':4, 'txt':5}
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
         self.plot_scales = {'linear':0,'dB':1}
@@ -184,45 +185,45 @@ class PlotWindow(QWidget,Ui_Form):
         self.plot_scale = 0
         self.TraceNum = -1
         self.view_type = self.ds.attrs.get("view_type",None)
-        
+
         if self.ds_type == ds_types["coordinate"]:
             self.view_type = self.view_types['1D']
             self._defaultCoord()
 
-        elif self.ds_type == ds_types["vector"]:            
+        elif self.ds_type == ds_types["vector"]:
             self.view_type = self.view_types['1D']
             self._defaultVector()
-            
-        elif self.ds_type == ds_types["matrix"]:            
+
+        elif self.ds_type == ds_types["matrix"]:
             self.view_type = self.view_types['2D']
             self._defaultMatrix()
-            
-        elif self.ds_type == ds_types["box"]:            
+
+        elif self.ds_type == ds_types["box"]:
             self.view_type = self.view_types['2D']
             self._defaultBox()
-            
+
         elif self.ds_type == ds_types["txt"]:
             self.view_type = self.view_types['txt']
- 
+
         elif self.ds_type == ds_types["view"]:
             self.view_type = self.view_types['1D-V']
             self._defaultView()
-            
+
         else:
             self._defaultOld()
 
     def _defaultCoord(self):
         self.PlotTypeSelector.setCurrentIndex(0)
-        
+
     def _defaultVector(self):
         self.PlotTypeSelector.setCurrentIndex(0)
-        
+
     def _defaultMatrix(self):
         self.TraceSelector.setEnabled(False)
         shape = self.ds.shape[0]
         self.TraceSelector.setRange(-1*shape,shape-1)
         self.PlotTypeSelector.setCurrentIndex(0)
-        
+
     def _defaultBox(self):
         shape = self.ds.shape
         self.TraceZSelector.setEnabled(True)
@@ -233,17 +234,17 @@ class PlotWindow(QWidget,Ui_Form):
         self.TraceXSelector.setEnabled(False)
         self.TraceXSelector.setRange(-1*shape[0],shape[0]-1)
         self.TraceXNum = -1
-        
+
         self.TraceYSelector.setEnabled(False)
         self.TraceYSelector.setRange(-1*shape[1],shape[1]-1)
         self.TraceYNum = -1
-        
+
         self.PlotTypeSelector.setCurrentIndex(0)
-        
+
     def _defaultView(self):
         self.TraceSelector.setEnabled(True)
-        
-        
+
+
     def _defaultOld(self):
         if not self.view_type:
             if len(self.ds.shape) == 1:
@@ -269,7 +270,7 @@ class PlotWindow(QWidget,Ui_Form):
         else:
             self.TraceSelector.setEnabled(True)
             self.PlotTypeSelector.setEnabled(False)
-            
+
     ####### this looks ugly
     def _setTraceValue(self):
         xval = str(self.TraceValue.displayText())
@@ -296,7 +297,7 @@ class PlotWindow(QWidget,Ui_Form):
         self.TraceZValueChanged = True
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
-    
+
     def _setBTraceZNum(self,num):
         self.TraceZ = num
         if not self.TraceZValueChanged:
@@ -310,12 +311,12 @@ class PlotWindow(QWidget,Ui_Form):
             return
         self.TraceXValueChanged = True
         self.obj_parent.pw_refresh_signal.emit()
-    
+
     def _setBTraceXNum(self,num):
         self.TraceXNum = num
         if not self.TraceXValueChanged:
             self.obj_parent.pw_refresh_signal.emit()
-    
+
     def _setBTraceYValue(self):
         xval = str(self.TraceYValue.displayText())
         try:
@@ -324,7 +325,7 @@ class PlotWindow(QWidget,Ui_Form):
             return
         self.TraceYValueChanged = True
         self.obj_parent.pw_refresh_signal.emit()
-    
+
     def _setBTraceYNum(self,num):
         self.TraceYNum = num
         if not self.TraceYValueChanged:
@@ -445,7 +446,7 @@ class PlotWindow(QWidget,Ui_Form):
         pointLine = QAction(u'Point+Line', self.qvkMenu)
         self.qvkMenu.addAction(pointLine)
         pointLine.triggered.connect(self.setPointLineMode)
-        
+
         dB_scale = QAction(u'dB / linear', self.qvkMenu)
         self.qvkMenu.addAction(dB_scale)
         dB_scale.triggered.connect(self.setdBScale)
@@ -469,7 +470,7 @@ class PlotWindow(QWidget,Ui_Form):
         self.plot_style = self.plot_styles['linepoint']
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
-    
+
     @pyqtSlot()
     def setdBScale(self):
         if self.plot_scale == self.plot_scales['dB']:
