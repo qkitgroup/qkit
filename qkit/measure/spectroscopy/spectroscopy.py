@@ -452,7 +452,7 @@ class spectrum(object):
                         self._p.iterate()
                         qt.msleep()
         finally:
-            self._end_measurement()
+            #self._end_measurement()
             qt.mend()
 
     def _end_measurement(self):
