@@ -28,7 +28,7 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
     ds = ds.strip(",")
 
     cmd = "python"
-    cmd += " -m "+ plot_viewer #load qviewkit/main.py as module, so we do not need to know it's folder
+    cmd += " -m "+ plot_viewer #load qviewkit/main.py as module, so we do not need to know its folder
     options =  " -f " + h5_filepath.encode("string-escape") #raw string encoding
     if ds:
         options += " -ds "+ str(ds)
@@ -49,7 +49,7 @@ def save_plots(h5_filepath, comment='', save_pdf=False):
     Save plots is a helper function to extract and save image plots from hdf-files
 
     """
-    h5plot(h5_filepath, comment=comment,  save_pdf=False)
+    h5plot(h5_filepath, comment=comment, save_pdf=save_pdf)
 
 
 class h5plot(object):
@@ -171,17 +171,19 @@ class h5plot(object):
         self.data = np.array(self.ds).T #transpose matrix to get x/y axis correct
 
         self.xmin = self.x_ds.attrs.get('x0',0)
-        self.xmax = self.xmin+self.x_ds.attrs.get('dx',1)*self.x_ds.shape[0]
+        self.dx = self.x_ds.attrs.get('dx',1)
+        self.xmax = self.xmin+self.dx*self.x_ds.shape[0]
         self.ymin = self.y_ds.attrs.get('x0',0)
-        self.ymax = self.ymin+self.y_ds.attrs.get('dx',1)*self.y_ds.shape[0]
+        self.dy = self.y_ds.attrs.get('dx',1)
+        self.ymax = self.ymin+self.dy*self.y_ds.shape[0]
 
         # downsweeps in any direction have to be corrected
         # this is triggered by dx/dy values < 0
         # data-matrix and min/max-values have to be swapped
-        if self.x_ds.attrs.get('dx',0) < 0:
+        if self.dx < 0:
             self.data = np.fliplr(self.data)
             self.xmin, self.xmax = self.xmax, self.xmin
-        if self.y_ds.attrs.get('dy',0) < 0:
+        if self.dy < 0:
             self.data = np.flipud(self.data)
             self.ymin, self.ymax = self.ymax, self.ymin
 
@@ -191,7 +193,7 @@ class h5plot(object):
         self.cbar.ax.yaxis.label.set_fontsize(20)
         for i in self.cbar.ax.get_yticklabels():
             i.set_fontsize(16)
-    
+
     def plt_box(self):
         """
         dataset is two-dimensional
@@ -210,17 +212,19 @@ class h5plot(object):
         self.data = np.array(self.ds)[:,:,self.nop/2].T #transpose matrix to get x/y axis correct
 
         self.xmin = self.x_ds.attrs.get('x0',0)
-        self.xmax = self.xmin+self.x_ds.attrs.get('dx',1)*self.x_ds.shape[0]
+        self.dx = self.x_ds.attrs.get('dx',1)
+        self.xmax = self.xmin+self.dx*self.x_ds.shape[0]
         self.ymin = self.y_ds.attrs.get('x0',0)
-        self.ymax = self.ymin+self.y_ds.attrs.get('dx',1)*self.y_ds.shape[0]
+        self.dy = self.y_ds.attrs.get('dx',1)
+        self.ymax = self.ymin+self.dy*self.y_ds.shape[0]
 
         # downsweeps in any direction have to be corrected
         # this is triggered by dx/dy values < 0
         # data-matrix and min/max-values have to be swapped
-        if self.x_ds.attrs.get('dx',0) < 0:
+        if self.dx < 0:
             self.data = np.fliplr(self.data)
             self.xmin, self.xmax = self.xmax, self.xmin
-        if self.y_ds.attrs.get('dy',0) < 0:
+        if self.dy < 0:
             self.data = np.flipud(self.data)
             self.ymin, self.ymax = self.ymax, self.ymin
 
@@ -233,13 +237,13 @@ class h5plot(object):
 
     def plt_coord(self):
         # not (yet?) implemented. we'll see ...
-        return
+        pass
     def plt_txt(self):
         # not (yet?) implemented. we'll see ...
-        return
+        pass
     def plt_view(self):
         # not (yet?) implemented. we'll see ...
-        return
+        pass
 
 
 if __name__ == "__main__":
