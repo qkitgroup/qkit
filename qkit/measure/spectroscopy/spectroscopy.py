@@ -58,7 +58,8 @@ class spectrum(object):
 
     def set_log_function(self, func=None, name = None, unit = None):
         '''
-        A function (object) can be passed to the measurement loop which is excecuted after every x iteration in the measurement.
+        A function (object) can be passed to the measurement loop which is excecuted before every x iteration 
+        in 2D measurements and before every line in 3D measurements.
         The return value of the function of type float or similar is stored in a value vector in the h5 file.
 
         Call without any arguments to delete all log functions. The timestamp is automatically saved.
@@ -82,14 +83,12 @@ class spectrum(object):
         self.log_function = []
         self.log_name = []
         self.log_unit = []
-        self.log_dtype = []
 
         if func != None:
             for i,f in enumerate(func):
                 self.log_function.append(f)
                 self.log_name.append(name[i])
                 self.log_unit.append(unit[i])
-                self.log_dtype.append('f')
 
     def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit = ""):
         '''
@@ -211,7 +210,7 @@ class spectrum(object):
             if self.log_function != None:   #use logging
                 self._log_value = []
                 for i in range(len(self.log_function)):
-                    self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i],dtype=self.log_dtype[i]))
+                    self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i]))
 
             if self._nop < 10:
                 """creates view: plot middle point vs x-parameter, for qubit measurements"""
@@ -235,7 +234,7 @@ class spectrum(object):
             if self.log_function != None:   #use logging
                 self._log_value = []
                 for i in range(len(self.log_function)):
-                    self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i],dtype=self.log_dtype[i]))
+                    self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i]))
 
         if self.comment:
             self._data_file.add_comment(self.comment)
@@ -333,7 +332,6 @@ class spectrum(object):
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath())
         self._measure()
-        self._end_measurement()
 
 
     def measure_3D(self):
@@ -375,7 +373,6 @@ class spectrum(object):
                 self.center_freqs.append([0])
 
         self._measure()
-        self._end_measurement()
 
     def _measure(self):
         '''
@@ -390,6 +387,10 @@ class spectrum(object):
             for i, x in enumerate(self.x_vec):
                 self.x_set_obj(x)
                 sleep(self.tdx)
+                
+                if self.log_function != None:
+                    for i,f in enumerate(self.log_function):
+                        self._log_value[i].append(float(f()))
 
                 if self._scan_3D:
                     for y in self.y_vec:
@@ -443,16 +444,14 @@ class spectrum(object):
                         #print data_amp[self._nop/2]
                         self._data_amp_mid.append(float(data_amp[self._nop/2]))
                         self._data_pha_mid.append(float(data_pha[self._nop/2]))
-                    if self.log_function != None:
-                        for i,f in enumerate(self.log_function):
-                            self._log_value[i].append(float(f()))
+                        
                     if self._fit_resonator:
                         self._do_fit_resonator()
                     if self.progress_bar:
                         self._p.iterate()
                         qt.msleep()
         finally:
-            #self._end_measurement()
+            self._end_measurement()
             qt.mend()
 
     def _end_measurement(self):
