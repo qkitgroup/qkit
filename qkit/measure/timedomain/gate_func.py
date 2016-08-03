@@ -36,7 +36,7 @@ import qt
 
 class Gate_Func(object):
 
-    def __init__(self, awg,sample, pulser = None, ni_daq = None, ni_daq_ch = 'PFI0:0'):
+    def __init__(self, awg, pulser = None, ni_daq = None, ni_daq_ch = 'PFI0:0', sample = None):
         """
         initialize gate function
         inputs:
@@ -44,34 +44,35 @@ class Gate_Func(object):
          - pulser: instrument object (to send out pulse directly from pulser instead of triggering the pulser
          - ni_daq: ni_daq instrument object (in tunnel electronics rack)
          - ni_daq_ch: used channel of ni_daq
-         - readout_tabor: tabor awg (2ch of 4ch) for readout
         outputs:
          -
         """
         self.awg = qt.instruments.get(awg)
-        self._sample = sample
         if pulser:
+            print 'Pulser control mode.'
             self.pulser = qt.instruments.get(pulser)
             self._gate_high = self.pulser.set_mode_continuous
             self._gate_low = self.pulser.set_mode_gated
         else:
             self.pulser = None
         if ni_daq:
+            print 'NIDAQ control mode.'
             self.ni_daq = qt.instruments.get(ni_daq)
             self.ni_daq_ch = ni_daq_ch
             self._gate_high = lambda: self.ni_daq.digital_out(self.ni_daq_ch, 1)
             self._gate_low = lambda: self.ni_daq.digital_out(self.ni_daq_ch, 0)
         else:
             self.ni_daq = None
-       
-        self.selftriggered = (self.pulser == None and self.ni_daq == None)
         
-        if self.selftriggered:
-            self.gate_low  =  lambda: self.awg.set_trigger_time(self._sample.T_rep)
-            self._gate_high = lambda: self.awg.set_trigger_time(20)
-        
-        if self.selftriggered and not ('Tabor' in self.awg.get_type()):
-            raise ValueError("selftriggered mode (without pulser and nidaq) is currently only available for Tabor AWGs.")
+        if self.pulser == None and self.ni_daq == None:
+            if sample == None:
+                raise Exception('gate_function: Either pulser or ni_daq must be given. No sample object passed.')
+            if not ('Tabor' in self.awg.get_type()):
+                raise ValueError('Self-triggered mode is only available for Tabor AWGs.')
+            else:
+                print 'Self-triggered mode.'
+                self.gate_low  =  lambda: self.awg.set_trigger_time(self._sample.T_rep)
+                self._gate_high = lambda: self.awg.set_trigger_time(20)
         self.ni_daq_ch = ni_daq_ch
         
     def gate_fcn(self, state):
@@ -88,7 +89,6 @@ class Gate_Func(object):
                 
         else:   #reset AWG and wait for it
             self.gate_low()
-            
             time.sleep(0.025)
             
             if 'Tektronix' in self.awg.get_type():
