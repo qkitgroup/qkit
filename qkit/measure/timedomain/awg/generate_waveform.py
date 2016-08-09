@@ -57,7 +57,8 @@ def erf(pulse, attack, decay, sample, length=None, position = None, low=0, high=
     if(clock == None): clock = sample.clock
     if(length == None): length = sample.exc_T
     if(position == None): position = length
-    
+    try: position -= sample.overlap
+    except NameError: pass #if sample.overlap does not exist
     if(pulse>position):
         logging.error(__name__ + ' : pulse does not fit into waveform')
         
@@ -93,6 +94,8 @@ def exp(pulse, decay, sample, position = None, low=0, high=1, clock = None):
     '''
     if(clock == None): clock = sample.clock
     if(position == None): position = sample.exc_T
+    try: position -= sample.overlap
+    except NameError: pass #if sample.overlap does not exist
     sample_length = int(np.ceil(sample.exc_T*clock))
     wfm = low * np.ones(sample_length)
     sample_start = int(clock*(position-pulse))
@@ -113,6 +116,8 @@ def triangle(pulse, attack, decay, sample, length = None, position = None, clock
     if(clock == None): clock = sample.clock
     if(length == None): length = sample.exc_T
     if(position == None): position = length
+    try: position -= sample.overlap
+    except NameError: pass #if sample.overlap does not exist
     sample_start = int(clock*(position-pulse))
     sample_end = int(clock*position)
     sample_length = int(np.ceil(length*clock))
@@ -141,6 +146,8 @@ def square(pulse, sample, length = None,position = None, low = 0, high = 1, cloc
     if(clock == None): clock= sample.clock
     if(length == None): length= sample.exc_T
     if(position == None): position = length
+    try: position -= sample.overlap
+    except NameError: pass #if sample.overlap does not exist
     if(pulse>position): logging.error(__name__ + ' : pulse does not fit into waveform')
     sample_start = int(clock*(position-pulse-adddelay))
     sample_end = int(clock*(position-adddelay))
@@ -177,6 +184,8 @@ def gauss(pulse, sample, length = None,position = None, low = 0, high = 1, clock
     else:
         sample_length = int(length*clock)
     if(position == None): position = length
+    try: position -= sample.overlap
+    except NameError: pass #if sample.overlap does not exist
     if(pulse>position): logging.error(__name__ + ' : pulse does not fit into waveform')
     sample_start = int(clock*(position-pulse))
     sample_end = int(clock*position)
@@ -206,6 +215,8 @@ def arb_function(function, pulse, length = None,position = None, clock = None):
     if(clock == None): clock= sample.clock
     if(length == None): length= sample.exc_T
     if(position == None): position = length
+    try: position -= sample.overlap
+    except NameError: pass #if sample.overlap does not exist
     if(pulse>position): logging.error(__name__ + ' : pulse does not fit into waveform')
     sample_start = clock*(position-pulse)
     sample_end = clock*position
@@ -230,6 +241,8 @@ def t1(delay, sample, length = None, low = 0, high = 1, clock = None):
     '''
     if(clock == None): clock = sample.clock
     if(length == None): length = sample.exc_T
+    #try: delay += sample.overlap
+    #except NameError: pass #if sample.overlap does not exist
     if(delay+sample.tpi > length): logging.error(__name__ + ' : pulse does not fit into waveform')
     
     wfm = square(sample.tpi, sample, length, length-delay, clock = clock)
@@ -248,9 +261,11 @@ def ramsey(delay, sample, pi2_pulse = None, length = None,position = None, low =
         Output:
             float array of samples
     '''
-    if(clock == None): clock= sample.clock
-    if(length == None): length= sample.exc_T
+    if(clock == None): clock = sample.clock
+    if(length == None): length = sample.exc_T
     if(position == None): position = length
+    #try: position -= sample.overlap
+    #except NameError: pass #if sample.overlap does not exist
     if(pi2_pulse == None): pi2_pulse = sample.tpi2
     if(delay+2*pi2_pulse>position): logging.error(__name__ + ' : ramsey pulses do not fit into waveform')
     wfm = square(pi2_pulse, sample, length, position, clock = clock)
@@ -277,6 +292,8 @@ def spinecho(delay, sample, pi2_pulse = None, pi_pulse = None, length = None,pos
     if(clock == None): clock= sample.clock
     if(length == None): length= sample.exc_T
     if(position == None): position = length
+    #try: position -= sample.overlap
+    #except NameError: pass #if sample.overlap does not exist
     if(pi2_pulse == None): pi2_pulse = sample.tpi2
     if(pi_pulse == None): pi_pulse = sample.tpi
     

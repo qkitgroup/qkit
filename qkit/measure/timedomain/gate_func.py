@@ -1,5 +1,5 @@
 # gate_func.py
-# adapted from earlier versions by Jochen Braumueller <jochen.beraumueller@kit.edu>, 05/2016
+# adapted from earlier versions by Jochen Braumueller <jochen.braumueller@kit.edu>, 05/2016
 
 # The gate function resets an AWG to the first waveform of a sequence for state==False and sends a trigger
 # by raising a gate for state==True.
@@ -36,11 +36,11 @@ import qt
 
 class Gate_Func(object):
 
-    def __init__(self, awg, pulser = None, ni_daq = None, ni_daq_ch = 'PFI0:0'):
+    def __init__(self, awg, pulser = None, ni_daq = None, ni_daq_ch = 'PFI0:0', sample = None):
         """
         initialize gate function
         inputs:
-         - awg: awg instrument object
+         - awg: qubit awg instrument object
          - pulser: instrument object (to send out pulse directly from pulser instead of triggering the pulser
          - ni_daq: ni_daq instrument object (in tunnel electronics rack)
          - ni_daq_ch: used channel of ni_daq
@@ -49,20 +49,31 @@ class Gate_Func(object):
         """
         self.awg = qt.instruments.get(awg)
         if pulser:
+            print 'Pulser control mode.'
             self.pulser = qt.instruments.get(pulser)
             self._gate_high = self.pulser.set_mode_continuous
             self._gate_low = self.pulser.set_mode_gated
         else:
             self.pulser = None
         if ni_daq:
+            print 'NIDAQ control mode.'
             self.ni_daq = qt.instruments.get(ni_daq)
             self.ni_daq_ch = ni_daq_ch
             self._gate_high = lambda: self.ni_daq.digital_out(self.ni_daq_ch, 1)
             self._gate_low = lambda: self.ni_daq.digital_out(self.ni_daq_ch, 0)
         else:
             self.ni_daq = None
+        
         if self.pulser == None and self.ni_daq == None:
-            raise Exception('either pulser or ni_daq must be given')
+            if sample == None:
+                raise Exception('gate_function: Either pulser or ni_daq must be given. No sample object passed.')
+            if not ('Tabor' in self.awg.get_type()):
+                raise ValueError('Self-triggered mode is only available for Tabor AWGs.')
+            else:
+                print 'Self-triggered mode.'
+                self.gate_low  =  lambda: self.awg.set_trigger_time(self._sample.T_rep)
+                self._gate_high = lambda: self.awg.set_trigger_time(20)
+        self.ni_daq_ch = ni_daq_ch
         
     def gate_fcn(self, state):
         """
@@ -72,13 +83,12 @@ class Gate_Func(object):
         outputs:
          -
         """
-        if state:   #switch gate to high
+        if state:   #switch gate to high, let the pulses run
             time.sleep(0.1)
             self.gate_high()
                 
         else:   #reset AWG and wait for it
             self.gate_low()
-                
             time.sleep(0.025)
             
             if 'Tektronix' in self.awg.get_type():
@@ -112,10 +122,13 @@ class Gate_Func(object):
         """
         reset Tabor AWG to first sequence
         """
-        # TODO adapt tabor commands
-        self.awg.set_p1_runmode('USER')
-        self.awg.set_p2_runmode('USER')
-        self.awg.set_p1_runmode('SEQ')
-        self.awg.set_p2_runmode('SEQ')
+        # workaround to intialize to first waveform and make the AWG ready
+        if "set_p1_runmode" in self.awg.get_parameter_names():
+            self.awg.set_p1_runmode('USER')
+            self.awg.set_p2_runmode('USER')
+            self.awg.set_p1_runmode('SEQ')
+            self.awg.set_p2_runmode('SEQ')
+        else:
+            self.awg.set_runmode('USER')
+            self.awg.set_runmode('SEQ')
         self.awg.fix(verbose=False)
-        #time.sleep(2)
