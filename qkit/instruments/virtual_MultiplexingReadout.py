@@ -1,30 +1,48 @@
+# virtual_MultiplexingReadout.py
+# initiated and written by M. Jerger 2011/2012
+# updated by A. Schneider <andre.schneider@kit.edu> and J. Braumueller <jochen.braumueller@kit.edu>, 05/2016, 08/2016
+
+# This script may be regarded as a wrapper, handling data acquisition with the ADC (commonly known here as mspec)
+# and readout pulse generation by the DAC (which is the AWG used for generating readout pulses).
+
+# Now, in 2016, the Martinis AWGs are outdated (and still buggy) as they do not provide longer readout pulses
+# due to a limitation in memory.
+# The script is updated to also be usable with other AWGs (Tabor, Tektronix).
+
+'''
+usage:
+
+readout = qt.instruments.create('readout','virtual_MultiplexingReadout',qubit.readout_awg,qubit.readout_mw_source,qubit.readout_mw_source,mspec,qubit)
 '''
 
-virtual_MultiplexingReadout.py initiated and written by M. Jerger back in 2011/2012
-The script may be regarded <as a wrapper, handling data acquisition with the ADC (commonly known here as mspec)
-and the DAC (which is the AWG used for generating readout pulses) settings.
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-Now, in 2016, the MArtinis AWGs are outdated (and still buggy) as they do not provide longer readout pulses
-due to a limitation in memory.
-The script is updated to also be usable with other AWGs (especially the Tabor AWG). JB 2016
-
-TODO:
-
-+ add preset command in init -> for all awg different?!
-'''
 
 from instrument import Instrument
-import instruments
+#import instruments
 import types
 import logging
 import numpy as np
 import scipy.special
 from time import sleep
+from qkit.measure.timedomain.load_awg as lawg
 
 
 class virtual_MultiplexingReadout(Instrument):
 
-    def __init__(self, name, awg, mixer_up_src, mixer_down_src, mspec,sample=None):   #, awg_drive = 'c:', awg_path = '\\waveforms'):
+    def __init__(self, name, awg, mixer_up_src, mixer_down_src, mspec, sample = None, LO_up_power=12, LO_down_power=12):
         Instrument.__init__(self, name, tags=['virtual'])
 
         #self._instruments = instruments.get_instruments()
@@ -56,7 +74,8 @@ class virtual_MultiplexingReadout(Instrument):
         self._mixer_down_src = mixer_down_src
         self._mspec = mspec
         
-        if sample == None: logging.warning('Sample object was not given for virtual_MultiplexingReadout. This is only needed if you need a readout wfm that is as long as the manipulation.')
+        if sample == None:
+            logging.warning('Sample object was not given for virtual_MultiplexingReadout.')# This is only needed if you need a readout wfm that is as long as the manipulation.')
         self._sample = sample
         
         #check that awg name exists
@@ -75,6 +94,12 @@ class virtual_MultiplexingReadout(Instrument):
             self._awg.set_trigger_impedance(50)   #50 Ohms
             self._awg.preset_readout()   #sets runmode = 'AUTO', trigger_mode='TRIG', starts with the end of the manipulation signal
             self.do_set_dac_delay(-1)
+        elif "Tektronix" in self._awg.get_type():
+            self.do_set_dac_delay(0)
+            self._awg.set_ch1_status(True)
+            self._awg.set_ch2_status(True)
+            self._awg.run()
+            self._awg.wait(10,False)
         else:
             logging.error('Specified AWG unknown. Aborting.')
             raise ImportError
@@ -82,8 +107,8 @@ class virtual_MultiplexingReadout(Instrument):
         ''' default settings '''
         try:
             
-            self._mixer_up_src.set_power(12)
-            self._mixer_down_src.set_power(12)
+            self._mixer_up_src.set_power(LO_up_power)
+            self._mixer_down_src.set_power(LO_down_power)
             self._dac_clock = self._awg.get_clock()
             
             #self._mspec.set_trigger_rate(1/float(qubit.T_rep))
@@ -92,6 +117,8 @@ class virtual_MultiplexingReadout(Instrument):
             self._mspec.set_blocks(1)
             self._mspec.set_spec_trigger_delay(0)
             self._mspec.set_samples(1024)
+            mspec.spec_stop()
+            mspec.set_samplerate(500e6)   #adc samplerate in Hz, 500MHz is maximum
             
             
             self._mspec.spec_stop()   #stop card before modifying a setting
@@ -112,8 +139,7 @@ class virtual_MultiplexingReadout(Instrument):
             self.dac_delay = 0
             
         except Exception as m:
-            logging.warning('Default not set properly: '+str(m))
-            
+            logging.warning('Defaults not set properly: '+str(m))
 
     def get_all(self):
         self.get_LO()
@@ -250,7 +276,7 @@ class virtual_MultiplexingReadout(Instrument):
             sig_pha = np.zeros((Is.shape[1], len(self._tone_freq)))
             for idx in range(Is.shape[1]):
                 sig_amp[idx, :], sig_pha[idx, :] = self.IQ_decode(Is[:, idx], Qs[:, idx])
-        else:   #JB: more than one IQ frequency?
+        else:
             sig_amp, sig_pha = self.IQ_decode(Is, Qs)
             
         if(timeTrace):
@@ -394,9 +420,23 @@ class virtual_MultiplexingReadout(Instrument):
             
         elif "Tabor_WX1284C" == self._awg.get_type():   #Tabor AWG
             self._awg.preset_readout()
-            self._awg.wfm_send2(samples[0],samples[1],m1 = marker1[0],m2 = marker2[0],seg=1)   #JB ?
+            try:
+                self._awg.set_clock(self._sample.readout_clock())
+            except:
+                logging.warning('Clock and amplitude settings not written.')
+            self._awg.wfm_send2(samples[0],samples[1],m1 = marker1[0],m2 = marker2[0],seg=1)
             self._awg.define_sequence(1,1)
-
+        elif "Tektronix" in self._awg.get_type():   #Tektronix AWG
+            try:
+                self._awg.set_clock(self._sample.readout_clock())
+                self._awg.set_ch1_amplitude(self._tone_amp)
+                self._awg.set_ch2_amplitude(self._tone_amp)
+            except:
+                logging.warning('Clock and amplitude settings not written.')
+            if self._sample:
+                lawg.update_sequence([1],lambda t, sample: [samples[0],samples[1], self._sample, awg = self._awg)
+            else:
+                logging.error('Please provide sample object in instantiating readout when using Tektronix AWG for readout.')
 
     def IQ_encode(self, duration, frequencies, amplitudes = None, phases = None, samplerate = None, attack = 2e-9, decay = 2e-9):
         '''
