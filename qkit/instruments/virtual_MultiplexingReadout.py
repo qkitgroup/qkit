@@ -12,7 +12,8 @@
 '''
 usage:
 
-readout = qt.instruments.create('readout','virtual_MultiplexingReadout',qubit.readout_awg,qubit.readout_mw_source,qubit.readout_mw_source,mspec,qubit)
+readout = qt.instruments.create('readout','virtual_MultiplexingReadout',awg=qubit.readout_awg,mixer_up_src=qubit.readout_mw_source,
+            mixer_down_src=qubit.readout_mw_source,mspec=mspec,sample=qubit)
 '''
 
 # This program is free software; you can redistribute it and/or modify
@@ -37,7 +38,7 @@ import logging
 import numpy as np
 import scipy.special
 from time import sleep
-from qkit.measure.timedomain.load_awg as lawg
+from qkit.measure.timedomain.awg import load_awg as lawg
 
 
 class virtual_MultiplexingReadout(Instrument):
@@ -109,6 +110,7 @@ class virtual_MultiplexingReadout(Instrument):
             
             self._mixer_up_src.set_power(LO_up_power)
             self._mixer_down_src.set_power(LO_down_power)
+            self._awg.set_clock(self._sample.readout_clock)
             self._dac_clock = self._awg.get_clock()
             
             #self._mspec.set_trigger_rate(1/float(qubit.T_rep))
@@ -126,11 +128,11 @@ class virtual_MultiplexingReadout(Instrument):
             
             self._dac_channel_I = 0
             self._dac_channel_Q = 1
-            self._adc_channel_I = 0
-            self._adc_channel_Q = 1
+            self._adc_channel_I = 1
+            self._adc_channel_Q = 0
             
-            self._dac_attack = 5e-9
-            self._dac_decay = 5e-9
+            self._dac_attack = 0#5e-9
+            self._dac_decay = 0#5e-9
             self._phase = 0
             
             self._tone_freq = [30e6]
@@ -434,7 +436,7 @@ class virtual_MultiplexingReadout(Instrument):
             except:
                 logging.warning('Clock and amplitude settings not written.')
             if self._sample:
-                lawg.update_sequence([1],lambda t, sample: [samples[0],samples[1], self._sample, awg = self._awg)
+                lawg.update_sequence([1],lambda t, sample: [samples[0],samples[1]], self._sample, awg = self._awg)
             else:
                 logging.error('Please provide sample object in instantiating readout when using Tektronix AWG for readout.')
 
