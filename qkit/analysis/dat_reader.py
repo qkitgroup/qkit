@@ -115,7 +115,7 @@ def find_latest_file(ftype=None):
 
 # =================================================================================================================
 
-def read_hdf_data(nfile,entries=None):
+def read_hdf_data(nfile,entries=None, show_output=True):
     '''
     - read hdf data file, store data in 2d numpy array and return
     - entries (optional): specify entries in h5 file to be read and returned
@@ -137,7 +137,8 @@ def read_hdf_data(nfile,entries=None):
         return
     
     keys = hf['/entry/data0'].keys()
-    print 'Data entries:', keys
+    if show_output:
+        print 'Data entries:', keys
     
     url_tree = '/entry/data0/'
     urls = []
@@ -205,8 +206,8 @@ def read_hdf_data(nfile,entries=None):
                 except IndexError:
                     print 'Entries cannot be identified. No data for >> %s << found. Aborting.'%str(e)
                     return
-        
-    print 'Entries identified:',urls
+    if show_output:    
+        print 'Entries identified:',urls
     data = []
     for u in urls:
         data.append(np.array(hf[u],dtype=np.float64))
@@ -214,7 +215,7 @@ def read_hdf_data(nfile,entries=None):
 
 # =================================================================================================================
 
-def load_data(file_name = None,entries = None):
+def load_data(file_name = None,entries = None, show_output=True):
     '''
     load recent or specified data file and return the data array and the file name
     '''
@@ -233,9 +234,10 @@ def load_data(file_name = None,entries = None):
         nfile = str(file_name).replace('\\','/')
 
     try:
-        print 'Reading file '+nfile
+        if show_output:
+            print 'Reading file '+nfile
         if nfile[-2:] == 'h5':   #hdf file
-            data = read_hdf_data(nfile, entries)
+            data = read_hdf_data(nfile, entries, show_output)
         else:   #dat file
             data = np.loadtxt(nfile, comments='#').T
     except NameError:
@@ -371,7 +373,7 @@ def spline_smooth_data(x_data, y_data, spline_order=1):
     
 # =================================================================================================================
 
-def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, save_pdf = False, data=None, nfile=None, opt=None, entryname = '', spline_order=None):
+def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, show_output = True, save_pdf = False, data=None, nfile=None, opt=None, entryname = '', spline_order=None):
     '''
     fit the data in file_name to a function specified by fit_function
     setting file_name to None makes the code try to find the newest .dat file in today's data_dir
@@ -429,7 +431,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
         data_c = 1
     else:
         #load data
-        data, nfile = load_data(file_name, entries)
+        data, nfile = load_data(file_name, entries, show_output)
 
     #check column identifier
     if type(data_c) == str:
@@ -461,10 +463,13 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
     
         #check for unit in frequency
         if np.mean(data[0]) > 100:
-            print 'frequency given in Hz'
+            if show_output:
+                print 'frequency given in Hz'
+                
             freq_conversion_factor = 1e-9
         else:
-            print 'frequency given in GHz'
+            if show_output:
+                print 'frequency given in GHz'
             freq_conversion_factor = 1
 
         #plot data, f in GHz
@@ -475,14 +480,16 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
         s_offs = np.mean(np.array([data[data_c,:int(np.size(data,1)/10)],data[data_c,np.size(data,1)-int(np.size(data,1)/10):]])) #offset is calculated from the first and last 10% of the data to improve fitting on tight windows @andre20150318
         if np.abs(np.max(data[data_c]) - np.mean(data[data_c])) > np.abs(np.min(data[data_c]) - np.mean(data[data_c])):
             #expect a peak
-            print 'expecting peak'
+            if show_output:
+                print 'expecting peak'
             s_a = np.abs((np.max(data[data_c])-np.mean(data[data_c])))
             s_f0 = data[0][np.where(data[data_c] == max(data[data_c]))[0][0]]*freq_conversion_factor
             #print s_f0
             #print s_a
             #print s_offs
         else:
-            print 'expecting dip'
+            if show_output:
+                print 'expecting dip'
             s_a = -np.abs((np.min(data[data_c])-np.mean(data[data_c])))
             s_f0 = data[0][np.where(data[data_c] == min(data[data_c]))[0][0]]*freq_conversion_factor
         
@@ -496,7 +503,8 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 
         if len(m) > 1:
             s_k = (data[0][m[-1]]-data[0][m[0]])*freq_conversion_factor
-            print 'assume k = %.2e'%s_k
+            if show_output:
+                print 'assume k = %.2e'%s_k
         else:
             s_k = 0.15*(data[0][-1]-data[0][0])*freq_conversion_factor   #try 15% of window
             
@@ -506,7 +514,8 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
             #lorentzian sqrt fit ----------------------------------------------------------------------
             try:
                 popt, pcov = curve_fit(f_Lorentzian_sqrt, data[0]*freq_conversion_factor, data[data_c], p0 = p0)
-                print 'QL:', np.abs(np.round(float(popt[0])/popt[1]))
+                if show_output:
+                    print 'QL:', np.abs(np.round(float(popt[0])/popt[1]))
             except:
                 print 'fit not successful'
                 popt = p0
@@ -528,7 +537,8 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
             #regular lorentzian fit ----------------------------------------------------------------------
             try:
                 popt, pcov = curve_fit(f_Lorentzian, data[0]*freq_conversion_factor, data[data_c], p0 = p0)
-                print 'QL:', np.abs(np.round(float(popt[0])/popt[1]))
+                if show_output:
+                    print 'QL:', np.abs(np.round(float(popt[0])/popt[1]))
             except:
                 print 'fit not successful'
                 popt = p0
@@ -611,9 +621,11 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
         try:
             popt, pcov = curve_fit(f_exp, data[0], data[data_c], p0 = p0)
             if xlabel == None:
-                print "decay time:",str(popt[0]), 'us'
+                if show_output:
+                    print "decay time:",str(popt[0]), 'us'
             else:
-                print "decay time:",str(popt[0]), str(xlabel[-4:])
+                if show_output:
+                    print "decay time:",str(popt[0]), str(xlabel[-4:])
         except:
             print 'fit not successful'
             popt = p0
@@ -672,7 +684,8 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
             if np.sign(d_diff[i]) != np.sign(d_diff[i+1]):   #go to first sign change -> extremum
                 break
             i+=1
-        print 'first extremum detected at %.4g' %(data[0][i])
+        if show_output:
+            print 'first extremum detected at %.4g' %(data[0][i])
         s_d = 1 - np.abs(data[data_c][i] - s_offs)
         p0 = _fill_p0([s_fs, s_Td, s_a, s_offs, s_ph, s_d],ps)
 
@@ -704,16 +717,20 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
             plt.savefig(nfile.replace('.dat','_dr.png').replace('.h5','_dr.png'), dpi=300)
             if save_pdf:
                 plt.savefig(nfile.replace('.dat','_dr.pdf').replace('.h5','_dr.pdf'), dpi=300)
-            print 'plot saved:', nfile.replace('.dat','_dr.png').replace('.h5','_dr.png')
+            if show_output:
+                print 'plot saved:', nfile.replace('.dat','_dr.png').replace('.h5','_dr.png')
         except Exception as m:
-            print 'figure not stored:', m
+            if show_output:
+                print 'figure not stored:', m
             
         if pcov != None and nfile[-2:] == 'h5':   #in case fit was successful
             if _safe_fit_data_in_h5_file(nfile,x_vec,np.array(fvalues),entryname):
                 if entryname == '':
-                    print 'Fit data successfully stored in h5 file.'
+                    if show_output:
+                        print 'Fit data successfully stored in h5 file.'
                 else:
-                    print 'Fit data successfully stored in h5 file: fit%s'%entryname
+                    if show_output:
+                        print 'Fit data successfully stored in h5 file: fit%s'%entryname
         plt.show()
     
     if pcov == None:
