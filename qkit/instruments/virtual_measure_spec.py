@@ -1,9 +1,37 @@
+# virtual_measure_spec.py
+# initiated by M. Jerger
+
+# wrapper virtual instrument; used to acquire data from the adc card
+
+"""
+usage:
+
+* load spec (which is the adc card driver) first on computer with adc card physically installed
+mspec = qt.instruments.create('mspec','virtual_measure_spec',spec,samples=1)
+* set gate function afterwards or pass in the call as gate_func
+"""
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
+
 from instrument import Instrument
 import numpy
-from plot_engines.qtgnuplot import get_gnuplot
+#from plot_engines.qtgnuplot import get_gnuplot
 import qt
 import types
-import time
+#import time
 
 
 class virtual_measure_spec(Instrument):
@@ -90,7 +118,7 @@ class virtual_measure_spec(Instrument):
         # abort if still starting up
         if(self._initializing): return True
         
-    	self._dacq.stop()
+        self._dacq.stop()
         # acquisition mode
         if(self._multimode):
             self.init_card_multi()
@@ -113,10 +141,9 @@ class virtual_measure_spec(Instrument):
         self._dacq.set_memsize(self._samples * self._segments * self._averages)
         self._dacq.set_post_trigger(self._samples - 32)
 
-
     def spec_start(self):
         self._dacq.start()
-		
+
     def spec_stop(self):
         self._dacq.stop()
 
@@ -125,14 +152,12 @@ class virtual_measure_spec(Instrument):
         self._dacq.set_timeout(timeout)
     def do_get_spec_timeout(self):
         return self._dacq.get_timeout()
-    ###
 
     def do_set_spec_trigger_delay(self,delay):
         self._dacq.set_trigger_delay(delay)
-		
+
     def do_get_spec_trigger_delay(self):
         return self._dacq.get_trigger_delay()
-	
 
     def do_set_samples(self, samples):
         if(samples < 32): raise ValueError('meas_spec: minimum number of samples per trace is 32.')
@@ -227,7 +252,6 @@ class virtual_measure_spec(Instrument):
 
     def get_clock(self):
         return self._dacq.get_spc_samplerate()
-
 
 
     def acquire(self):
@@ -338,7 +362,7 @@ class virtual_measure_spec(Instrument):
         else:
             if(averaged):
                 # two times faster than numpy.mean
-        	    dat = self._multimode_average(dat)
+                dat = self._multimode_average(dat)
         return dat
 
     def _multimode_average1(self, dat):

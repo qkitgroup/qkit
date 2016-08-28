@@ -139,7 +139,7 @@ class Virtual_Coil(Instrument):
         """
         get current of channel ch
         """
-        val = float(IVVI.get_dac(self.dacs[channel-1]))/1000   #dac value in mV
+        val = float(IVVI.get_dac(self.dacs[channel-1])+0.5*(self.range_limits[channel-1][0]+self.range_limits[channel-1][-1]))/1000   #dac value in mV
         #print val
         try:
             return val * np.power(10.,dac_val[self.c_ranges[channel-1]])
