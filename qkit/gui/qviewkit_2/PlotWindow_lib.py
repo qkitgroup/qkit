@@ -99,7 +99,7 @@ def _display_1D_view(self,graphicsView):
 
         # set the y data  to the decibel scale 
         if self.plot_scale == self.plot_scales['dB']:
-            y_data = 10 *np.log10(y_data)
+            y_data = 20 *np.log10(y_data)
             graphicsView.setLabel('left', y_name, units="dB") 
         
         if self.plot_style==self.plot_styles['line']:
@@ -213,7 +213,7 @@ def _display_1D_data(self,graphicsView):
 
     # set the y data  to the decibel scale 
     if self.plot_scale == self.plot_scales['dB']:
-        y_data = 10 *np.log10(y_data)
+        y_data = 20 *np.log10(y_data)
         graphicsView.setLabel('left', name, units="dB")
 
     if self.plot_style==self.plot_styles['line']:
