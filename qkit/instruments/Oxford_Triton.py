@@ -45,26 +45,27 @@ class Oxford_Triton(Instrument):
 
         self._host = host
         self._port = port
-        self._soc = socket.socket(socket.AF_INET,socket.SOCK_STREAM).connect((self._host, self._port))
+        self._soc = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        self._soc.connect((self._host, self._port))
 
         # Implement parameters
         self.add_parameter('temperature', type=types.FloatType,
-            flags=Instrument.FLAG_GET, channels=(1,2,3,4,5,6,7,8),
+            flags=Instrument.FLAG_GET,
             minval=0, maxval=350,
             units='K')
 
         self.add_parameter('resistance', type=types.FloatType,
-            flags=Instrument.FLAG_GET, channels=(1,2,3,4,5,6,7,8),
+            flags=Instrument.FLAG_GET,
             minval=0, maxval=200000,
             units='Ohm')
 
         self.add_parameter('pressure', type=types.FloatType,
-            flags=Instrument.FLAG_GET, channels=(1,2,3,4,5,6),
+            flags=Instrument.FLAG_GET,
             minval=0, maxval=5,
             units='mbar')
 
-        self.add_parameter('valve', type=types.BoleanType,
-            flags=Instrument.FLAG_GETSET, channels=(1,2,3,4,5,6,7,8,9))
+        self.add_parameter('valve', type=types.BooleanType,
+            flags=Instrument.FLAG_GETSET)
 
         self.add_parameter('pulse_tube', type=types.BooleanType,
             flags=Instrument.FLAG_GETSET)
@@ -79,7 +80,7 @@ class Oxford_Triton(Instrument):
             minval=0, maxval=300,
             units='uW')
 
-        self.add_parameter('warm_up_heater', type=types.BoleanType,
+        self.add_parameter('warm_up_heater', type=types.BooleanType,
             flags=Instrument.FLAG_GETSET)
 
         # Implement functions
@@ -98,12 +99,12 @@ class Oxford_Triton(Instrument):
         self.get_all()
 
     def get_all(self):
+        for i in range(7):
+            self.get_temperature(channel = i+1)
+        for i in range(5):
+            self.get_pressure(gauge = i+1)
         for i in range(8):
-            self.get_temperature(i+1)
-        for i in range(6):
-            self.get_pressure(i+1)
-        for i in range(9):
-            self.get_valve_status(i+1)
+            self.get_valve(valve = i+1)
         self.get_still_power()
         self.get_base_power()
         self.get_warm_up_heater()
@@ -124,7 +125,7 @@ class Oxford_Triton(Instrument):
             bool as confirmation
         '''
         logging.debug(__name__ + ' : start pre-cooling')
-        ret = self.ask('SET:SYS:DR:ACTN:PCL')
+        ret = self._ask('SET:SYS:DR:ACTN:PCL')
         return ret
 
     def empty_pre_cooling(self):
@@ -138,7 +139,7 @@ class Oxford_Triton(Instrument):
             bool as confirmation
         '''
         logging.debug(__name__ + ' : empty pre-cool circuit')
-        ret = self.ask('SET:SYS:DR:ACTN:EPCL')
+        ret = self._ask('SET:SYS:DR:ACTN:EPCL')
         return ret
 
     def start_condensing(self):
@@ -152,8 +153,7 @@ class Oxford_Triton(Instrument):
             bool as confirmation
         '''
         logging.debug(__name__ + ' : start condensing')
-        self.ask('')
-        ret = self.ask('SET:SYS:DR:ACTN:COND')
+        ret = self._ask('SET:SYS:DR:ACTN:COND')
         return ret
 
     def cool_down(self):
@@ -167,7 +167,7 @@ class Oxford_Triton(Instrument):
             bool as confirmation
         '''
         logging.debug(__name__ + ' : cool down')
-        ret = self.ask('SET:SYS:DR:ACTN:CLDN')
+        ret = self._ask('SET:SYS:DR:ACTN:CLDN')
         return ret
 
     def warm_up(self):
@@ -182,7 +182,7 @@ class Oxford_Triton(Instrument):
         '''
         logging.debug(__name__ + ' : warm up')
         #self.set_warm_up_heater(True)
-        ret = self.ask('SET:SYS:DR:ACTN:WARM')
+        ret = self._ask('SET:SYS:DR:ACTN:WARM')
         return ret
 
     def get_status(self):
@@ -196,8 +196,7 @@ class Oxford_Triton(Instrument):
             status (str)
         '''
         logging.debug(__name__ + ' : get status')
-        ret = self.ask('READ:SYS:DR:STATUS')
-        return ret
+        return self._ask('READ:SYS:DR:STATUS').strip()[19:]
 
     def get_automatisation(self):
         '''
@@ -207,11 +206,10 @@ class Oxford_Triton(Instrument):
             None
 
         Output:
-            bool as confirmation
+            automatisation (str)
         '''
         logging.debug(__name__ + ' : get name of running automatisation')
-        ret = self.ask('READ:SYS:DR:ACTN')
-        return ret
+        return self._ask('READ:SYS:DR:ACTN').strip()[17:]
 
     def stop_automatisation(self):
         '''
@@ -224,8 +222,7 @@ class Oxford_Triton(Instrument):
             bool as confirmation
         '''
         logging.debug(__name__ + ' : stop automatisation')
-        ret = self.ask('SET:SYS:DR:ACTN:STOP')
-        return ret
+        return self._ask('SET:SYS:DR:ACTN:STOP').strip()[26:] == 'VALID'
 
     def get_base_control(self):
         '''
@@ -240,23 +237,23 @@ class Oxford_Triton(Instrument):
             D (int)
             temperature (float)
         '''
-        if self.ask('READ:DEV:T5:TEMP:LOOP:MODE').strip()[27:] == 'NOT_FOUND':
-            status =  self.ask('READ:DEV:T8:TEMP:LOOP:MODE').strip()[27:] == 'ON'
-            t_set = float(self.ask('READ:DEV:T8:TEMP:LOOP:TSET').strip()[27:-1])
-            P = float(self.ask('READ:DEV:T8:TEMP:LOOP:P').strip()[24:])
-            I = float(self.ask('READ:DEV:T8:TEMP:LOOP:I').strip()[24:])
-            D = float(self.ask('READ:DEV:T8:TEMP:LOOP:D').strip()[24:])
-        if self.ask('READ:DEV:T8:TEMP:LOOP:MODE').strip()[27:] == 'NOT_FOUND':
-            status =  self.ask('READ:DEV:T5:TEMP:LOOP:MODE').strip()[27:] == 'ON'
-            t_set = float(self.ask('READ:DEV:T5:TEMP:LOOP:TSET').strip()[27:-1])
-            P = float(self.ask('READ:DEV:T5:TEMP:LOOP:P').strip()[24:])
-            I = float(self.ask('READ:DEV:T5:TEMP:LOOP:I').strip()[24:])
-            D = float(self.ask('READ:DEV:T5:TEMP:LOOP:D').strip()[24:])
+        if self._ask('READ:DEV:T5:TEMP:LOOP:MODE').strip()[27:] == 'NOT_FOUND':
+            status =  self._ask('READ:DEV:T8:TEMP:LOOP:MODE').strip()[27:] == 'ON'
+            t_set = float(self._ask('READ:DEV:T8:TEMP:LOOP:TSET').strip()[27:-1])
+            P = float(self._ask('READ:DEV:T8:TEMP:LOOP:P').strip()[24:])
+            I = float(self._ask('READ:DEV:T8:TEMP:LOOP:I').strip()[24:])
+            D = float(self._ask('READ:DEV:T8:TEMP:LOOP:D').strip()[24:])
+        if self._ask('READ:DEV:T8:TEMP:LOOP:MODE').strip()[27:] == 'NOT_FOUND':
+            status =  self._ask('READ:DEV:T5:TEMP:LOOP:MODE').strip()[27:] == 'ON'
+            t_set = float(self._ask('READ:DEV:T5:TEMP:LOOP:TSET').strip()[27:-1])
+            P = float(self._ask('READ:DEV:T5:TEMP:LOOP:P').strip()[24:])
+            I = float(self._ask('READ:DEV:T5:TEMP:LOOP:I').strip()[24:])
+            D = float(self._ask('READ:DEV:T5:TEMP:LOOP:D').strip()[24:])
         else:
             return 'False'
         return status, t_set, P, I, D
         logging.debug(__name__ + ' : getting base controle ')
-        return float(self.ask(''))
+        return float(self._ask(''))
 
     def set_base_control(self, temperature = 0, P = 12., I = 1, D = 0, status = True):
         '''
@@ -281,13 +278,13 @@ class Oxford_Triton(Instrument):
                 self.set_still_power(0)
                 self.set_valve(9, True)
                 self.set_valve(4, True)
-            return str(self.ask('SET:DEV:T%i:TEMP:LOOP:HTR:H1:MODE:ON:P:%f:I:%i:D:%i:TSET:%f' %(thermometer, P, I, D, temperature))).find('INVALID') == -1
+            return str(self._ask('SET:DEV:T%i:TEMP:LOOP:HTR:H1:MODE:ON:P:%f:I:%i:D:%i:TSET:%f' %(thermometer, P, I, D, temperature))).find('INVALID') == -1
         else:
             logging.debug(__name__ + ' : turn off base control')
-            if self.ask('READ:DEV:T5:TEMP:LOOP:MODE').strip()[27:] == 'ON':
-                return self.ask('SET:DEV:T5:TEMP:LOOP:MODE:OFF').strip()[35:] == 'VALID'
-            if self.ask('READ:DEV:T8:TEMP:LOOP:MODE').strip()[27:] == 'ON':
-                return self.ask('SET:DEV:T8:TEMP:LOOP:MODE:OFF').strip()[35:] == 'VALID'
+            if self._ask('READ:DEV:T5:TEMP:LOOP:MODE').strip()[27:] == 'ON':
+                return self._ask('SET:DEV:T5:TEMP:LOOP:MODE:OFF').strip()[35:] == 'VALID'
+            if self._ask('READ:DEV:T8:TEMP:LOOP:MODE').strip()[27:] == 'ON':
+                return self._ask('SET:DEV:T8:TEMP:LOOP:MODE:OFF').strip()[35:] == 'VALID'
             else: 
                 return 'False'
 
@@ -306,7 +303,7 @@ class Oxford_Triton(Instrument):
             temperature (float)
         '''
         logging.debug(__name__ + ' : getting temperature of channel %i' % channel)
-        return float(self.ask('READ:DEV:T%i:TEMP:SIG:TEMP' % channel ).strip()[26:-1])
+        return float(self._ask('READ:DEV:T%i:TEMP:SIG:TEMP' % channel ).strip()[26:-1])
 
     def do_get_resistance(self, channel = 8):
         '''
@@ -317,12 +314,12 @@ class Oxford_Triton(Instrument):
         Output:
             resistance (float)
         '''
-        logging.debug(__name__ + ' : getting resistance of channel %i' % channel )
-        return float(self.ask(('READ:DEV:T%i:TEMP:SIG:RES' % channel).strip()[25:-3]))
+        logging.debug(__name__ + ' : getting resistance of channel %i' % channel)
+        return float(self._ask('READ:DEV:T%i:TEMP:SIG:RES' % channel).strip()[25:-3])
 
-    def do_get_pressure(self, pressure_meter = 1):
+    def do_get_pressure(self, gauge = 1):
         '''
-        Get pressure at pressure_meter
+        Get pressure at gauge
 
         Input:
             pressure_meter (int), default=1, tank
@@ -330,12 +327,12 @@ class Oxford_Triton(Instrument):
             pressure (float)
         '''
 
-        logging.debug(__name__ + ' : getting pressure at gauge %i' % pressure_meter )
-        return float(self.ask('READ:DEV:P%i:PRES:SIG:PRES' % pressure_meter).strip()[26:-2])
+        logging.debug(__name__ + ' : getting pressure at gauge %i' % gauge)
+        return float(self._ask('READ:DEV:P%i:PRES:SIG:PRES' % gauge).strip()[26:-2])
 
-    def do_get_valvue(self, valve_number):
+    def do_get_valve(self, valve):
         '''
-        Get valve status at valve_number
+        Get valve status at valve
 
         Input:
             valve number (int)
@@ -343,10 +340,10 @@ class Oxford_Triton(Instrument):
             status (bool)
         '''
         status_dict = {'CLOSE':0, 'OPEN':1,'TOGGLE':2}
-        logging.debug(__name__ + ' : getting valve %s status' % valve_number )
-        return status_dict[self._ask('READ:DEV:V%i:VALV:SIG:STATE' % valve_number).strip()[27:]]
+        logging.debug(__name__ + ' : getting valve %s status' % valve)
+        return status_dict[self._ask('READ:DEV:V%i:VALV:SIG:STATE' % valve).strip()[27:]]
 
-    def do_set_valve(self, valve_number, status):
+    def do_set_valve(self, valve, status):
         '''
         Set valve status at valve_number to status
 
@@ -357,7 +354,7 @@ class Oxford_Triton(Instrument):
             bool as confirmation
         '''
         status_dict = {0:'CLOSE', 1:'OPEN', 2:'TOGGLE'}
-        return self.ask('SET:DEV:V%i:VALV:SIG:STATE:%s' %(valve_number, status_dict[status])).strip()[27:] == status_dict[status]
+        return self._ask('SET:DEV:V%i:VALV:SIG:STATE:%s' %(valve, status_dict[status])).strip()[27:] == status_dict[status]
 
     def do_get_pulse_tube(self):
         '''
@@ -370,7 +367,10 @@ class Oxford_Triton(Instrument):
         '''
         status_dict = {'OFF':0, 'ON':1}
         logging.debug(__name__ + ' : getting pulse tube status')
-        return status_dict[self.ask('READ:DEV:C1:PTC:SIG:STATE').strip()[26:]]
+        try:
+            return self._ask('READ:DEV:C1:PTC:SIG:STATE').strip()[26:]
+        except Exception:
+            return False
 
     def do_set_pulse_tube(self, status):
         '''
@@ -383,7 +383,7 @@ class Oxford_Triton(Instrument):
         '''
         status_dict = {0:'OFF', 1:'ON'}
         logging.debug(__name__ + ' : setting pulse tube to %i' % status )
-        return self.ask('SET:DEV:C1:PTC:SIG:STATE:%s' % status_dict[status]).strip()[27:] == status_dict[status]
+        return self._ask('SET:DEV:C1:PTC:SIG:STATE:%s' % status_dict[status]).strip()[27:] == status_dict[status]
 
     def do_get_still_power(self):
         '''
@@ -410,7 +410,7 @@ class Oxford_Triton(Instrument):
 
         logging.debug(__name__ + ' : setting still heater power to %f' % power )
         add = len(str(power).split('.')[0])
-        return self.ask('SET:DEV:H2:HTR:SIG:POWR:%f' % power).strip()[37+add:] == 'VALID'
+        return self._ask('SET:DEV:H2:HTR:SIG:POWR:%f' % power).strip()[37+add:] == 'VALID'
 
     def do_get_base_power(self):
         '''
@@ -450,7 +450,7 @@ class Oxford_Triton(Instrument):
         '''
 
         logging.debug(__name__ + ' : getting warm up heater status')
-        return float(self.ask('READ:DEV:H3:HTR:SIG:POWR').strip()[25:-2]) != 0
+        return float(self._ask('READ:DEV:H3:HTR:SIG:POWR').strip()[25:-2]) != 0
 
     def do_set_warm_up_heater(self, status):
         '''
@@ -470,6 +470,6 @@ class Oxford_Triton(Instrument):
         self._ask('SET:DEV:H3:HTR:SIG:POWR:%f' % power).strip()[37+add:]
         return self.get_warm_up_heater() is status
     
-    def ask(self, cmd):
+    def _ask(self, cmd):
         self._soc.sendall(cmd+'\n')
         return self._soc.recv(1024)
