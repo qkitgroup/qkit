@@ -52,7 +52,7 @@ class reflection_port(circlefit, save_load, plotting, calibration):
         if ignoreslope==True:
             A2 = 0
         else:
-            z_data = (np.absolute(z_data)-A2*(f_data-fr)) * np.exp(np.angle(z_data)*1j)  #usually not necessary
+            z_data = (np.sqrt(np.absolute(z_data)**2-A2*(f_data-fr))) * np.exp(np.angle(z_data)*1j)  #usually not necessary
         if delay==None:
             if guess==True:
                 delay = self._guess_delay(f_data,z_data)
@@ -67,7 +67,7 @@ class reflection_port(circlefit, save_load, plotting, calibration):
         calculating parameters for normalization
         '''
         delay, params = self.get_delay(f_data,z_data,ignoreslope=ignoreslope,guess=guessdelay)
-        z_data = (z_data-params[1]*(f_data-params[4]))*np.exp(2.*1j*np.pi*delay*f_data)
+        z_data = (np.absolute(z_data)**2-params[1]*(f_data-params[4]))*np.exp(2.*1j*np.pi*delay*f_data)
         xc, yc, r0 = self._fit_circle(z_data)
         zc = np.complex(xc,yc)
         fitparams = self._phase_fit(f_data,self._center(z_data,zc),0.,np.absolute(params[5]),params[4])
@@ -84,7 +84,7 @@ class reflection_port(circlefit, save_load, plotting, calibration):
         '''
         transforming resonator into canonical position
         '''
-        return (z_data-A2*(f_data-frcal))/amp_norm*np.exp(1j*(-alpha+2.*np.pi*delay*f_data))
+        return (np.sqrt(np.absolute(z_data)**2-A2*(f_data-frcal)))/amp_norm*np.exp(1j*(-alpha+2.*np.pi*delay*f_data))
     
     def circlefit(self,f_data,z_data,fr=None,Ql=None,refine_results=False,calc_errors=True):
         '''
