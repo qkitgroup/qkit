@@ -35,6 +35,7 @@ class spectrum(object):
     def __init__(self, vna, exp_name = ''):
 
         self.vna = vna
+        self.averaging_v2 = "start_measurement" in self.vna.get_function_names()
         self.exp_name = exp_name
 
         self.landscape = None
@@ -409,12 +410,19 @@ class spectrum(object):
                         else:
                             self.y_set_obj(y)
                             sleep(self.tdy)
-                            self.vna.avg_clear()
-                            if "avg_status" in self.vna.get_function_names():
-                                    while self.vna.avg_status() < self.vna.get_averages():
-                                        qt.msleep(.2) #maybe one would like to adjust this at a later point
-                            else: #old style
-                                sleep(self._sweeptime_averages)     #wait single sweep time
+                            if self.averaging_v2: #new type of averaging
+                                self.vna.start_measurement()
+                                qt.msleep(.2) #just to make sure, the ready command does not *still* show ready
+                                while not self.vna.ready():
+                                    qt.msleep(.2)
+                            else:
+                                self.vna.avg_clear()
+                                sleep(self._sweeptime_averages)
+                                
+                            #if "avg_status" in self.vna.get_function_names():
+                            #       while self.vna.avg_status() < self.vna.get_averages():
+                            #            qt.msleep(.2) #maybe one would like to adjust this at a later point
+                            
                                   
                             
                             """ measurement """
@@ -440,8 +448,14 @@ class spectrum(object):
                     self._data_pha.next_matrix()
 
                 if self._scan_2D:
-                    self.vna.avg_clear()
-                    sleep(self._sweeptime_averages)
+                    if self.averaging_v2: #new type of averaging
+                        self.vna.start_measurement()
+                        qt.msleep(.2) #just to make sure, the ready command does not *still* show ready
+                        while not self.vna.ready():
+                            qt.msleep(.2)
+                    else:
+                        self.vna.avg_clear()
+                        sleep(self._sweeptime_averages)
                     """ measurement """
                     data_amp, data_pha = self.vna.get_tracedata()
                     self._data_amp.append(data_amp)
@@ -456,6 +470,9 @@ class spectrum(object):
                     if self.progress_bar:
                         self._p.iterate()
                         qt.msleep()
+        except Exception as e:
+            print e.__doc__
+            print e.message        
         finally:
             self._end_measurement()
             qt.mend()
