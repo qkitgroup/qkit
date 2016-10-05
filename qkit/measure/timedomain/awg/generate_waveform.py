@@ -73,7 +73,7 @@ def erf(pulse, attack, decay, sample, length=None, position = None, low=0, high=
         
     sample_start = int(clock*(position-pulse))
     sample_end = int(clock*position)
-    sample_length = int(np.ceil(length*clock))
+    sample_length = int(np.round(length*clock))
     wfm = low * np.ones(sample_length)
     
     if attack != 0:
