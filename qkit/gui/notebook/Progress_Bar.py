@@ -41,7 +41,7 @@ try:
                 value = "<table style='width:100%%'><tr><td>%s (%i/%i) </td><td>&#9992; %s    </td><td>&#128336;  %s   (estimated)</td><td>&#10010;  %s (elapsed) </td><td>&#9866;  %s (remaining)</td></tr></table>"%("",
                     0,
                     self.max_it,
-                    "-?-" if est_cycle_time==None else time.strftime('%Y-%m-%d (%a) %H:%M:%S', time.gmtime(time.time() + est_cycle_time * self.max_it )),
+                    "-?-" if est_cycle_time==None else time.strftime('%Y-%m-%d (%a) %H:%M:%S', time.localtime(time.time() + est_cycle_time * self.max_it )),
                     "--:--:--" if est_cycle_time==None else time.strftime('%H:%M:%S', time.gmtime(est_cycle_time*self.max_it)),
                     "00:00:00",
                     "--:--:--" if est_cycle_time==None else time.strftime('%H:%M:%S', time.gmtime(est_cycle_time*self.max_it))),
@@ -58,7 +58,7 @@ try:
             progr_info = "<table style='width:100%%'><tr><td>%s (%i/%i) </td><td>&#9992; %s    </td><td>&#128336;  %s   (estimated)</td><td>&#10010;  %s (elapsed) </td><td>&#9866;  %s (remaining)</td></tr></table>"%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
                     self.progr,
                     self.max_it,
-                    time.strftime('%Y-%m-%d (%a) %H:%M:%S', time.gmtime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  -(0 if self.progr == 1 else 1)- self.progr))),
+                    time.strftime('%Y-%m-%d (%a) %H:%M:%S', time.localtime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  -(0 if self.progr == 1 else 1)- self.progr))),
                     time.strftime('%H:%M:%S', time.gmtime(self.start_eta_time-self.starttime+float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it -(0 if self.progr == 1 else 1) ))),
                     time.strftime('%H:%M:%S', time.gmtime(time.time()-self.starttime)),
                     time.strftime('%H:%M:%S', time.gmtime(float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  - self.progr))))

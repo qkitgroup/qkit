@@ -35,6 +35,7 @@ class spectrum(object):
     def __init__(self, vna, exp_name = ''):
 
         self.vna = vna
+        self.averaging_v2 = "start_measurement" in self.vna.get_function_names()
         self.exp_name = exp_name
 
         self.landscape = None
@@ -127,8 +128,11 @@ class spectrum(object):
         curve_f: 'parab', 'hyp', specifies the fit function to be employed
         curve_p: set of points that are the basis for the fit in the format [[x1,x2,x3,...],[y1,y2,y3,...]], frequencies in Hz
         units: set this to 'Hz' in order to avoid large values that cause the fit routine to diverge
-        p0 (optional): start parameters for the fit, must be an 1D array of length 3 ([a,b,c])
-
+        p0 (optional): start parameters for the fit, must be an 1D array of length 3 ([a,b,c,d]), 
+           where for the parabula p0[3] will be ignored 
+        The parabolic function takes the form  y = a*(x-b)**2 + c , where (a,b,c) = p0
+        The hyperbolic function takes the form y = sqrt[ a*(x-b)**2 + c ], where (a,b,c) = p0
+        
         adds a trace to landscape
         '''
 
@@ -143,6 +147,8 @@ class spectrum(object):
 
         try:
             if curve_f == 'parab':
+                "remove the last item"
+                #p0.pop()
                 popt, pcov = curve_fit(self.f_parab, x_fit, y_fit, p0=p0)
                 if units == 'Hz':
                     self.landscape.append(1e9*self.f_parab(self.x_vec, *popt))
@@ -150,6 +156,7 @@ class spectrum(object):
                     self.landscape.append(self.f_parab(self.x_vec, *popt))
             elif curve_f == 'hyp':
                 popt, pcov = curve_fit(self.f_hyp, x_fit, y_fit, p0=p0)
+                print popt
                 if units == 'Hz':
                     self.landscape.append(1e9*self.f_hyp(self.x_vec, *popt))
                 else:
@@ -224,7 +231,7 @@ class spectrum(object):
             self._data_y = self._data_file.add_coordinate(self.y_coordname, unit = self.y_unit)
             self._data_y.add(self.y_vec)
             
-            if self._nop == 1:   #saving in a 2D matrix instead of a 3D box
+            if self._nop == 0:   #saving in a 2D matrix instead of a 3D box HR: does not work yet !!! test things before you put them online.
                 self._data_amp = self._data_file.add_value_matrix('amplitude', x = self._data_x, y = self._data_y,  unit = 'arb. unit',   save_timestamp = False)
                 self._data_pha = self._data_file.add_value_matrix('phase',     x = self._data_x, y = self._data_y,  unit = 'rad', save_timestamp = False)
             else:
@@ -403,12 +410,19 @@ class spectrum(object):
                         else:
                             self.y_set_obj(y)
                             sleep(self.tdy)
-                            self.vna.avg_clear()
-                            if "avg_status" in self.vna.get_function_names():
-                                    while self.vna.avg_status() < self.vna.get_averages():
-                                        qt.msleep(.2) #maybe one would like to adjust this at a later point
-                            else: #old style
-                                sleep(self._sweeptime_averages)     #wait single sweep time
+                            if self.averaging_v2: #new type of averaging
+                                self.vna.start_measurement()
+                                qt.msleep(.2) #just to make sure, the ready command does not *still* show ready
+                                while not self.vna.ready():
+                                    qt.msleep(.2)
+                            else:
+                                self.vna.avg_clear()
+                                sleep(self._sweeptime_averages)
+                                
+                            #if "avg_status" in self.vna.get_function_names():
+                            #       while self.vna.avg_status() < self.vna.get_averages():
+                            #            qt.msleep(.2) #maybe one would like to adjust this at a later point
+                            
                                   
                             
                             """ measurement """
@@ -434,8 +448,14 @@ class spectrum(object):
                     self._data_pha.next_matrix()
 
                 if self._scan_2D:
-                    self.vna.avg_clear()
-                    sleep(self._sweeptime_averages)
+                    if self.averaging_v2: #new type of averaging
+                        self.vna.start_measurement()
+                        qt.msleep(.2) #just to make sure, the ready command does not *still* show ready
+                        while not self.vna.ready():
+                            qt.msleep(.2)
+                    else:
+                        self.vna.avg_clear()
+                        sleep(self._sweeptime_averages)
                     """ measurement """
                     data_amp, data_pha = self.vna.get_tracedata()
                     self._data_amp.append(data_amp)
@@ -450,6 +470,9 @@ class spectrum(object):
                     if self.progress_bar:
                         self._p.iterate()
                         qt.msleep()
+        except Exception as e:
+            print e.__doc__
+            print e.message        
         finally:
             self._end_measurement()
             qt.mend()
@@ -560,7 +583,8 @@ class spectrum(object):
         return a*(x-b)**2+c
 
     def f_hyp(self,x,a,b,c):
-        return a*np.sqrt((x/b)**2+c)
+        "hyperbolic function with the form y = sqrt[ a*(x-b)**2 + c ]"
+        return np.sqrt(a*(x-b)**2+c)
 
     def set_plot_comment(self, comment):
         '''
