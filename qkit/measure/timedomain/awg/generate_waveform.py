@@ -288,10 +288,14 @@ def ramsey(delay, sample, pi2_pulse = None, length = None,position = None, low =
     return wfm
 
 
-def spinecho(delay, sample, pi2_pulse = None, pi_pulse = None, length = None,position = None, low = 0, high = 1, clock = None, readoutpulse=True,adddelay=0., freq=None, n = 1):
+def spinecho(delay, sample, pi2_pulse = None, pi_pulse = None, length = None,position = None, low = 0, high = 1, clock = None, readoutpulse=True, adddelay=0., freq=None, n = 1,DRAG_amplitude=None, phase = 0.):
     '''
-        generate waveform with two pi/2 pulses at the ends and a number n of echo (pi) pilses in between
-        pi2 - delay/n - pi - delay/n - pi - ... - pp - delay/n - [pi2, if readoutpulse]
+        generate waveform with two pi/2 pulses at the ends and a number n of echo (pi) pulses in between
+        pi2 - delay/(n/2) - pi - delay/n - pi - ... - pi - delay/(n/2) - [pi2, if readoutpulse]
+        
+        Phase shift included to perform CPMG-Measurements,
+        DRAG included
+        Sequence for n>1 fixed: between pi2 and pi is delay/(n/2) @TW20160907
         
         pulse - pulse duration in seconds
         length - length of the generated waveform
@@ -299,6 +303,8 @@ def spinecho(delay, sample, pi2_pulse = None, pi_pulse = None, length = None,pos
         low - pulse 'off' sample value
         high - pulse 'on' sample value
         clock - sample rate of the DAC
+        phase - phase shift between pi2 and pi pulses in rad
+        DRAG_amplitude - if not None, DRAG-Pulses are used
         
         waveforms are contructed from right to left
     '''
@@ -306,19 +312,107 @@ def spinecho(delay, sample, pi2_pulse = None, pi_pulse = None, length = None,pos
     if(clock == None): clock= sample.clock
     if(length == None): length= sample.exc_T
     if(position == None): position = length
-    try: position -= sample.overlap
-    except NameError: pass #if sample.overlap does not exist
+    #try: position -= sample.overlap
+    #except NameError: pass #if sample.overlap does not exist
     if(pi2_pulse == None): pi2_pulse = sample.tpi2
     if(pi_pulse == None): pi_pulse = sample.tpi
-    
-    if adddelay+delay+2*pi2_pulse+n*pi_pulse > position:
+  
+    if round(adddelay+delay+2*pi2_pulse+n*pi_pulse, 10) > round(position, 10): # round bc of floating points arethmetic
         logging.error(__name__ + ' : sequence does not fit into waveform. delay is the sum of the waiting times in between the pi pulses')
-    if readoutpulse:   #last pi/2 pulse
-        wfm = square(pi2_pulse, sample, length, position, clock = clock,freq=freq)   #add pi/2 pulse
+    
+    if DRAG_amplitude == None:
+        if readoutpulse:   #last pi/2 pulse
+            wfm = square(pi2_pulse, sample, length, position, clock = clock, freq=freq)*np.exp(0j)   #add pi/2 pulse
+        else:
+            wfm = square(pi2_pulse, sample, length, position, low, low, clock,freq=freq)*np.exp(0j)   #create space (low) of the length of a pi/2 pulse
+        for ni in range(n):   #add pi pulses
+            wfm += square(pi_pulse, sample, length, position - pi2_pulse - ni*pi_pulse - float(delay)/(2*n)-delay/n*ni - adddelay, clock = clock, freq=freq)*np.exp(phase*1j)
+        wfm += square(pi2_pulse, sample, length, position - pi2_pulse - n*pi_pulse - delay - adddelay, clock = clock, freq=freq)*np.exp(0j)   #pi/2 pulse
+        wfm = wfm * (high-low) + complex(low,low)   #adjust offset
+        if phase == 0: wfm = wfm.real # to avoid conversion error messages
+        
     else:
-        wfm = square(pi2_pulse, sample, length, position, low, low, clock,freq=freq)   #create space (low) of the length of a pi/2 pulse
-    for ni in range(n):   #add pi pulses
-        wfm += square(pi_pulse, sample, length, position - pi2_pulse - ni*pi_pulse - float(delay)/(n+1)*(ni+1) - adddelay, clock = clock, freq=freq)
-    wfm += square(pi2_pulse, sample, length, position - pi2_pulse - n*pi_pulse - delay - adddelay, clock = clock, freq=freq)   #pi/2 pulse
-    wfm = wfm * (high-low) + low   #adjust offset
+        if readoutpulse:   #last pi/2 pulse
+            wfm = drag(pi2_pulse, sample, DRAG_amplitude, length, position, clock = clock) *np.exp(0j)   #add pi/2 pulse
+        else:
+            wfm = square(pi2_pulse, sample, length, position, low, low, clock,freq=freq)*np.exp(0j)   #create space (low) of the length of a pi/2 pulse
+        for ni in range(n):   #add pi pulses
+            wfm += drag(pi_pulse, sample, DRAG_amplitude, length, position - pi2_pulse - ni*pi_pulse - float(delay)/(2*n)-delay/n*ni - adddelay, clock = clock)*np.exp(phase*1j)
+        wfm += drag(pi2_pulse, sample, DRAG_amplitude, length, position - pi2_pulse - n*pi_pulse - delay - adddelay, clock = clock)*np.exp(0j)   #pi/2 pulse
+        wfm = wfm * (high-low) + complex(low,low)   #adjust offset
+    
+    return wfm
+    
+def udd(delay, sample, pi2_pulse = None, pi_pulse = None, length = None,position = None, low = 0, high = 1, clock = None, readoutpulse=True,adddelay=0., freq=None, n = 1, DRAG_amplitude=None, phase = np.pi/2): 
+    '''
+        generate waveform with two pi/2 pulses at the ends and a number n of (pi) pulses in between
+        where the position of the j-th pulse is defined by sin^2[(pi*j)/(2N+2)]  @TW20160908
+       
+        pulse - pulse duration in seconds
+        length - length of the generated waveform
+        position - time instant of the end of the pulse
+        low - pulse 'off' sample value
+        high - pulse 'on' sample value
+        clock - sample rate of the DAC
+        phase - phase shift between pi2 and pi pulses
+        DRAG_amplitude - if not None, DRAG-Pulses are used
+    '''
+    
+    if(clock == None): clock= sample.clock
+    if(length == None): length= sample.exc_T
+    if(position == None): position = length
+    #try: position -= sample.overlap
+    #except NameError: pass #if sample.overlap does not exist
+    if(pi2_pulse == None): pi2_pulse = sample.tpi2
+    if(pi_pulse == None): pi_pulse = sample.tpi   
+    
+    if round(adddelay+delay+2*pi2_pulse+n*pi_pulse, 10) > round(position, 10):
+        logging.error(__name__ + ' : sequence does not fit into waveform. delay is the sum of the waiting times in between the pi pulses')
+    if DRAG_amplitude == None:
+        if readoutpulse:   #last pi/2 pulse
+            wfm = square(pi2_pulse, sample, length, position, clock = clock, freq=freq)*np.exp(0j)   #add pi/2 pulse
+        else:
+            wfm = square(pi2_pulse, sample, length, position, low, low, clock,freq=freq)*np.exp(0j)   #create space (low) of the length of a pi/2 pulse
+        for ni in range(n):   #add pi pulses
+            wfm += square(pi_pulse, sample, length, position - (delay+n*pi_pulse)*(np.sin((np.pi*(ni+1))/(2*n+2)))**2 - adddelay, clock = clock, freq=freq)*np.exp(phase*1j) # no pi2_pulse subtracted because equation yields position of center
+        wfm += square(pi2_pulse, sample, length, position - pi2_pulse - n*pi_pulse - delay - adddelay, clock = clock, freq=freq)*np.exp(0j)   #pi/2 pulse
+        wfm = wfm * (high-low) + complex(low,low)   #adjust offset
+        if phase == 0: wfm = wfm.real # to avoid conversion error messages
+    
+    else:
+        if readoutpulse:   #last pi/2 pulse
+            wfm = drag(pi2_pulse, sample, DRAG_amplitude, length, position, clock = clock)*np.exp(0j)   #add pi/2 pulse
+        else:
+            wfm = square(pi2_pulse, sample, length, position, low, low, clock,freq=freq)*np.exp(0j)   #create space (low) of the length of a pi/2 pulse
+        for ni in range(n):   #add pi pulses
+            wfm += drag(pi_pulse, sample, DRAG_amplitude, length, position - (delay+n*pi_pulse)*(np.sin((np.pi*(ni+1))/(2*n+2)))**2 - adddelay, clock = clock)*np.exp(phase*1j)
+        wfm += drag(pi2_pulse, sample, DRAG_amplitude, length, position - pi2_pulse - n*pi_pulse - delay - adddelay, clock = clock)*np.exp(0j)   #pi/2 pulse
+        wfm = wfm * (high-low) + complex(low,low)   #adjust offset
+    return wfm
+    
+
+
+def drag(pulse, sample, amplitude, length = None, position=None, clock = None): 
+    
+    '''
+        if pulses are short, DRAG helps to reduce the gate error.
+        Pulseshape on I is gussian and on Q is the derivative of I times an experimentally determined amplitude
+    
+        pulse - pulse duration in seconds
+        amplitude - experimentally determined amplitude
+        length - length of the generated waveform
+        position - time instant of the end of the pulse
+        clock - sample rate of the DAC        
+    '''
+    
+    
+    if pulse == 0:
+        wfm=[0]
+    if clock == None : clock = sample.clock
+    if length == None : length =sampl.exc_T
+    wfm = gauss(pulse, sample, length=np.ceil(length*1e9)/1e9, position=position) + 1j * np.concatenate([np.diff(gauss(pulse, sample,length=np.ceil(length*1e9)/1e9, position=position)*amplitude),[0]]) # actual pulse
+    
+    wfm[(position-pulse)*clock-1:(position-pulse)*clock+1]=wfm.real[(position-pulse)*clock-1:(position-pulse)*clock+1] # for smooth derivative
+    wfm[position*clock-1:position*clock+1]= wfm.real[position*clock-1:position*clock+1] 
+ 
     return wfm
