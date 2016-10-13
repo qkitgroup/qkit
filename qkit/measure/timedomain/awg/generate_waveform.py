@@ -64,10 +64,12 @@ def erf(pulse, attack, decay, sample, length=None, position = None, low=0, high=
     '''
     if(clock == None): clock = sample.clock
     if(length == None): length = sample.exc_T
-    if position == None:
+    if position == None:   #automatically correct overlap only when position argument not explicitly given
         position = length
-        try: position -= sample.overlap
-        except NameError: pass #if sample.overlap does not exist
+        if hasattr(sample, 'overlap'):   #if overlap exists in sample object
+            position -= sample.overlap
+        else:
+            logging.warning('overlap attribute not found in sample object')
     if(pulse>position):
         logging.error(__name__ + ' : pulse does not fit into waveform')
         
@@ -102,10 +104,12 @@ def exp(pulse, decay, sample, position = None, low=0, high=1, clock = None):
     create and exponential decaying waveform
     '''
     if(clock == None): clock = sample.clock
-    if position == None:
-        position = sample.exc_T
-        try: position -= sample.overlap
-        except NameError: pass #if sample.overlap does not exist
+    if position == None:   #automatically correct overlap only when position argument not explicitly given
+        position = length
+        if hasattr(sample, 'overlap'):   #if overlap exists in sample object
+            position -= sample.overlap
+        else:
+            logging.warning('overlap attribute not found in sample object')
     sample_length = int(np.ceil(sample.exc_T*clock))
     wfm = low * np.ones(sample_length)
     sample_start = int(clock*(position-pulse))
@@ -125,10 +129,12 @@ def triangle(attack, decay, sample, length = None, position = None, low=0, high=
     '''
     if(clock == None): clock = sample.clock
     if(length == None): length = sample.exc_T
-    if position == None:
+    if position == None:   #automatically correct overlap only when position argument not explicitly given
         position = length
-        try: position -= sample.overlap
-        except NameError: pass #if sample.overlap does not exist
+        if hasattr(sample, 'overlap'):   #if overlap exists in sample object
+            position -= sample.overlap
+        else:
+            logging.warning('overlap attribute not found in sample object')
     sample_start = int(clock*(position-attack-decay))
     sample_end = int(clock*position)
     sample_length = int(np.ceil(length*clock))
@@ -156,10 +162,12 @@ def square(pulse, sample, length = None,position = None, low = 0, high = 1, cloc
     '''
     if(clock == None): clock= sample.clock
     if(length == None): length= sample.exc_T
-    if position == None:
+    if position == None:   #automatically correct overlap only when position argument not explicitly given
         position = length
-        try: position -= sample.overlap   #automatically correct overlap only when position argument not explicitly given
-        except NameError: pass #if sample.overlap does not exist
+        if hasattr(sample, 'overlap'):   #if overlap exists in sample object
+            position -= sample.overlap
+        else:
+            logging.warning('overlap attribute not found in sample object')
     if(pulse>position): logging.error(__name__ + ' : pulse does not fit into waveform')
     sample_start = int(clock*(position-pulse-adddelay))
     sample_end = int(clock*(position-adddelay))
@@ -195,10 +203,12 @@ def gauss(pulse, sample, length = None,position = None, low = 0, high = 1, clock
         sample_length = int(np.round(length*clock)/4)*4
     else:
         sample_length = int(length*clock)
-    if position == None:
+    if position == None:   #automatically correct overlap only when position argument not explicitly given
         position = length
-        try: position -= sample.overlap
-        except NameError: pass #if sample.overlap does not exist
+        if hasattr(sample, 'overlap'):   #if overlap exists in sample object
+            position -= sample.overlap
+        else:
+            logging.warning('overlap attribute not found in sample object')
     if(pulse>position): logging.error(__name__ + ' : pulse does not fit into waveform')
     sample_start = int(clock*(position-pulse))
     sample_end = int(clock*position)
@@ -227,10 +237,12 @@ def arb_function(function, pulse, length = None,position = None, clock = None):
     '''
     if(clock == None): clock= sample.clock
     if(length == None): length= sample.exc_T
-    if position == None:
+    if position == None:   #automatically correct overlap only when position argument not explicitly given
         position = length
-        try: position -= sample.overlap
-        except NameError: pass #if sample.overlap does not exist
+        if hasattr(sample, 'overlap'):   #if overlap exists in sample object
+            position -= sample.overlap
+        else:
+            logging.warning('overlap attribute not found in sample object')
     if(pulse>position): logging.error(__name__ + ' : pulse does not fit into waveform')
     sample_start = clock*(position-pulse)
     sample_end = clock*position
@@ -255,8 +267,12 @@ def t1(delay, sample, length = None, low = 0, high = 1, clock = None):
     '''
     if(clock == None): clock = sample.clock
     if(length == None): length = sample.exc_T
-    try: delay += sample.overlap
-    except NameError: pass #if sample.overlap does not exist
+
+    if hasattr(sample, 'overlap'):   #if overlap exists in sample object
+        delay += sample.overlap
+    else:
+        logging.warning('overlap attribute not found in sample object')
+
     if(delay+sample.tpi > length): logging.error(__name__ + ' : pulse does not fit into waveform')
     
     wfm = square(sample.tpi, sample, length, length-delay, clock = clock)
@@ -277,9 +293,12 @@ def ramsey(delay, sample, pi2_pulse = None, length = None,position = None, low =
     '''
     if(clock == None): clock = sample.clock
     if(length == None): length = sample.exc_T
-    if(position == None): position = length
-    try: position -= sample.overlap
-    except NameError: pass #if sample.overlap does not exist
+    if position == None:   #automatically correct overlap only when position argument not explicitly given
+        position = length
+        if hasattr(sample, 'overlap'):   #if overlap exists in sample object
+            position -= sample.overlap
+        else:
+            logging.warning('overlap attribute not found in sample object')
     if(pi2_pulse == None): pi2_pulse = sample.tpi2
     if(delay+2*pi2_pulse>position): logging.error(__name__ + ' : ramsey pulses do not fit into waveform')
     wfm = square(pi2_pulse, sample, length, position, clock = clock)
@@ -311,9 +330,12 @@ def spinecho(delay, sample, pi2_pulse = None, pi_pulse = None, length = None,pos
     
     if(clock == None): clock= sample.clock
     if(length == None): length= sample.exc_T
-    if(position == None): position = length
-    #try: position -= sample.overlap
-    #except NameError: pass #if sample.overlap does not exist
+    if position == None:   #automatically correct overlap only when position argument not explicitly given
+        position = length
+        if hasattr(sample, 'overlap'):   #if overlap exists in sample object
+            position -= sample.overlap
+        else:
+            logging.warning('overlap attribute not found in sample object')
     if(pi2_pulse == None): pi2_pulse = sample.tpi2
     if(pi_pulse == None): pi_pulse = sample.tpi
   
@@ -360,9 +382,12 @@ def udd(delay, sample, pi2_pulse = None, pi_pulse = None, length = None,position
     
     if(clock == None): clock= sample.clock
     if(length == None): length= sample.exc_T
-    if(position == None): position = length
-    #try: position -= sample.overlap
-    #except NameError: pass #if sample.overlap does not exist
+    if position == None:   #automatically correct overlap only when position argument not explicitly given
+        position = length
+        if hasattr(sample, 'overlap'):   #if overlap exists in sample object
+            position -= sample.overlap
+        else:
+            logging.warning('overlap attribute not found in sample object')
     if(pi2_pulse == None): pi2_pulse = sample.tpi2
     if(pi_pulse == None): pi_pulse = sample.tpi   
     
@@ -388,31 +413,4 @@ def udd(delay, sample, pi2_pulse = None, pi_pulse = None, length = None,position
             wfm += drag(pi_pulse, sample, DRAG_amplitude, length, position - (delay+n*pi_pulse)*(np.sin((np.pi*(ni+1))/(2*n+2)))**2 - adddelay, clock = clock)*np.exp(phase*1j)
         wfm += drag(pi2_pulse, sample, DRAG_amplitude, length, position - pi2_pulse - n*pi_pulse - delay - adddelay, clock = clock)*np.exp(0j)   #pi/2 pulse
         wfm = wfm * (high-low) + complex(low,low)   #adjust offset
-    return wfm
-    
-
-
-def drag(pulse, sample, amplitude, length = None, position=None, clock = None): 
-    
-    '''
-        if pulses are short, DRAG helps to reduce the gate error.
-        Pulseshape on I is gussian and on Q is the derivative of I times an experimentally determined amplitude
-    
-        pulse - pulse duration in seconds
-        amplitude - experimentally determined amplitude
-        length - length of the generated waveform
-        position - time instant of the end of the pulse
-        clock - sample rate of the DAC        
-    '''
-    
-    
-    if pulse == 0:
-        wfm=[0]
-    if clock == None : clock = sample.clock
-    if length == None : length =sampl.exc_T
-    wfm = gauss(pulse, sample, length=np.ceil(length*1e9)/1e9, position=position) + 1j * np.concatenate([np.diff(gauss(pulse, sample,length=np.ceil(length*1e9)/1e9, position=position)*amplitude),[0]]) # actual pulse
-    
-    wfm[(position-pulse)*clock-1:(position-pulse)*clock+1]=wfm.real[(position-pulse)*clock-1:(position-pulse)*clock+1] # for smooth derivative
-    wfm[position*clock-1:position*clock+1]= wfm.real[position*clock-1:position*clock+1] 
- 
     return wfm
