@@ -254,7 +254,7 @@ def arb_function(function, pulse, length = None,position = None, clock = None):
     return wfm
 
     
-def t1(delay, sample, length = None, low = 0, high = 1, clock = None):
+def t1(delay, sample, length = None, low = 0, high = 1, clock = None, DRAG_amplitude=None):
     '''
         generate waveform with one pi pulse and delay after
 
@@ -275,12 +275,15 @@ def t1(delay, sample, length = None, low = 0, high = 1, clock = None):
 
     if(delay+sample.tpi > length): logging.error(__name__ + ' : pulse does not fit into waveform')
     
-    wfm = square(sample.tpi, sample, length, length-delay, clock = clock)
+    if DRAG_amplitude == None:
+        wfm = square(sample.tpi, sample, length, length-delay, clock = clock)
+    else:
+        wfm = drag(sample.tpi, sample, DRAG_amplitude, length, length-delay, clock = clock)
     wfm = wfm * (high-low) + low
     return wfm
     
     
-def ramsey(delay, sample, pi2_pulse = None, length = None,position = None, low = 0, high = 1, clock = None):
+def ramsey(delay, sample, pi2_pulse = None, length = None,position = None, low = 0, high = 1, clock = None, DRAG_amplitude=None):
     '''
         generate waveform with two pi/2 pulses and delay in-between
 
@@ -299,10 +302,18 @@ def ramsey(delay, sample, pi2_pulse = None, length = None,position = None, low =
             position -= sample.overlap
         else:
             logging.warning('overlap attribute not found in sample object')
-    if(pi2_pulse == None): pi2_pulse = sample.tpi2
-    if(delay+2*pi2_pulse>position): logging.error(__name__ + ' : ramsey pulses do not fit into waveform')
-    wfm = square(pi2_pulse, sample, length, position, clock = clock)
-    wfm += square(pi2_pulse, sample,  length, position-delay-pi2_pulse, clock = clock)
+    if DRAG_amplitude == None:
+        if(pi2_pulse == None): pi2_pulse = sample.tpi2
+        if(delay+2*pi2_pulse>position): logging.error(__name__ + ' : ramsey pulses do not fit into waveform')
+        wfm = square(pi2_pulse, sample, length, position, clock = clock)
+        wfm += square(pi2_pulse, sample,  length, position-delay-pi2_pulse, clock = clock)
+    
+    else:
+        if(pi2_pulse == None): pi2_pulse = sample.tpi2
+        if(delay+2*pi2_pulse>position): logging.error(__name__ + ' : ramsey pulses do not fit into waveform')
+        wfm = drag(pi2_pulse, sample, DRAG_amplitude, length, position, clock = clock)
+        wfm += drag(pi2_pulse, sample, DRAG_amplitude,  length, position-delay-pi2_pulse, clock = clock)
+    
     wfm = wfm * (high-low) + low
     return wfm
 
@@ -413,4 +424,31 @@ def udd(delay, sample, pi2_pulse = None, pi_pulse = None, length = None,position
             wfm += drag(pi_pulse, sample, DRAG_amplitude, length, position - (delay+n*pi_pulse)*(np.sin((np.pi*(ni+1))/(2*n+2)))**2 - adddelay, clock = clock)*np.exp(phase*1j)
         wfm += drag(pi2_pulse, sample, DRAG_amplitude, length, position - pi2_pulse - n*pi_pulse - delay - adddelay, clock = clock)*np.exp(0j)   #pi/2 pulse
         wfm = wfm * (high-low) + complex(low,low)   #adjust offset
+    return wfm
+
+
+def drag(pulse, sample, amplitude, length = None, position=None, clock = None):
+    '''
+        if pulses are short, DRAG helps to reduce the gate error.
+        Pulseshape on I is gussian and on Q is the derivative of I times an experimentally determined amplitude
+    
+        pulse - pulse duration in seconds
+        amplitude - experimentally determined amplitude
+        length - length of the generated waveform
+        position - time instant of the end of the pulse
+        clock - sample rate of the DAC        
+    '''
+
+    if(clock == None): clock = sample.clock
+    if(length == None): length = sample.exc_T
+    if position == None:   #automatically correct overlap only when position argument not explicitly given
+        position = length
+        if hasattr(sample, 'overlap'):   #if overlap exists in sample object
+            position -= sample.overlap
+        else:
+            logging.warning('overlap attribute not found in sample object')
+    wfm = gauss(pulse, sample, length=np.ceil(length*1e9)/1e9, position=position) + 1j * np.concatenate([np.diff(gauss(pulse, sample,length=np.ceil(length*1e9)/1e9, position=position)*amplitude),[0]]) # actual pulse
+    wfm[(position-pulse)*clock-1:(position-pulse)*clock+1]=wfm.real[(position-pulse)*clock-1:(position-pulse)*clock+1] # for smooth derivative
+    wfm[position*clock-1:position*clock+1]= wfm.real[position*clock-1:position*clock+1] 
+    
     return wfm
