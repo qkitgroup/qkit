@@ -171,9 +171,11 @@ class Agilent_PNAX(Instrument):
         self.add_function('get_tracedata')
         self.add_function('init')
         self.add_function('set_S21')
+        self.add_function('avg_clear')
+        self.add_function('pre_measurement')
         self.add_function('start_measurement')
         self.add_function('ready')
-        self.add_function('avg_clear')
+        self.add_function('post_measurement')
         #self.add_function('avg_status')
         
         #self._oldspan = self.get_span()
@@ -386,7 +388,7 @@ class Agilent_PNAX(Instrument):
                     
     def do_set_averages(self, av):
         '''
-        Set number of averages and simultaneously sets this to the number of sweeps per group. This is important for sweep_mode(GRO)
+        Set number of averages.
 
         Input:
             av (int) : Number of averages
@@ -396,7 +398,7 @@ class Agilent_PNAX(Instrument):
         '''
         if self._zerospan == False:
             logging.debug(__name__ + ' : setting Number of averages to %i ' % (av))
-            self._visainstrument.write(':SENS%i:AVER:COUN %i; :SENS%i:SWE:GRO:COUN %i' % (self._ci,av,self._ci,av))
+            self._visainstrument.write(':SENS%i:AVER:COUN %i' % (self._ci,av))
         else:
             self._visainstrument.write('SWE:POIN %.1f' % (self._ci,av))
             
@@ -1004,7 +1006,20 @@ class Agilent_PNAX(Instrument):
     def do_get_sweep_mode(self):
         logging.debug(__name__ + ' : getting sweep type')
         return str(self._visainstrument.ask('SENS%i:SWE:MODE?' %(self._ci)))
-            
+
+    def pre_measurement(self):
+        '''
+        Set everything needed for the measurement
+        '''
+        self._visainstrument.write(':SENS%i:SWE:GRO:COUN %i' % (self._ci,self.get_averages())) #set the number of averages per grouped sweep
+        
+    def post_measurement(self):
+        '''
+        After a measurement, the VNA is in hold mode, and it can be difficult to start a measurement again from front panel.
+        This function brings the VNA back to normal measuring operation.
+        '''
+        self.set_sweep_mode('CONT')
+        
     def start_measurement(self):
         '''
         This function is called at the beginning of each single measurement in the spectroscopy script.
