@@ -1,5 +1,5 @@
-# Keysight_VNA_E5071C.py driver, P. Macha, modified by M. Weides July 2013, J. Braumueller 2015, Oct. 2016
-# adapted from Agilent_VNA_E5071C.py
+# Agilent_VNA_E5071C driver, P. Macha, modified by M. Weides July 2013, J. Braumueller 2015
+# Adapted to Keysight VNA by A. Schneider and L. Gurenhaupt 2016
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,7 +15,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-
 from instrument import Instrument
 import visa
 import types
@@ -24,7 +23,7 @@ from time import sleep
 import numpy
 import math
 
-class Agilent_VNA_E5071C(Instrument):
+class Keysight_VNA_E5071C(Instrument):
     '''
     This is the python driver for the Anritsu MS4642A Vector Network Analyzer
 
@@ -75,27 +74,27 @@ class Agilent_VNA_E5071C(Instrument):
                     
         self.add_parameter('centerfreq', type=types.FloatType,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=8.5e9,
+            minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])
             
         self.add_parameter('startfreq', type=types.FloatType,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=8.5e9,
+            minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])            
             
         self.add_parameter('stopfreq', type=types.FloatType,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=8.5e9,
+            minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])                        
             
         self.add_parameter('span', type=types.FloatType,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=8.5e9,
+            minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])        
             
         self.add_parameter('power', type=types.FloatType,
             flags=Instrument.FLAG_GETSET,
-            minval=-55, maxval=10,
+            minval=-85, maxval=10,
             units='dBm', tags=['sweep'])
 
         self.add_parameter('zerospan', type=types.BooleanType,
@@ -118,9 +117,7 @@ class Agilent_VNA_E5071C(Instrument):
             flags=Instrument.FLAG_GET,
             minval=0, maxval=1e3,
             units='s', tags=['sweep'])
-            
-        self.add_parameter('sweep_mode', type=types.StringType,
-            flags=Instrument.FLAG_GETSET,tags=['sweep']) 
+                    
                     
         #Triggering Stuff
         self.add_parameter('trigger_source', type=types.StringType,
@@ -132,12 +129,16 @@ class Agilent_VNA_E5071C(Instrument):
         self.add_function('init')
         self.add_function('avg_clear')
         self.add_function('avg_status')
-        #self.add_function('def_trig')
-        #self.add_function('get_sweep_mode')
-        #self.add_function('set_sweep_mode')
-        #self.add_function('get_sweeptime')
-        #self.add_function('get_sweeptime_averages')
-        
+        self.add_function('def_trig')
+        self.add_function('get_hold')
+        self.add_function('hold')
+        self.add_function('get_sweeptime')
+        self.add_function('get_sweeptime_averages')
+        self.add_function('pre_measurement')
+        self.add_function('start_measurement')
+        self.add_function('ready')
+        self.add_function('post_measurement')
+
         self.get_all()
     
     def get_all(self):        
@@ -157,6 +158,9 @@ class Agilent_VNA_E5071C(Instrument):
         self.get_sweeptime()
         self.get_sweeptime_averages()
         
+    ###
+    #Communication with device
+    ###
     
     def init(self):
         if self._zerospan:
@@ -166,26 +170,35 @@ class Agilent_VNA_E5071C(Instrument):
             for i in range(self.get_averages()):            
               self._visainstrument.write('INIT1;*wai')
           else:
-              self._visainstrument.write('INIT1;*wai')  
+              self._visainstrument.write('INIT1;*wai')
+              
+    def hold(self, status):     # added MW July 13
+        self._visainstrument.write(":TRIG:SOUR INT")
+        if status:
+            self._visainstrument.write(':INIT%i:CONT OFF'%(self._ci))
+            #print 'continuous off'
+        else:
+            self._visainstrument.write(':INIT%i:CONT ON'%(self._ci))
+            #print 'continuous on'
 
-    """
+    def get_hold(self):     # added MW July 13
+        #self._visainstrument.read(':INIT%i:CONT?'%(self._ci))
+        self._hold=self._visainstrument.ask(':INIT%i:CONT?'%(self._ci))
+        return self._hold     
+
     def def_trig(self):
         self._visainstrument.write(':TRIG:AVER ON')
         self._visainstrument.write(':TRIG:SOUR bus')
-    """
-    
+        
     def avg_clear(self):
         #self._visainstrument.write(':TRIG:SING')
         #self._visainstrument.write(':SENSe%i:AVERage:CLEar'%(self._ci))
-        self._visainstrument.write(':TRIG:AVER')
         self._visainstrument.write(':SENS%i:AVER:CLE' %(self._ci))
 
-    """
     def avg_status(self):
         return 0 == (int(self._visainstrument.ask('STAT:OPER:COND?')) & (1<<4))
-        #return int(self._visainstrument.ask(':SENS%i:AVER:COUNT?' %(self._ci)))
-    """
-    
+        #return int(self._visainstrument.ask(':SENS%i:AVER:COUNT?' %(self._ci)))    
+        
     def get_tracedata(self, format = 'AmpPha', single=False, averages=1.):
         
         
@@ -682,55 +695,41 @@ class Agilent_VNA_E5071C(Instrument):
         '''
         logging.debug(__name__ + ' : getting channel index')
         return self._ci
+          
+    def write(self,msg):
+      return self._visainstrument.write(msg)    
+    def ask(self,msg):
+      return self._visainstrument.ask(msg)
+     
+    def pre_measurement(self):
+        '''
+        Set everything needed for the measurement
+        '''
+        self._visainstrument.write(":TRIG:SOUR BUS")#Only wait for software triggers
+        self._visainstrument.write(":TRIG:AVER ON")# Tell the instrument to do the specific number of averages on every trigger.
         
-    def do_set_sweep_mode(self,mode):
+        
+    def post_measurement(self):
         '''
-        mode can be:
-        CONT: Continuous sweep
-        SING: Start a single scan (no averaging) and then hold.
-        HOLD: finish current trace, then hold.
+        After a measurement, the VNA is in hold mode, and it can be difficult to start a measurement again from front panel.
+        This function brings the VNA back to normal measuring operation.
         '''
-        if mode in ('CONT','SING','HOLD'):
-            logging.debug(__name__ + ' : Setting sweep mode to %s'%(mode))
-            if mode == 'CONT':
-                return self._visainstrument.write('INIT%i:CONT ON'%(self._ci))
-            elif mode == 'HOLD':
-                return self._visainstrument.write('INIT%i:CONT OFF'%(self._ci))
-            elif mode == 'SING':
-                self._visainstrument.write('INIT%i:CONT OFF'%(self._ci))
-                return self._visainstrument.write('INIT%i:IMM'%(self._ci))
-        else:
-            logging.warning(__name__ + ' : Illegal argument for sweep mode %s. Use CONT, SING or HOLD!'%(mode)) 
-    
-    def do_get_sweep_mode(self):
-        '''
-        get vna sweep mode, returns one of
-        CONT
-        HOLD
-        '''
-        logging.debug(__name__ + ' : getting sweep type')
-        res = str(self._visainstrument.ask('INIT%i:CONT?'%(self._ci))
-        if res:
-            return 'CONT'
-        else:
-            return 'HOLD'
-
-    
+        self._visainstrument.write(":TRIG:SOUR INT") #Only wait for software triggers
+        self._visainstrument.write(":TRIG:AVER OFF")# Tell the instrument to do the specific number of averages on every trigger.
+        self.hold(False)
+        
+      
     def start_measurement(self):
         '''
         This function is called at the beginning of each single measurement in the spectroscopy script.
-        Here, it resets the averaging and starts a GROUP sweep, which takes the specified number of averages.
+        Here, it resets the averaging
         '''
         self.avg_clear()
-        self.set_sweep_mode('SING')
+        self._visainstrument.write('*TRG') #go
+
     
     def ready(self):
         '''
         This is a proxy function, returning True when the VNA has finished the required number of averages.
         '''
-        return self.get_sweep_mode() == "HOLD"
-        
-    def write(self,msg):
-      return self._visainstrument.write(msg)    
-    def ask(self,msg):
-      return self._visainstrument.ask(msg)
+        return (int(self._visainstrument.ask(':STAT:OPER:COND?')) & 32)==32
