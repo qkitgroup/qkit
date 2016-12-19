@@ -319,7 +319,7 @@ class spectrum(object):
             if self.averaging_start_ready:
                 self.vna.start_measurement()
                 ti = time.time()
-                self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime_averages())
+                self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime())
                 qt.msleep(.2)
                 while not self.vna.ready():
                     if time.time()-ti > self.vna.get_sweeptime(query=False):
@@ -377,7 +377,7 @@ class spectrum(object):
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
-        self._p = Progress_Bar(len(self.x_vec),'2D VNA sweep '+self.dirname,self.vna.get_sweeptime())
+        self._p = Progress_Bar(len(self.x_vec),'2D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
 
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
@@ -414,7 +414,7 @@ class spectrum(object):
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
-        self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec),'3D VNA sweep '+self.dirname,self.vna.get_sweeptime())
+        self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec),'3D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
 
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
