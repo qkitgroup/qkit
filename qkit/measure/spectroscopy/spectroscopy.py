@@ -318,13 +318,13 @@ class spectrum(object):
         if rescan:
             if self.averaging_start_ready:
                 self.vna.start_measurement()
-                ti = time.time()
+                ti = time()
                 self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime())
                 qt.msleep(.2)
                 while not self.vna.ready():
-                    if time.time()-ti > self.vna.get_sweeptime(query=False):
+                    if time()-ti > self.vna.get_sweeptime(query=False):
                         self._p.iterate()
-                        ti = time.time()
+                        ti = time()
                     qt.msleep(.2)
             else:
                 self.vna.avg_clear()
