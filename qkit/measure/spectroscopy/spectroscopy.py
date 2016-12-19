@@ -286,9 +286,11 @@ class spectrum(object):
         settings = waf.get_instrument_settings(self._data_file.get_filepath())
         self._settings.append(settings)
 
-    def measure_1D(self):
+    def measure_1D(self, rescan = True):
         '''
         measure method to record a single (averaged) VNA trace, S11 or S21 according to the setting on the VNA
+        rescan: If True (default), the averages on the VNA are cleared and a new measurement is started. 
+                If False, it will directly take the data from the VNA without waiting.
         '''
         self._scan_1D = True
         self._scan_2D = False
@@ -313,33 +315,34 @@ class spectrum(object):
         sys.stdout.flush()
 
         qt.mstart()
-        if self.averaging_start_ready:
-            self.vna.start_measurement()
-            ti = time.time()
-            self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime_averages())
-            qt.msleep(.2)
-            while not self.vna.ready():
-                if time.time()-ti > self.vna.get_sweeptime(query=False):
-                    self._p.iterate()
-                    ti = time.time()
+        if rescan:
+            if self.averaging_start_ready:
+                self.vna.start_measurement()
+                ti = time.time()
+                self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime_averages())
                 qt.msleep(.2)
-        else:
-            self.vna.avg_clear()
-            if self.vna.get_averages() == 1 or self.vna.get_Average() == False:   #no averaging
-                self._p = Progress_Bar(1,self.dirname,self.vna.get_sweeptime())
-                qt.msleep(self.vna.get_sweeptime())      #wait single sweep
-                self._p.iterate()
-            else:   #with averaging
-                self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime())
-                if "avg_status" in self.vna.get_function_names():
-                    for a in range(self.vna.get_averages()):
-                        while self.vna.avg_status() <= a:
-                            qt.msleep(.2) #maybe one would like to adjust this at a later point
+                while not self.vna.ready():
+                    if time.time()-ti > self.vna.get_sweeptime(query=False):
                         self._p.iterate()
-                else: #old style
-                    for a in range(self.vna.get_averages()):
-                        qt.msleep(self.vna.get_sweeptime())      #wait single sweep time
-                        self._p.iterate()
+                        ti = time.time()
+                    qt.msleep(.2)
+            else:
+                self.vna.avg_clear()
+                if self.vna.get_averages() == 1 or self.vna.get_Average() == False:   #no averaging
+                    self._p = Progress_Bar(1,self.dirname,self.vna.get_sweeptime())
+                    qt.msleep(self.vna.get_sweeptime())      #wait single sweep
+                    self._p.iterate()
+                else:   #with averaging
+                    self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime())
+                    if "avg_status" in self.vna.get_function_names():
+                        for a in range(self.vna.get_averages()):
+                            while self.vna.avg_status() <= a:
+                                qt.msleep(.2) #maybe one would like to adjust this at a later point
+                            self._p.iterate()
+                    else: #old style
+                        for a in range(self.vna.get_averages()):
+                            qt.msleep(self.vna.get_sweeptime())      #wait single sweep time
+                            self._p.iterate()
 
         data_amp, data_pha = self.vna.get_tracedata()
         data_real, data_imag = self.vna.get_tracedata('RealImag')
