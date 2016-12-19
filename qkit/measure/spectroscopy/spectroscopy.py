@@ -51,6 +51,7 @@ class spectrum(object):
 
         self.vna = vna
         self.averaging_start_ready = "start_measurement" in self.vna.get_function_names() and "ready" in self.vna.get_function_names()
+        if not self.averaging_start_ready: logging.warning(__name__ + ': With your VNA instrument driver (' + self.vna.get_type() + '), I can not see when a measurement is complete. So I only wait for a specific time and hope the VNA has finished. Please consider implemeting the necessary functions into your driver.')
         self.exp_name = exp_name
 
         self.landscape = None
@@ -318,7 +319,7 @@ class spectrum(object):
             self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime_averages())
             qt.msleep(.2)
             while not self.vna.ready():
-                if time.time()-ti > self.vna.get_sweeptime():
+                if time.time()-ti > self.vna.get_sweeptime(query=False):
                     self._p.iterate()
                     ti = time.time()
                 qt.msleep(.2)
@@ -547,7 +548,7 @@ class spectrum(object):
                                     qt.msleep(.2)
                             else:
                                 self.vna.avg_clear()
-                                sleep(self._sweeptime_averages)
+                                qt.msleep(self._sweeptime_averages)
                                 
                             #if "avg_status" in self.vna.get_function_names():
                             #       while self.vna.avg_status() < self.vna.get_averages():
@@ -583,7 +584,7 @@ class spectrum(object):
                             qt.msleep(.2)
                     else:
                         self.vna.avg_clear()
-                        sleep(self._sweeptime_averages)
+                        qt.msleep(self._sweeptime_averages)
                     """ measurement """
                     data_amp, data_pha = self.vna.get_tracedata()
                     self._data_amp.append(data_amp)
