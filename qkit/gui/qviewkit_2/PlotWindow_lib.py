@@ -98,9 +98,17 @@ def _display_1D_view(self,graphicsView):
             pass
 
         # set the y data  to the decibel scale 
-        if self.plot_scale == self.plot_scales['dB']:
+        if self.manipulation & self.manipulations['dB']:
             y_data = 20 *np.log10(y_data)
             graphicsView.setLabel('left', y_name, units="dB") 
+          
+        # unwrap the phase
+        if self.manipulation & self.manipulations['wrap']:
+            y_data = np.unwrap(y_data)
+        
+        # linearly correct the data    
+        if self.manipulation & self.manipulations['linear']:
+            y_data = y_data - np.linspace(y_data[0],y_data[-1],len(y_data))
         
         if self.plot_style==self.plot_styles['line']:
             graphicsView.plot(y=y_data, x=x_data,pen=(i,3), name = y_name, connect='finite')
@@ -212,9 +220,17 @@ def _display_1D_data(self,graphicsView):
     graphicsView.setLabel('bottom', x_name , units=x_unit)
 
     # set the y data  to the decibel scale 
-    if self.plot_scale == self.plot_scales['dB']:
+    if self.manipulation & self.manipulations['dB']:
         y_data = 20 *np.log10(y_data)
         graphicsView.setLabel('left', name, units="dB")
+    
+    # unwrap the phase
+    if self.manipulation & self.manipulations['wrap']:
+        y_data = np.unwrap(y_data)
+        
+    # linearly correct the data    
+    if self.manipulation & self.manipulations['linear']:
+        y_data = y_data - np.linspace(y_data[0],y_data[-1],len(y_data))
 
     if self.plot_style==self.plot_styles['line']:
         graphicsView.plot(y=y_data, x=x_data, clear = True, pen=(200,200,100),connect='finite')
@@ -315,9 +331,22 @@ def _display_2D_data(self,graphicsView):
             y_name = ds.attrs.get("z_name","_none_")
             y_unit = ds.attrs.get("z_unit","_none_")
 
+
         self.TraceXValue.setText(self._getXValueFromTraceNum(ds,self.TraceXNum))
         self.TraceYValue.setText(self._getYValueFromTraceNum(ds,self.TraceYNum))
         self.TraceZValue.setText(self._getZValueFromTraceNum(ds,self.TraceZNum))
+
+    # set the y data  to the decibel scale 
+    if self.manipulation & self.manipulations['dB']:
+        data = 20 *np.log10(data)
+        
+    # unwrap the phase
+    if self.manipulation & self.manipulations['wrap']:
+        data = np.unwrap(data)
+    
+    if self.manipulation & self.manipulations['linear']:
+        data = data - np.outer(data[:,-1]-data[:,0],np.linspace(0,1,data.shape[1]))
+        
 
     xmin = x0
     xmax = x0+fill_x*dx
