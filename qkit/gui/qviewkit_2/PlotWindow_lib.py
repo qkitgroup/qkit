@@ -283,23 +283,15 @@ def _display_2D_data(self,graphicsView):
 
     if self.ds_type == ds_types['box']:
         if self.PlotTypeSelector.currentIndex() == 0:
-            if self.TraceZValueChanged:
-                #calc trace number from entered value
-                num = int((self._traceZ_value-ds.attrs.get("z0",0))/(ds.attrs.get("dz",1)))
-                self.TraceZNum = num
-                self.TraceZSelector.setValue(self.TraceZNum)
-                self.TraceZValueChanged = False
-
-            data = data[:,:,self.TraceZNum]
-        if self.PlotTypeSelector.currentIndex() == 1:
             if self.TraceXValueChanged:
                 #calc trace number from entered value
                 num = int((self._traceX_value-ds.attrs.get("x0",0))/(ds.attrs.get("dx",1)))
                 self.TraceXNum = num
                 self.TraceXSelector.setValue(self.TraceXNum)
                 self.TraceXValueChanged = False
-
+                
             data = data[self.TraceXNum,:,:]
+            
             fill_x = ds.shape[0]
             fill_y = ds.shape[2]
             x0 = ds.attrs.get("y0",0)
@@ -310,8 +302,8 @@ def _display_2D_data(self,graphicsView):
             x_unit = ds.attrs.get("y_unit","_none_")
             y_name = ds.attrs.get("z_name","_none_")
             y_unit = ds.attrs.get("z_unit","_none_")
-
-        if self.PlotTypeSelector.currentIndex() == 2:
+            
+        if self.PlotTypeSelector.currentIndex() == 1:
             if self.TraceYValueChanged:
                 #calc trace number from entered value
                 num = int((self._traceY_value-ds.attrs.get("y0",0))/(ds.attrs.get("dy",1)))
@@ -330,6 +322,16 @@ def _display_2D_data(self,graphicsView):
             x_unit = ds.attrs.get("x_unit","_none_")
             y_name = ds.attrs.get("z_name","_none_")
             y_unit = ds.attrs.get("z_unit","_none_")
+
+        if self.PlotTypeSelector.currentIndex() == 2:
+            if self.TraceZValueChanged:
+                #calc trace number from entered value
+                num = int((self._traceZ_value-ds.attrs.get("z0",0))/(ds.attrs.get("dz",1)))
+                self.TraceZNum = num
+                self.TraceZSelector.setValue(self.TraceZNum)
+                self.TraceZValueChanged = False
+
+            data = data[:,:,self.TraceZNum]
 
 
         self.TraceXValue.setText(self._getXValueFromTraceNum(ds,self.TraceXNum))

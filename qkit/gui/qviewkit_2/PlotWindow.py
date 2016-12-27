@@ -150,13 +150,12 @@ class PlotWindow(QWidget,Ui_Form):
 
         elif self.ds_type == ds_types['box']:
             QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeBox)
-            QObject.connect(self.TraceZSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceZNum)
-            QObject.connect(self.TraceZValue,     SIGNAL("returnPressed()"),         self._setBTraceZValue)
             QObject.connect(self.TraceXSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceXNum)
             QObject.connect(self.TraceXValue,     SIGNAL("returnPressed()"),         self._setBTraceXValue)
             QObject.connect(self.TraceYSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceYNum)
             QObject.connect(self.TraceYValue,     SIGNAL("returnPressed()"),         self._setBTraceYValue)
-
+            QObject.connect(self.TraceZSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceZNum)
+            QObject.connect(self.TraceZValue,     SIGNAL("returnPressed()"),         self._setBTraceZValue)
 
         elif self.ds_type == ds_types['view']:
             QObject.connect(self.TraceSelector,   SIGNAL("valueChanged(int)"),       self._setTraceNum)
@@ -229,20 +228,21 @@ class PlotWindow(QWidget,Ui_Form):
 
     def _defaultBox(self):
         shape = self.ds.shape
+        
         self.TraceZSelector.setEnabled(True)
         self.TraceZSelector.setRange(-1*shape[2],shape[2]-1)
         self.TraceZSelector.setValue(shape[2]/2)
         self.TraceZNum = shape[2]/2
-
+        
         self.TraceXSelector.setEnabled(False)
         self.TraceXSelector.setRange(-1*shape[0],shape[0]-1)
-        self.TraceXNum = -1
+        self.TraceXNum = -1        
 
         self.TraceYSelector.setEnabled(False)
         self.TraceYSelector.setRange(-1*shape[1],shape[1]-1)
         self.TraceYNum = -1
-
-        self.PlotTypeSelector.setCurrentIndex(0)
+        
+        self.PlotTypeSelector.setCurrentIndex(2)
 
     def _defaultView(self):
         self.TraceSelector.setEnabled(True)
@@ -290,22 +290,6 @@ class PlotWindow(QWidget,Ui_Form):
         if not self.TraceValueChanged:
             self.obj_parent.pw_refresh_signal.emit()
     #######
-
-    def _setBTraceZValue(self):
-        xval = str(self.TraceZValue.displayText())
-        try:
-            self._traceZ_value = float(xval.split()[0])
-        except ValueError:
-            return
-        self.TraceZValueChanged = True
-        if not self._windowJustCreated:
-            self.obj_parent.pw_refresh_signal.emit()
-
-    def _setBTraceZNum(self,num):
-        self.TraceZ = num
-        if not self.TraceZValueChanged:
-            self.obj_parent.pw_refresh_signal.emit()
-
     def _setBTraceXValue(self):
         xval = str(self.TraceXValue.displayText())
         try:
@@ -332,6 +316,20 @@ class PlotWindow(QWidget,Ui_Form):
     def _setBTraceYNum(self,num):
         self.TraceYNum = num
         if not self.TraceYValueChanged:
+            self.obj_parent.pw_refresh_signal.emit()
+
+    def _setBTraceZValue(self):
+        xval = str(self.TraceZValue.displayText())
+        try:
+            self._traceZ_value = float(xval.split()[0])
+        except ValueError:
+            return
+        self.TraceZValueChanged = True
+        self.obj_parent.pw_refresh_signal.emit()
+
+    def _setBTraceZNum(self,num):
+        self.TraceZNum = num
+        if not self.TraceZValueChanged:
             self.obj_parent.pw_refresh_signal.emit()
 
     def _onPlotTypeChangeVector(self, index):
@@ -363,24 +361,24 @@ class PlotWindow(QWidget,Ui_Form):
         self._onPlotTypeChanged = True
         if index == 0:
             self.view_type = self.view_types['2D']
-            self.TraceZSelector.setEnabled(True)
-            self.TraceXSelector.setEnabled(False)
+            self.TraceXSelector.setEnabled(True)
             self.TraceYSelector.setEnabled(False)
+            self.TraceZSelector.setEnabled(False)
         if index == 1:
             self.view_type = self.view_types['2D']
-            self.TraceZSelector.setEnabled(False)
-            self.TraceXSelector.setEnabled(True)
-            self.TraceYSelector.setEnabled(False)
-        if index == 2:
-            self.view_type = self.view_types['2D']
-            self.TraceZSelector.setEnabled(False)
             self.TraceXSelector.setEnabled(False)
             self.TraceYSelector.setEnabled(True)
+            self.TraceZSelector.setEnabled(False)
+        if index == 2:
+            self.view_type = self.view_types['2D']
+            self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(False)
+            self.TraceZSelector.setEnabled(True)
         if index == 3:
             self.view_type = self.view_types['1D']
-            self.TraceZSelector.setEnabled(False)
             self.TraceXSelector.setEnabled(True)
             self.TraceYSelector.setEnabled(True)
+            self.TraceZSelector.setEnabled(False)
 
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
