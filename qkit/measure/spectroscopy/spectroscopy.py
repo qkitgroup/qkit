@@ -326,6 +326,8 @@ class spectrum(object):
                         self._p.iterate()
                         ti = time()
                     qt.msleep(.2)
+                while self._p.progr < self._p.max_it:
+                    self._p.iterate()
             else:
                 self.vna.avg_clear()
                 if self.vna.get_averages() == 1 or self.vna.get_Average() == False:   #no averaging
