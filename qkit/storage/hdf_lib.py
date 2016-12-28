@@ -95,7 +95,7 @@ class Data(object):
         
     def add_coordinate(self,  name, unit = "", comment = "",folder="data",**meta):
         ds =  hdf_dataset(self.hf, name,unit=unit, ds_type = ds_types['coordinate'],
-                          comment= comment, folder=folder,**meta)
+                          comment= comment, folder=folder, dtype='float64', **meta)
         return ds
 
     def add_value_vector(self, name, x = None, unit = "", comment = "",folder="data",**meta):

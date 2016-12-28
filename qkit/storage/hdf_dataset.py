@@ -191,7 +191,7 @@ class hdf_dataset(object):
 
             """
             # we cast everything to a float numpy array
-            data = numpy.array(data,dtype='float64')
+            data = numpy.array(data,dtype=self.dtype)
             if self.y_object:
                 logging.info("add is only for 1-Dim data. Please use append 2-Dim data.")
                 return False
@@ -201,7 +201,7 @@ class hdf_dataset(object):
                 #print self.name, data.shape
                 tracelength = 0
                 # create the dataset
-                self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,dim = 1,dtype='float64')
+                self.ds = self.hf.create_dataset(self.name,tracelength,folder=self.folder,dim = 1,dtype=self.dtype)
 
                 if not self.x_object:
                     # coordinate does not have x_object
