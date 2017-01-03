@@ -205,7 +205,7 @@ class Resonator(object):
         self._fit_amplitude = np.array(self._set_data_range(self._amplitude))
         self._fit_phase = np.array(self._set_data_range(self._phase))
 
-        self._frequency_co = self._hf.add_coordinate('frequency',folder='analysis', unit = 'Hz',dtype='float64')
+        self._frequency_co = self._hf.add_coordinate('frequency',folder='analysis', unit = 'Hz')
         self._frequency_co.add(self._fit_frequency)
 
     def _update_data(self):

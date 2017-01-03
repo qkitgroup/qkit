@@ -221,7 +221,7 @@ class spectrum(object):
         self._log = waf.open_log_file(self._data_file.get_filepath())
 
         if not self._scan_time:
-            self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz', dtype='float64')
+            self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
             self._data_freq.add(self._freqpoints)
 
         if self._scan_1D:
@@ -266,10 +266,10 @@ class spectrum(object):
                     self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i]))
 
         if self._scan_time:
-            self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz', dtype='float64')
+            self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
             self._data_freq.add([self.vna.get_centerfreq()])
             
-            self._data_time = self._data_file.add_coordinate('time', unit = 's', dtype='float64')
+            self._data_time = self._data_file.add_coordinate('time', unit = 's')
             self._data_time.add(np.arange(0,self._nop,1)*self.vna.get_sweeptime()/(self._nop-1))
             
             self._data_x = self._data_file.add_coordinate('trace_number', unit = '')
