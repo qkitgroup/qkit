@@ -67,6 +67,9 @@ class PlotWindow(QWidget,Ui_Form):
             self.TraceZValueChanged = False
             self.TraceXValueChanged = False
             self.TraceYValueChanged = False
+            self.VTraceZValueChanged = False
+            self.VTraceXValueChanged = False
+            self.VTraceYValueChanged = False
 
             # the following calls rely on ds_type and setup the layout of the plot window.
             self.setupUi(self,self.ds_type)
@@ -158,8 +161,10 @@ class PlotWindow(QWidget,Ui_Form):
             QObject.connect(self.TraceZValue,     SIGNAL("returnPressed()"),         self._setBTraceZValue)
 
         elif self.ds_type == ds_types['view']:
-            QObject.connect(self.TraceSelector,   SIGNAL("valueChanged(int)"),       self._setTraceNum)
-            QObject.connect(self.TraceValue,      SIGNAL("returnPressed()"),         self._setTraceValue)
+            QObject.connect(self.VTraceXSelector,   SIGNAL("valueChanged(int)"),       self._setVTraceXNum)
+            QObject.connect(self.VTraceXValue,      SIGNAL("returnPressed()"),         self._setVTraceXValue)
+            QObject.connect(self.VTraceYSelector,   SIGNAL("valueChanged(int)"),       self._setVTraceYNum)
+            QObject.connect(self.VTraceYValue,      SIGNAL("returnPressed()"),         self._setVTraceYValue)
 
     def keyPressEvent(self, ev):
         #print "Received Key Press Event!! You Pressed: "+ event.text()
@@ -245,8 +250,10 @@ class PlotWindow(QWidget,Ui_Form):
         self.PlotTypeSelector.setCurrentIndex(2)
 
     def _defaultView(self):
-        self.TraceSelector.setEnabled(True)
-
+        self.VTraceXSelector.setEnabled(True)
+        self.VTraceYSelector.setEnabled(True)
+        self.VTraceXNum = -1
+        self.VTraceYNum = -1 
 
     def _defaultOld(self):
         if not self.view_type:
@@ -290,6 +297,36 @@ class PlotWindow(QWidget,Ui_Form):
         if not self.TraceValueChanged:
             self.obj_parent.pw_refresh_signal.emit()
     #######
+    def _setVTraceXValue(self):
+        xval = str(self.VTraceXValue.displayText())
+        try:
+            self._VtraceX_value = float(xval.split()[0])
+        except ValueError:
+            return
+        self.VTraceXValueChanged = True
+        self.obj_parent.pw_refresh_signal.emit()
+
+
+    def _setVTraceXNum(self,num):
+        self.VTraceXNum = num
+        if not self.VTraceXValueChanged:
+            self.obj_parent.pw_refresh_signal.emit()
+
+    def _setVTraceYValue(self):
+        xval = str(self.VTraceYValue.displayText())
+        try:
+            self._VtraceY_value = float(xval.split()[0])
+        except ValueError:
+            return
+        self.VTraceYValueChanged = True
+        self.obj_parent.pw_refresh_signal.emit()
+
+
+    def _setVTraceYNum(self,num):
+        self.VTraceYNum = num
+        if not self.TraceYValueChanged:
+            self.obj_parent.pw_refresh_signal.emit()
+
     def _setBTraceXValue(self):
         xval = str(self.TraceXValue.displayText())
         try:
