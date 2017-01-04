@@ -388,7 +388,7 @@ class Agilent_PNAX(Instrument):
                     
     def do_set_averages(self, av):
         '''
-        Set number of averages.
+        Set number of averages and simultaneously sets this to the number of sweeps per group. This is important for sweep_mode(GRO)
 
         Input:
             av (int) : Number of averages
@@ -398,9 +398,9 @@ class Agilent_PNAX(Instrument):
         '''
         if self._zerospan == False:
             logging.debug(__name__ + ' : setting Number of averages to %i ' % (av))
-            self._visainstrument.write(':SENS%i:AVER:COUN %i' % (self._ci,av))
+            self._visainstrument.write(':SENS%i:AVER:COUN %i; :SENS%i:SWE:GRO:COUN %i' % (self._ci,av,self._ci,av))
         else:
-            self._visainstrument.write('SWE:POIN %.1f' % (self._ci,av))
+            self._visainstrument.write('SWE:POIN %.1f' % (self._ci,av)) #for zerospan, one would have to check what to take as group count
             
     def do_get_averages(self):
         '''
