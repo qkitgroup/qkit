@@ -736,4 +736,5 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
     if pcov == None:
         return np.concatenate((popt,float('inf')*np.ones(len(popt))),axis=1)   #fill up errors with 'inf' in case fit did not converge
     else:
-        return np.concatenate((popt,np.sqrt(np.diag(pcov))),axis=1)   #shape of popt and np.sqrt(np.diag(pcov)) is (4,), respectively, so concatenation needs to take place along axis 1
+        #return np.concatenate((popt,np.sqrt(np.diag(pcov))),axis=1)   #shape of popt and np.sqrt(np.diag(pcov)) is (4,), respectively, so concatenation needs to take place along axis 1
+        return popt,np.sqrt(np.diag(pcov))
