@@ -44,28 +44,62 @@ def _display_1D_view(self,graphicsView):
 
     for i, x_ds in enumerate(ds_xs):
         y_ds = ds_ys[i]
-        # this is a litte clumsy, but for the cases tested it works well
-        # should be changed to the ds_type-diffenentiation
-        if len(x_ds.shape) == 1 and len(y_ds.shape) == 1:
-            self.TraceSelector.setEnabled(False)
+        
+        if x_ds.attrs.get('ds_type',0) == ds_types['coordinate'] or x_ds.attrs.get('ds_type',0) == ds_types['vector']:
+            if y_ds.attrs.get('ds_type',0) == ds_types['vector']:
+                self.VTraceXSelector.setEnabled(False)
+                self.VTraceYSelector.setEnabled(False)
             x_data = np.array(x_ds)
             y_data = np.array(y_ds)
 
-        elif len(x_ds.shape) == 2 and len(y_ds.shape) == 2:
-            self.TraceSelector.setEnabled(True)
+            elif y_ds.attrs.get('ds_type',0) == ds_types['matrix']:
+                self.VTraceXSelector.setEnabled(True)
+                range_max = y_ds.shape[0]
+                self.VTraceXSelector.setRange(-1*range_max,range_max-1)
+                self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
+                self.VTraceYSelector.setEnabled(False)
+    
+                x_data = np.array(x_ds)
+                y_data = np.array(y_ds[self.VTraceXNum])
+
+            elif y_ds.attrs.get('ds_type',0) == ds_types['box']:
+                self.VTraceXSelector.setEnabled(True)
+                range_maxX = y_ds.shape[0]
+                self.VTraceXSelector.setRange(-1*range_maxX,range_maxX-1)
+                self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
+                self.VTraceYSelector.setEnabled(True)
+                range_maxY = y_ds.shape[1]
+                self.VTraceYSelector.setRange(-1*range_maxY,range_maxY-1)
+                self.VTraceYValue.setText(self._getYValueFromTraceNum(y_ds,self.VTraceYNum))
+                
+                x_data = np.array(x_ds)
+                y_data = np.array(y_ds[self.VTraceXNum,self.VTraceYNum,:])
+
+        ## This is in our case used so far only for IQ plots. The functionality derives from this application.
+        elif x_ds.attrs.get('ds_type',0) == ds_types['matrix']:
+            if x_ds.attrs.get('ds_type',0) == ds_types['matrix']:
+                self.VTraceXSelector.setEnabled(True)
             range_max = np.minimum( x_ds.shape[0],y_ds.shape[0])
-            self.TraceSelector.setRange(-1*range_max,range_max-1)
+                self.VTraceXSelector.setRange(-1*range_max,range_max-1)
+                self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
+                self.VTraceYSelector.setEnabled(False)
 
-            x_data = np.array(x_ds[self.TraceNum])
-            y_data = np.array(y_ds[self.TraceNum])
+                x_data = np.array(x_ds[self.VTraceXNum])
+                y_data = np.array(y_ds[self.VTraceXNum])
 
-        elif len(x_ds.shape) == 1 and len(y_ds.shape) == 2:
-            self.TraceSelector.setEnabled(True)
-            range_max = y_ds.shape[0]
-            self.TraceSelector.setRange(-1*range_max,range_max-1)
+        elif x_ds.attrs.get('ds_type',0) == ds_types['box']:
+            if x_ds.attrs.get('ds_type',0) == ds_types['box']:
+                self.VTraceXSelector.setEnabled(True)
+                range_maxX = y_ds.shape[0]
+                self.VTraceXSelector.setRange(-1*range_maxX,range_maxX-1)
+                self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
+                self.VTraceYSelector.setEnabled(True)
+                range_maxY = y_ds.shape[1]
+                self.VTraceYSelector.setRange(-1*range_maxY,range_maxY-1)
+                self.VTraceYValue.setText(self._getYValueFromTraceNum(y_ds,self.VTraceYNum))
 
-            x_data = np.array(x_ds)#,axis=x_axis[i])
-            y_data = np.array(y_ds[self.TraceNum])#y_axis[i])#,axis=y_axis[i])
+                x_data = np.array(x_ds[self.VTraceXNum,self.VTraceYNum,:])
+                y_data = np.array(y_ds[self.VTraceXNum,self.VTraceYNum,:])
 
         else:
             return
@@ -280,6 +314,7 @@ def _display_2D_data(self,graphicsView):
     x_unit = ds.attrs.get("x_unit","_none_")
     y_name = ds.attrs.get("y_name","_none_")
     y_unit = ds.attrs.get("y_unit","_none_")
+    #print graphicsView.getHistogramWidget().region.getRegion()#.vb.state['autoRange'] #aS 2016-12 for further use
 
     if self.ds_type == ds_types['box']:
         if self.PlotTypeSelector.currentIndex() == 0:
@@ -348,12 +383,15 @@ def _display_2D_data(self,graphicsView):
     
     if self.manipulation & self.manipulations['linear']:
         data = data - np.outer(data[:,-1]-data[:,0],np.linspace(0,1,data.shape[1]))
+     
+    if self.manipulation & self.manipulations['remove_zeros']:
+        data[np.where(data==0)] = np.NaN #replace all exact zeros in the hd5 data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
         
 
-    xmin = x0
-    xmax = x0+fill_x*dx
-    ymin = y0
-    ymax = y0+fill_y*dy
+    xmin = x0-dx/2 #center the data around the labels
+    xmax = x0+fill_x*dx-dx/2
+    ymin = y0-dy/2
+    ymax = y0+fill_y*dy-dy/2
 
     pos = (xmin,ymin)
 
