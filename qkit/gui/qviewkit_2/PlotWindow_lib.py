@@ -41,7 +41,7 @@ def _display_1D_view(self,graphicsView):
 
     if not graphicsView.plotItem.legend:
         graphicsView.plotItem.addLegend(size=(160,48),offset=(30,15))
-
+        
     for i, x_ds in enumerate(ds_xs):
         y_ds = ds_ys[i]
         
@@ -79,11 +79,11 @@ def _display_1D_view(self,graphicsView):
         elif x_ds.attrs.get('ds_type',0) == ds_types['matrix']:
             if x_ds.attrs.get('ds_type',0) == ds_types['matrix']:
                 self.VTraceXSelector.setEnabled(True)
-            range_max = np.minimum( x_ds.shape[0],y_ds.shape[0])
+                range_max = np.minimum(x_ds.shape[0],y_ds.shape[0])
                 self.VTraceXSelector.setRange(-1*range_max,range_max-1)
                 self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
                 self.VTraceYSelector.setEnabled(False)
-
+    
                 x_data = np.array(x_ds[self.VTraceXNum])
                 y_data = np.array(y_ds[self.VTraceXNum])
 
@@ -97,16 +97,16 @@ def _display_1D_view(self,graphicsView):
                 range_maxY = y_ds.shape[1]
                 self.VTraceYSelector.setRange(-1*range_maxY,range_maxY-1)
                 self.VTraceYValue.setText(self._getYValueFromTraceNum(y_ds,self.VTraceYNum))
-
+                
                 x_data = np.array(x_ds[self.VTraceXNum,self.VTraceYNum,:])
                 y_data = np.array(y_ds[self.VTraceXNum,self.VTraceYNum,:])
-
+                
         else:
             return
 
         x_name = x_ds.attrs.get("name","_none_")
         y_name = y_ds.attrs.get("name","_none_")
-
+        
         x_unit = x_ds.attrs.get("unit","_none_")
         y_unit = y_ds.attrs.get("unit","_none_")
 
@@ -157,8 +157,7 @@ def _display_1D_view(self,graphicsView):
     plIt = graphicsView.getPlotItem()
     plVi = plIt.getViewBox()
 
-    self._last_x_pos = 0
-    
+    self._last_x_pos = 0   
     def mouseMoved(mpos):
         mpos = mpos[0]
         if plIt.sceneBoundingRect().contains(mpos):

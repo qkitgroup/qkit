@@ -84,18 +84,17 @@ class Ui_Form(object):
         
 
     def setupView(self,Form):
-        self.TraceSelector = QtGui.QSpinBox(Form)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.TraceSelector.sizePolicy().hasHeightForWidth())
-        
-        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceSelector", 
-                                        TraceIndicator="TraceValue")
+        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "VTraceXSelector", 
+                                        TraceIndicator="VTraceXValue", prefix = "TraceX: ")
+        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "VTraceYSelector", 
+                                        TraceIndicator="VTraceYValue", prefix = "TraceY: ")        
 
-        #The indicators should be located at the most right side of the bar
         spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
+        
         self._addIndicatorLabels(Form,sizePolicy,indicators=["PointX","PointY"])
         
 
