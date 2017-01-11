@@ -49,8 +49,8 @@ def _display_1D_view(self,graphicsView):
             if y_ds.attrs.get('ds_type',0) == ds_types['vector']:
                 self.VTraceXSelector.setEnabled(False)
                 self.VTraceYSelector.setEnabled(False)
-            x_data = np.array(x_ds)
-            y_data = np.array(y_ds)
+                x_data = np.array(x_ds)
+                y_data = np.array(y_ds)
 
             elif y_ds.attrs.get('ds_type',0) == ds_types['matrix']:
                 self.VTraceXSelector.setEnabled(True)
