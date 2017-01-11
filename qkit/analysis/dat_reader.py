@@ -211,7 +211,7 @@ def read_hdf_data(nfile,entries=None, show_output=True):
     data = []
     for u in urls:
         data.append(np.array(hf[u],dtype=np.float64))
-    return np.array(data)
+    return np.array(data), urls
 
 # =================================================================================================================
 
@@ -237,7 +237,7 @@ def load_data(file_name = None,entries = None, show_output=True):
         if show_output:
             print 'Reading file '+nfile
         if nfile[-2:] == 'h5':   #hdf file
-            data = read_hdf_data(nfile, entries, show_output)
+            data, urls = read_hdf_data(nfile, entries, show_output)
         else:   #dat file
             data = np.loadtxt(nfile, comments='#').T
     except NameError:
@@ -247,7 +247,7 @@ def load_data(file_name = None,entries = None, show_output=True):
         print 'invalid file name...aborting:', message
         return
 
-    return data, nfile
+    return data, nfile, urls
 
 # =================================================================================================================
 
@@ -336,7 +336,7 @@ def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp =
 
 # =================================================================================================================
 
-def _safe_fit_data_in_h5_file(fname,x_vec,fvalues,entryname=''):
+def _safe_fit_data_in_h5_file(fname,x_vec,fvalues,entryname='',x_url='',data_url=''):
     '''
     appends fitted data to the h5 file in folder analysis with a newly created parameter axis containing
      a fixed number of points
@@ -345,6 +345,8 @@ def _safe_fit_data_in_h5_file(fname,x_vec,fvalues,entryname=''):
     x_vec: generated x vector (parameter vector) of constant length
     fvalues: fitted function values, array of length len(x_vec)
     entryname: suffix to be added to the name of analysis entry
+    x_url: url of coordinate axis
+    data_url: url of data entry
     
     So far I hope that hdf_lib throws away old fit data when refitting and generating the same axes in the analysis folder. (JB)
     '''
@@ -355,6 +357,12 @@ def _safe_fit_data_in_h5_file(fname,x_vec,fvalues,entryname=''):
         hdf_x.add(x_vec)
         hdf_fit = hf.add_value_vector('fit'+entryname, folder='analysis', x = hdf_x)
         hdf_fit.append(np.array(fvalues))
+        
+        ds_x = hf.get_dataset(x_url)
+        ds_data = hf.get_dataset(data_url)
+        joint_view = hf.add_view('joint_view', x = hdf_x, y = hdf_fit)
+        joint_view.add(x = ds_x, y = ds_data)
+        
         hf.close_file()
     except Exception as m:
         print 'Error while attempting to save fit data in h5 file:', m
@@ -410,6 +418,8 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
         return a*k/(2*np.pi)/((k/2)**2+(f-f0)**2)+offs
         
     def f_damped_sine(t, fs, Td, a, offs, ph):
+        if a < 0: return np.NaN #constrict amplitude to positive values
+        if ph < -np.pi or ph > np.pi: return np.NaN #constrict phase
         return a*np.exp(-t/Td)*np.sin(2*np.pi*fs*t+ph)+offs
         
     def f_sine(t, fs, a, offs, ph):
@@ -427,11 +437,13 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
         data_c = 1
         
     if file_name == 'dat_import':
-        print 'use imported data'
+        if show_output: print 'use imported data'
         data_c = 1
     else:
         #load data
-        data, nfile = load_data(file_name, entries, show_output)
+        data, nfile, urls = load_data(file_name, entries, show_output)
+        x_url = urls[0]
+    data_url = urls[data_c]
 
     #check column identifier
     if type(data_c) == str:
@@ -439,6 +451,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
             data_c = 1
         else:
             data_c = 2
+            data_url = urls[2]
     if data_c >= len(data):
         print 'bad data column identifier, out of bonds...aborting'
         return
@@ -723,8 +736,8 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
             if show_output:
                 print 'figure not stored:', m
             
-        if pcov != None and nfile[-2:] == 'h5':   #in case fit was successful
-            if _safe_fit_data_in_h5_file(nfile,x_vec,np.array(fvalues),entryname):
+        if pcov != None and nfile!= None and nfile[-2:] == 'h5':   #in case fit was successful
+            if _safe_fit_data_in_h5_file(nfile,x_vec,np.array(fvalues),entryname,x_url,data_url):
                 if entryname == '':
                     if show_output:
                         print 'Fit data successfully stored in h5 file.'
@@ -736,4 +749,5 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
     if pcov == None:
         return np.concatenate((popt,float('inf')*np.ones(len(popt))),axis=1)   #fill up errors with 'inf' in case fit did not converge
     else:
-        return np.concatenate((popt,np.sqrt(np.diag(pcov))),axis=1)   #shape of popt and np.sqrt(np.diag(pcov)) is (4,), respectively, so concatenation needs to take place along axis 1
+        #return np.concatenate((popt,np.sqrt(np.diag(pcov))),axis=1)   #shape of popt and np.sqrt(np.diag(pcov)) is (4,), respectively, so concatenation needs to take place along axis 1
+        return popt,np.sqrt(np.diag(pcov))
