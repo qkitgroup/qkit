@@ -235,12 +235,12 @@ def crossing_fit(x, y, fcts = [c_line, s_line], guess = [1], show_plot = True, s
                     print(p+" = ( {0:7.3f})".format(fit_params[par_ind]))
                 par_ind += 1
             i += 1
-        print("Coupling strenghts:")
+        print("Coupling strengths:")
         i = 0
-        for cs in fit_params[par_ind:]:
+        for cs in fit_params[par_ind:]:   #JB: cs not in use?!
             try:
                 print("g["+ str(i)+"] = ( {0:7.4f} +- {1:8.4f})".format(fit_params[par_ind], np.abs(np.diag(pcov)[par_ind])**0.5))
-            except:
+            except:   #JB: global except clause is not nice, catch ValueError maybe and an empty g entry in fit_params separately...
                 print("g["+ str(i)+"] = ( {0:7.4f} +- {1:8.4f})".format(fit_params[par_ind]))
             i += 1
             par_ind += 1
