@@ -239,9 +239,9 @@ def crossing_fit(x, y, fcts = [c_line, s_line], guess = [1], show_plot = True, s
         i = 0
         for cs in fit_params[par_ind:]:
             try:
-                print("g["+ str(i)+"] = ( {0:7.3f} +- {1:8.3f})".format(fit_params[par_ind], np.abs(np.diag(pcov)[par_ind])**0.5))
+                print("g["+ str(i)+"] = ( {0:7.4f} +- {1:8.4f})".format(fit_params[par_ind], np.abs(np.diag(pcov)[par_ind])**0.5))
             except:
-                print("g["+ str(i)+"] = ( {0:7.3f} +- {1:8.3f})".format(fit_params[par_ind]))
+                print("g["+ str(i)+"] = ( {0:7.4f} +- {1:8.4f})".format(fit_params[par_ind]))
             i += 1
             par_ind += 1
     
