@@ -2,7 +2,7 @@
 Qkit framework -- an extension to qtlab written in python
 
 ### Features:
-  * a collection of ipython notebooks for measurement and data anaysis tasks.
+  * a collection of ipython notebooks for measurement and data analysis tasks.
   * hdf5 based data storage of 1,2 and 3 dimensional data, including a viewer for 1 and 2 dimensional data.
   * classes for data fitting, e.g. of microwave resonator data. This includes also a robust circle fit algorithm.
   * extended and maintained drivers for various low frequency and microwave electronics.
@@ -17,6 +17,7 @@ Qkit framework -- an extension to qtlab written in python
   * An up to date python distribution, including the qt gui libs.  
     e.g.  anaconda python http://continuum.io/downloads  
           python xy http://pythonxynews.blogspot.de/
+  * h5py http://www.h5py.org/
   * pyqtgraph is required by the viewer (qkit/gui/qviewkit) : http://www.pyqtgraph.org/
 
 

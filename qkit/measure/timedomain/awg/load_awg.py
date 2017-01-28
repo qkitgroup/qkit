@@ -109,8 +109,8 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
                 if loop:
                     awg.set_seq_loop(ti+1, np.infty)
             elif "Tabor" in awg.get_type():
-                if chan == 0:
-                    awg.wfm_send2(wfm_samples[0],wfm_samples[1],marker1,marker2,chpair*2-1+chan+1,ti+1)
+                if chan == 1:   #write out both together
+                    awg.wfm_send2(wfm_samples[0],wfm_samples[1],marker1,marker2,chpair,ti+1)
                 else: continue
             else:
                 raise ValueError("AWG type not known")

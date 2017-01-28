@@ -41,38 +41,72 @@ def _display_1D_view(self,graphicsView):
 
     if not graphicsView.plotItem.legend:
         graphicsView.plotItem.addLegend(size=(160,48),offset=(30,15))
-
+        
     for i, x_ds in enumerate(ds_xs):
         y_ds = ds_ys[i]
-        # this is a litte clumsy, but for the cases tested it works well
-        # should be changed to the ds_type-diffenentiation
-        if len(x_ds.shape) == 1 and len(y_ds.shape) == 1:
-            self.TraceSelector.setEnabled(False)
-            x_data = np.array(x_ds)
-            y_data = np.array(y_ds)
+        
+        if x_ds.attrs.get('ds_type',0) == ds_types['coordinate'] or x_ds.attrs.get('ds_type',0) == ds_types['vector']:
+            if y_ds.attrs.get('ds_type',0) == ds_types['vector']:
+                self.VTraceXSelector.setEnabled(False)
+                self.VTraceYSelector.setEnabled(False)
+                x_data = np.array(x_ds)
+                y_data = np.array(y_ds)
 
-        elif len(x_ds.shape) == 2 and len(y_ds.shape) == 2:
-            self.TraceSelector.setEnabled(True)
-            range_max = np.minimum( x_ds.shape[0],y_ds.shape[0])
-            self.TraceSelector.setRange(-1*range_max,range_max-1)
+            elif y_ds.attrs.get('ds_type',0) == ds_types['matrix']:
+                self.VTraceXSelector.setEnabled(True)
+                range_max = y_ds.shape[0]
+                self.VTraceXSelector.setRange(-1*range_max,range_max-1)
+                self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
+                self.VTraceYSelector.setEnabled(False)
+    
+                x_data = np.array(x_ds)
+                y_data = np.array(y_ds[self.VTraceXNum])
 
-            x_data = np.array(x_ds[self.TraceNum])
-            y_data = np.array(y_ds[self.TraceNum])
+            elif y_ds.attrs.get('ds_type',0) == ds_types['box']:
+                self.VTraceXSelector.setEnabled(True)
+                range_maxX = y_ds.shape[0]
+                self.VTraceXSelector.setRange(-1*range_maxX,range_maxX-1)
+                self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
+                self.VTraceYSelector.setEnabled(True)
+                range_maxY = y_ds.shape[1]
+                self.VTraceYSelector.setRange(-1*range_maxY,range_maxY-1)
+                self.VTraceYValue.setText(self._getYValueFromTraceNum(y_ds,self.VTraceYNum))
+                
+                x_data = np.array(x_ds)
+                y_data = np.array(y_ds[self.VTraceXNum,self.VTraceYNum,:])
 
-        elif len(x_ds.shape) == 1 and len(y_ds.shape) == 2:
-            self.TraceSelector.setEnabled(True)
-            range_max = y_ds.shape[0]
-            self.TraceSelector.setRange(-1*range_max,range_max-1)
+        ## This is in our case used so far only for IQ plots. The functionality derives from this application.
+        elif x_ds.attrs.get('ds_type',0) == ds_types['matrix']:
+            if x_ds.attrs.get('ds_type',0) == ds_types['matrix']:
+                self.VTraceXSelector.setEnabled(True)
+                range_max = np.minimum(x_ds.shape[0],y_ds.shape[0])
+                self.VTraceXSelector.setRange(-1*range_max,range_max-1)
+                self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
+                self.VTraceYSelector.setEnabled(False)
+    
+                x_data = np.array(x_ds[self.VTraceXNum])
+                y_data = np.array(y_ds[self.VTraceXNum])
 
-            x_data = np.array(x_ds)#,axis=x_axis[i])
-            y_data = np.array(y_ds[self.TraceNum])#y_axis[i])#,axis=y_axis[i])
-
+        elif x_ds.attrs.get('ds_type',0) == ds_types['box']:
+            if x_ds.attrs.get('ds_type',0) == ds_types['box']:
+                self.VTraceXSelector.setEnabled(True)
+                range_maxX = y_ds.shape[0]
+                self.VTraceXSelector.setRange(-1*range_maxX,range_maxX-1)
+                self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
+                self.VTraceYSelector.setEnabled(True)
+                range_maxY = y_ds.shape[1]
+                self.VTraceYSelector.setRange(-1*range_maxY,range_maxY-1)
+                self.VTraceYValue.setText(self._getYValueFromTraceNum(y_ds,self.VTraceYNum))
+                
+                x_data = np.array(x_ds[self.VTraceXNum,self.VTraceYNum,:])
+                y_data = np.array(y_ds[self.VTraceXNum,self.VTraceYNum,:])
+                
         else:
             return
 
         x_name = x_ds.attrs.get("name","_none_")
         y_name = y_ds.attrs.get("name","_none_")
-
+        
         x_unit = x_ds.attrs.get("unit","_none_")
         y_unit = y_ds.attrs.get("unit","_none_")
 
@@ -98,9 +132,17 @@ def _display_1D_view(self,graphicsView):
             pass
 
         # set the y data  to the decibel scale 
-        if self.plot_scale == self.plot_scales['dB']:
+        if self.manipulation & self.manipulations['dB']:
             y_data = 20 *np.log10(y_data)
             graphicsView.setLabel('left', y_name, units="dB") 
+          
+        # unwrap the phase
+        if self.manipulation & self.manipulations['wrap']:
+            y_data = np.unwrap(y_data)
+        
+        # linearly correct the data    
+        if self.manipulation & self.manipulations['linear']:
+            y_data = y_data - np.linspace(y_data[0],y_data[-1],len(y_data))
         
         if self.plot_style==self.plot_styles['line']:
             graphicsView.plot(y=y_data, x=x_data,pen=(i,3), name = y_name, connect='finite')
@@ -115,8 +157,7 @@ def _display_1D_view(self,graphicsView):
     plIt = graphicsView.getPlotItem()
     plVi = plIt.getViewBox()
 
-    self._last_x_pos = 0
-    
+    self._last_x_pos = 0   
     def mouseMoved(mpos):
         mpos = mpos[0]
         if plIt.sceneBoundingRect().contains(mpos):
@@ -212,9 +253,17 @@ def _display_1D_data(self,graphicsView):
     graphicsView.setLabel('bottom', x_name , units=x_unit)
 
     # set the y data  to the decibel scale 
-    if self.plot_scale == self.plot_scales['dB']:
+    if self.manipulation & self.manipulations['dB']:
         y_data = 20 *np.log10(y_data)
         graphicsView.setLabel('left', name, units="dB")
+    
+    # unwrap the phase
+    if self.manipulation & self.manipulations['wrap']:
+        y_data = np.unwrap(y_data)
+        
+    # linearly correct the data    
+    if self.manipulation & self.manipulations['linear']:
+        y_data = y_data - np.linspace(y_data[0],y_data[-1],len(y_data))
 
     if self.plot_style==self.plot_styles['line']:
         graphicsView.plot(y=y_data, x=x_data, clear = True, pen=(200,200,100),connect='finite')
@@ -264,26 +313,19 @@ def _display_2D_data(self,graphicsView):
     x_unit = ds.attrs.get("x_unit","_none_")
     y_name = ds.attrs.get("y_name","_none_")
     y_unit = ds.attrs.get("y_unit","_none_")
+    #print graphicsView.getHistogramWidget().region.getRegion()#.vb.state['autoRange'] #aS 2016-12 for further use
 
     if self.ds_type == ds_types['box']:
         if self.PlotTypeSelector.currentIndex() == 0:
-            if self.TraceZValueChanged:
-                #calc trace number from entered value
-                num = int((self._traceZ_value-ds.attrs.get("z0",0))/(ds.attrs.get("dz",1)))
-                self.TraceZNum = num
-                self.TraceZSelector.setValue(self.TraceZNum)
-                self.TraceZValueChanged = False
-
-            data = data[:,:,self.TraceZNum]
-        if self.PlotTypeSelector.currentIndex() == 1:
             if self.TraceXValueChanged:
                 #calc trace number from entered value
                 num = int((self._traceX_value-ds.attrs.get("x0",0))/(ds.attrs.get("dx",1)))
                 self.TraceXNum = num
                 self.TraceXSelector.setValue(self.TraceXNum)
                 self.TraceXValueChanged = False
-
+                
             data = data[self.TraceXNum,:,:]
+            
             fill_x = ds.shape[0]
             fill_y = ds.shape[2]
             x0 = ds.attrs.get("y0",0)
@@ -294,8 +336,8 @@ def _display_2D_data(self,graphicsView):
             x_unit = ds.attrs.get("y_unit","_none_")
             y_name = ds.attrs.get("z_name","_none_")
             y_unit = ds.attrs.get("z_unit","_none_")
-
-        if self.PlotTypeSelector.currentIndex() == 2:
+            
+        if self.PlotTypeSelector.currentIndex() == 1:
             if self.TraceYValueChanged:
                 #calc trace number from entered value
                 num = int((self._traceY_value-ds.attrs.get("y0",0))/(ds.attrs.get("dy",1)))
@@ -315,14 +357,40 @@ def _display_2D_data(self,graphicsView):
             y_name = ds.attrs.get("z_name","_none_")
             y_unit = ds.attrs.get("z_unit","_none_")
 
+        if self.PlotTypeSelector.currentIndex() == 2:
+            if self.TraceZValueChanged:
+                #calc trace number from entered value
+                num = int((self._traceZ_value-ds.attrs.get("z0",0))/(ds.attrs.get("dz",1)))
+                self.TraceZNum = num
+                self.TraceZSelector.setValue(self.TraceZNum)
+                self.TraceZValueChanged = False
+
+            data = data[:,:,self.TraceZNum]
+
+
         self.TraceXValue.setText(self._getXValueFromTraceNum(ds,self.TraceXNum))
         self.TraceYValue.setText(self._getYValueFromTraceNum(ds,self.TraceYNum))
         self.TraceZValue.setText(self._getZValueFromTraceNum(ds,self.TraceZNum))
 
-    xmin = x0
-    xmax = x0+fill_x*dx
-    ymin = y0
-    ymax = y0+fill_y*dy
+    # set the y data  to the decibel scale 
+    if self.manipulation & self.manipulations['dB']:
+        data = 20 *np.log10(data)
+        
+    # unwrap the phase
+    if self.manipulation & self.manipulations['wrap']:
+        data = np.unwrap(data)
+    
+    if self.manipulation & self.manipulations['linear']:
+        data = data - np.outer(data[:,-1]-data[:,0],np.linspace(0,1,data.shape[1]))
+     
+    if self.manipulation & self.manipulations['remove_zeros']:
+        data[np.where(data==0)] = np.NaN #replace all exact zeros in the hd5 data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
+        
+
+    xmin = x0-dx/2 #center the data around the labels
+    xmax = x0+fill_x*dx-dx/2
+    ymin = y0-dy/2
+    ymax = y0+fill_y*dy-dy/2
 
     pos = (xmin,ymin)
 

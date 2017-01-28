@@ -84,18 +84,17 @@ class Ui_Form(object):
         
 
     def setupView(self,Form):
-        self.TraceSelector = QtGui.QSpinBox(Form)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.TraceSelector.sizePolicy().hasHeightForWidth())
-        
-        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceSelector", 
-                                        TraceIndicator="TraceValue")
+        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "VTraceXSelector", 
+                                        TraceIndicator="VTraceXValue", prefix = "TraceX: ")
+        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "VTraceYSelector", 
+                                        TraceIndicator="VTraceYValue", prefix = "TraceY: ")        
 
-        #The indicators should be located at the most right side of the bar
         spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
+        
         self._addIndicatorLabels(Form,sizePolicy,indicators=["PointX","PointY"])
         
 
@@ -146,9 +145,9 @@ class Ui_Form(object):
         self.PlotTypeSelector.addItem(_fromUtf8(""))
         self.PlotTypeSelector.addItem(_fromUtf8(""))
         #self.horizontalLayout.addWidget(self.PlotTypeSelector)
-        self.PlotTypeSelector.setItemText(0, _translate("Form", "Select Z", None))
-        self.PlotTypeSelector.setItemText(1, _translate("Form", "Select X", None))
-        self.PlotTypeSelector.setItemText(2, _translate("Form", "Select Y", None))
+        self.PlotTypeSelector.setItemText(0, _translate("Form", "Select X", None))
+        self.PlotTypeSelector.setItemText(1, _translate("Form", "Select Y", None))
+        self.PlotTypeSelector.setItemText(2, _translate("Form", "Select Z", None))
         self.PlotTypeSelector.setItemText(3, _translate("Form", "Line Plot", None))
         
         self.PlotTypeLayout = QtGui.QVBoxLayout()
@@ -158,13 +157,12 @@ class Ui_Form(object):
         self.PlotTypeLayout.addWidget(emptyL)
         self.horizontalLayout.addLayout(self.PlotTypeLayout,stretch = -10)
        
-        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceZSelector",  
-                                        TraceIndicator="TraceZValue",  prefix = "TraceZ: ")
         self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceXSelector", 
                                         TraceIndicator="TraceXValue", prefix = "TraceX: ")
         self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceYSelector", 
                                         TraceIndicator="TraceYValue", prefix = "TraceY: ")
-        
+        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceZSelector",  
+                                        TraceIndicator="TraceZValue",  prefix = "TraceZ: ")        
 
         spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
@@ -227,6 +225,4 @@ class Ui_Form(object):
         temp_SelInd.setReadOnly(False)
         temp_SelInd.setObjectName(_fromUtf8("TraceValue"))
         self.TraceSelIndLayout.addWidget(temp_SelInd)
-        self.horizontalLayout.addLayout(self.TraceSelIndLayout,stretch = -10)
-        
-        
+        self.horizontalLayout.addLayout(self.TraceSelIndLayout,stretch = -10)              

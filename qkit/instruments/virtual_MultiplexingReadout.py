@@ -423,14 +423,14 @@ class virtual_MultiplexingReadout(Instrument):
         elif "Tabor_WX1284C" == self._awg.get_type():   #Tabor AWG
             self._awg.preset_readout()
             try:
-                self._awg.set_clock(self._sample.readout_clock())
+                self._awg.set_clock(self._sample.readout_clock)
             except:
                 logging.warning('Clock and amplitude settings not written.')
             self._awg.wfm_send2(samples[0],samples[1],m1 = marker1[0],m2 = marker2[0],seg=1)
             self._awg.define_sequence(1,1)
         elif "Tektronix" in self._awg.get_type():   #Tektronix AWG
             try:
-                self._awg.set_clock(self._sample.readout_clock())
+                self._awg.set_clock(self._sample.readout_clock)
                 self._awg.set_ch1_amplitude(self._tone_amp)
                 self._awg.set_ch2_amplitude(self._tone_amp)
             except:

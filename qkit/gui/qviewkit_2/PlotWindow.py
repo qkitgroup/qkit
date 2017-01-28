@@ -67,6 +67,9 @@ class PlotWindow(QWidget,Ui_Form):
             self.TraceZValueChanged = False
             self.TraceXValueChanged = False
             self.TraceYValueChanged = False
+            self.VTraceZValueChanged = False
+            self.VTraceXValueChanged = False
+            self.VTraceYValueChanged = False
 
             # the following calls rely on ds_type and setup the layout of the plot window.
             self.setupUi(self,self.ds_type)
@@ -104,7 +107,8 @@ class PlotWindow(QWidget,Ui_Form):
                     self._onPlotTypeChanged = False
                     self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
                     self.graphicsView.setObjectName(self.dataset_url)
-                    #self.addQvkMenu(self.graphicsView.getImageItem().getMenu())
+                    self.addQvkMenu(self.graphicsView.view.getMenu())
+                    #self.addQvkMenu(self..graphicsView.getImageItem().getMenu())
                     self.graphicsView.view.setAspectLocked(False)
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 _display_2D_data(self,self.graphicsView)
@@ -149,17 +153,18 @@ class PlotWindow(QWidget,Ui_Form):
 
         elif self.ds_type == ds_types['box']:
             QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeBox)
-            QObject.connect(self.TraceZSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceZNum)
-            QObject.connect(self.TraceZValue,     SIGNAL("returnPressed()"),         self._setBTraceZValue)
             QObject.connect(self.TraceXSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceXNum)
             QObject.connect(self.TraceXValue,     SIGNAL("returnPressed()"),         self._setBTraceXValue)
             QObject.connect(self.TraceYSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceYNum)
             QObject.connect(self.TraceYValue,     SIGNAL("returnPressed()"),         self._setBTraceYValue)
-
+            QObject.connect(self.TraceZSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceZNum)
+            QObject.connect(self.TraceZValue,     SIGNAL("returnPressed()"),         self._setBTraceZValue)
 
         elif self.ds_type == ds_types['view']:
-            QObject.connect(self.TraceSelector,   SIGNAL("valueChanged(int)"),       self._setTraceNum)
-            QObject.connect(self.TraceValue,      SIGNAL("returnPressed()"),         self._setTraceValue)
+            QObject.connect(self.VTraceXSelector,   SIGNAL("valueChanged(int)"),       self._setVTraceXNum)
+            QObject.connect(self.VTraceXValue,      SIGNAL("returnPressed()"),         self._setVTraceXValue)
+            QObject.connect(self.VTraceYSelector,   SIGNAL("valueChanged(int)"),       self._setVTraceYNum)
+            QObject.connect(self.VTraceYValue,      SIGNAL("returnPressed()"),         self._setVTraceYValue)
 
     def keyPressEvent(self, ev):
         #print "Received Key Press Event!! You Pressed: "+ event.text()
@@ -179,10 +184,12 @@ class PlotWindow(QWidget,Ui_Form):
 
         self.view_types =  {'1D':0,'1D-V':1, '2D':2, '3D':3, 'table':4, 'txt':5}
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
-        self.plot_scales = {'linear':0,'dB':1}
+        #self.plot_scales = {'linear':0,'dB':1,'phase_wrap':2}
+        self.manipulations = {'dB':1, 'wrap':2, 'linear':4, 'remove_zeros':8} #BITMASK for manipulation
 
         self.plot_style = 0
-        self.plot_scale = 0
+        #self.plot_scale = 0
+        self.manipulation = 8
         self.TraceNum = -1
         self.view_type = self.ds.attrs.get("view_type",None)
 
@@ -226,24 +233,27 @@ class PlotWindow(QWidget,Ui_Form):
 
     def _defaultBox(self):
         shape = self.ds.shape
+        
         self.TraceZSelector.setEnabled(True)
         self.TraceZSelector.setRange(-1*shape[2],shape[2]-1)
         self.TraceZSelector.setValue(shape[2]/2)
         self.TraceZNum = shape[2]/2
-
+        
         self.TraceXSelector.setEnabled(False)
         self.TraceXSelector.setRange(-1*shape[0],shape[0]-1)
-        self.TraceXNum = -1
+        self.TraceXNum = -1        
 
         self.TraceYSelector.setEnabled(False)
         self.TraceYSelector.setRange(-1*shape[1],shape[1]-1)
         self.TraceYNum = -1
-
-        self.PlotTypeSelector.setCurrentIndex(0)
+        
+        self.PlotTypeSelector.setCurrentIndex(2)
 
     def _defaultView(self):
-        self.TraceSelector.setEnabled(True)
-
+        self.VTraceXSelector.setEnabled(True)
+        self.VTraceYSelector.setEnabled(True)
+        self.VTraceXNum = -1
+        self.VTraceYNum = -1 
 
     def _defaultOld(self):
         if not self.view_type:
@@ -287,20 +297,34 @@ class PlotWindow(QWidget,Ui_Form):
         if not self.TraceValueChanged:
             self.obj_parent.pw_refresh_signal.emit()
     #######
-
-    def _setBTraceZValue(self):
-        xval = str(self.TraceZValue.displayText())
+    def _setVTraceXValue(self):
+        xval = str(self.VTraceXValue.displayText())
         try:
-            self._traceZ_value = float(xval.split()[0])
+            self._VtraceX_value = float(xval.split()[0])
         except ValueError:
             return
-        self.TraceZValueChanged = True
-        if not self._windowJustCreated:
+        self.VTraceXValueChanged = True
+        self.obj_parent.pw_refresh_signal.emit()
+
+
+    def _setVTraceXNum(self,num):
+        self.VTraceXNum = num
+        if not self.VTraceXValueChanged:
             self.obj_parent.pw_refresh_signal.emit()
 
-    def _setBTraceZNum(self,num):
-        self.TraceZ = num
-        if not self.TraceZValueChanged:
+    def _setVTraceYValue(self):
+        xval = str(self.VTraceYValue.displayText())
+        try:
+            self._VtraceY_value = float(xval.split()[0])
+        except ValueError:
+            return
+        self.VTraceYValueChanged = True
+        self.obj_parent.pw_refresh_signal.emit()
+
+
+    def _setVTraceYNum(self,num):
+        self.VTraceYNum = num
+        if not self.TraceYValueChanged:
             self.obj_parent.pw_refresh_signal.emit()
 
     def _setBTraceXValue(self):
@@ -329,6 +353,20 @@ class PlotWindow(QWidget,Ui_Form):
     def _setBTraceYNum(self,num):
         self.TraceYNum = num
         if not self.TraceYValueChanged:
+            self.obj_parent.pw_refresh_signal.emit()
+
+    def _setBTraceZValue(self):
+        xval = str(self.TraceZValue.displayText())
+        try:
+            self._traceZ_value = float(xval.split()[0])
+        except ValueError:
+            return
+        self.TraceZValueChanged = True
+        self.obj_parent.pw_refresh_signal.emit()
+
+    def _setBTraceZNum(self,num):
+        self.TraceZNum = num
+        if not self.TraceZValueChanged:
             self.obj_parent.pw_refresh_signal.emit()
 
     def _onPlotTypeChangeVector(self, index):
@@ -360,24 +398,24 @@ class PlotWindow(QWidget,Ui_Form):
         self._onPlotTypeChanged = True
         if index == 0:
             self.view_type = self.view_types['2D']
-            self.TraceZSelector.setEnabled(True)
-            self.TraceXSelector.setEnabled(False)
+            self.TraceXSelector.setEnabled(True)
             self.TraceYSelector.setEnabled(False)
+            self.TraceZSelector.setEnabled(False)
         if index == 1:
             self.view_type = self.view_types['2D']
-            self.TraceZSelector.setEnabled(False)
-            self.TraceXSelector.setEnabled(True)
-            self.TraceYSelector.setEnabled(False)
-        if index == 2:
-            self.view_type = self.view_types['2D']
-            self.TraceZSelector.setEnabled(False)
             self.TraceXSelector.setEnabled(False)
             self.TraceYSelector.setEnabled(True)
+            self.TraceZSelector.setEnabled(False)
+        if index == 2:
+            self.view_type = self.view_types['2D']
+            self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(False)
+            self.TraceZSelector.setEnabled(True)
         if index == 3:
             self.view_type = self.view_types['1D']
-            self.TraceZSelector.setEnabled(False)
             self.TraceXSelector.setEnabled(True)
             self.TraceYSelector.setEnabled(True)
+            self.TraceZSelector.setEnabled(False)
 
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
@@ -450,6 +488,15 @@ class PlotWindow(QWidget,Ui_Form):
         dB_scale = QAction(u'dB / linear', self.qvkMenu)
         self.qvkMenu.addAction(dB_scale)
         dB_scale.triggered.connect(self.setdBScale)
+        
+        phase_wrap = QAction(u'(un)wrap phase data', self.qvkMenu)
+        self.qvkMenu.addAction(phase_wrap)
+        phase_wrap.triggered.connect(self.setPhaseWrap)
+        
+        linear_correction = QAction(u'linearly correct data', self.qvkMenu)
+        self.qvkMenu.addAction(linear_correction)
+        linear_correction.triggered.connect(self.setLinearCorrection)
+        
 
         menu.addMenu(self.qvkMenu)
 
@@ -473,9 +520,21 @@ class PlotWindow(QWidget,Ui_Form):
 
     @pyqtSlot()
     def setdBScale(self):
-        if self.plot_scale == self.plot_scales['dB']:
-            self.plot_scale = self.plot_scales['linear']
-        else:
-            self.plot_scale = self.plot_scales['dB']
+        self.manipulation = self.manipulation ^ self.manipulations['dB']
+        #print "{:08b}".format(self.manipulation)
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+      
+    @pyqtSlot()
+    def setPhaseWrap(self):
+        self.manipulation = self.manipulation ^ self.manipulations['wrap']
+        #print "{:08b}".format(self.manipulation)
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+
+    @pyqtSlot()
+    def setLinearCorrection(self):
+        self.manipulation = self.manipulation ^ self.manipulations['linear']
+        #print "{:08b}".format(self.manipulation)
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()

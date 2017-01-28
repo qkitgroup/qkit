@@ -38,6 +38,7 @@ import numpy as np
 import time
 import os, sys
 import qt
+from qkit.gui.notebook.Progress_Bar import Progress_Bar
 
 if 'IVVI' not in qt.instruments.get_instrument_names():
     logging.error('Instrument IVVI not found.')
@@ -99,7 +100,7 @@ class Virtual_Coil(Instrument):
         """
         return self.c_ranges[channel-1]
 
-    def do_set_current(self, current, channel = 1):   #current in mA
+    def do_set_current(self, current, channel = 1,verbose=True):   #current in mA
         """
         set current of channel ch
         """
@@ -111,7 +112,7 @@ class Virtual_Coil(Instrument):
                 print 'dac range limits for this channel'
                 raise ArithmeticError
             else:
-                if 10.*val != np.round(10.*val):
+                if 10.*val != np.round(10.*val) and verbose:
                     logging.warning('16 bit resolution may be visible for the current value you are attempting to set.')
                 IVVI.set_dac(self.dacs[channel-1],val)
                 
@@ -131,9 +132,12 @@ class Virtual_Coil(Instrument):
             - steps: number of steps
             - dt: wait time between two steps
         """
+        p = Progress_Bar(steps,'Ramping current')   #init progress bar
         for c in np.linspace(self.do_get_current(ch),target,steps):
-            self.do_set_current(c,ch)
+            self.do_set_current(c,ch,verbose=False)
+            p.iterate("%.3gmA"%c)
             time.sleep(dt)
+        self.do_set_current(c,ch,verbose=True)
     
     def do_get_current(self, channel = 1):
         """

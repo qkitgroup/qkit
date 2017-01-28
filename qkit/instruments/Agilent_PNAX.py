@@ -152,6 +152,9 @@ class Agilent_PNAX(Instrument):
         self.add_parameter('sweep_type', type=types.StringType,
             flags=Instrument.FLAG_GETSET,tags=['sweep']) 
             
+        self.add_parameter('sweep_mode', type=types.StringType,
+            flags=Instrument.FLAG_GETSET,tags=['sweep']) 
+            
         self.add_parameter('power_nop', type=types.IntType,
             flags=Instrument.FLAG_GETSET,channels=(1,2),
             minval=0, maxval=60,
@@ -168,7 +171,11 @@ class Agilent_PNAX(Instrument):
         self.add_function('get_tracedata')
         self.add_function('init')
         self.add_function('set_S21')
-        #self.add_function('avg_clear')
+        self.add_function('avg_clear')
+        self.add_function('pre_measurement')
+        self.add_function('start_measurement')
+        self.add_function('ready')
+        self.add_function('post_measurement')
         #self.add_function('avg_status')
         
         #self._oldspan = self.get_span()
@@ -381,7 +388,7 @@ class Agilent_PNAX(Instrument):
                     
     def do_set_averages(self, av):
         '''
-        Set number of averages
+        Set number of averages and simultaneously sets this to the number of sweeps per group. This is important for sweep_mode(GRO)
 
         Input:
             av (int) : Number of averages
@@ -391,9 +398,9 @@ class Agilent_PNAX(Instrument):
         '''
         if self._zerospan == False:
             logging.debug(__name__ + ' : setting Number of averages to %i ' % (av))
-            self._visainstrument.write('SENS%i:AVER:COUN %i' % (self._ci,av))
+            self._visainstrument.write(':SENS%i:AVER:COUN %i; :SENS%i:SWE:GRO:COUN %i' % (self._ci,av,self._ci,av))
         else:
-            self._visainstrument.write('SWE:POIN %.1f' % (self._ci,av))
+            self._visainstrument.write('SWE:POIN %.1f' % (self._ci,av)) #for zerospan, one would have to check what to take as group count
             
     def do_get_averages(self):
         '''
@@ -980,6 +987,54 @@ class Agilent_PNAX(Instrument):
             
         else:
             logging.debug(__name__ + ' : Illegal argument %s'%(swtype))
+    def do_set_sweep_mode(self,mode):
+        '''
+        mode can be:
+        CONT: Continuous sweep
+        SING: Start a single scan (no averaging) and then hold.
+        GRO:  Scan group of traces (ie number of averages) and then hold
+        HOLD: finish current trace, then hold.
+        '''
+        if mode in ('CONT','SING','GRO','HOLD'):
+            
+            logging.debug(__name__ + ' : Setting sweep mode to %s'%(mode))
+            return self._visainstrument.write('SENS%i:SWE:MODE %s' %(self._ci,mode))
+            
+        else:
+            logging.warning(__name__ + ' : Illegal argument for sweep mode %s'%(mode)) 
+     
+    def do_get_sweep_mode(self):
+        logging.debug(__name__ + ' : getting sweep type')
+        return str(self._visainstrument.ask('SENS%i:SWE:MODE?' %(self._ci)))
+
+    def pre_measurement(self):
+        '''
+        Set everything needed for the measurement
+        '''
+        self._visainstrument.write(':SENS%i:SWE:GRO:COUN %i' % (self._ci,self.get_averages())) #set the number of averages per grouped sweep
+        
+    def post_measurement(self):
+        '''
+        After a measurement, the VNA is in hold mode, and it can be difficult to start a measurement again from front panel.
+        This function brings the VNA back to normal measuring operation.
+        '''
+        self.set_sweep_mode('CONT')
+        
+    def start_measurement(self):
+        '''
+        This function is called at the beginning of each single measurement in the spectroscopy script.
+        Here, it resets the averaging and starts a GROUP sweep, which takes the specified number of averages.
+        '''
+        self.avg_clear()
+        self.set_sweep_mode('GRO')
+    
+    def ready(self):
+        '''
+        This is a proxy function, returning True when the VNA has finished the required number of averages.
+        '''
+        return self.get_sweep_mode() == "HOLD"
+        
+    
         
     def read(self):
         return self._visainstrument.read()
