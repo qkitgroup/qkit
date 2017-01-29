@@ -75,7 +75,7 @@ class spectrum(object):
         
         self.number_of_timetraces = 1   #relevant in time domain mode
 
-    def set_log_function(self, func=None, name = None, unit = None):
+    def set_log_function(self, func=None, name = None, unit = None, log_dtype = None):
         '''
         A function (object) can be passed to the measurement loop which is excecuted before every x iteration 
         in 2D measurements and before every line in 3D measurements.
@@ -86,6 +86,7 @@ class spectrum(object):
         func: function object in list form
         name: name of logging parameter appearing in h5 file, default: 'log_param'
         unit: unit of logging parameter, default: ''
+        log_dtype: h5 data type, default: 'f' (float32)
         '''
 
         if name == None:
@@ -98,16 +99,23 @@ class spectrum(object):
                 unit = ['']*len(func)
             except Exception:
                 unit = None
+        if log_dtype == None:
+            try:
+                log_dtype = ['f']*len(func)
+            except Exception:
+                log_dtype = None
 
         self.log_function = []
         self.log_name = []
         self.log_unit = []
+        self.log_dtype = []
 
         if func != None:
             for i,f in enumerate(func):
                 self.log_function.append(f)
                 self.log_name.append(name[i])
                 self.log_unit.append(unit[i])
+                self.log_dtype.append(log_dtype[i])
 
     def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit = ""):
         '''
@@ -239,7 +247,7 @@ class spectrum(object):
             if self.log_function != None:   #use logging
                 self._log_value = []
                 for i in range(len(self.log_function)):
-                    self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i]))
+                    self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i], dtype=self.log_dtype[i]))
 
             if self._nop < 10:
                 """creates view: plot middle point vs x-parameter, for qubit measurements"""
@@ -263,7 +271,7 @@ class spectrum(object):
             if self.log_function != None:   #use logging
                 self._log_value = []
                 for i in range(len(self.log_function)):
-                    self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i]))
+                    self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i], dtype=self.log_dtype[i]))
 
         if self._scan_time:
             self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
