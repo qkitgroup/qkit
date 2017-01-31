@@ -443,7 +443,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
         #load data
         data, nfile, urls = load_data(file_name, entries, show_output)
         x_url = urls[0]
-    data_url = urls[data_c]
+        data_url = urls[data_c]
 
     #check column identifier
     if type(data_c) == str:
