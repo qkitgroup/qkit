@@ -252,7 +252,7 @@ class Tabor_WX1284C(Instrument):
         #this function is used to check whether the command was successfull
         rv = self._visainstrument.ask(":SYST:ERR?")
         if rv[0]=="0": return True
-        else: raise ValueError("Device responded with error ->%s<-"%rv)
+        else: raise ValueError(__name__ + "(" +self.get_name()+") : Device responded with error ->%s<-"%rv)
     def reset(self):        #checked 
         '''
         Resets the instrument to default values
@@ -1010,7 +1010,7 @@ class Tabor_WX1284C(Instrument):
             (bool)
         '''
         logging.debug(__name__ + ' : Check common clock.')
-        return int(self._visainstrument.ask(':INST:COUPLE:STAT ?'))
+        return bool(self._visainstrument.ask(':INST:COUPLE:STAT ?')=='ON')
 
     def send_waveform(self, w, m1, m2, channel, seg):
         return self.wfm_send(w, m1, m2, channel, seg)
