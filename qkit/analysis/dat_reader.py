@@ -228,6 +228,7 @@ def read_hdf_data(nfile,entries=None, show_output=True):
     data = []
     for u in urls:
         data.append(np.array(hf[u],dtype=np.float64))
+    hf.close()
     return np.array(data), urls
 
 # =================================================================================================================
@@ -493,7 +494,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             logging.error('spline order has to be of type float')
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
+    plt.figure()
     if fit_function==LORENTZIAN or fit_function==LORENTZIAN_SQRT:
     
         #check for unit in frequency
@@ -508,7 +509,9 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             freq_conversion_factor = 1
 
         #plot data, f in GHz
-        if show_plot:   plt.plot(data[0]*freq_conversion_factor,data[data_c],'*')
+        
+        #if show_plot:   
+        plt.plot(data[0]*freq_conversion_factor,data[data_c],'*')
         x_vec = np.linspace(data[0][0]*freq_conversion_factor,data[0][-1]*freq_conversion_factor,200)
     
         #start parameters ----------------------------------------------------------------------
@@ -556,7 +559,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
                 popt = p0
                 pcov = None
             finally:
-                if show_plot:
+                #if show_plot:
                     fvalues = f_Lorentzian_sqrt(x_vec, *popt)
                     plt.plot(x_vec, fvalues)
                     ax = plt.gca()
@@ -579,7 +582,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
                 popt = p0
                 pcov = None
             finally:
-                if show_plot:
+                #if show_plot:
                     fvalues = f_Lorentzian(x_vec, *popt)
                     plt.plot(x_vec, fvalues)
                     ax = plt.gca()
@@ -595,7 +598,8 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
     elif fit_function == DAMPED_SINE:
         #plot data
-        if show_plot:   plt.plot(data[0],data[data_c],'*')
+        #if show_plot:   
+        plt.plot(data[0],data[data_c],'*')
         x_vec = np.linspace(data[0][0],data[0][-1],400)
     
         #start parameters ----------------------------------------------------------------------
@@ -610,14 +614,15 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             popt = p0
             pcov = None
         finally:
-            if show_plot:
+            #if show_plot:
                 fvalues = f_damped_sine(x_vec, *popt)
                 plt.plot(x_vec, fvalues)
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     elif fit_function == SINE:
         #plot data
-        if show_plot:   plt.plot(data[0],data[data_c],'*')
+        #if show_plot:   
+        plt.plot(data[0],data[data_c],'*')
         x_vec = np.linspace(data[0][0],data[0][-1],200)
     
         #start parameters ----------------------------------------------------------------------
@@ -635,7 +640,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             popt = p0
             pcov = None
         finally:
-            if show_plot:
+           # if show_plot:
                 fvalues = f_sine(x_vec, *popt)
                 plt.plot(x_vec, fvalues)
     
@@ -667,7 +672,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             pcov = None
         finally:
             #plot data
-            if show_plot:
+            #if show_plot:
                 fig, axes = plt.subplots(1, 2, figsize=(15,4))
                 
                 axes[0].plot(data[0],data[data_c],'*')
@@ -707,7 +712,8 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     elif fit_function == DAMPED_EXP:
     
         #plot data
-        if show_plot:   plt.plot(data[0],data[data_c],'*')
+        #if show_plot:   
+        plt.plot(data[0],data[data_c],'*')
         x_vec = np.linspace(data[0][0],data[0][-1],400)
 
         #start parameters ----------------------------------------------------------------------
@@ -732,7 +738,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             popt = p0
             pcov = None
         finally:
-            if show_plot:
+            #if show_plot:
                 fvalues = f_damped_exp(x_vec, *popt)
                 plt.plot(x_vec, fvalues)
     
@@ -740,33 +746,34 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         print 'fit function not known...aborting'
         return
     
-    if show_plot:
-        if fit_function != EXP:
-            if xlabel != '':
-                plt.xlabel(xlabel)
-            if ylabel != '':
-                plt.ylabel(ylabel)
-            plt.title(str(['%.4g'%entry for entry in popt]),y=1.03)
-            
-        try:
-            plt.savefig(nfile.replace('.dat','_dr.png').replace('.h5','_dr.png'), dpi=300)
-            if save_pdf:
-                plt.savefig(nfile.replace('.dat','_dr.pdf').replace('.h5','_dr.pdf'), dpi=300)
-            if show_output:
-                print 'plot saved:', nfile.replace('.dat','_dr.png').replace('.h5','_dr.png')
-        except Exception as m:
-            if show_output:
-                print 'figure not stored:', m
-            
-        if pcov != None and nfile!= None and nfile[-2:] == 'h5':   #in case fit was successful
-            if _safe_fit_data_in_h5_file(nfile,x_vec,np.array(fvalues),entryname,x_url,data_url):
-                if entryname == '':
-                    if show_output:
-                        print 'Fit data successfully stored in h5 file.'
-                else:
-                    if show_output:
-                        print 'Fit data successfully stored in h5 file: fit%s'%entryname
-        plt.show()
+    #if show_plot:
+    if fit_function != EXP:
+        if xlabel != '':
+            plt.xlabel(xlabel)
+        if ylabel != '':
+            plt.ylabel(ylabel)
+        plt.title(str(['%.4g'%entry for entry in popt]),y=1.03)
+        
+    try:
+        plt.savefig(nfile.replace('.dat','_dr.png').replace('.h5','_dr.png'), dpi=300)
+        if save_pdf:
+            plt.savefig(nfile.replace('.dat','_dr.pdf').replace('.h5','_dr.pdf'), dpi=300)
+        if show_output:
+            print 'plot saved:', nfile.replace('.dat','_dr.png').replace('.h5','_dr.png')
+    except Exception as m:
+        if show_output:
+            print 'figure not stored:', m
+        
+    if pcov != None and nfile!= None and nfile[-2:] == 'h5':   #in case fit was successful
+        if _safe_fit_data_in_h5_file(nfile,x_vec,np.array(fvalues),entryname,x_url,data_url):
+            if entryname == '':
+                if show_output:
+                    print 'Fit data successfully stored in h5 file.'
+            else:
+                if show_output:
+                    print 'Fit data successfully stored in h5 file: fit%s'%entryname
+    if show_plot: plt.show()
+    plt.close(9)
     
     if pcov == None:
         return np.concatenate((popt,float('inf')*np.ones(len(popt))),axis=1)   #fill up errors with 'inf' in case fit did not converge
