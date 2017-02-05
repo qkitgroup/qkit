@@ -56,6 +56,23 @@ except ImportError:
     no_qt = True
 
 
+LORENTZIAN_SQRT = 0
+LORENTZIAN = 1 
+DAMPED_SINE = 2
+SINE = 3
+EXP = 4
+DAMPED_EXP = 5
+
+PARAMS = ( ['f0','k','a','offs'], #LORENTZIAN_SQRT
+    ['f0','k','a','offs'], #LORENTZIAN
+    ['fs','Td','a','offs','ph'], #DAMPED_SINE
+    ['fs','a','offs','ph'], #SINE
+    ['Td','a','offs'], #EXP
+    ['fs','Td','a','offs','ph','d'] #DAMPED_EXP
+    
+)
+    
+    
 '''
     rootPath = 'D:\\'
     pattern = '*.dat'
@@ -381,7 +398,7 @@ def spline_smooth_data(x_data, y_data, spline_order=1):
     
 # =================================================================================================================
 
-def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, show_output = True, save_pdf = False, data=None, nfile=None, opt=None, entryname = '', spline_order=None):
+def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, show_output = True, save_pdf = False, data=None, nfile=None, opt=None, entryname = '', spline_order=None):
     '''
     fit the data in file_name to a function specified by fit_function
     setting file_name to None makes the code try to find the newest .dat file in today's data_dir
@@ -390,7 +407,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
     dat_reader supports the h5 file format. In case the hf libraries are available when setting file_name to None (automatic search for latest data file),
      dat_reader looks for the latest h5 file
     
-    fit_function (optional, default = 'lorentzian'): can be 'lorentzian', 'lorentzian_sqrt', 'damped_sine', 'sine', 'exp', 'damped_exp'
+    fit_function (optional, default = LORENTZIAN): can be LORENTZIAN, LORENTZIAN_SQRT, DAMPED_SINE, SINE, EXP, DAMPED_EXP
     data_c (optional, default = 2, phase): specifies the data column to be used (next to column 0 that is used as the coordinate axis)
      string specifying 'amplitude' or 'phase' or similar spellings are accepted as well
      when data is read from h5 file, the usual column ordering is [freq,amp,pha], [0,1,2]
@@ -410,6 +427,11 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
     
     f_Lorentzian expects its frequency parameter to be stated in GHz
     '''
+    
+    if type(fit_function)==str:
+        logging.warning('using strings as fit function is depreciated. Use e.g dr.LORENTZIAN instead.')
+        fit_function = {'lorentzian':LORENTZIAN, 'lorentzian_sqrt':LORENTZIAN_SQRT, 'damped_sine':DAMPED_SINE, 'sine':SINE, 'exp':EXP, 'damped_exp':DAMPED_EXP}[fit_function]
+        
     
     def f_Lorentzian_sqrt(f, f0, k, a, offs):
         return np.sign(a) * np.sqrt(np.abs(a**2*(k/2)**2/((k/2)**2+(f-f0)**2)))+offs
@@ -472,7 +494,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
-    if 'lorentzian' in fit_function:
+    if fit_function==LORENTZIAN or fit_function==LORENTZIAN_SQRT:
     
         #check for unit in frequency
         if np.mean(data[0]) > 100:
@@ -523,7 +545,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
             
         p0 = _fill_p0([s_f0, s_k, s_a, s_offs],ps)
 
-        if fit_function == 'lorentzian_sqrt':
+        if fit_function == LORENTZIAN_SQRT:
             #lorentzian sqrt fit ----------------------------------------------------------------------
             try:
                 popt, pcov = curve_fit(f_Lorentzian_sqrt, data[0]*freq_conversion_factor, data[data_c], p0 = p0)
@@ -571,7 +593,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
                         pass
                     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
-    elif fit_function == 'damped_sine':
+    elif fit_function == DAMPED_SINE:
         #plot data
         if show_plot:   plt.plot(data[0],data[data_c],'*')
         x_vec = np.linspace(data[0][0],data[0][-1],400)
@@ -593,7 +615,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
                 plt.plot(x_vec, fvalues)
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    elif fit_function == 'sine':
+    elif fit_function == SINE:
         #plot data
         if show_plot:   plt.plot(data[0],data[data_c],'*')
         x_vec = np.linspace(data[0][0],data[0][-1],200)
@@ -618,7 +640,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
                 plt.plot(x_vec, fvalues)
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    elif fit_function == 'exp':
+    elif fit_function == EXP:
     
         x_vec = np.linspace(data[0][0],data[0][-1],200)
         
@@ -682,7 +704,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
                 fig.tight_layout()
                 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    elif fit_function == 'damped_exp':
+    elif fit_function == DAMPED_EXP:
     
         #plot data
         if show_plot:   plt.plot(data[0],data[data_c],'*')
@@ -719,7 +741,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
         return
     
     if show_plot:
-        if fit_function != 'exp':
+        if fit_function != EXP:
             if xlabel != '':
                 plt.xlabel(xlabel)
             if ylabel != '':
