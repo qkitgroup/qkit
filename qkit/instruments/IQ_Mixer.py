@@ -30,6 +30,11 @@ class IQ_Mixer(Instrument):
         self._iq_frequency = self._sample.iq_frequency
         self.do_set_mixer_name(mixer_name)
         
+        self.cache_valid  = False
+        self.cache_frequency = self._sample.f01 
+        self.cache_power = self._sample.mw_power 
+        self.cache_iq = self._sample.iq_frequency
+        
         #Parameters
         self.add_parameter('sideband_frequency', type=types.FloatType,
             flags=Instrument.FLAG_GET, units='Hz',
@@ -76,9 +81,11 @@ class IQ_Mixer(Instrument):
     
     def set_sample(self,sample):
         self._sample = sample
+        self.cache_valid = False
     
     def do_set_mixer_name(self, mixer_name):
         self.mixer_name = mixer_name
+        self.cache_valid = False
     
     def do_get_mixer_name(self):
         return self.mixer_name
@@ -329,6 +336,7 @@ class IQ_Mixer(Instrument):
             
 
     def recalibrate(self,dcx,dcy,x,y,phaseoffset,relamp,relamp2):
+        self.cache_valid = False
         if self._swb != None: #switching to fsup
             self._swb.set_position('2')
         else:
@@ -599,8 +607,16 @@ class IQ_Mixer(Instrument):
                 self._f_rounded = np.ceil(self._sideband_frequency/1e3)*1e3
             return self.recalibrate(dcx,dcy,x,y,phaseoffset,relamp,relamp2)
         
-    def get_calibration(self,frequency=None,power=None,iq_frequency=None):
-        return self.calibrate(recalibrate=False,frequency=frequency,power=power,iq_frequency=iq_frequency)
+    def get_calibration(self):
+        if self.cache_valid and self.cache_frequency == self._sample.f01 and self.cache_power == self._sample.mw_power and self.cache_iq == self._sample.iq_frequency:
+            return self.cache
+        else:
+            self.cache_frequency = self._sample.f01
+            self.cache_power = self._sample.mw_power 
+            self.cache_iq = self._sample.iq_frequency
+            self.cache = self.calibrate(recalibrate=False)
+            self.cache_valid = True
+            return self.cache
 
     def convert(self,wfm):
         '''
@@ -613,10 +629,10 @@ class IQ_Mixer(Instrument):
         params=self.get_calibration()
         
         #content of params:(sideband_frequency,mw_freq,mw_power,time.time(),dcx,dcy,x,y,phaseoffset,relamp,relamp2),optimized
-        self.do_set_sideband_frequency(params[0])
-        self._output_power = params[15]
-        self.do_set_iq_frequency(self._sample.iq_frequency) #This is unnecessary, because it's done in calibrate()
-        self.get_all()
+        #self.do_set_sideband_frequency(params[0])
+        #self._output_power = params[15]
+        #self.do_set_iq_frequency(self._sample.iq_frequency) #This is unnecessary, because it's done in calibrate()
+        #self.get_all()
         dcx,dcy,x,y,phaseoffset,relamp,relamp2=params[4:11]
         if self._iq_frequency == 0: x,y,phaseoffset,relamp,relamp2 = 0.,0.,0.,1.,1. #homodyne
         t=np.arange(len(wfm))/self._sample.clock
