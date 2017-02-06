@@ -773,7 +773,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
                 if show_output:
                     print 'Fit data successfully stored in h5 file: fit%s'%entryname
     if show_plot: plt.show()
-    plt.close(9)
+    plt.close()
     
     if pcov == None:
         return np.concatenate((popt,float('inf')*np.ones(len(popt))),axis=1)   #fill up errors with 'inf' in case fit did not converge
