@@ -41,6 +41,8 @@ class Measure_td(object):
 		self.plotSuffix = ''
 		self.hold = False
 		
+		self.show_progress_bar = True
+		
 		self.save_dat = True
 		self.save_hdf = True
 		
@@ -69,7 +71,7 @@ class Measure_td(object):
 		self._prepare_measurement_dat_file(mode='1d')
 		self._create_dat_plots(mode='1d')
 
-		p = Progress_Bar(len(self.x_vec),name=self.dirname)
+		if self.show_progress_bar: p = Progress_Bar(len(self.x_vec),name=self.dirname)
 		try:
 			# measurement loop
 			for x in self.x_vec:
@@ -77,7 +79,7 @@ class Measure_td(object):
 				qt.msleep() # better done during measurement (waiting for trigger)
 				self._append_data([x],trace=self.time_data)
 				self._update_plots()
-				p.iterate()
+				if self.show_progress_bar: p.iterate()
 		finally:
 			self._safe_plots()
 			self._close_files()
@@ -94,7 +96,7 @@ class Measure_td(object):
 		self._prepare_measurement_dat_file(mode='2d')
 		self._create_dat_plots(mode='2d')
 
-		p = Progress_Bar(len(self.x_vec)*len(self.y_vec),name=self.dirname)
+		if self.show_progress_bar: p = Progress_Bar(len(self.x_vec)*len(self.y_vec),name=self.dirname)
 		try:
 			# measurement loop
 			for x in self.x_vec:
@@ -107,7 +109,7 @@ class Measure_td(object):
 					qt.msleep() # better done during measurement (waiting for trigger)
 					self._append_data([x,y],trace=False)
 					self._update_plots()
-					p.iterate()
+					if self.show_progress_bar: p.iterate()
 		finally:
 			self._safe_plots()
 			self._close_files()
@@ -140,7 +142,7 @@ class Measure_td(object):
 		self._prepare_measurement_dat_file(mode='2dAWG')
 		self._create_dat_plots(mode='2dAWG')
 
-		p = Progress_Bar(len(self.y_vec),name=self.dirname)
+		if self.show_progress_bar: p = Progress_Bar(len(self.y_vec),name=self.dirname)
 		try:
 			# measurement loop
 			for it in range(len(self.y_vec)):
@@ -148,7 +150,7 @@ class Measure_td(object):
 				self.y_set_obj(self.y_vec[it])
 				self._append_data([self.y_vec[it]],trace=True,it=it)
 				self._update_plots()
-				p.iterate()
+				if self.show_progress_bar: p.iterate()
 		#except Exception as e:
 		#	print e
 		
