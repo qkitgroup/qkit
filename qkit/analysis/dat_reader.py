@@ -415,7 +415,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     ps (optional): start parameters, can be given in parts, set parameters not specified to None
     xlabel (optional): label for horizontal axis
     ylabel (optional): label for vertical axis
-    show_plot (optional): show and safe the plot (optional, default = True)
+    show_plot (optional): show the plot (optional, default = True)
     save_pdf (optional): save plot also as pdf file (optional, default = False)
     data, nfile: pass data object and file name which is used when file_name == 'dat_import'
     opt: bool, set to True if data is to be optimized prior to fitting using the data_optimizer
@@ -442,10 +442,13 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         
     def f_damped_sine(t, fs, Td, a, offs, ph):
         if a < 0: return np.NaN #constrict amplitude to positive values
-        if ph < -np.pi or ph > np.pi: return np.NaN #constrict phase
+        if fs < 0: return np.NaN
+        if Td < 0: return np.NaN
+        #if ph < -np.pi or ph > np.pi: return np.NaN #constrict phase
         return a*np.exp(-t/Td)*np.sin(2*np.pi*fs*t+ph)+offs
         
     def f_sine(t, fs, a, offs, ph):
+        if a < 0: return np.NaN #constrict amplitude to positive values
         return a*np.sin(2*np.pi*fs*t+ph)+offs
         
     def f_exp(t, Td, a, offs):
@@ -494,7 +497,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             logging.error('spline order has to be of type float')
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    plt.figure()
+    plt.figure('dat_reader')
     if fit_function==LORENTZIAN or fit_function==LORENTZIAN_SQRT:
     
         #check for unit in frequency
@@ -608,9 +611,10 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
 
         #damped sine fit ----------------------------------------------------------------------
         try:
-            popt, pcov = curve_fit(f_damped_sine, data[0], data[data_c], p0 = p0)
-        except:
+            popt, pcov = curve_fit(f_damped_sine, data[0], data[data_c], p0 = p0,maxfev=200*len(data[0]))
+        except Exception as e:
             print 'fit not successful'
+            print e
             popt = p0
             pcov = None
         finally:
@@ -673,7 +677,8 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         finally:
             #plot data
             #if show_plot:
-                fig, axes = plt.subplots(1, 2, figsize=(15,4))
+                plt.close('dat_reader')
+                fig, axes = plt.subplots(1, 2, figsize=(15,4),num='dat_reader')
                 
                 axes[0].plot(data[0],data[data_c],'*')
                 fvalues = f_exp(x_vec, *popt)
@@ -773,10 +778,9 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
                 if show_output:
                     print 'Fit data successfully stored in h5 file: fit%s'%entryname
     if show_plot: plt.show()
-    plt.close()
+    plt.close('dat_reader')
     
     if pcov == None:
-        return np.concatenate((popt,float('inf')*np.ones(len(popt))),axis=1)   #fill up errors with 'inf' in case fit did not converge
+        return popt,float('inf')*np.ones(len(popt)) #fill up errors with 'inf' in case fit did not converge
     else:
-        #return np.concatenate((popt,np.sqrt(np.diag(pcov))),axis=1)   #shape of popt and np.sqrt(np.diag(pcov)) is (4,), respectively, so concatenation needs to take place along axis 1
         return popt,np.sqrt(np.diag(pcov))
