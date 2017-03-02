@@ -293,7 +293,7 @@ def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp =
     
     #offset
     # testing last 25% of data for its maximum slope; take offset as last 10% of data for a small slope (and therefore strong damping)
-    if np.max(np.abs(np.diff(data[data_c][int(0.75*len(data[data_c])):]))) < 0.3*np.abs(np.max(data[data_c])-np.min(data[data_c]))/(len(data[0][0.75*len(data[0]):])*(data[0][-1]-data[0][0.75*len(data[data_c])])):   #if slope in last part small
+    if np.max(np.abs(np.diff(data[data_c][int(0.75*len(data[data_c])):]))) < 0.3*np.abs(np.max(data[data_c])-np.min(data[data_c]))/(len(data[0][int(0.75*len(data[0])):])*(data[0][-1]-data[0][int(0.75*len(data[data_c]))])):   #if slope in last part small
         s_offs = np.mean(data[data_c][int(0.9*len(data[data_c])):])
     else:   #larger slope: calculate initial offset from min/max in data
         s_offs = (np.max(data[data_c]) + np.min(data[data_c]))/2
