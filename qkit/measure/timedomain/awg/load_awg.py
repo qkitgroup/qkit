@@ -9,7 +9,7 @@ from qkit.gui.notebook.Progress_Bar import Progress_Bar
 import gc
 
 
-def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None, ch2_amp = 2,chpair=1,awg= None):
+def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None, ch2_amp = 2,chpair=1,awg= None, show_progress_bar = True):
     '''
         set awg to sequence mode and push a number of waveforms into the sequencer
         
@@ -59,7 +59,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
     wfm_samples_prev = [None,None]
     wfm_fn = [None,None]
     wfm_pn = [None,None]
-    p = Progress_Bar(len(ts)*(2 if "Tektronix" in awg.get_type() else 1),'Load AWG')   #init progress bar
+    if show_progress_bar: p = Progress_Bar(len(ts)*(2 if "Tektronix" in awg.get_type() else 1),'Load AWG')   #init progress bar
     
     #update all channels and times
     for ti, t in enumerate(ts):   #run through all sequences
@@ -114,7 +114,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
                 else: continue
             else:
                 raise ValueError("AWG type not known")
-            p.iterate()
+            if show_progress_bar: p.iterate()
 
         gc.collect()
 

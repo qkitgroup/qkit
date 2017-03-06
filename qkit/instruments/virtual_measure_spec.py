@@ -59,6 +59,7 @@ class virtual_measure_spec(Instrument):
         Instrument.__init__(self, name, tags=['virtual'])
 
         # parameters
+        
         self.add_parameter('samples', type = types.IntType)
         self.add_parameter('samplerate', type = types.IntType)
         self.add_parameter('segments', type = types.IntType)
@@ -73,8 +74,8 @@ class virtual_measure_spec(Instrument):
         self.add_function('get_clock')
         self.add_function('set_gate_func')
         self.add_function('acquire')
-        self.add_function('measure_1d_avg')
-        self.add_function('measure_1d')
+        #self.add_function('measure_1d_avg')
+        #self.add_function('measure_1d')
         self.add_function('spec_start')
         self.add_function('spec_stop')
         
@@ -93,10 +94,14 @@ class virtual_measure_spec(Instrument):
         
         self.set_channels(channels)
         self.set_multimode(multimode)
-        self.set_offsets(offsets)
+        if offsets is None:
+            self.set_offsets(numpy.zeros((self._numchannels,)))
+        else:
+            self.set_offsets(offsets)
         self.set_trigger_rate(trigger_rate)
         self.set_gate_func(gate_func)
         self.get_all()
+        
         
         # initialize card
         self._initializing = False
@@ -224,8 +229,6 @@ class virtual_measure_spec(Instrument):
         return self._trigger_rate
         
     def do_set_offsets(self, offsets):
-        if(offsets == None):
-            offsets = numpy.zeros((self._numchanels,))
         if(len(offsets) != self._numchannels):
             raise ValueError(__name__ + 'one offset per channel is required')
         self._offsets = offsets
@@ -268,10 +271,10 @@ class virtual_measure_spec(Instrument):
             for idx in range(len(self._offsets)):
                 if(self._segments == 1):
                     # shape of result is (samples, channels)
-                    result[:, idx] += offsets[idx]
+                    result[:, idx] += self._offsets[idx]
                 else:
                     # shape of result is (samples, channels, segments)
-                    result[:, idx, :] += offsets[idx]
+                    result[:, idx, :] += self._offsets[idx]
         return result
 
     def _acquire_multimode(self):
@@ -366,21 +369,21 @@ class virtual_measure_spec(Instrument):
         return dat
 
     def _multimode_average1(self, dat):
-    	''' faster-than-numpy averaging '''
-    	shp = dat.shape
-    	res = numpy.zeros((shp[0], shp[2]))
-    	for i in range(shp[0]):
-    		for j in range(shp[2]):
-    			res[i, j] = numpy.mean(numpy.asfarray(dat[i, :, j], numpy.float32))
-    	return res
+        ''' faster-than-numpy averaging '''
+        shp = dat.shape
+        res = numpy.zeros((shp[0], shp[2]))
+        for i in range(shp[0]):
+            for j in range(shp[2]):
+                res[i, j] = numpy.mean(numpy.asfarray(dat[i, :, j], numpy.float32))
+        return res
 
     def _multimode_average(self, dat):
-    	''' faster-than-numpy averaging '''
-    	shp = dat.shape
-    	sum = numpy.zeros((shp[0], shp[2]), np.int)
-    	for i in range(shp[1]):
+        ''' faster-than-numpy averaging '''
+        shp = dat.shape
+        sum = numpy.zeros((shp[0], shp[2]), np.int)
+        for i in range(shp[1]):
             sum += dat[:, i, :]
-    	return np.array(res, np.float32)/shp[1]
+        return np.array(res, np.float32)/shp[1]
 
 
     def _acquire_singlemode(self):

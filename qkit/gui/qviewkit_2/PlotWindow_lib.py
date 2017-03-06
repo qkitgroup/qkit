@@ -332,6 +332,7 @@ def _display_2D_data(self,graphicsView):
     x_unit = ds.attrs.get("x_unit","_none_")
     y_name = ds.attrs.get("y_name","_none_")
     y_unit = ds.attrs.get("y_unit","_none_")
+    #print graphicsView.getHistogramWidget().region.getRegion()#.vb.state['autoRange'] #aS 2016-12 for further use
 
     if self.ds_type == ds_types['box']:
         if self.PlotTypeSelector.currentIndex() == 0:
@@ -400,12 +401,15 @@ def _display_2D_data(self,graphicsView):
     
     if self.manipulation & self.manipulations['linear']:
         data = data - np.outer(data[:,-1]-data[:,0],np.linspace(0,1,data.shape[1]))
+     
+    if self.manipulation & self.manipulations['remove_zeros']:
+        data[np.where(data==0)] = np.NaN #replace all exact zeros in the hd5 data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
         
 
-    xmin = x0
-    xmax = x0+fill_x*dx
-    ymin = y0
-    ymax = y0+fill_y*dy
+    xmin = x0-dx/2 #center the data around the labels
+    xmax = x0+fill_x*dx-dx/2
+    ymin = y0-dy/2
+    ymax = y0+fill_y*dy-dy/2
 
     pos = (xmin,ymin)
 

@@ -141,7 +141,8 @@ class virtual_MultiplexingReadout(Instrument):
             self.dac_delay = 0
             
         except Exception as m:
-            logging.warning('Defaults not set properly: '+str(m))
+            logging.error('Defaults not set properly: '+str(m))
+            raise ImportError
 
     def get_all(self):
         self.get_LO()
@@ -421,7 +422,7 @@ class virtual_MultiplexingReadout(Instrument):
             self._awg.run()
             
         elif "Tabor_WX1284C" == self._awg.get_type():   #Tabor AWG
-            self._awg.preset_readout()
+            #self._awg.preset_readout()
             try:
                 self._awg.set_clock(self._sample.readout_clock)
             except:

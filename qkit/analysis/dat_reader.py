@@ -56,6 +56,22 @@ except ImportError:
     no_qt = True
 
 
+''' fit function macros '''
+LORENTZIAN_SQRT = 0
+LORENTZIAN = 1 
+DAMPED_SINE = 2
+SINE = 3
+EXP = 4
+DAMPED_EXP = 5
+
+PARAMS = ( ['f0','k','a','offs'], #LORENTZIAN_SQRT
+    ['f0','k','a','offs'], #LORENTZIAN
+    ['fs','Td','a','offs','ph'], #DAMPED_SINE
+    ['fs','a','offs','ph'], #SINE
+    ['Td','a','offs'], #EXP
+    ['fs','Td','a','offs','ph','d'] #DAMPED_EXP
+)
+    
 '''
     rootPath = 'D:\\'
     pattern = '*.dat'
@@ -206,12 +222,24 @@ def read_hdf_data(nfile,entries=None, show_output=True):
                 except IndexError:
                     print 'Entries cannot be identified. No data for >> %s << found. Aborting.'%str(e)
                     return
+        #also allow to load analysis data
+        keys = hf['/entry/analysis0'].keys()
+        url_tree = '/entry/analysis0/'
+        for e in entries:
+            for k in keys:
+                try:
+                    if str(e).lower() in str(k).lower():
+                        urls.append(url_tree + k)
+                except IndexError:
+                    print 'Entries cannot be identified. No data for >> %s << found. Aborting.'%str(e)
+                    return
     if show_output:    
         print 'Entries identified:',urls
     data = []
     for u in urls:
         data.append(np.array(hf[u],dtype=np.float64))
-    return np.array(data)
+    hf.close()
+    return np.array(data), urls
 
 # =================================================================================================================
 
@@ -237,7 +265,7 @@ def load_data(file_name = None,entries = None, show_output=True):
         if show_output:
             print 'Reading file '+nfile
         if nfile[-2:] == 'h5':   #hdf file
-            data = read_hdf_data(nfile, entries, show_output)
+            data, urls = read_hdf_data(nfile, entries, show_output)
         else:   #dat file
             data = np.loadtxt(nfile, comments='#').T
     except NameError:
@@ -247,7 +275,7 @@ def load_data(file_name = None,entries = None, show_output=True):
         print 'invalid file name...aborting:', message
         return
 
-    return data, nfile
+    return data, nfile, urls
 
 # =================================================================================================================
 
@@ -271,25 +299,30 @@ def _fill_p0(p0,ps):
 def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp = False):
     '''
     find initial parameters for oscillating fits
+    
+    data: data array
+    data_c: (int) data column
+    damping: (bool) switch for decaying/non-decaying fit functions
+    asymmetric_exp
     '''
     
     #offset
     # testing last 25% of data for its maximum slope; take offset as last 10% of data for a small slope (and therefore strong damping)
-    if np.max(np.abs(np.diff(data[data_c][int(0.75*len(data[data_c])):]))) < 0.3*np.abs(np.max(data[data_c])-np.min(data[data_c]))/(len(data[0][0.75*len(data[0]):])*(data[0][-1]-data[0][0.75*len(data[data_c])])):   #if slope in last part small
+    if np.max(np.abs(np.diff(data[data_c][int(0.75*len(data[data_c])):]))) < 0.3*np.abs(np.max(data[data_c])-np.min(data[data_c]))/(len(data[0][int(0.75*len(data[0])):])*(data[0][-1]-data[0][int(0.75*len(data[data_c]))])):   #if slope in last part small
         s_offs = np.mean(data[data_c][int(0.9*len(data[data_c])):])
     else:   #larger slope: calculate initial offset from min/max in data
         s_offs = (np.max(data[data_c]) + np.min(data[data_c]))/2
     #print s_offs
     
     if damping:
-        #amplitude
         if asymmetric_exp:
             s_a = np.abs(np.max(data[data_c]) - np.min(data[data_c]))
             if np.abs(np.max(data[data_c]) - s_offs) < np.abs(np.min(data[data_c]) - s_offs):   #if maximum closer to offset than minimum
                 s_a = -s_a
-        a1 = np.abs(np.max(data[data_c]) - s_offs)
-        a2 = np.abs(np.min(data[data_c]) - s_offs)
-        s_a = np.max([a1,a2])
+        else:
+            a1 = np.abs(np.max(data[data_c]) - s_offs)
+            a2 = np.abs(np.min(data[data_c]) - s_offs)
+            s_a = np.max([a1,a2])
         #print s_a
         
         #damping
@@ -302,7 +335,7 @@ def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp =
         except RuntimeWarning:
             logging.warning('Invalid value encountered in log. Continuing...')
             s_Td = float('inf')
-        if np.abs(s_Td) == float('inf'):
+        if np.abs(s_Td) == float('inf') and not asymmetric_exp:
             s_Td = float('inf')
             logging.warning('Consider using the sine fit routine for non-decaying sines.')
         #print 'assume T =', str(np.round(s_Td,4))
@@ -336,7 +369,7 @@ def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp =
 
 # =================================================================================================================
 
-def _safe_fit_data_in_h5_file(fname,x_vec,fvalues,entryname=''):
+def _safe_fit_data_in_h5_file(fname,x_vec,fvalues,entryname='',x_url='',data_url=''):
     '''
     appends fitted data to the h5 file in folder analysis with a newly created parameter axis containing
      a fixed number of points
@@ -345,6 +378,8 @@ def _safe_fit_data_in_h5_file(fname,x_vec,fvalues,entryname=''):
     x_vec: generated x vector (parameter vector) of constant length
     fvalues: fitted function values, array of length len(x_vec)
     entryname: suffix to be added to the name of analysis entry
+    x_url: url of coordinate axis
+    data_url: url of data entry
     
     So far I hope that hdf_lib throws away old fit data when refitting and generating the same axes in the analysis folder. (JB)
     '''
@@ -355,6 +390,12 @@ def _safe_fit_data_in_h5_file(fname,x_vec,fvalues,entryname=''):
         hdf_x.add(x_vec)
         hdf_fit = hf.add_value_vector('fit'+entryname, folder='analysis', x = hdf_x)
         hdf_fit.append(np.array(fvalues))
+        
+        ds_x = hf.get_dataset(x_url)
+        ds_data = hf.get_dataset(data_url)
+        joint_view = hf.add_view('joint_view', x = hdf_x, y = hdf_fit)
+        joint_view.add(x = ds_x, y = ds_data)
+        
         hf.close_file()
     except Exception as m:
         print 'Error while attempting to save fit data in h5 file:', m
@@ -373,7 +414,7 @@ def spline_smooth_data(x_data, y_data, spline_order=1):
     
 # =================================================================================================================
 
-def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, show_output = True, save_pdf = False, data=None, nfile=None, opt=None, entryname = '', spline_order=None):
+def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, show_output = True, save_pdf = False, data=None, nfile=None, opt=None, entryname = '', spline_order=None):
     '''
     fit the data in file_name to a function specified by fit_function
     setting file_name to None makes the code try to find the newest .dat file in today's data_dir
@@ -382,14 +423,14 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
     dat_reader supports the h5 file format. In case the hf libraries are available when setting file_name to None (automatic search for latest data file),
      dat_reader looks for the latest h5 file
     
-    fit_function (optional, default = 'lorentzian'): can be 'lorentzian', 'lorentzian_sqrt', 'damped_sine', 'sine', 'exp', 'damped_exp'
+    fit_function (optional, default = LORENTZIAN): can be LORENTZIAN, LORENTZIAN_SQRT, DAMPED_SINE, SINE, EXP, DAMPED_EXP
     data_c (optional, default = 2, phase): specifies the data column to be used (next to column 0 that is used as the coordinate axis)
      string specifying 'amplitude' or 'phase' or similar spellings are accepted as well
      when data is read from h5 file, the usual column ordering is [freq,amp,pha], [0,1,2]
     ps (optional): start parameters, can be given in parts, set parameters not specified to None
     xlabel (optional): label for horizontal axis
     ylabel (optional): label for vertical axis
-    show_plot (optional): show and safe the plot (optional, default = True)
+    show_plot (optional): show the plot (optional, default = True)
     save_pdf (optional): save plot also as pdf file (optional, default = False)
     data, nfile: pass data object and file name which is used when file_name == 'dat_import'
     opt: bool, set to True if data is to be optimized prior to fitting using the data_optimizer
@@ -403,6 +444,11 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
     f_Lorentzian expects its frequency parameter to be stated in GHz
     '''
     
+    if type(fit_function)==str:
+        #logging.warning('using strings as fit function is depreciated. Use e.g dr.LORENTZIAN instead.')
+        fit_function = {'lorentzian':LORENTZIAN, 'lorentzian_sqrt':LORENTZIAN_SQRT, 'damped_sine':DAMPED_SINE, 'sine':SINE, 'exp':EXP, 'damped_exp':DAMPED_EXP}[fit_function]
+        
+    
     def f_Lorentzian_sqrt(f, f0, k, a, offs):
         return np.sign(a) * np.sqrt(np.abs(a**2*(k/2)**2/((k/2)**2+(f-f0)**2)))+offs
         
@@ -410,9 +456,14 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
         return a*k/(2*np.pi)/((k/2)**2+(f-f0)**2)+offs
         
     def f_damped_sine(t, fs, Td, a, offs, ph):
+        if a < 0: return np.NaN #constrict amplitude to positive values
+        if fs < 0: return np.NaN
+        if Td < 0: return np.NaN
+        #if ph < -np.pi or ph > np.pi: return np.NaN #constrict phase
         return a*np.exp(-t/Td)*np.sin(2*np.pi*fs*t+ph)+offs
         
     def f_sine(t, fs, a, offs, ph):
+        if a < 0: return np.NaN #constrict amplitude to positive values
         return a*np.sin(2*np.pi*fs*t+ph)+offs
         
     def f_exp(t, Td, a, offs):
@@ -427,11 +478,13 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
         data_c = 1
         
     if file_name == 'dat_import':
-        print 'use imported data'
+        if show_output: print 'use imported data'
         data_c = 1
     else:
         #load data
-        data, nfile = load_data(file_name, entries, show_output)
+        data, nfile, urls = load_data(file_name, entries, show_output)
+        x_url = urls[0]
+        data_url = urls[data_c]
 
     #check column identifier
     if type(data_c) == str:
@@ -439,6 +492,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
             data_c = 1
         else:
             data_c = 2
+            data_url = urls[2]
     if data_c >= len(data):
         print 'bad data column identifier, out of bonds...aborting'
         return
@@ -458,8 +512,8 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
             logging.error('spline order has to be of type float')
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
-    if 'lorentzian' in fit_function:
+    plt.figure('dat_reader',figsize=(15,7))   #open and address plot instance
+    if fit_function==LORENTZIAN or fit_function==LORENTZIAN_SQRT:
     
         #check for unit in frequency
         if np.mean(data[0]) > 100:
@@ -473,7 +527,9 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
             freq_conversion_factor = 1
 
         #plot data, f in GHz
-        if show_plot:   plt.plot(data[0]*freq_conversion_factor,data[data_c],'*')
+        
+        #if show_plot:   
+        plt.plot(data[0]*freq_conversion_factor,data[data_c],'o')
         x_vec = np.linspace(data[0][0]*freq_conversion_factor,data[0][-1]*freq_conversion_factor,200)
     
         #start parameters ----------------------------------------------------------------------
@@ -510,7 +566,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
             
         p0 = _fill_p0([s_f0, s_k, s_a, s_offs],ps)
 
-        if fit_function == 'lorentzian_sqrt':
+        if fit_function == LORENTZIAN_SQRT:
             #lorentzian sqrt fit ----------------------------------------------------------------------
             try:
                 popt, pcov = curve_fit(f_Lorentzian_sqrt, data[0]*freq_conversion_factor, data[data_c], p0 = p0)
@@ -521,7 +577,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
                 popt = p0
                 pcov = None
             finally:
-                if show_plot:
+                #if show_plot:
                     fvalues = f_Lorentzian_sqrt(x_vec, *popt)
                     plt.plot(x_vec, fvalues)
                     ax = plt.gca()
@@ -544,7 +600,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
                 popt = p0
                 pcov = None
             finally:
-                if show_plot:
+                #if show_plot:
                     fvalues = f_Lorentzian(x_vec, *popt)
                     plt.plot(x_vec, fvalues)
                     ax = plt.gca()
@@ -558,9 +614,10 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
                         pass
                     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
-    elif fit_function == 'damped_sine':
+    elif fit_function == DAMPED_SINE:
         #plot data
-        if show_plot:   plt.plot(data[0],data[data_c],'*')
+        #if show_plot:   
+        plt.plot(data[0],data[data_c],'o')
         x_vec = np.linspace(data[0][0],data[0][-1],400)
     
         #start parameters ----------------------------------------------------------------------
@@ -569,20 +626,22 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
 
         #damped sine fit ----------------------------------------------------------------------
         try:
-            popt, pcov = curve_fit(f_damped_sine, data[0], data[data_c], p0 = p0)
-        except:
+            popt, pcov = curve_fit(f_damped_sine, data[0], data[data_c], p0 = p0,maxfev=200*len(data[0]))
+        except Exception as e:
             print 'fit not successful'
+            print e
             popt = p0
             pcov = None
         finally:
-            if show_plot:
+            #if show_plot:
                 fvalues = f_damped_sine(x_vec, *popt)
                 plt.plot(x_vec, fvalues)
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    elif fit_function == 'sine':
+    elif fit_function == SINE:
         #plot data
-        if show_plot:   plt.plot(data[0],data[data_c],'*')
+        #if show_plot:   
+        plt.plot(data[0],data[data_c],'o')
         x_vec = np.linspace(data[0][0],data[0][-1],200)
     
         #start parameters ----------------------------------------------------------------------
@@ -600,12 +659,12 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
             popt = p0
             pcov = None
         finally:
-            if show_plot:
+           # if show_plot:
                 fvalues = f_sine(x_vec, *popt)
                 plt.plot(x_vec, fvalues)
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    elif fit_function == 'exp':
+    elif fit_function == EXP:
     
         x_vec = np.linspace(data[0][0],data[0][-1],200)
         
@@ -633,9 +692,10 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
         finally:
             #plot data
             if show_plot:
-                fig, axes = plt.subplots(1, 2, figsize=(15,4))
+                plt.close('dat_reader')
+                fig, axes = plt.subplots(1, 2, figsize=(15,4),num='dat_reader')
                 
-                axes[0].plot(data[0],data[data_c],'*')
+                axes[0].plot(data[0],data[data_c],'o')
                 fvalues = f_exp(x_vec, *popt)
                 axes[0].plot(x_vec, fvalues)
                 if xlabel == '':
@@ -651,7 +711,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
                 #axes[0].set_title('exponential decay', fontsize=15)
                 axes[0].set_title(str(['%.4g'%entry for entry in popt]), fontsize=15)
                 
-                axes[1].plot(data[0],np.abs(data[data_c]-popt[2]),'*')
+                axes[1].plot(data[0],np.abs(data[data_c]-popt[2]),'o')
                 axes[1].plot(x_vec, np.abs(f_exp(x_vec, *popt)-popt[2]))   #subtract offset for log plot
                 axes[1].set_yscale('log')
                 if xlabel == '':
@@ -669,14 +729,15 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
                 fig.tight_layout()
                 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    elif fit_function == 'damped_exp':
+    elif fit_function == DAMPED_EXP:
     
         #plot data
-        if show_plot:   plt.plot(data[0],data[data_c],'*')
+        #if show_plot:   
+        plt.plot(data[0],data[data_c],'o')
         x_vec = np.linspace(data[0][0],data[0][-1],400)
 
         #start parameters ----------------------------------------------------------------------
-        s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data,data_c,damping=True)
+        s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data,data_c,damping=True,asymmetric_exp=True)
         # 1-d = (scaled) distance between first extremum and baseline
         d_diff = np.gradient(data[data_c],data[0][1]-data[0][0])
         i = 0
@@ -697,7 +758,7 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
             popt = p0
             pcov = None
         finally:
-            if show_plot:
+            #if show_plot:
                 fvalues = f_damped_exp(x_vec, *popt)
                 plt.plot(x_vec, fvalues)
     
@@ -705,36 +766,36 @@ def fit_data(file_name = None, fit_function = 'lorentzian', data_c = 2, ps = Non
         print 'fit function not known...aborting'
         return
     
-    if show_plot:
-        if fit_function != 'exp':
-            if xlabel != '':
-                plt.xlabel(xlabel)
-            if ylabel != '':
-                plt.ylabel(ylabel)
-            plt.title(str(['%.4g'%entry for entry in popt]),y=1.03)
-            
-        try:
-            plt.savefig(nfile.replace('.dat','_dr.png').replace('.h5','_dr.png'), dpi=300)
-            if save_pdf:
-                plt.savefig(nfile.replace('.dat','_dr.pdf').replace('.h5','_dr.pdf'), dpi=300)
-            if show_output:
-                print 'plot saved:', nfile.replace('.dat','_dr.png').replace('.h5','_dr.png')
-        except Exception as m:
-            if show_output:
-                print 'figure not stored:', m
-            
-        if pcov != None and nfile[-2:] == 'h5':   #in case fit was successful
-            if _safe_fit_data_in_h5_file(nfile,x_vec,np.array(fvalues),entryname):
-                if entryname == '':
-                    if show_output:
-                        print 'Fit data successfully stored in h5 file.'
-                else:
-                    if show_output:
-                        print 'Fit data successfully stored in h5 file: fit%s'%entryname
-        plt.show()
+    #if show_plot:
+    if fit_function != EXP:
+        if xlabel != '':
+            plt.xlabel(xlabel)
+        if ylabel != '':
+            plt.ylabel(ylabel)
+        plt.title(str(['%.4g'%entry for entry in popt]),y=1.03)
+        
+    try:
+        plt.savefig(nfile.replace('.dat','_dr.png').replace('.h5','_dr.png'), dpi=300)
+        if save_pdf:
+            plt.savefig(nfile.replace('.dat','_dr.pdf').replace('.h5','_dr.pdf'), dpi=300)
+        if show_output:
+            print 'plot saved:', nfile.replace('.dat','_dr.png').replace('.h5','_dr.png')
+    except Exception as m:
+        if show_output:
+            print 'figure not stored:', m
+        
+    if pcov != None and nfile!= None and nfile[-2:] == 'h5':   #in case fit was successful
+        if _safe_fit_data_in_h5_file(nfile,x_vec,np.array(fvalues),entryname,x_url,data_url):
+            if entryname == '':
+                if show_output:
+                    print 'Fit data successfully stored in h5 file.'
+            else:
+                if show_output:
+                    print 'Fit data successfully stored in h5 file: fit%s'%entryname
+    if show_plot: plt.show()
+    plt.close('dat_reader')
     
     if pcov == None:
-        return np.concatenate((popt,float('inf')*np.ones(len(popt))),axis=1)   #fill up errors with 'inf' in case fit did not converge
+        return popt,float('inf')*np.ones(len(popt)) #fill up errors with 'inf' in case fit did not converge
     else:
-        #return np.concatenate((popt,np.sqrt(np.diag(pcov))),axis=1)   #shape of popt and np.sqrt(np.diag(pcov)) is (4,), respectively, so concatenation needs to take place along axis 1
         return popt,np.sqrt(np.diag(pcov))

@@ -185,11 +185,11 @@ class PlotWindow(QWidget,Ui_Form):
         self.view_types =  {'1D':0,'1D-V':1, '2D':2, '3D':3, 'table':4, 'txt':5}
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
         #self.plot_scales = {'linear':0,'dB':1,'phase_wrap':2}
-        self.manipulations = {'dB':1, 'wrap':2, 'linear':4} #BITMASK for manipulation
+        self.manipulations = {'dB':1, 'wrap':2, 'linear':4, 'remove_zeros':8} #BITMASK for manipulation
 
         self.plot_style = 0
         #self.plot_scale = 0
-        self.manipulation = 0
+        self.manipulation = 8
         self.TraceNum = -1
         self.view_type = self.ds.attrs.get("view_type",None)
 
