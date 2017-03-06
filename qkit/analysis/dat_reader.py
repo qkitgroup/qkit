@@ -56,6 +56,7 @@ except ImportError:
     no_qt = True
 
 
+''' fit function macros '''
 LORENTZIAN_SQRT = 0
 LORENTZIAN = 1 
 DAMPED_SINE = 2
@@ -69,9 +70,7 @@ PARAMS = ( ['f0','k','a','offs'], #LORENTZIAN_SQRT
     ['fs','a','offs','ph'], #SINE
     ['Td','a','offs'], #EXP
     ['fs','Td','a','offs','ph','d'] #DAMPED_EXP
-    
 )
-    
     
 '''
     rootPath = 'D:\\'
@@ -223,6 +222,17 @@ def read_hdf_data(nfile,entries=None, show_output=True):
                 except IndexError:
                     print 'Entries cannot be identified. No data for >> %s << found. Aborting.'%str(e)
                     return
+        #also allow to load analysis data
+        keys = hf['/entry/analysis0'].keys()
+        url_tree = '/entry/analysis0/'
+        for e in entries:
+            for k in keys:
+                try:
+                    if str(e).lower() in str(k).lower():
+                        urls.append(url_tree + k)
+                except IndexError:
+                    print 'Entries cannot be identified. No data for >> %s << found. Aborting.'%str(e)
+                    return
     if show_output:    
         print 'Entries identified:',urls
     data = []
@@ -289,6 +299,11 @@ def _fill_p0(p0,ps):
 def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp = False):
     '''
     find initial parameters for oscillating fits
+    
+    data: data array
+    data_c: (int) data column
+    damping: (bool) switch for decaying/non-decaying fit functions
+    asymmetric_exp
     '''
     
     #offset
@@ -300,14 +315,14 @@ def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp =
     #print s_offs
     
     if damping:
-        #amplitude
         if asymmetric_exp:
             s_a = np.abs(np.max(data[data_c]) - np.min(data[data_c]))
             if np.abs(np.max(data[data_c]) - s_offs) < np.abs(np.min(data[data_c]) - s_offs):   #if maximum closer to offset than minimum
                 s_a = -s_a
-        a1 = np.abs(np.max(data[data_c]) - s_offs)
-        a2 = np.abs(np.min(data[data_c]) - s_offs)
-        s_a = np.max([a1,a2])
+        else:
+            a1 = np.abs(np.max(data[data_c]) - s_offs)
+            a2 = np.abs(np.min(data[data_c]) - s_offs)
+            s_a = np.max([a1,a2])
         #print s_a
         
         #damping
@@ -320,7 +335,7 @@ def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp =
         except RuntimeWarning:
             logging.warning('Invalid value encountered in log. Continuing...')
             s_Td = float('inf')
-        if np.abs(s_Td) == float('inf'):
+        if np.abs(s_Td) == float('inf') and not asymmetric_exp:
             s_Td = float('inf')
             logging.warning('Consider using the sine fit routine for non-decaying sines.')
         #print 'assume T =', str(np.round(s_Td,4))
@@ -430,7 +445,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     '''
     
     if type(fit_function)==str:
-        logging.warning('using strings as fit function is depreciated. Use e.g dr.LORENTZIAN instead.')
+        #logging.warning('using strings as fit function is depreciated. Use e.g dr.LORENTZIAN instead.')
         fit_function = {'lorentzian':LORENTZIAN, 'lorentzian_sqrt':LORENTZIAN_SQRT, 'damped_sine':DAMPED_SINE, 'sine':SINE, 'exp':EXP, 'damped_exp':DAMPED_EXP}[fit_function]
         
     
@@ -497,7 +512,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             logging.error('spline order has to be of type float')
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    plt.figure('dat_reader')
+    plt.figure('dat_reader',figsize=(15,7))   #open and address plot instance
     if fit_function==LORENTZIAN or fit_function==LORENTZIAN_SQRT:
     
         #check for unit in frequency
@@ -514,7 +529,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         #plot data, f in GHz
         
         #if show_plot:   
-        plt.plot(data[0]*freq_conversion_factor,data[data_c],'*')
+        plt.plot(data[0]*freq_conversion_factor,data[data_c],'o')
         x_vec = np.linspace(data[0][0]*freq_conversion_factor,data[0][-1]*freq_conversion_factor,200)
     
         #start parameters ----------------------------------------------------------------------
@@ -602,7 +617,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     elif fit_function == DAMPED_SINE:
         #plot data
         #if show_plot:   
-        plt.plot(data[0],data[data_c],'*')
+        plt.plot(data[0],data[data_c],'o')
         x_vec = np.linspace(data[0][0],data[0][-1],400)
     
         #start parameters ----------------------------------------------------------------------
@@ -626,7 +641,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     elif fit_function == SINE:
         #plot data
         #if show_plot:   
-        plt.plot(data[0],data[data_c],'*')
+        plt.plot(data[0],data[data_c],'o')
         x_vec = np.linspace(data[0][0],data[0][-1],200)
     
         #start parameters ----------------------------------------------------------------------
@@ -676,11 +691,11 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             pcov = None
         finally:
             #plot data
-            #if show_plot:
+            if show_plot:
                 plt.close('dat_reader')
                 fig, axes = plt.subplots(1, 2, figsize=(15,4),num='dat_reader')
                 
-                axes[0].plot(data[0],data[data_c],'*')
+                axes[0].plot(data[0],data[data_c],'o')
                 fvalues = f_exp(x_vec, *popt)
                 axes[0].plot(x_vec, fvalues)
                 if xlabel == '':
@@ -696,7 +711,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
                 #axes[0].set_title('exponential decay', fontsize=15)
                 axes[0].set_title(str(['%.4g'%entry for entry in popt]), fontsize=15)
                 
-                axes[1].plot(data[0],np.abs(data[data_c]-popt[2]),'*')
+                axes[1].plot(data[0],np.abs(data[data_c]-popt[2]),'o')
                 axes[1].plot(x_vec, np.abs(f_exp(x_vec, *popt)-popt[2]))   #subtract offset for log plot
                 axes[1].set_yscale('log')
                 if xlabel == '':
@@ -718,11 +733,11 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     
         #plot data
         #if show_plot:   
-        plt.plot(data[0],data[data_c],'*')
+        plt.plot(data[0],data[data_c],'o')
         x_vec = np.linspace(data[0][0],data[0][-1],400)
 
         #start parameters ----------------------------------------------------------------------
-        s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data,data_c,damping=True)
+        s_offs, s_a, s_Td, s_fs, s_ph = _extract_initial_oscillating_parameters(data,data_c,damping=True,asymmetric_exp=True)
         # 1-d = (scaled) distance between first extremum and baseline
         d_diff = np.gradient(data[data_c],data[0][1]-data[0][0])
         i = 0
