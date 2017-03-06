@@ -14,7 +14,7 @@ class dataset_view(object):
     
     """
     
-    def __init__(self, hdf_file, name, x=None, y=None, x_axis=0, y_axis=0, filter = None,
+    def __init__(self, hdf_file, name, x=None, y=None, error=None, x_axis=0, y_axis=0, filter = None,
                  label = "", ds_type =  ds_types['view'],
                  comment="", folder = 'views', view_params={}):
         
@@ -29,6 +29,7 @@ class dataset_view(object):
             logging.ERROR("View: Please supply a x and y dataset.")
         self.x_object = str(x.ds_url)
         self.y_object = str(y.ds_url)
+        self.error_object = str(error.ds_url)
         self.x_axis = x_axis
         self.y_axis = y_axis
         
@@ -57,6 +58,7 @@ class dataset_view(object):
             ds.attrs.create('view_params',self.view_params)
         ds.attrs.create("xy_"+str(self.view_num),str(self.x_object)+":"+str(self.y_object))
         ds.attrs.create("xy_"+str(self.view_num)+"_axis",str(self.x_axis)+":"+str(self.y_axis))
+        ds.attrs.create("xy_"+str(self.view_num)+"_error",str(self.error_object))
         ds.attrs.create("overlays",self.view_num)
         ds.attrs.create("xy_"+str(self.view_num)+"_filter",str(self.filter))
 
