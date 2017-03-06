@@ -15,9 +15,11 @@ def _display_1D_view(self,graphicsView):
     overlay_urls = []
     x_axis = []
     y_axis = []
+    err_urls = []
     for i in range(overlay_num+1):
         ov = ds.attrs.get("xy_"+str(i),"")
         ax = ds.attrs.get("xy_"+str(i)+"_axis","0:0")
+        err_urls.append(ds.attrs.get("xy_"+str(i)+"_error",""))
         if ov:
             overlay_urls.append(ov.split(":"))
             x_a, y_a = ax.split(":")
@@ -26,9 +28,16 @@ def _display_1D_view(self,graphicsView):
             y_axis.append(int(y_a))
     ds_xs = []
     ds_ys = []
+    ds_errs = []
     for xy in overlay_urls:
         ds_xs.append(self.obj_parent.h5file[xy[0]])
         ds_ys.append(self.obj_parent.h5file[xy[1]])
+        
+    for err_url in err_urls:
+        try:
+            ds_errs.append(self.obj_parent.h5file[err_url])
+        except:
+            ds_errs.append(0)
 
     ds_x_url = ds.attrs.get("x_ds_url","")
     ds_y_url = ds.attrs.get("y_ds_url","")
@@ -44,6 +53,7 @@ def _display_1D_view(self,graphicsView):
         
     for i, x_ds in enumerate(ds_xs):
         y_ds = ds_ys[i]
+        err_ds = ds_errs[i]
         
         if x_ds.attrs.get('ds_type',0) == ds_types['coordinate'] or x_ds.attrs.get('ds_type',0) == ds_types['vector']:
             if y_ds.attrs.get('ds_type',0) == ds_types['vector']:
@@ -51,6 +61,8 @@ def _display_1D_view(self,graphicsView):
                 self.VTraceYSelector.setEnabled(False)
                 x_data = np.array(x_ds)
                 y_data = np.array(y_ds)
+                if err_ds:
+                    err_data = np.array(err_ds)
 
             elif y_ds.attrs.get('ds_type',0) == ds_types['matrix']:
                 self.VTraceXSelector.setEnabled(True)
@@ -61,6 +73,8 @@ def _display_1D_view(self,graphicsView):
     
                 x_data = np.array(x_ds)
                 y_data = np.array(y_ds[self.VTraceXNum])
+                if err_ds:
+                    err_data = np.array(err_ds[self.VTaceXNum])
 
             elif y_ds.attrs.get('ds_type',0) == ds_types['box']:
                 self.VTraceXSelector.setEnabled(True)
@@ -74,6 +88,8 @@ def _display_1D_view(self,graphicsView):
                 
                 x_data = np.array(x_ds)
                 y_data = np.array(y_ds[self.VTraceXNum,self.VTraceYNum,:])
+                if err_ds:
+                    err_data = np.array(err_ds[self.VTraceXNum,self.VTraceYNum,:])
 
         ## This is in our case used so far only for IQ plots. The functionality derives from this application.
         elif x_ds.attrs.get('ds_type',0) == ds_types['matrix']:
@@ -151,12 +167,15 @@ def _display_1D_view(self,graphicsView):
             graphicsView.plot(y=y_data, x=x_data,pen=(i,3), name = y_name, connect='finite',symbol=symbols[i%len(symbols)])
         if self.plot_style==self.plot_styles['point']:
             symbols=['+','o','s','d','t']
-            graphicsView.plot(y=y_data, x=x_data, name = y_name,pen=None,symbol=symbols[i%len(symbols)])
+            graphicsView.plot(y=y_data, x=x_data, name = y_name,pen=None,symbol=symbols[i%len(symbols)])    
+        if err_ds:
+            err = pg.ErrorBarItem(x=x_data, y=y_data, height=err_data, beam=0.25*x_ds.attrs.get("dx",0))
+            graphicsView.getPlotItem().addItem(err)    
             
-    
     plIt = graphicsView.getPlotItem()
     plVi = plIt.getViewBox()
-
+    
+    
     self._last_x_pos = 0   
     def mouseMoved(mpos):
         mpos = mpos[0]
@@ -451,7 +470,7 @@ def _display_table(self,graphicsView):
     data = np.array(self.ds)
     if self.ds_type == ds_types['matrix']:
         data = data.transpose()
-    if self.ds_type == ds_types['vector']:
+    if self.ds_type == ds_types['vector'] or self.ds_type == ds_types['coordinate']:
         data_tmp = np.empty((1,data.shape[0]),dtype=np.float64)
         data_tmp[0] = data
         data = data_tmp.transpose()
