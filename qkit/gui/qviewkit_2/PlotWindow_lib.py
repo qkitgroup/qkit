@@ -43,7 +43,7 @@ def _display_1D_view(self,graphicsView):
         err_ds = ds_errs[i]
         
         if x_ds.attrs.get('ds_type',0) == ds_types['coordinate'] or x_ds.attrs.get('ds_type',0) == ds_types['vector']:
-            if y_ds.attrs.get('ds_type',0) == ds_types['vector']:
+            if y_ds.attrs.get('ds_type',0) == ds_types['vector'] or y_ds.attrs.get('ds_type',0) == ds_types['coordinate']:
                 self.VTraceXSelector.setEnabled(False)
                 self.VTraceYSelector.setEnabled(False)
                 x_data = np.array(x_ds)
@@ -110,11 +110,11 @@ def _display_1D_view(self,graphicsView):
         x_name = x_ds.attrs.get("name","_none_")
         y_name = y_ds.attrs.get("name","_none_")
         
-        x_unit = x_ds.attrs.get("unit","_none_")
-        y_unit = y_ds.attrs.get("unit","_none_")
+        self.x_unit = x_ds.attrs.get("unit","_none_")
+        self.y_unit = y_ds.attrs.get("unit","_none_")
 
-        graphicsView.setLabel('left', y_name, units=y_unit)
-        graphicsView.setLabel('bottom', x_name , units=x_unit)
+        graphicsView.setLabel('left', y_name, units=self.y_unit)
+        graphicsView.setLabel('bottom', x_name , units=self.x_unit)
         
         
         view_params = json.loads(ds.attrs.get("view_params",{}))
@@ -137,7 +137,8 @@ def _display_1D_view(self,graphicsView):
         # set the y data  to the decibel scale 
         if self.manipulation & self.manipulations['dB']:
             y_data = 20 *np.log10(y_data)
-            graphicsView.setLabel('left', y_name, units="dB") 
+            graphicsView.setLabel('left', y_name, units="dB")
+            self.y_unit='dB'
           
         # unwrap the phase
         if self.manipulation & self.manipulations['wrap']:
@@ -170,8 +171,8 @@ def _display_1D_view(self,graphicsView):
             mousePoint = plVi.mapSceneToView(mpos)
             xval = mousePoint.x()
             yval = mousePoint.y()
-            self.PointX.setText("X: %.6e"%(xval)) 
-            self.PointY.setText("Y: %.6e"%(yval))
+            self.PointX.setText("X: %.6e %s"%(xval,self.x_unit)) 
+            self.PointY.setText("Y: %.6e %s"%(yval,self.y_unit)) 
             
             try:
                 self.data_coord=  "%e\t%e\t%e\t%e" % (xval, yval,self._last_x_pos-xval,xval/(self._last_x_pos-xval))
@@ -185,7 +186,7 @@ def _display_1D_view(self,graphicsView):
 def _display_1D_data(self,graphicsView):
     ds = self.ds
     name = ds.attrs.get("name","_none_")
-    unit = ds.attrs.get("unit","_none_")
+    self.unit = ds.attrs.get("unit","_none_")
     y_data = np.array(ds)
 
     if self.ds_type == ds_types['vector'] or self.ds_type == ds_types['coordinate']:
@@ -255,13 +256,14 @@ def _display_1D_data(self,graphicsView):
         if self.ds.shape[2]==1:
             self.plot_style = self.plot_styles['point']
 
-    graphicsView.setLabel('left', name, units=unit)
+    graphicsView.setLabel('left', name, units=self.unit)
     graphicsView.setLabel('bottom', x_name , units=x_unit)
 
     # set the y data  to the decibel scale 
     if self.manipulation & self.manipulations['dB']:
         y_data = 20 *np.log10(y_data)
         graphicsView.setLabel('left', name, units="dB")
+        self.unit = 'dB'
     
     # unwrap the phase
     if self.manipulation & self.manipulations['wrap']:
@@ -284,7 +286,6 @@ def _display_1D_data(self,graphicsView):
     self._last_x_pos = 0
     
     def mouseMoved(mpos):
-        y_unit = unit #here, yval and y_unit is the displayed measurement data
         mpos = mpos[0]
         if plIt.sceneBoundingRect().contains(mpos):
             mousePoint = plVi.mapSceneToView(mpos)
@@ -292,7 +293,7 @@ def _display_1D_data(self,graphicsView):
             yval = mousePoint.y()
 
             self.PointX.setText("X: %.6e %s"%(xval,x_unit)) 
-            self.PointY.setText("Y: %.6e %s"%(yval,y_unit)) 
+            self.PointY.setText("Y: %.6e %s"%(yval,self.unit)) 
 
             try:
                 self.data_coord=  "%e\t%e\t%e\t%e" % (xval, yval,self._last_x_pos-xval,xval/(self._last_x_pos-xval))
@@ -306,7 +307,7 @@ def _display_1D_data(self,graphicsView):
 def _display_2D_data(self,graphicsView):
     ds = self.ds
     name = ds.attrs.get("name","_none_")
-    unit = ds.attrs.get("unit","_none_")
+    self.unit = ds.attrs.get("unit","_none_")
 
     data = ds[()]
     fill_x = ds.shape[0]
@@ -381,6 +382,7 @@ def _display_2D_data(self,graphicsView):
     # set the y data  to the decibel scale 
     if self.manipulation & self.manipulations['dB']:
         data = 20 *np.log10(data)
+        self.unit = 'dB'
         
     # unwrap the phase
     if self.manipulation & self.manipulations['wrap']:
@@ -406,7 +408,7 @@ def _display_2D_data(self,graphicsView):
     scale=((xmax-xmin)/float(fill_x),(ymax-ymin)/float(fill_y))
     graphicsView.view.setLabel('left', y_name, units=y_unit)
     graphicsView.view.setLabel('bottom', x_name, units=x_unit)
-    graphicsView.view.setTitle(name+" ("+unit+")")
+    graphicsView.view.setTitle(name+" ("+self.unit+")")
     graphicsView.view.invertY(False)
     
     graphicsView.setImage(data,pos=pos,scale=scale)
@@ -422,7 +424,6 @@ def _display_2D_data(self,graphicsView):
     imVi = graphicsView.getView()
     
     def mouseMoved(mpos):
-        z_unit = unit #here, zval and z_unit is the color coded measurement data
         mpos = mpos[0]
         if not self.obj_parent.liveCheckBox.isChecked():
             if imIt.sceneBoundingRect().contains(mpos):
@@ -436,7 +437,7 @@ def _display_2D_data(self,graphicsView):
                         zval = data[x_index][y_index]
                         self.PointX.setText("X: %.6e %s"%(xval,x_unit)) 
                         self.PointY.setText("Y: %.6e %s"%(yval,y_unit)) 
-                        self.PointZ.setText("Z: %.6e %s"%(zval,z_unit)) 
+                        self.PointZ.setText("Z: %.6e %s"%(zval,self.unit)) 
                         self.data_coord=  "%g\t%g\t%g" % (xval, yval,zval)
 
         else:
@@ -445,7 +446,7 @@ def _display_2D_data(self,graphicsView):
             zval = 0
             self.PointX.setText("X: %.6e %s"%(xval,x_unit)) 
             self.PointY.setText("Y: %.6e %s"%(yval,y_unit)) 
-            self.PointZ.setText("Z: %.6e %s"%(zval,z_unit)) 
+            self.PointZ.setText("Z: %.6e %s"%(zval,self.unit)) 
             self.data_coord=  "%g\t%g\t%g" % (xval, yval,zval)
     
 
