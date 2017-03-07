@@ -29,6 +29,7 @@ class dataset_view(object):
             logging.ERROR("View: Please supply a x and y dataset.")
         self.x_object = str(x.ds_url)
         self.y_object = str(y.ds_url)
+        self.error_object = None
         if error:
             self.error_object = str(error.ds_url)
         self.x_axis = x_axis
