@@ -272,7 +272,7 @@ class PlotWindow(QWidget,Ui_Form):
             elif len(self.ds.shape) == 3:
                 self.TraceSelector.setEnabled(False)
                 shape = self.ds.shape[0]
-                self.view_type = self.view_types['3D']
+                self.view_type = self.view_types['2D']
                 self.PlotTypeSelector.setEnabled(False)
             else:
                 self.TraceSelector.setEnabled(True)

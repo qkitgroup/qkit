@@ -13,19 +13,13 @@ def _display_1D_view(self,graphicsView):
     ds = self.ds
     overlay_num = ds.attrs.get("overlays",0)
     overlay_urls = []
-    x_axis = []
-    y_axis = []
     err_urls = []
     for i in range(overlay_num+1):
         ov = ds.attrs.get("xy_"+str(i),"")
-        ax = ds.attrs.get("xy_"+str(i)+"_axis","0:0")
-        err_urls.append(ds.attrs.get("xy_"+str(i)+"_error",""))
         if ov:
             overlay_urls.append(ov.split(":"))
-            x_a, y_a = ax.split(":")
-            #print x_a, y_a
-            x_axis.append(int(x_a))
-            y_axis.append(int(y_a))
+        err_urls.append(ds.attrs.get("xy_"+str(i)+"_error",""))
+            
     ds_xs = []
     ds_ys = []
     ds_errs = []
@@ -38,13 +32,6 @@ def _display_1D_view(self,graphicsView):
             ds_errs.append(self.obj_parent.h5file[err_url])
         except:
             ds_errs.append(0)
-
-    ds_x_url = ds.attrs.get("x_ds_url","")
-    ds_y_url = ds.attrs.get("y_ds_url","")
-
-    if ds_x_url and ds_y_url:
-        ds_xs.append(self.obj_parent.h5file[ds_x_url])
-        ds_ys.append(self.obj_parent.h5file[ds_y_url])
 
     graphicsView.clear()
 
