@@ -113,7 +113,7 @@ class Data(object):
                           comment=comment, folder=folder,**meta)
         return ds
 
-    def add_view(self,name,x = None, y = None, error = None, x_axis=0, y_axis=0, filter  = None, view_params = {} ,comment = ""):
+    def add_view(self,name,x = None, y = None, error = None, filter  = None, view_params = {}):
         """a view is a way to display plot x-y data.
             x, y with the corresponding error are the datasets to display, e.g.
             x = h5["/entry/data0/temperature"]
@@ -126,8 +126,8 @@ class Data(object):
             accesses the x,y dataset returns arrays of (x,y)
             (Fixme: not jet implemented)
         """
-        ds =  dataset_view(self.hf,name, x=x, y=y, error=error, x_axis=x_axis, y_axis=y_axis, filter = filter, ds_type = ds_types['view'],
-                           comment=comment,view_params = view_params)
+        ds =  dataset_view(self.hf,name, x=x, y=y, error=error, filter = filter, ds_type = ds_types['view']
+                           ,view_params = view_params)
         return ds
 
     def get_dataset(self,ds_url):
