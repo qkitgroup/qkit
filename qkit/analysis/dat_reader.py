@@ -481,7 +481,9 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     if data_c >= len(data):
         print 'bad data column identifier, out of bonds...aborting'
         return
-        
+    
+    freq_conversion_factor =1
+    
     #data optimization
     if opt:
         if no_do:
@@ -770,7 +772,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             print 'figure not stored:', m
         
     if pcov != None and nfile!= None and nfile[-2:] == 'h5':   #in case fit was successful
-        if _safe_fit_data_in_h5_file(nfile,x_vec,np.array(fvalues),entryname,x_url,data_url):
+        if _safe_fit_data_in_h5_file(nfile,x_vec/freq_conversion_factor,np.array(fvalues),entryname,x_url,data_url):
             if entryname == '':
                 if show_output:
                     print 'Fit data successfully stored in h5 file.'
