@@ -116,7 +116,7 @@ class PlotWindow(QWidget,Ui_Form):
             elif self.view_type == self.view_types['table']:
                 if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
-                    self.graphicsView = pg.TableWidget()
+                    self.graphicsView = pg.TableWidget(sortable=False)
                     self.graphicsView.setWindowTitle(self.dataset_url+'_table')
                     self.graphicsView.setObjectName(self.dataset_url)
                     self.gridLayout.addWidget(self.graphicsView,0,0)
@@ -272,7 +272,7 @@ class PlotWindow(QWidget,Ui_Form):
             elif len(self.ds.shape) == 3:
                 self.TraceSelector.setEnabled(False)
                 shape = self.ds.shape[0]
-                self.view_type = self.view_types['3D']
+                self.view_type = self.view_types['2D']
                 self.PlotTypeSelector.setEnabled(False)
             else:
                 self.TraceSelector.setEnabled(True)
