@@ -5,7 +5,7 @@ Created 2015
 @author: hrotzing
 """
 import logging
-from hdf_constants import ds_types
+from hdf_constants import ds_types, view_types
 import json
 class dataset_view(object):
 
@@ -31,7 +31,6 @@ class dataset_view(object):
         if error:
             self.error_object = str(error.ds_url)
         
-        self.view_types =  {'1D':0,'1D-V':1, '2D':2, '3D':3, 'table':4, 'txt':5}
         self.ds = self.hf.create_dataset(self.name,0,folder=self.folder,dim=1)
         self.view_params = json.dumps(view_params)
         self.view_num = 0
@@ -52,7 +51,7 @@ class dataset_view(object):
     def _setup_metadata(self,init=True):
         ds = self.ds
         if init:
-            ds.attrs.create("view_type",self.view_types['1D-V'])
+            ds.attrs.create("view_type",view_types['1D-V'])
             ds.attrs.create('ds_type',self.ds_type)
             ds.attrs.create('view_params',self.view_params)
         ds.attrs.create("xy_"+str(self.view_num),str(self.x_object)+":"+str(self.y_object))

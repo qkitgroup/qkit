@@ -114,20 +114,18 @@ class Data(object):
         return ds
 
     def add_view(self,name,x = None, y = None, error = None, filter  = None, view_params = {}):
-        """a view is a way to display plot x-y data.
-            x, y with the corresponding error are the datasets to display, e.g.
-            x = h5["/entry/data0/temperature"]
-            y = h5["/entry/analysis0/frequency_fit"]
-            error = h5["/entry/analysis0/frequency_fit_error"]
-            x_axis is the slice dimension on multidim arrays
-            y_axis is the slice dimension on multidim arrays
-            (Fixme: this might be outdated, since qviewkit is now able to move dynamically through the data array)
-            filter is a string of reguar python code, which
-            accesses the x,y dataset returns arrays of (x,y)
-            (Fixme: not jet implemented)
         """
-        ds =  dataset_view(self.hf,name, x=x, y=y, error=error, filter = filter, ds_type = ds_types['view']
-                           ,view_params = view_params)
+        a view is a way to display plot x-y data.
+        x, y with the corresponding error are the datasets to display, e.g.
+        x = h5["/entry/data0/temperature"]
+        y = h5["/entry/analysis0/frequency_fit"]
+        error = h5["/entry/analysis0/frequency_fit_error"]
+        filter is a string of reguar python code, which
+        accesses the x,y dataset returns arrays of (x,y)
+        (Fixme: not jet implemented)
+        """
+        ds =  dataset_view(self.hf,name, x=x, y=y, error=error, filter = filter, 
+                           ds_type = ds_types['view'],view_params = view_params)
         return ds
 
     def get_dataset(self,ds_url):
