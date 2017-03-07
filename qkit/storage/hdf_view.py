@@ -29,7 +29,8 @@ class dataset_view(object):
             logging.ERROR("View: Please supply a x and y dataset.")
         self.x_object = str(x.ds_url)
         self.y_object = str(y.ds_url)
-        self.error_object = str(error.ds_url)
+        if error:
+            self.error_object = str(error.ds_url)
         self.x_axis = x_axis
         self.y_axis = y_axis
         
@@ -58,7 +59,8 @@ class dataset_view(object):
             ds.attrs.create('view_params',self.view_params)
         ds.attrs.create("xy_"+str(self.view_num),str(self.x_object)+":"+str(self.y_object))
         ds.attrs.create("xy_"+str(self.view_num)+"_axis",str(self.x_axis)+":"+str(self.y_axis))
-        ds.attrs.create("xy_"+str(self.view_num)+"_error",str(self.error_object))
+        if self.error_object:
+            ds.attrs.create("xy_"+str(self.view_num)+"_error",str(self.error_object))
         ds.attrs.create("overlays",self.view_num)
         ds.attrs.create("xy_"+str(self.view_num)+"_filter",str(self.filter))
 
