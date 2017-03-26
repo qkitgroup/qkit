@@ -51,7 +51,7 @@ def optimize(data, c_amp = 1, c_pha = 2, normalize = True):
 
     #generate complex data array
     try:
-        c = np.array(data[1]) * np.exp(1j*np.array(data[2]))
+        c = np.array(data[c_amp]) * np.exp(1j*np.array(data[c_pha]))
     except IndexError:
         print 'Bad column identifier...aborting.'
     except ValueError:
