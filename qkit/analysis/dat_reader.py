@@ -57,12 +57,15 @@ except ImportError:
 
 
 ''' fit function macros '''
-LORENTZIAN_SQRT = 0
-LORENTZIAN = 1 
-DAMPED_SINE = 2
-SINE = 3
-EXP = 4
-DAMPED_EXP = 5
+LORENTZIAN = 'lorentzian'
+LORENTZIAN_SQRT = 'lorentzian_sqrt'
+DAMPED_SINE = 'damped_sine'
+SINE = 'sine'
+EXP = 'exp'
+DAMPED_EXP = 'damped_exp'
+
+''' dat import macro '''
+DAT_IMPORT = 'dat_import'
 
 PARAMS = ( ['f0','k','a','offs'], #LORENTZIAN_SQRT
     ['f0','k','a','offs'], #LORENTZIAN
@@ -245,7 +248,7 @@ def read_hdf_data(nfile,entries=None, show_output=True):
 
 def load_data(file_name = None,entries = None, show_output=True):
     '''
-    load recent or specified data file and return the data array and the file name
+    load recent or specified data file and return the data array, the file name and the respective urls
     '''
     
     if file_name == None:
@@ -269,10 +272,10 @@ def load_data(file_name = None,entries = None, show_output=True):
         else:   #dat file
             data = np.loadtxt(nfile, comments='#').T
     except NameError:
-        print 'hdf package not available...aborting'
+        logging.error('hdf package not available...aborting')
         return
-    except Exception as message:
-        print 'invalid file name...aborting:', message
+    except Exception as m:
+        logging.error('invalid file name...aborting: '+str(m))
         return
 
     return data, nfile, urls
@@ -290,7 +293,7 @@ def _fill_p0(p0,ps):
                 if ps[n] != None:
                     p0[n] = ps[n]
         except Exception as m:
-            print 'list of given initial parameters invalid...aborting'
+            logging.error('list of given initial parameters invalid...aborting')
             raise ValueError
     return p0
 
@@ -369,16 +372,16 @@ def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp =
 
 # =================================================================================================================
 
-def _safe_fit_data_in_h5_file(fname,x_vec,fvalues,entryname='',x_url='',data_url=''):
+def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,entryname_coordinate='param',entryname_vector='fit',folder='analysis'):
     '''
     appends fitted data to the h5 file in folder analysis with a newly created parameter axis containing
-     a fixed number of points
+     a fixed number of points and creates joint view
      
     fname: file name of the h5 file
     x_vec: generated x vector (parameter vector) of constant length
     fvalues: fitted function values, array of length len(x_vec)
     entryname: suffix to be added to the name of analysis entry
-    x_url: url of coordinate axis
+    x_url: url of data coordinate axis
     data_url: url of data entry
     
     So far I hope that hdf_lib throws away old fit data when refitting and generating the same axes in the analysis folder. (JB)
@@ -386,21 +389,72 @@ def _safe_fit_data_in_h5_file(fname,x_vec,fvalues,entryname='',x_url='',data_url
     
     try:
         hf = hdf_lib.Data(path=fname)
-        hdf_x = hf.add_coordinate('param'+entryname,folder='analysis')
-        hdf_x.add(x_vec)
-        hdf_fit = hf.add_value_vector('fit'+entryname, folder='analysis', x = hdf_x)
-        hdf_fit.append(np.array(fvalues))
         
+        #create coordinate and fit data vector
+        hdf_x = hf.add_coordinate(entryname_coordinate,folder=folder)
+        hdf_x.add(x_vec)
+        hdf_y = hf.add_value_vector(entryname_vector, folder=folder, x = hdf_x)
+        hdf_y.append(np.array(fvalues))
+        #hdf_x, hdf_y = _save_dataset_h5(hf,x_vec,fvalues,entryname_coordinate,entryname_vector,folder='analysis')
+        
+        #create joint view
         ds_x = hf.get_dataset(x_url)
         ds_data = hf.get_dataset(data_url)
-        joint_view = hf.add_view('joint_view', x = hdf_x, y = hdf_fit)
+        joint_view = hf.add_view(entryname_vector, x = hdf_x, y = hdf_y)
         joint_view.add(x = ds_x, y = ds_data)
         
         hf.close_file()
-    except Exception as m:
-        print 'Error while attempting to save fit data in h5 file:', m
+    except NameError as m:
+        logging.error('Error while attempting to save fit data in h5 file: '+str(m))
         return False
     return True
+    
+# =================================================================================================================
+    
+def extract_rms_mean(fname,normalize=False,do_plot=False):
+    '''
+    extract the rms of the mean from existing data, do a principle axis transformation via ./data_optimizer.py
+    and store resulting averaged dataset in h5 file including error bars, create view
+    
+    fname: (str) file name of the h5 file
+    entryname: (str) entryname of the rms_mean dataset to be created
+    plot_data: (bool) switch stating whether the averaged data together with the error bars is to be plotted
+    '''
+    
+    data, fn, urls = load_data(fname,entries=['pulse length','delay','amplitude','phase'])
+    try:
+        delay, amp, ampa, pha, phaa = data
+    except ValueError as m:   #most likely, the required data sets are not present in the h5 file
+        logging.error('Error loading raw data. '+str(m))
+    
+    x, dat = do.optimize(np.array([delay,amp,pha]),1,2, normalize=False)
+    std_mean = np.std(dat,axis=0)/np.sqrt(len(dat))   #standard deviation of the mean
+    dat_m = np.mean(dat,axis=0)
+    
+    if normalize:
+        dat_m -= np.min(dat_m)
+        dat_max = np.max(dat_m)
+        dat_m /= dat_max
+        std_mean /= dat_max
+    
+    if do_plot:
+        plt.figure('dat_reader',figsize=(15,7))   #open and address plot instance
+        plt.errorbar(x,dat_m,yerr=std_mean)
+        plt.show()
+        plt.close('dat_reader')
+    return dat_m, std_mean
+
+# =================================================================================================================
+
+def save_errorbar_plot(entryname_coordinate=None,entryname_vector='compl_data'):
+    hf = hdf_lib.Data(path=fname)
+    #save optimized data
+    _save_dataset_h5(hf,delay,np.mean(dat,axis=0),entryname_coordinate,entryname_vector=entryname+'_opt',folder='analysis')
+    _create_error_dataset_and_view(hf,x_url,np.mean(dat,axis=0),entryname=entryname_vector+'err',x_url='',data_url='')
+    _safe_fit_data_in_h5_file(fname,delay,std_mean,entryname=entryname+'_rms_mean',x_url=urls[0],data_url='/entry/analysis0/'+entryname+'_opt')
+    
+    if plot_data:
+        qviewkit.plot(hf.get_filepath(), datasets=[entryname+'_rms_mean'])
 
 # =================================================================================================================
 
@@ -414,7 +468,7 @@ def spline_smooth_data(x_data, y_data, spline_order=1):
     
 # =================================================================================================================
 
-def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, show_output = True, save_pdf = False, data=None, nfile=None, opt=None, entryname = '', spline_order=None):
+def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, show_output = True, save_pdf = False, data=None, nfile=None, opt=None, entryname = 'fit', spline_order=None):
     '''
     fit the data in file_name to a function specified by fit_function
     setting file_name to None makes the code try to find the newest .dat file in today's data_dir
@@ -435,6 +489,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     data, nfile: pass data object and file name which is used when file_name == 'dat_import'
     opt: bool, set to True if data is to be optimized prior to fitting using the data_optimizer
     entryname: suffix to be added to the name of analysis entry
+    spline_order: apply spline smoothing of data prior to fitting when spline_order != None
     
     returns fit parameters, standard deviations concatenated: [popt1,pop2,...poptn,err_popt1,err_popt2,...err_poptn]
     in case fit does not converge, errors are filled with 'inf'
@@ -444,11 +499,8 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     f_Lorentzian expects its frequency parameter to be stated in GHz
     '''
     
-    if type(fit_function)==str:
-        #logging.warning('using strings as fit function is depreciated. Use e.g dr.LORENTZIAN instead.')
-        fit_function = {'lorentzian':LORENTZIAN, 'lorentzian_sqrt':LORENTZIAN_SQRT, 'damped_sine':DAMPED_SINE, 'sine':SINE, 'exp':EXP, 'damped_exp':DAMPED_EXP}[fit_function]
         
-    
+    # fit function definitions --------------------------------------------------------------------------------------
     def f_Lorentzian_sqrt(f, f0, k, a, offs):
         return np.sign(a) * np.sqrt(np.abs(a**2*(k/2)**2/((k/2)**2+(f-f0)**2)))+offs
         
@@ -471,7 +523,8 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         
     def f_damped_exp(t, fs, Td, a, offs, ph, d):
         return a*np.exp(-t/Td)*0.5*(1+d*np.cos(2*np.pi*fs*t+ph))+offs
-
+    #----------------------------------------------------------------------------------------------------------------
+        
     entries = None
     if isinstance(data_c,(list, tuple, np.ndarray)):   #got list of entries to be plotted
         entries = data_c
@@ -480,6 +533,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     if file_name == 'dat_import':
         if show_output: print 'use imported data'
         data_c = 1
+        x_url = None
     else:
         #load data
         data, nfile, urls = load_data(file_name, entries, show_output)
@@ -496,9 +550,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     if data_c >= len(data):
         print 'bad data column identifier, out of bonds...aborting'
         return
-    
-    freq_conversion_factor =1
-    
+        
     #data optimization
     if opt:
         if no_do:
@@ -515,7 +567,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     plt.figure('dat_reader',figsize=(15,7))   #open and address plot instance
-    if fit_function==LORENTZIAN or fit_function==LORENTZIAN_SQRT:
+    if fit_function == LORENTZIAN or fit_function == LORENTZIAN_SQRT:
     
         #check for unit in frequency
         if np.mean(data[0]) > 100:
@@ -529,8 +581,6 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             freq_conversion_factor = 1
 
         #plot data, f in GHz
-        
-        #if show_plot:   
         plt.plot(data[0]*freq_conversion_factor,data[data_c],'o')
         x_vec = np.linspace(data[0][0]*freq_conversion_factor,data[0][-1]*freq_conversion_factor,200)
     
@@ -602,23 +652,21 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
                 popt = p0
                 pcov = None
             finally:
-                #if show_plot:
-                    fvalues = f_Lorentzian(x_vec, *popt)
-                    plt.plot(x_vec, fvalues)
-                    ax = plt.gca()
-                    if xlabel == '':
-                        ax.set_xlabel('f (GHz)', fontsize=13)
-                        pass
-                    else:
-                        ax.set_xlabel(str(xlabel), fontsize=13)
-                    if ylabel == '':
-                        #ax.set_ylabel('arg(S21) (a.u.)', fontsize=13)
-                        pass
+                fvalues = f_Lorentzian(x_vec, *popt)
+                plt.plot(x_vec, fvalues)
+                ax = plt.gca()
+                if xlabel == '':
+                    ax.set_xlabel('f (GHz)', fontsize=13)
+                    pass
+                else:
+                    ax.set_xlabel(str(xlabel), fontsize=13)
+                if ylabel == '':
+                    #ax.set_ylabel('arg(S21) (a.u.)', fontsize=13)
+                    pass
                     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
     elif fit_function == DAMPED_SINE:
         #plot data
-        #if show_plot:   
         plt.plot(data[0],data[data_c],'o')
         x_vec = np.linspace(data[0][0],data[0][-1],400)
     
@@ -635,14 +683,12 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             popt = p0
             pcov = None
         finally:
-            #if show_plot:
-                fvalues = f_damped_sine(x_vec, *popt)
-                plt.plot(x_vec, fvalues)
+            fvalues = f_damped_sine(x_vec, *popt)
+            plt.plot(x_vec, fvalues)
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     elif fit_function == SINE:
         #plot data
-        #if show_plot:   
         plt.plot(data[0],data[data_c],'o')
         x_vec = np.linspace(data[0][0],data[0][-1],200)
     
@@ -661,9 +707,8 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             popt = p0
             pcov = None
         finally:
-           # if show_plot:
-                fvalues = f_sine(x_vec, *popt)
-                plt.plot(x_vec, fvalues)
+            fvalues = f_sine(x_vec, *popt)
+            plt.plot(x_vec, fvalues)
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     elif fit_function == EXP:
@@ -734,7 +779,6 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     elif fit_function == DAMPED_EXP:
     
         #plot data
-        #if show_plot:   
         plt.plot(data[0],data[data_c],'o')
         x_vec = np.linspace(data[0][0],data[0][-1],400)
 
@@ -760,15 +804,13 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             popt = p0
             pcov = None
         finally:
-            #if show_plot:
-                fvalues = f_damped_exp(x_vec, *popt)
-                plt.plot(x_vec, fvalues)
+            fvalues = f_damped_exp(x_vec, *popt)
+            plt.plot(x_vec, fvalues)
     
     else:
         print 'fit function not known...aborting'
         return
     
-    #if show_plot:
     if fit_function != EXP:
         if xlabel != '':
             plt.xlabel(xlabel)
@@ -782,18 +824,19 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             plt.savefig(nfile.replace('.dat','_dr.pdf').replace('.h5','_dr.pdf'), dpi=300)
         if show_output:
             print 'plot saved:', nfile.replace('.dat','_dr.png').replace('.h5','_dr.png')
+    except AttributeError:
+        if show_output: print 'Figure not stored.'
     except Exception as m:
-        if show_output:
-            print 'figure not stored:', m
+        if show_output: logging.error('figure not stored: '+str(m))
         
-    if pcov != None and nfile!= None and nfile[-2:] == 'h5':   #in case fit was successful
-        if _safe_fit_data_in_h5_file(nfile,x_vec/freq_conversion_factor,np.array(fvalues),entryname,x_url,data_url):
+    if pcov != None and nfile!= None and nfile[-2:] == 'h5' and x_url != None:   #in case fit was successful
+        if _save_fit_data_in_h5_file(nfile,x_vec,np.array(fvalues),x_url=x_url,data_url=data_url,entryname_vector=entryname):
             if entryname == '':
                 if show_output:
                     print 'Fit data successfully stored in h5 file.'
             else:
                 if show_output:
-                    print 'Fit data successfully stored in h5 file: fit%s'%entryname
+                    print 'Fit data successfully stored in h5 file: %s'%entryname
     if show_plot: plt.show()
     plt.close('dat_reader')
     
