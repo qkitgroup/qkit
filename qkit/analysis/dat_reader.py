@@ -67,13 +67,13 @@ DAMPED_EXP = 'damped_exp'
 ''' dat import macro '''
 DAT_IMPORT = 'dat_import'
 
-PARAMS = ( ['f0','k','a','offs'], #LORENTZIAN_SQRT
-    ['f0','k','a','offs'], #LORENTZIAN
-    ['fs','Td','a','offs','ph'], #DAMPED_SINE
-    ['fs','a','offs','ph'], #SINE
-    ['Td','a','offs'], #EXP
-    ['fs','Td','a','offs','ph','d'] #DAMPED_EXP
-)
+PARAMS = {LORENTZIAN_SQRT: ['f0','k','a','offs'],
+    LORENTZIAN: ['f0','k','a','offs'],
+    DAMPED_SINE: ['fs','Td','a','offs','ph'],
+    SINE: ['fs','a','offs','ph'],
+    EXP: ['Td','a','offs'],
+    DAMPED_EXP: ['fs','Td','a','offs','ph','d']
+}
     
 '''
     rootPath = 'D:\\'
@@ -372,7 +372,7 @@ def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp =
 
 # =================================================================================================================
 
-def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,entryname_coordinate='param',entryname_vector='fit',folder='analysis'):
+def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,data_opt=None,entryname_coordinate='param',entryname_vector='fit',folder='analysis'):
     '''
     appends fitted data to the h5 file in folder analysis with a newly created parameter axis containing
      a fixed number of points and creates joint view
@@ -395,13 +395,18 @@ def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,entryname_coord
         hdf_x.add(x_vec)
         hdf_y = hf.add_value_vector(entryname_vector, folder=folder, x = hdf_x)
         hdf_y.append(np.array(fvalues))
-        #hdf_x, hdf_y = _save_dataset_h5(hf,x_vec,fvalues,entryname_coordinate,entryname_vector,folder='analysis')
+        
+        if data_opt != None:
+            #create optimized data entry
+            hdf_data_opt = hf.add_value_vector('data_opt', folder=folder, x = hf.get_dataset(x_url))
+            hdf_data_opt.append(np.array(data_opt))
         
         #create joint view
-        ds_x = hf.get_dataset(x_url)
-        ds_data = hf.get_dataset(data_url)
-        joint_view = hf.add_view(entryname_vector, x = hdf_x, y = hdf_y)
-        joint_view.add(x = ds_x, y = ds_data)
+        joint_view = hf.add_view(entryname_vector, x = hdf_x, y = hdf_y)   #fit
+        if data_opt != None:
+            joint_view.add(x = hf.get_dataset(x_url), y = hdf_data_opt)   #data
+        else:
+            joint_view.add(x = hf.get_dataset(x_url), y = hf.get_dataset(data_url))   #data
         
         hf.close_file()
     except NameError as m:
@@ -411,23 +416,32 @@ def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,entryname_coord
     
 # =================================================================================================================
     
-def extract_rms_mean(fname,normalize=False,do_plot=False):
+def extract_rms_mean(fname,opt=True,normalize=False,do_plot=False):
     '''
     extract the rms of the mean from existing data, do a principle axis transformation via ./data_optimizer.py
     and store resulting averaged dataset in h5 file including error bars, create view
     
     fname: (str) file name of the h5 file
-    entryname: (str) entryname of the rms_mean dataset to be created
-    plot_data: (bool) switch stating whether the averaged data together with the error bars is to be plotted
+    normalize: (bool) switch normalization on/off
+    opt: (bool) use data optimizer if True, use raw phase information when False
+    do_plot: (bool) switch stating whether the averaged data together with the error bars is to be plotted
     '''
     
-    data, fn, urls = load_data(fname,entries=['pulse length','delay','amplitude','phase'])
     try:
-        delay, amp, ampa, pha, phaa = data
+        if opt:
+            data, fn, urls = load_data(fname,entries=['pulse length','delay','amplitude','phase'])
+            delay, amp, ampa, pha, phaa = data
+        else:   #use raw phase data
+            data, fn, urls = load_data(fname,entries=['pulse length','delay','phase'])
+            delay, pha, phaa = data
     except ValueError as m:   #most likely, the required data sets are not present in the h5 file
         logging.error('Error loading raw data. '+str(m))
     
-    x, dat = do.optimize(np.array([delay,amp,pha]),1,2, normalize=False)
+    if opt:
+        x, dat = do.optimize(np.array([delay,amp,pha]),1,2, normalize=False)
+    else:
+        x = delay
+        dat = pha
     std_mean = np.std(dat,axis=0)/np.sqrt(len(dat))   #standard deviation of the mean
     dat_m = np.mean(dat,axis=0)
     
@@ -446,7 +460,41 @@ def extract_rms_mean(fname,normalize=False,do_plot=False):
 
 # =================================================================================================================
 
-def save_errorbar_plot(entryname_coordinate=None,entryname_vector='compl_data'):
+def save_errorbar_plot(fname,fvalues,ferrs,x_url,fit_url=None,entryname_coordinate='param',entryname_vector='error_plot',folder='analysis'):
+    '''
+    appends fitted data to the h5 file in folder analysis with a newly created parameter axis containing
+     a fixed number of points and creates joint view
+     
+    fname: file name of the h5 file
+    x_vec: generated x vector (parameter vector) of constant length
+    fvalues: fitted function values, array of length len(x_vec)
+    entryname: suffix to be added to the name of analysis entry
+    x_url: url of data coordinate axis
+    data_url: url of data entry
+    
+    So far I hope that hdf_lib throws away old fit data when refitting and generating the same axes in the analysis folder. (JB)
+    '''
+    
+    try:
+        hf = hdf_lib.Data(path=fname)
+        
+        #create data vector for errorplot with x axis information from x_url
+        ds_x = hf.get_dataset(x_url)
+        hdf_y = hf.add_value_vector(entryname_vector, folder=folder, x = ds_x)
+        hdf_y.append(np.array(fvalues))
+        #somehow append errors
+        
+        if fit_url != None:
+            #create joint view with fit data if existing
+            ds_fit = hf.get_dataset(fit_url)
+            joint_error_view = hf.add_view(fit_url, x = ds_x, y = ds_fit)
+            joint_error_view.add(entryname_vector, x = ds_x, y = hdf_y)   #errorplot
+        
+        hf.close_file()
+    except NameError as m:
+        logging.error('Error while attempting to save fit data in h5 file: '+str(m))
+        return False
+    return True
     hf = hdf_lib.Data(path=fname)
     #save optimized data
     _save_dataset_h5(hf,delay,np.mean(dat,axis=0),entryname_coordinate,entryname_vector=entryname+'_opt',folder='analysis')
@@ -555,8 +603,8 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     if opt:
         if no_do:
             logging.warning('Data is not optimized since package is not loaded.')
+        data_c = 1   #revoke choice in data column when using data optimizer (JB)
         data = do.optimize(data,data_c,data_c+1)
-        data_c = 1
         
     if spline_order != None:
         try:
@@ -830,7 +878,11 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         if show_output: logging.error('figure not stored: '+str(m))
         
     if pcov != None and nfile!= None and nfile[-2:] == 'h5' and x_url != None:   #in case fit was successful
-        if _save_fit_data_in_h5_file(nfile,x_vec,np.array(fvalues),x_url=x_url,data_url=data_url,entryname_vector=entryname):
+        data_opt = None
+        if opt:
+            data_opt = data[data_c]
+            entryname+='_do'
+        if _save_fit_data_in_h5_file(nfile,x_vec,np.array(fvalues),data_opt=data_opt,x_url=x_url,data_url=data_url,entryname_vector=entryname):
             if entryname == '':
                 if show_output:
                     print 'Fit data successfully stored in h5 file.'
