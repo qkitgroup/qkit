@@ -10,6 +10,7 @@ import logging
 import numpy
 import time
 from hdf_constants import ds_types
+import h5py
 
 class hdf_dataset(object):
     """
@@ -113,7 +114,10 @@ class hdf_dataset(object):
                 ds.attrs.create("x_unit",self.x_object.x_unit)
                 ds.attrs.create("x0",self.x_object.x0)
                 ds.attrs.create("dx",self.x_object.dx)
-                ds.attrs.create("x_ds_url",self.x_object.ds_url)
+                ds.attrs.create("x_ds_url",self.x_object.ds_url, dtype=h5py.special_dtype(vlen=unicode))
+                ''' to mitigate conversion error from numpy unicode (JB)
+                    I cannot identify whether this is also required further down in the code
+                    since I do not entirely understand what's happening. '''
             else:
                 ds.attrs.create("x_name",self.x_name)
                 ds.attrs.create("x_unit",self.x_unit)
@@ -125,7 +129,7 @@ class hdf_dataset(object):
                 ds.attrs.create("y_unit",self.y_object.x_unit)
                 ds.attrs.create("y0",self.y_object.x0)
                 ds.attrs.create("dy",self.y_object.dx)
-                ds.attrs.create("y_ds_url",self.y_object.ds_url)
+                ds.attrs.create("y_ds_url",self.y_object.ds_url, dtype=h5py.special_dtype(vlen=unicode))
             if self.z_object:
                 ds.attrs.create("z_name",self.z_object.x_name)
                 ds.attrs.create("z_unit",self.z_object.x_unit)
