@@ -899,9 +899,9 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         if show_output:
             print 'plot saved:', nfile.replace('.dat','_dr.png').replace('.h5','_dr.png')
     except AttributeError:
-        if show_output: print 'Figure not stored.'
+        if show_output: logging.warning('Figure not stored.')
     except Exception as m:
-        if show_output: logging.error('figure not stored: '+str(m))
+        if show_output: logging.error('Figure not stored: '+str(m))
         
     if pcov != None and nfile!= None and nfile[-2:] == 'h5' and x_url != None:   #in case fit was successful
         data_opt = None
