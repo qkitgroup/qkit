@@ -4,7 +4,7 @@
 # data reading and fitting script mainly used during time domain measurements but also for various data post processing purpuses
 # supported fit functions: 'lorentzian', 'lorentzian_sqrt', 'damped_sine', 'sine', 'exp', 'damped_exp'
 
-# import and usage
+# import and basic usage
 """
 from qkit import dat_reader as dr
 dr.fit_data(None, fit_function = 'exp')
@@ -374,17 +374,26 @@ def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp =
 
 def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,data_opt=None,entryname_coordinate='param',entryname_vector='fit',folder='analysis'):
     '''
-    appends fitted data to the h5 file in folder analysis with a newly created parameter axis containing
-     a fixed number of points and creates joint view
-     
-    fname: file name of the h5 file
-    x_vec: generated x vector (parameter vector) of constant length
-    fvalues: fitted function values, array of length len(x_vec)
-    entryname: suffix to be added to the name of analysis entry
-    x_url: url of data coordinate axis
-    data_url: url of data entry
+    Appends fitted data to the h5 file in the specified folder. As the fit is a fixed length array,
+    a respective parameter axis is created and also stored in the h5 file.
+    If data was optimized using the data optimizer option, the optimized data set is in addition
+    stored in the h5 file.
+    A joint view of data overlayed with the fit is created.
     
-    So far I hope that hdf_lib throws away old fit data when refitting and generating the same axes in the analysis folder. (JB)
+    inputs:
+    - fname: file name of the h5 file
+    - x_vec: x vector (parameter vector) of constant length, matching the dimensions of fit data
+    - fvalues: fitted function values
+    - x_url: url of existing data coordinate axis
+    - data_url: url of existing data vector
+    - data_opt: (optional, default: None) specifier whether optimized data that is to be stored
+                has been generated
+    - entryname_coordinate: (str) (optional, default: 'param') name of parameter coordinate
+    - entryname_vector: (str) (optional, default: 'fit') name of fit data vector
+    - folder: (str) (optional, default: 'analysis') folder name for storage of analysis data
+ 
+    ouputs: bool
+    - returns True in case job was successful, False if an error occurred
     '''
     
     try:
@@ -402,10 +411,11 @@ def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,data_opt=None,e
             hdf_data_opt.append(np.array(data_opt))
         
         #create joint view
-        joint_view = hf.add_view(entryname_vector, x = hdf_x, y = hdf_y)   #fit
         if data_opt != None:
+            joint_view = hf.add_view(entryname_vector+'_do', x = hdf_x, y = hdf_y)   #fit
             joint_view.add(x = hf.get_dataset(x_url), y = hdf_data_opt)   #data
         else:
+            joint_view = hf.add_view(entryname_vector, x = hdf_x, y = hdf_y)   #fit
             joint_view.add(x = hf.get_dataset(x_url), y = hf.get_dataset(data_url))   #data
         
         hf.close_file()
@@ -418,13 +428,18 @@ def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,data_opt=None,e
     
 def extract_rms_mean(fname,opt=True,normalize=False,do_plot=False):
     '''
-    extract the rms of the mean from existing data, do a principle axis transformation via ./data_optimizer.py
-    and store resulting averaged dataset in h5 file including error bars, create view
+    Perform an optimization of existing amplitude and phase data in the h5 if option 'opt' is True.
+    Extract the rms of the mean from raw data and return the resulting averaged dataset together with its errors.
     
-    fname: (str) file name of the h5 file
-    normalize: (bool) switch normalization on/off
-    opt: (bool) use data optimizer if True, use raw phase information when False
-    do_plot: (bool) switch stating whether the averaged data together with the error bars is to be plotted
+    inputs:
+    - fname: (str) file name of the h5 file
+    - opt: (bool) (optional, default: True) use data optimizer if True, use raw phase information when False
+    - normalize: (bool) (optional, default: False) switch normalization after averaging on/off
+    - do_plot: (bool) (optional, default: False) sets the plot output on/off
+    
+    outputs: [numpy.array,numpy.array]
+    - averaged data
+    - errors
     '''
     
     try:
@@ -462,17 +477,28 @@ def extract_rms_mean(fname,opt=True,normalize=False,do_plot=False):
 
 def save_errorbar_plot(fname,fvalues,ferrs,x_url,fit_url=None,entryname_coordinate='param',entryname_vector='error_plot',folder='analysis'):
     '''
-    appends fitted data to the h5 file in folder analysis with a newly created parameter axis containing
-     a fixed number of points and creates joint view
-     
-    fname: file name of the h5 file
-    x_vec: generated x vector (parameter vector) of constant length
-    fvalues: fitted function values, array of length len(x_vec)
-    entryname: suffix to be added to the name of analysis entry
-    x_url: url of data coordinate axis
-    data_url: url of data entry
+    Creates an errorbar plot in the h5 file and a respective view, if possible overlayed with fit data.
     
-    So far I hope that hdf_lib throws away old fit data when refitting and generating the same axes in the analysis folder. (JB)
+    Sample use:
+    from qkit.analysis import dat_reader as dr
+    all_dat, fn, urls = dr.load_data('data/sample_data_file.h5',entries=['delay','pulse','pha','amp'])
+    en = 'vac_Rabi_fit'
+    dr.fit_data(fn,fit_function=dr.DAMPED_EXP,ps=[15,0.37,0.5,-1.935,None,-0.5],entryname=en,opt=True)
+    dmean, stdm = dr.extract_rms_mean(fn,opt=True)
+    dr.save_errorbar_plot(fn,dmean,stdm,urls[0],fit_url=u'/entry/analysis0/'+en)
+    
+    inputs:
+    - fname: file name of the h5 file
+    - fvalues: data values
+    - ferrs: errors of the data values
+    - x_url: url of existing data coordinate axis
+    - fit_url: (str) (optional, default: None) url of existing fit data, e.g. u'/entry/analysis0/fit'
+    - entryname_coordinate: (str) (optional, default: 'param') name of parameter coordinate
+    - entryname_vector: (str) (optional, default: 'error_plot') name of fit data vector
+    - folder: (str) (optional, default: 'analysis') folder name for storage of analysis data
+    
+    ouputs: bool
+    - returns True in case job was successful, False if an error occurred
     '''
     
     try:
@@ -482,27 +508,24 @@ def save_errorbar_plot(fname,fvalues,ferrs,x_url,fit_url=None,entryname_coordina
         ds_x = hf.get_dataset(x_url)
         hdf_y = hf.add_value_vector(entryname_vector, folder=folder, x = ds_x)
         hdf_y.append(np.array(fvalues))
-        #somehow append errors
+        
+        #write errors
+        hdf_error = hf.add_value_vector(entryname_vector+'_error',folder=folder)
+        hdf_error.append(np.array(ferrs))
+        
+        #joint view including fvalues and errors ferrs
+        joint_error_view = hf.add_view('err_view', x = ds_x, y = hdf_y, error = hdf_error)
         
         if fit_url != None:
             #create joint view with fit data if existing
-            ds_fit = hf.get_dataset(fit_url)
-            joint_error_view = hf.add_view(fit_url, x = ds_x, y = ds_fit)
-            joint_error_view.add(entryname_vector, x = ds_x, y = hdf_y)   #errorplot
+            joint_error_view_fit = hf.add_view('err_view_fit', x = ds_x, y = hdf_y, error = hdf_error)   #errorplot
+            joint_error_view_fit.add(x = hf.get_dataset(u'/entry/analysis0/param'), y = hf.get_dataset(fit_url))   #fit
         
         hf.close_file()
     except NameError as m:
-        logging.error('Error while attempting to save fit data in h5 file: '+str(m))
+        logging.error('Error while attempting to save error bar data in h5 file: '+str(m))
         return False
     return True
-    hf = hdf_lib.Data(path=fname)
-    #save optimized data
-    _save_dataset_h5(hf,delay,np.mean(dat,axis=0),entryname_coordinate,entryname_vector=entryname+'_opt',folder='analysis')
-    _create_error_dataset_and_view(hf,x_url,np.mean(dat,axis=0),entryname=entryname_vector+'err',x_url='',data_url='')
-    _safe_fit_data_in_h5_file(fname,delay,std_mean,entryname=entryname+'_rms_mean',x_url=urls[0],data_url='/entry/analysis0/'+entryname+'_opt')
-    
-    if plot_data:
-        qviewkit.plot(hf.get_filepath(), datasets=[entryname+'_rms_mean'])
 
 # =================================================================================================================
 
