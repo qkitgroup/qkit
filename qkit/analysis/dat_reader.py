@@ -621,7 +621,10 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     if data_c >= len(data):
         print 'bad data column identifier, out of bonds...aborting'
         return
-        
+    
+    #set default to frequency conversion factor
+    freq_conversion_factor = 1
+    
     #data optimization
     if opt:
         if no_do:
