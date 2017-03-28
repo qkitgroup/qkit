@@ -29,13 +29,13 @@ The line shape of the data distribution generally justifies the projection of me
 arbitrary axis without altering the internal data shape.
 '''
 
+import matplotlib.pyplot as plt
 import numpy as np
 import logging
 
 # =================================================================================================================
 
-def optimize(data, c_amp = 1, c_pha = 2, normalize = True):
-    
+def optimize(data, c_amp = 1, c_pha = 2, normalize = True, show_complex_plot = False):
     '''
     input:
 
@@ -43,6 +43,8 @@ def optimize(data, c_amp = 1, c_pha = 2, normalize = True):
           data = [[f1,f2,...,fn],...,[a1,a2,...,an],[ph1,ph2,...,phn],...]
         - c_amp, c_pha: columnmn identifiers for amplitude and phase data in the data array
         - normalize: (optional, default: True) data normalization is performed when set to True
+        - show_complex_plot: (bool) (optional, default: False) plots the data points in the complex plane
+                             if True, only in case the data columns in data are 1D
         
     output:
 
@@ -63,6 +65,13 @@ def optimize(data, c_amp = 1, c_pha = 2, normalize = True):
         for p in c:
             s[i]+=np.abs(p-c[i])
     cmax = np.extract(s == np.max(s),c)
+    
+    #do only if columns in data are 1D and show_complex_plot == True
+    if show_complex_plot and not type(np.mean(c,axis=0)) == np.ndarray:
+        plt.figure(figsize=(10,10))
+        plt.plot(np.real(c),np.imag(c),'.')
+        plt.plot(np.real(c)[:10],np.imag(c)[:10],'.',color='r')   #show first 10 data points in red
+        plt.plot(np.real(cmax),np.imag(cmax),'*',color='black',markersize=15)
     
     #calculate distances
     data_opt = np.abs(c - cmax)
