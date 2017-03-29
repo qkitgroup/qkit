@@ -57,12 +57,12 @@ except ImportError:
 
 
 ''' fit function macros '''
-LORENTZIAN = 'lorentzian'
-LORENTZIAN_SQRT = 'lorentzian_sqrt'
-DAMPED_SINE = 'damped_sine'
-SINE = 'sine'
-EXP = 'exp'
-DAMPED_EXP = 'damped_exp'
+LORENTZIAN_SQRT = 0
+LORENTZIAN = 1 
+DAMPED_SINE = 2
+SINE = 3
+EXP = 4
+DAMPED_EXP = 5
 
 ''' dat import macro '''
 DAT_IMPORT = 'dat_import'
@@ -500,6 +500,7 @@ def save_errorbar_plot(fname,fvalues,ferrs,x_url,fit_url=None,entryname_coordina
     ouputs: bool
     - returns True in case job was successful, False if an error occurred
     '''
+         
     
     try:
         hf = hdf_lib.Data(path=fname)
@@ -569,6 +570,10 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     
     f_Lorentzian expects its frequency parameter to be stated in GHz
     '''
+    if type(fit_function)==str:
+        logging.warning('using strings as fit function is depreciated. Use e.g dr.LORENTZIAN instead.')
+        fit_function = {'lorentzian':LORENTZIAN, 'lorentzian_sqrt':LORENTZIAN_SQRT, 'damped_sine':DAMPED_SINE, 'sine':SINE, 'exp':EXP, 'damped_exp':DAMPED_EXP}[fit_function]
+
     
         
     # fit function definitions --------------------------------------------------------------------------------------
@@ -601,7 +606,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         entries = data_c
         data_c = 1
         
-    if file_name == 'dat_import':
+    if type(data) != type(None): #data is given
         if show_output: print 'use imported data'
         data_c = 1
         x_url = None
