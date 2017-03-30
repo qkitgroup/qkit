@@ -189,8 +189,7 @@ def _display_1D_data(self,graphicsView):
     self.unit = ds.attrs.get("unit","_none_")
     y_data = np.array(ds)
 
-    ''' throws error for coordinates! (JB) '''
-    if self.ds_type == ds_types['vector'] or self.ds_type == ds_types['coordinate']:
+    if self.ds_type == ds_types['vector'] or self.ds_type == ds_types['coordinate'] or (self.ds_type == -1 and len(self.ds.shape) == 1): #last expresson is for old hdf-files
         x0 = ds.attrs.get("y0",ds.attrs.get("x0",0))
         dx = ds.attrs.get("dy",ds.attrs.get("dx",1))
         x_name = ds.attrs.get("x_name","_none_")
