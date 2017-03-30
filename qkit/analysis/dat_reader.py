@@ -236,6 +236,10 @@ def read_hdf_data(nfile,entries=None, show_output=True):
                 except IndexError:
                     print 'Entries cannot be identified. No data for >> %s << found. Aborting.'%str(e)
                     return
+                    
+    #cast to real strings in case the urls ended up to be unicode
+    urls = [str(u) for u in urls]
+    
     if show_output:    
         print 'Entries identified:',urls
     data = []
