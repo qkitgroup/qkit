@@ -1,55 +1,86 @@
 '''
+data_optimizer.py
+
 data optimization script JB@KIT 09/2015 jochen.braumueller@kit.edu
+updates: 03/2017 (JB)
 
 The data optimizer is fed with microwave data of both quadratures, typically amplitude and phase.
-The goal is to use all available complex data and to return data on a real scale without dropping any information.
-This is achieved by considering the data in the complex Gauss plane and calculating the distance of each data point
-to the complex value with maximum amplitude. This is a point at one of the ends of the line spanned by the data points
-in the complex plane.
-This approach is equivalent to a rotation of the principal axis and the projection onto a quadrature with minimum
-information loss.
+It effectively performs a principle axis transformation in the complex plane of all data points
+that are located along a line for a typical projective qubit state measurement without single-shot
+fidelity and using a ADC acquisition card. Successively, data optimizer returns a projection along
+the in-line direction quadrature containing maximum information. Indeally, no information is lost
+as no data is left in the orthogonal quadrature.
 
-We assume that the possible qubit states |0>, |1> lead to two distinct positions of the resonance dip of our dispersive readout resonator.
-The reason that not only two hot spots are visible in a typical qubit measurement is the averaging the adc card does before tranferring a "single"
-data point to the measurment script. However, since this averaging takes place in the complex plane, all points recorded in such a measurement
-should be located on a line. This justifies the projection of measurement data to an arbitrary axis without any loss in the shape of measured data.
-When using the data_optimizer, all measurement values are output with respect to one of the edge points of the line in the complex plane and normalized.
-This leads to a possible offset in the x axis parameter.
+The algorithm locates one of the edge data points on either end of the line-shaped data point distribution
+by summing and maximizing the mutual distances between data points. It then calculates the distance
+of each data point with respect to this distinct extremal data point.
 
-input: data array of the form the dat_reader returns it: data = [[f1,f2,...,fn],...,[a1,a2,...,an],[ph1,ph2,...,phn],...] together with two column identifiers.
-output: data array of the form data_ret = [[f1,f2,...,fn],[n1,n2,...,nn]], with ni denoting normalized values; len(data_ret[i]) = len(data[j]) for all i in len(data_ret), j in len(data)
+We assume that the possible outcomes of a strong and projective quantum measurement, i.e. the qubit
+states |0>, |1>, result in two distinct locations in the complex plane, corresponding to signatures
+of the dispersive readout resonator. In the absence of single-shot readout fidelity, the pre-averaging
+that is perfomed by the ADC card in the complex plane leads to counts in between the piles denoting |0>
+and |1>. The points laong this line are distributed due to statistical measurement noise and ultimately
+due to the quantum uncertainty. As the averaging takes place in the complex plane, all points recorded
+in such a measurement should be located on a line. In case of a phase sensitive reflection measurement
+at a high internal quality cavity, points may span a segment of a circle that can be caused by noise
+caused measurements of the resonator position away from the two quantumn positions.
+
+The line shape of the data distribution generally justifies the projection of measurement data to an
+arbitrary axis without altering the internal data shape.
 '''
 
+import matplotlib.pyplot as plt
 import numpy as np
+import logging
 
+# =================================================================================================================
 
-def optimize(data, c_amp = 1, c_pha = 2):
-	
-	'''
-	input:
-	* data array of the form the dat_reader returns it: data = [[f1,f2,...,fn],...,[a1,a2,...,an],[ph1,ph2,...,phn],...]
-	* column identifiers c_amp, c_pha (optional, default: 1,2)
-	output:
-	* data array of the form data_ret = [[f1,f2,...,fn],[n1,n2,...,nn]], with ni denoting normalized values;
-	  len(data_ret[i]) = len(data[j]) for all i in len(data_ret), j in len(data)
-	'''
+def optimize(data, c_amp = 1, c_pha = 2, normalize = True, show_complex_plot = False):
+    '''
+    input:
 
-	#generate complex data array
-	try:
-		cdata = np.array(data[1]) * np.exp(1j*np.array(data[2]))
-	except IndexError:
-		print 'Bad column identifier...aborting.'
-	except ValueError:
-		print 'Faulty data input, dimension mismatch...aborting.'
-	
-	#extract complex point with maximum amplitude
-	cmax = np.extract(np.abs(cdata) == np.max(np.abs(cdata)),cdata)
-	
-	#calculate distances
-	data_opt = np.abs(cdata - cmax)
-	
-	#norm and return
-	data_opt_n = data_opt - np.min(data_opt)
-	data_opt_n /= np.max(data_opt_n)
-	return np.array([np.array(data[0]),np.array(data_opt_n)])
-	
+        - data: data array of the form the dat_reader returns it:
+          data = [[f1,f2,...,fn],...,[a1,a2,...,an],[ph1,ph2,...,phn],...]
+        - c_amp, c_pha: columnmn identifiers for amplitude and phase data in the data array
+        - normalize: (optional, default: True) data normalization is performed when set to True
+        - show_complex_plot: (bool) (optional, default: False) plots the data points in the complex plane
+                             if True, only in case the data columns in data are 1D
+        
+    output:
+
+        - numpy data array of the form [[x1,x2,...,xn],[v1,v2,...,vn]]
+    '''
+
+    #generate complex data array
+    try:
+        c = np.array(data[c_amp]) * np.exp(1j*np.array(data[c_pha]))
+    except IndexError:
+        print 'Bad column identifier...aborting.'
+    except ValueError:
+        print 'Faulty data input, dimension mismatch...aborting.'
+    
+    #point in complex plane with maximum sumed mutual distances
+    s = np.zeros_like(np.abs(c))
+    for i in range(len(c)):
+        for p in c:
+            s[i]+=np.abs(p-c[i])
+    cmax = np.extract(s == np.max(s),c)
+    
+    #do only if columns in data are 1D and show_complex_plot == True
+    if show_complex_plot and not type(np.mean(c,axis=0)) == np.ndarray:
+        plt.figure(figsize=(10,10))
+        plt.plot(np.real(c),np.imag(c),'.')
+        plt.plot(np.real(c)[:10],np.imag(c)[:10],'.',color='r')   #show first 10 data points in red
+        plt.plot(np.real(cmax),np.imag(cmax),'*',color='black',markersize=15)
+    
+    #calculate distances
+    data_opt = np.abs(c - cmax)
+    
+    if normalize:
+        data_opt = (data_opt.transpose() - np.min(data_opt.transpose(),axis=0)).transpose()
+        data_opt = (data_opt.transpose() / np.max(data_opt.transpose(),axis=0)).transpose()
+        if type(np.mean(data_opt,axis=0)) == np.ndarray:
+            logging.warning('Normalization is performed on individual sets.')
+        
+    return np.array([np.array(data[0]),np.array(data_opt)])
+    
