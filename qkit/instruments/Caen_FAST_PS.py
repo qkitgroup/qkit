@@ -22,13 +22,11 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 from instrument import Instrument
-import visa
 import types
-import time
+import socket
 import logging
-import numpy as np
 
-class Caen_fast_ps(Instrument):
+class Caen_FAST_PS(Instrument):
     '''
     This is the driver for the Caen Fast-PS Power Supply
 
@@ -37,7 +35,7 @@ class Caen_fast_ps(Instrument):
     <name> = instruments.create('<name>', 'Caen_fast_ps', address='<GPIB address>', reset=<bool>')
     '''
 
-    def __init__(self, name, address, reset=False):
+    def __init__(self, name, address, port = 10001):
         '''
         Initializes the Caen_fast_ps, and communicates with the wrapper.
 
@@ -49,10 +47,13 @@ class Caen_fast_ps(Instrument):
         logging.info(__name__ + ' : Initializing instrument Caen_fast_ps')
         Instrument.__init__(self, name, tags=['physical'])
 
-        # Add some global constants
-        self._address = address
-        self._visainstrument = visa.instrument(self._address)
-        self._name = name
+        self._host = address
+        self._port = port
+        self._soc = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        self._soc.connect((self._host, self._port))
+        
+        self._ak_str = '#AK'
+
         
         self.add_parameter('voltage',
             flags=Instrument.FLAG_GET, units='V', minval=-20, maxval=20, type=types.FloatType)
@@ -67,39 +68,21 @@ class Caen_fast_ps(Instrument):
             flags=Instrument.FLAG_GETSET, units='A', minval=-10, maxval=10, type=types.FloatType)
 
         self.add_parameter('status',
-            flags=Instrument.FLAG_GETSET, type=types.BooleanType)
-        
+            flags=Instrument.FLAG_GET, type=types.BooleanType)
+
+        self.add_parameter('output_mode',
+            flags=Instrument.FLAG_GETSET, type=types.StringType)
+
         self.add_parameter('current_ramp_rate',
             flags=Instrument.FLAG_GETSET, units='A/s', minval=-10, maxval=10, type=types.FloatType)
 
         self.add_parameter('voltage_ramp_rate',
             flags=Instrument.FLAG_GETSET, units='A/s', minval=-10, maxval=10, type=types.FloatType)
         
-        self.add_function('reset')
         self.add_function('ramp_current')
         self.add_function('ramp_voltage')
         self.add_function('on')
         self.add_function('off')
- 
-
-        if (reset):
-            self.reset()
-        else:
-            self.get_all()
-
-    def reset(self):
-        '''
-        Resets the instrument to default values
-
-        Input:
-            None
-
-        Output:
-            None
-        '''
-        logging.info(__name__ + ' : resetting instrument')
-        self._visainstrument.write("*RST")
-        self.get_all()
 
     def get_all(self):
         '''
@@ -116,9 +99,11 @@ class Caen_fast_ps(Instrument):
         self.get('voltage')
         self.get('current')
         self.get('status')
+        self.get('output_mode')
         self.get('setcurrent')
         self.get('setvoltage')
-    
+        self.get('current_ramp_rate')
+        self.get('voltage_ramp_rate')
  
     def do_get_voltage(self):
         '''
@@ -131,7 +116,8 @@ class Caen_fast_ps(Instrument):
             volt (float) : Voltage in Volts
         '''
         logging.debug(__name__ + ' : get voltage')
-        return float(self._visainstrument.ask('MEAS:VOLT?'))
+        recv = self._ask('MRV:?')
+        return float(recv.split(':')[1])
 
     def do_get_setvoltage(self):
         '''
@@ -144,7 +130,8 @@ class Caen_fast_ps(Instrument):
             setvolt (float) : Voltage in Volts
         '''
         logging.debug(__name__ + ' : get setvoltage')
-        return float(self._visainstrument.ask('MWV:?\r\n'))
+        recv = self._ask('MWV:?')
+        return float(recv.split(':')[1])
 
     def do_set_setvoltage(self, setvoltage):
         '''
@@ -157,7 +144,9 @@ class Caen_fast_ps(Instrument):
             None
         '''
         logging.debug(__name__ + ' : set setvoltage to %s' % setvoltage)
-        return float(self._visainstrument.ask('MWV:%s\r\n' %setvoltage))        
+        recv = self._ask('MWV:%s' %rate)
+        if recv == self._ak_str: return True
+        else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
         
     def do_get_current(self):
         '''
@@ -170,7 +159,8 @@ class Caen_fast_ps(Instrument):
             current (float) : current in amps
         '''
         logging.debug(__name__ + ' : get current')
-        return float(self._visainstrument.ask('MEAS:CURR?'))
+        recv = self._ask('MRI:?')
+        return float(recv.split(':')[1])
 
     def do_get_setcurrent(self):
         '''
@@ -183,7 +173,8 @@ class Caen_fast_ps(Instrument):
             setcurrent (float) : setcurrent in amps
         '''
         logging.debug(__name__ + ' : get setcurrent')
-        return float(self._visainstrument.ask('MWI:?\r\n'))
+        recv = self._ask('MWI:?')
+        return float(recv.split(':')[1])
     
     def do_set_setcurrent(self, setcurrent):
         '''
@@ -196,7 +187,9 @@ class Caen_fast_ps(Instrument):
             None
         '''
         logging.debug(__name__ + ' : set setcurrent to %s' % setcurrent)
-        return float(self._visainstrument.ask('MWI:%s\r\n' %setcurrent))
+        recv = self._ask('MWI:%s' %rate)
+        if recv == self._ak_str: return True
+        else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
 
     def do_get_status(self):
         '''
@@ -206,25 +199,46 @@ class Caen_fast_ps(Instrument):
             None
 
         Output:
-            status (boolean) 
+            status (int) : Usually True/False for On/Off, other integers specify certain errors. Conversion not (yet?) implemented.
         '''
         logging.debug(__name__ + ' : get status')
-        return bool(int(self._visainstrument.ask('OUTPUT?')))
+        recv = self._ask('MST:?')
+        ret = int(recv.split(':')[1])
+        return ret
 
-
-    def do_set_status(self, status):
+    def do_get_output_mode(self):
         '''
-        Sets the output status of the instrument
+        Reads the output mode from the instrument
 
         Input:
-            status (boolean)
+            None
+
+        Output:
+            mode (str) : 'V' oder 'I'
+        '''
+        logging.debug(__name__ + ' : get mode')
+        recv = self._ask('LOOP:?')
+        ret = recv.split(':')[1]
+        return ret
+
+    def do_set_output_mode(self, mode):
+        '''
+        Sets the output mode from the instrument
+        ## There seems to be an error somewhere. The mode is set correctly but the return response does not work propperly
+
+        Input:
+            mode (str) : 'V' oder 'I'
 
         Output:
             None
         '''
-        logging.debug(__name__ + ' : set status to %d' % status)
-        self._visainstrument.write('OUTPUT %d' %status)
-
+        logging.debug(__name__ + ' : set mode')
+        self.off()
+        recv = self._ask('LOOP:%s' %mode)
+        self.on()
+        if recv == self._ak_str: return True
+        else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
+        
     def do_get_current_ramp_rate(self):
         '''
         Reads the setcurrent signal from the instrument
@@ -236,7 +250,9 @@ class Caen_fast_ps(Instrument):
             rate (float) : current_ramp_rate in A/s
         '''
         logging.debug(__name__ + ' : get setcurrent')
-        return float(self._visainstrument.ask('MSRI:?\r\n'))
+        recv = self._ask('MSRI:?')
+        ret = recv.split(':')[1]
+        return ret
     
     def do_set_current_ramp_rate(self, rate):
         '''
@@ -248,8 +264,10 @@ class Caen_fast_ps(Instrument):
         Output:
             None
         '''
-        logging.debug(__name__ + ' : set setcurrent to %s' %rate)
-        return float(self._visainstrument.ask('MSRI:%s\r\n' %rate))
+        logging.debug(__name__ + ' : set current ramp rate to %s' %rate)
+        recv = self._ask('MSRI:%s' %rate)
+        if recv == self._ak_str: return True
+        else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
 
     def do_get_voltage_ramp_rate(self):
         '''
@@ -262,7 +280,9 @@ class Caen_fast_ps(Instrument):
             rate (float) : voltage_ramp_rate in V/s
         '''
         logging.debug(__name__ + ' : get setcurrent')
-        return float(self._visainstrument.ask('MSRV:?\r\n'))
+        recv = self._ask('MSRV:?')
+        ret = recv.split(':')[1]
+        return ret
     
     def do_set_voltage_ramp_rate(self, rate):
         '''
@@ -274,8 +294,10 @@ class Caen_fast_ps(Instrument):
         Output:
             None
         '''
-        logging.debug(__name__ + ' : set setcurrent to %s' %rate)
-        return float(self._visainstrument.ask('MSRV:%s\r\n' %rate))
+        logging.debug(__name__ + ' : set voltage ramp rate to %s' %rate)
+        recv = self._ask('MSRV:%s' %rate)
+        if recv == self._ak_str: return True
+        else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
         
     # shortcuts
     def off(self):
@@ -288,7 +310,9 @@ class Caen_fast_ps(Instrument):
         Output:
             None
         '''
-        self.set_status(False)
+        recv = self._ask('MOFF')
+        if recv == self._ak_str: return True
+        else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
 
     def on(self):
         '''
@@ -300,7 +324,9 @@ class Caen_fast_ps(Instrument):
         Output:
             None
         '''
-        self.set_status(True)
+        recv = self._ask('MON')
+        if recv == self._ak_str: return True
+        else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
     
     def ramp_current(self, current, ramp_rate = False):
         '''
@@ -315,7 +341,9 @@ class Caen_fast_ps(Instrument):
         '''
         if ramp_rate: self.do_set_current_ramp_rate(ramp_rate)
         logging.debug(__name__ + ' : ramp current to %s' %current)
-        return float(self._visainstrument.ask('MWIR:%s\r\n' %current))
+        recv = self._ask('MWIR:%s' %current)
+        if recv == self._ak_str: return True
+        else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
     
     def ramp_voltage(self, voltage, ramp_rate = False):
         '''
@@ -329,27 +357,33 @@ class Caen_fast_ps(Instrument):
             None
         '''
         if ramp_rate: self.do_set_voltage_ramp_rate(ramp_rate)
-        logging.debug(__name__ + ' : ramp current to %s' %voltage)
-        return float(self._visainstrument.ask('MWVR:%s\r\n' %voltage))
+        logging.debug(__name__ + ' : ramp voltage to %s' %voltage)
+        recv = self._ask('MWVR:%s' %voltage)
+        if recv == self._ak_str: return True
+        else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
+       
+    def _ask(self, cmd):
+        self._soc.sendall(cmd+'\r')
+        return self._soc.recv(1024).strip()
         
-error_msg = {1:"Unknown command",
-             2:"Unknown Parameter",
-             3:"Index out of range",
-             4:"Not Enough Arguments",
-             5:"Privilege Level Requirement not met",
-             6:"Saving Error on device",
-             7:"Invalid password",
-             8:"Power supply in fault",
-             9:"Power supply already ON",
-             10:"Setpoint is out of model limits",
-             11:"Setpoint is out of software limits",
-             12:"Setpoint is not a number",
-             13:"Module is OFF",
-             14:"Slew Rate out of limits",
-             15:"Device is set in local mode",
-             16:"Module is not in waveform mode",
-             17:"Module is in waveform mode",
-             18:"Device is set in remote mode",
-             19:"Module is already in the selected loop mode",
-             20:"Module is not in the selected loop mode",
-             99:"Unknown error"}
+error_msg = {'01':"Unknown command",
+             '02':"Unknown Parameter",
+             '03':"Index out of range",
+             '04':"Not Enough Arguments",
+             '05':"Privilege Level Requirement not met",
+             '06':"Saving Error on device",
+             '07':"Invalid password",
+             '08':"Power supply in fault",
+             '09':"Power supply already ON",
+             '10':"Setpoint is out of model limits",
+             '11':"Setpoint is out of software limits",
+             '12':"Setpoint is not a number",
+             '13':"Module is OFF",
+             '14':"Slew Rate out of limits",
+             '15':"Device is set in local mode",
+             '16':"Module is not in waveform mode",
+             '17':"Module is in waveform mode",
+             '18':"Device is set in remote mode",
+             '19':"Module is already in the selected loop mode",
+             '20':"Module is not in the selected loop mode",
+             '99':"Unknown error"}
