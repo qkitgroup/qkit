@@ -114,7 +114,7 @@ except ImportError,e:
                     "-?-" if est_cycle_time==None else time.strftime('%Y-%m-%d (%a) %H:%M:%S', time.localtime(time.time() + est_cycle_time * self.max_it )),
                     "--:--:--" if est_cycle_time==None else hourformat(est_cycle_time*self.max_it),
                     "00:00:00",
-                    "--:--:--" if est_cycle_time==None else hourformat(est_cycle_time*self.max_it)),
+                    "--:--:--" if est_cycle_time==None else hourformat(est_cycle_time*self.max_it))
            
             self.pb = HTML(
             """
