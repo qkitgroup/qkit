@@ -61,7 +61,7 @@ try:
             progr_info = "<table style='width:100%%'><tr><td>%s (%i/%i) </td><td>&#9992; %s    </td><td>&#128336;  %s   (estimated)</td><td>&#10010;  %s (elapsed) </td><td>&#9866;  %s (remaining)</td></tr></table>"%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
                     self.progr,
                     self.max_it,
-                    time.strftime('%Y-%m-%d (%a) %H:%M:%S', time.localtime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  -(0 if self.progr == 1 else 1)- self.progr))), #ETA
+                    time.strftime('%Y-%m-%d (%a) %H:%M:%S', time.localtime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  - self.progr))), #ETA
                     hourformat(self.start_eta_time-self.starttime+float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it -(0 if self.progr == 1 else 1) )), #estimated
                     hourformat(time.time()-self.starttime), #elapsed
                     hourformat(float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  - self.progr))) #remaining
@@ -136,8 +136,8 @@ except ImportError,e:
             outp = "<table style='width:100%%;border:none'><tr style='border:none'><td style='border:none'>%s (%i/%i) </td><td style='border:none'>&#9992; %s    </td><td style='border:none'>&#128336;  %s   (estimated)</td><td style='border:none'>&#10010;  %s (elapsed) </td><td style='border:none'>&#9866;  %s (remaining)</td></tr></table>"%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
                     self.progr,
                     self.max_it,
-                    time.strftime('%Y-%m-%d (%a) %H:%M:%S', time.localtime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  -(0 if self.progr == 1 else 1)- self.progr))), #ETA
-                    hourformat(self.start_eta_time-self.starttime+float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it -(0 if self.progr == 1 else 1) )), #estimated
+                    time.strftime('%Y-%m-%d (%a) %H:%M:%S', time.localtime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  - self.progr))), #ETA
+                    hourformat(self.start_eta_time-self.starttime+float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it )), #estimated
                     hourformat(time.time()-self.starttime), #elapsed
                     hourformat(float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  - self.progr))) #remaining
             if self.progr == 1:
