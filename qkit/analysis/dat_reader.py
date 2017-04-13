@@ -268,6 +268,7 @@ def load_data(file_name = None,entries = None, show_output=True):
     else:
         nfile = str(file_name).replace('\\','/')
 
+    urls = None
     try:
         if show_output:
             print 'Reading file '+nfile
@@ -430,7 +431,7 @@ def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,data_opt=None,e
     
 # =================================================================================================================
     
-def extract_rms_mean(fname,opt=True,normalize=False,do_plot=False):
+def extract_rms_mean(fname,opt=True,normalize=True,do_plot=False):
     '''
     Perform an optimization of existing amplitude and phase data in the h5 if option 'opt' is True.
     Extract the rms of the mean from raw data and return the resulting averaged dataset together with its errors.
@@ -485,11 +486,14 @@ def save_errorbar_plot(fname,fvalues,ferrs,x_url,fit_url=None,entryname_coordina
     
     Sample use:
     from qkit.analysis import dat_reader as dr
-    all_dat, fn, urls = dr.load_data('data/sample_data_file.h5',entries=['delay','pulse','pha','amp'])
+    all_dat, fn, urls = dr.load_data('data/sample_data_file.h5',entries=['delay','pulse','amp','pha'])
+    times, amp, ampa, pha, phaa = all_dat
     en = 'vac_Rabi_fit'
-    dr.fit_data(fn,fit_function=dr.DAMPED_EXP,ps=[15,0.37,0.5,-1.935,None,-0.5],entryname=en,opt=True)
+    dr.fit_data(fn,fit_function=dr.DAMPED_EXP,ps=[15,0.37,0.5,-1.935,None,-0.5],entryname=en,opt=False)
     dmean, stdm = dr.extract_rms_mean(fn,opt=True)
-    dr.save_errorbar_plot(fn,dmean,stdm,urls[0],fit_url=u'/entry/analysis0/'+en)
+    en = 'vac_Rabi_fit_do'
+    dr.fit_data(dr.DAT_IMPORT,fit_function=dr.DAMPED_EXP,ps=[15,0.37,0.5,-1.935,None,-0.5],entryname=en,data=[times,dmean],nfile=fn,opt=False)
+    dr.save_errorbar_plot(fn,dmean,stdm,urls[0],fit_url='/entry/analysis0/'+en)
     
     inputs:
     - fname: file name of the h5 file
@@ -524,7 +528,7 @@ def save_errorbar_plot(fname,fvalues,ferrs,x_url,fit_url=None,entryname_coordina
         if fit_url != None:
             #create joint view with fit data if existing
             joint_error_view_fit = hf.add_view('err_view_fit', x = ds_x, y = hdf_y, error = hdf_error)   #errorplot
-            joint_error_view_fit.add(x = hf.get_dataset(u'/entry/analysis0/param'), y = hf.get_dataset(fit_url))   #fit
+            joint_error_view_fit.add(x = hf.get_dataset('/entry/analysis0/param'), y = hf.get_dataset(fit_url))   #fit
         
         hf.close_file()
     except NameError as m:
@@ -612,13 +616,15 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         
     if type(data) != type(None): #data is given
         if show_output: print 'use imported data'
+        data = np.array(data)
         data_c = 1
         x_url = None
     else:
         #load data
         data, nfile, urls = load_data(file_name, entries, show_output)
-        x_url = urls[0]
-        data_url = urls[data_c]
+        if urls:
+            x_url = urls[0]
+            data_url = urls[data_c]
 
     #check column identifier
     if type(data_c) == str:
@@ -626,7 +632,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             data_c = 1
         else:
             data_c = 2
-            data_url = urls[2]
+            if urls: data_url = urls[2]
     if data_c >= len(data):
         print 'bad data column identifier, out of bonds...aborting'
         return
