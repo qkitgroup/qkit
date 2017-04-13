@@ -113,20 +113,19 @@ class Data(object):
                           comment=comment, folder=folder,**meta)
         return ds
 
-    def add_view(self,name,x = None, y = None, x_axis=0, y_axis=0, filter  = None, view_params = {} ,comment = ""):
-        """a view is a way to display plot x-y data.
-            x, y are the datasets to display, e.g.
-            x = "data0/temperature"
-            y = "analysis0/frequency_fit"
-            (if "folder/" is omitted "data0" is assumed)
-            x_axis is the slice dimension on multidim arrays
-            y_axis is the slice dimension on multidim arrays
-            filter is a string of reguar python code, which
-            accesses the x,y dataset returns arrays of (x,y)
-            (Fixme: not jet implemented)
+    def add_view(self,name,x = None, y = None, error = None, filter  = None, view_params = {}):
         """
-        ds =  dataset_view(self.hf,name, x=x, y=y, x_axis=x_axis, y_axis=y_axis, ds_type = ds_types['view'],
-                           comment=comment,view_params = view_params)
+        a view is a way to display plot x-y data.
+        x, y with the corresponding error are the datasets to display, e.g.
+        x = h5["/entry/data0/temperature"]
+        y = h5["/entry/analysis0/frequency_fit"]
+        error = h5["/entry/analysis0/frequency_fit_error"]
+        filter is a string of reguar python code, which
+        accesses the x,y dataset returns arrays of (x,y)
+        (Fixme: not jet implemented)
+        """
+        ds =  dataset_view(self.hf,name, x=x, y=y, error=error, filter = filter, 
+                           ds_type = ds_types['view'],view_params = view_params)
         return ds
 
     def get_dataset(self,ds_url):

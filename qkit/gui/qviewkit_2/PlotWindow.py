@@ -9,7 +9,7 @@ from PyQt4.QtGui import *
 
 from plot_view import Ui_Form
 import pyqtgraph as pg
-from qkit.storage.hdf_constants import ds_types
+from qkit.storage.hdf_constants import ds_types, view_types
 from PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
 import sys
 
@@ -84,7 +84,7 @@ class PlotWindow(QWidget,Ui_Form):
 
 
         try:
-            if self.view_type == self.view_types['1D-V']:
+            if self.view_type == view_types['1D-V']:
                 if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
                     self.graphicsView = pg.PlotWidget(name=self.dataset_url)
@@ -93,7 +93,7 @@ class PlotWindow(QWidget,Ui_Form):
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 _display_1D_view(self,self.graphicsView)
 
-            elif self.view_type == self.view_types['1D']:
+            elif self.view_type == view_types['1D']:
                 if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
                     self.graphicsView = pg.PlotWidget(name=self.dataset_url)
@@ -102,7 +102,7 @@ class PlotWindow(QWidget,Ui_Form):
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 _display_1D_data(self,self.graphicsView)
 
-            elif self.view_type == self.view_types['2D']:
+            elif self.view_type == view_types['2D']:
                 if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
                     self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
@@ -113,16 +113,16 @@ class PlotWindow(QWidget,Ui_Form):
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 _display_2D_data(self,self.graphicsView)
 
-            elif self.view_type == self.view_types['table']:
+            elif self.view_type == view_types['table']:
                 if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
-                    self.graphicsView = pg.TableWidget()
+                    self.graphicsView = pg.TableWidget(sortable=False)
                     self.graphicsView.setWindowTitle(self.dataset_url+'_table')
                     self.graphicsView.setObjectName(self.dataset_url)
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 _display_table(self,self.graphicsView)
 
-            elif self.view_type == self.view_types['txt']:
+            elif self.view_type == view_types['txt']:
                 if not self.graphicsView or self._onPlotTypeChangeBox:
                     self._onPlotTypeChangeBox = False
                     self.graphicsView = QPlainTextEdit()
@@ -182,7 +182,6 @@ class PlotWindow(QWidget,Ui_Form):
             (...)
         """
 
-        self.view_types =  {'1D':0,'1D-V':1, '2D':2, '3D':3, 'table':4, 'txt':5}
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
         #self.plot_scales = {'linear':0,'dB':1,'phase_wrap':2}
         self.manipulations = {'dB':1, 'wrap':2, 'linear':4, 'remove_zeros':8} #BITMASK for manipulation
@@ -194,26 +193,26 @@ class PlotWindow(QWidget,Ui_Form):
         self.view_type = self.ds.attrs.get("view_type",None)
 
         if self.ds_type == ds_types["coordinate"]:
-            self.view_type = self.view_types['1D']
+            self.view_type = view_types['1D']
             self._defaultCoord()
 
         elif self.ds_type == ds_types["vector"]:
-            self.view_type = self.view_types['1D']
+            self.view_type = view_types['1D']
             self._defaultVector()
 
         elif self.ds_type == ds_types["matrix"]:
-            self.view_type = self.view_types['2D']
+            self.view_type = view_types['2D']
             self._defaultMatrix()
 
         elif self.ds_type == ds_types["box"]:
-            self.view_type = self.view_types['2D']
+            self.view_type = view_types['2D']
             self._defaultBox()
 
         elif self.ds_type == ds_types["txt"]:
-            self.view_type = self.view_types['txt']
+            self.view_type = view_types['txt']
 
         elif self.ds_type == ds_types["view"]:
-            self.view_type = self.view_types['1D-V']
+            self.view_type = view_types['1D-V']
             self._defaultView()
 
         else:
@@ -259,7 +258,7 @@ class PlotWindow(QWidget,Ui_Form):
         if not self.view_type:
             if len(self.ds.shape) == 1:
                 self.PlotTypeSelector.setCurrentIndex(1)
-                self.view_type = self.view_types['1D']
+                self.view_type = view_types['1D']
                 self.TraceSelector.setEnabled(False)
                 self.PlotTypeSelector.setEnabled(False)
                 self.plot_style = self.plot_styles['line']
@@ -268,15 +267,15 @@ class PlotWindow(QWidget,Ui_Form):
                 shape = self.ds.shape[0]
                 self.TraceSelector.setRange(-1*shape,shape-1)
                 self.PlotTypeSelector.setCurrentIndex(0)
-                self.view_type = self.view_types['2D']
+                self.view_type = view_types['2D']
             elif len(self.ds.shape) == 3:
                 self.TraceSelector.setEnabled(False)
                 shape = self.ds.shape[0]
-                self.view_type = self.view_types['3D']
+                self.view_type = view_types['2D']
                 self.PlotTypeSelector.setEnabled(False)
             else:
                 self.TraceSelector.setEnabled(True)
-                self.view_type = self.view_types['1D']
+                self.view_type = view_types['1D']
         else:
             self.TraceSelector.setEnabled(True)
             self.PlotTypeSelector.setEnabled(False)
@@ -372,9 +371,9 @@ class PlotWindow(QWidget,Ui_Form):
     def _onPlotTypeChangeVector(self, index):
         self._onPlotTypeChanged = True
         if index == 0:
-            self.view_type = self.view_types['1D']
+            self.view_type = view_types['1D']
         if index == 1:
-            self.view_type = self.view_types['table']
+            self.view_type = view_types['table']
 
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
@@ -382,13 +381,13 @@ class PlotWindow(QWidget,Ui_Form):
     def _onPlotTypeChangeMatrix(self, index):
         self._onPlotTypeChanged = True
         if index == 0:
-            self.view_type = self.view_types['2D']
+            self.view_type = view_types['2D']
             self.TraceSelector.setEnabled(False)
         if index == 1:
-            self.view_type = self.view_types['1D']
+            self.view_type = view_types['1D']
             self.TraceSelector.setEnabled(True)
         if index == 2:
-            self.view_type = self.view_types['table']
+            self.view_type = view_types['table']
             self.TraceSelector.setEnabled(False)
 
         if not self._windowJustCreated:
@@ -397,22 +396,22 @@ class PlotWindow(QWidget,Ui_Form):
     def _onPlotTypeChangeBox(self, index):
         self._onPlotTypeChanged = True
         if index == 0:
-            self.view_type = self.view_types['2D']
+            self.view_type = view_types['2D']
             self.TraceXSelector.setEnabled(True)
             self.TraceYSelector.setEnabled(False)
             self.TraceZSelector.setEnabled(False)
         if index == 1:
-            self.view_type = self.view_types['2D']
+            self.view_type = view_types['2D']
             self.TraceXSelector.setEnabled(False)
             self.TraceYSelector.setEnabled(True)
             self.TraceZSelector.setEnabled(False)
         if index == 2:
-            self.view_type = self.view_types['2D']
+            self.view_type = view_types['2D']
             self.TraceXSelector.setEnabled(False)
             self.TraceYSelector.setEnabled(False)
             self.TraceZSelector.setEnabled(True)
         if index == 3:
-            self.view_type = self.view_types['1D']
+            self.view_type = view_types['1D']
             self.TraceXSelector.setEnabled(True)
             self.TraceYSelector.setEnabled(True)
             self.TraceZSelector.setEnabled(False)
