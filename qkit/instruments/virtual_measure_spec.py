@@ -28,7 +28,6 @@ mspec = qt.instruments.create('mspec','virtual_measure_spec',spec,samples=1)
 
 from instrument import Instrument
 import numpy
-#from plot_engines.qtgnuplot import get_gnuplot
 import qt
 import types
 #import time
@@ -108,6 +107,9 @@ class virtual_measure_spec(Instrument):
         self.init_card()
         self._dacq.set_trigger_ORmask_tmask_ext0()
         self._dacq.trigger_mode_pos()
+        self.bit_blocksize = 32 #This defines how fine trigger_delay and samples can be defined on the board. The rest is done by truncating the data.
+        self.bit_pre = 0  #Number of bits to truncate at the start...
+        self.bit_post = None #...and at the end of the measurement.
 
     def get_all(self):
         self.get_samples()
@@ -159,12 +161,37 @@ class virtual_measure_spec(Instrument):
         return self._dacq.get_timeout()
 
     def do_set_spec_trigger_delay(self,delay):
+        self.bit_pre, self.bit_post = 0,None
         self._dacq.set_trigger_delay(delay)
 
     def do_get_spec_trigger_delay(self):
         return self._dacq.get_trigger_delay()
+        
+    def set_window(self, start, end):
+        '''
+        Sets the start and end of the acquisition window. These values can be chosen arbitrarily and do not have to be divisible by 16 or 32.
+        '''
+        c_start = int(start)/self.bit_blocksize #floor
+        c_start *=self.bit_blocksize
+        #self.bit_pre = int(start) - c_start
+        samples = int(end)-c_start
+        c_samples = (samples + self.bit_blocksize-1)/self.bit_blocksize #ceil
+        c_samples*=self.bit_blocksize
+        #self.bit_post = c_samples - samples
+        #print "setting card to %g samples and a delay of %g"%(c_samples,c_start)
+        self.spec_stop()
+        self.set_spec_trigger_delay(c_start)
+        self.set_samples(c_samples)
+        
+        self.bit_pre = int(start) - c_start
+        self.bit_post = samples - c_samples  #this is done here, to keep set_spec_trigger_delay and set_samples functional standalone.
+        if self.bit_post == 0 : 
+            self.bit_post = None #we later call result[self.bit_pre:self.bit_post], so bit_post has to be None instead of 0 to get the full array.
+        
+        
 
     def do_set_samples(self, samples):
+        self.bit_pre, self.bit_post = 0,None
         if(samples < 32): raise ValueError('meas_spec: minimum number of samples per trace is 32.')
         if(samples % 16 != 0): raise ValueError('meas_spec: number of samples per trace must be divisible by 16.')
         self._samples = samples
@@ -275,6 +302,10 @@ class virtual_measure_spec(Instrument):
                 else:
                     # shape of result is (samples, channels, segments)
                     result[:, idx, :] += self._offsets[idx]
+        if(self._segments == 1):
+            result = result[self.bit_pre:self.bit_post, : ]
+        else:
+            result = result[self.bit_pre:self.bit_post, : , : ]
         return result
 
     def _acquire_multimode(self):
