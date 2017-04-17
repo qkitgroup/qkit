@@ -430,55 +430,6 @@ def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,data_opt=None,e
     return True
     
 # =================================================================================================================
-    
-def extract_rms_mean(fname,opt=True,normalize=True,do_plot=False):
-    '''
-    Perform an optimization of existing amplitude and phase data in the h5 if option 'opt' is True.
-    Extract the rms of the mean from raw data and return the resulting averaged dataset together with its errors.
-    
-    inputs:
-    - fname: (str) file name of the h5 file
-    - opt: (bool) (optional, default: True) use data optimizer if True, use raw phase information when False
-    - normalize: (bool) (optional, default: False) switch normalization after averaging on/off
-    - do_plot: (bool) (optional, default: False) sets the plot output on/off
-    
-    outputs: [numpy.array,numpy.array]
-    - averaged data
-    - errors
-    '''
-    
-    try:
-        if opt:
-            data, fn, urls = load_data(fname,entries=['pulse length','delay','amplitude','phase'])
-            delay, amp, ampa, pha, phaa = data
-        else:   #use raw phase data
-            data, fn, urls = load_data(fname,entries=['pulse length','delay','phase'])
-            delay, pha, phaa = data
-    except ValueError as m:   #most likely, the required data sets are not present in the h5 file
-        logging.error('Error loading raw data. '+str(m))
-    
-    if opt:
-        x, dat = do.optimize(np.array([delay,amp,pha]),1,2, normalize=False)
-    else:
-        x = delay
-        dat = pha
-    std_mean = np.std(dat,axis=0)/np.sqrt(len(dat))   #standard deviation of the mean
-    dat_m = np.mean(dat,axis=0)
-    
-    if normalize:
-        dat_m -= np.min(dat_m)
-        dat_max = np.max(dat_m)
-        dat_m /= dat_max
-        std_mean /= dat_max
-    
-    if do_plot:
-        plt.figure('dat_reader',figsize=(15,7))   #open and address plot instance
-        plt.errorbar(x,dat_m,yerr=std_mean)
-        plt.show()
-        plt.close('dat_reader')
-    return dat_m, std_mean
-
-# =================================================================================================================
 
 def save_errorbar_plot(fname,fvalues,ferrs,x_url,fit_url=None,entryname_coordinate='param',entryname_vector='error_plot',folder='analysis'):
     '''
@@ -486,13 +437,12 @@ def save_errorbar_plot(fname,fvalues,ferrs,x_url,fit_url=None,entryname_coordina
     
     Sample use:
     from qkit.analysis import dat_reader as dr
+    from qkit.analysis import data_optimizer as do
     all_dat, fn, urls = dr.load_data('data/sample_data_file.h5',entries=['delay','pulse','amp','pha'])
     times, amp, ampa, pha, phaa = all_dat
-    en = 'vac_Rabi_fit'
-    dr.fit_data(fn,fit_function=dr.DAMPED_EXP,ps=[15,0.37,0.5,-1.935,None,-0.5],entryname=en,opt=False)
-    dmean, stdm = dr.extract_rms_mean(fn,opt=True)
+    t, dmean, stdm = do.optimize(np.array([times,amp,pha]),1,2,show_complex_plot=True)
     en = 'vac_Rabi_fit_do'
-    dr.fit_data(dr.DAT_IMPORT,fit_function=dr.DAMPED_EXP,ps=[15,0.37,0.5,-1.935,None,-0.5],entryname=en,data=[times,dmean],nfile=fn,opt=False)
+    dr.fit_data(fn,fit_function=dr.DAMPED_EXP,entryname=en,opt=True)
     dr.save_errorbar_plot(fn,dmean,stdm,urls[0],fit_url='/entry/analysis0/'+en)
     
     inputs:
