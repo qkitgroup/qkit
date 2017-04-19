@@ -50,6 +50,7 @@ class Keysight_VNA_E5071C(Instrument):
         self._zerospan = False
         self._freqpoints = 0
         self._ci = channel_index 
+        self._pi = 2 # port_index, similar to self._ci
         self._start = 0
         self._stop = 0
         self._nop = 0
@@ -117,6 +118,16 @@ class Keysight_VNA_E5071C(Instrument):
             flags=Instrument.FLAG_GET,
             minval=0, maxval=1e3,
             units='s', tags=['sweep'])
+    
+        self.add_parameter('edel', type=types.FloatType, # legacy name for parameter. This corresponds to the VNA's port extension values.
+            flags=Instrument.FLAG_GETSET, 
+            minval=-10, maxval=10,
+            units='s', tags=['sweep'],
+            channels=(1, self._pi), channel_prefix = 'port%d_') # the channel option for qtlab's Instument class is used here to easily address the two VNA ports
+  
+        self.add_parameter('edel_status', type=types.BooleanType, # legacy name for parameter. This corresponds to the VNA's port extension values.
+            flags=Instrument.FLAG_GETSET, 
+            channels=(1, self._pi), channel_prefix = 'port%d_') # the channel option for qtlab's Instument class is used here to easily address the two VNA ports
                     
                     
         #Triggering Stuff
@@ -157,6 +168,9 @@ class Keysight_VNA_E5071C(Instrument):
         self.get_zerospan()
         self.get_sweeptime()
         self.get_sweeptime_averages()
+        for port in range(self._pi):
+            self.get('port%d_edel_status' % (port+1))
+            self.get('port%d_edel' % (port+1))
         
     ###
     #Communication with device
@@ -483,25 +497,46 @@ class Keysight_VNA_E5071C(Instrument):
         return self._sweep
 
 
-    def do_set_edel(self,val):   # added by MW
+    def do_set_edel(self,val):  # MP 04/2017
 
         '''
         Set electrical delay
 
         '''
-        logging.debug(__name__ + ' : setting electrical delay to %s sec' % val)
-        self._visainstrument.write('CALC%i:CORR:EDEL:TIME  %.12f' % (self._ci, val))
+        logging.debug(__name__ + ' : setting port %s extension to %s sec' % (self._pi, val))
+        self._visainstrument.write('SENS1:CORR:EXT:PORT%i:TIME %.12f' % (self._pi, val))
             
     
-    def do_get_edel(self):   # added by MW
+    def do_get_edel(self):   # MP 04/2017
 
         '''
         Get electrical delay
 
         '''
-        logging.debug(__name__ + ' : getting electrical delay')
-        self._edel = float(self._visainstrument.ask('CALC%i:CORR:EDEL:TIME?'% (self._ci)))
+        logging.debug(__name__ + ' : getting port %s extension' % self._pi)
+        self._edel = float(self._visainstrument.ask('SENS1:CORR:EXT:PORT%i:TIME?'% self._pi))
         return  self._edel   
+        
+    def do_set_edel_status(self, status):   # MP 04/2017
+
+        '''
+        Set electrical delay
+
+        '''
+        logging.debug(__name__ + ' : setting port extension status to %s' % (status))
+        self._visainstrument.write('SENS.CORR.EXT.STAT %i' % (status))
+            
+    
+    def do_get_edel_status(self):   # MP 04/2017
+
+        '''
+        Get electrical delay
+
+        '''
+        logging.debug(__name__ + ' :  port extension status')
+        self._edel_status = float(self._visainstrument.ask('SENS:CORR:EXT:STAT?'))
+        return  self._edel_satus
+        
         
     def do_set_startfreq(self,val):
         '''
