@@ -50,7 +50,7 @@ class Keysight_VNA_E5071C(Instrument):
         self._zerospan = False
         self._freqpoints = 0
         self._ci = channel_index 
-        self._pi = 2 # port_index, similar to self._ci
+        self._pi = 1 # port_index, similar to self._ci
         self._start = 0
         self._stop = 0
         self._nop = 0
@@ -104,11 +104,6 @@ class Keysight_VNA_E5071C(Instrument):
         self.add_parameter('channel_index', type=types.IntType,
             flags=Instrument.FLAG_GETSET)
 
-        self.add_parameter('edel', type=types.FloatType,   #added by MW
-            flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=1e-3,
-            units='s', tags=['sweep']) 
-        
         self.add_parameter('sweeptime', type=types.FloatType,   #added by MW
             flags=Instrument.FLAG_GET,
             minval=0, maxval=1e3,
@@ -126,8 +121,7 @@ class Keysight_VNA_E5071C(Instrument):
             channels=(1, self._pi), channel_prefix = 'port%d_') # the channel option for qtlab's Instument class is used here to easily address the two VNA ports
   
         self.add_parameter('edel_status', type=types.BooleanType, # legacy name for parameter. This corresponds to the VNA's port extension values.
-            flags=Instrument.FLAG_GETSET, 
-            channels=(1, self._pi), channel_prefix = 'port%d_') # the channel option for qtlab's Instument class is used here to easily address the two VNA ports
+            flags=Instrument.FLAG_GETSET)
                     
                     
         #Triggering Stuff
@@ -168,8 +162,8 @@ class Keysight_VNA_E5071C(Instrument):
         self.get_zerospan()
         self.get_sweeptime()
         self.get_sweeptime_averages()
+        self.get_edel_status()
         for port in range(self._pi):
-            self.get('port%d_edel_status' % (port+1))
             self.get('port%d_edel' % (port+1))
         
     ###
@@ -497,24 +491,24 @@ class Keysight_VNA_E5071C(Instrument):
         return self._sweep
 
 
-    def do_set_edel(self,val):  # MP 04/2017
+    def do_set_edel(self, channel, val):  # MP 04/2017
 
         '''
         Set electrical delay
 
         '''
-        logging.debug(__name__ + ' : setting port %s extension to %s sec' % (self._pi, val))
-        self._visainstrument.write('SENS1:CORR:EXT:PORT%i:TIME %.12f' % (self._pi, val))
+        logging.debug(__name__ + ' : setting port %s extension to %s sec' % (channel, val))
+        self._visainstrument.write('SENS1:CORR:EXT:PORT%i:TIME %.12f' % (channel, val))
             
     
-    def do_get_edel(self):   # MP 04/2017
+    def do_get_edel(self, channel):   # MP 04/2017
 
         '''
         Get electrical delay
 
         '''
-        logging.debug(__name__ + ' : getting port %s extension' % self._pi)
-        self._edel = float(self._visainstrument.ask('SENS1:CORR:EXT:PORT%i:TIME?'% self._pi))
+        logging.debug(__name__ + ' : getting port %s extension' % channel)
+        self._edel = float(self._visainstrument.ask('SENS1:CORR:EXT:PORT%i:TIME?'% channel))
         return  self._edel   
         
     def do_set_edel_status(self, status):   # MP 04/2017
@@ -534,8 +528,7 @@ class Keysight_VNA_E5071C(Instrument):
 
         '''
         logging.debug(__name__ + ' :  port extension status')
-        self._edel_status = float(self._visainstrument.ask('SENS:CORR:EXT:STAT?'))
-        return  self._edel_satus
+        return  self._visainstrument.ask('SENS:CORR:EXT:STAT?')
         
         
     def do_set_startfreq(self,val):
