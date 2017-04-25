@@ -777,42 +777,42 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
             pcov = None
         finally:
             #plot data
-            if show_plot:
-                plt.close('dat_reader')
-                fig, axes = plt.subplots(1, 2, figsize=(15,4),num='dat_reader')
-                
-                axes[0].plot(data[0],data[data_c],'o')
-                fvalues = f_exp(x_vec, *popt)
-                axes[0].plot(x_vec, fvalues)
-                if xlabel == '':
-                    axes[0].set_xlabel('t (us)', fontsize=13)
-                    pass
-                else:
-                    axes[0].set_xlabel(str(xlabel), fontsize=13)
-                if ylabel == '':
-                    axes[0].set_ylabel('arg(S11) (a.u.)', fontsize=13)
-                    pass
-                else:
-                    axes[0].set_ylabel(str(ylabel), fontsize=13)
-                #axes[0].set_title('exponential decay', fontsize=15)
-                axes[0].set_title(str(['%.4g'%entry for entry in popt]), fontsize=15)
-                
-                axes[1].plot(data[0],np.abs(data[data_c]-popt[2]),'o')
-                axes[1].plot(x_vec, np.abs(f_exp(x_vec, *popt)-popt[2]))   #subtract offset for log plot
-                axes[1].set_yscale('log')
-                if xlabel == '':
-                    axes[1].set_xlabel('t (us)', fontsize=13)
-                    pass
-                else:
-                    axes[1].set_xlabel(str(xlabel), fontsize=13)
-                if ylabel == '':
-                    axes[1].set_ylabel('normalized log(arg(S21)) (a.u.)', fontsize=13)
-                    pass
-                else:
-                    axes[1].set_ylabel(str(ylabel), fontsize=13)
-                
-                #axes[1].set_title('exponential decay', fontsize=15)
-                fig.tight_layout()
+            fvalues = f_exp(x_vec, *popt)
+            #if show_plot:
+            plt.close('dat_reader')
+            fig, axes = plt.subplots(1, 2, figsize=(15,4),num='dat_reader')
+            
+            axes[0].plot(data[0],data[data_c],'o')
+            axes[0].plot(x_vec, fvalues)
+            if xlabel == '':
+                axes[0].set_xlabel('t (us)', fontsize=13)
+                pass
+            else:
+                axes[0].set_xlabel(str(xlabel), fontsize=13)
+            if ylabel == '':
+                axes[0].set_ylabel('arg(S11) (a.u.)', fontsize=13)
+                pass
+            else:
+                axes[0].set_ylabel(str(ylabel), fontsize=13)
+            #axes[0].set_title('exponential decay', fontsize=15)
+            axes[0].set_title(str(['%.4g'%entry for entry in popt]), fontsize=15)
+            
+            axes[1].plot(data[0],np.abs(data[data_c]-popt[2]),'o')
+            axes[1].plot(x_vec, np.abs(f_exp(x_vec, *popt)-popt[2]))   #subtract offset for log plot
+            axes[1].set_yscale('log')
+            if xlabel == '':
+                axes[1].set_xlabel('t (us)', fontsize=13)
+                pass
+            else:
+                axes[1].set_xlabel(str(xlabel), fontsize=13)
+            if ylabel == '':
+                axes[1].set_ylabel('normalized log(arg(S21)) (a.u.)', fontsize=13)
+                pass
+            else:
+                axes[1].set_ylabel(str(ylabel), fontsize=13)
+            
+            #axes[1].set_title('exponential decay', fontsize=15)
+            fig.tight_layout()
                 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     elif fit_function == DAMPED_EXP:
