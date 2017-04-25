@@ -494,7 +494,7 @@ class virtual_MultiplexingReadout(Instrument):
         m1[1:len(I)-1] = 1
         if self.dac_delay != 0:
             if self.dac_delay <= -1:
-                dac_delay = self._sample.exc_T-duration
+                dac_delay = self._sample.exc_T
             else:
                 dac_delay = self.dac_delay
             
