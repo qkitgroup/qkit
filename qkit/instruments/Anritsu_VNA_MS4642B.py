@@ -163,8 +163,12 @@ class Anritsu_VNA_MS4642B(Instrument):
         self.add_function('init')
         self.add_function('returnToLocal')
         self.add_function('set_edel_auto')
-        #self.add_function('avg_clear')
-        #self.add_function('avg_status')
+        self.add_function('pre_measurement')
+        self.add_function('start_measurement')
+        self.add_function('ready')
+        self.add_function('post_measurement')
+        self.add_function('avg_clear')
+        self.add_function('avg_status')
         
         #self._oldspan = self.get_span()
         #self._oldnop = self.get_nop()
@@ -977,3 +981,32 @@ class Anritsu_VNA_MS4642B(Instrument):
         return self._visainstrument.write(msg)    
     def ask(self,msg):
         return self._visainstrument.ask(msg)
+    
+    def pre_measurement(self):
+        '''
+        Set everything needed for the measurement
+        Averaging has to be enabled.
+        '''
+        if not self.get_Average():
+            self.set_Average(True)
+            self.set_averages(1)
+        
+    def post_measurement(self):
+        '''
+        Bring the VNA back to a mode where it can be easily used by the operater.
+        For this VNA and measurement method, no special things have to be done.
+        '''
+        pass
+        
+    def start_measurement(self):
+        '''
+        This function is called at the beginning of each single measurement in the spectroscopy script.
+        Here, it resets the averaging.  
+        '''
+        self.avg_clear()
+    
+    def ready(self):
+        '''
+        This is a proxy function, returning True when the VNA has finished the required number of averages.
+        '''
+        return self.avg_status() == self.get_averages(query=False)
