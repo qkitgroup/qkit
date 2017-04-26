@@ -393,6 +393,10 @@ def _display_2D_data(self,graphicsView):
      
     if self.manipulation & self.manipulations['remove_zeros']:
         data[np.where(data==0)] = np.NaN #replace all exact zeros in the hd5 data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
+     
+     # subtract offset from the data    
+    if self.manipulation & self.manipulations['offset']:
+        data = data - np.nanmean(data,axis=1,keepdims=True)
         
 
     xmin = x0-dx/2 #center the data around the labels

@@ -183,11 +183,9 @@ class PlotWindow(QWidget,Ui_Form):
         """
 
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
-        #self.plot_scales = {'linear':0,'dB':1,'phase_wrap':2}
-        self.manipulations = {'dB':1, 'wrap':2, 'linear':4, 'remove_zeros':8} #BITMASK for manipulation
+        self.manipulations = {'dB':1, 'wrap':2, 'linear':4, 'remove_zeros':8, 'offset':16} #BITMASK for manipulation
 
         self.plot_style = 0
-        #self.plot_scale = 0
         self.manipulation = 8
         self.TraceNum = -1
         self.view_type = self.ds.attrs.get("view_type",None)
@@ -496,6 +494,10 @@ class PlotWindow(QWidget,Ui_Form):
         self.qvkMenu.addAction(linear_correction)
         linear_correction.triggered.connect(self.setLinearCorrection)
         
+        offset_correction = QAction(u'subtract offset', self.qvkMenu)
+        self.qvkMenu.addAction(offset_correction)
+        offset_correction.triggered.connect(self.setOffsetCorrection)
+        
 
         menu.addMenu(self.qvkMenu)
 
@@ -534,6 +536,13 @@ class PlotWindow(QWidget,Ui_Form):
     @pyqtSlot()
     def setLinearCorrection(self):
         self.manipulation = self.manipulation ^ self.manipulations['linear']
+        #print "{:08b}".format(self.manipulation)
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+            
+    @pyqtSlot()
+    def setOffsetCorrection(self):
+        self.manipulation = self.manipulation ^ self.manipulations['offset']
         #print "{:08b}".format(self.manipulation)
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
