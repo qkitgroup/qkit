@@ -347,6 +347,10 @@ class Tabor_WX1284C(Instrument):
         self.set_ch2_output(True)
         self.set_trigger_mode('TRIG')
         self.set_trigger_source('EXT')
+        for i in range(1,self._numchannels + 1):                      
+            self.set('ch%i_amplitude'%i,2)
+            self.set('ch%i_marker_output'%i,True)
+            self.set('ch%i_marker_high'%i,1)
         try:
             self.set_trigger_slope(tr_slope)
         except Exception as m:
@@ -370,7 +374,10 @@ class Tabor_WX1284C(Instrument):
         self.set_sync_output(True)
         self.set_trigger_time(2e-4)
         self.set_sequence_mode("STEP")
-        
+        for i in range(1,self._numchannels + 1):                      
+            self.set('ch%i_amplitude'%i,2)
+            self.set('ch%i_marker_output'%i,True)
+            self.set('ch%i_marker_high'%i,1)
         
         
     def ask(self,cmd):
