@@ -205,7 +205,7 @@ class spectrum(object):
         self._sweeptime_averages = self.vna.get_sweeptime_averages()
         self._freqpoints = self.vna.get_freqpoints()
 
-        self.vna.pre_measurement()
+        if self.averaging_start_ready: self.vna.pre_measurement()
         '''
         try:
             self.vna.hold(0)   #switch VNA to continuous mode
@@ -624,11 +624,11 @@ class spectrum(object):
         the data file is closed and filepath is printed
         '''
         print self._data_file.get_filepath()
-        qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment)
+        #qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment)
         self._data_file.close_file()
         waf.close_log_file(self._log)
         self.dirname = None
-        self.vna.post_measurement()
+        if self.averaging_start_ready: self.vna.post_measurement()
 
     def set_resonator_fit(self,fit_resonator=True,fit_function='',f_min=None,f_max=None):
         '''
