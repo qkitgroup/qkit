@@ -99,6 +99,7 @@ class h5plot(object):
 
         if self.ds_type == ds_types['coordinate']:
             #self.plt_coord()
+            plt.close()
             return
         elif self.ds_type == ds_types['vector']:
             self.plt_vector()
@@ -108,11 +109,14 @@ class h5plot(object):
             self.plt_box()
         elif self.ds_type == ds_types['txt']:
             #self.plt_txt()
+            plt.close()
             return
         elif self.ds_type == ds_types['view']:
             #self.plt_view()
+            plt.close()
             return
         else:
+            plt.close()
             return
 
         self.ax.set_xlabel(self.x_label)
