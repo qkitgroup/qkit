@@ -97,6 +97,7 @@ class acp(object):
         self._peaksearch()
         self.fitfreqs1=self.freq[self.ips]
         self.fitcurrs1=self.curr[self.ipcs]
+        self.fitcurri1=self.ipcs
         # Search for second arm:
         # If seperate resonator freq given, use that, otherwise use same as for first arm
         if f0_e: self._peaksinit(f0=f0_e,i=-1)
@@ -104,10 +105,12 @@ class acp(object):
         self._peaksearch(start=-2, stop=-self.curr.size)
         self.fitfreqs2=self.freq[self.ips]
         self.fitcurrs2=self.curr[self.ipcs]
+        self.fitcurri2=self.ipcs
         # Make sure data is in the right order for fit
         if np.mean(self.fitfreqs1)>np.mean(self.fitfreqs2):
             self.fitfreqs1,self.fitfreqs2=self.fitfreqs2,self.fitfreqs1
             self.fitcurrs1,self.fitcurrs2=self.fitcurrs2,self.fitcurrs1
+            self.fitcurri1,self.fitcurri2=self.fitcurri2,self.fitcurri1
 
 
     def plot_peaks(self):
@@ -124,8 +127,10 @@ class acp(object):
     def cut1(self,i=0):
         self.fitfreqs1=self.fitfreqs1[0:self.fitfreqs1.size-i]
         self.fitcurrs1=self.fitcurrs1[0:self.fitcurrs1.size-i]
+        self.fitcurri1=self.fitcurri1[0:self.fitcurri1.size-i]
     
     
     def cut2(self,i=0):
         self.fitfreqs2=self.fitfreqs2[0:self.fitfreqs2.size-i]
         self.fitcurrs2=self.fitcurrs2[0:self.fitcurrs2.size-i]
+        self.fitcurri2=self.fitcurri2[0:self.fitcurri2.size-i]
