@@ -281,7 +281,7 @@ class spectrum(object):
             self._data_time.add(np.arange(0,self._nop,1)*self.vna.get_sweeptime()/(self._nop-1))
             
             self._data_x = self._data_file.add_coordinate('trace_number', unit = '')
-            self._data_x.add(np.arange(0, no_timetraces, 1))
+            self._data_x.add(np.arange(0, self.number_of_timetraces, 1))
             
             self._data_amp = self._data_file.add_value_matrix('amplitude', x = self._data_x, y = self._data_time, unit = 'lin. mag.', save_timestamp = False)
             self._data_pha = self._data_file.add_value_matrix('phase', x = self._data_x, y = self._data_time, unit = 'rad.', save_timestamp = False)
@@ -624,7 +624,7 @@ class spectrum(object):
         the data file is closed and filepath is printed
         '''
         print self._data_file.get_filepath()
-        #qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment)
+        qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment)
         self._data_file.close_file()
         waf.close_log_file(self._log)
         self.dirname = None
