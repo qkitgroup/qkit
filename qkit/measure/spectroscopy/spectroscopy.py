@@ -316,8 +316,6 @@ class spectrum(object):
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         if self.open_qviewkit:
             qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
-        if self._fit_resonator:
-            self._resonator = resonator(self._data_file.get_filepath())
 
         print 'recording trace...'
         sys.stdout.flush()
@@ -362,7 +360,7 @@ class spectrum(object):
         self._data_real.append(data_real)
         self._data_imag.append(data_imag)
         if self._fit_resonator:
-            self._do_fit_resonator()
+            self._resonator = resonator(self._data_file.get_filepath())
 
         qt.mend()
         self._end_measurement()
