@@ -5,6 +5,8 @@ data point tracker by YS @ KIT / 2017
 
 import peakutils
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 
 
 class pointtracker():
@@ -62,7 +64,8 @@ class pointtracker():
             return
         
         # if dips are searched invert the dataset
-        if dips: self.data = -self.data
+        if dips: self.sig = -1
+        else: self.sig = +1
         
         # find closest real data point to given start_coords and translate in indices
         self.start_coords = []
@@ -133,7 +136,7 @@ class pointtracker():
             print "Reached boundary of dataset"
             return
         
-        search_data = self.data[search_indices[0], search_indices[1]-self.span/2. : search_indices[1]+self.span/2.]
+        search_data = self.sig * self.data[search_indices[0], search_indices[1]-self.span/2. : search_indices[1]+self.span/2.]
 
         indexes_found = peakutils.indexes(search_data, thres=self._thres, min_dist=self._min_dist)
 
@@ -166,7 +169,7 @@ class pointtracker():
             self._track_points([search_indices[0]+direction,search_indices[1]], direction=direction)
             
             
-    def del_branch(self, trace=-1, all=False):
+    def del_trace(self, trace=-1, all=False):
         """
         Remove one of the detected point traces (default: last one).
         
@@ -184,21 +187,28 @@ class pointtracker():
             self.y_results.pop(trace)
             
             
-    def cut(self, amount=0, trace=-1):
+    def cut(self, amount=0, trace=-1, end="high"):
         """
         Remove a given amount (default: 0) of detected points from a given trace (default: -1).
+        It starts from the given end (default: high end in x dimensions).
         
         Keyword arguments:
             amount (int) -- amount of points to be removed from the end of the trace
             trace (int)  -- # of trace to remove points from
+            end (str)    -- from which end to start ("high" or "low")
         """
         
         if amount == 0:
             n = None
         else:
-            n = -amount
-        self.x_results[trace] = self.x_results[trace][0:n]
-        self.y_results[trace] = self.y_results[trace][0:n]        
+            if end == "high":
+                n = -amount
+                self.x_results[trace] = self.x_results[trace][0:n]
+                self.y_results[trace] = self.y_results[trace][0:n] 
+            else:
+                n = amount
+                self.x_results[trace] = self.x_results[trace][n:None]
+                self.y_results[trace] = self.y_results[trace][n:None]        
 
 
     def del_points(self, indeces=[], trace=-1):
@@ -210,5 +220,34 @@ class pointtracker():
             trace (int)     -- # of trace to remove points from
         """
         
-        self.x_results = np.delete(self.x_results, indeces)
-        self.y_results = np.delete(self.y_results, indeces)
+        self.x_results[trace] = np.delete(self.x_results[trace], indeces)
+        self.y_results[trace] = np.delete(self.y_results[trace], indeces)
+        
+        
+    def plot(self, all=True, amount=1, log=False):
+        """
+        Plot the data with an overlay of the detected points.
+        
+        Keyword arguments:
+            all (bool)   -- plot all detected traces (default: True)
+            amount (int) -- plot given amount of traces (default: 1)
+        """
+        
+        fig, axes = plt.subplots(figsize=(16,8))
+        
+        if log==False:
+            plt.pcolormesh(self.xdata, self.ydata, self.data.T, cmap="viridis")
+        else:
+            plt.pcolormesh(self.xdata, self.ydata, self.data.T, cmap="viridis", norm=LogNorm(vmin=self.data.min(), vmax=self.data.max()))
+        plt.xlim(min(self.xdata), max(self.xdata))
+        plt.ylim(min(self.ydata), max(self.ydata))
+        plt.colorbar()
+        
+        if all:
+            n = len(self.x_results)
+        else:
+            n = amount
+        for i in range(0,n):
+            plt.plot(self.xdata[self.x_results[i]], self.ydata[self.y_results[i]], "x", label="Trace %d"%(i))
+        
+        plt.legend()
