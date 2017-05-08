@@ -251,3 +251,19 @@ class pointtracker():
             plt.plot(self.xdata[self.x_results[i]], self.ydata[self.y_results[i]], "x", label="Trace %d"%(i))
         
         plt.legend()
+        
+        
+    def get_results(self):
+        """
+        Return the results in dimensions of xdata and ydata.
+        Returns a list of two lists (for x and y) of numpy arrays (with the detected points).
+        """
+        
+        xres = []
+        yres = []
+        
+        for i in range(0,len(self.x_results)):
+            xres.append(self.xdata[self.x_results[i]])
+            yres.append(self.ydata[self.y_results[i]])
+        
+        return [xres,yres]
