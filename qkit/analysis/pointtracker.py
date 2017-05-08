@@ -142,7 +142,7 @@ class pointtracker():
             print "Reached boundary of dataset"
             return
         
-        search_data = self.sig * self.data[search_indices[0], search_indices[1]-self.span/2 : search_indices[1]+self.span/2]
+        search_data = self.sig * self.data[int(search_indices[0]), int(search_indices[1]-self.span/2) : int(search_indices[1]+self.span/2)]
 
         indexes_found = peakutils.indexes(search_data, thres=self._thres, min_dist=self._min_dist)
 
