@@ -1,0 +1,8 @@
+#!/bin/bash
+
+basedir=`dirname $0`
+python $basedir/source/gui/guiclient.py "$@"
+
+#To run as interactive ipython shell
+#This will cause problems when starting the GUI from the main qtlab shell!
+#ipython -gthread $basedir/source/gui/guiclient.py -- "$@"

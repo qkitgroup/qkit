@@ -1,0 +1,24 @@
+#!/bin/bash
+
+basedir=`dirname $0`
+
+if type -p ipython; then
+    _ipython=ipython
+else
+    echo "no ipython executable found in PATH"
+fi
+
+if [[ "$_ipython" ]]; then
+    version=$("$_ipython" --version 2>/dev/null)
+    # Old ipython versions have -Version argument in stead of --version.
+    # Determine from the length of the return string if the help-text
+    # is returned instead of the version number.
+    if [[ {#$version} > 10 ]]; then
+        version=$("$_ipython" -Version)
+    fi
+    if [[ "$version" < "0.11" ]]; then
+        ipython -gthread $basedir/source/qtlab_shell.py -- "$@"
+    else
+        ipython --gui=gtk -i $basedir/source/qtlab_shell.py
+    fi
+fi

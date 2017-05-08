@@ -1,0 +1,18 @@
+====================
+QTLab Changelog file
+====================
+
+
+== QTLab 0.3 (Released XX) ==
+
+* GUI is split into separate process. Now the GUI is more responsive while measurements are running.
+
+* QTLab is now compatible with ipython 0.11. This is a huge improvement over the older versions using threads to have the interactive gui.
+
+* Gnuplot style can be set in userconfig.py (wxt, x11, windows)
+
+* Added fitting and peakfinder routines
+
+* Added many new instruments
+
+* Many bug fixes

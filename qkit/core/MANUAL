@@ -1,0 +1,302 @@
+QT Lab Manual
+
+Contents
+
+1. Introduction
+    1.1. Getting QTLab
+    1.2. Dependencies
+    1.3. Contributing
+    1.4. Supported instruments
+2. Components
+    2.1. Instruments
+    2.2. Data
+    2.3. Plots
+    2.4. Finding a Data, Plot or Window object
+3. Extensions to QTLab
+4. Measurement scripts
+5. Performance
+
+1. Introduction
+QTLab is a collection of python code to simplify computer-controlled
+measurements. It provides some basic GUI functionality and makes scripting
+quite easy. It relies on the IPython shell, with GTK providing the basics
+for the GUI.
+
+1.1. Getting QTLab
+You can get the latest version for QTLab from the git repository, which is
+currently located at http://qtwork.nano.tudelft.nl/cgi-bin/gitweb.cgi.
+
+1.2. Dependencies
+- IPython
+- Gtk
+- Pygtk
+- Gnuplot (4.3 on Windows)
+- numpy
+For a complete list see the INSTALL file in the qtlab folder.
+
+1.3. Contributing
+Please send your contributions, such as new drivers and/or bugfixes to
+Reinier Heeres <reinier@heeres.eu> or <qtlab-users@lists.sourceforge.net>
+
+1.4. Supported instruments
+- ADwin gold (windows only)
+- Agilent E8257D
+- Attocube ANC150
+- Attocube ARC200
+- Cryocon 62
+- Cryomagnetics CS4
+- Picoquant Picoharp 300 (windows only)
+- HP 33120A Arbitrary Waveform Generator
+- HP 4195A Network analyzer
+- HP 81110A Pulse generator
+- HP 8656B, 8657A, 8657B Signal generator
+- HP 8753C Network analyzer
+- Keithley 199 DMM
+- Keithley 2100 DMM
+- Keithley 2700 DMM
+- LeCroy Waverunner 44Xi digital oscillosopea
+- Meadowlark LCVRs
+- National Instruments DAQ devices (Windows only)
+- Oxford Instruments ILM 200
+- Oxford Instruments IPS 120
+- R&S SMR40
+- R&S Step Attenuator
+- Spectrum M2i2030 (Windows only)
+- Standa stepper motors (Windows only)
+- Stanford Research Systems 400 photon counter
+- Tektronix AWG520
+- Thorlabs PM100
+- Quantum Transport IVVI, SMS and OptoDAC
+- Zaber TNM stepper motors
+
+2. Components
+
+2.1. Instruments
+2.1.1. Basics
+The 'Instrument' and 'Instruments' classes are at the core of QTLab. They
+are easy wrappers to create a sort of standardized python driver to talk
+to measurement instrumentation. 'Instrument' is a base class for specific
+drivers, 'Instruments' is a container class through which specific Instrument
+instances can be found and created.
+
+The instruments collection can be accessed easily by typing:
+
+    qt.instruments
+
+Create a new instrument is a simple matter:
+
+    qt.instruments.create('<name>', '<instrument type>', <parameters>)
+
+For example:
+
+    qt.instruments.create('dmm1', 'Keithley_2700', address='GPIB::12')
+
+To get and set properties, you should use the automatically generated
+get_prop1() and set_prop1(val) functions. They will eventually call the
+lower-level do_get_prop1() and do_set_prop1(val) functions, which you
+should only use directly if you know what you're doing.
+
+To facilitate easy reloading of instruments, the actual instrument objects
+you normally deal with are 'proxies'. This basically means that you talk to
+the real instrument object indirectly. As a result of this, not all functions
+that are defined in the instrument driver are available: only functions from
+the driver that do not start with an underscore ('_') are included / proxied.
+A nice thing is that by doing this a whole bunch of non-relevant functions
+that are present in the real instrument object by default are not shown when
+typing ins.<tab> in IPython. If you ever need to access the real instrument
+object, you can use the '_ins' property (e.g. dmm1._ins).
+
+2.1.2. Writing an instrument
+There are many instrument drivers available in the standard distribution. They
+are quite good examples of most features.
+
+Each instrument driver should contain a class with the same name as the
+filename.
+
+The foundation of the Instrument class is formed by the functions 'add_parameter'
+and 'add_function'. They provide common functionality for the instrument
+parameters and functions, like type-checking (float, int, etc) and maximum
+and minimum checking.
+Defining such a parameter is done in the __init__ of the instrument plugin.
+Example:
+
+    self.add_parameter('dac1', flags=Instrument.FLAG_GETSET,
+        type=types.FloatType, minval=-1, maxval=5)
+
+This specifies the parameter 'dac1' as a floating point parameter that
+supports GET and SET. Two functions (get_dac1 and set_dac1) will then
+automatically be added to the instrument. They are wrappers around the
+actual implementation (which you will have to write yourself).
+When calling 'set_dac1(value)' parameter type and range checks are performed
+before the parameter is really set.
+
+The actual getting and setting of this parameter needs to be implemented in
+the driver in two functions:
+
+    def do_set_dac1(self, value):
+        ....
+
+    def do_get_dac1(self):
+        ....
+        return <value>
+
+These functions usually only perform the instrument communication, such as
+sending and reading of GPIB commands. Note, once again, that in principle
+these functions should not be used directly.
+
+Additional options are available for added parameters; see the documentation
+of the add_parameter function for more details.
+
+To expose a function in the user interface, register it with add_function:
+
+    self.add_function('reset')
+
+2.1.3 Why use the wrapper?
+There are a few advantages of using the wrapper around the 'get' and 'set'
+functions for your instrument, although they are more obvious for the
+'set' parts. For the 'get' functions:
+
+    - Proper casting of return values
+    - Automatically create functions for different channels
+    - Inform other components about updated values (only if fast=False,
+    which is the default).
+    - Get multiple parameters in one go:
+        vals = ins.get(('val1', 'val2', 'val3'))
+
+For the 'set' functions:
+
+    - Automatically create functions for different channels
+    - Input type casting
+    - Checking of minimum and maximum value
+    - Automatic rate limiting (e.g. 0.5mV / 50msec)
+    - 'Persistent' values are stored in the config file, which is useful in
+    the case an instrument cannot be read out.
+    - Inform other components about updated values (only if fast=False,
+    which is the default).
+
+Another nice thing is that instruments can be made available to remote
+instances of QTLab, e.g. you could you an instrument physically hooked up
+to one computer from another machine over the network.
+
+2.1.4. Tags
+Instruments and instrument parameters can have tags which can be used to
+group them. Some special tags exist as well:
+
+Instruments:
+    - physical: a physical instrument.
+    - virtual: a virtual instrument.
+    - positioner: a motion control instrument, should support move_abs() or
+      move_rel().
+
+Parameters:
+    - measure: parameter that can be 'measured' in a loop.
+    - sweep: parameter that can be 'swept' in a loop.
+
+2.2. Data
+Measurement data can be stored in an instance of the Data class. This supports
+things such as loading / saving of data and adding meta-data. An example:
+
+    d = Data('test.dat')   # This will load the file if it exists
+    d.add_coordinate('x')  # Interpret data as data(x,y) = (v1, v2)
+    d.add_coordinate('y')
+    d.add_value('v1')
+    d.add_value('v2')
+
+Although the data is stored internally as a simple array of values, some more
+information about these values can be added: each value can be added as either
+a 'coordinate' or a 'value' dimension. This extra information will be used
+when adding the Data object to a plot.
+
+2.3. Plots
+To visualize data several plot classes are included. There is currently only
+one back-end: gnuplot.
+
+A plot can be created by calling 'plot' (for line plots) or 'plot3' (for
+surface / image plots). You can simply pass it a Data object or filename:
+
+    p = plot3('test.dat')
+
+or
+
+    d = Data('test.dat')
+    p = plot3(d)
+
+It's also possible to pass data arrays directly:
+
+    plot([[1,1],[2,4],[3,9],[4,16]], name='myplot')
+
+or
+
+    plot([1,2,3,4], [1,4,9, 16], name='myplot')
+
+Here the 'name' option selects the plot with name 'myplot' (by default the
+plot with name 'plot' (2D) or 'plot3' (3D) is selected).
+
+Of course more optional arguments are available, see the examples and the
+documentation for 'plot' and 'plot3' for more info.
+
+Alternatively the object oriented interface to plotting could be used, e.g.
+using the Plot2D and Plot3D classes directly.
+
+2.4. Finding a Data, Plot or Window object
+The Data, Plot and QTWindow classes store a list of instances inside them.
+You can get the list with the <class>.get_named_list() function, but it is
+easier to access these lists directly in the qt module. You can see their
+contents easily by typing their name in the IPython shell:
+
+    qt.data
+    qt.plots
+    qt.windows
+
+Getting an item from the list works as follows:
+
+    p = qt.plots['plot1']
+
+A new item is created by instantiating the related class, so just entering
+
+    Plot3D()
+
+will create a new item, automatically called 'plot<n>'. If you would like to
+specify a different name, use
+
+    Plot3D(name='myplot')
+
+However, in the case of plots it is easier to use the above-mentioned 'plot'
+and 'plot3' functions, which will automatically create new plot objects.
+
+3. Extensions to QT Lab
+Extensions to QT lab are easy to write. This code should normally be placed
+in the 'source/lib/' directory. A few sub-directories are available there to
+organize the extensions:
+
+    lib/dll_support     - Communicating with DLLs (e.g. NI DAQ)
+    lib/file_support    - Reading file types (e.g. SPE files)
+    lib/gui             - Gui classes (e.g. dropdowns)
+    lib/math            - Mathimatical functionality (e.g. fitting)
+    lib/network         - Network functionality (e.g. tcpserver)
+    lib/                - More generic things (e.g. temporary file handler)
+
+4. User specific configuration
+The most common user-specific settings can be set in the file userconfig.py
+The following options are available:
+
+    datadir         - Default data folder
+    startdir        - path where you like QT lab to start,
+                      i.e. your scripts folder.
+    startscript     - script file you wish to run when QT lab starts
+    user_insdir     - location where you store your user-specific
+                    - (virtual) instrument drivers.
+
+It is good practice to put any user specific scripts and modules in a folder
+outside the qtlab folder. This avoids unraveling all the files when you want
+to update QT lab.
+
+5. Performance
+The overhead of the 'get' and 'set' functions are quite small, but depending
+on your needs they could be significant. The following numbers were acquired
+on a Inspiron 6400 laptop with a 1.73GHz Core Duo processor under Linux:
+
+    do_get_<parameter> directly: ~3.7us
+    get('parameter', fast=True): ~8.6us
+    get_<parameter> or get('parameter'): ~11.5us
+
