@@ -70,8 +70,8 @@ class pointtracker():
             return
         
         # if dips are searched invert the dataset
-        if dips: self.sig = -1
-        else: self.sig = +1
+        if dips: self._sig = -1
+        else: self._sig = +1
         
         # find closest real data point to given start_coords and translate in indices
         self.start_coords = []
@@ -142,7 +142,7 @@ class pointtracker():
             print "Reached boundary of dataset"
             return
         
-        search_data = self.sig * self.data[int(search_indices[0]), int(search_indices[1]-self.span/2) : int(search_indices[1]+self.span/2)]
+        search_data = self._sig * self.data[int(search_indices[0]), int(search_indices[1]-self.span/2) : int(search_indices[1]+self.span/2)]
 
         indexes_found = peakutils.indexes(search_data, thres=self._thres, min_dist=self._min_dist)
 
@@ -217,17 +217,17 @@ class pointtracker():
                 self.y_results[trace] = self.y_results[trace][n:None]        
 
 
-    def del_points(self, indeces=[], trace=-1):
+    def del_points(self, indices=[], trace=-1):
         """
         Remove a specific set of points (default : []) from a given trace (default: -1).
         
         Keyword arguments:
-            indeces ([int]) -- list of indices of points to be removed from the trace
+            indices ([int]) -- list of indices of points to be removed from the trace
             trace (int)     -- # of trace to remove points from
         """
         
-        self.x_results[trace] = np.delete(self.x_results[trace], indeces)
-        self.y_results[trace] = np.delete(self.y_results[trace], indeces)
+        self.x_results[trace] = np.delete(self.x_results[trace], indices)
+        self.y_results[trace] = np.delete(self.y_results[trace], indices)
         
         
     def plot(self, all=True, amount=1, log=False):
@@ -242,6 +242,7 @@ class pointtracker():
         
         fig, axes = plt.subplots(figsize=(16,8))
         
+        
         if log==False:
             plt.pcolormesh(self.xdata, self.ydata, self.data.T, cmap="viridis")
         else:
@@ -254,8 +255,13 @@ class pointtracker():
             n = len(self.x_results)
         else:
             n = amount
+        col = ["r", "w", "m", "k", "b", "g", "c", "y"]
+        if n>len(col):
+            m=int(n/len(col)+1)
+            col=m*col
+        
         for i in range(0,n):
-            plt.plot(self.xdata[self.x_results[i]], self.ydata[self.y_results[i]], "x", label="Trace %d"%(i))
+            plt.plot(self.xdata[self.x_results[i]], self.ydata[self.y_results[i]], col[i]+"x", label="Trace %d"%(i))
         
         plt.legend()
         
