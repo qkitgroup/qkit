@@ -28,337 +28,337 @@ import logging
 import numpy
 
 class Keithley_2636A(Instrument):
-	'''
-	This is the driver for the Keithley 2636A Source Meter
+    '''
+    This is the driver for the Keithley 2636A Source Meter
 
-	Usage:
-	Initialize with
-	<name> = instruments.create('<name>', 'Keithley_2636A', address='<GBIP address>, reset=<bool>')
-	'''
+    Usage:
+    Initialize with
+    <name> = instruments.create('<name>', 'Keithley_2636A', address='<GBIP address>, reset=<bool>')
+    '''
 
-	def __init__(self, name, address, reset=False):
-		'''
-		Initializes the Keithley_2636A, and communicates with the wrapper.
+    def __init__(self, name, address, reset=False):
+        '''
+        Initializes the Keithley_2636A, and communicates with the wrapper.
 
-		Input:
-		  name (string)    : name of the instrument
-		  address (string) : GPIB address
-		  reset (bool)     : resets to default values, default=False
-		'''
-		logging.info(__name__ + ' : Initializing instrument Keithley_2636A')
-		Instrument.__init__(self, name, tags=['physical'])
+        Input:
+          name (string)    : name of the instrument
+          address (string) : GPIB address
+          reset (bool)     : resets to default values, default=False
+        '''
+        logging.info(__name__ + ' : Initializing instrument Keithley_2636A')
+        Instrument.__init__(self, name, tags=['physical'])
 
-		# Add some global constants
-		self._address = address
-		self._visainstrument = visa.instrument(self._address)
-		
-		self.add_parameter('voltageA',
-			flags=Instrument.FLAG_GETSET, units='V', minval=-200, maxval=200, type=types.FloatType)
-		self.add_parameter('voltageB',
-			flags=Instrument.FLAG_GETSET, units='V', minval=-200, maxval=200, type=types.FloatType)
+        # Add some global constants
+        self._address = address
+        self._visainstrument = visa.instrument(self._address)
+        
+        self.add_parameter('voltageA',
+            flags=Instrument.FLAG_GETSET, units='V', minval=-200, maxval=200, type=types.FloatType)
+        self.add_parameter('voltageB',
+            flags=Instrument.FLAG_GETSET, units='V', minval=-200, maxval=200, type=types.FloatType)
  
-		self.add_parameter('currentA',
-			flags=Instrument.FLAG_GETSET, units='A', minval=-10, maxval=10, type=types.FloatType)
-		self.add_parameter('currentB',
-			flags=Instrument.FLAG_GETSET, units='A', minval=-10, maxval=10, type=types.FloatType)
-		 
-		self.add_parameter('statusA',
-			flags=Instrument.FLAG_GETSET, type=types.BooleanType)
-		self.add_parameter('statusB',
-			flags=Instrument.FLAG_GETSET, type=types.BooleanType)
+        self.add_parameter('currentA',
+            flags=Instrument.FLAG_GETSET, units='A', minval=-10, maxval=10, type=types.FloatType)
+        self.add_parameter('currentB',
+            flags=Instrument.FLAG_GETSET, units='A', minval=-10, maxval=10, type=types.FloatType)
+         
+        self.add_parameter('statusA',
+            flags=Instrument.FLAG_GETSET, type=types.BooleanType)
+        self.add_parameter('statusB',
+            flags=Instrument.FLAG_GETSET, type=types.BooleanType)
 
-		self.add_function('reset')
-		self.add_function('onA')
-		self.add_function('offA')
-		self.add_function('onB')
-		self.add_function('offB')
+        self.add_function('reset')
+        self.add_function('onA')
+        self.add_function('offA')
+        self.add_function('onB')
+        self.add_function('offB')
  
-		self.add_function('exec_tsl_script')
-		self.add_function('exec_tsl_script_with_return')
-		self.add_function('get_tsl_script_return')
-		
-		#self.add_function ('get_all')
+        self.add_function('exec_tsl_script')
+        self.add_function('exec_tsl_script_with_return')
+        self.add_function('get_tsl_script_return')
+        
+        #self.add_function ('get_all')
 
-		#self._visainstrument.write('beeper.beep(0.5,1000)')
-		if (reset):
-			self.reset()
-		else:
-			self.get_all()
+        #self._visainstrument.write('beeper.beep(0.5,1000)')
+        if (reset):
+            self.reset()
+        else:
+            self.get_all()
 
-	def reset(self):
-		'''
-		Resets the instrument to default values
+    def reset(self):
+        '''
+        Resets the instrument to default values
 
-		Input:
-			None
+        Input:
+            None
 
-		Output:
-			None
-		'''
-		logging.info(__name__ + ' : resetting instrument')
-		self._visainstrument.write("reset()")
-		self.get_all()
+        Output:
+            None
+        '''
+        logging.info(__name__ + ' : resetting instrument')
+        self._visainstrument.write("reset()")
+        self.get_all()
 
-	def get_all(self):
-		'''
-		Reads all implemented parameters from the instrument,
-		and updates the wrapper.
+    def get_all(self):
+        '''
+        Reads all implemented parameters from the instrument,
+        and updates the wrapper.
 
-		Input:
-			None
+        Input:
+            None
 
-		Output:
-			None
-		'''
-		logging.info(__name__ + ' : get all')
-		#self.do_get_voltageA()
-		#self.get_voltageB()
-		#self.get_currentA()
-		#self.get_currentB()
-	
-	def exec_tsl_script(self,script):
-		'''
-		Writes the script to the device
-		Input:
-			TSL script (basically lua)
-		Output:
-			None
-		'''
-		logging.debug(__name__ + ' : execute TSL script on device')
-		self._visainstrument.write(script)
-		
-	def exec_tsl_script_with_return(self,script):
-		'''
-		Writes the script to the device
-		Input:
-			TSL script (basically lua)
-		Output:
-			None
-		'''
-		logging.debug(__name__ + ' : execute TSL script on device and return data')
-		return self._visainstrument.ask(script).strip()
-
- 
-	def get_tsl_script_return(self):
-		'''
-		Writes the script to the device
-		Input:
-			None
-		Output:
-			data, can be anything
-		'''
-		logging.debug(__name__ + ' : return data from executed TSL script')
-		return self._visainstrument.read().strip()
+        Output:
+            None
+        '''
+        logging.info(__name__ + ' : get all')
+        #self.do_get_voltageA()
+        #self.get_voltageB()
+        #self.get_currentA()
+        #self.get_currentB()
+    
+    def exec_tsl_script(self,script):
+        '''
+        Writes the script to the device
+        Input:
+            TSL script (basically lua)
+        Output:
+            None
+        '''
+        logging.debug(__name__ + ' : execute TSL script on device')
+        self._visainstrument.write(script)
+        
+    def exec_tsl_script_with_return(self,script):
+        '''
+        Writes the script to the device
+        Input:
+            TSL script (basically lua)
+        Output:
+            None
+        '''
+        logging.debug(__name__ + ' : execute TSL script on device and return data')
+        return self._visainstrument.ask(script).strip()
 
  
-	def do_get_voltageA(self):
-		'''
-		Reads the phase of the signal from the instrument
+    def get_tsl_script_return(self):
+        '''
+        Writes the script to the device
+        Input:
+            None
+        Output:
+            data, can be anything
+        '''
+        logging.debug(__name__ + ' : return data from executed TSL script')
+        return self._visainstrument.read().strip()
 
-		Input:
-			None
+ 
+    def do_get_voltageA(self):
+        '''
+        Reads the phase of the signal from the instrument
 
-		Output:
-			volt (float) : Voltage in Volts
-		'''
-		logging.debug(__name__ + ' : get voltage A')
-		return float(self._visainstrument.ask('print(smua.measure.v())').strip())
+        Input:
+            None
 
-	def do_set_voltageA(self, volt):
-		'''
-		Set the Amplitude of the signal
+        Output:
+            volt (float) : Voltage in Volts
+        '''
+        logging.debug(__name__ + ' : get voltage A')
+        return float(self._visainstrument.ask('print(smua.measure.v())').strip())
 
-		Input:
-			volt (float) : voltage in volt
+    def do_set_voltageA(self, volt):
+        '''
+        Set the Amplitude of the signal
 
-		Output:
-			None
-		'''
-		logging.debug(__name__ + ' : set voltage of channel A to %f' % volt)
-		self._visainstrument.write('smua.source.levelv = %s' % volt)
+        Input:
+            volt (float) : voltage in volt
 
-	def do_get_voltageB(self):
-		'''
-		Reads the Amplitude of the signal from the instrument
+        Output:
+            None
+        '''
+        logging.debug(__name__ + ' : set voltage of channel A to %f' % volt)
+        self._visainstrument.write('smua.source.levelv = %s' % volt)
 
-		Input:
-			None
+    def do_get_voltageB(self):
+        '''
+        Reads the Amplitude of the signal from the instrument
 
-		Output:
-			volt (float) : Voltage in Volts
-		'''
-		logging.debug(__name__ + ' : get voltage A')
-		return float(self._visainstrument.ask('print(smub.measure.v())').strip())
+        Input:
+            None
 
-	def do_set_voltageB(self, volt):
-		'''
-		Set the Amplitude of the signal
+        Output:
+            volt (float) : Voltage in Volts
+        '''
+        logging.debug(__name__ + ' : get voltage A')
+        return float(self._visainstrument.ask('print(smub.measure.v())').strip())
 
-		Input:
-			volt (float) : voltage in volt
+    def do_set_voltageB(self, volt):
+        '''
+        Set the Amplitude of the signal
 
-		Output:
-			None
-		'''
-		logging.debug(__name__ + ' : set voltage of channel B to %f' % volt)
-		self._visainstrument.write('smub.source.levelv = %s' % volt)
+        Input:
+            volt (float) : voltage in volt
 
-	def do_get_currentA(self):
-		'''
-		Reads the phase of the signal from the instrument
+        Output:
+            None
+        '''
+        logging.debug(__name__ + ' : set voltage of channel B to %f' % volt)
+        self._visainstrument.write('smub.source.levelv = %s' % volt)
 
-		Input:
-			None
+    def do_get_currentA(self):
+        '''
+        Reads the phase of the signal from the instrument
 
-		Output:
-			current (float) : current in amps
-		'''
-		logging.debug(__name__ + ' : get current A')
-		return float(self._visainstrument.ask('print(smua.measure.i())').strip())
+        Input:
+            None
 
-	def do_set_currentA(self, curr):
-		'''
-		Set the Amplitude of the signal
+        Output:
+            current (float) : current in amps
+        '''
+        logging.debug(__name__ + ' : get current A')
+        return float(self._visainstrument.ask('print(smua.measure.i())').strip())
 
-		Input:
-			curr (float) : current in amps
+    def do_set_currentA(self, curr):
+        '''
+        Set the Amplitude of the signal
 
-		Output:
-			None
-		'''
-		logging.debug(__name__ + ' : set current of channel A to %f' % curr)
-		self._visainstrument.write('smua.source.leveli = %s' % curr)
+        Input:
+            curr (float) : current in amps
 
-	def do_get_currentB(self):
-		'''
-		Reads the phase of the signal from the instrument
+        Output:
+            None
+        '''
+        logging.debug(__name__ + ' : set current of channel A to %f' % curr)
+        self._visainstrument.write('smua.source.leveli = %s' % curr)
 
-		Input:
-			None
+    def do_get_currentB(self):
+        '''
+        Reads the phase of the signal from the instrument
 
-		Output:
-			current (float) : current in amps
-		'''
-		logging.debug(__name__ + ' : get current B')
-		return float(self._visainstrument.ask('print(smub.measure.i())').strip())
+        Input:
+            None
 
-	def do_set_currentB(self, curr):
-		'''
-		Set the Amplitude of the signal
+        Output:
+            current (float) : current in amps
+        '''
+        logging.debug(__name__ + ' : get current B')
+        return float(self._visainstrument.ask('print(smub.measure.i())').strip())
 
-		Input:
-			curr (float) : current in amps
+    def do_set_currentB(self, curr):
+        '''
+        Set the Amplitude of the signal
 
-		Output:
-			None
-		'''
-		logging.debug(__name__ + ' : set current of channel B to %f' % curr)
-		self._visainstrument.write('smub.source.leveli = %s' % curr)
+        Input:
+            curr (float) : current in amps
 
-	def do_get_statusA(self):
-		'''
-		Reads the output status from the instrument
+        Output:
+            None
+        '''
+        logging.debug(__name__ + ' : set current of channel B to %f' % curr)
+        self._visainstrument.write('smub.source.leveli = %s' % curr)
 
-		Input:
-			None
+    def do_get_statusA(self):
+        '''
+        Reads the output status from the instrument
 
-		Output:
-			status (boolean)
-		'''
-		logging.debug(__name__ + ' : get status A')
-		try:
-			return int(float(self._visainstrument.ask('print(smua.source.output)').strip()))
-		except:
-			raise ValueError('Output status not specified : %s' % stat)
-			return
+        Input:
+            None
 
-	def do_set_statusA(self, status):
-		'''
-		Set the output status of the instrument
+        Output:
+            status (boolean)
+        '''
+        logging.debug(__name__ + ' : get status A')
+        try:
+            return int(float(self._visainstrument.ask('print(smua.source.output)').strip()))
+        except:
+            raise ValueError('Output status not specified : %s' % stat)
+            return
 
-		Input:
-			status (boolean)
+    def do_set_statusA(self, status):
+        '''
+        Set the output status of the instrument
 
-		Output:
-			None
-		'''
-		logging.debug(__name__ + ' : set status A to %s' %status)
-		self._visainstrument.write('smua.source.output = %d' %status)
+        Input:
+            status (boolean)
 
-	def do_get_statusB(self):
-		'''
-		Reads the output status from the instrument
+        Output:
+            None
+        '''
+        logging.debug(__name__ + ' : set status A to %s' %status)
+        self._visainstrument.write('smua.source.output = %d' %status)
 
-		Input:
-			None
+    def do_get_statusB(self):
+        '''
+        Reads the output status from the instrument
 
-		Output:
-			status (boolean) 
-		'''
-		try:
-			return int(float(self._visainstrument.ask('print(smua.source.output)').strip()))
-		except:
-			raise ValueError('Output status not specified : %s' % stat)
-			return
+        Input:
+            None
 
-	def do_set_statusB(self, status):
-		'''
-		Set the output status of the instrument
+        Output:
+            status (boolean) 
+        '''
+        try:
+            return int(float(self._visainstrument.ask('print(smua.source.output)').strip()))
+        except:
+            raise ValueError('Output status not specified : %s' % stat)
+            return
 
-		Input:
-			status (boolean)
+    def do_set_statusB(self, status):
+        '''
+        Set the output status of the instrument
 
-		Output:
-			None
-		'''
-		logging.debug(__name__ + ' : set status A to %s' % status)
-		self._visainstrument.write('smua.source.output = %d' %status)
+        Input:
+            status (boolean)
 
-	# shortcuts
-	def offA(self):
-		'''
-		Set status to 'off'
+        Output:
+            None
+        '''
+        logging.debug(__name__ + ' : set status A to %s' % status)
+        self._visainstrument.write('smua.source.output = %d' %status)
 
-		Input:
-			None
+    # shortcuts
+    def offA(self):
+        '''
+        Set status to 'off'
 
-		Output:
-			None
-		'''
-		self.set_statusA(False)
+        Input:
+            None
 
-	def onA(self):
-		'''
-		Set status to 'on'
+        Output:
+            None
+        '''
+        self.set_statusA(False)
 
-		Input:
-			None
+    def onA(self):
+        '''
+        Set status to 'on'
 
-		Output:
-			None
-		'''
-		self.set_statusA(True)
+        Input:
+            None
 
-	def offB(self):
-		'''
-		Set status to 'off'
+        Output:
+            None
+        '''
+        self.set_statusA(True)
 
-		Input:
-			None
+    def offB(self):
+        '''
+        Set status to 'off'
 
-		Output:
-			None
-		'''
-		self.set_statusB(False)
+        Input:
+            None
 
-	def onB(self):
-		'''
-		Set status to 'on'
+        Output:
+            None
+        '''
+        self.set_statusB(False)
 
-		Input:
-			None
+    def onB(self):
+        '''
+        Set status to 'on'
 
-		Output:
-			None
-		'''
-		self.set_statusB(True)
+        Input:
+            None
+
+        Output:
+            None
+        '''
+        self.set_statusB(True)
