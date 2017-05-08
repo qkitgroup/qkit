@@ -242,6 +242,7 @@ class pointtracker():
         
         fig, axes = plt.subplots(figsize=(16,8))
         
+        
         if log==False:
             plt.pcolormesh(self.xdata, self.ydata, self.data.T, cmap="viridis")
         else:
@@ -254,8 +255,13 @@ class pointtracker():
             n = len(self.x_results)
         else:
             n = amount
+        col = ["r", "w", "m", "k", "b", "g", "c", "y"]
+        if n>len(col):
+            m=int(n/len(col)+1)
+            col=m*col
+        
         for i in range(0,n):
-            plt.plot(self.xdata[self.x_results[i]], self.ydata[self.y_results[i]], "x", label="Trace %d"%(i))
+            plt.plot(self.xdata[self.x_results[i]], self.ydata[self.y_results[i]], col[i]+"x", label="Trace %d"%(i))
         
         plt.legend()
         
