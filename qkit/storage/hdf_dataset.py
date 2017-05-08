@@ -173,11 +173,11 @@ class hdf_dataset(object):
             if self.ds_type == ds_types['txt']:
                 data = unicode(data)
             elif self._next_matrix:
-                data = numpy.array(data)
+                data = numpy.array(data,dtype=self.dtype)
                 self.hf.append(self.ds,data, next_matrix=True)
                 self._next_matrix = False
             else:
-                data = numpy.array(data)
+                data = numpy.array(data,dtype=self.dtype)
                 self.hf.append(self.ds,data)
             if self._save_timestamp:
                 self.hf.append(self.ds_ts,time.time())
