@@ -70,8 +70,8 @@ class pointtracker():
             return
         
         # if dips are searched invert the dataset
-        if dips: self.sig = -1
-        else: self.sig = +1
+        if dips: self._sig = -1
+        else: self._sig = +1
         
         # find closest real data point to given start_coords and translate in indices
         self.start_coords = []
@@ -142,7 +142,7 @@ class pointtracker():
             print "Reached boundary of dataset"
             return
         
-        search_data = self.sig * self.data[int(search_indices[0]), int(search_indices[1]-self.span/2) : int(search_indices[1]+self.span/2)]
+        search_data = self._sig * self.data[int(search_indices[0]), int(search_indices[1]-self.span/2) : int(search_indices[1]+self.span/2)]
 
         indexes_found = peakutils.indexes(search_data, thres=self._thres, min_dist=self._min_dist)
 
