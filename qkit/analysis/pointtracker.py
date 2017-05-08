@@ -217,17 +217,17 @@ class pointtracker():
                 self.y_results[trace] = self.y_results[trace][n:None]        
 
 
-    def del_points(self, indeces=[], trace=-1):
+    def del_points(self, indices=[], trace=-1):
         """
         Remove a specific set of points (default : []) from a given trace (default: -1).
         
         Keyword arguments:
-            indeces ([int]) -- list of indices of points to be removed from the trace
+            indices ([int]) -- list of indices of points to be removed from the trace
             trace (int)     -- # of trace to remove points from
         """
         
-        self.x_results[trace] = np.delete(self.x_results[trace], indeces)
-        self.y_results[trace] = np.delete(self.y_results[trace], indeces)
+        self.x_results[trace] = np.delete(self.x_results[trace], indices)
+        self.y_results[trace] = np.delete(self.y_results[trace], indices)
         
         
     def plot(self, all=True, amount=1, log=False):
