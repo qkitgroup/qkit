@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-data point tracker by YS @ KIT / 2017
+Data point tracker by YS @ KIT / 2017
 """
 
 import peakutils
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 
 
 class pointtracker():
@@ -12,10 +14,16 @@ class pointtracker():
     New point tracking routine, successor to the soon deprecated ac_preparation.
     Used to detect peaks or dips along branches (e.g. of anticrossings) in a 2d spectrum.
     
-    Functions (incomplete):
-        set_data         -- defining the data set to be handled
-        set_searchparams -- setting the parameters for the search: start, span and point type
-        start_tracking   -- starting the actual point tracking routine
+    Functions:
+        set_data             -- defining the data set to be handled
+        set_searchparams     -- setting the parameters for the search: start, span and point type
+        set_peakutils_params -- if necessary, change the parameters of the used peakutils
+        start_tracking       -- starting the actual point tracking routine
+        del_trace            -- remove one of the detected point traces
+        cut                  -- remove a given amount of detected points from a given trace
+        del_points           -- remove a specific set of points from a given trace
+        plot                 -- plot the data with an overlay of the detected points
+        get_results          -- return the results in dimensions of xdata and ydata
     """
     
     def __init__(self):
@@ -62,7 +70,8 @@ class pointtracker():
             return
         
         # if dips are searched invert the dataset
-        if dips: self.data = -self.data
+        if dips: self.sig = -1
+        else: self.sig = +1
         
         # find closest real data point to given start_coords and translate in indices
         self.start_coords = []
@@ -73,14 +82,14 @@ class pointtracker():
         self.span=int(span/((self.ydata[-1]-self.ydata[0])/len(self.ydata)))
         
         
-    def set_peakutils_params(self, thres, min_dist):
+    def set_peakutils_params(self, thres=0.3, min_dist=1):
         """
         If necessary, change the parameters of the used peakutils
             
         Keyword arguments:
-            thres (float)  -- normalized threshold
+            thres (float)  -- normalized threshold (default: 0.3)
                               only peaks with amp higher than this will be detected
-            min_dist (int) -- minimum distance between each detected peak
+            min_dist (int) -- minimum distance between each detected peak (default: 1)
         """
         
         self._thres = thres
@@ -129,11 +138,11 @@ class pointtracker():
         
         # Test if still in data
         if (search_indices[0]<0 or search_indices[0]>=len(self.xdata) or
-            search_indices[1]-self.span/2.<0 or search_indices[1]+self.span/2.>=len(self.ydata)):
+            search_indices[1]-self.span/2<0 or search_indices[1]+self.span/2>=len(self.ydata)):
             print "Reached boundary of dataset"
             return
         
-        search_data = self.data[search_indices[0], search_indices[1]-self.span/2. : search_indices[1]+self.span/2.]
+        search_data = self.sig * self.data[int(search_indices[0]), int(search_indices[1]-self.span/2) : int(search_indices[1]+self.span/2)]
 
         indexes_found = peakutils.indexes(search_data, thres=self._thres, min_dist=self._min_dist)
 
@@ -166,9 +175,9 @@ class pointtracker():
             self._track_points([search_indices[0]+direction,search_indices[1]], direction=direction)
             
             
-    def del_branch(self, trace=-1, all=False):
+    def del_trace(self, trace=-1, all=False):
         """
-        Remove one of the detected point traces. Default: last one.
+        Remove one of the detected point traces (default: last one).
         
         Keyword arguments:
             trace (int) -- # of trace to remove from results
@@ -182,3 +191,86 @@ class pointtracker():
         else:
             self.x_results.pop(trace)
             self.y_results.pop(trace)
+            
+            
+    def cut(self, amount=0, trace=-1, end="high"):
+        """
+        Remove a given amount (default: 0) of detected points from a given trace (default: -1).
+        It starts from the given end (default: high end in x dimensions).
+        
+        Keyword arguments:
+            amount (int) -- amount of points to be removed from the end of the trace
+            trace (int)  -- # of trace to remove points from
+            end (str)    -- from which end to start ("high" or "low")
+        """
+        
+        if amount == 0:
+            n = None
+        else:
+            if end == "high":
+                n = -amount
+                self.x_results[trace] = self.x_results[trace][0:n]
+                self.y_results[trace] = self.y_results[trace][0:n] 
+            else:
+                n = amount
+                self.x_results[trace] = self.x_results[trace][n:None]
+                self.y_results[trace] = self.y_results[trace][n:None]        
+
+
+    def del_points(self, indeces=[], trace=-1):
+        """
+        Remove a specific set of points (default : []) from a given trace (default: -1).
+        
+        Keyword arguments:
+            indeces ([int]) -- list of indices of points to be removed from the trace
+            trace (int)     -- # of trace to remove points from
+        """
+        
+        self.x_results[trace] = np.delete(self.x_results[trace], indeces)
+        self.y_results[trace] = np.delete(self.y_results[trace], indeces)
+        
+        
+    def plot(self, all=True, amount=1, log=False):
+        """
+        Plot the data with an overlay of the detected points.
+        
+        Keyword arguments:
+            all (bool)   -- plot all detected traces (default: True)
+            amount (int) -- plot given amount of traces (default: 1)
+            log (bool)   -- plot data logarithmically (default: False)
+        """
+        
+        fig, axes = plt.subplots(figsize=(16,8))
+        
+        if log==False:
+            plt.pcolormesh(self.xdata, self.ydata, self.data.T, cmap="viridis")
+        else:
+            plt.pcolormesh(self.xdata, self.ydata, self.data.T, cmap="viridis", norm=LogNorm(vmin=self.data.min(), vmax=self.data.max()))
+        plt.xlim(min(self.xdata), max(self.xdata))
+        plt.ylim(min(self.ydata), max(self.ydata))
+        plt.colorbar()
+        
+        if all:
+            n = len(self.x_results)
+        else:
+            n = amount
+        for i in range(0,n):
+            plt.plot(self.xdata[self.x_results[i]], self.ydata[self.y_results[i]], "x", label="Trace %d"%(i))
+        
+        plt.legend()
+        
+        
+    def get_results(self):
+        """
+        Return the results in dimensions of xdata and ydata.
+        Returns a list of two lists (for x and y) of numpy arrays (with the detected points).
+        """
+        
+        xres = []
+        yres = []
+        
+        for i in range(0,len(self.x_results)):
+            xres.append(self.xdata[self.x_results[i]])
+            yres.append(self.ydata[self.y_results[i]])
+        
+        return [xres,yres]
