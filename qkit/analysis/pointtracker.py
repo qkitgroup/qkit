@@ -237,6 +237,7 @@ class pointtracker():
         Keyword arguments:
             all (bool)   -- plot all detected traces (default: True)
             amount (int) -- plot given amount of traces (default: 1)
+            log (bool)   -- plot data logarithmically (default: False)
         """
         
         fig, axes = plt.subplots(figsize=(16,8))
