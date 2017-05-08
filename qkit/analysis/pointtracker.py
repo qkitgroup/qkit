@@ -133,9 +133,9 @@ class pointtracker():
             print "Reached boundary of dataset"
             return
         
-        search_data = self.data[search_indices[0],search_indices[1]-self.span/2.:search_indices[1]+self.span/2.]
+        search_data = self.data[search_indices[0], search_indices[1]-self.span/2. : search_indices[1]+self.span/2.]
 
-        indexes_found = peakutils.indexes(search_data,thres=self._thres,min_dist=self._min_dist)
+        indexes_found = peakutils.indexes(search_data, thres=self._thres, min_dist=self._min_dist)
 
         # add found peaks to arrays, and repeat recursively with shifted search_indices
         if indexes_found.size>=1:
@@ -151,7 +151,7 @@ class pointtracker():
         # If no peak found, print it and continue with next current trace        
         else:
             print "No peak found in trace " + str(search_indices[0])
-            # Add distance between to last found peaks to shift
+            # Add distance between two last found peaks to shift
             if len(self._points_y) >= 2:
                 y_new = self._points_y[-1] + (self._points_y[-1] - self._points_y[-2])
             else:
@@ -164,3 +164,21 @@ class pointtracker():
         else:
             search_indices[1] = search_indices[1] + (y_new - search_indices[1])
             self._track_points([search_indices[0]+direction,search_indices[1]], direction=direction)
+            
+            
+    def del_branch(self, trace=-1, all=False):
+        """
+        Remove one of the detected point traces. Default: last one.
+        
+        Keyword arguments:
+            trace (int) -- # of trace to remove from results
+            all (bool)  -- clear results
+        """
+        
+        if all:
+            for i in range(0,len(self.x_results)):
+                self.x_results.pop(-1)
+                self.y_results.pop(-1)
+        else:
+            self.x_results.pop(trace)
+            self.y_results.pop(trace)
