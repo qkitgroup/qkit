@@ -170,13 +170,14 @@ class hdf_dataset(object):
             
         if data is not None:
             # we cast everything to a float numpy array
-            #data = numpy.array(data,dtype=float)
             if self.ds_type == ds_types['txt']:
                 data = unicode(data)
-            if self._next_matrix:
+            elif self._next_matrix:
+                data = numpy.array(data)
                 self.hf.append(self.ds,data, next_matrix=True)
                 self._next_matrix = False
             else:
+                data = numpy.array(data)
                 self.hf.append(self.ds,data)
             if self._save_timestamp:
                 self.hf.append(self.ds_ts,time.time())
