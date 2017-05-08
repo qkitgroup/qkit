@@ -92,7 +92,7 @@ def crossing_fct(x, fcts, fct_params, show_output = True):
     fct_pars = fct_params[:-1]
     g = np.atleast_1d(np.array(fct_params[-1]))
     
-    
+
     if flen > len(fct_pars) or flen < len(fct_pars):
         if show_output:
             print "Number of parameters does not fit number of functions!"
@@ -175,8 +175,9 @@ def crossing_fit(x, y, fcts = [c_line, s_line], guess = [1], show_plot = True, s
     
     xlen_tot = 0
     if (type(x) != list) and (type(y) != list):
-        
-        if (len(x) == len(y)):
+        print len(x),len(y)
+
+        if (len(x) != len(y)):
             raise ValueError("x and y array must have same dimension.")
             
         xlen = 1
@@ -254,7 +255,7 @@ def crossing_fit(x, y, fcts = [c_line, s_line], guess = [1], show_plot = True, s
     return fit_params, pcov
 # ================================================================================================================= 
 
-def crossing_plot(x, y, fcts, fit_params, cols = False, marker = "*", save_plot = False):
+def crossing_plot(x, y, fcts, fit_params, cols = False, marker = "*", save_plot = False, ax=None):
     '''
     Input is:
         x: List of x arrays (i.e. [x1, x2, ...]). 
@@ -279,14 +280,16 @@ def crossing_plot(x, y, fcts, fit_params, cols = False, marker = "*", save_plot 
     ymin, ymax = np.amin(np.concatenate(y)), np.amax(np.concatenate(y))
     
     #Plot
-    fig, ax = plt.subplots(figsize = (16, 8))
+    if not ax:
+    	fig, ax = plt.subplots(figsize = (16, 8))
     xlin = np.linspace(xmin, xmax, 300)
     
-    
+
+
     for i in range(len(x)):
-        plt.plot(xlin, crossing_fct(xlin, fcts, fit_params, show_output = False)[:, i], cols[i], linewidth = 1)
+        ax.plot(xlin, crossing_fct(xlin, fcts, fit_params, show_output = False)[:, i], cols[i], linewidth = 1)
         if marker:
-            plt.plot(x[i], y[i], cols[i]+marker, markersize = 7)
+            ax.plot(x[i], y[i], cols[i]+marker, markersize = 7)
     
     dx, dy = 0.05*(xmax - xmin), 0.05*(ymax - ymin)
     plt.xlim(xmin - dx, xmax + dx)
@@ -295,7 +298,7 @@ def crossing_plot(x, y, fcts, fit_params, cols = False, marker = "*", save_plot 
         plt.savefig("crossing_fit_plot.png")
 # ================================================================================================================= 
 
-def plot_curves(x, fcts, fit_params, cols = False, lw = 1):
+def plot_curves(x, fcts, fit_params, cols = False, lw = 1, ax = None):
     '''
     Input is:
         x: Linspace for plotting or boundaries for plot (default = 1000 points). 
@@ -318,9 +321,10 @@ def plot_curves(x, fcts, fit_params, cols = False, lw = 1):
     
     if len(x) == 2:
         x = np.linspace(x[0], x[1], 1000)
-    
+    if not ax:
+	fig, ax = plt.subplots(figsize = (16, 8))
     for i in range(len(fcts)):
-        plt.plot(x, crossing_fct(x, fcts, fit_params, show_output = False)[:, i], cols[i], linewidth = lw)
+        ax.plot(x, crossing_fct(x, fcts, fit_params, show_output = False)[:, i], cols[i], linewidth = lw)
 # ================================================================================================================= 
 
 
