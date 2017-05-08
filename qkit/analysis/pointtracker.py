@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-data point tracker by YS @ KIT / 2017
+Data point tracker by YS @ KIT / 2017
 """
 
 import peakutils
@@ -14,10 +14,16 @@ class pointtracker():
     New point tracking routine, successor to the soon deprecated ac_preparation.
     Used to detect peaks or dips along branches (e.g. of anticrossings) in a 2d spectrum.
     
-    Functions (incomplete):
-        set_data         -- defining the data set to be handled
-        set_searchparams -- setting the parameters for the search: start, span and point type
-        start_tracking   -- starting the actual point tracking routine
+    Functions:
+        set_data             -- defining the data set to be handled
+        set_searchparams     -- setting the parameters for the search: start, span and point type
+        set_peakutils_params -- if necessary, change the parameters of the used peakutils
+        start_tracking       -- starting the actual point tracking routine
+        del_trace            -- remove one of the detected point traces
+        cut                  -- remove a given amount of detected points from a given trace
+        del_points           -- remove a specific set of points from a given trace
+        plot                 -- plot the data with an overlay of the detected points
+        get_results          -- return the results in dimensions of xdata and ydata
     """
     
     def __init__(self):
