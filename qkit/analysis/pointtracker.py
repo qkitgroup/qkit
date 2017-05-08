@@ -168,7 +168,7 @@ class pointtracker():
             
     def del_branch(self, trace=-1, all=False):
         """
-        Remove one of the detected point traces. Default: last one.
+        Remove one of the detected point traces (default: last one).
         
         Keyword arguments:
             trace (int) -- # of trace to remove from results
@@ -182,3 +182,33 @@ class pointtracker():
         else:
             self.x_results.pop(trace)
             self.y_results.pop(trace)
+            
+            
+    def cut(self, amount=0, trace=-1):
+        """
+        Remove a given amount (default: 0) of detected points from a given trace (default: -1).
+        
+        Keyword arguments:
+            amount (int) -- amount of points to be removed from the end of the trace
+            trace (int)  -- # of trace to remove points from
+        """
+        
+        if amount == 0:
+            n = None
+        else:
+            n = -amount
+        self.x_results[trace] = self.x_results[trace][0:n]
+        self.y_results[trace] = self.y_results[trace][0:n]        
+
+
+    def del_points(self, indeces=[], trace=-1):
+        """
+        Remove a specific set of points (default : []) from a given trace (default: -1).
+        
+        Keyword arguments:
+            indeces ([int]) -- list of indices of points to be removed from the trace
+            trace (int)     -- # of trace to remove points from
+        """
+        
+        self.x_results = np.delete(self.x_results, indeces)
+        self.y_results = np.delete(self.y_results, indeces)
