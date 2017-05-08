@@ -82,14 +82,14 @@ class pointtracker():
         self.span=int(span/((self.ydata[-1]-self.ydata[0])/len(self.ydata)))
         
         
-    def set_peakutils_params(self, thres, min_dist):
+    def set_peakutils_params(self, thres=0.3, min_dist=1):
         """
         If necessary, change the parameters of the used peakutils
             
         Keyword arguments:
-            thres (float)  -- normalized threshold
+            thres (float)  -- normalized threshold (default: 0.3)
                               only peaks with amp higher than this will be detected
-            min_dist (int) -- minimum distance between each detected peak
+            min_dist (int) -- minimum distance between each detected peak (default: 1)
         """
         
         self._thres = thres
@@ -138,11 +138,11 @@ class pointtracker():
         
         # Test if still in data
         if (search_indices[0]<0 or search_indices[0]>=len(self.xdata) or
-            search_indices[1]-self.span/2.<0 or search_indices[1]+self.span/2.>=len(self.ydata)):
+            search_indices[1]-self.span/2<0 or search_indices[1]+self.span/2>=len(self.ydata)):
             print "Reached boundary of dataset"
             return
         
-        search_data = self.sig * self.data[search_indices[0], search_indices[1]-self.span/2. : search_indices[1]+self.span/2.]
+        search_data = self.sig * self.data[search_indices[0], search_indices[1]-self.span/2 : search_indices[1]+self.span/2]
 
         indexes_found = peakutils.indexes(search_data, thres=self._thres, min_dist=self._min_dist)
 
