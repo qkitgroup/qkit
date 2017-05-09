@@ -48,7 +48,7 @@ class acf():
     def __init__(self):
         self.xdata = 0
         self.ydata = 0
-        self.functions = [self.constant_line, self.straigh_line]
+        self.functions = self.set_functions(self.constant_line, self.straight_line)
         self.p0 = 0
         self.fit_pars = 0
         self.cov_mat = 0
@@ -65,7 +65,7 @@ class acf():
         return a + 0*x
     
     
-    def straigh_line(self, x, a, b):
+    def straight_line(self, x, a, b):
         '''
         A straight line, with slope a and offset b.
         y = a*x + b
@@ -128,7 +128,7 @@ class acf():
         Each function should describe one of the undressed modes (i.e. without interaction/level repelling).
         '''
         if args is ():
-            args = self.constant_line, self.straigh_line
+            args = self.constant_line, self.straight_line
         self.functions = self._list_wrapper(args)
         self._flen = len(self.functions)
         if self._flen <= 1:
@@ -174,7 +174,7 @@ class acf():
             return args[0]
         else:
             print "Wrong input format."
-            return 0
+            return [0]
 
 
 
@@ -194,7 +194,7 @@ class acf():
         if self.functions is 0:
             print "No input functions found..."
             print "constant_line and straight_line set as default.\n"
-            self.set_functions(self.constant_line, self.straigh_line)
+            self.set_functions(self.constant_line, self.straight_line)
         if not valid:
             return
 
@@ -280,8 +280,9 @@ class acf():
         '''
         # Generate list of function indices and parameter names
         fct_ind = []
+        fit_pars = np.concatenate(self.fit_pars)
         par_names = np.concatenate(self._fct_par_names)
-        for i in range(len(self._fct_par_nums) - self._fct_par_nums[-1]):
+        for i in range(len(self._fct_par_nums) - 1):
             fct_ind.append([int(i + 1)]*self._fct_par_nums[i])
         fct_ind = np.concatenate(fct_ind)
         
@@ -289,7 +290,7 @@ class acf():
             for j in range(i + 1, self._flen):
                 fct_ind = np.append(fct_ind, (i + 1)*10 + (j + 1))
                 par_names = np.append(par_names, "g_" + str(fct_ind[-1]))
-        self.results = zip(fct_ind, par_names, self.fit_pars, self.std_dev)
+        self.results = zip(fct_ind, par_names, fit_pars, self.std_dev)
         return
 
 
@@ -329,9 +330,9 @@ class acf():
         int_mat = np.zeros((self._flen, self._flen, len(x)))
         for i in range(self._flen - 1):
             int_mat[i, i + 1:, :] = np.array([g[:self._flen - 1 - i]]*len(x)).T
+            int_mat[i + 1:, i, :] = np.array([g[:self._flen - 1 - i]]*len(x)).T
             g = g[self._flen - 1 - i:]
-        
-        int_mat = int_mat + int_mat[::-1, ::-1, :]
+        int_mat = int_mat
         # Create diagonal parts of the matrix
         d_mat = np.zeros((self._flen, self._flen, len(x)))
         i = 0
@@ -390,13 +391,13 @@ class acf():
             print "Covariance matrix could not be calculated."
             self.std_dev = ["err"]*sum(self._fct_par_nums)
         
-        self._generate_results()
         # Reshape fit_pars into a list of parameters, as is accepted by crossing_fct.
         # After reshaping fit_pars is a list, where the element i contains the fit parameters of function i. 
         # The last element of fit_pars contains the coupling strenghts.
         self.fit_pars = self._reshape(self.fit_pars)
         # Change coupling to always have +sign
         self.fit_pars[-1] = np.abs(self.fit_pars[-1])
+        self._generate_results()
         
         # Show output. Includes some crude formatting.
         if show_data:
@@ -446,16 +447,18 @@ class acf():
         if self._flen > len(cols):
             cols *= self._flen
         
-        if (self.xdata is 0) and (self.ydata is 0):
+        if (self.xdata is 0) or (self.ydata is 0):
                 print "No data for plot available."
                 return
         for i in range(0, self._xlen):
             plt.plot(self.xdata[i], self.ydata[i], cols[i] + mrkr)
         if self.fit_pars is 0:
             print "Fit was not yet performed."
-        xlin = np.linspace(np.amin(self.xdata), np.amax(self.xdata), 1000)
+        xlin = np.linspace(np.amin(np.concatenate(self.xdata)), np.amax(np.concatenate(self.xdata)), 1000)
         for i in range(self._flen):
-            plt.plot(xlin, self.crossing_fct(xlin, self._reshape(pars))[:, i], cols[i])
+            plt.plot(xlin, self.crossing_fct(xlin, pars)[:, i], cols[i])
+        plt.xlim(np.amin(np.concatenate(self.xdata))*.95, np.amax(np.concatenate(self.xdata))*1.05)
+        plt.ylim(np.amin(np.concatenate(self.ydata))*.95, np.amax(np.concatenate(self.ydata))*1.05)
         return
 
 
@@ -469,7 +472,7 @@ class acf():
             print "No functions found."
             return
         self._check_p0()
-        self._plot(self.p0)
+        self._plot(self._reshape(self.p0))
         return
     
 

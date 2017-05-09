@@ -326,32 +326,33 @@ class spectrum(object):
             if self.averaging_start_ready:
                 self.vna.start_measurement()
                 ti = time()
-                self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime())
+                if self.progress_bar: self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime())
                 qt.msleep(.2)
                 while not self.vna.ready():
                     if time()-ti > self.vna.get_sweeptime(query=False):
-                        self._p.iterate()
+                        if self.progress_bar: self._p.iterate()
                         ti = time()
                     qt.msleep(.2)
-                while self._p.progr < self._p.max_it:
-                    self._p.iterate()
+                if self.progress_bar:
+                    while self._p.progr < self._p.max_it:
+                        self._p.iterate()
             else:
                 self.vna.avg_clear()
                 if self.vna.get_averages() == 1 or self.vna.get_Average() == False:   #no averaging
-                    self._p = Progress_Bar(1,self.dirname,self.vna.get_sweeptime())
+                    if self.progress_bar:self._p = Progress_Bar(1,self.dirname,self.vna.get_sweeptime())
                     qt.msleep(self.vna.get_sweeptime())      #wait single sweep
-                    self._p.iterate()
+                    if self.progress_bar: self._p.iterate()
                 else:   #with averaging
-                    self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime())
+                    if self.progress_bar: self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime())
                     if "avg_status" in self.vna.get_function_names():
                         for a in range(self.vna.get_averages()):
                             while self.vna.avg_status() <= a:
                                 qt.msleep(.2) #maybe one would like to adjust this at a later point
-                            self._p.iterate()
+                            if self.progress_bar: self._p.iterate()
                     else: #old style
                         for a in range(self.vna.get_averages()):
                             qt.msleep(self.vna.get_sweeptime())      #wait single sweep time
-                            self._p.iterate()
+                            if self.progress_bar: self._p.iterate()
 
         data_amp, data_pha = self.vna.get_tracedata()
         data_real, data_imag = self.vna.get_tracedata('RealImag')
@@ -386,7 +387,7 @@ class spectrum(object):
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
-        self._p = Progress_Bar(len(self.x_vec),'2D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
+        if self.progress_bar: self._p = Progress_Bar(len(self.x_vec),'2D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
 
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
@@ -423,7 +424,7 @@ class spectrum(object):
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
-        self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec),'3D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
+        if self.progress_bar: self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec),'3D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
 
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
@@ -469,7 +470,7 @@ class spectrum(object):
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
         
-        self._p = Progress_Bar(self.number_of_timetraces,'VNA timetrace '+self.dirname,self.vna.get_sweeptime_averages())
+        if self.progress_bar: self._p = Progress_Bar(self.number_of_timetraces,'VNA timetrace '+self.dirname,self.vna.get_sweeptime_averages())
         
         print 'recording timetrace(s)...'
         sys.stdout.flush()
@@ -510,7 +511,7 @@ class spectrum(object):
                         
                 if self.progress_bar:
                     self._p.iterate()
-                    qt.msleep()
+                qt.msleep()
                         
                 else: 
                     print 'not implemented for this VNA, only works with Keysight ENA 5071C'
@@ -580,7 +581,7 @@ class spectrum(object):
                             self._do_fit_resonator()
                         if self.progress_bar:
                             self._p.iterate()
-                            qt.msleep()
+                        qt.msleep()
                     """
                     filling of value-box is done here.
                     after every y-loop the data is stored the next 2d structure
@@ -610,7 +611,7 @@ class spectrum(object):
                         self._do_fit_resonator()
                     if self.progress_bar:
                         self._p.iterate()
-                        qt.msleep()
+                    qt.msleep()
         except Exception as e:
             print e.__doc__
             print e.message        

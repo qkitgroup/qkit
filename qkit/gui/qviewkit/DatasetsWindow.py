@@ -10,6 +10,7 @@ from PyQt4.QtGui import *
 import h5py
 from time import sleep
 
+
 from main_view import Ui_MainWindow
 
 #from PlotWindow import PlotWindow
@@ -72,7 +73,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         self.treeWidget.itemSelectionChanged.connect((self.handleSelectionChanged))
         QObject.connect(self.refreshTime,SIGNAL("valueChanged(double)"),self._refresh_time_handler)
         QObject.connect(self.updateButton,SIGNAL("released()"),self.update_file)
-        #QObject.connect(self.Quit,SIGNAL("released()"),self._quit_tip_gui)
+        
         #QObject.connect(self,SIGNAL("destroyed()"),self._close_plot_window)
         self.FileButton.clicked.connect(self.open_file)
         self.liveCheckBox.clicked.connect(self.live_update_onoff)
@@ -92,7 +93,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
     
     @pyqtSlot()
     def _close_plot_window(self):
-        #print "Plot window closed"
+        #print "DSW: Plot window closed"
         self.DATA._remove_plot_widgets()
         
         
@@ -112,6 +113,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         
 
     def populate_data_list(self):
+        #print "populate_data_list:",self.h5file
         """
         populate_data_list is called regularly withing the refresh cycle to
         update the data tree.
@@ -139,22 +141,24 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                     item = self.addChild(parent, column, str(centry),tree_key)
                     self.DATA.ds_tree_items[tree_key] = item
                     
-
                     if self.DATA.ds_cmd_open.has_key(tree_key):
-                        item.setCheckState(0,QtCore.Qt.Checked)
+                        # the order of the following two lines are important! otherwise two plots are opened
                         self.DATA.append_plot(self,item,tree_key)
+                        item.setCheckState(0,QtCore.Qt.Checked)
                         self.update_plots()
-                        
+                       
                 s = ""
                 try:
                     s="shape\t"+str(self.h5file[tree_key].shape)+"\n"
                     for k in self.h5file[tree_key].attrs.keys(): 
                         s+=k +"\t" +str(self.h5file[tree_key].attrs[k])+"\n"
+                    
                 except ValueError,e:
                 #except IOError:
+                #except NameError,e:
                     # dataset is available, but the attrs are not yet readable
                     #print "Dataset:ValueError ", tree_key
-                    print e
+                    print "catch: populate data list:",e
                 #print tree_key
                 self.DATA.dataset_info[tree_key] = s
                
@@ -176,7 +180,11 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         if item.checkState(column) == QtCore.Qt.Checked:
             #print "checked", item, item.text(column)
             #if not self.tree_refresh:
-            self.DATA.append_plot(self,item,ds)
+            
+            if not self.DATA.plot_is_open(ds):
+                "this condition occures when the ds is opened from the cmd-l"
+                #print "handle change append plot"
+                self.DATA.append_plot(self,item,ds)
 
             # this is a not very sound hack of a concurrency problem!
             # better to use a locking technique            
@@ -190,8 +198,11 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             QObject.connect(window,SIGNAL("destroyed()"),self._close_plot_window)
                 
         if item.checkState(column) == QtCore.Qt.Unchecked:
-            #print "unchecked", item, item.text(column)
-            self.DATA.remove_plot(item,ds)
+            #print "unchecked", item, item.text(column),ds
+            if self.DATA.plot_is_open(ds):
+                self.DATA.remove_plot(item,ds)
+        #objects = self.findChildren(QtCore.QObject)
+        #print "objects stil open ", objects
         
     def handleSelectionChanged(self):
         getSelected = self.treeWidget.selectedItems()
@@ -210,19 +221,25 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
  
             
     def update_file(self):
+        "update_file is regularly called when _something_ has to be updated. open-> do something->close"
         try:
-            
             self.h5file= h5py.File(str(self.DATA.DataFilePath),mode='r')
             self.DATA.filename = self.h5file.filename.split(os.path.sep)[-1]
             self.populate_data_list()
             self.update_plots()
             self.h5file.close()
+            
             s = (self.DATA.DataFilePath.split(os.path.sep)[-5:])
             self.statusBar().showMessage((os.path.sep).join(s for s in s))
-        #except IOError:
-        except ValueError,e:
-            print "Error in Dataset: File not yet available.", self.DATA.DataFilePath
+            
+            title = "Qviewkit: %s"%(self.DATA.DataFilePath.split(os.path.sep)[-1:][0][:6])
+            self.setWindowTitle(title)
+        except IOError,e:
             print e
+
+        #except ValueError,e:
+        #    print "Error in Dataset: File not yet available.", self.DATA.DataFilePath
+        #    print e
     def open_file(self):
         self.DATA.DataFilePath=str(QFileDialog.getOpenFileName(filter="*.h5"))
         if self.DATA.DataFilePath:
@@ -230,8 +247,11 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             self.DATA.filename = self.h5file.filename.split(os.path.sep)[-1]
             self.populate_data_list()
             self.h5file.close()
+            
             s = (self.DATA.DataFilePath.split(os.path.sep)[-5:])
             self.statusBar().showMessage((os.path.sep).join(s for s in s))
+            title = "Qviewkit: %s"%(self.DATA.DataFilePath.split(os.path.sep)[-1:][0][:6])
+            self.setWindowTitle(title)
             
     def update_plots(self):
         self.refresh_signal.emit()

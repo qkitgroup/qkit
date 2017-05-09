@@ -5,7 +5,7 @@ import tempfile
 cfg = {}
 cfg['datadir'] = tempfile.gettempdir()
 cfg['qtlab'] = False
-cfg['plot_engine'] = 'qkit.gui.qviewkit_2.main'
+cfg['plot_engine'] = 'qkit.gui.qviewkit.main'
 
 # if qtlab is used (qt_cfg exists and qt_cfg['qtlab']): qkit config entries are overridden by the qtlab ones
 try:
