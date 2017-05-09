@@ -157,7 +157,11 @@ class h5plot(object):
         self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
         self.data_y = np.array(self.ds)
         self.y_label = self.ds_label
-        self.ax.plot(self.x_ds,self.data_y[0:len(self.x_ds)], '-')   #JB: avoid crash after pressing the stop button when arrays are of different lengths
+        if len(self.data_y) == 1: #only one entry, print as cross
+            plt_style = 'x'
+        else:
+            plt_style = '-'
+        self.ax.plot(self.x_ds,self.data_y[0:len(self.x_ds)], plt_style)   #JB: avoid crash after pressing the stop button when arrays are of different lengths
 
     def plt_matrix(self):
         """
