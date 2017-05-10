@@ -508,10 +508,10 @@ class spectrum(object):
                         data_amp, data_pha = self.vna.get_tracedata()
                         self._data_amp.append(data_amp)
                         self._data_pha.append(data_pha)
-                        
+                qt.msleep()       
                 if self.progress_bar:
                     self._p.iterate()
-                qt.msleep()
+                
                         
                 else: 
                     print 'not implemented for this VNA, only works with Keysight ENA 5071C'
