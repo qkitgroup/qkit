@@ -16,37 +16,37 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import logging
-import gobject
+#import gobject # YS: try to get rid of 32bit gobject from pygtk
 #gobject.threads_init()
 
-import gtk
+#import gtk # YS: try to get rid of pygtk
 #gtk.gdk.threads_init()
 
 import threading
 import time
 from misc import exact_time
 
-class ThreadSafeGObject(gobject.GObject):
+#class ThreadSafeGObject(gobject.GObject): # YS: try to get rid of 32bit gobject from pygtk
 
-    def __init__(self, *args, **kwargs):
-        gobject.GObject.__init__(self, *args, **kwargs)
+    #def __init__(self, *args, **kwargs):
+        #gobject.GObject.__init__(self, *args, **kwargs) # YS: try to get rid of 32bit gobject from pygtk
 
-    def _idle_emit(self, signal, *args):
-        try:
-            gobject.GObject.emit(self, signal, *args)
-        except Exception, e:
-            print 'Error: %s' % e
+    #def _idle_emit(self, signal, *args):
+    #    try:
+    #        gobject.GObject.emit(self, signal, *args)
+    #    except Exception, e:
+    #        print 'Error: %s' % e # YS: try to get rid of 32bit gobject from pygtk
 
-    def emit(self, signal, *args):
-        gobject.idle_add(self._idle_emit, signal, *args)
+    #def emit(self, signal, *args):
+    #    gobject.idle_add(self._idle_emit, signal, *args) # YS: try to get rid of 32bit gobject from pygtk
 
-class GObjectThread(threading.Thread, ThreadSafeGObject):
+#class GObjectThread(threading.Thread, ThreadSafeGObject): # YS: try to get rid of 32bit gobject from pygtk
 
-    def __init__(self, *args, **kwargs):
-        gobject.GObject.__init__(self, *args, **kwargs)
-        threading.Thread.__init__(self)
+    #def __init__(self, *args, **kwargs):
+    #    gobject.GObject.__init__(self, *args, **kwargs)
+    #    threading.Thread.__init__(self) # YS: try to get rid of 32bit gobject from pygtk
 
-        self.stop = ThreadVariable(False)
+    #    self.stop = ThreadVariable(False) # YS: try to get rid of 32bit gobject from pygtk
 
 class TimedLock():
     def __init__(self, delay=1.0):
@@ -80,17 +80,17 @@ class ThreadVariable():
         self._value = value
         self._lock.release()
 
-class CallTimerThread(GObjectThread):
+class CallTimerThread(object):#(GObjectThread): # YS: try to get rid of 32bit gobject from pygtk
     '''
     Class to several times do a callback with a specified delay in a separate
     thread.
     '''
 
-    __gsignals__ = {
-        'finished': (gobject.SIGNAL_RUN_FIRST,
-                    gobject.TYPE_NONE,
-                    ([gobject.TYPE_PYOBJECT])),
-    }
+    #__gsignals__ = {
+    #    'finished': (gobject.SIGNAL_RUN_FIRST,
+    #                gobject.TYPE_NONE,
+    #                ([gobject.TYPE_PYOBJECT])),
+    #} # YS: try to get rid of 32bit gobject from pygtk
 
     def __init__(self, cb, delay, n, *args, **kwargs):
         '''
@@ -104,7 +104,7 @@ class CallTimerThread(GObjectThread):
             **kwargs: optional named arguments to the callback
         '''
 
-        GObjectThread.__init__(self)
+        #GObjectThread.__init__(self) # YS: try to get rid of 32bit gobject from pygtk
 
         self._cb = cb
         self._delay = delay
@@ -147,7 +147,7 @@ class CallTimerThread(GObjectThread):
             else:
                 time.sleep((extra_delay + self._delay) / 1000.0)
 
-        self.emit('finished', 'ok')
+        #self.emit('finished', 'ok') # YS: try to get rid of 32bit gobject from pygtk
 
     def set_stop_request(self, msg):
         self._stop_lock.acquire()
