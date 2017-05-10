@@ -23,6 +23,7 @@ from scipy.optimize import curve_fit
 from time import sleep,time
 import sys
 import qt
+import threading
 
 from qkit.storage import hdf_lib as hdf
 from qkit.analysis.resonator import Resonator as resonator
@@ -624,7 +625,9 @@ class spectrum(object):
         the data file is closed and filepath is printed
         '''
         print self._data_file.get_filepath()
-        qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment)
+        #qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment) #old version where we have to wait for the plots
+        t = threading.Thread(target=qviewkit.save_plots,args=[self._data_file.get_filepath(),self._plot_comment])
+        t.start()
         self._data_file.close_file()
         waf.close_log_file(self._log)
         self.dirname = None
