@@ -1,1 +1,19 @@
-QT Lab environment
+In the future, this folder will contain the new qkit core derived from qtlab.
+The goal of this is to make qkit standalone.
+
+Work in progress by ASt and YS in the dedicated branch.
+
+08.05.2017
+    YS: started with contens of working qtlab folder from pi-us61 "qtlab-15a460b_notebook"
+    YS: removed obvious rubbish like misplaced measurements and tmp files
+    
+09.05.2017
+    YS: installed Python and qkit on dedicated test notebook
+    YS: removed .pyc files, 3rd_party and instrument_plugins
+
+10.05.2017
+    YS: try to start the environment with the 000_qtlab_start notebook
+        fail because of missing gobject from pygtk, which is 32bit
+    YS: remove gobject references in source/lib/config.py
+    YS: hardcoded working directory in source/lib/config.py adapted to new setup
+    YS: remove gobject references in source/instrument.py
