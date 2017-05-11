@@ -38,9 +38,11 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
 
     if echo:
         print "Qviewkit open cmd: "+ cmd + options
-        print Popen(cmd+options, shell=True, stdout=PIPE).stdout.read()
+        P = Popen(cmd+options, shell=False, stdout=PIPE)
+        print P.stdout.read()
+        return P
     else:
-        Popen(cmd+options, shell=True)
+        return Popen(cmd+options, shell=False)
 
 
 # this is for saving plots

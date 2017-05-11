@@ -73,8 +73,13 @@ class spectrum(object):
         self.set_log_function()
         
         self.open_qviewkit = True
+        self.qviewkit_singleInstance = False
+        
+        self._qvk_process = False
         
         self.number_of_timetraces = 1   #relevant in time domain mode
+        
+        
 
     def set_log_function(self, func=None, name = None, unit = None, log_dtype = None):
         '''
@@ -289,6 +294,9 @@ class spectrum(object):
                     
         if self.comment:
             self._data_file.add_comment(self.comment)
+            
+        if self.qviewkit_singleInstance and self.open_qviewkit and self._qvk_process:
+            self._qvk_process.terminate() #terminate an old qviewkit instance
 
     def _write_settings_dataset(self):
         self._settings = self._data_file.add_textlist('settings')
@@ -316,7 +324,7 @@ class spectrum(object):
 
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         if self.open_qviewkit:
-            qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath()) 
         print 'recording trace...'
@@ -395,9 +403,9 @@ class spectrum(object):
 
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         if self._nop < 10:
-            qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude_midpoint', 'phase_midpoint'])
+            if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude_midpoint', 'phase_midpoint'])
         else:
-            qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
+            if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath())
         self._measure()
@@ -431,7 +439,7 @@ class spectrum(object):
         self._prepare_measurement_file()
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         """only middle point in freq array is plotted vs x and y"""
-        qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
+        if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath())
 
@@ -632,6 +640,7 @@ class spectrum(object):
         waf.close_log_file(self._log)
         self.dirname = None
         if self.averaging_start_ready: self.vna.post_measurement()
+        
 
     def set_resonator_fit(self,fit_resonator=True,fit_function='',f_min=None,f_max=None):
         '''
