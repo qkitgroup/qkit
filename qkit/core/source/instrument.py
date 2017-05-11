@@ -23,7 +23,8 @@ import math
 import inspect
 from gettext import gettext as _L
 from lib import calltimer
-from lib.network.object_sharer import SharedGObject, cache_result
+#from lib.network.object_sharer import SharedGObject, cache_result  # YS: try to get rid of 32bit gobject from pygtk
+# YS: networking interface is planned to be rewritten
 
 import numpy as np
 import logging
@@ -118,7 +119,7 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
     def __str__(self):
         return "Instrument '%s'" % (self.get_name())
 
-    @cache_result
+    #@cache_result # YS: try to get rid of 32bit gobject from pygtk
     def get_name(self):
         '''
         Returns the name of the instrument as a string

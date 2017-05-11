@@ -3,6 +3,16 @@ The goal of this is to make qkit standalone.
 
 Work in progress by ASt and YS in the dedicated branch.
 
+ToDo:
+    - get the core starting with the qtlab init routine without pygtk
+    - remove gui and other unused code
+    - test measurement
+    - rewrite the communication part
+    - reorganize folder structure
+    - qtlab -> qkit_core (qt. -> qc.)
+    - implement new basic gui showing the (measurement)status and settings
+      based on qviewkit?
+
 08.05.2017
     YS: started with contents of working qtlab folder from pi-us61 "qtlab-15a460b_notebook"
     YS: removed obvious rubbish like misplaced measurements and tmp files
@@ -18,3 +28,11 @@ Work in progress by ASt and YS in the dedicated branch.
     YS: hardcoded working directory in source/lib/config.py adapted to new setup
     YS: remove gobject references in source/instrument.py
     YS: remove gobject references in source/lib/calltimer.py
+        class ThreadSafeGObject and GObjectThread not available anymore
+        
+11.05.2017
+    YS: source/instrument.py: lib.network.object_sharer no longer imported
+        class instrument previously inherited SharedGObject (from object_sharer)
+        check which features were used besides emit!
+    YS: remove gobject references in source/qtflow.py
+        as with instrument.py: what else was used from SharedGObect?
