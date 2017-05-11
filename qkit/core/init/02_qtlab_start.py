@@ -69,7 +69,7 @@ print qt.config.get('startgui', False)
 if qt.config.get('startgui', True):
     #qt.flow.start_gui() # YS: gui no longer used
     qt.mstart()
-    qt.msleep(2)
+    #qt.msleep(2) # AS: No longer needed.
     qt.mend()
     
 

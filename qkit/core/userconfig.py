@@ -30,12 +30,12 @@ config['allowed_ips'] = (
 config['instrument_server'] = True
 
 ## This sets a default script to run after qtlab started
-config['startscript'] = 'c:\\qtlab_addons\\0_create_instruments_UFO.py'
+#config['startscript'] = 'c:\\qtlab_addons\\0_create_instruments_UFO.py' # AS: Removed overhauled imports
 
 # Add directories containing scripts here. All scripts will be added to the
 # global namespace as functions.
 config['scriptdirs'] = [
-		r'c:\\qtlab_addons\\scripts',
+		#r'c:\\qtlab_addons\\scripts', # AS: Removed overhauled imports
 		r'c:\\qkit',
 ]
 
@@ -48,8 +48,8 @@ import sys
 ## For adding additional folders to the 'systm path'
 ## so python can find your modules
 #import sys
-sys.path.append(r'c:\\qtlab_addons\\scripts')
-sys.path.append(r'c:\\qkit')
+#sys.path.append(r'c:\\qtlab_addons\\scripts') AS: Removed overhauled imports
+sys.path.append(r'c:\\qkit') # AS: Is this still necessary? qkit path should be an environment variable anyways
 #sys.path.append('d:/folder2')
 
 

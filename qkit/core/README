@@ -57,4 +57,5 @@ ToDo:
         this should not be hardcoded!
     YS: userconfig.py: hardcoded directory adapted
         this should not be hardcoded!
-        
+    AS: 02_qtlab_start.py: Commented unnecessary qt.msleep in line 72
+    AS: userconfig.py: Commented all references to qtlab_addons, which is overhauled
