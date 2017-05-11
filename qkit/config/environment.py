@@ -13,9 +13,6 @@ cfg['plot_engine'] = 'qkit.gui.qviewkit.main'
 cfg['info_port'] = 5600  # this is the port we can listen on messages (signals) told by qkit 
 cfg['ask_port']  = 5700  # this is the port rpc could use
 
-
-
-
 # if qtlab is used (qt_cfg exists and qt_cfg['qtlab']): 
 # qkit config entries are overridden by the qtlab ones
 try:
