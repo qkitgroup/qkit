@@ -16,14 +16,15 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import types
-import gobject
+#import gobject # YS: try to get rid of 32bit gobject from pygtk
 import copy
 import time
 import math
 import inspect
 from gettext import gettext as _L
 from lib import calltimer
-from lib.network.object_sharer import SharedGObject, cache_result
+#from lib.network.object_sharer import SharedGObject, cache_result  # YS: try to get rid of 32bit gobject from pygtk
+# YS: networking interface is planned to be rewritten
 
 import numpy as np
 import logging
@@ -32,7 +33,7 @@ import qt
 from lib.config import get_config
 config = get_config()
 
-class Instrument(SharedGObject):
+class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject from pygtk
     """
     Base class for instruments.
 
@@ -45,26 +46,26 @@ class Instrument(SharedGObject):
     Implement _do_get_<variable> and _do_set_<variable> functions
     """
 
-    __gsignals__ = {
-        'changed': (gobject.SIGNAL_RUN_FIRST,
-                    gobject.TYPE_NONE,
-                    ([gobject.TYPE_PYOBJECT])),
-        'removed': (gobject.SIGNAL_RUN_FIRST,
-                    gobject.TYPE_NONE,
-                    ([gobject.TYPE_PYOBJECT])),
-        'parameter-added': (gobject.SIGNAL_RUN_FIRST,
-                    gobject.TYPE_NONE,
-                    ([gobject.TYPE_PYOBJECT])),
-        'parameter-changed': (gobject.SIGNAL_RUN_FIRST,
-                    gobject.TYPE_NONE,
-                    ([gobject.TYPE_PYOBJECT])),
-        'parameter-removed': (gobject.SIGNAL_RUN_FIRST,
-                    gobject.TYPE_NONE,
-                    ([gobject.TYPE_PYOBJECT])),
-        'reload': (gobject.SIGNAL_RUN_FIRST,
-                    gobject.TYPE_NONE,
-                    ([]))
-    }
+    #__gsignals__ = {
+    #    'changed': (gobject.SIGNAL_RUN_FIRST,
+    #                gobject.TYPE_NONE,
+    #                ([gobject.TYPE_PYOBJECT])),
+    #    'removed': (gobject.SIGNAL_RUN_FIRST,
+    #                gobject.TYPE_NONE,
+    #                ([gobject.TYPE_PYOBJECT])),
+    #    'parameter-added': (gobject.SIGNAL_RUN_FIRST,
+    #                gobject.TYPE_NONE,
+    #                ([gobject.TYPE_PYOBJECT])),
+    #    'parameter-changed': (gobject.SIGNAL_RUN_FIRST,
+    #                gobject.TYPE_NONE,
+    #                ([gobject.TYPE_PYOBJECT])),
+    #    'parameter-removed': (gobject.SIGNAL_RUN_FIRST,
+    #                gobject.TYPE_NONE,
+    #                ([gobject.TYPE_PYOBJECT])),
+    #    'reload': (gobject.SIGNAL_RUN_FIRST,
+    #                gobject.TYPE_NONE,
+    #                ([]))
+    #} # YS: try to get rid of 32bit gobject from pygtk
 
     # FLAGS are used to to set extra properties on a parameter.
 
@@ -86,7 +87,7 @@ class Instrument(SharedGObject):
     _lock_classes = {}
 
     def __init__(self, name, **kwargs):
-        SharedGObject.__init__(self, 'instrument_%s' % name, replace=True)
+        #SharedGObject.__init__(self, 'instrument_%s' % name, replace=True) # YS: try to get rid of 32bit gobject from pygtk
 
         self._name = name
         self._initialized = False
@@ -118,7 +119,7 @@ class Instrument(SharedGObject):
     def __str__(self):
         return "Instrument '%s'" % (self.get_name())
 
-    @cache_result
+    #@cache_result # YS: try to get rid of 32bit gobject from pygtk
     def get_name(self):
         '''
         Returns the name of the instrument as a string
@@ -196,7 +197,7 @@ class Instrument(SharedGObject):
         '''
 
         self._remove_parameters()
-        self.emit('removed', self.get_name())
+        #self.emit('removed', self.get_name()) # YS: try to get rid of 32bit gobject from pygtk
 
     def is_initialized(self):
         '''
@@ -403,7 +404,7 @@ class Instrument(SharedGObject):
             else:
                 self._parameter_groups[g].append(name)
 
-        self.emit('parameter-added', name)
+        #self.emit('parameter-added', name) # YS: try to get rid of 32bit gobject from pygtk
 
     def _remove_parameters(self):
         '''
@@ -426,7 +427,7 @@ class Instrument(SharedGObject):
                 delattr(self, func)
 
         del self._parameters[name]
-        self.emit('parameter-removed', name)
+        #self.emit('parameter-removed', name) # YS: try to get rid of 32bit gobject from pygtk
 
     def has_parameter(self, name):
         '''
@@ -478,7 +479,7 @@ class Instrument(SharedGObject):
         for key, val in kwargs.iteritems():
             self._parameters[name][key] = val
 
-        self.emit('parameter-changed', name)
+        #self.emit('parameter-changed', name) # YS: try to get rid of 32bit gobject from pygtk
 
     def get_parameter_tags(self, name):
         '''
@@ -1172,7 +1173,7 @@ class Instrument(SharedGObject):
         Output:
             None
         '''
-        self.emit('reload')
+        #self.emit('reload') # YS: try to get rid of 32bit gobject from pygtk
 
     def _get_not_implemented(self, name):
         logging.warning('Get not implemented for %s.%s' % \
@@ -1192,14 +1193,15 @@ class Instrument(SharedGObject):
 
     def _do_emit_changed(self):
         # was this a bug?
-        self.emit('changed', self._changed)
+        #self.emit('changed', self._changed) # YS: try to get rid of 32bit gobject from pygtk
         self._changed = {}
         self._changed_hid = None
 
     def _queue_changed(self, changed):
         self._changed.update(changed)
         if self._changed_hid is None:
-            self._changed_hid = gobject.idle_add(self._do_emit_changed)
+            #self._changed_hid = gobject.idle_add(self._do_emit_changed) # YS: try to get rid of 32bit gobject from pygtk
+            self._do_emit_changed() # YS: try to get rid of 32bit gobject from pygtk
 
 class InvalidInstrument(Instrument):
     '''

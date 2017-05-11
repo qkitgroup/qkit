@@ -16,40 +16,40 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-import gobject
-import gtk
+#import gobject # YS: try to get rid of 32bit gobject from pygtk
+#import gtk # YS: try to get rid of GTK
 import logging
 import time
 from gettext import gettext as _L
 from lib.misc import exact_time, get_traceback
-from lib.network.object_sharer import SharedGObject
+#from lib.network.object_sharer import SharedGObject # YS: try to get rid of 32bit gobject from pygtk
 import os
 
 AutoFormattedTB = get_traceback()
 
-class FlowControl(SharedGObject):
+class FlowControl(object):#(SharedGObject): # YS: try to get rid of 32bit gobject from pygtk
     '''
     Class for flow control of the QT measurement environment.
     '''
 
-    __gsignals__ = {
-            'measurement-start': (gobject.SIGNAL_RUN_FIRST,
-                gobject.TYPE_NONE,()),
-            'measurement-end': (gobject.SIGNAL_RUN_FIRST,
-                gobject.TYPE_NONE,()),
-            'measurement-idle': (gobject.SIGNAL_RUN_FIRST,
-                gobject.TYPE_NONE,()),
-            'stop-request': (gobject.SIGNAL_RUN_FIRST,
-                gobject.TYPE_NONE,()),
-            'close-gui': (gobject.SIGNAL_RUN_FIRST,
-                gobject.TYPE_NONE,()),
-    }
+    #__gsignals__ = {
+    #        'measurement-start': (gobject.SIGNAL_RUN_FIRST,
+    #            gobject.TYPE_NONE,()),
+    #        'measurement-end': (gobject.SIGNAL_RUN_FIRST,
+    #            gobject.TYPE_NONE,()),
+    #        'measurement-idle': (gobject.SIGNAL_RUN_FIRST,
+    #            gobject.TYPE_NONE,()),
+    #        'stop-request': (gobject.SIGNAL_RUN_FIRST,
+    #            gobject.TYPE_NONE,()),
+    #        'close-gui': (gobject.SIGNAL_RUN_FIRST,
+    #            gobject.TYPE_NONE,()),
+    #} # YS: try to get rid of 32bit gobject from pygtk
 
     STATUS_STOPPED = 0
     STATUS_RUNNING = 1
 
     def __init__(self):
-        SharedGObject.__init__(self, 'flow')
+        #SharedGObject.__init__(self, 'flow') # YS: try to get rid of 32bit gobject from pygtk
         self._status = 'starting'
         self._measurements_running = 0
         self._abort = False
@@ -74,7 +74,7 @@ class FlowControl(SharedGObject):
         self._measurements_running += 1
         if self._measurements_running == 1:
             self._set_status('running')
-            self.emit('measurement-start')
+            #self.emit('measurement-start') # YS: try to get rid of 32bit gobject from pygtk
 
             # Handle callbacks
             self.run_mainloop(1, wait=False)
@@ -97,7 +97,7 @@ class FlowControl(SharedGObject):
 
         if self._measurements_running == 0:
             self._set_status('stopped')
-            self.emit('measurement-end')
+            #self.emit('measurement-end') # YS: try to get rid of 32bit gobject from pygtk
 
             # Handle callbacks
             self.run_mainloop(1, wait=False)
@@ -111,12 +111,14 @@ class FlowControl(SharedGObject):
         dt = 0
 	# TODO possibly this implementation of event handling using threads
 	# can be done in a better way using ipython-0.11 inputhook support?
-        gtk.gdk.threads_enter()
-        while gtk.events_pending() and (not exact or (dt + 0.001) < delay):
-            gtk.main_iteration_do(False)
-            dt = exact_time() - start
-        gtk.gdk.threads_leave()
-
+        #gtk.gdk.threads_enter()
+        #while gtk.events_pending() and (not exact or (dt + 0.001) < delay):
+        #    gtk.main_iteration_do(False)
+        #    dt = exact_time() - start
+        #gtk.gdk.threads_leave() # YS: try to get rid of GTK
+        
+        # YS: in the current version no events are expected since we don't use the GTK gui
+        
         if delay > dt and wait:
             time.sleep(delay - dt)
 
@@ -138,7 +140,7 @@ class FlowControl(SharedGObject):
 
         start = exact_time()
 
-        self.emit('measurement-idle')
+        #self.emit('measurement-idle') # YS: try to get rid of 32bit gobject from pygtk
         lastemit = exact_time()
 
         while self._pause:
@@ -150,7 +152,7 @@ class FlowControl(SharedGObject):
 
             curtime = exact_time()
             if curtime - lastemit > emit_interval:
-                self.emit('measurement-idle')
+                #self.emit('measurement-idle') # YS: try to get rid of 32bit gobject from pygtk
                 lastemit = curtime
 
             dt = exact_time() - start
@@ -243,7 +245,7 @@ class FlowControl(SharedGObject):
 
         if self._abort:
             self._abort = False
-            self.emit('stop-request')
+            #self.emit('stop-request') # YS: try to get rid of 32bit gobject from pygtk
             self.measurement_end(abort=True)
             raise ValueError(_L('Human abort'))
 
@@ -258,7 +260,7 @@ class FlowControl(SharedGObject):
         '''Set / unset pause state.'''
         self._pause = pause
 
-    def start_gui(self):
+    def start_gui(self): # YS: is executed in 02_qtlab_start.py but commented
         import qt
 
         curdir = os.getcwd()
@@ -276,7 +278,7 @@ class FlowControl(SharedGObject):
 
     def close_gui(self):
         logging.info('Emitting close-gui signal')
-        self.emit('close-gui')
+        #self.emit('close-gui') # YS: try to get rid of 32bit gobject from pygtk
 
 def exception_handler(self, etype, value, tb, tb_offset=None):
     # when the 'tb_offset' keyword argument is omitted above, ipython
@@ -291,7 +293,7 @@ def exception_handler(self, etype, value, tb, tb_offset=None):
 
     if fc.is_measuring():
         # make sure that open objects get closed properly (like files)
-        fc.emit('stop-request')
+        #fc.emit('stop-request') # YS: try to get rid of 32bit gobject from pygtk
 
         # put qtlab back in 'stopped' state
         fc.measurement_end(abort=True)

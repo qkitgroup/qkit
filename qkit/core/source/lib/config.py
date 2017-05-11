@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-import gobject
+#import gobject # YS: try to get rid of 32bit gobject from pygtk
 import os
 import sys
 
@@ -29,19 +29,19 @@ import logging
 
 
 
-class Config(gobject.GObject):
+class Config(object):#(gobject.GObject): # YS: try to get rid of 32bit gobject from pygtk
     '''
     Class to manage settings for the QTLab environment.
     '''
 
-    __gsignals__ = {
-        'changed': (gobject.SIGNAL_RUN_FIRST,
-                    gobject.TYPE_NONE,
-                    ([gobject.TYPE_PYOBJECT])),
-    }
+    #__gsignals__ = {
+    #    'changed': (gobject.SIGNAL_RUN_FIRST,
+    #                gobject.TYPE_NONE,
+    #                ([gobject.TYPE_PYOBJECT])),
+    #} # YS: try to get rid of 32bit gobject from pygtk
 
     def __init__(self, filename):
-        gobject.GObject.__init__(self)
+        #gobject.GObject.__init__(self) # YS: try to get rid of 32bit gobject from pygtk
 
         self._filename = filename
         self._config = {}
@@ -53,7 +53,8 @@ class Config(gobject.GObject):
 
         # Override exec dir
         #self['execdir'] = get_execdir()
-        qtlab_path = 'C:\\qtlab-15a460b_notebook'
+        #qtlab_path = 'C:\\qtlab-15a460b_notebook'
+        qtlab_path = 'C:\\qkit\qkit\core' # YS: qtlab ripoff now in qkit/core - should not be hardcoded
         self['execdir'] = qtlab_path
 
     def load_userconfig(self):
@@ -124,7 +125,8 @@ class Config(gobject.GObject):
         if delay == 0:
             self._do_save()
         elif self._save_hid is None:
-            self._save_hid = gobject.timeout_add(delay * 1000, self._do_save)
+            #self._save_hid = gobject.timeout_add(delay * 1000, self._do_save)
+            self._do_save() # YS: try to get rid of 32bit gobject from pygtk
 
     def _do_save(self):
         self._save_hid = None
@@ -185,7 +187,7 @@ class Config(gobject.GObject):
         if save:
             self.save()
 
-        self.emit('changed', {key: val})
+        #self.emit('changed', {key: val}) # YS: try to get rid of 32bit gobject from pygtk
 
     def get_all(self):
         return self._config
@@ -211,7 +213,8 @@ def get_execdir():
     
     ### set _execdir
     #os.chdir('C:\\qtlab-15a460b_notebook')
-    _execdir = 'C:\\qtlab-15a460b_notebook'
+    #_execdir = 'C:\\qtlab-15a460b_notebook'
+    _execdir = 'C:\\qkit\qkit\core' # YS: qtlab ripoff now in qkit/core - should not be hardcoded
     
     #global _execdir
     return _execdir

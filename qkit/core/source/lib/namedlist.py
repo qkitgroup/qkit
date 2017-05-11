@@ -60,7 +60,7 @@ class NamedList(SharedGObject):
         '''
         shared_name = kwargs.get('shared_name', 'namedlist_%s' % base_name)
         SharedGObject.__init__(self, shared_name)
-
+        
         self._list = {}
         self._last_item = None
         self._auto_counter = 0

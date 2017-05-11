@@ -377,7 +377,7 @@ def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp =
 
 # =================================================================================================================
 
-def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,data_opt=None,entryname_coordinate='param',entryname_vector='fit',folder='analysis'):
+def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,fit_type,fit_params,fit_covariance,data_opt=None,entryname_coordinate='param',entryname_vector='fit',folder='analysis'):
     '''
     Appends fitted data to the h5 file in the specified folder. As the fit is a fixed length array,
     a respective parameter axis is created and also stored in the h5 file.
@@ -390,6 +390,9 @@ def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,data_opt=None,e
     - x_vec: x vector (parameter vector) of constant length, matching the dimensions of fit data
     - fvalues: fitted function values
     - x_url: url of existing data coordinate axis
+    - fit_type: int of the fit function used
+    - fit_params: np array of the resulting fit parameters
+    - fit_covariance:  estimated covariances of the fit_params as returned by curve_fit
     - data_url: url of existing data vector
     - data_opt: (optional, default: None) specifier whether optimized data that is to be stored
                 has been generated
@@ -409,6 +412,15 @@ def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,data_opt=None,e
         hdf_x.add(x_vec)
         hdf_y = hf.add_value_vector(entryname_vector, folder=folder, x = hdf_x)
         hdf_y.append(np.array(fvalues))
+        
+        hdf_type = hf.add_value_vector('dr_fit_type',folder=folder)
+        hdf_type.append(np.array([fit_type]))
+        
+        hdf_params = hf.add_value_vector('dr_values',folder=folder,comment=", ".join(PARAMS[fit_type]))
+        hdf_params.append(np.array(fit_params))
+        
+        hdf_covariance = hf.add_value_vector('dr_covariance',folder=folder)
+        hdf_covariance.append(np.array(fit_covariance))
         
         if data_opt != None:
             #create optimized data entry
@@ -463,6 +475,7 @@ def save_errorbar_plot(fname,fvalues,ferrs,x_url,fit_url=None,entryname_coordina
     try:
         hf = hdf_lib.Data(path=fname)
         
+        
         #create data vector for errorplot with x axis information from x_url
         ds_x = hf.get_dataset(x_url)
         hdf_y = hf.add_value_vector(entryname_vector, folder=folder, x = ds_x)
@@ -474,6 +487,8 @@ def save_errorbar_plot(fname,fvalues,ferrs,x_url,fit_url=None,entryname_coordina
         
         #joint view including fvalues and errors ferrs
         joint_error_view = hf.add_view('err_view', x = ds_x, y = hdf_y, error = hdf_error)
+        
+        
         
         if fit_url != None:
             #create joint view with fit data if existing
@@ -873,7 +888,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         if opt:
             data_opt = data[data_c]
             entryname+='_do'
-        if _save_fit_data_in_h5_file(nfile,x_vec/freq_conversion_factor,np.array(fvalues),data_opt=data_opt,x_url=x_url,data_url=data_url,entryname_vector=entryname):
+        if _save_fit_data_in_h5_file(nfile,x_vec/freq_conversion_factor,np.array(fvalues),fit_type=fit_function,fit_params=popt,fit_covariance=np.sqrt(np.diag(pcov)),data_opt=data_opt,x_url=x_url,data_url=data_url,entryname_vector=entryname):
             if entryname == '':
                 if show_output:
                     print 'Fit data successfully stored in h5 file.'
