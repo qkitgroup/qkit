@@ -260,7 +260,7 @@ class FlowControl(object):#(SharedGObject): # YS: try to get rid of 32bit gobjec
         '''Set / unset pause state.'''
         self._pause = pause
 
-    def start_gui(self):
+    def start_gui(self): # YS: is executed in 02_qtlab_start.py but commented
         import qt
 
         curdir = os.getcwd()

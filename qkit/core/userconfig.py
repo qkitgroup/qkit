@@ -13,7 +13,8 @@ config.remove([
 config['datadir'] = r'd:'
 
 ## This sets a default directory for qtlab to start in
-config['startdir'] = r'c:\\qtlab-15a460b_notebook'
+#config['startdir'] = r'c:\\qtlab-15a460b_notebook'
+config['startdir'] = r'C:\\qkit\qkit\core' # YS: qtlab ripoff now in qkit/core - should not be hardcoded
 
 # QTLab instance name and port for networked operation
 config['instance_name'] = 'qtlab_main'

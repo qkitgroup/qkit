@@ -5,6 +5,7 @@ Work in progress by ASt and YS in the dedicated branch.
 
 ToDo:
     - get the core starting with the qtlab init routine without pygtk
+    - get rid of hardcoded locations in config.py and init/02_qtlab_start.py
     - remove gui and other unused code
     - test measurement
     - rewrite the communication part
@@ -40,3 +41,20 @@ ToDo:
         mainloop commented since no events expected, seems to only wait for unused GTK gui
     YS: remove gobject references in source/instruments.py
         as with instrument.py: what else was used from SharedGObect?
+    YS: source/qt.py: removed source/data.py and source/plot.py reference
+        both are no longer used or replaced by qkit methods
+    YS: init/02_qtlab_start.py: hardcoded config location adapted to new qtlab_core
+        this should not be hardcoded!
+    YS: remove gobject references in init/02_qtlab_start.py
+        mainly object_sharer initialization
+    YS: init/02_qtlab_start.py: removed source/data.py and source/plot.py reference 
+    YS: deactivated gui in init/02_qtlab_start.py
+    YS: remove gobject references in 98_started.py
+        only object_sharer exit handler
+    YS: source/lib/config.py: hardcoded directory adapted
+        this should not be hardcoded!
+    YS: init/00_lockfile.py: hardcoded directory adapted
+        this should not be hardcoded!
+    YS: userconfig.py: hardcoded directory adapted
+        this should not be hardcoded!
+        

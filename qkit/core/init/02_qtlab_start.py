@@ -1,4 +1,6 @@
-_cfg = config.create_config('C:\\qtlab-15a460b_notebook\qtlab.cfg')
+#_cfg = config.create_config('C:\\qtlab-15a460b_notebook\qtlab.cfg')
+_cfg = config.create_config('C:\\qkit\qkit\core\qtlab.cfg') # YS: adapted to new qtlab core
+# YS: this should not be hard coded!
 #_cfg = config.create_config('qtlab.cfg')
 _cfg.load_userconfig()
 _cfg.setup_tempdir()
@@ -34,15 +36,15 @@ from lib import temp
 from time import sleep
 
 #set_debug(True)
-from lib.network import object_sharer as objsh
-objsh.root.set_instance_name(_cfg.get('instance_name', ''))
-objsh.start_glibtcp_server(port=_cfg.get('port', objsh.PORT))
-for _ipaddr in _cfg['allowed_ips']:
-    objsh.SharedObject.server.add_allowed_ip(_ipaddr)
-objsh.PythonInterpreter('python_server', globals())
-if _cfg['instrument_server']:
-    from lib.network import remote_instrument
-    remote_instrument.InstrumentServer()
+#from lib.network import object_sharer as objsh # YS: try to get rid of 32bit gobject from pygtk
+#objsh.root.set_instance_name(_cfg.get('instance_name', '')) # YS: try to get rid of 32bit gobject from pygtk
+#objsh.start_glibtcp_server(port=_cfg.get('port', objsh.PORT)) # YS: try to get rid of 32bit gobject from pygtk
+#for _ipaddr in _cfg['allowed_ips']:
+#    objsh.SharedObject.server.add_allowed_ip(_ipaddr) # YS: try to get rid of 32bit gobject from pygtk
+#objsh.PythonInterpreter('python_server', globals()) # YS: try to get rid of 32bit gobject from pygtk
+#if _cfg['instrument_server']:
+#    from lib.network import remote_instrument
+#    remote_instrument.InstrumentServer() # YS: try to get rid of 32bit gobject from pygtk
 
 if False:
     import psyco
@@ -52,7 +54,7 @@ else:
     logging.info('psyco acceleration not enabled')
 
 import qt
-from qt import plot, plot3, Plot2D, Plot3D, Data
+#from qt import plot, plot3, Plot2D, Plot3D, Data # YS: try to get rid of 32bit gobject from pygtk
 
 from numpy import *
 import numpy as np
@@ -65,7 +67,7 @@ import time
 # Auto-start GUI
 print qt.config.get('startgui', False)
 if qt.config.get('startgui', True):
-    qt.flow.start_gui()
+    #qt.flow.start_gui() # YS: gui no longer used
     qt.mstart()
     qt.msleep(2)
     qt.mend()
