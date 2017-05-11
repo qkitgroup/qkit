@@ -332,14 +332,13 @@ class acf():
             int_mat[i, i + 1:, :] = np.array([g[:self._flen - 1 - i]]*len(x)).T
             int_mat[i + 1:, i, :] = np.array([g[:self._flen - 1 - i]]*len(x)).T
             g = g[self._flen - 1 - i:]
-        int_mat = int_mat
         # Create diagonal parts of the matrix
         d_mat = np.zeros((self._flen, self._flen, len(x)))
         i = 0
         for fct in self.functions:
             d_mat[i, i, :] = fct(x, *fct_pars[i])
             i += 1
-        
+            
         # Create full system matrix
         mat = d_mat + int_mat
         # Diagonalize matrix for each x value
