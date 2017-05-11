@@ -180,7 +180,7 @@ class hdf_dataset(object):
                 data = numpy.array(data,dtype=self.dtype)
                 self.hf.append(self.ds,data)
             if self._save_timestamp:
-                self.hf.append(self.ds_ts,numpy.array(time.time()))
+                self.hf.append(self.ds_ts,time.time())
 
         self.hf.flush()
             
