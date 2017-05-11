@@ -17,7 +17,7 @@
 
 import code
 import inspect
-import gobject
+#import gobject # YS: try to get rid of 32bit gobject from pygtk
 import types
 import os
 import logging
@@ -25,7 +25,7 @@ import sys
 import instrument
 from lib.config import get_config
 from insproxy import Proxy
-from lib.network.object_sharer import SharedGObject
+#from lib.network.object_sharer import SharedGObject # YS: try to get rid of 32bit gobject from pygtk
 
 
 from lib.misc import get_traceback
@@ -88,26 +88,26 @@ def _get_driver_module(name, do_reload=False):
 
     return None
 
-class Instruments(SharedGObject):
+class Instruments(object):#(SharedGObject): # YS: try to get rid of 32bit gobject from pygtk
 
-    __gsignals__ = {
-        'instrument-added': (gobject.SIGNAL_RUN_FIRST,
-                    gobject.TYPE_NONE,
-                    ([gobject.TYPE_PYOBJECT])),
-        'instrument-removed': (gobject.SIGNAL_RUN_FIRST,
-                    gobject.TYPE_NONE,
-                    ([gobject.TYPE_PYOBJECT])),
-        'instrument-changed': (gobject.SIGNAL_RUN_FIRST,
-                    gobject.TYPE_NONE,
-                    ([gobject.TYPE_PYOBJECT, gobject.TYPE_PYOBJECT])),
-        'tags-added': (gobject.SIGNAL_RUN_FIRST,
-                    gobject.TYPE_NONE,
-                    ([gobject.TYPE_PYOBJECT]))
-    }
+    #__gsignals__ = {
+    #    'instrument-added': (gobject.SIGNAL_RUN_FIRST,
+    #                gobject.TYPE_NONE,
+    #                ([gobject.TYPE_PYOBJECT])),
+    #    'instrument-removed': (gobject.SIGNAL_RUN_FIRST,
+    #                gobject.TYPE_NONE,
+    #                ([gobject.TYPE_PYOBJECT])),
+    #    'instrument-changed': (gobject.SIGNAL_RUN_FIRST,
+    #                gobject.TYPE_NONE,
+    #                ([gobject.TYPE_PYOBJECT, gobject.TYPE_PYOBJECT])),
+    #    'tags-added': (gobject.SIGNAL_RUN_FIRST,
+    #                gobject.TYPE_NONE,
+    #                ([gobject.TYPE_PYOBJECT]))
+    #} # YS: try to get rid of 32bit gobject from pygtk
 
     __id = 1
     def __init__(self):
-        SharedGObject.__init__(self, 'instruments%d' % Instruments.__id)
+        #SharedGObject.__init__(self, 'instruments%d' % Instruments.__id) # YS: try to get rid of 32bit gobject from pygtk
         Instruments.__id += 1
 
         self._instruments = {}
@@ -144,8 +144,8 @@ class Instruments(SharedGObject):
             if tag not in self._tags:
                 self._tags.append(tag)
                 newtags.append(tag)
-        if len(newtags) > 0:
-            self.emit('tags-added', newtags)
+        #if len(newtags) > 0:
+            #self.emit('tags-added', newtags) # YS: try to get rid of 32bit gobject from pygtk
 
     def get(self, name, proxy=True):
         '''
@@ -256,7 +256,7 @@ class Instruments(SharedGObject):
     def _create_invalid_ins(self, name, instype, **kwargs):
         ins = instrument.InvalidInstrument(name, instype, **kwargs)
         self.add(ins, create_args=kwargs)
-        self.emit('instrument-added', name)
+        #self.emit('instrument-added', name) # YS: try to get rid of 32bit gobject from pygtk
         return self.get(name)
 
     def create(self, name, instype, **kwargs):
@@ -297,7 +297,7 @@ class Instruments(SharedGObject):
             return self._create_invalid_ins(name, instype, **kwargs)
 
         self.add(ins, create_args=kwargs)
-        self.emit('instrument-added', name)
+        #self.emit('instrument-added', name) # YS: try to get rid of 32bit gobject from pygtk
         return self.get(name)
 
     def reload_module(self, instype):
@@ -374,7 +374,7 @@ class Instruments(SharedGObject):
             del self._instruments[name]
             del self._instruments_info[name]
 
-        self.emit('instrument-removed', name)
+        #self.emit('instrument-removed', name) # YS: try to get rid of 32bit gobject from pygtk
 
     def _instrument_removed_cb(self, sender, name):
         self.remove(name)
@@ -390,7 +390,7 @@ class Instruments(SharedGObject):
             None
         '''
         newins = self.reload(sender)
-        self.emit('instrument-changed', newins.get_name(), {})
+        #self.emit('instrument-changed', newins.get_name(), {}) # YS: try to get rid of 32bit gobject from pygtk
 
     def _instrument_changed_cb(self, sender, changes):
         '''
@@ -404,7 +404,7 @@ class Instruments(SharedGObject):
             None
         '''
 
-        self.emit('instrument-changed', sender.get_name(), changes)
+        #self.emit('instrument-changed', sender.get_name(), changes) # YS: try to get rid of 32bit gobject from pygtk
 
 _config = get_config()
 _insdir = _set_insdir()

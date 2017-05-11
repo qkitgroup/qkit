@@ -17,7 +17,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #import gobject # YS: try to get rid of 32bit gobject from pygtk
-import gtk
+#import gtk # YS: try to get rid of GTK
 import logging
 import time
 from gettext import gettext as _L
@@ -111,12 +111,14 @@ class FlowControl(object):#(SharedGObject): # YS: try to get rid of 32bit gobjec
         dt = 0
 	# TODO possibly this implementation of event handling using threads
 	# can be done in a better way using ipython-0.11 inputhook support?
-        gtk.gdk.threads_enter()
-        while gtk.events_pending() and (not exact or (dt + 0.001) < delay):
-            gtk.main_iteration_do(False)
-            dt = exact_time() - start
-        gtk.gdk.threads_leave()
-
+        #gtk.gdk.threads_enter()
+        #while gtk.events_pending() and (not exact or (dt + 0.001) < delay):
+        #    gtk.main_iteration_do(False)
+        #    dt = exact_time() - start
+        #gtk.gdk.threads_leave() # YS: try to get rid of GTK
+        
+        # YS: in the current version no events are expected since we don't use the GTK gui
+        
         if delay > dt and wait:
             time.sleep(delay - dt)
 

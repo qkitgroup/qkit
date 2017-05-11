@@ -36,3 +36,7 @@ ToDo:
         check which features were used besides emit!
     YS: remove gobject references in source/qtflow.py
         as with instrument.py: what else was used from SharedGObect?
+        remove GTK references in source/qtflow.py
+        mainloop commented since no events expected, seems to only wait for unused GTK gui
+    YS: remove gobject references in source/instruments.py
+        as with instrument.py: what else was used from SharedGObect?
