@@ -6,11 +6,13 @@ Work in progress by AS and YS in the dedicated branch.
 ToDo:
     + get the core starting with the qtlab init routine without pygtk
     - get rid of hardcoded locations in config.py and init/02_qtlab_start.py
-    - remove gui and other unused code
+    + remove gui and other unused code
     - test measurement
     - move source/plot_engines/qtgnuplot somewhere into qkit (used by qkit/measure/timedomain)
+      or switch timedomain to qviewkit
     - include installation requirements into the qkit README (see old readme_012015.txt in comment to github issue)
     - rewrite the communication part
+    - cleanup of unused code
     - reorganize folder structure
     - qtlab -> qkit_core (qt. -> qc.)
     - implement new basic gui showing the (measurement)status and settings
@@ -78,7 +80,7 @@ ToDo:
         we use ipython notebooks
     YS: VERSION (beta 0.2 since first successful test, derived from qtlab pre v0.3.1)
     YS: removed deprecated AUTHORS (included in VERSION), MANUAL, INSTALL and CHANGELOG
-    YS: removed GUI (source/gui folder, qtlabgui.bat, qtlabgui.cfg, qtlabgui)
+    YS: removed GUI (source/gui folder, qtlabgui.bat, qtlabgui.cfg, qtlabgui, source/lib/gui dolder)
     YS: integrated unused options from userconfig_old.py into userconfig.py as comments
         and removed userconfig_old.py
     YS: removed readme_012015.txt with installation notes by JB and S1 and moved to git issue
