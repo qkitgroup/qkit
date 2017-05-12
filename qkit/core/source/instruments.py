@@ -133,10 +133,10 @@ class Instruments(object):#(SharedGObject): # YS: try to get rid of 32bit gobjec
         self._instruments[ins.get_name()] = ins
 
         info = {'create_args': create_args}
-        info['changed_hid'] = ins.connect('changed', self._instrument_changed_cb)
-        info['removed_hid'] = ins.connect('removed', self._instrument_removed_cb)
-        info['reload_hid'] = ins.connect('reload', self._instrument_reload_cb)
-        info['proxy'] = Proxy(ins.get_name())
+        #info['changed_hid'] = ins.connect('changed', self._instrument_changed_cb) # YS: not available anymore, gui related
+        #info['removed_hid'] = ins.connect('removed', self._instrument_removed_cb) # YS: not available anymore, gui related
+        #info['reload_hid'] = ins.connect('reload', self._instrument_reload_cb) # YS: not available anymore, gui related
+        #info['proxy'] = Proxy(ins.get_name()) # YS: not available anymore, gui related?
         self._instruments_info[ins.get_name()] = info
 
         newtags = []
@@ -147,7 +147,7 @@ class Instruments(object):#(SharedGObject): # YS: try to get rid of 32bit gobjec
         #if len(newtags) > 0:
             #self.emit('tags-added', newtags) # YS: try to get rid of 32bit gobject from pygtk
 
-    def get(self, name, proxy=True):
+    def get(self, name, proxy=False): # YS: proxy deactivated
         '''
         Return Instrument object with name 'name'.
 

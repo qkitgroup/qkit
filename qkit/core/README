@@ -1,7 +1,7 @@
 In the future, this folder will contain the new qkit core derived from qtlab.
 The goal of this is to make qkit standalone.
 
-Work in progress by ASt and YS in the dedicated branch.
+Work in progress by AS and YS in the dedicated branch.
 
 ToDo:
     - get the core starting with the qtlab init routine without pygtk
@@ -59,3 +59,13 @@ ToDo:
         this should not be hardcoded!
     AS: 02_qtlab_start.py: Commented unnecessary qt.msleep in line 72
     AS: userconfig.py: Commented all references to qtlab_addons, which is overhauled
+    AS: first successful run of start script
+
+12.05.2017
+    HR: shifted init scripts to make room before lock
+    HR: removed orphaned file T1s.dat
+    YS: source/instruments.py: removed references to hid
+    YS: source/instruments.py: deactivated 'proxy'
+    AS&YS: first successful tests:
+        mw_src and fsup can be controlled
+        tawg hangs while instruments.create, unclear where or why
