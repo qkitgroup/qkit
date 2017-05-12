@@ -87,3 +87,5 @@ ToDo:
     YS: removed source/data.py and source/plot.py
         both are deprecated and replaced by newer qkit methods
         and both were deactivated in source/qt.py
+    YS: removed source/plot_engines folder
+        used only by timedomain? and should be replaced by qviewkit
