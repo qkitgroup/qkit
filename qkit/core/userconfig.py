@@ -8,13 +8,8 @@ config.remove([
 			'startscript',
 			'user_ins_dir',
 			])
-
-## This sets a default location for data-storage
-config['datadir'] = r'd:'
-
-## This sets a default directory for qtlab to start in
-#config['startdir'] = r'c:\\qtlab-15a460b_notebook'
-config['startdir'] = r'C:\\qkit\qkit\core' # YS: qtlab ripoff now in qkit/core - should not be hardcoded
+            # YS: additionally in original userconfig (removed userconfig_old.py):
+            # 'scriptdirs', 'startgui', 'gnuplot_terminal'. Not there: 'startscript'
 
 # QTLab instance name and port for networked operation
 config['instance_name'] = 'qtlab_main'
@@ -25,12 +20,22 @@ config['allowed_ips'] = (
 	'172.22.197.*',
 	'10.22.197.*',
 )
-
+  
 # Start instrument server to share with instruments with remote QTLab?
 config['instrument_server'] = True
+  
+## This sets a default location for data-storage
+config['datadir'] = r'd:'
+
+## This sets a default directory for qtlab to start in
+#config['startdir'] = r'c:\\qtlab-15a460b_notebook'
+config['startdir'] = r'C:\\qkit\qkit\core' # YS: qtlab ripoff now in qkit/core - should not be hardcoded
 
 ## This sets a default script to run after qtlab started
 #config['startscript'] = 'c:\\qtlab_addons\\0_create_instruments_UFO.py' # AS: Removed overhauled imports
+
+## A default script (or list of scripts) to run when qtlab closes
+#config['exitscript'] = []       #e.g. ['closescript1.py', 'closescript2.py']
 
 # Add directories containing scripts here. All scripts will be added to the
 # global namespace as functions.
@@ -44,17 +49,15 @@ config['scriptdirs'] = [
 ## preference over the general instrument drivers
 config['user_insdir'] = r'c:\\qkit\\qkit\\instruments'
 
-import sys
 ## For adding additional folders to the 'systm path'
 ## so python can find your modules
-#import sys
+import sys
 #sys.path.append(r'c:\\qtlab_addons\\scripts') AS: Removed overhauled imports
 sys.path.append(r'c:\\qkit') # AS: Is this still necessary? qkit path should be an environment variable anyways
 #sys.path.append('d:/folder2')
 
-
 # Whether to start the GUI automatically
-config['startgui'] = True
+config['startgui'] = False # YS: deactivated, gui is removed
 
 # Default gnuplot terminal
 #config['gnuplot_terminal'] = 'x11'

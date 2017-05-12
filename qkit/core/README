@@ -4,15 +4,18 @@ The goal of this is to make qkit standalone.
 Work in progress by AS and YS in the dedicated branch.
 
 ToDo:
-    - get the core starting with the qtlab init routine without pygtk
+    + get the core starting with the qtlab init routine without pygtk
     - get rid of hardcoded locations in config.py and init/02_qtlab_start.py
     - remove gui and other unused code
     - test measurement
+    - move source/plot_engines/qtgnuplot somewhere into qkit (used by qkit/measure/timedomain)
+    - include installation requirements into the qkit README (see old readme_012015.txt in comment to github issue)
     - rewrite the communication part
     - reorganize folder structure
     - qtlab -> qkit_core (qt. -> qc.)
     - implement new basic gui showing the (measurement)status and settings
       based on qviewkit?
+    - include start script/notebook into qkit
 
 08.05.2017
     YS: started with contents of working qtlab folder from pi-us61 "qtlab-15a460b_notebook"
@@ -69,3 +72,16 @@ ToDo:
     AS&YS: first successful tests:
         mw_src and fsup can be controlled
         tawg hangs while instruments.create, unclear where or why
+    YS: remove example folder
+    YS: .gitignore
+    YS: removed deprecated startscripts qtlab, qtlab.bat and ipython.bat
+        we use ipython notebooks
+    YS: VERSION (beta 0.2 since first successful test, derived from qtlab pre v0.3.1)
+    YS: removed deprecated AUTHORS (included in VERSION), MANUAL, INSTALL and CHANGELOG
+    YS: removed GUI (source/gui folder, qtlabgui.bat, qtlabgui.cfg, qtlabgui)
+    YS: integrated unused options from userconfig_old.py into userconfig.py as comments
+        and removed userconfig_old.py
+    YS: removed readme_012015.txt with installation notes by JB and S1 and moved to git issue
+    YS: removed source/data.py and source/plot.py
+        both are deprecated and replaced by newer qkit methods
+        and both were deactivated in source/qt.py
