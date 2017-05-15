@@ -162,11 +162,9 @@ class hdf_dataset(object):
                                              dim = self.dim,
                                              ds_type = self.ds_type,
                                              dtype = self.dtype)
-            
+            self._setup_metadata()
             if self._save_timestamp:
                 self._create_timestamp_ds()
-            
-            self._setup_metadata()
             
         if data is not None:
             # we cast everything to a float numpy array
@@ -225,14 +223,22 @@ class hdf_dataset(object):
         
     def _create_timestamp_ds(self):
         self.ds_ts = self.hf.create_dataset(self.name+'_ts', tracelength = 1,folder=self.folder,dim=max(self.dim-1, 1), dtype='float64')
+        self.ds_ts.attrs.create('name', 'measurement_time')       
         self.ds_ts.attrs.create('unit', 's')
-        self.ds_ts.attrs.create("x_name",'entry_x')
-        self.ds_ts.attrs.create("x0",0)
-        self.ds_ts.attrs.create("dx",0)
-        if self.dim == 3:
-            self.ds_ts.attrs.create("y_name",'entry_y')
-            self.ds_ts.attrs.create("y0",0)
-            self.ds_ts.attrs.create("dy",0)
+        if self.ds_type == ds_types['vector']:
+            self.ds_ts.attrs.create('ds_type', ds_types['vector'])
+        if self.ds_type == ds_types['matrix']:
+            self.ds_ts.attrs.create("x_name",self.ds.attrs.get('x_name', 'entry_num'))
+            self.ds_ts.attrs.create("x_unit",self.ds.attrs.get('x_unit', ''))
+            self.ds_ts.attrs.create("x0",self.ds.attrs.get('x0', 0))
+            self.ds_ts.attrs.create("dx",self.ds.attrs.get('dx', 1))
+            self.ds_ts.attrs.create('ds_type', ds_types['vector'])
+        if self.ds_type == ds_types['box']:
+            self.ds_ts.attrs.create('ds_type', ds_types['matrix'])            
+            self.ds_ts.attrs.create("y_name",self.ds.attrs.get('y_name', 'y_entry_num'))
+            self.ds_ts.attrs.create("y_unit",self.ds.attrs.get('y_unit', ''))
+            self.ds_ts.attrs.create("y0",self.ds.attrs.get('y0', 0))
+            self.ds_ts.attrs.create("dy",self.ds.attrs.get('dy', 1))
     """
     def __getitem__(self, name):
         return self.hf[name]
