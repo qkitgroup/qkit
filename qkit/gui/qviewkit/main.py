@@ -4,28 +4,16 @@
 @author: hannes.rotzinger@kit.edu @ 2015
 """
 import sys
-# support both PyQt4 and 5
-in_pyqt5 = False
-in_pyqt4 = False
-try:
-    from PyQt5 import QtCore
-    from PyQt5.QtCore import QObject
-    from PyQt5.QtWidgets import QApplication
-    in_pyqt5 = True
-except ImportError, e:
-    print "import of PyQt5 failed, trying PyQt4"
-try:
-    if not in_pyqt5:
-        from PyQt4 import QtCore
-        from PyQt4.QtCore import QObject,SIGNAL,SLOT
-        from PyQt4.QtGui import QApplication
-        in_pyqt4 = True
-except ImportError:
-    print "import of PyQt5 and PyQt4 failed. Install one of those."
-    sys.exit(-1)
+from PyQt4 import QtCore
+from PyQt4.QtCore import QObject,SIGNAL,SLOT,pyqtSignal
+from PyQt4.QtGui import QApplication
+
 
 
 import argparse
+
+#import numpy as np
+#import h5py
 
 from PlotWindow import PlotWindow
 
@@ -122,11 +110,9 @@ def main(argv):
     args=parser.parse_args()
     data.args = args
     
+
     # create Qt application
-    if in_pyqt5:
-        app = QApplication(argv)
-    if in_pyqt4:
-        app = QApplication(argv,True)
+    app = QApplication(argv,True)
     
     # create main window
     from DatasetsWindow import DatasetsWindow
@@ -135,11 +121,13 @@ def main(argv):
     dsw.show()
     dsw.raise_()
     
-    # Connect signal for app quit
-    #app.lastWindowClosed.connect(quit())
-    app.lastWindowClosed.connect(quit)
-    #app.connect(app, SIGNAL("lastWindowClosed()"), app, SLOT("quit()"))
+    # Connect signal for app finish
+    app.connect(app, SIGNAL("lastWindowClosed()"), app, SLOT("quit()"))
+    
+    # Start the app up
+    #sys.exit(app.exec_())
     app.exec_()
+    #app.closeAllWindows()
  
 if __name__ == "__main__":
     main(sys.argv)

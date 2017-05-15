@@ -1,22 +1,8 @@
 # -*- coding: utf-8 -*-
 
-in_pyqt5 = False
-try:
-    from PyQt5 import QtCore, QtGui
-    in_pyqt5 = True
-except ImportError, e:
-    print "import of PyQt5 failed, trying PyQt4"
-    print e
-try:
-    if not in_pyqt5:
-        #from PyQt4 import QtCore
-        from PyQt4 import QtCore, QtGui
-except ImportError:
-    print "import of PyQt5 and PyQt4 failed. Install one of those."
-    sys.exit(-1)
 
 
-
+from PyQt4 import QtCore, QtGui
 from qkit.storage.hdf_constants import ds_types
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -37,10 +23,10 @@ class Ui_Form(object):
         Form.setObjectName(_fromUtf8("Form"))
         Form.resize(750, 450)
         self.gridLayout_Top = QtGui.QGridLayout(Form)
-        self.gridLayout_Top.setContentsMargins(0,0,0,0)
+        self.gridLayout_Top.setMargin(0)
         self.gridLayout_Top.setObjectName(_fromUtf8("gridLayout_Top"))
         # we push for a tight layout
-        self.gridLayout_Top.setContentsMargins(0,0,0,0)
+        self.gridLayout_Top.setMargin(0);
         self.gridLayout_Top.setContentsMargins(QtCore.QMargins(0,0,0,0));
         self.gridLayout_Top.setSpacing(0);
         
@@ -48,7 +34,7 @@ class Ui_Form(object):
         self.horizontalLayout.setSizeConstraint(QtGui.QLayout.SetMinimumSize)
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
 
-        self.horizontalLayout.setContentsMargins(0,0,0,0)
+        self.horizontalLayout.setMargin(0);
         self.horizontalLayout.setContentsMargins(QtCore.QMargins(0,0,0,0));
         self.horizontalLayout.setSpacing(0);
         
@@ -196,7 +182,7 @@ class Ui_Form(object):
         self.IndicatorLayout.setSizeConstraint(QtGui.QLayout.SetMinimumSize)
         self.IndicatorLayout.setObjectName(_fromUtf8("horizontalLayout"))
 
-        self.IndicatorLayout.setContentsMargins(0,0,0,0)
+        self.IndicatorLayout.setMargin(0);
         self.IndicatorLayout.setContentsMargins(QtCore.QMargins(0,0,0,0));
         self.IndicatorLayout.setSpacing(3);
         
@@ -215,7 +201,7 @@ class Ui_Form(object):
         self.TraceSelIndLayout.setSizeConstraint(QtGui.QLayout.SetMinimumSize)
         self.TraceSelIndLayout.setObjectName(_fromUtf8("TraceSelIndLayout"))
 
-        self.TraceSelIndLayout.setContentsMargins(0,0,0,0)
+        self.TraceSelIndLayout.setMargin(0);
         self.TraceSelIndLayout.setContentsMargins(QtCore.QMargins(0,0,0,0));
         self.TraceSelIndLayout.setSpacing(1);
 
