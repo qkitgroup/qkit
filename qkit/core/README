@@ -89,3 +89,5 @@ ToDo:
         and both were deactivated in source/qt.py
     YS: removed source/plot_engines folder
         used only by timedomain? and should be replaced by qviewkit
+15.05.2017
+    HR: removed addons folder
