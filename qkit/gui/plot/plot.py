@@ -7,6 +7,7 @@ logging.basicConfig(level=logging.INFO)
 from qkit.config.environment import cfg
 from qkit.storage.hdf_constants import ds_types
 
+import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
@@ -194,7 +195,7 @@ class h5plot(object):
             self.data = np.flipud(self.data)
             self.ymin, self.ymax = self.ymax, self.ymin
 
-        self.cax = self.ax.imshow(self.data, aspect='auto', extent=[self.xmin,self.xmax,self.ymin,self.ymax], origin = 'lower', interpolation='none')
+        self.cax = self.ax.imshow(self.data, aspect='auto', extent=[self.xmin,self.xmax,self.ymin,self.ymax], origin = 'lower', vmin = self._get_vrange(self.data,2)[0], vmax = self._get_vrange(self.data,2)[1], interpolation='none', cmap=plt.get_cmap('Greys_r'))
         self.cbar = self.fig.colorbar(self.cax)
         self.cbar.ax.set_ylabel(self.ds_label)
         self.cbar.ax.yaxis.label.set_fontsize(20)
@@ -235,7 +236,7 @@ class h5plot(object):
             self.data = np.flipud(self.data)
             self.ymin, self.ymax = self.ymax, self.ymin
 
-        self.cax = self.ax.imshow(self.data, aspect='auto', extent=[self.xmin,self.xmax,self.ymin,self.ymax], origin = 'lower', interpolation='none')
+        self.cax = self.ax.imshow(self.data, aspect='auto', extent=[self.xmin,self.xmax,self.ymin,self.ymax], origin = 'lower', vmin = self._get_vrange(self.data,2)[0], vmax = self._get_vrange(self.data,2)[1], interpolation='none', cmap=plt.get_cmap('Greys_r'))
         self.cbar = self.fig.colorbar(self.cax)
         self.cbar.ax.set_ylabel(self.ds_label)
         self.cbar.ax.yaxis.label.set_fontsize(20)
@@ -251,6 +252,17 @@ class h5plot(object):
     def plt_view(self):
         # not (yet?) implemented. we'll see ...
         pass
+
+    def _get_vrange(self,data,percent):
+        '''
+        This function calculates ranges for the colorbar to get rid of spikes in the data.
+        If the data is evenly distributed, this should not change anything in your colorbar.
+        '''
+        _min = np.percentile(data,percent)
+        _max = np.percentile(data,100-percent)
+        _min -= (_max-_min)*percent/(100.-2*percent)
+        _max += (_max-_min)*percent/(100.-2*percent)
+        return [_min,_max]
 
 
 if __name__ == "__main__":
