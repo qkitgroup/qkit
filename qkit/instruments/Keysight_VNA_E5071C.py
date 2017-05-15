@@ -735,8 +735,7 @@ class Keysight_VNA_E5071C(Instrument):
         '''
         self._visainstrument.write(":TRIG:SOUR BUS")#Only wait for software triggers
         self._visainstrument.write(":TRIG:AVER ON")# Tell the instrument to do the specific number of averages on every trigger.
-        self._visainstrument.write(":TRIG:POIN OFF")# Set Trigger to sweep instead of point
-
+        
         
     def post_measurement(self):
         '''
