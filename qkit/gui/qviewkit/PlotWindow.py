@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-@author: hannes.rotzinger@kit.edu @ 2015,2016
+@author: hannes.rotzinger@kit.edu / 2015,2017 
+         marco.pfirrmann@kit.edu / 2016, 2017
 """
-
-
 # support both PyQt4 and 5
 in_pyqt5 = False
 try:

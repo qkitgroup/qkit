@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-@author: hannes.rotzinger@kit.edu @ 2015
+@author: hannes.rotzinger@kit.edu / 2015,2017 
+         marco.pfirrmann@kit.edu / 2016, 2017
 """
 import sys
 # support both PyQt4 and 5

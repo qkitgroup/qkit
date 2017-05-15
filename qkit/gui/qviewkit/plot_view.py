@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 
+"""
+@author: hannes.rotzinger@kit.edu / 2015,2017 
+         marco.pfirrmann@kit.edu / 2016, 2017
+"""
+
 in_pyqt5 = False
 try:
     from PyQt5 import QtCore, QtGui
