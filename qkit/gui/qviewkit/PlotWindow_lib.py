@@ -2,8 +2,25 @@
 """
 @author: hannes.rotzinger@kit.edu @ 2016
 """
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+in_pyqt5 = False
+try:
+    from PyQt5 import QtCore
+    from PyQt5.QtCore import Qt,QObject,pyqtSlot
+    from PyQt5.QtWidgets import QWidget,QPlainTextEdit,QMenu,QAction
+    #from PyQt5 import Qt
+    in_pyqt5 = True
+except ImportError, e:
+    print "import of PyQt5 failed, trying PyQt4"
+    print e
+try:
+    if not in_pyqt5:
+        from PyQt4 import QtCore
+        from PyQt4.QtCore import *
+        from PyQt4.QtGui import *
+except ImportError:
+    print "import of PyQt5 and PyQt4 failed. Install one of those."
+    sys.exit(-1)
+
 import numpy as np
 import json
 import pyqtgraph as pg
