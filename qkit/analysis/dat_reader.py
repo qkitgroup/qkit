@@ -361,7 +361,8 @@ def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp =
     s_fs = float(roots)/(2*data[0][-1])   #number of roots/2 /measurement time
     #print s_fs
     
-    #phase offset
+    #phase offset calculation
+    #the d are relative distances of the first data point
     dmax = np.abs(data[data_c][0] - np.max(data[data_c]))
     dmean = np.abs(data[data_c][0] - np.mean(data[data_c]))
     dmin = np.abs(data[data_c][0] - np.min(data[data_c]))
@@ -369,8 +370,11 @@ def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp =
         s_ph = np.pi/2
     elif dmin < dmean:   #start on lower side -> offset phase -pi/2
         s_ph = -np.pi/2
-    else:   #ordinary sine
-        s_ph = 0
+    else:   # sine or -sin?
+        if np.sum(np.gradient(data[data_c])[:int(0.05*len(data[0]))]) > 0: #positive slope -> sin
+            s_ph = 0
+        else: #negative slope -> -sin
+            s_ph = np.pi
     #print s_ph
     
     return s_offs, s_a, s_Td, s_fs, s_ph
@@ -546,8 +550,6 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     if type(fit_function)==str:
         logging.warning('using strings as fit function is depreciated. Use e.g dr.LORENTZIAN instead.')
         fit_function = {'lorentzian':LORENTZIAN, 'lorentzian_sqrt':LORENTZIAN_SQRT, 'damped_sine':DAMPED_SINE, 'sine':SINE, 'exp':EXP, 'damped_exp':DAMPED_EXP}[fit_function]
-
-    
         
     # fit function definitions --------------------------------------------------------------------------------------
     def f_Lorentzian_sqrt(f, f0, k, a, offs):
@@ -751,7 +753,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         s_offs = np.mean(data[data_c])
         s_a = 0.5*np.abs(np.max(data[data_c]) - np.min(data[data_c]))
         p0 = _fill_p0([s_fs, s_a, s_offs, s_ph],ps)
-        #print p0
+        print p0
             
         #sine fit ----------------------------------------------------------------------
         try:
