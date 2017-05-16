@@ -85,15 +85,31 @@ class DATA(object):
             with Lock():
                 return self.timestamp
         
-        def get_history(self,range):
-            #read out h5 file
+        def get_history(self,range,nchunks=100):
+            '''
+            read out h5 file
+            range: history data range
+            nchunks: number of data points to be returned
+            '''
+            
             if self.url_timestamps != None:
                 try:
                     with self.log_lock:
                         timestamps = np.array(self.hf[self.url_timestamps])
                         values = np.array(self.hf[self.url_values])
-                    data_points_requested = np.where(time.time()-timestamps < range*3600)
-                    return [timestamps[data_points_requested],values[data_points_requested]]
+                    data_points_requested_mask = np.where(time.time()-timestamps < range*3600)
+                    timestamps_requested = timestamps[data_points_requested_mask]
+                    data_points_requested = values[data_points_requested_mask]
+                    #return only nchunks data points
+                    if len(data_points_requested) > nchunks:
+                        timestamp_chunks = np.array(np.split(timestamps_requested[:(len(timestamps_requested)-len(timestamps_requested)%nchunks)],nchunks))
+                        timestamps = timestamp_chunks[:,int(0.5*len(timestamps_requested)/nchunks)]
+                        data_chunks = np.array(np.split(data_points_requested[:(len(data_points_requested)-len(data_points_requested)%nchunks)],nchunks))
+                        values = np.mean(data_chunks,axis=1)
+                        return [timestamps,values]
+                    else:
+                        return [timestamps_requested,data_points_requested]
+                    
                 except KeyError:   #AttributeError, NameError:
                     print 'Error opening h5 log file.'
                     return [0]
@@ -114,17 +130,12 @@ class DATA(object):
             print 'Create new log file for parameter %s.'%self.name
             self.fname = os.path.join(self.log_path,time.strftime('%m%Y')+'/',self.name.replace(' ','_')+time.strftime('%d%m%Y%M%S')+'.h5')
             print self.fname
-            #if os.path.isfile(self.fname):   #h5 already exists
-            #    self.hf = hdf_lib.Data(path=self.fname)
-            #    self.hdf_t = self.hf.get_dataset(self.url_timestamps)   #has a bug in hdf_lib.py JB 12/2016
-            #    self.hdf_v = self.hf.get_dataset(self.url_values)
-            #else:
             self.hf = hdf_lib.Data(path=self.fname)
             self.hdf_t = self.hf.add_coordinate('timestamps')
             self.hdf_v = self.hf.add_value_vector('values', x = self.hdf_t)
             self.url_timestamps = '/entry/data0/timestamps'
             self.url_values = '/entry/data0/values'
-            #qviewkit.plot(self.hf.get_filepath(), datasets=['value'])
+            view = self.hf.add_view('data_vs_time', x = self.hdf_t, y = self.hdf_v)   #fit
         
         def append_to_log(self):
             with self.log_lock:
