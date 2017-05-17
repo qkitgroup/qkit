@@ -84,10 +84,10 @@ class Sample(object):
         '''
         load sample keys and entries to current sample instance
         '''
-        """
+        
         if not os.path.isabs(filename):
             filename = os.path.join(qt.config.get('datadir'),filename)
-        """
+        
         try:
             with open(filename) as filehandle:
                 self._load_legacy_pickle(filehandle)
