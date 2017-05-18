@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-@author: hannes.rotzinger@kit.edu / 2015,2017 
+@author: hannes.rotzinger@kit.edu / 2015,2016,2017 
          marco.pfirrmann@kit.edu / 2016, 2017
+Qlicense: GPL
 """
 # support both PyQt4 and 5
 in_pyqt5 = False
@@ -12,16 +13,15 @@ try:
     #from PyQt5 import Qt
     in_pyqt5 = True
 except ImportError, e:
-    print "import of PyQt5 failed, trying PyQt4"
-    print e
-try:
-    if not in_pyqt5:
+    pass
+if not in_pyqt5:
+    try:
         from PyQt4 import QtCore
         from PyQt4.QtCore import *
         from PyQt4.QtGui import *
-except ImportError:
-    print "import of PyQt5 and PyQt4 failed. Install one of those."
-    sys.exit(-1)
+    except ImportError:
+        print "import of PyQt5 and PyQt4 failed. Install one of those."
+        sys.exit(-1)
 
 
 
@@ -34,7 +34,7 @@ from PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data,
 import sys
 
 
-#class PlotWindow(QMainWindow, Ui_MainWindow):
+
 class PlotWindow(QWidget,Ui_Form):
 
     def myquit(self):
@@ -62,8 +62,6 @@ class PlotWindow(QWidget,Ui_Form):
 
     def closeEvent(self, event):
         "overwrite the closeEvent handler"
-        #print "closeEvent called"
-        #self.deleteLater()
         self.DATA._toBe_deleted(self.dataset_url)
         self.DATA._remove_plot_widgets()
         event.accept()
@@ -154,8 +152,6 @@ class PlotWindow(QWidget,Ui_Form):
                 _display_text(self,self.graphicsView)
             else:
                 print "This should not be here: View Type:"+str(self.view_type)
-        #except NameError:#IOError:
-        #  pass
         except ValueError,e:
             print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
             print e

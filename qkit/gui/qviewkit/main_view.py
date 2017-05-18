@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
 """
-@author: hannes.rotzinger@kit.edu / 2015,2017 
+@author: hannes.rotzinger@kit.edu / 2015, 2016, 2017 
          marco.pfirrmann@kit.edu / 2016, 2017
+@license: GPL
 """
 
 
@@ -14,15 +15,15 @@ try:
     from PyQt5 import QtCore, QtGui
     in_pyqt5 = True
 except ImportError, e:
-    print "import of PyQt5 failed, trying PyQt4"
-    print e
-try:
-    if not in_pyqt5:
+    pass
+
+if not in_pyqt5:
+    try:
         from PyQt4 import QtCore, QtGui
         in_pyqt4 = True
-except ImportError:
-    print "import of PyQt5 and PyQt4 failed. Install one of those."
-    sys.exit(-1)
+    except ImportError:
+        print "import of PyQt5 and PyQt4 failed. Install one of those."
+        sys.exit(-1)
 
 
 try:
