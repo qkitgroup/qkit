@@ -15,7 +15,9 @@ from hdf_dataset import hdf_dataset
 from hdf_constants import ds_types
 from hdf_view import dataset_view
 from hdf_DateTimeGenerator import DateTimeGenerator
-from qkit.config.environment import *
+from qkit.config.environment import cfg
+
+alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 class Data(object):
     "this is a basic hdf5 class adopted to our needs"
@@ -52,13 +54,16 @@ class Data(object):
         if filepath:
             self._filepath = filepath
         else:
-            self._localtime = time.localtime()
+            self._unix_timestamp = int(time.time())
+            self._uuid = self._create_uuid()
+            self._localtime = time.localtime(self._unix_timestamp)
             self._timestamp = time.asctime(self._localtime)
             self._timemark = time.strftime('%H%M%S', self._localtime)
             self._datemark = time.strftime('%Y%m%d', self._localtime)
             self._filepath =  self._filename_generator.new_filename(self)
 
         self._folder, self._filename = os.path.split(self._filepath)
+        self._relpath = os.path.relpath(self._filepath, cfg['datadir'])
         if self._folder and not os.path.isdir(self._folder):
             os.makedirs(self._folder)
 
@@ -141,3 +146,30 @@ class Data(object):
         self.hf.close_file()
     def close(self):
         self.hf.close_file()
+        
+    def _create_uuid(self):
+        return self.encode_uuid()
+    
+    def encode_uuid(self,value=None):
+        if not value: value = self._unix_timestamp
+        output = ''
+        la = len(alphabet)
+        while(value):
+            output += alphabet[value%la]
+            value = value/la
+        return output[::-1]
+
+    def decode_uuid(self,string=''):
+        if not string: string = self._uuid
+        output = 0
+        multiplier = 1
+        string = string[::-1].upper()
+        la = len(alphabet)
+        while(string != ''):
+            f = alphabet.find(string[0])
+            if f == -1:
+                raise ValueError("Can not decode this: %s<--"%string[::-1])
+            output += f*multiplier
+            multiplier*=la
+            string = string[1:]
+        return output
