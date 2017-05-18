@@ -1,9 +1,28 @@
 # -*- coding: utf-8 -*-
 """
-@author: hannes.rotzinger@kit.edu @ 2016
+@author: hannes.rotzinger@kit.edu / 2015,2016,2017 
+         marco.pfirrmann@kit.edu / 2016, 2017
+@license: GPL
 """
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+import sys
+in_pyqt5 = False
+try:
+    from PyQt5 import QtCore
+    from PyQt5.QtCore import Qt,QObject,pyqtSlot
+    from PyQt5.QtWidgets import QWidget,QPlainTextEdit,QMenu,QAction
+    in_pyqt5 = True
+except ImportError, e:
+    pass
+
+if not in_pyqt5:
+    try:
+        from PyQt4 import QtCore
+        from PyQt4.QtCore import *
+        from PyQt4.QtGui import *
+    except ImportError:
+        print "import of PyQt5 and PyQt4 failed. Install one of those."
+        sys.exit(-1)
+
 import numpy as np
 import json
 import pyqtgraph as pg
@@ -455,10 +474,7 @@ def _display_2D_data(self,graphicsView):
     
 
     self.proxy = pg.SignalProxy(imVi.scene().sigMouseMoved, rateLimit=15, slot=mouseMoved)
-    ################################
-    #from guppy import hpy
-    #h = hpy()
-    #print h.heap()
+
 
 
 def _display_table(self,graphicsView):

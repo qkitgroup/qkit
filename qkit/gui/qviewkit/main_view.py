@@ -1,13 +1,30 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'main_view.ui'
-#
-# Created: Thu Jul 23 13:50:35 2015
-#      by: PyQt4 UI code generator 4.11.3
-#
-# WARNING! All changes made in this file will be lost!
+"""
+@author: hannes.rotzinger@kit.edu / 2015, 2016, 2017 
+         marco.pfirrmann@kit.edu / 2016, 2017
+@license: GPL
+"""
 
-from PyQt4 import QtCore, QtGui
+
+import sys
+# support both PyQt4 and 5
+in_pyqt5 = False
+in_pyqt4 = False
+try:
+    from PyQt5 import QtCore, QtGui
+    in_pyqt5 = True
+except ImportError, e:
+    pass
+
+if not in_pyqt5:
+    try:
+        from PyQt4 import QtCore, QtGui
+        in_pyqt4 = True
+    except ImportError:
+        print "import of PyQt5 and PyQt4 failed. Install one of those."
+        sys.exit(-1)
+
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
