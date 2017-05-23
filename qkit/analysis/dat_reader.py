@@ -517,7 +517,7 @@ def spline_smooth_data(x_data, y_data, spline_order=1):
     
 # =================================================================================================================
 
-def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, show_output = True, save_pdf = False, data=None, nfile=None, opt=None, entryname = 'fit', spline_order=None):
+def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, show_output = True, save_pdf = False, data=None, nfile=None, opt=None, entryname = 'fit', spline_order=None, phase_grad=False):
     '''
     fit the data in file_name to a function specified by fit_function
     setting file_name to None makes the code try to find the newest .dat file in today's data_dir
@@ -539,6 +539,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     opt: bool, set to True if data is to be optimized prior to fitting using the data_optimizer
     entryname: suffix to be added to the name of analysis entry
     spline_order: apply spline smoothing of data prior to fitting when spline_order != None
+    phase_grad (boolean, optional): switch to differentiate phase data, spline smoothing is applied and data_c is regarded
     
     returns fit parameters, standard deviations concatenated: [popt1,pop2,...poptn,err_popt1,err_popt2,...err_poptn]
     in case fit does not converge, errors are filled with 'inf'
@@ -603,6 +604,14 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     if data_c >= len(data):
         print 'bad data column identifier, out of bonds...aborting'
         return
+    
+    #use differentiated phase signal if requested by switch 'phase_grad'
+    if phase_grad:
+        pha_unwrap = np.unwrap(data[data_c])   #unwrap phase data
+        pha_tilt_corrected = pha_unwrap - np.linspace(pha_unwrap[0],pha_unwrap[-1],len(pha_unwrap))   #subtract tilt
+        pha_gr = np.gradient(pha_tilt_corrected)
+        if not spline_order: spline_order = 1.e-3   #set default for spline smoothing
+        data[data_c] = spline_smooth_data(data[0],pha_gr,spline_order)
     
     #set default to frequency conversion factor
     freq_conversion_factor = 1
@@ -875,11 +884,12 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         plt.title(str(['%.4g'%entry for entry in popt]),y=1.03)
         
     try:
-        plt.savefig(nfile.replace('.dat','_dr.png').replace('.h5','_dr.png'), dpi=300)
+        fig_file_name_stem = nfile.replace('.','')+'_dr'
+        plt.savefig(fig_file_name_stem+'.png', dpi=300)
         if save_pdf:
-            plt.savefig(nfile.replace('.dat','_dr.pdf').replace('.h5','_dr.pdf'), dpi=300)
+            plt.savefig(fig_file_name_stem+'.pdf', dpi=300)
         if show_output:
-            print 'plot saved:', nfile.replace('.dat','_dr.png').replace('.h5','_dr.png')
+            print 'plot saved:', fig_file_name_stem
     except AttributeError:
         if show_output: logging.warning('Figure not stored.')
     except Exception as m:
