@@ -237,7 +237,7 @@ class spectrum(object):
 
         self._measurement_object.save()
         self._mo = self._data_file.add_textlist('measurement')
-        self._mo.append(self._measurement_object.get_all())
+        self._mo.append(self._measurement_object.get_JSON())
 
         # write logfile and instrument settings
         self._write_settings_dataset()
