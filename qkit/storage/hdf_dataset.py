@@ -170,6 +170,7 @@ class hdf_dataset(object):
             # we cast everything to a float numpy array
             if self.ds_type == ds_types['txt']:
                 data = unicode(data)
+                self.hf.append(self.ds,data)
             elif self._next_matrix:
                 data = numpy.array(data,dtype=self.dtype)
                 self.hf.append(self.ds,data, next_matrix=True)
