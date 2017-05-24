@@ -151,9 +151,13 @@ class h5plot(object):
         dataset is only one-dimensional
         print data vs. x-coordinate
         """
-        self.x_ds = self.hf[self.x_ds_url]
-
-        self.x_label = self.x_ds.attrs.get('name','_xname_')+' / '+self.x_ds.attrs.get('unit','_xunit_')
+        try:
+            self.x_ds = self.hf[self.x_ds_url]
+            self.x_label = self.x_ds.attrs.get('name','_xname_')+' / '+self.x_ds.attrs.get('unit','_xunit_')
+        except Exception:
+            self.x_ds = None
+            self.x_label = '_none_ / _none_'
+        
         self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
         self.data_y = np.array(self.ds)
         self.y_label = self.ds_label
@@ -161,7 +165,10 @@ class h5plot(object):
             plt_style = 'x'
         else:
             plt_style = '-'
-        self.ax.plot(self.x_ds,self.data_y[0:len(self.x_ds)], plt_style)   #JB: avoid crash after pressing the stop button when arrays are of different lengths
+        try:
+            self.ax.plot(self.x_ds,self.data_y[0:len(self.x_ds)], plt_style)   #JB: avoid crash after pressing the stop button when arrays are of different lengths
+        except TypeError:
+            self.ax.plot(0,self.data_y, plt_style)
 
     def plt_matrix(self):
         """
