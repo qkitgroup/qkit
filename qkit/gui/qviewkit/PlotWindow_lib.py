@@ -495,8 +495,35 @@ def _display_table(self,graphicsView):
     graphicsView.setData(data)
     
 def _display_text(self,graphicsView):
-    data = np.array(self.ds)
+    try:
+        json_dict = json.loads(self.ds.value[0])
+    except ValueError:
+        txt = _display_string(graphicsView, self.ds)
+    else:
+        sample = json_dict.pop('sample')
+        instruments = json_dict.pop('instruments')
+        txt = ""
+        for key in sorted(json_dict):
+            txt += str(key) + ":   " + str(json_dict[key])+"\n"        
+        txt += '\n'
+        if sample:
+            txt += 'sample:\n   '
+            for key in sorted(sample): 
+                try:
+                    txt += str(key) + ":   " + str(sample[key]['content'])+"\n   "
+                except: txt += str(key) + ":   " + str(sample[key])+"\n   "
+            txt += '\n'
+        if instruments:
+            txt += 'instruments:\n   '
+            for instrument in sorted(instruments): 
+                txt += instrument + ':\n      '
+                for parameter in sorted(instruments[instrument]):
+                    txt += str(parameter) + ":   " + str(instruments[instrument][parameter]['content'])+"\n      "
+    graphicsView.insertPlainText(txt.rstrip())
+
+def _display_string(graphicsView, ds):
+    data =np.array(ds)
     txt = ""
-    for d in data:
+    for d in data: 
         txt += d+'\n'
-    graphicsView.insertPlainText(txt)
+    return txt
