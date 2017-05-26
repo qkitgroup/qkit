@@ -61,9 +61,10 @@ class Data(object):
             self._timemark = time.strftime('%H%M%S', self._localtime)
             self._datemark = time.strftime('%Y%m%d', self._localtime)
             self._filepath =  self._filename_generator.new_filename(self)
+            self._relpath = os.path.relpath(self._filepath, cfg['datadir'])
 
         self._folder, self._filename = os.path.split(self._filepath)
-        self._relpath = os.path.relpath(self._filepath, cfg['datadir'])
+        
         if self._folder and not os.path.isdir(self._folder):
             os.makedirs(self._folder)
 
