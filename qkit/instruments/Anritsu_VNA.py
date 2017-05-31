@@ -976,6 +976,7 @@ class Anritsu_VNA(Instrument):
         Set everything needed for the measurement
         Averaging has to be enabled.
         '''
+        self.hold(False)
         if not self.get_Average():
             self.set_Average(True)
             self.set_averages(1)
