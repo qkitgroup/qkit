@@ -17,9 +17,9 @@ import inspect
 
 
 
-class acf():
+class ACF_class():
     '''
-    Avoided crossing class (AS@KIT 2017):
+    Avoided crossing fit class (AS@KIT 2017):
     Useful for extracting the coupling strenght from avoided level crossings between an arbirary number of functions.
     
         Setters:
@@ -30,6 +30,7 @@ class acf():
                             New_fct(x, par1, par2, ...).
             set_init_pars - Set initial parameters for the fit (not necessary for an anticrossing between
                             two curves).
+            set_all       - Set all afore mentioned variables.
         
         Functions:
             fit            - Perform fit. This generates the results object, wherein fit results and 
@@ -48,12 +49,11 @@ class acf():
     def __init__(self):
         self.xdata = 0
         self.ydata = 0
-        self.functions = self.set_functions(self.constant_line, self.straight_line)
+        self.functions = 0
         self.p0 = 0
         self.fit_pars = 0
         self.cov_mat = 0
         self.results = 0
-        return
     
     
     # Small library of inbuilt functions:      
@@ -127,13 +127,11 @@ class acf():
         Set functions for the fit (at least 2, can be entered as a list).
         Each function should describe one of the undressed modes (i.e. without interaction/level repelling).
         '''
-        if args is ():
-            args = self.constant_line, self.straight_line
-        self.functions = self._list_wrapper(args)
-        self._flen = len(self.functions)
+        self._flen = len(args)
         if self._flen <= 1:
             print "At least 2 functions are required."
-            
+            return
+        self.functions = self._list_wrapper(args)
         # Check if functions are callable. 
         # Determine number and name of free parameters of each function.
         self._fct_par_nums = []    # List of number of each functions parameters
@@ -147,7 +145,7 @@ class acf():
                 self._fct_par_nums.append(len(par_names))
             else:
                 print "At least one function is not callable."
-                return 0
+                return
         # Increase number of parameters by number of coupling coefficients
         self._fct_par_nums.append((self._flen**2 - self._flen)/2)
         
@@ -161,6 +159,29 @@ class acf():
         '''
         self.p0 = self._list_wrapper(args)
         self._p0len = len(self.p0)
+        return
+
+
+    def set_all(self, x, y, f = None, p0 = None):
+        '''
+        Set initial parameters for the fit.
+        x  - x datasets for the fit (at least 2 arrays, can be entered as a list).
+        y  - y datasets for the fit (at least 2 arrays, can be entered as a list).
+        f  - functions for the fit (at least 2, can be entered as a list). 
+        Each function should describe one of the undressed modes (i.e. without interaction/level repelling). 
+        Defaults are constant_line and straight_line.
+        p0 - Initial parameters for the fit. Order should be: parameter1 of fct1, par2 fct1, ..., g12, g13, .. 
+        If no initial parameters are given, all values are set to 1.
+        '''
+        self.set_xdata(x)
+        self.set_ydata(y)
+        if f is None:
+            self.set_functions(self.constant_line, self.straight_line)
+        if p0 is not None:
+            self.set_init_pars(p0)
+        
+        self._validity_check()
+        self._check_p0()
         return
 
 
