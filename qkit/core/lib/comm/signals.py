@@ -1,11 +1,12 @@
 
 SIGNALS = {
-'reload':       10,
-'stop-request': 11,
-'close-gui':    12,
-'stop-request': 13,
-
+'info':         5,
+'update':       10,
+'reload':       11,
+'stop-request': 12,
+'close-gui':    13,
 'changed':          14, # self._changed
+
 'measurement-start':20,
 'measurement-end':  21,
 'measurement-idle': 22,
@@ -20,8 +21,7 @@ SIGNALS = {
 
 'tags-added':       40, #newtags
 'instrument-added': 41,	# name
-'instrument-added': 42,	# name
-'instrument-removed':43,# name
-'instrument-changed':44,# sender.get_name(), changes
-'item-added':       45, 	# name
+'instrument-removed':42,# name
+'instrument-changed':43,# sender.get_name(), changes
+'item-added':       44, 	# name
 }
