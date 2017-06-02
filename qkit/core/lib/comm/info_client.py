@@ -1,7 +1,10 @@
-import sys
-import zmq
-from signals import SIGNALS
+# zmq based info_service client
+# HR@KIT/2017
 
+
+import zmq
+from qkit.core.lib.comm.signals import SIGNALS
+# reverse the SIGNAL
 RSIGNALS = dict((v,k) for k,v in SIGNALS.iteritems())
 from qkit.config.environment import cfg
 
@@ -46,12 +49,11 @@ class info_client(object):
         
     def print_message(self):
         "wait until a message is available and print it"
-        #tid,message =self.socket.recv().split(":",1)
-        #print RSIGNALS.get(int(tid)),":", message
         print self.get_message(readable_topic = True)
         
 
 if __name__ == "__main__":
+    import sys
     if len(sys.argv) > 1:
         host =  int(sys.argv[1])
         port =  int(sys.argv[2])

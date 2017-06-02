@@ -1,10 +1,13 @@
-import zmq
-import sys
-import time
-from signals import SIGNALS
+# zmq based info_service 
+# HR@KIT/2017
 
+
+import zmq
+import time
+
+from qkit.core.lib.comm.signals import SIGNALS
 from qkit.config.environment import cfg
-#port = "5556"
+
 class info_service(object):
     def __init__(self,host = None,port = None):
         if host:
@@ -43,6 +46,7 @@ class info_service(object):
     
 
 if __name__ == "__main__":
+    import sys
     if len(sys.argv) > 1:
         msg =  sys.argv[1]
     else: msg = ""
