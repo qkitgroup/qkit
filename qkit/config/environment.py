@@ -10,9 +10,10 @@ cfg['qtlab'] = False
 # plot related config settings
 cfg['plot_engine'] = 'qkit.gui.qviewkit.main'
 # message handling related port setting defaults
-cfg['info_port'] = 5600  # this is the port we can listen on messages (signals) told by qkit 
+cfg['info_port'] = 5600  # this is the port we can listen on messages (signals) told by qkit
+cfg['info_host'] = 'localhost'  # this is the host we can listen on messages  
 cfg['ask_port']  = 5700  # this is the port rpc could use
-
+cfg['ask_host']  = 'localhost' # as above
 # if qtlab is used (qt_cfg exists and qt_cfg['qtlab']): 
 # qkit config entries are overridden by the qtlab ones
 try:
@@ -35,5 +36,5 @@ try:
 except ImportError:
     pass
 #-----------------------------------------------------------
-# beyond this line, there can be system wide constants like 
+# below this line, there can be system wide constants like 
 # cfg['ministry'] = 'silly walks' 
