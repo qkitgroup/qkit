@@ -491,7 +491,7 @@ class Keysight_VNA_E5071C(Instrument):
         return self._sweep
 
 
-    def do_set_edel(self, channel, val):  # MP 04/2017
+    def do_set_edel(self, val,channel):  # MP 04/2017
 
         '''
         Set electrical delay
