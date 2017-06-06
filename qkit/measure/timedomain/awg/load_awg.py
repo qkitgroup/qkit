@@ -45,7 +45,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
         for the 6GS/s AWG, the waveform length must be divisible by 64
         for the 1.2GS/s AWG, it must be divisible by 4
         
-        chpair: if you use the 4ch Tabor AWG as a single 5ch instrument, you can chose to take the second channel pair here (this can be either 1/2 or 3/4).
+        chpair: if you use the 4ch Tabor AWG as a single 2ch instrument, you can chose to take the second channel pair here (this can be either 1 or 2).
     '''
     qt.mstart()
     if awg==None:
