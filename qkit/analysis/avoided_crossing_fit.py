@@ -432,17 +432,15 @@ class ACF_class():
 
 
 
-    def print_results(self, acc = 4):
+    def print_results(self):
         '''
-        Input: 
-            acc - Accuracy for rounding.
         Output: 
             Prints crudely formatted fit data.
         '''
         if self.fit_pars is 0:
             print "Fit was not yet performed. No data available."
             return
-        format_str = " = ( {0:7." + str(acc) + "f} +- {1:8." + str(acc) +"f})"
+        format_str = " = ( {:7.4g} +- {:7.4g})"
         fct_index = 0
         for data_set in self.results:
             if (data_set[0] > fct_index) and (data_set[0] <= self._flen):
