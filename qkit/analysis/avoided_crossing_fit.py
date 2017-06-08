@@ -432,7 +432,7 @@ class ACF_class():
 
 
 
-    def print_results(self, acc = 3):
+    def print_results(self, acc = 4):
         '''
         Input: 
             acc - Accuracy for rounding.
@@ -478,8 +478,8 @@ class ACF_class():
         xlin = np.linspace(np.amin(np.concatenate(self.xdata)), np.amax(np.concatenate(self.xdata)), 1000)
         for i in range(self._flen):
             plt.plot(xlin, self.crossing_fct(xlin, pars)[:, i], cols[i])
-        plt.xlim(np.amin(np.concatenate(self.xdata))*.95, np.amax(np.concatenate(self.xdata))*1.05)
-        plt.ylim(np.amin(np.concatenate(self.ydata))*.95, np.amax(np.concatenate(self.ydata))*1.05)
+        plt.xlim(np.amin(np.concatenate(self.xdata)), np.amax(np.concatenate(self.xdata)))
+        plt.ylim(np.amin(np.concatenate(self.ydata)), np.amax(np.concatenate(self.ydata)))
         return
 
 
