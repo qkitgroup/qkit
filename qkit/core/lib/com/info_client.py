@@ -3,7 +3,7 @@
 
 
 import zmq
-from qkit.core.lib.comm.signals import SIGNALS
+from qkit.core.lib.com.signals import SIGNALS
 # reverse the SIGNAL
 RSIGNALS = dict((v,k) for k,v in SIGNALS.iteritems())
 from qkit.config.environment import cfg
@@ -23,6 +23,7 @@ class info_client(object):
             self.port = cfg.get('info_port',5600)
             
         self.start_client(self.port,self.host)
+        self.start_poll()
         
     def start_client(self,port,host):
         print port, host
@@ -30,6 +31,11 @@ class info_client(object):
         self.socket = self.context.socket(zmq.SUB)
 
         self.socket.connect ("tcp://%s:%s" %(host, port))
+        
+    def start_poll(self):
+        self.poller = zmq.Poller()
+        self.poller.register(self.socket, zmq.POLLIN)
+        
     def listen_to(self,topic):
         "hook up to topic (defined in signals.py)"
         if SIGNALS.has_key(topic):

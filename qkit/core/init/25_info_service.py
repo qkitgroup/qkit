@@ -6,7 +6,7 @@ try:
 except ImportError:
     print "please install the zmq package"
     # we handle this exception again in the module
-from qkit.core.lib.comm.info_service import info_service
+from qkit.core.lib.com.info_service import info_service
 import qkit.core.qkit as qkit
 
 qkit.info = info_service()

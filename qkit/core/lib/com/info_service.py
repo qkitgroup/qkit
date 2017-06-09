@@ -5,7 +5,7 @@
 import zmq
 import time
 
-from qkit.core.lib.comm.signals import SIGNALS
+from qkit.core.lib.com.signals import SIGNALS
 from qkit.config.environment import cfg
 
 class info_service(object):
@@ -27,6 +27,7 @@ class info_service(object):
         self.socket.bind("tcp://*:%s" % port)
         # wait until zmq is settled
         time.sleep(0.3)
+    
         
     def dist(self,topic, message = ""):
         "distribute a message"

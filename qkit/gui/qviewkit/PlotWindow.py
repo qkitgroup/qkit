@@ -1,11 +1,31 @@
 # -*- coding: utf-8 -*-
 """
-@author: hannes.rotzinger@kit.edu @ 2015,2016
+@author: hannes.rotzinger@kit.edu / 2015,2016,2017 
+         marco.pfirrmann@kit.edu / 2016, 2017
+Qlicense: GPL
 """
+# support both PyQt4 and 5
+in_pyqt5 = False
+try:
+    from PyQt5 import QtCore
+    from PyQt5.QtCore import Qt,QObject,pyqtSlot
+    from PyQt5.QtWidgets import QWidget,QPlainTextEdit,QMenu,QAction
+    #from PyQt5 import Qt
+    in_pyqt5 = True
+except ImportError, e:
+    pass
+if not in_pyqt5:
+    try:
+        from PyQt4 import QtCore
+        from PyQt4.QtCore import *
+        from PyQt4.QtGui import *
+    except ImportError:
+        print "import of PyQt5 and PyQt4 failed. Install one of those."
+        sys.exit(-1)
 
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+
+
 
 from plot_view import Ui_Form
 import pyqtgraph as pg
@@ -14,7 +34,7 @@ from PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data,
 import sys
 
 
-#class PlotWindow(QMainWindow, Ui_MainWindow):
+
 class PlotWindow(QWidget,Ui_Form):
 
     def myquit(self):
@@ -42,8 +62,6 @@ class PlotWindow(QWidget,Ui_Form):
 
     def closeEvent(self, event):
         "overwrite the closeEvent handler"
-        #print "closeEvent called"
-        #self.deleteLater()
         self.DATA._toBe_deleted(self.dataset_url)
         self.DATA._remove_plot_widgets()
         event.accept()
@@ -134,37 +152,34 @@ class PlotWindow(QWidget,Ui_Form):
                 _display_text(self,self.graphicsView)
             else:
                 print "This should not be here: View Type:"+str(self.view_type)
-        #except NameError:#IOError:
-        #  pass
         except ValueError,e:
             print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
             print e
 
 
     def _setup_signal_slots(self):
-
         if self.ds_type == ds_types['vector'] or self.ds_type == ds_types['coordinate']:
-            QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeVector)
+            self.PlotTypeSelector.currentIndexChanged.connect(self._onPlotTypeChangeVector)
 
         elif self.ds_type == ds_types['matrix'] or self.ds_type == -1:
-            QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeMatrix)
-            QObject.connect(self.TraceSelector,   SIGNAL("valueChanged(int)"),       self._setTraceNum)
-            QObject.connect(self.TraceValue,      SIGNAL("returnPressed()"),         self._setTraceValue)
+            self.PlotTypeSelector.currentIndexChanged.connect(self._onPlotTypeChangeMatrix)
+            self.TraceSelector.valueChanged.connect(self._setTraceNum)
+            self.TraceValue.returnPressed.connect(self._setTraceValue)
 
         elif self.ds_type == ds_types['box']:
-            QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeBox)
-            QObject.connect(self.TraceXSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceXNum)
-            QObject.connect(self.TraceXValue,     SIGNAL("returnPressed()"),         self._setBTraceXValue)
-            QObject.connect(self.TraceYSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceYNum)
-            QObject.connect(self.TraceYValue,     SIGNAL("returnPressed()"),         self._setBTraceYValue)
-            QObject.connect(self.TraceZSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceZNum)
-            QObject.connect(self.TraceZValue,     SIGNAL("returnPressed()"),         self._setBTraceZValue)
+            self.PlotTypeSelector.currentIndexChanged.connect(self._onPlotTypeChangeBox)
+            self.TraceXSelector.valueChanged.connect(self._setBTraceXNum)
+            self.TraceYSelector.valueChanged.connect(self._setBTraceYNum)
+            self.TraceZSelector.valueChanged.connect(self._setBTraceZNum)
+            self.TraceXValue.returnPressed.connect(self._setBTraceXValue)            
+            self.TraceYValue.returnPressed.connect(self._setBTraceYValue)            
+            self.TraceZValue.returnPressed.connect(self._setBTraceZValue)
 
         elif self.ds_type == ds_types['view']:
-            QObject.connect(self.VTraceXSelector,   SIGNAL("valueChanged(int)"),       self._setVTraceXNum)
-            QObject.connect(self.VTraceXValue,      SIGNAL("returnPressed()"),         self._setVTraceXValue)
-            QObject.connect(self.VTraceYSelector,   SIGNAL("valueChanged(int)"),       self._setVTraceYNum)
-            QObject.connect(self.VTraceYValue,      SIGNAL("returnPressed()"),         self._setVTraceYValue)
+            self.VTraceXSelector.valueChanged.connect(self._setVTraceXNum)
+            self.VTraceYSelector.valueChanged.connect(self._setVTraceYNum)
+            self.VTraceXValue.returnPressed.connect(self._setVTraceXValue)           
+            self.VTraceYValue.returnPressed.connect(self._setVTraceYValue)
 
     def keyPressEvent(self, ev):
         #print "Received Key Press Event!! You Pressed: "+ event.text()
