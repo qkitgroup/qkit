@@ -103,6 +103,7 @@ class ACF_class():
     def set_xdata(self, *args):
         '''
         Set x datasets for the fit (at least 2 arrays, can be entered as a list).
+        x arrays should be ordered by eigenvalue (ascending order).
         '''
         self.xdata = self._list_wrapper(args)
         self._xlen = len(self.xdata)
@@ -114,6 +115,7 @@ class ACF_class():
     def set_ydata(self, *args):
         '''
         Set y datasets for the fit (at least 2 arrays, can be entered as a list).
+        y arrays should be ordered by eigenvalue (ascending order).
         '''
         self.ydata = self._list_wrapper(args)
         self._ylen = len(self.ydata)
@@ -166,7 +168,9 @@ class ACF_class():
         '''
         Set initial parameters for the fit.
         x  - x datasets for the fit (at least 2 arrays, can be entered as a list).
+             x arrays should be ordered by eigenvalue (ascending order).
         y  - y datasets for the fit (at least 2 arrays, can be entered as a list).
+             y arrays should be ordered by eigenvalue (ascending order).
         f  - functions for the fit (at least 2, can be entered as a list). 
         Each function should describe one of the undressed modes (i.e. without interaction/level repelling). 
         Defaults are constant_line and straight_line.
@@ -252,10 +256,12 @@ class ACF_class():
         Checks if initial parameters correspond to the system.
         '''
         p0_reset = False
+        # If p0 is not set, set all values to 1.
         if self.p0 is 0:
             self.p0 = [1]*sum(self._fct_par_nums)
             p0_reset = True
             print "No initial parameters given. Setting all values to 1."
+        # If number of initial parameters is to small/large -> cut/append.
         elif self._p0len < sum(self._fct_par_nums):
             self.p0 = np.append(self.p0, [1]*(sum(self._fct_par_nums) - self._p0len))
             p0_reset = True
@@ -274,8 +280,15 @@ class ACF_class():
 
     def _sort(self):
         '''
-        Atempts to order the pairs of x-y-arrays by frequency.
+        Atempts to order the pairs of x-y-arrays by eigenvalue (ascending order), 
+        which is necessary for the fit to converge properly.
+        Here this is achieved by sorting according to the mean value of the ydata.
         '''
+        # Sort ydata by mean value.
+        indices = np.argsort([np.mean(i) for i in self.ydata])        
+        self.xdata = list(np.array(self.xdata)[indices])
+        self.ydata = list(np.array(self.ydata)[indices])
+        print "\nChanging order of x- and y-data respectively...\n"
         return
 
 
@@ -401,6 +414,7 @@ class ACF_class():
         
         fit_results = so.leastsq(self._least_square_val, self.p0, full_output = 1)
         self.fit_pars, self.cov_mat = fit_results[0], fit_results[1]
+        
         # Multiply covariance matrix with reduced chi squared to get standard deviation.
         if self.cov_mat is not None:
             self.cov_mat *= (sum(self._least_square_val(self.fit_pars)**2)/
@@ -411,6 +425,7 @@ class ACF_class():
         else:
             print "Covariance matrix could not be calculated."
             self.std_dev = ["err"]*sum(self._fct_par_nums)
+            show_data = False
         
         # Reshape fit_pars into a list of parameters, as is accepted by crossing_fct.
         # After reshaping fit_pars is a list, where the element i contains the fit parameters of function i. 
@@ -461,21 +476,21 @@ class ACF_class():
         Output:
             Plot of input values and input parameters.
         '''
-        cols = ["b", "g", "r", "k", "c"]
+        dat_cols = ["b", "g", "r", "k", "c"]
+        fct_cols = ["C0", "C2", "C1", "C7", "C4"]
         mrkr = "*"
-        if self._flen > len(cols):
-            cols *= self._flen
+        if self._flen > len(dat_cols):
+            dat_cols *= self._flen
+            fct_cols *= self._flen
         
         if (self.xdata is 0) or (self.ydata is 0):
                 print "No data for plot available."
                 return
         for i in range(0, self._xlen):
-            plt.plot(self.xdata[i], self.ydata[i], cols[i] + mrkr)
-        if self.fit_pars is 0:
-            print "Fit was not yet performed."
+            plt.plot(self.xdata[i], self.ydata[i], dat_cols[i] + mrkr)
         xlin = np.linspace(np.amin(np.concatenate(self.xdata)), np.amax(np.concatenate(self.xdata)), 1000)
         for i in range(self._flen):
-            plt.plot(xlin, self.crossing_fct(xlin, pars)[:, i], cols[i])
+            plt.plot(xlin, self.crossing_fct(xlin, pars)[:, i], fct_cols[i])
         plt.xlim(np.amin(np.concatenate(self.xdata)), np.amax(np.concatenate(self.xdata)))
         plt.ylim(np.amin(np.concatenate(self.ydata)), np.amax(np.concatenate(self.ydata)))
         return
@@ -487,9 +502,6 @@ class ACF_class():
             Plot of input values and initial parameters.
             This is useful to find good initial values for the fit.
         '''
-        if self.functions is 0:
-            print "No functions found."
-            return
         self._check_p0()
         self._plot(self._reshape(self.p0))
         return
@@ -500,6 +512,9 @@ class ACF_class():
         Output:
             Plot of input values and fit.
         '''
+        if self.fit_pars is 0:
+            print "Fit was not yet performed. Use self.plot_init_pars() to look at your input."
+            return
         self._plot(self.fit_pars)
         return
     
