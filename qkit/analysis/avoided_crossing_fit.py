@@ -129,11 +129,11 @@ class ACF_class():
         Set functions for the fit (at least 2, can be entered as a list).
         Each function should describe one of the undressed modes (i.e. without interaction/level repelling).
         '''
-        self._flen = len(args)
+        self.functions = self._list_wrapper(args)
+        self._flen = len(self.functions)
         if self._flen <= 1:
             print "At least 2 functions are required."
             return
-        self.functions = self._list_wrapper(args)
         # Check if functions are callable. 
         # Determine number and name of free parameters of each function.
         self._fct_par_nums = []    # List of number of each functions parameters
@@ -141,8 +141,16 @@ class ACF_class():
         for fct in self.functions:
             if callable(fct):
                 par_names = inspect.getargspec(fct)[0]
-                par_names.remove("self")
-                par_names.remove("x")
+                try:
+                    # Remove self as fct argument if function is from acf class
+                    par_names.remove("self")
+                except:
+                    pass
+                try:
+                    # Remove x as fct argument
+                    par_names.remove("x")
+                except:
+                    print "In " + fct.__name__ + ": No x argument found. Please rename axis variable to x."
                 self._fct_par_names.append(par_names)
                 self._fct_par_nums.append(len(par_names))
             else:
@@ -179,7 +187,9 @@ class ACF_class():
         '''
         self.set_xdata(x)
         self.set_ydata(y)
-        if f is None:
+        if f is not None:
+            self.set_functions(f)
+        else:
             print "Default functions set to constant_line and straight_line.\n"
             self.set_functions(self.constant_line, self.straight_line)
         if p0 is not None:
@@ -288,7 +298,8 @@ class ACF_class():
         indices = np.argsort([np.mean(i) for i in self.ydata])        
         self.xdata = list(np.array(self.xdata)[indices])
         self.ydata = list(np.array(self.ydata)[indices])
-        print "\nChanging order of x- and y-data respectively...\n"
+        if min(np.gradient(indices)) < 0:
+            print "\nChanging order of x- and y-data respectively...\n"
         return
 
 
@@ -344,13 +355,13 @@ class ACF_class():
             i += 1
             
         return dev
-    
-    
-    
+
+
+
     def crossing_fct(self, x, pars):
         '''
         Evaluates the new shape of the coupled system.
-        
+       
         Input:
             x         - x values where the the coupled system is to be evaluated.
             fct_pars  - List of arrays. Each array contains parameters of the corresponding (undressed) function.
@@ -361,26 +372,30 @@ class ACF_class():
         x = np.atleast_1d(x)
         fct_pars = pars[:-1]
         g = pars[-1]
-        # Create the non-diagonal, symmetric interaction matrix
-        int_mat = np.zeros((self._flen, self._flen, len(x)))
-        for i in range(self._flen - 1):
-            int_mat[i, i + 1:, :] = np.array([g[:self._flen - 1 - i]]*len(x)).T
-            int_mat[i + 1:, i, :] = np.array([g[:self._flen - 1 - i]]*len(x)).T
-            g = g[self._flen - 1 - i:]
-        # Create diagonal parts of the matrix
-        d_mat = np.zeros((self._flen, self._flen, len(x)))
-        i = 0
-        for fct in self.functions:
-            d_mat[i, i, :] = fct(x, *fct_pars[i])
-            i += 1
-            
-        # Create full system matrix
-        mat = d_mat + int_mat
-        # Diagonalize matrix for each x value
+
+        #Create the nondiagonal symmetric interaction matrix
+        int_mat = np.zeros((self._flen, self._flen))
+       
+       
+        for i in range(self._flen-1):
+            int_mat[i, i+1:] = g[:np.size(int_mat[i,i+1:])]
+            g = g[self._flen-1-i:]
+        
+        int_mat = int_mat+int_mat.T
+        
         func_vals = np.zeros((np.size(x), self._flen))
-        for n in range(0, len(x)):
-            func_vals[n, :] = np.linalg.eigvalsh(mat[:,:, n])
+        
+        for n in range(np.size(x)):
+            #Create diagonal parts of the matrix
+            d_mat = np.zeros((self._flen, self._flen))
+            i = 0
+            for fct in self.functions:
+                d_mat[i,i] = fct(x[n], *fct_pars[i])
+                i += 1
             
+            mat = d_mat + int_mat
+            func_vals[n, :] = np.linalg.eigvalsh(mat)
+        
         return func_vals
 
 
@@ -412,7 +427,7 @@ class ACF_class():
         self._check_p0()
         self._sort()
         
-        fit_results = so.leastsq(self._least_square_val, self.p0, full_output = 1)
+        fit_results = so.leastsq(self._least_square_val, self.p0, full_output = True)
         self.fit_pars, self.cov_mat = fit_results[0], fit_results[1]
         
         # Multiply covariance matrix with reduced chi squared to get standard deviation.
@@ -424,8 +439,7 @@ class ACF_class():
             self.std_dev = np.abs(np.diag(self.cov_mat))**0.5
         else:
             print "Covariance matrix could not be calculated."
-            self.std_dev = ["err"]*sum(self._fct_par_nums)
-            show_data = False
+            self.std_dev = [float('nan')]*sum(self._fct_par_nums)
         
         # Reshape fit_pars into a list of parameters, as is accepted by crossing_fct.
         # After reshaping fit_pars is a list, where the element i contains the fit parameters of function i. 
