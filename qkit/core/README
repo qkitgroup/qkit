@@ -1,7 +1,7 @@
 In the future, this folder will contain the new qkit core derived from qtlab.
 The goal of this is to make qkit standalone.
 
-Work in progress by AS and YS in the dedicated branch.
+Work in progress by AS, YS, and HR in the dedicated branch.
 
 ToDo:
     + get the core starting with the qtlab init routine without pygtk
@@ -89,5 +89,16 @@ ToDo:
         and both were deactivated in source/qt.py
     YS: removed source/plot_engines folder
         used only by timedomain? and should be replaced by qviewkit
+        
 15.05.2017
     HR: removed addons folder
+
+02.06.2017
+    HR: zmq based info_service
+    
+09.06.2017
+    HR: closing gui via qkit info system now possible
+
+13.06.2017
+    YS: refurbished folder hierarchy (core.source and core.source.lib now directly in core and core.lib)
+    YS: core.qkit renamed to core.qcorekit to prevent name collision 

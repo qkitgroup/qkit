@@ -79,7 +79,8 @@ def do_start():
             return []
         i += 1
 
-    filelist = get_shell_files(os.path.join(basedir, 'init'), ignorelist)
+    #filelist = get_shell_files(os.path.join(basedir, 'init'), ignorelist) # YS: won't find init scripts as now one level less in folder hierarchy
+    filelist = get_shell_files(os.path.join(os.path.dirname(sys.argv[0]), 'init'), ignorelist)
     return filelist
 
 if __name__ == '__main__':

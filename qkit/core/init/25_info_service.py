@@ -1,13 +1,14 @@
 # start zmq based info_service
 # on port and host defined in config/environment
 # HR@KIT/2017
+
 try: 
     import zmq
 except ImportError:
     print "please install the zmq package"
     # we handle this exception again in the module
 from qkit.core.lib.com.info_service import info_service
-import qkit.core.qkit as qkit
+import qkit.core.qcorekit as qckit
 
-qkit.info = info_service()
-#qkit.info.info("hallo welt")
+qckit.info = info_service()
+#qckit.info.info("hallo welt")
