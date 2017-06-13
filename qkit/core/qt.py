@@ -7,7 +7,7 @@ from instruments import get_instruments
 from lib import config as _config
 #from data import Data # YS: no longer used
 #from plot import Plot, plot, plot3, replot_all # YS: no longer used
-from scripts import Scripts, Script
+#from scripts import Scripts, Script # YS: no longer used
 
 config = _config.get_config()
 
@@ -15,7 +15,7 @@ config = _config.get_config()
 instruments = get_instruments()
 frontpanels = {}
 sliders = {}
-scripts = Scripts()
+#scripts = Scripts() # YS: no longer used
 
 flow = get_flowcontrol()
 msleep = flow.measurement_idle

@@ -7,13 +7,13 @@ ToDo:
     + get the core starting with the qtlab init routine without pygtk
     - get rid of hardcoded locations in config.py and init/02_qtlab_start.py
     + remove gui and other unused code
-    - test measurement
+    + test measurement
     - move source/plot_engines/qtgnuplot somewhere into qkit (used by qkit/measure/timedomain)
       or switch timedomain to qviewkit
     - include installation requirements into the qkit README (see old readme_012015.txt in comment to github issue)
     - rewrite the communication part
     - cleanup of unused code
-    - reorganize folder structure
+    + reorganize folder structure
     - qtlab -> qkit_core (qt. -> qc.)
     - implement new basic gui showing the (measurement)status and settings
       based on qviewkit?
@@ -101,4 +101,8 @@ ToDo:
 
 13.06.2017
     YS: refurbished folder hierarchy (core.source and core.source.lib now directly in core and core.lib)
-    YS: core.qkit renamed to core.qcorekit to prevent name collision 
+    YS: core.qkit renamed to core.qcorekit to prevent name collision
+	YS: removed unused qtrun.py
+	YS: removed lib/math folder containing unused fit and peakfind scripts
+	YS: removed unused scripts.py and references to it in qt.py
+	YS: removed lib/com_support,dll_support, and file_support folders providing unused scripts for device communication
