@@ -52,10 +52,10 @@ class Config(object):#(gobject.GObject): # YS: try to get rid of 32bit gobject f
         self.load()
 
         # Override exec dir
-        #self['execdir'] = get_execdir()
+        self['execdir'] = get_execdir() # YS: resetted to non-hardcoded original version
         #qtlab_path = 'C:\\qtlab-15a460b_notebook'
-        qtlab_path = 'C:\\qkit\qkit\core' # YS: qtlab ripoff now in qkit/core - should not be hardcoded
-        self['execdir'] = qtlab_path
+        #qtlab_path = 'C:\\qkit\qkit\core' # YS: qtlab ripoff now in qkit/core - should not be hardcoded
+        #self['execdir'] = qtlab_path
 
     def load_userconfig(self):
         filename = os.path.join(get_execdir(), 'userconfig.py')
@@ -208,14 +208,16 @@ def create_config(filename):
     _config = Config(filename)
     return _config
 
+_execdir = os.getcwd() # YS: resetted to non-hardcoded original version
+
 def get_execdir():
     '''Get work directory we started in.'''
     
     ### set _execdir
     #os.chdir('C:\\qtlab-15a460b_notebook')
     #_execdir = 'C:\\qtlab-15a460b_notebook'
-    _execdir = 'C:\\qkit\qkit\core' # YS: qtlab ripoff now in qkit/core - should not be hardcoded
+    #_execdir = 'C:\\qkit\qkit\core' # YS: qtlab ripoff now in qkit/core - should not be hardcoded
     
-    #global _execdir
+    global _execdir
     return _execdir
 

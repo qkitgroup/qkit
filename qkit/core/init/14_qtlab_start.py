@@ -1,7 +1,7 @@
 #_cfg = config.create_config('C:\\qtlab-15a460b_notebook\qtlab.cfg')
-_cfg = config.create_config('C:\\qkit\qkit\core\qtlab.cfg') # YS: adapted to new qtlab core
+#_cfg = config.create_config('C:\\qkit\qkit\core\qtlab.cfg') # YS: adapted to new qtlab core
 # YS: this should not be hard coded!
-#_cfg = config.create_config('qtlab.cfg')
+_cfg = config.create_config('qtlab.cfg') # YS: resetted to non-hardcoded original version
 _cfg.load_userconfig()
 _cfg.setup_tempdir()
 print _cfg

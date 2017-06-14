@@ -5,7 +5,7 @@ Work in progress by AS, YS, and HR in the dedicated branch.
 
 ToDo:
     + get the core starting with the qtlab init routine without pygtk
-    - get rid of hardcoded locations in config.py and init/02_qtlab_start.py
+    + get rid of hardcoded locations in config.py and init/02_qtlab_start.py
     + remove gui and other unused code
     + test measurement
     - move source/plot_engines/qtgnuplot somewhere into qkit (used by qkit/measure/timedomain)
@@ -106,3 +106,6 @@ ToDo:
 	YS: removed lib/math folder containing unused fit and peakfind scripts
 	YS: removed unused scripts.py and references to it in qt.py
 	YS: removed lib/com_support,dll_support, and file_support folders providing unused scripts for device communication
+	
+14.06.2017
+	YS: core.lib.config.py and core.init.14_qtlab_start.py: remove hardcoded paths
