@@ -369,15 +369,9 @@ class spectrum(object):
                     if self.progress_bar: self._p.iterate()
                 else:   #with averaging
                     if self.progress_bar: self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime())
-                    if "avg_status" in self.vna.get_function_names():
-                        for a in range(self.vna.get_averages()):
-                            while self.vna.avg_status() <= a:
-                                qt.msleep(.2) #maybe one would like to adjust this at a later point
-                            if self.progress_bar: self._p.iterate()
-                    else: #old style
-                        for a in range(self.vna.get_averages()):
-                            qt.msleep(self.vna.get_sweeptime())      #wait single sweep time
-                            if self.progress_bar: self._p.iterate()
+                    for a in range(self.vna.get_averages()):
+                        qt.msleep(self.vna.get_sweeptime())      #wait single sweep time
+                        if self.progress_bar: self._p.iterate()
 
         data_amp, data_pha = self.vna.get_tracedata()
         data_real, data_imag = self.vna.get_tracedata('RealImag')
