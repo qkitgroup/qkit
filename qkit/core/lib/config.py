@@ -62,6 +62,8 @@ class Config(object):#(gobject.GObject): # YS: try to get rid of 32bit gobject f
         if os.path.exists(filename):
             logging.debug('Loading userconfig from %s', filename)
             execfile(filename, {'config': self})
+        if not os.path.exists(filename):
+            logging.warning('Unable to load userconfig.py') # YS: added to notice mistake of wrong execdir
 
     def setup_tempdir(self):
         '''Get directory for temporary files.'''

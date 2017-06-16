@@ -109,3 +109,9 @@ ToDo:
 	
 14.06.2017
 	YS: core.lib.config.py and core.init.14_qtlab_start.py: remove hardcoded paths
+    
+16.06.2017
+    YS: core.userconfig: removed scriptdirs key
+    YS: init.99_init_user: removed scripts imported
+    YS: changed some startup prints
+    YS: NOTE: %cd C:\qkit\qkit\core required before running qtlab_shell!

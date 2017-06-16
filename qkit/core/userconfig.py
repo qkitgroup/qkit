@@ -39,10 +39,10 @@ config['startdir'] = r'C:\\qkit\qkit\core' # YS: qtlab ripoff now in qkit/core -
 
 # Add directories containing scripts here. All scripts will be added to the
 # global namespace as functions.
-config['scriptdirs'] = [
-		#r'c:\\qtlab_addons\\scripts', # AS: Removed overhauled imports
-		r'c:\\qkit',
-]
+#config['scriptdirs'] = [
+#		#r'c:\\qtlab_addons\\scripts', # AS: Removed overhauled imports
+#		r'c:\\qkit',
+#] # YS: routine no longer available
 
 ## This sets a user instrument directory
 ## Any instrument drivers placed here will take

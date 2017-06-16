@@ -23,10 +23,10 @@ if qt.config['exitscript'] is not None:
             logging.warning('Did not find exitscript "%s", will not be executed', _s)
 
 # Add script directories. Read index and put in namespace
-if qt.config['scriptdirs'] is not None:
-    for dirname in qt.config['scriptdirs']:
-        qt.scripts.add_directory(dirname)
-    qt.scripts.scripts_to_namespace(globals())
+#if qt.config['scriptdirs'] is not None:
+#    for dirname in qt.config['scriptdirs']:
+#        qt.scripts.add_directory(dirname)
+#    qt.scripts.scripts_to_namespace(globals()) # YS: routine no longer available
 
 # Start IPython command logging if requested
 if qt.config['ipython_logfile'] not in (None, ''):

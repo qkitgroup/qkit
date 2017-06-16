@@ -4,7 +4,7 @@
 _cfg = config.create_config('qtlab.cfg') # YS: resetted to non-hardcoded original version
 _cfg.load_userconfig()
 _cfg.setup_tempdir()
-print _cfg
+#print _cfg # YS: does not return any useful information
 
 def _parse_options():
     import optparse
@@ -27,7 +27,7 @@ def _parse_options():
 _parse_options()
 
 # Mark that we're in qtlab
-_cfg['qtlab'] = True
+_cfg['qtlab'] = True # YS: what is it good for?
 
 import types
 from instrument import Instrument
@@ -65,7 +65,7 @@ except:
 
 import time
 # Auto-start GUI
-print qt.config.get('startgui', False)
+print "Starting Gui: "+ str(qt.config.get('startgui', False))
 if qt.config.get('startgui', True):
     #qt.flow.start_gui() # YS: gui no longer used
     qt.mstart()
