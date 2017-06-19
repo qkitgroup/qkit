@@ -24,7 +24,7 @@ def _parse_options():
         _cfg['instance_name'] = args.name
     if args.port:
         _cfg['port'] = args.port
-_parse_options()
+#_parse_options() # YS: does not seem to work when init run from import instead of %run
 
 # Mark that we're in qtlab
 _cfg['qtlab'] = True # YS: what is it good for?
@@ -52,7 +52,6 @@ if False:
     logging.info('psyco acceleration enabled')
 else:
     logging.info('psyco acceleration not enabled')
-
 import qt
 #from qt import plot, plot3, Plot2D, Plot3D, Data # YS: try to get rid of 32bit gobject from pygtk
 
@@ -74,10 +73,9 @@ if qt.config.get('startgui', True):
     
 
 temp.File.set_temp_dir(qt.config['tempdir'])
-
 # change startdir if commandline option is given
-if __startdir__ is not None:
-    qt.config['startdir'] = __startdir__
+#if __startdir__ is not None:
+#    qt.config['startdir'] = __startdir__ # YS: no longer used
 # FIXME: use of __startdir__ is spread over multiple scripts:
 # 1) source/qtlab_client_shell.py
 # 2) init/02_qtlab_start.py

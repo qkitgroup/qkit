@@ -18,6 +18,7 @@
 #import gobject # YS: try to get rid of 32bit gobject from pygtk
 import os
 import sys
+import qkit.core.qcorekit as qckit
 
 # for backward compatibility to python 2.5
 try:
@@ -58,9 +59,11 @@ class Config(object):#(gobject.GObject): # YS: try to get rid of 32bit gobject f
         #self['execdir'] = qtlab_path
 
     def load_userconfig(self):
-        filename = os.path.join(get_execdir(), 'userconfig.py')
+        #filename = os.path.join(get_execdir(), 'userconfig.py')
+        filename = os.path.join(qckit.coredir, 'userconfig.py') # YS: replace relative paths from working directory
         if os.path.exists(filename):
             logging.debug('Loading userconfig from %s', filename)
+            print 'Importing ' + filename + "..."
             execfile(filename, {'config': self})
         if not os.path.exists(filename):
             logging.warning('Unable to load userconfig.py') # YS: added to notice mistake of wrong execdir
@@ -210,7 +213,8 @@ def create_config(filename):
     _config = Config(filename)
     return _config
 
-_execdir = os.getcwd() # YS: resetted to non-hardcoded original version
+#_execdir = os.getcwd() # YS: resetted to non-hardcoded original version
+_execdir = qckit.coredir # YS: temporarily until execdir is completely replaced
 
 def get_execdir():
     '''Get work directory we started in.'''

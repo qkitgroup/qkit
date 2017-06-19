@@ -1,5 +1,6 @@
 import os
 import sys
+import qkit.core.qcorekit as qckit
 
 def insert_in_file_list(entries, entry, ignore_list):
     adddir, addname = entry
@@ -56,8 +57,10 @@ def show_start_help():
         ip.magic('Exit')
 
 def do_start():
-    basedir = os.path.split(os.path.dirname(sys.argv[0]))[0]
-    sys.path.append(os.path.abspath(os.path.join(basedir, 'source')))
+    qckit.coredir = os.path.dirname(qckit.__file__)
+
+    #basedir = os.path.split(os.path.dirname(sys.argv[0]))[0]
+    #sys.path.append(os.path.abspath(os.path.join(basedir, 'source'))) # YS: not used anymore, also refers to deprecated folder hierarchy
 
     ignorelist = []
     i = 1
@@ -80,7 +83,8 @@ def do_start():
         i += 1
 
     #filelist = get_shell_files(os.path.join(basedir, 'init'), ignorelist) # YS: won't find init scripts as now one level less in folder hierarchy
-    filelist = get_shell_files(os.path.join(os.path.dirname(sys.argv[0]), 'init'), ignorelist)
+    #filelist = get_shell_files(os.path.join(os.path.dirname(sys.argv[0]), 'init'), ignorelist)
+    filelist = get_shell_files(os.path.join(qckit.coredir, 'init'), ignorelist) # YS: replace relative paths from working directory
     return filelist
 
 if __name__ == '__main__':
