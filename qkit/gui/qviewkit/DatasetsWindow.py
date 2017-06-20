@@ -104,6 +104,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         widgetList = QApplication.topLevelWidgets()
 
         self.DATA._remove_plot_widgets( closeAll = True)
+        self.DATA.set_info_thread_continue(False)
         event.accept()
     
     @pyqtSlot()

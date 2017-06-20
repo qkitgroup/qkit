@@ -1,0 +1,5 @@
+*.pyc
+qtlab.log
+qtlab.cfg
+data
+tmp
