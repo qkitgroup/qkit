@@ -29,8 +29,8 @@ if not in_pyqt5:
 
 
 import argparse
-
 from PlotWindow import PlotWindow
+from threading import Lock
 
 class DATA(QObject):
     open_plots = {}
@@ -39,7 +39,8 @@ class DATA(QObject):
     ds_tree_items= {}
     ds_cmd_open = {}
     toBe_deleted = []
-
+    lock = Lock()
+    info_thread_continue = True
     "a set of housekeeping functions..."
         
     def append_plot(self,parent,window_id,ds):
@@ -98,6 +99,13 @@ class DATA(QObject):
     def has_dataset(self,ds):
         return self.dataset_info.has_key(ds)
         
+    def set_info_thread_continue(self,On):
+        with self.lock:
+            self.info_thread_continue = On
+    def close_all(self):
+        QApplication.quit()
+
+        
 # Main entry to program.  
 def main(argv):
     
@@ -113,7 +121,8 @@ def main(argv):
     
     parser.add_argument('-rt','--refresh_time', type=float, help='(optional) refresh time')
     parser.add_argument('-sp','--save_plot',  default=False,action='store_true', help='(optional) save default plots')
-    parser.add_argument('-live','--live_plot',default=False,action='store_true', help='(optional) if set, plots are reloaded')    
+    parser.add_argument('-live','--live_plot',default=False,action='store_true', help='(optional) if set, plots are reloaded')
+    parser.add_argument('-qinfo','--qkit_info',default=False,action='store_true', help='(optional) if set, listen to qkit infos')    
     args=parser.parse_args()
     data.args = args
     
@@ -123,6 +132,13 @@ def main(argv):
     if in_pyqt4:
         app = QApplication(argv,True)
     
+    # if activated, start info thread
+    if data.args.qkit_info:
+        from info_subsys import info_thread
+        it = info_thread(data)
+        it.start()
+        
+            
     # create main window
     from DatasetsWindow import DatasetsWindow
     #
