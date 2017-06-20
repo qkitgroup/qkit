@@ -1,5 +1,5 @@
 #from lib.network import object_sharer # YS: try to get rid of 32bit gobject from pygtk
-from lib import temp, lockfile
+from qkit.core.lib import temp, lockfile
 
 qt.flow.register_exit_handler(qt.config._do_save)
 qt.flow.register_exit_handler(qt.flow.close_gui)

@@ -94,5 +94,5 @@ except Exception, e:
 	
 # Other functions should be registered using qt.flow.register_exit_handler
 from lib.misc import register_exit
-import qtflow
+import qtflow as qtflow
 register_exit(qtflow.qtlab_exit)

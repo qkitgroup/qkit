@@ -3,7 +3,7 @@
 
 
 import zmq
-from qkit.core.lib.com.signals import SIGNALS
+from lib.com.signals import SIGNALS
 # reverse the SIGNAL
 RSIGNALS = dict((v,k) for k,v in SIGNALS.iteritems())
 from qkit.config.environment import cfg

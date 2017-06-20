@@ -403,8 +403,8 @@ class Instruments(object):#(SharedGObject): # YS: try to get rid of 32bit gobjec
         Output:
             None
         '''
-
         #self.emit('instrument-changed', sender.get_name(), changes) # YS: try to get rid of 32bit gobject from pygtk
+        pass
 
 _config = get_config()
 _insdir = _set_insdir()

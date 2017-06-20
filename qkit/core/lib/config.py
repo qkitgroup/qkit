@@ -101,6 +101,7 @@ class Config(object):#(gobject.GObject): # YS: try to get rid of 32bit gobject f
             self._config = json.load(f)
             f.close()
         except Exception, e:
+            print 'Unable to load config file'
             logging.warning('Unable to load config file')
             self._config = {}
 
@@ -200,15 +201,18 @@ class Config(object):#(gobject.GObject): # YS: try to get rid of 32bit gobject f
 def get_config():
     '''Get configuration object.'''
     global _config
+    print _config
     if _config is None:
         pname = os.path.split(sys.argv[0])[-1]
         fname = pname + '.cfg'
         _config = create_config(fname)
+        print _config
     return _config
 
 _config = None
 
 def create_config(filename):
+    print str(filename)
     global _config
     _config = Config(filename)
     return _config

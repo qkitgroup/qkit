@@ -115,3 +115,11 @@ ToDo:
     YS: init.99_init_user: removed scripts imported
     YS: changed some startup prints
     YS: NOTE: %cd C:\qkit\qkit\core required before running qtlab_shell!
+    
+19.06.2017
+    YS: write path to core directory into core.qcorekit
+    YS, AS: new runinit script getting rid of the deprecated shell references in qtlab_shell
+    
+20.06.2017
+    YS: fixing bug with global _config variable: only available in the namespace it was first created in!
+    YS: therefore necessary to have very consistent import statements (i.e. no mixing of qkit.core.lib.... and lib....)

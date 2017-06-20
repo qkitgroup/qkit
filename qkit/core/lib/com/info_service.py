@@ -5,7 +5,7 @@
 import zmq
 import time
 
-from qkit.core.lib.com.signals import SIGNALS
+from lib.com.signals import SIGNALS
 from qkit.config.environment import cfg
 
 class info_service(object):
