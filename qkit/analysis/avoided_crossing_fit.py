@@ -490,18 +490,18 @@ class ACF_class():
         Output:
             Plot of input values and input parameters.
         '''
-        dat_cols = ["b", "g", "r", "k", "c"]
-        fct_cols = ["C0", "C2", "C1", "C7", "C4"]
+        dat_cols = np.array(['#0000FF', '#FF0000', '#008000', '#00CCCC', '#FF7F0E', '#CC00CC', '#000000'])
+        fct_cols = np.array(['#0000FF70', '#FF000070', '#00800070', '#00CCCC50', '#FF7F0E50', '#CC00CC50', '#00000050'])
         mrkr = "*"
         if self._flen > len(dat_cols):
-            dat_cols *= self._flen
-            fct_cols *= self._flen
+            dat_cols *= np.ceil(float(self._flen)/float(len(dat_cols)))
+            fct_cols *= np.ceil(float(self._flen)/float(len(dat_cols)))
         
         if (self.xdata is 0) or (self.ydata is 0):
                 print "No data for plot available."
                 return
         for i in range(0, self._xlen):
-            plt.plot(self.xdata[i], self.ydata[i], dat_cols[i] + mrkr)
+            plt.plot(self.xdata[i], self.ydata[i], dat_cols[i], marker = mrkr, linewidth = 0)
         xlin = np.linspace(np.amin(np.concatenate(self.xdata)), np.amax(np.concatenate(self.xdata)), 1000)
         for i in range(self._flen):
             plt.plot(xlin, self.crossing_fct(xlin, pars)[:, i], fct_cols[i])
