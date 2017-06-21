@@ -7,6 +7,8 @@ cfg = {}
 cfg['datadir'] = tempfile.gettempdir()
 cfg['qtlab'] = False
 
+cfg['new_data_structure'] = False
+
 # plot related config settings
 cfg['plot_engine'] = 'qkit.gui.qviewkit.main'
 # message handling related port setting defaults
