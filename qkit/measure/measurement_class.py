@@ -25,8 +25,8 @@ class Measurement(object):
         self.y_axis = ''
         self.z_axis = ''
         self.instruments = None
-        self.user = cfg.get('user','John_Doe').strip().replace(" ","_")
-        self.run_id = cfg.get('run_id','NO_RUN')
+        self.user = qt.config.get('user','John_Doe').strip().replace(" ","_")
+        self.run_id = qt.config.get('run_id','NO_RUN')
 
     def get_JSON(self):
         """
