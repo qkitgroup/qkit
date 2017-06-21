@@ -1,10 +1,14 @@
 #_cfg = config.create_config('C:\\qtlab-15a460b_notebook\qtlab.cfg')
 #_cfg = config.create_config('C:\\qkit\qkit\core\qtlab.cfg') # YS: adapted to new qtlab core
 # YS: this should not be hard coded!
-_cfg = config.create_config('qtlab.cfg') # YS: resetted to non-hardcoded original version
-_cfg.load_userconfig()
-_cfg.setup_tempdir()
-#print _cfg # YS: does not return any useful information
+#_cfg = config.create_config() # YS: resetted to non-hardcoded original version, <coredir>/qckit.cfg now standard (orig: qtlab.cfg)
+# YS: config contains coredir and therefore has to be created at very first init step (10_lockfile)
+
+from qkit.core.lib.config import get_config
+
+_config = get_config()
+_config.load_userconfig()
+_config.setup_tempdir()
 
 def _parse_options():
     import optparse
@@ -19,20 +23,19 @@ def _parse_options():
     args, pargs = parser.parse_args()
     logging.debug('Started with args %r', args)
     if args.nogui:
-        _cfg['startgui'] = False
+        _config['startgui'] = False
     if args.name:
-        _cfg['instance_name'] = args.name
+        _config['instance_name'] = args.name
     if args.port:
-        _cfg['port'] = args.port
+        _config['port'] = args.port
 #_parse_options() # YS: does not seem to work when init run from import instead of %run
 
 # Mark that we're in qtlab
-_cfg['qtlab'] = True # YS: what is it good for?
+_config['qtlab'] = True # YS: what is it good for?
 
 import types
-from instrument import Instrument
-from lib.misc import exact_time, get_ipython
-from lib import temp
+from qkit.core.lib.misc import exact_time, get_ipython
+from qkit.core.lib import temp
 from time import sleep
 
 #set_debug(True)
@@ -46,33 +49,35 @@ from time import sleep
 #    from lib.network import remote_instrument
 #    remote_instrument.InstrumentServer() # YS: try to get rid of 32bit gobject from pygtk
 
-if False:
+if False: # YS: really? you kiddin me?
     import psyco
     psyco.full()
     logging.info('psyco acceleration enabled')
 else:
     logging.info('psyco acceleration not enabled')
-import qt
+import qkit.core.qt as qt
 #from qt import plot, plot3, Plot2D, Plot3D, Data # YS: try to get rid of 32bit gobject from pygtk
 
-from numpy import *
-import numpy as np
+from qkit.core.instrument import Instrument # YS: moved down here as it requires qt but no longer imports it to prevent import loop
+
+from numpy import * # YS: is this still necessary?
+import numpy as np # YS: is this still necessary?
 try:
-    from scipy import constants as const
+    from scipy import constants as const # YS: is this still necessary?
 except:
     pass
 
 import time
 # Auto-start GUI
-print "Starting Gui: "+ str(qt.config.get('startgui', False))
-if qt.config.get('startgui', True):
+print "Starting Gui: "+ str(qckit.config.get('startgui', False))
+if qckit.config.get('startgui', True):
     #qt.flow.start_gui() # YS: gui no longer used
     qt.mstart()
     #qt.msleep(2) # AS: No longer needed.
     qt.mend()
     
 
-temp.File.set_temp_dir(qt.config['tempdir'])
+temp.File.set_temp_dir(qckit.config['tempdir'])
 # change startdir if commandline option is given
 #if __startdir__ is not None:
 #    qt.config['startdir'] = __startdir__ # YS: no longer used
@@ -93,6 +98,6 @@ except Exception, e:
 '''
 	
 # Other functions should be registered using qt.flow.register_exit_handler
-from lib.misc import register_exit
-import qtflow as qtflow
+from qkit.core.lib.misc import register_exit
+import qkit.core.qtflow as qtflow
 register_exit(qtflow.qtlab_exit)

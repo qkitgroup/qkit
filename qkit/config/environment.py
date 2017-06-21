@@ -17,7 +17,7 @@ cfg['ask_host']  = 'localhost' # as above
 # if qtlab is used (qt_cfg exists and qt_cfg['qtlab']): 
 # qkit config entries are overridden by the qtlab ones
 try:
-    from lib.config import get_config
+    from qkit.core.lib.config import get_config
     qt_cfg = get_config()
     in_qt = qt_cfg.get('qtlab', False)
 except ImportError:

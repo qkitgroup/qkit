@@ -22,13 +22,13 @@ import types
 import os
 import logging
 import sys
-import instrument
-from lib.config import get_config
-from insproxy import Proxy
+import qkit.core.instrument as instrument
+from qkit.core.lib.config import get_config
+from qkit.core.insproxy import Proxy
 #from lib.network.object_sharer import SharedGObject # YS: try to get rid of 32bit gobject from pygtk
 
 
-from lib.misc import get_traceback
+from qkit.core.lib.misc import get_traceback
 TB = get_traceback()()
 
 def _set_insdir():

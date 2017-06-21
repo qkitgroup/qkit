@@ -22,16 +22,18 @@ import time
 import math
 import inspect
 from gettext import gettext as _L
-from lib import calltimer
+from qkit.core.lib import calltimer
 #from lib.network.object_sharer import SharedGObject, cache_result  # YS: try to get rid of 32bit gobject from pygtk
 # YS: networking interface is planned to be rewritten
 
 import numpy as np
 import logging
+#import qkit.core.qt as qt # YS: import problems somehow related to an import loop between instrument -> qt -> instruments -> instrument
 import qt
+# YS: this problem can be reproduced with test1.py and test2.py externally.
 
-from lib.config import get_config
-config = get_config()
+from qkit.core.lib.config import get_config
+_config = get_config()
 
 class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject from pygtk
     """
@@ -378,7 +380,7 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
 #            property(lambda: self.get(name), lambda x: self.set(name, x)))
 
         if options['flags'] & self.FLAG_PERSIST:
-            val = config.get('persist_%s_%s' % (self._name, name))
+            val = _config.get('persist_%s_%s' % (self._name, name))
             options['value'] = val
         else:
             options['value'] = None
@@ -787,7 +789,7 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
         executing and return when the get finishes.
         '''
 
-        if config.get('threading_warning', True):
+        if _config.get('threading_warning', True):
             logging.warning('Using threading functions could result in QTLab becoming unstable!')
 
         thread = calltimer.ThreadCall(self.get, *args, **kwargs)
@@ -976,8 +978,8 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
             value = self._get_value(name, **kwargs)
 
         if p['flags'] & self.FLAG_PERSIST:
-            config.set('persist_%s_%s' % (self._name, name), value)
-            config.save()
+            _config.set('persist_%s_%s' % (self._name, name), value)
+            _config.save()
 
         p['value'] = value
         return value

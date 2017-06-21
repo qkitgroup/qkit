@@ -8,6 +8,7 @@ import qkit.core.qcorekit as qckit
 
 #if __name__ == '__main__': # YS: with this statement, the code is only executed if file is run explicitely
 qckit.coredir = os.path.dirname(qckit.__file__)
+#sys.path.append(qckit.coredir)
 
 initdir = os.path.join(qckit.coredir,'init')
 filelist = os.listdir(initdir)

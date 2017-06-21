@@ -1,13 +1,20 @@
-from lib import config, lockfile
+from qkit.core.lib import lockfile
+from qkit.core.lib.config import create_config
 import os
+import sys
 
-#qtlab_path = 'C:\\qtlab-15a460b_notebook'
-#qtlab_path = 'C:\\qkit\qkit\core' # YS: qtlab ripoff now in qkit/core - should not be hardcoded
-print "Execdir: " + config.get_execdir()
-_lockname = os.path.join(config.get_execdir(), 'qtlab.lock')
+_config = create_config()
+
+sys.path.append(_config['coredir']) # YS: necessary to make it run without cd into coredir as the driver files import Instrument from instrument.
+
+_lockname = os.path.join(_config['coredir'], 'qtlab.lock')
 lockfile.set_filename(_lockname)
-del _lockname
+
+del _lockname, _config
+
 msg = "QTlab already running, start with '-f' to force start.\n"
 msg += "Press s<enter> to start anyway or just <enter> to quit."
+
 print '10_lockfile.py: not creating nor checking lockfile !!!'
 #lockfile.check_lockfile(msg)
+del msg

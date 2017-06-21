@@ -1,5 +1,6 @@
 if qt.config['startdir'] is not None:
-    os.chdir(qt.config['startdir'])
+    #os.chdir(qt.config['startdir'])
+    pass
 
 if qt.config['startscript'] is not None:
     _scripts = qt.config['startscript']

@@ -21,7 +21,7 @@
 import logging
 import time
 from gettext import gettext as _L
-from lib.misc import exact_time, get_traceback
+from qkit.core.lib.misc import exact_time, get_traceback
 #from lib.network.object_sharer import SharedGObject # YS: try to get rid of 32bit gobject from pygtk
 import os
 
@@ -264,7 +264,7 @@ class FlowControl(object):#(SharedGObject): # YS: try to get rid of 32bit gobjec
         import qt
 
         curdir = os.getcwd()
-        os.chdir(qt.config['execdir'])
+        #os.chdir(qt.config['execdir'])
 
         args = ['-p', str(qt.config['port']), '--name', qt.config['instance_name']]
         if os.name == 'nt':
@@ -274,7 +274,7 @@ class FlowControl(object):#(SharedGObject): # YS: try to get rid of 32bit gobjec
             args.insert(0, 'qtlabgui')
             pid = os.spawnv(os.P_NOWAIT, 'qtlabgui', args)
 
-        os.chdir(curdir)
+        #os.chdir(curdir)
 
     def close_gui(self):
         logging.info('Emitting close-gui signal')

@@ -200,25 +200,36 @@ class Config(object):#(gobject.GObject): # YS: try to get rid of 32bit gobject f
 
 def get_config():
     '''Get configuration object.'''
-    global _config
-    print _config
-    if _config is None:
-        pname = os.path.split(sys.argv[0])[-1]
-        fname = pname + '.cfg'
-        _config = create_config(fname)
+    #global _config
+    #print _config
+    #if _config is None:
+    if not 'config' in dir(qckit):
+        #pname = os.path.split(sys.argv[0])[-1] # YS: when does it make sense to name the config after the script that created it?
+        # YS: does not work anyways when executed from within jupyter notebook as scripts are run with "-c" option, resulting in "-c.cfg"
+        #fname = pname + '.cfg'
+        #_config = create_config(fname)
+        _config = create_config(None)
         print _config
+    else:
+        _config = qckit.config # YS: move global _config variable into qckit container
     return _config
 
-_config = None
+#_config = None # YS: move global _config variable into qckit container
 
-def create_config(filename):
-    print str(filename)
-    global _config
-    _config = Config(filename)
-    return _config
-
+def create_config(filename=None):
+    coredir = os.path.dirname(qckit.__file__)
+    if filename == None:
+        filename = os.path.join(coredir,"qckit.cfg")
+    #global _config
+    #_config = Config(filename)
+    qckit.config = Config(filename)
+    qckit.config['coredir'] = coredir
+    print "Config at " + str(filename)
+    #return _config
+    return qckit.config # YS: move global _config variable into qckit container
+    
 #_execdir = os.getcwd() # YS: resetted to non-hardcoded original version
-_execdir = qckit.coredir # YS: temporarily until execdir is completely replaced
+_execdir = os.path.dirname(qckit.__file__) # YS: temporarily until execdir is completely replaced
 
 def get_execdir():
     '''Get work directory we started in.'''

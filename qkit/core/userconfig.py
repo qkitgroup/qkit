@@ -53,7 +53,7 @@ config['user_insdir'] = r'c:\\qkit\\qkit\\instruments'
 ## so python can find your modules
 import sys
 #sys.path.append(r'c:\\qtlab_addons\\scripts') AS: Removed overhauled imports
-sys.path.append(r'c:\\qkit') # AS: Is this still necessary? qkit path should be an environment variable anyways
+#sys.path.append(r'c:\\qkit') # AS: Is this still necessary? qkit path should be an environment variable anyways
 #sys.path.append('d:/folder2')
 
 # Whether to start the GUI automatically

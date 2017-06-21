@@ -13,6 +13,8 @@ ToDo:
     - include installation requirements into the qkit README (see old readme_012015.txt in comment to github issue)
     - rewrite the communication part
     - cleanup of unused code
+    - check for global variables and move into qckit container (done for _config, what about _instruments?)
+    - create userconfig_local.py
     + reorganize folder structure
     - qtlab -> qkit_core (qt. -> qc.)
     - implement new basic gui showing the (measurement)status and settings
@@ -121,5 +123,14 @@ ToDo:
     YS, AS: new runinit script getting rid of the deprecated shell references in qtlab_shell
     
 20.06.2017
-    YS: fixing bug with global _config variable: only available in the namespace it was first created in!
+    YS: fixing bug with global _config variable: only available in the storage it was first created in!
     YS: therefore necessary to have very consistent import statements (i.e. no mixing of qkit.core.lib.... and lib....)
+
+21.06.2017
+    YS: move config into qckit.config
+    YS: import problems when importing qkit.core.qt as qt in instrument
+    YS: therefore in instrument still import qt (is found as in same dir as script)
+    YS: related to import loop problem? reproducible externally with test1.py and test2.py importing eachother "as"
+    YS: remove chdir in 99_init_user
+    YS: add coredir to sys.path as otherwise drivers don't find their import "from instrument import Instrument"
+    YS: imports have to be refurbished! workaround for this import loop? somehow possible to hand over qt from global storage into instrument?
