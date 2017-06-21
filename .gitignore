@@ -1,2 +1,3 @@
 *.pyc
 qkit/analysis/.ipynb_checkpoints
+qkit/core/userconfig.py
