@@ -3,10 +3,13 @@
 Created 2015
 
 @author: hrotzing
+
+Modified 2017 by S1
 """
 import time
 import os
 from qkit.config.environment import cfg
+import logging
 
 class DateTimeGenerator(object):
     '''
@@ -16,6 +19,25 @@ class DateTimeGenerator(object):
 
     def __init__(self):
         pass
+        
+    def new_filename(self, data_obj):
+        if cfg['new_data_structure']: return self.new_filename_v2(data_obj)
+        else:  return self.new_filename_v1(data_obj)
+        
+    def new_filename_v2(self, data_obj):
+            '''Return a new filename, based on name and timestamp.'''
+            filename = '%s_%s' % (data_obj._uuid, data_obj._name)
+            
+            if not cfg.has_key('user') or not cfg.has_key('run_id'):
+                logging.warning(__name__+": cfg['user'] or cfg['run_id'] is not set. Using defaults. Have fun searching your data.")
+            
+            return os.path.join(
+                        cfg['datadir'],
+                        cfg.get('run_id','NO_RUN'),
+                        cfg.get('user','John_Doe').strip().replace(" ","_"),
+                        filename,
+                        filename+'.h5'
+                        )
 
     def create_data_dir(self, datadir, name=None, ts=None, datesubdir=True, timesubdir=True):
         '''
@@ -45,7 +67,7 @@ class DateTimeGenerator(object):
 
         return path
 
-    def new_filename(self, data_obj):
+    def new_filename_v1(self, data_obj):
         '''Return a new filename, based on name and timestamp.'''
 
         dir = self.create_data_dir(cfg['datadir'], name=data_obj._name,

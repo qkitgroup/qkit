@@ -25,6 +25,8 @@ from instrument import Instrument
 import types
 import socket
 import logging
+import time
+import numpy
 
 class Caen_FAST_PS(Instrument):
     '''
@@ -328,7 +330,7 @@ class Caen_FAST_PS(Instrument):
         if recv == self._ak_str: return True
         else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
     
-    def ramp_current(self, current, ramp_rate = False):
+    def ramp_current(self, current, ramp_rate = False, wait = True):
         '''
         Ramps current with given rate
         
@@ -342,7 +344,14 @@ class Caen_FAST_PS(Instrument):
         if ramp_rate: self.do_set_current_ramp_rate(ramp_rate)
         logging.debug(__name__ + ' : ramp current to %s' %current)
         recv = self._ask('MWIR:%s' %current)
-        if recv == self._ak_str: return True
+        if recv == self._ak_str: 
+            if not wait:
+                return True
+            else:
+                while not numpy.allclose(self.get_setcurrent(),current):
+                    time.sleep(1)
+                time.sleep(0.5)
+                return True
         else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
     
     def ramp_voltage(self, voltage, ramp_rate = False):

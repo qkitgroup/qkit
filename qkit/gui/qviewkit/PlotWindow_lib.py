@@ -519,6 +519,7 @@ def _display_text(self,graphicsView):
                 txt += instrument + ':\n      '
                 for parameter in sorted(instruments[instrument]):
                     txt += str(parameter) + ":   " + str(instruments[instrument][parameter]['content'])+"\n      "
+                txt = txt[:-3]
     graphicsView.insertPlainText(txt.rstrip())
 
 def _display_string(graphicsView, ds):
