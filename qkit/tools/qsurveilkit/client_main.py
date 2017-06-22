@@ -34,6 +34,7 @@ import time
 from math import log10
 
 import numpy as np
+from scipy.signal import medfilt as medfilter
 
 import rpyc
 
@@ -187,13 +188,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         for p in [self.data.pLL,self.data.pMC]:
             #remove error entries from values
             for i in range(1,len(p.values)-1):
-                if len(p.values[i-5:i]) > 0 and len(p.values[i+1:i+6]) > 0:
-                    vmean1 = np.mean(p.values[i-5:i])
-                    vmean2 = np.mean(p.values[i+1:i+6])
-                    if np.abs(log10(p.values[i] / vmean1)) > 2 and np.abs(log10(vmean2 / p.values[i])) > 2:
-                        #if jumps detected collecting more than 5 orders of magnitude back and forth
-                        p.values[i] = vmean1
-                        if self.data.debug: print 'runaway detected in %s'%p.attribute_name
+                if len(p.values[i-4:i]) > 0 and len(p.values[i+1:i+5]) > 0:
+                    median = np.sort(p.values[i-4:i+5])[int(0.5*len(p.values[i-4:i+5]))]
+                    if np.abs(log10(p.values[i] / median)) > 6 and np.abs(log10(p.values[i] / p.values[i-1])) > 6:
+                        #if jumps detected collecting more than 5 orders of magnitude back or forth
+                        p.values[i] = median
+                        if self.data.debug: print 'runaway detected in {:s}, segment #{:d}'.format(p.attribute_name,i)
             p.graph.plt.setData(x=np.array((p.timestamps-time.time())/3600), y=p.values)
             self._autorange_plots()
             self._update_labels()
