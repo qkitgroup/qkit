@@ -60,8 +60,8 @@ class Config(object):#(gobject.GObject): # YS: try to get rid of 32bit gobject f
 
     def load_userconfig(self):
         #filename = os.path.join(get_execdir(), 'userconfig.py')
-        filename_default = os.path.join(qckit.coredir, 'userconfig.py') # YS: replace relative paths from working directory
-        filename_local = os.path.join(qckit.coredir, 'userconfig_local.py')
+        filename_default = os.path.join(self['coredir'], 'userconfig.py') # YS: replace relative paths from working directory
+        filename_local = os.path.join(self['coredir'], 'userconfig_local.py')
         if os.path.exists(filename_local):
             logging.debug('Loading local userconfig from %s', filename_local)
             print 'Importing local userconfig from' + filename_local + "..."
