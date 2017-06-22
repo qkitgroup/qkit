@@ -1,4 +1,4 @@
-In the future, this folder will contain the new qkit core derived from qtlab.
+	In the future, this folder will contain the new qkit core derived from qtlab.
 The goal of this is to make qkit standalone.
 
 Work in progress by AS, YS, and HR in the dedicated branch.
@@ -137,3 +137,4 @@ ToDo:
     
 22.06.2017
     YS: implemented local userconfig file userconfig_local.py, which is not synced
+	MP: removed fixed IPs from default userconfig
