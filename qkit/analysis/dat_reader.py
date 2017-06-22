@@ -99,7 +99,7 @@ def find_latest_file(ftype=None):
     data_dir_config = 'd:/qkit/qkit/analysis/data/'
     '''
     
-    if ftype == None:
+    if ftype is None:
         ftype = 'h5'
     
     if no_qt:
@@ -162,7 +162,7 @@ def read_hdf_data(nfile,entries=None, show_output=True):
     url_tree = '/entry/data0/'
     urls = []
     
-    if entries == None:   #no entries specified
+    if entries is None:   #no entries specified
         for k in keys:   #go through all keys
             try:
                 if str(k[:4]).lower() == 'freq' or str(k[:2]).lower() == 'f ' or str(k[:4]).lower() == 'puls' or str(k[:4]).lower() == 'dacf' or str(k[:5]).lower() == 'delay' or str(k[:8  ]).lower() == 'pi pulse':
@@ -292,10 +292,10 @@ def _fill_p0(p0,ps):
     fill estimated p0 with specified initial values (in ps)
     '''
     
-    if ps != None:
+    if ps is not None:
         try:
             for n in range(len(ps)):
-                if ps[n] != None:
+                if ps[n] is not None:
                     p0[n] = ps[n]
         except Exception as m:
             logging.error('list of given initial parameters invalid...aborting')
@@ -426,13 +426,13 @@ def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,fit_type,fit_pa
         hdf_covariance = hf.add_value_vector('dr_covariance',folder=folder)
         hdf_covariance.append(np.array(fit_covariance))
         
-        if data_opt != None:
+        if data_opt is not None:
             #create optimized data entry
             hdf_data_opt = hf.add_value_vector('data_opt', folder=folder, x = hf.get_dataset(x_url))
             hdf_data_opt.append(np.array(data_opt))
         
         #create joint view
-        if data_opt != None:
+        if data_opt is not None:
             joint_view = hf.add_view(entryname_vector+'_do', x = hdf_x, y = hdf_y)   #fit
             joint_view.add(x = hf.get_dataset(x_url), y = hdf_data_opt)   #data
         else:
@@ -492,9 +492,7 @@ def save_errorbar_plot(fname,fvalues,ferrs,x_url,fit_url=None,entryname_coordina
         #joint view including fvalues and errors ferrs
         joint_error_view = hf.add_view('err_view', x = ds_x, y = hdf_y, error = hdf_error)
         
-        
-        
-        if fit_url != None:
+        if fit_url is not None:
             #create joint view with fit data if existing
             joint_error_view_fit = hf.add_view('err_view_fit', x = ds_x, y = hdf_y, error = hdf_error)   #errorplot
             joint_error_view_fit.add(x = hf.get_dataset('/entry/analysis0/param'), y = hf.get_dataset(fit_url))   #fit
