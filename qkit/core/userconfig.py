@@ -46,7 +46,7 @@ config['startdir'] = r'C:\\qkit\qkit\core' # YS: qtlab ripoff now in qkit/core -
 ## This sets a user instrument directory
 ## Any instrument drivers placed here will take
 ## preference over the general instrument drivers
-config['user_insdir'] = r'c:\\qkit\\qkit\\instruments'
+#config['user_insdir'] = r'c:\\qkit\\qkit\\instruments'
 
 ## For adding additional folders to the 'systm path'
 ## so python can find your modules

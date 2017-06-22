@@ -8,6 +8,7 @@ ToDo:
     + get rid of hardcoded locations in config.py and init/02_qtlab_start.py
     + remove gui and other unused code
     + test measurement
+    - revise what has to be removed from .cfg on startup (user_insdir?)
     - move source/plot_engines/qtgnuplot somewhere into qkit (used by qkit/measure/timedomain)
       or switch timedomain to qviewkit
     - include installation requirements into the qkit README (see old readme_012015.txt in comment to github issue)
@@ -140,3 +141,5 @@ ToDo:
     YS: replace import qt in instruments by directly imported get_flowcontrol from qtflow
     YS: remove deprecated instrument_plugins path from instruments and sys.path
 	MP: remove fixed IPs in userconfig.py
+    YS: added reference to qkit rootdir into config
+    YS: set user_insdir as default insdir in instruments and deactivate user_insdir in userconfig.py
