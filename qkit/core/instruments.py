@@ -32,10 +32,10 @@ from qkit.core.lib.misc import get_traceback
 TB = get_traceback()()
 
 def _set_insdir():
-    dir = os.path.join(_config['execdir'], 'instrument_plugins')
-    sys.path.append(dir)
-    return dir
-    #pass # YS: no longer used
+    #dir = os.path.join(_config['execdir'], 'instrument_plugins')
+    #sys.path.append(dir)
+    #return dir
+    pass # YS: _insdir no longer used, pointed to deprecated core.instrument_plugin folder
 
 def _set_user_insdir():
     '''
@@ -59,8 +59,9 @@ def _set_user_insdir():
     if sys.path.count(absdir) != 0:
         return absdir
     else:
-        idx = sys.path.index(_insdir)
-        sys.path.insert(idx, absdir)
+        #idx = sys.path.index(_insdir)
+        #sys.path.insert(idx, absdir)
+        sys.path.append(absdir) # YS: _insdir no longer used, pointed to deprecated core.instrument_plugin folder
         return absdir
 
 def _get_driver_module(name, do_reload=False):
@@ -188,12 +189,12 @@ class Instruments(object):#(SharedGObject): # YS: try to get rid of 32bit gobjec
         Return list of supported instrument types
         '''
         ret = []
-        filelist = os.listdir(_insdir)
-        for path_fn in filelist:
-            path, fn = os.path.split(path_fn)
-            name, ext = os.path.splitext(fn)
-            if ext == '.py' and name != "__init__" and name[0] != '_':
-                ret.append(name)
+        #filelist = os.listdir(_insdir)
+        #for path_fn in filelist:
+        #    path, fn = os.path.split(path_fn)
+        #    name, ext = os.path.splitext(fn)
+        #    if ext == '.py' and name != "__init__" and name[0] != '_':
+        #        ret.append(name) # YS: _insdir no longer used, pointed to deprecated core.instrument_plugin folder
 
         if _user_insdir is not None:
             filelist = os.listdir(_user_insdir)
@@ -207,14 +208,19 @@ class Instruments(object):#(SharedGObject): # YS: try to get rid of 32bit gobjec
         return ret
 
     def type_exists(self, typename):
-        driverfn = os.path.join(_insdir, '%s.py' % typename)
-        if os.path.exists(driverfn):
-            return True
+        #driverfn = os.path.join(_insdir, '%s.py' % typename)
+        #if os.path.exists(driverfn):
+        #    return True
+        #if _user_insdir is None:
+        #    return False
+        #driverfn = os.path.join(_user_insdir, '%s.py' % typename)
+        #return os.path.exists(driverfn)
         if _user_insdir is None:
             return False
-        driverfn = os.path.join(_user_insdir, '%s.py' % typename)
-        return os.path.exists(driverfn)
-
+        else:
+            driverfn = os.path.join(_user_insdir, '%s.py' % typename)
+            return os.path.exists(driverfn) # YS: _insdir no longer used, pointed to deprecated core.instrument_plugin folder
+        
     def get_type_arguments(self, typename):
         '''
         Return info about the arguments of the constructor of 'typename'.
@@ -408,7 +414,7 @@ class Instruments(object):#(SharedGObject): # YS: try to get rid of 32bit gobjec
         pass
 
 _config = get_config()
-_insdir = _set_insdir() # YS: no longer used
+#_insdir = _set_insdir() # YS: _insdir no longer used, pointed to deprecated core.instrument_plugin folder
 _user_insdir = _set_user_insdir()
 
 _instruments = None
