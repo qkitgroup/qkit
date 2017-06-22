@@ -139,3 +139,4 @@ ToDo:
     YS: implemented local userconfig file userconfig_local.py, which is not synced
     YS: replace import qt in instruments by directly imported get_flowcontrol from qtflow
     YS: remove deprecated instrument_plugins path from instruments and sys.path
+	MP: remove fixed IPs in userconfig.py
