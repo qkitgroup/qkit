@@ -17,8 +17,7 @@ config['port'] = 12002
 
 # A list of allowed IP ranges for remote connections
 config['allowed_ips'] = (
-	'172.22.197.*',
-	'10.22.197.*',
+
 )
   
 # Start instrument server to share with instruments with remote QTLab?
