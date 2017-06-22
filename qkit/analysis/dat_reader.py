@@ -588,6 +588,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         data_c = 1
         x_url = None
     else:
+        x_url = None
         #load data
         data, nfile, urls = load_data(file_name, entries, show_output)
         if urls:
@@ -612,6 +613,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         pha_gr = np.gradient(pha_tilt_corrected)
         if not spline_order: spline_order = 1.e-3   #set default for spline smoothing
         data[data_c] = spline_smooth_data(data[0],pha_gr,spline_order)
+        spline_order = None
     
     #set default to frequency conversion factor
     freq_conversion_factor = 1
@@ -623,7 +625,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         data_c = 1   #revoke choice in data column when using data optimizer (JB)
         data = do.optimize(data,data_c,data_c+1)
         
-    if spline_order != None:
+    if spline_order is not None:
         try:
             data[data_c] = spline_smooth_data(data[0],data[data_c],spline_order)
             print 'spline smoothing applied'
@@ -650,7 +652,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         x_vec = np.linspace(data[0][0]*freq_conversion_factor,data[0][-1]*freq_conversion_factor,500)
     
         #start parameters ----------------------------------------------------------------------
-        s_offs = np.mean(np.array([data[data_c,:int(np.size(data,1)/10)],data[data_c,np.size(data,1)-int(np.size(data,1)/10):]])) #offset is calculated from the first and last 10% of the data to improve fitting on tight windows @andre20150318
+        s_offs = np.mean(np.append(data[data_c][:int(0.1*len(data[data_c]))],data[data_c][int(0.9*len(data[data_c])):])) #offset is calculated from the first and last 10% of the data to improve fitting on tight windows @andre20150318
         if np.abs(np.max(data[data_c]) - np.mean(data[data_c])) > np.abs(np.min(data[data_c]) - np.mean(data[data_c])):
             #expect a peak
             if show_output:
@@ -894,8 +896,8 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         if show_output: logging.warning('Figure not stored.')
     except Exception as m:
         if show_output: logging.error('Figure not stored: '+str(m))
-        
-    if pcov != None and nfile!= None and nfile[-2:] == 'h5' and x_url != None:   #in case fit was successful
+
+    if pcov is not None and nfile is not None and x_url is not None and nfile[-2:] == 'h5':   #in case fit was successful
         data_opt = None
         if opt:
             data_opt = data[data_c]
@@ -910,7 +912,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     if show_plot: plt.show()
     plt.close('dat_reader')
     
-    if pcov == None:
+    if pcov is None:
         return popt,float('inf')*np.ones(len(popt)) #fill up errors with 'inf' in case fit did not converge
     else:
         return popt,np.sqrt(np.diag(pcov))
