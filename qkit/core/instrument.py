@@ -29,8 +29,11 @@ from qkit.core.lib import calltimer
 import numpy as np
 import logging
 #import qkit.core.qt as qt # YS: import problems somehow related to an import loop between instrument -> qt -> instruments -> instrument
-import qt
+#import qt
 # YS: this problem can be reproduced with test1.py and test2.py externally.
+from qkit.core.qtflow import get_flowcontrol
+flow = get_flowcontrol()
+msleep = flow.measurement_idle # YS: instead of importing qt, import the required tools from qtflow directly
 
 from qkit.core.lib.config import get_config
 _config = get_config()
@@ -780,7 +783,8 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
 
         if len(changed) > 0 and query:
             self._queue_changed(changed)
-        qt.msleep()
+        #qt.msleep()
+        msleep() # YS: instead of importing qt, import the required tools from qtflow directly
         return result
 
     def get_threaded(self, *args, **kwargs):
@@ -801,7 +805,8 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
             isalive = thread.isAlive
 
         while isalive():
-            qt.flow.run_mainloop(0.005)
+            #qt.flow.run_mainloop(0.005)
+            flow.run_mainloop(0.005) # YS: instead of importing qt, import the required tools from qtflow directly
 
         return thread.get_return_value()
 
@@ -1035,7 +1040,8 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
 
         if not fast and len(changed) > 0:
             self._queue_changed(changed)
-        qt.msleep()
+        #qt.msleep()
+        msleep() # YS: instead of importing qt, import the required tools from qtflow directly
         return result
 
     def update_value(self, name, value):
