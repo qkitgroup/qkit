@@ -134,3 +134,6 @@ ToDo:
     YS: remove chdir in 99_init_user
     YS: add coredir to sys.path as otherwise drivers don't find their import "from instrument import Instrument"
     YS: imports have to be refurbished! workaround for this import loop? somehow possible to hand over qt from global storage into instrument?
+    
+22.06.2017
+    YS: implemented local userconfig file userconfig_local.py, which is not synced

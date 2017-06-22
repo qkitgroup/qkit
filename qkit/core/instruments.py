@@ -35,6 +35,7 @@ def _set_insdir():
     dir = os.path.join(_config['execdir'], 'instrument_plugins')
     sys.path.append(dir)
     return dir
+    #pass # YS: no longer used
 
 def _set_user_insdir():
     '''
@@ -407,7 +408,7 @@ class Instruments(object):#(SharedGObject): # YS: try to get rid of 32bit gobjec
         pass
 
 _config = get_config()
-_insdir = _set_insdir()
+_insdir = _set_insdir() # YS: no longer used
 _user_insdir = _set_user_insdir()
 
 _instruments = None

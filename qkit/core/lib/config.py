@@ -60,12 +60,17 @@ class Config(object):#(gobject.GObject): # YS: try to get rid of 32bit gobject f
 
     def load_userconfig(self):
         #filename = os.path.join(get_execdir(), 'userconfig.py')
-        filename = os.path.join(qckit.coredir, 'userconfig.py') # YS: replace relative paths from working directory
-        if os.path.exists(filename):
-            logging.debug('Loading userconfig from %s', filename)
-            print 'Importing ' + filename + "..."
-            execfile(filename, {'config': self})
-        if not os.path.exists(filename):
+        filename_default = os.path.join(qckit.coredir, 'userconfig.py') # YS: replace relative paths from working directory
+        filename_local = os.path.join(qckit.coredir, 'userconfig_local.py')
+        if os.path.exists(filename_local):
+            logging.debug('Loading local userconfig from %s', filename_local)
+            print 'Importing local userconfig from' + filename_local + "..."
+            execfile(filename_local, {'config': self})
+        elif os.path.exists(filename_default):
+            logging.debug('Loading default userconfig from %s', filename_default)
+            print 'Importing default userconfig from ' + filename_default + "..."
+            execfile(filename_default, {'config': self})
+        else:
             logging.warning('Unable to load userconfig.py') # YS: added to notice mistake of wrong execdir
 
     def setup_tempdir(self):
