@@ -68,7 +68,6 @@ class h5plot(object):
         self.filedir  = os.path.dirname(filepath)   #return directory component of the given pathname, here filepath
 
         self.image_dir = os.path.join(self.filedir,'images')
-        print self.image_dir
         try:
             os.mkdir(self.image_dir)
         except OSError:
@@ -82,11 +81,15 @@ class h5plot(object):
         for i, pentry in enumerate(self.hf['/entry'].keys()):
             key='/entry/'+pentry
             for j, centry in enumerate(self.hf[key].keys()):
-                self.key='/entry/'+pentry+"/"+centry
-                self.ds = self.hf[self.key]
-                if self.ds.attrs.get('save_plot', True):
-                    self.plt()
-
+                try:
+                    self.key='/entry/'+pentry+"/"+centry
+                    self.ds = self.hf[self.key]
+                    if self.ds.attrs.get('save_plot', True):
+                        self.plt()
+                except Exception as e:
+                    print "Exception in qkit/gui/plot/plot.py while plotting"
+                    print self.key
+                    print e
         #close hf file
         self.hf.close()
         print 'Plots saved in', self.image_dir
@@ -101,6 +104,7 @@ class h5plot(object):
 
         self.fig = Figure(figsize=(20,10),tight_layout=True)
         self.ax = self.fig.gca()
+        self.ax.set_title(self.hf._filename[:-3])
         self.canvas = FigureCanvas(self.fig)
 
         if self.ds_type == ds_types['coordinate']:
@@ -151,16 +155,15 @@ class h5plot(object):
         dataset is only one-dimensional
         print data vs. x-coordinate
         """
+        self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
+        self.data_y = np.array(self.ds)
+        self.y_label = self.ds_label
         try:
             self.x_ds = self.hf[self.x_ds_url]
             self.x_label = self.x_ds.attrs.get('name','_xname_')+' / '+self.x_ds.attrs.get('unit','_xunit_')
         except Exception:
-            self.x_ds = None
+            self.x_ds = np.arange(len(self.data_y))
             self.x_label = '_none_ / _none_'
-        
-        self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
-        self.data_y = np.array(self.ds)
-        self.y_label = self.ds_label
         if len(self.data_y) == 1: #only one entry, print as cross
             plt_style = 'x'
         else:
