@@ -105,8 +105,9 @@ class DATA(object):
                         timestamp_chunks = np.array(np.split(timestamps_requested[:(len(timestamps_requested)-len(timestamps_requested)%nchunks)],nchunks))
                         timestamps = timestamp_chunks[:,int(0.5*len(timestamps_requested)/nchunks)]
                         data_chunks = np.array(np.split(data_points_requested[:(len(data_points_requested)-len(data_points_requested)%nchunks)],nchunks))
-                        values = np.mean(data_chunks,axis=1)
-                        return [timestamps,values]
+                        #calculate medians and return them instead of the mean (due to runaways in the log file)
+                        medians = np.sort(data_chunks,axis=-1)[:,int(0.5*len(data_points_requested)/nchunks)]
+                        return [timestamps,medians]
                     else:
                         return [timestamps_requested,data_points_requested]
                     
