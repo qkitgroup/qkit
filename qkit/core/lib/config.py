@@ -229,6 +229,7 @@ def create_config(filename=None):
     #_config = Config(filename)
     qckit.config = Config(filename)
     qckit.config['coredir'] = coredir
+    qckit.config['rootdir'] = os.path.split(coredir)[0]
     print "Config at " + str(filename)
     #return _config
     return qckit.config # YS: move global _config variable into qckit container
