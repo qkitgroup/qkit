@@ -234,12 +234,19 @@ class hdf_dataset(object):
             self.ds_ts.attrs.create("x0",self.ds.attrs.get('x0', 0))
             self.ds_ts.attrs.create("dx",self.ds.attrs.get('dx', 1))
             self.ds_ts.attrs.create('ds_type', ds_types['vector'])
+            self.ds_ts.attrs.create("x_ds_url",self.ds.attrs.get('x_ds_url', ''))
         if self.ds_type == ds_types['box']:
-            self.ds_ts.attrs.create('ds_type', ds_types['matrix'])            
+            self.ds_ts.attrs.create('ds_type', ds_types['matrix'])    
+            self.ds_ts.attrs.create("x_name",self.ds.attrs.get('x_name', 'entry_num'))
+            self.ds_ts.attrs.create("x_unit",self.ds.attrs.get('x_unit', ''))
+            self.ds_ts.attrs.create("x0",self.ds.attrs.get('x0', 0))
+            self.ds_ts.attrs.create("dx",self.ds.attrs.get('dx', 1))
+            self.ds_ts.attrs.create("x_ds_url",self.ds.attrs.get('x_ds_url', ''))
             self.ds_ts.attrs.create("y_name",self.ds.attrs.get('y_name', 'y_entry_num'))
             self.ds_ts.attrs.create("y_unit",self.ds.attrs.get('y_unit', ''))
             self.ds_ts.attrs.create("y0",self.ds.attrs.get('y0', 0))
             self.ds_ts.attrs.create("dy",self.ds.attrs.get('dy', 1))
+            self.ds_ts.attrs.create("y_ds_url",self.ds.attrs.get('y_ds_url', ''))
     """
     def __getitem__(self, name):
         return self.hf[name]
