@@ -187,12 +187,12 @@ class ACF_class():
         '''
         self.set_xdata(x)
         self.set_ydata(y)
-        if f is not None:
+        if f != None:
             self.set_functions(f)
-        else:
+        elif self.functions == 0:
             print "Default functions set to constant_line and straight_line.\n"
             self.set_functions(self.constant_line, self.straight_line)
-        if p0 is not None:
+        if p0 != None:
             self.set_init_pars(p0)
         
         self._validity_check()
