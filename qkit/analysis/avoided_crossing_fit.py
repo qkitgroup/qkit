@@ -429,7 +429,6 @@ class ACF_class():
         
         fit_results = so.leastsq(self._least_square_val, self.p0, full_output = True)
         self.fit_pars, self.cov_mat = fit_results[0], fit_results[1]
-        print np.diag(self.cov_mat)**0.5
         # Multiply covariance matrix with reduced chi squared to get standard deviation.
         if self.cov_mat is not None:
             self.cov_mat *= (sum(self._least_square_val(self.fit_pars)**2)/
