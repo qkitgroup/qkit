@@ -517,6 +517,7 @@ class ACF_class():
             This is useful to find good initial values for the fit.
         '''
         self._check_p0()
+        self._sort()
         self._plot(self._reshape(self.p0))
         return
     
