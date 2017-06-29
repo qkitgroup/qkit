@@ -429,13 +429,12 @@ class ACF_class():
         
         fit_results = so.leastsq(self._least_square_val, self.p0, full_output = True)
         self.fit_pars, self.cov_mat = fit_results[0], fit_results[1]
-        
+        print np.diag(self.cov_mat)**0.5
         # Multiply covariance matrix with reduced chi squared to get standard deviation.
         if self.cov_mat is not None:
             self.cov_mat *= (sum(self._least_square_val(self.fit_pars)**2)/
                              (len(np.concatenate(self.xdata)) - float(len(self.p0))))
-        # Check if covariance matrix calculation was successful.
-        if self.cov_mat is not None:
+            # Calculate standard deviation
             self.std_dev = np.abs(np.diag(self.cov_mat))**0.5
         else:
             print "Covariance matrix could not be calculated."
