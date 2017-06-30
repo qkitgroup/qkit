@@ -76,7 +76,7 @@ class Caen_FAST_PS(Instrument):
             flags=Instrument.FLAG_GETSET, type=types.StringType)
 
         self.add_parameter('current_ramp_rate',
-            flags=Instrument.FLAG_GETSET, units='A/s', minval=-10, maxval=10, type=types.FloatType)
+            flags=Instrument.FLAG_GETSET, units='A/s', minval=2e-4, maxval=10, type=types.FloatType)
 
         self.add_parameter('voltage_ramp_rate',
             flags=Instrument.FLAG_GETSET, units='A/s', minval=-10, maxval=10, type=types.FloatType)
@@ -349,7 +349,7 @@ class Caen_FAST_PS(Instrument):
                 return True
             else:
                 while not numpy.allclose(self.get_setcurrent(),current):
-                    time.sleep(1)
+                    time.sleep(0.1)
                 time.sleep(0.5)
                 return True
         else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
