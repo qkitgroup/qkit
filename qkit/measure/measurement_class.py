@@ -5,6 +5,7 @@ import logging
 import json
 import os, copy
 import qt
+from qkit.config.environment import cfg
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
 from qkit.measure.samples_class import Sample
 
@@ -25,8 +26,8 @@ class Measurement(object):
         self.y_axis = ''
         self.z_axis = ''
         self.instruments = None
-        self.user = qt.config.get('user','John_Doe').strip().replace(" ","_")
-        self.run_id = qt.config.get('run_id','NO_RUN')
+        self.user = cfg.get('user','John_Doe').strip().replace(" ","_")
+        self.run_id = cfg.get('run_id','NO_RUN')
 
     def get_JSON(self):
         """
