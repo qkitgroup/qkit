@@ -4,7 +4,7 @@
 import logging
 import json
 import os, copy
-import qt
+import qkit.core.qt as qt
 from qkit.config.environment import cfg
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
 from qkit.measure.samples_class import Sample
