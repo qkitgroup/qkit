@@ -40,10 +40,10 @@ Qkit -- a quantum measurement suite in python
 
 ### Developed since 2015 at KIT by
 J.C. Braumueller  
-J. Brehm 
+J. Brehm  
 M. Pfirrmann  
 S. Probst  
-A. Schneider 
-Y. Schön
-A. Stehli
-H. Rotzinger
+A. Schneider   
+Y. Schön  
+A. Stehli  
+H. Rotzinger  
