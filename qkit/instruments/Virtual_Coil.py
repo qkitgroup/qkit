@@ -47,7 +47,7 @@ else:
     IVVI = qt.instruments.get('IVVI')
 
 DAC_ROUT = [5]   #dac port(s) to be used, passed as a list during instanciating
-dac_val = {'20m':1.30103,'10m':1,'1m':0,'100u':-1,'10u':-2,'1u':-3,'100n':-4,'10n':-5,'1n':-6}   #DELFT electronics dictionary
+dac_val = {'100m':2,'20m':1.30103,'10m':1,'1m':0,'100u':-1,'10u':-2,'1u':-3,'100n':-4,'10n':-5,'1n':-6}   #DELFT electronics dictionary
 
 class Virtual_Coil(Instrument):
 
@@ -123,7 +123,7 @@ class Virtual_Coil(Instrument):
             logging.error('Invalid current setting. No changees made.')
             print detail
             
-    def ramp_to(self, target = 0, ch = 1, steps = 100, dt = 0.05):
+    def ramp_to(self, target = 0, ch = 1, steps = 100, dt = 0.05,show_progressbar=True):
         """
         ramp current to target
         Inputs:
@@ -132,10 +132,10 @@ class Virtual_Coil(Instrument):
             - steps: number of steps
             - dt: wait time between two steps
         """
-        p = Progress_Bar(steps,'Ramping current')   #init progress bar
+        if show_progressbar: p = Progress_Bar(steps,'Ramping current')   #init progress bar
         for c in np.linspace(self.do_get_current(ch),target,steps):
             self.do_set_current(c,ch,verbose=False)
-            p.iterate("%.3gmA"%c)
+            if show_progressbar: p.iterate("%.3gmA"%c)
             time.sleep(dt)
         self.do_set_current(c,ch,verbose=True)
     
