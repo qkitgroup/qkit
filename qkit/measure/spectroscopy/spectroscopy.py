@@ -212,15 +212,6 @@ class spectrum(object):
         self._freqpoints = self.vna.get_freqpoints()
 
         if self.averaging_start_ready: self.vna.pre_measurement()
-        '''
-        try:
-            self.vna.hold(0)   #switch VNA to continuous mode
-        except AttributeError:
-            try:
-                self.vna.set_hold(0)
-            except Exception as message:
-                print 'VNA might be in hold mode', message
-        '''
 
     def _prepare_measurement_file(self):
         '''
