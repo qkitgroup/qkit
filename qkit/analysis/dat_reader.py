@@ -99,7 +99,7 @@ def find_latest_file(ftype=None):
     data_dir_config = 'd:/qkit/qkit/analysis/data/'
     '''
     
-    if ftype == None:
+    if ftype is None:
         ftype = 'h5'
     
     if no_qt:
@@ -162,7 +162,7 @@ def read_hdf_data(nfile,entries=None, show_output=True):
     url_tree = '/entry/data0/'
     urls = []
     
-    if entries == None:   #no entries specified
+    if entries is None:   #no entries specified
         for k in keys:   #go through all keys
             try:
                 if str(k[:4]).lower() == 'freq' or str(k[:2]).lower() == 'f ' or str(k[:4]).lower() == 'puls' or str(k[:4]).lower() == 'dacf' or str(k[:5]).lower() == 'delay' or str(k[:8  ]).lower() == 'pi pulse':
@@ -292,10 +292,10 @@ def _fill_p0(p0,ps):
     fill estimated p0 with specified initial values (in ps)
     '''
     
-    if ps != None:
+    if ps is not None:
         try:
             for n in range(len(ps)):
-                if ps[n] != None:
+                if ps[n] is not None:
                     p0[n] = ps[n]
         except Exception as m:
             logging.error('list of given initial parameters invalid...aborting')
@@ -361,7 +361,8 @@ def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp =
     s_fs = float(roots)/(2*data[0][-1])   #number of roots/2 /measurement time
     #print s_fs
     
-    #phase offset
+    #phase offset calculation
+    #the d are relative distances of the first data point
     dmax = np.abs(data[data_c][0] - np.max(data[data_c]))
     dmean = np.abs(data[data_c][0] - np.mean(data[data_c]))
     dmin = np.abs(data[data_c][0] - np.min(data[data_c]))
@@ -369,15 +370,18 @@ def _extract_initial_oscillating_parameters(data,data_c,damping,asymmetric_exp =
         s_ph = np.pi/2
     elif dmin < dmean:   #start on lower side -> offset phase -pi/2
         s_ph = -np.pi/2
-    else:   #ordinary sine
-        s_ph = 0
+    else:   # sine or -sin?
+        if np.sum(np.gradient(data[data_c])[:int(0.05*len(data[0]))]) > 0: #positive slope -> sin
+            s_ph = 0
+        else: #negative slope -> -sin
+            s_ph = np.pi
     #print s_ph
     
     return s_offs, s_a, s_Td, s_fs, s_ph
 
 # =================================================================================================================
 
-def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,data_opt=None,entryname_coordinate='param',entryname_vector='fit',folder='analysis'):
+def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,fit_type,fit_params,fit_covariance,data_opt=None,entryname_coordinate='param',entryname_vector='fit',folder='analysis'):
     '''
     Appends fitted data to the h5 file in the specified folder. As the fit is a fixed length array,
     a respective parameter axis is created and also stored in the h5 file.
@@ -390,6 +394,9 @@ def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,data_opt=None,e
     - x_vec: x vector (parameter vector) of constant length, matching the dimensions of fit data
     - fvalues: fitted function values
     - x_url: url of existing data coordinate axis
+    - fit_type: int of the fit function used
+    - fit_params: np array of the resulting fit parameters
+    - fit_covariance:  estimated covariances of the fit_params as returned by curve_fit
     - data_url: url of existing data vector
     - data_opt: (optional, default: None) specifier whether optimized data that is to be stored
                 has been generated
@@ -410,13 +417,22 @@ def _save_fit_data_in_h5_file(fname,x_vec,fvalues,x_url,data_url,data_opt=None,e
         hdf_y = hf.add_value_vector(entryname_vector, folder=folder, x = hdf_x)
         hdf_y.append(np.array(fvalues))
         
-        if data_opt != None:
+        hdf_type = hf.add_value_vector('dr_fit_type',folder=folder)
+        hdf_type.append(np.array([fit_type]))
+        
+        hdf_params = hf.add_value_vector('dr_values',folder=folder,comment=", ".join(PARAMS[fit_type]))
+        hdf_params.append(np.array(fit_params))
+        
+        hdf_covariance = hf.add_value_vector('dr_covariance',folder=folder)
+        hdf_covariance.append(np.array(fit_covariance))
+        
+        if data_opt is not None:
             #create optimized data entry
             hdf_data_opt = hf.add_value_vector('data_opt', folder=folder, x = hf.get_dataset(x_url))
             hdf_data_opt.append(np.array(data_opt))
         
         #create joint view
-        if data_opt != None:
+        if data_opt is not None:
             joint_view = hf.add_view(entryname_vector+'_do', x = hdf_x, y = hdf_y)   #fit
             joint_view.add(x = hf.get_dataset(x_url), y = hdf_data_opt)   #data
         else:
@@ -463,6 +479,7 @@ def save_errorbar_plot(fname,fvalues,ferrs,x_url,fit_url=None,entryname_coordina
     try:
         hf = hdf_lib.Data(path=fname)
         
+        
         #create data vector for errorplot with x axis information from x_url
         ds_x = hf.get_dataset(x_url)
         hdf_y = hf.add_value_vector(entryname_vector, folder=folder, x = ds_x)
@@ -475,7 +492,7 @@ def save_errorbar_plot(fname,fvalues,ferrs,x_url,fit_url=None,entryname_coordina
         #joint view including fvalues and errors ferrs
         joint_error_view = hf.add_view('err_view', x = ds_x, y = hdf_y, error = hdf_error)
         
-        if fit_url != None:
+        if fit_url is not None:
             #create joint view with fit data if existing
             joint_error_view_fit = hf.add_view('err_view_fit', x = ds_x, y = hdf_y, error = hdf_error)   #errorplot
             joint_error_view_fit.add(x = hf.get_dataset('/entry/analysis0/param'), y = hf.get_dataset(fit_url))   #fit
@@ -498,7 +515,7 @@ def spline_smooth_data(x_data, y_data, spline_order=1):
     
 # =================================================================================================================
 
-def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, show_output = True, save_pdf = False, data=None, nfile=None, opt=None, entryname = 'fit', spline_order=None):
+def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None, xlabel = '', ylabel = '', show_plot = True, show_output = True, save_pdf = False, data=None, nfile=None, opt=None, entryname = 'fit', spline_order=None, phase_grad=False):
     '''
     fit the data in file_name to a function specified by fit_function
     setting file_name to None makes the code try to find the newest .dat file in today's data_dir
@@ -520,6 +537,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     opt: bool, set to True if data is to be optimized prior to fitting using the data_optimizer
     entryname: suffix to be added to the name of analysis entry
     spline_order: apply spline smoothing of data prior to fitting when spline_order != None
+    phase_grad (boolean, optional): switch to differentiate phase data, spline smoothing is applied and data_c is regarded
     
     returns fit parameters, standard deviations concatenated: [popt1,pop2,...poptn,err_popt1,err_popt2,...err_poptn]
     in case fit does not converge, errors are filled with 'inf'
@@ -531,8 +549,6 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     if type(fit_function)==str:
         logging.warning('using strings as fit function is depreciated. Use e.g dr.LORENTZIAN instead.')
         fit_function = {'lorentzian':LORENTZIAN, 'lorentzian_sqrt':LORENTZIAN_SQRT, 'damped_sine':DAMPED_SINE, 'sine':SINE, 'exp':EXP, 'damped_exp':DAMPED_EXP}[fit_function]
-
-    
         
     # fit function definitions --------------------------------------------------------------------------------------
     def f_Lorentzian_sqrt(f, f0, k, a, offs):
@@ -570,6 +586,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         data_c = 1
         x_url = None
     else:
+        x_url = None
         #load data
         data, nfile, urls = load_data(file_name, entries, show_output)
         if urls:
@@ -587,6 +604,15 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         print 'bad data column identifier, out of bonds...aborting'
         return
     
+    #use differentiated phase signal if requested by switch 'phase_grad'
+    if phase_grad:
+        pha_unwrap = np.unwrap(data[data_c])   #unwrap phase data
+        pha_tilt_corrected = pha_unwrap - np.linspace(pha_unwrap[0],pha_unwrap[-1],len(pha_unwrap))   #subtract tilt
+        pha_gr = np.gradient(pha_tilt_corrected)
+        if not spline_order: spline_order = 1.e-3   #set default for spline smoothing
+        data[data_c] = spline_smooth_data(data[0],pha_gr,spline_order)
+        spline_order = None
+    
     #set default to frequency conversion factor
     freq_conversion_factor = 1
     
@@ -597,7 +623,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         data_c = 1   #revoke choice in data column when using data optimizer (JB)
         data = do.optimize(data,data_c,data_c+1)
         
-    if spline_order != None:
+    if spline_order is not None:
         try:
             data[data_c] = spline_smooth_data(data[0],data[data_c],spline_order)
             print 'spline smoothing applied'
@@ -624,7 +650,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         x_vec = np.linspace(data[0][0]*freq_conversion_factor,data[0][-1]*freq_conversion_factor,500)
     
         #start parameters ----------------------------------------------------------------------
-        s_offs = np.mean(np.array([data[data_c,:int(np.size(data,1)/10)],data[data_c,np.size(data,1)-int(np.size(data,1)/10):]])) #offset is calculated from the first and last 10% of the data to improve fitting on tight windows @andre20150318
+        s_offs = np.mean(np.append(data[data_c][:int(0.1*len(data[data_c]))],data[data_c][int(0.9*len(data[data_c])):])) #offset is calculated from the first and last 10% of the data to improve fitting on tight windows @andre20150318
         if np.abs(np.max(data[data_c]) - np.mean(data[data_c])) > np.abs(np.min(data[data_c]) - np.mean(data[data_c])):
             #expect a peak
             if show_output:
@@ -736,7 +762,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         s_offs = np.mean(data[data_c])
         s_a = 0.5*np.abs(np.max(data[data_c]) - np.min(data[data_c]))
         p0 = _fill_p0([s_fs, s_a, s_offs, s_ph],ps)
-        #print p0
+        print p0
             
         #sine fit ----------------------------------------------------------------------
         try:
@@ -858,22 +884,23 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
         plt.title(str(['%.4g'%entry for entry in popt]),y=1.03)
         
     try:
-        plt.savefig(nfile.replace('.dat','_dr.png').replace('.h5','_dr.png'), dpi=300)
+        fig_file_name_stem = nfile.replace('.','')+'_dr'
+        plt.savefig(fig_file_name_stem+'.png', dpi=300)
         if save_pdf:
-            plt.savefig(nfile.replace('.dat','_dr.pdf').replace('.h5','_dr.pdf'), dpi=300)
+            plt.savefig(fig_file_name_stem+'.pdf', dpi=300)
         if show_output:
-            print 'plot saved:', nfile.replace('.dat','_dr.png').replace('.h5','_dr.png')
+            print 'plot saved:', fig_file_name_stem
     except AttributeError:
         if show_output: logging.warning('Figure not stored.')
     except Exception as m:
         if show_output: logging.error('Figure not stored: '+str(m))
-        
-    if pcov != None and nfile!= None and nfile[-2:] == 'h5' and x_url != None:   #in case fit was successful
+
+    if pcov is not None and nfile is not None and x_url is not None and nfile[-2:] == 'h5':   #in case fit was successful
         data_opt = None
         if opt:
             data_opt = data[data_c]
             entryname+='_do'
-        if _save_fit_data_in_h5_file(nfile,x_vec/freq_conversion_factor,np.array(fvalues),data_opt=data_opt,x_url=x_url,data_url=data_url,entryname_vector=entryname):
+        if _save_fit_data_in_h5_file(nfile,x_vec/freq_conversion_factor,np.array(fvalues),fit_type=fit_function,fit_params=popt,fit_covariance=np.sqrt(np.diag(pcov)),data_opt=data_opt,x_url=x_url,data_url=data_url,entryname_vector=entryname):
             if entryname == '':
                 if show_output:
                     print 'Fit data successfully stored in h5 file.'
@@ -883,7 +910,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     if show_plot: plt.show()
     plt.close('dat_reader')
     
-    if pcov == None:
+    if pcov is None:
         return popt,float('inf')*np.ones(len(popt)) #fill up errors with 'inf' in case fit did not converge
     else:
         return popt,np.sqrt(np.diag(pcov))
