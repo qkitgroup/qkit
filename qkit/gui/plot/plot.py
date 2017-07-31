@@ -1,13 +1,15 @@
 from subprocess import Popen, PIPE
 from qkit.storage import hdf_lib
 import os
-import matplotlib.pyplot as plt
-plt.ioff()
 import numpy as np
 import logging
 logging.basicConfig(level=logging.INFO)
 from qkit.config.environment import cfg
 from qkit.storage.hdf_constants import ds_types
+
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 # this is for live-plots
 def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
@@ -38,9 +40,11 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
 
     if echo:
         print "Qviewkit open cmd: "+ cmd + options
-        print Popen(cmd+options, shell=True, stdout=PIPE).stdout.read()
+        P = Popen(cmd+options, shell=False, stdout=PIPE)
+        print P.stdout.read()
+        return P
     else:
-        Popen(cmd+options, shell=True)
+        return Popen(cmd+options, shell=False)
 
 
 # this is for saving plots
@@ -95,11 +99,12 @@ class h5plot(object):
         self.y_ds_url = self.ds.attrs.get('y_ds_url','')
         self.z_ds_url = self.ds.attrs.get('z_ds_url','')
 
-        self.fig, self.ax = plt.subplots(figsize=(20,10))
+        self.fig = Figure(figsize=(20,10),tight_layout=True)
+        self.ax = self.fig.gca()
+        self.canvas = FigureCanvas(self.fig)
 
         if self.ds_type == ds_types['coordinate']:
             #self.plt_coord()
-            plt.close()
             return
         elif self.ds_type == ds_types['vector']:
             self.plt_vector()
@@ -109,14 +114,11 @@ class h5plot(object):
             self.plt_box()
         elif self.ds_type == ds_types['txt']:
             #self.plt_txt()
-            plt.close()
             return
         elif self.ds_type == ds_types['view']:
             #self.plt_view()
-            plt.close()
             return
         else:
-            plt.close()
             return
 
         self.ax.set_xlabel(self.x_label)
@@ -128,7 +130,6 @@ class h5plot(object):
             i.set_fontsize(16)
         for i in self.ax.get_yticklabels():
             i.set_fontsize(16)
-        self.fig.tight_layout()
 
         save_name = str(os.path.basename(self.filedir))[0:6] + '_' + self.key.replace('/entry/','').replace('/','_')
         if self.comment:
@@ -136,10 +137,9 @@ class h5plot(object):
         image_path = str(os.path.join(self.image_dir,save_name))
 
         if self.save_pdf:
-            self.fig.savefig(image_path+'.pdf')
-        self.fig.savefig(image_path+'.png')
+            self.canvas.print_figure(image_path+'.pdf')
+        self.canvas.print_figure(image_path+'.png')
 
-        plt.close()
         """
         except Exception as e:
             print "Exception in qkit/gui/plot/plot.py"
@@ -202,7 +202,7 @@ class h5plot(object):
             self.data = np.flipud(self.data)
             self.ymin, self.ymax = self.ymax, self.ymin
 
-        self.cax = self.ax.imshow(self.data, aspect='auto', extent=[self.xmin,self.xmax,self.ymin,self.ymax], origin = 'lower', interpolation='none')
+        self.cax = self.ax.imshow(self.data, aspect='auto', extent=[self.xmin,self.xmax,self.ymin,self.ymax], origin = 'lower', vmin = self._get_vrange(self.data,2)[0], vmax = self._get_vrange(self.data,2)[1], interpolation='none', cmap=plt.get_cmap('Greys_r'))
         self.cbar = self.fig.colorbar(self.cax)
         self.cbar.ax.set_ylabel(self.ds_label)
         self.cbar.ax.yaxis.label.set_fontsize(20)
@@ -223,7 +223,7 @@ class h5plot(object):
         self.y_label = self.y_ds.attrs.get('name','_yname_')+' / '+self.y_ds.attrs.get('unit','_yunit_')
         self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
 
-        self.nop = self.z_ds.shape[0]
+        self.nop = self.ds.shape[2] #S1 this was ->self.z_ds.shape[0]<- before, but causes problems for some data
         self.data = np.array(self.ds)[:,:,self.nop/2].T #transpose matrix to get x/y axis correct
 
         self.xmin = self.x_ds.attrs.get('x0',0)
@@ -243,7 +243,7 @@ class h5plot(object):
             self.data = np.flipud(self.data)
             self.ymin, self.ymax = self.ymax, self.ymin
 
-        self.cax = self.ax.imshow(self.data, aspect='auto', extent=[self.xmin,self.xmax,self.ymin,self.ymax], origin = 'lower', interpolation='none')
+        self.cax = self.ax.imshow(self.data, aspect='auto', extent=[self.xmin,self.xmax,self.ymin,self.ymax], origin = 'lower', vmin = self._get_vrange(self.data,2)[0], vmax = self._get_vrange(self.data,2)[1], interpolation='none', cmap=plt.get_cmap('Greys_r'))
         self.cbar = self.fig.colorbar(self.cax)
         self.cbar.ax.set_ylabel(self.ds_label)
         self.cbar.ax.yaxis.label.set_fontsize(20)
@@ -259,6 +259,17 @@ class h5plot(object):
     def plt_view(self):
         # not (yet?) implemented. we'll see ...
         pass
+
+    def _get_vrange(self,data,percent):
+        '''
+        This function calculates ranges for the colorbar to get rid of spikes in the data.
+        If the data is evenly distributed, this should not change anything in your colorbar.
+        '''
+        _min = np.percentile(data,percent)
+        _max = np.percentile(data,100-percent)
+        _min -= (_max-_min)*percent/(100.-2*percent)
+        _max += (_max-_min)*percent/(100.-2*percent)
+        return [_min,_max]
 
 
 if __name__ == "__main__":
