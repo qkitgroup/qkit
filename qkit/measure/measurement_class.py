@@ -2,7 +2,7 @@
 # Class to collect all information about a single measurement
 
 import logging
-import json
+import json, types
 import os, copy
 import qkit.core.qt as qt
 from qkit.config.environment import cfg
@@ -73,23 +73,24 @@ class Measurement(object):
         if copydict['sample']:
             copydict['sample'] = copydict['sample'].__dict__ # change entry to dict to make it readable for JSONEncoder
         if copydict['instruments']:
-            copydict['instruments'] = self._JSON_instruments_dict()
+			if type(copydict['instruments']) is not types.DictType: # conversion needed during measurement
+				copydict['instruments'] = self._JSON_instruments_dict()
         return copydict
             
-    def _JSON_instruments_dict(self):
-        '''
-        Iterates through all entries in the self.instruments dict and creates a dict with the individial instrument
-        name together with all attributs, attribute values and information about setter function. This is needed
-        for an automized reading and re-setting of a measurement.
-        '''
-        return_dict = {}
-        for ins_name in self.instruments:
-            ins = self.instruments[ins_name]
-            param_dict = {}
-            for param_name in ins.get_parameter_names():
-                has_setter = 'set_func' in ins.get_parameter_options(param_name)
-                param_dict.update({param_name:{'content':ins.get(param_name, query=False), 'has_setter':has_setter}})
-            return_dict.update({ins_name:param_dict})
+	def _JSON_instruments_dict(self):
+		'''
+		Iterates through all entries in the self.instruments dict and creates a dict with the individial instrument
+		name together with all attributs, attribute values and information about setter function. This is needed
+		for an automized reading and re-setting of a measurement.
+		'''
+	return_dict = {}
+	for ins_name in self.instruments:
+		ins = self.instruments[ins_name]
+		param_dict = {}
+		for param_name in ins.get_parameter_names():
+			has_setter = 'set_func' in ins.get_parameter_options(param_name)
+			param_dict.update({param_name:{'content':ins.get(param_name, query=False), 'has_setter':has_setter}})
+		return_dict.update({ins_name:param_dict})
         return return_dict
 
     def update_instrument(self, ins_name):
