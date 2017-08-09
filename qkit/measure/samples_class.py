@@ -5,13 +5,12 @@
 
 import time
 import json, pickle
-import qt
 import logging
 import os, copy
 import numpy as np
 
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
-
+import qkit.core.qt as qt
 
 class Sample(object):
     '''
