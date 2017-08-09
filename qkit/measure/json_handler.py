@@ -2,9 +2,9 @@
 # JSON en-/decoder for non-JSON standard data-types
 
 import json
-import qt
 import types
 import numpy as np
+import qkit.core.qt as qt
                 
 class QkitJSONEncoder(json.JSONEncoder):
     def default(self, obj):
