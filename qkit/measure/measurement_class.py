@@ -83,14 +83,14 @@ class Measurement(object):
 		name together with all attributs, attribute values and information about setter function. This is needed
 		for an automized reading and re-setting of a measurement.
 		'''
-	return_dict = {}
-	for ins_name in self.instruments:
-		ins = self.instruments[ins_name]
-		param_dict = {}
-		for param_name in ins.get_parameter_names():
-			has_setter = 'set_func' in ins.get_parameter_options(param_name)
-			param_dict.update({param_name:{'content':ins.get(param_name, query=False), 'has_setter':has_setter}})
-		return_dict.update({ins_name:param_dict})
+		return_dict = {}
+		for ins_name in self.instruments:
+			ins = self.instruments[ins_name]
+			param_dict = {}
+			for param_name in ins.get_parameter_names():
+				has_setter = 'set_func' in ins.get_parameter_options(param_name)
+				param_dict.update({param_name:{'content':ins.get(param_name, query=False), 'has_setter':has_setter}})
+			return_dict.update({ins_name:param_dict})
         return return_dict
 
     def update_instrument(self, ins_name):
