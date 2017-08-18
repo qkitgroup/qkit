@@ -15,7 +15,9 @@ from hdf_dataset import hdf_dataset
 from hdf_constants import ds_types
 from hdf_view import dataset_view
 from hdf_DateTimeGenerator import DateTimeGenerator
-from qkit.config.environment import *
+from qkit.config.environment import cfg
+
+alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 class Data(object):
     "this is a basic hdf5 class adopted to our needs"
@@ -52,13 +54,17 @@ class Data(object):
         if filepath:
             self._filepath = filepath
         else:
-            self._localtime = time.localtime()
+            self._unix_timestamp = int(time.time())
+            self._uuid = self._create_uuid()
+            self._localtime = time.localtime(self._unix_timestamp)
             self._timestamp = time.asctime(self._localtime)
             self._timemark = time.strftime('%H%M%S', self._localtime)
             self._datemark = time.strftime('%Y%m%d', self._localtime)
             self._filepath =  self._filename_generator.new_filename(self)
+            self._relpath = os.path.relpath(self._filepath, cfg['datadir'])
 
         self._folder, self._filename = os.path.split(self._filepath)
+        
         if self._folder and not os.path.isdir(self._folder):
             os.makedirs(self._folder)
 
@@ -113,20 +119,19 @@ class Data(object):
                           comment=comment, folder=folder,**meta)
         return ds
 
-    def add_view(self,name,x = None, y = None, x_axis=0, y_axis=0, filter  = None, view_params = {} ,comment = ""):
-        """a view is a way to display plot x-y data.
-            x, y are the datasets to display, e.g.
-            x = "data0/temperature"
-            y = "analysis0/frequency_fit"
-            (if "folder/" is omitted "data0" is assumed)
-            x_axis is the slice dimension on multidim arrays
-            y_axis is the slice dimension on multidim arrays
-            filter is a string of reguar python code, which
-            accesses the x,y dataset returns arrays of (x,y)
-            (Fixme: not jet implemented)
+    def add_view(self,name,x = None, y = None, error = None, filter  = None, view_params = {}):
         """
-        ds =  dataset_view(self.hf,name, x=x, y=y, x_axis=x_axis, y_axis=y_axis, ds_type = ds_types['view'],
-                           comment=comment,view_params = view_params)
+        a view is a way to display plot x-y data.
+        x, y with the corresponding error are the datasets to display, e.g.
+        x = h5["/entry/data0/temperature"]
+        y = h5["/entry/analysis0/frequency_fit"]
+        error = h5["/entry/analysis0/frequency_fit_error"]
+        filter is a string of reguar python code, which
+        accesses the x,y dataset returns arrays of (x,y)
+        (Fixme: not jet implemented)
+        """
+        ds =  dataset_view(self.hf,name, x=x, y=y, error=error, filter = filter, 
+                           ds_type = ds_types['view'],view_params = view_params)
         return ds
 
     def get_dataset(self,ds_url):
@@ -142,3 +147,30 @@ class Data(object):
         self.hf.close_file()
     def close(self):
         self.hf.close_file()
+        
+    def _create_uuid(self):
+        return self.encode_uuid()
+    
+    def encode_uuid(self,value=None):
+        if not value: value = self._unix_timestamp
+        output = ''
+        la = len(alphabet)
+        while(value):
+            output += alphabet[value%la]
+            value = value/la
+        return output[::-1]
+
+    def decode_uuid(self,string=''):
+        if not string: string = self._uuid
+        output = 0
+        multiplier = 1
+        string = string[::-1].upper()
+        la = len(alphabet)
+        while(string != ''):
+            f = alphabet.find(string[0])
+            if f == -1:
+                raise ValueError("Can not decode this: %s<--"%string[::-1])
+            output += f*multiplier
+            multiplier*=la
+            string = string[1:]
+        return output

@@ -1240,6 +1240,7 @@ class Spectrum_M4i2211(Instrument):
     	create a new data buffer
     	(assuming the old one is now owned by another part of the program)
     	'''
+        self.invalidate_buffer()
         logging.debug(__name__ + ' : _buffer_setup')
         lMemsize = self.get_memsize()
         lBufsize = lMemsize * self._numchannels

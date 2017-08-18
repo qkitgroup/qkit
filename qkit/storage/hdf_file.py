@@ -169,31 +169,37 @@ class H5_file(object):
         return ds
         
     def append(self,ds,data, next_matrix=False):
-        """ Append method for hdf5 data. 
-            A simple append method for data traces
-            reshapes the array and updates the attributes
-            
+        """ 
+        Append method for hdf5 data. 
+        A simple append method for data traces
+        reshapes the array and updates the attributes
         """
-        #print type(data)
-        if len(ds.shape) == 1:
+        # it gets a little ugly with all the different user-cases here ...
+        
+        if len(ds.shape) == 1:      # 1 dim dataset: coordinate/vector/text
             fill = ds.attrs.get('fill')
-            if type(data) == float:# or numpy.float64:
+            if self.ds_type == ds_types['txt']:     #text
+                dim1 = ds.shape[0]+1
+                ds.resize((dim1,))
+                ds[dim1-1] = data
+            elif len(data.shape) == 0:              # scalar
                 dim1 = ds.shape[0]+1
                 fill[0] += 1
                 ds.resize((dim1,))
                 ds[fill[0]-1] = data
-            elif self.ds_type == ds_types['txt']:
-                dim1 = ds.shape[0]+1
-                ds.resize((dim1,))
-                ds[dim1-1] = data
-            elif len(data.shape) == 1:
-                ds.resize((len(data),))
-                fill[0] += len(data)
-                ds[:] = data
-                #ds.attrs.fill[0] += len(data)
+            elif len(data.shape) == 1:              # list or np array
+                if len(data) == 1:                  # single entry
+                    dim1 = ds.shape[0]+1
+                    fill[0] += 1
+                    ds.resize((dim1,))
+                    ds[fill[0]-1] = data
+                else:                               # multiple entries                  
+                    ds.resize((len(data),))
+                    fill[0] += len(data)
+                    ds[:] = data
             ds.attrs.modify("fill", fill)
 
-        if len(ds.shape) == 2:
+        if len(ds.shape) == 2:       # 2 dim dataset: matrix
             fill = ds.attrs.get('fill')
             dim1 = ds.shape[0]+1
             ds.resize((dim1,len(data)))
@@ -203,7 +209,7 @@ class H5_file(object):
             ds[fill[0]-1,:] = data
 
 
-        if len(ds.shape) == 3:
+        if len(ds.shape) == 3:      # 3 dim dataset: box
             dim1 = max(1, ds.shape[0])
             dim2 = ds.shape[1]
             fill = ds.attrs.get('fill')

@@ -1,3 +1,21 @@
+# load_awg.py
+# started by M. Jerger and adapted by AS, JB
+
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
 import qt
 import numpy as np
 import os.path
@@ -9,7 +27,7 @@ from qkit.gui.notebook.Progress_Bar import Progress_Bar
 import gc
 
 
-def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None, ch2_amp = 2,chpair=1,awg= None):
+def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None, ch2_amp = 2,chpair=1,awg= None, show_progress_bar = True):
     '''
         set awg to sequence mode and push a number of waveforms into the sequencer
         
@@ -27,7 +45,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
         for the 6GS/s AWG, the waveform length must be divisible by 64
         for the 1.2GS/s AWG, it must be divisible by 4
         
-        chpair: if you use the 4ch Tabor AWG as a single 5ch instrument, you can chose to take the second channel pair here (this can be either 1 or 2).
+        chpair: if you use the 4ch Tabor AWG as a single 2ch instrument, you can chose to take the second channel pair here (this can be either 1 or 2).
     '''
     qt.mstart()
     if awg==None:
@@ -47,8 +65,6 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
             awg.set('p%i_runmode'%chpair,'SEQ')
             awg.define_sequence(chpair*2-1,len(ts))
         
-        
-        
         #amplitude settings of analog output
         awg.set_ch1_offset(0)
         awg.set_ch2_offset(0)
@@ -59,7 +75,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
     wfm_samples_prev = [None,None]
     wfm_fn = [None,None]
     wfm_pn = [None,None]
-    p = Progress_Bar(len(ts)*(2 if "Tektronix" in awg.get_type() else 1),'Load AWG')   #init progress bar
+    if show_progress_bar: p = Progress_Bar(len(ts)*(2 if "Tektronix" in awg.get_type() else 1),'Load AWG')   #init progress bar
     
     #update all channels and times
     for ti, t in enumerate(ts):   #run through all sequences
@@ -110,11 +126,11 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
                     awg.set_seq_loop(ti+1, np.infty)
             elif "Tabor" in awg.get_type():
                 if chan == 1:   #write out both together
-                    awg.wfm_send2(wfm_samples[0],wfm_samples[1],marker1,marker2,chpair,ti+1)
+                    awg.wfm_send2(wfm_samples[0],wfm_samples[1],marker1,marker2,chpair*2-1,ti+1)
                 else: continue
             else:
                 raise ValueError("AWG type not known")
-            p.iterate()
+            if show_progress_bar: p.iterate()
 
         gc.collect()
 

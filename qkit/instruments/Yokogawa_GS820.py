@@ -483,6 +483,8 @@ class Yokogawa_GS820(Instrument):
         '''
         logging.debug('Get status of output')
         ans=self._get_func_par(channel, 'outp','stat')
+        if ans=='zero':
+            return 'off'
         if int(ans):
             return 'on'
         else:

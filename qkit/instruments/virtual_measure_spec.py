@@ -28,7 +28,6 @@ mspec = qt.instruments.create('mspec','virtual_measure_spec',spec,samples=1)
 
 from instrument import Instrument
 import numpy
-#from plot_engines.qtgnuplot import get_gnuplot
 import qt
 import types
 #import time
@@ -59,6 +58,7 @@ class virtual_measure_spec(Instrument):
         Instrument.__init__(self, name, tags=['virtual'])
 
         # parameters
+        
         self.add_parameter('samples', type = types.IntType)
         self.add_parameter('samplerate', type = types.IntType)
         self.add_parameter('segments', type = types.IntType)
@@ -73,8 +73,8 @@ class virtual_measure_spec(Instrument):
         self.add_function('get_clock')
         self.add_function('set_gate_func')
         self.add_function('acquire')
-        self.add_function('measure_1d_avg')
-        self.add_function('measure_1d')
+        #self.add_function('measure_1d_avg')
+        #self.add_function('measure_1d')
         self.add_function('spec_start')
         self.add_function('spec_stop')
         
@@ -93,16 +93,23 @@ class virtual_measure_spec(Instrument):
         
         self.set_channels(channels)
         self.set_multimode(multimode)
-        self.set_offsets(offsets)
+        if offsets is None:
+            self.set_offsets(numpy.zeros((self._numchannels,)))
+        else:
+            self.set_offsets(offsets)
         self.set_trigger_rate(trigger_rate)
         self.set_gate_func(gate_func)
         self.get_all()
+        
         
         # initialize card
         self._initializing = False
         self.init_card()
         self._dacq.set_trigger_ORmask_tmask_ext0()
         self._dacq.trigger_mode_pos()
+        self.bit_blocksize = 32 #This defines how fine trigger_delay and samples can be defined on the board. The rest is done by truncating the data.
+        self.bit_pre = 0  #Number of bits to truncate at the start...
+        self.bit_post = None #...and at the end of the measurement.
 
     def get_all(self):
         self.get_samples()
@@ -154,12 +161,37 @@ class virtual_measure_spec(Instrument):
         return self._dacq.get_timeout()
 
     def do_set_spec_trigger_delay(self,delay):
+        self.bit_pre, self.bit_post = 0,None
         self._dacq.set_trigger_delay(delay)
 
     def do_get_spec_trigger_delay(self):
         return self._dacq.get_trigger_delay()
+        
+    def set_window(self, start, end):
+        '''
+        Sets the start and end of the acquisition window. These values can be chosen arbitrarily and do not have to be divisible by 16 or 32.
+        '''
+        c_start = int(start)/self.bit_blocksize #floor
+        c_start *=self.bit_blocksize
+        #self.bit_pre = int(start) - c_start
+        samples = int(end)-c_start
+        c_samples = (samples + self.bit_blocksize-1)/self.bit_blocksize #ceil
+        c_samples*=self.bit_blocksize
+        #self.bit_post = c_samples - samples
+        #print "setting card to %g samples and a delay of %g"%(c_samples,c_start)
+        self.spec_stop()
+        self.set_spec_trigger_delay(c_start)
+        self.set_samples(c_samples)
+        
+        self.bit_pre = int(start) - c_start
+        self.bit_post = samples - c_samples  #this is done here, to keep set_spec_trigger_delay and set_samples functional standalone.
+        if self.bit_post == 0 : 
+            self.bit_post = None #we later call result[self.bit_pre:self.bit_post], so bit_post has to be None instead of 0 to get the full array.
+        
+        
 
     def do_set_samples(self, samples):
+        self.bit_pre, self.bit_post = 0,None
         if(samples < 32): raise ValueError('meas_spec: minimum number of samples per trace is 32.')
         if(samples % 16 != 0): raise ValueError('meas_spec: number of samples per trace must be divisible by 16.')
         self._samples = samples
@@ -224,8 +256,6 @@ class virtual_measure_spec(Instrument):
         return self._trigger_rate
         
     def do_set_offsets(self, offsets):
-        if(offsets == None):
-            offsets = numpy.zeros((self._numchanels,))
         if(len(offsets) != self._numchannels):
             raise ValueError(__name__ + 'one offset per channel is required')
         self._offsets = offsets
@@ -268,10 +298,14 @@ class virtual_measure_spec(Instrument):
             for idx in range(len(self._offsets)):
                 if(self._segments == 1):
                     # shape of result is (samples, channels)
-                    result[:, idx] += offsets[idx]
+                    result[:, idx] += self._offsets[idx]
                 else:
                     # shape of result is (samples, channels, segments)
-                    result[:, idx, :] += offsets[idx]
+                    result[:, idx, :] += self._offsets[idx]
+        if(self._segments == 1):
+            result = result[self.bit_pre:self.bit_post, : ]
+        else:
+            result = result[self.bit_pre:self.bit_post, : , : ]
         return result
 
     def _acquire_multimode(self):
@@ -366,21 +400,21 @@ class virtual_measure_spec(Instrument):
         return dat
 
     def _multimode_average1(self, dat):
-    	''' faster-than-numpy averaging '''
-    	shp = dat.shape
-    	res = numpy.zeros((shp[0], shp[2]))
-    	for i in range(shp[0]):
-    		for j in range(shp[2]):
-    			res[i, j] = numpy.mean(numpy.asfarray(dat[i, :, j], numpy.float32))
-    	return res
+        ''' faster-than-numpy averaging '''
+        shp = dat.shape
+        res = numpy.zeros((shp[0], shp[2]))
+        for i in range(shp[0]):
+            for j in range(shp[2]):
+                res[i, j] = numpy.mean(numpy.asfarray(dat[i, :, j], numpy.float32))
+        return res
 
     def _multimode_average(self, dat):
-    	''' faster-than-numpy averaging '''
-    	shp = dat.shape
-    	sum = numpy.zeros((shp[0], shp[2]), np.int)
-    	for i in range(shp[1]):
+        ''' faster-than-numpy averaging '''
+        shp = dat.shape
+        sum = numpy.zeros((shp[0], shp[2]), np.int)
+        for i in range(shp[1]):
             sum += dat[:, i, :]
-    	return np.array(res, np.float32)/shp[1]
+        return np.array(res, np.float32)/shp[1]
 
 
     def _acquire_singlemode(self):

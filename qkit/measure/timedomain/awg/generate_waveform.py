@@ -30,6 +30,7 @@ import scipy.special
 #global sample
 #sample = type('Sample', (object,),{  'exc_T' : 1e-6 , 'tpi' : 2e-9 , 'tpi2' : 1e-9, 'clock' : 1e9   })
 
+dtype = np.float16 #you can change this via gwf.dtype to anything you want
 
 def compensate(wfm, gamma, sample):
     '''
@@ -76,7 +77,7 @@ def erf(pulse, attack, decay, sample, length=None, position = None, low=0, high=
     sample_start = int(clock*(position-pulse))
     sample_end = int(clock*position)
     sample_length = int(np.round(length*clock))
-    wfm = low * np.ones(sample_length)
+    wfm = low * np.ones(sample_length,dtype=dtype)
     
     if attack != 0:
         if attack < 2./clock:
@@ -111,7 +112,7 @@ def exp(pulse, decay, sample, position = None, low=0, high=1, clock = None):
         else:
             logging.warning('overlap attribute not found in sample object')
     sample_length = int(np.ceil(sample.exc_T*clock))
-    wfm = low * np.ones(sample_length)
+    wfm = low * np.ones(sample_length,dtype=dtype)
     sample_start = int(clock*(position-pulse))
     sample_end = int(clock*position)
     
@@ -140,7 +141,7 @@ def triangle(attack, decay, sample, length = None, position = None, low=0, high=
     sample_length = int(np.ceil(length*clock))
     sample_attack = int(np.ceil(attack*clock)) 
     sample_decay = int(np.ceil(decay*clock))
-    wfm = low * np.ones(sample_length)
+    wfm = low * np.ones(sample_length,dtype=dtype)
     wfm[sample_start:sample_start+sample_attack] = np.linspace(low, high, sample_attack)
     wfm[sample_start+sample_attack:sample_end-sample_decay] = high
     wfm[sample_end-sample_decay:sample_end] = np.linspace(high, low, sample_decay)
@@ -173,7 +174,7 @@ def square(pulse, sample, length = None,position = None, low = 0, high = 1, cloc
     sample_end = int(clock*(position-adddelay))
     sample_length = int(np.round(length*clock)/4)*4 #Ensures that the number of samples is divisible by 4 @andre20150615
     #sample_length = int(np.ceil(length*clock)) #old definition
-    wfm = low*np.ones(sample_length)
+    wfm = low*np.ones(sample_length,dtype=dtype)
     if(sample_start < sample_end): wfm[int(sample_start)] = high + (low-high)*(sample_start-int(sample_start))
     if freq==None: wfm[int(np.ceil(sample_start)):int(sample_end)] = high
     else:
@@ -213,7 +214,7 @@ def gauss(pulse, sample, length = None,position = None, low = 0, high = 1, clock
     sample_start = int(clock*(position-pulse))
     sample_end = int(clock*position)
     
-    wfm = low*np.ones(sample_length)
+    wfm = low*np.ones(sample_length,dtype=dtype)
     if(sample_start < sample_end): wfm[int(sample_start)] = 0.#high + (low-high)*(sample_start-int(sample_start))
     #wfm[int(np.ceil(sample_start)):int(sample_end)] = high
     pulsesamples = int(int(sample_end)-int(sample_start))
@@ -248,7 +249,7 @@ def arb_function(function, pulse, length = None,position = None, clock = None):
     sample_end = clock*position
     sample_length = int(np.ceil(length*clock))
 
-    wfm = np.zeros(sample_length)
+    wfm = np.zeros(sample_length,dtype=dtype)
     times = 1./clock*np.arange(0, sample_end-sample_start+1)
     wfm[sample_start:sample_end] = function(times)
     return wfm

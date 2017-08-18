@@ -41,11 +41,12 @@ class Measure_td(object):
         self.plotSuffix = ''
         self.hold = False
         
+        self.show_progress_bar = True
+        
         self.save_dat = True
         self.save_hdf = True
         
         self.open_qviewkit = False
-        self.iterations = 1   #number of averages for one single slice
         
     def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit = ''):
         self.x_vec = x_vec
@@ -65,24 +66,20 @@ class Measure_td(object):
             print 'axes parameters not properly set...aborting'
             return
 
+        #self.time_data = False
         qt.mstart()
         self._prepare_measurement_dat_file(mode='1d')
         self._create_dat_plots(mode='1d')
 
-        p = Progress_Bar(len(self.x_vec),name=self.dirname)
+        if self.show_progress_bar: p = Progress_Bar(len(self.x_vec),name=self.dirname)
         try:
             # measurement loop
             for x in self.x_vec:
                 self.x_set_obj(x)
                 qt.msleep() # better done during measurement (waiting for trigger)
-                if self.time_data:
-                    amp, pha, Is, Qs = readout.readout(timeTrace = True)
-                    self._append_data(amp,pha,Is,Qs,it_v=[x],trace=True)
-                else:
-                    amp, pha = readout.readout(timeTrace = False)
-                    self._append_data(amp,pha,Is=None,Qs=None,it_v=[x],trace=False)
+                self._append_data([x],trace=self.time_data)
                 self._update_plots()
-                p.iterate()
+                if self.show_progress_bar: p.iterate()
         finally:
             self._safe_plots()
             self._close_files()
@@ -99,7 +96,7 @@ class Measure_td(object):
         self._prepare_measurement_dat_file(mode='2d')
         self._create_dat_plots(mode='2d')
 
-        p = Progress_Bar(len(self.x_vec)*len(self.y_vec),name=self.dirname)
+        if self.show_progress_bar: p = Progress_Bar(len(self.x_vec)*len(self.y_vec),name=self.dirname)
         try:
             # measurement loop
             for x in self.x_vec:
@@ -109,15 +106,10 @@ class Measure_td(object):
                     qt.msleep() # better done during measurement (waiting for trigge
                     self.y_set_obj(y)
                     #sleep(self.tdy)
-                    qt.msleep()
-                    if self.time_data:
-                        amp, pha, Is, Qs = readout.readout(timeTrace = True)
-                        self._append_data(amp,pha,Is,Qs,it_v=[x,y],trace=True)
-                    else:
-                        amp, pha = readout.readout(timeTrace = False)
-                        self._append_data(amp,pha,Is=None,Qs=None,it_v=[x,y],trace=False)
+                    qt.msleep() # better done during measurement (waiting for trigger)
+                    self._append_data([x,y],trace=False)
                     self._update_plots()
-                    p.iterate()
+                    if self.show_progress_bar: p.iterate()
         finally:
             self._safe_plots()
             self._close_files()
@@ -132,7 +124,6 @@ class Measure_td(object):
         self.y_coordname = '#iteration'
         self.y_set_obj = lambda y: True
         self.y_unit = ''
-        self.iterations = 1
         return self.measure_2D_AWG()
 
 
@@ -151,30 +142,17 @@ class Measure_td(object):
         self._prepare_measurement_dat_file(mode='2dAWG')
         self._create_dat_plots(mode='2dAWG')
 
-        p = Progress_Bar(len(self.y_vec),name=self.dirname)
+        if self.show_progress_bar: p = Progress_Bar(len(self.y_vec),name=self.dirname)
         try:
             # measurement loop
             for it in range(len(self.y_vec)):
                 qt.msleep() # better done during measurement (waiting for trigger)
                 self.y_set_obj(self.y_vec[it])
-                
-                ''' averaging '''
-                if self.iterations > 1:   #pre-averaging
-                    dat_cmpls = np.zeros((len(self.x_vec), self.ndev), np.complex128)   #zeros array for complex averaging
-                    pa = Progress_Bar(len(self.iterations),'pre-averaging')
-                    for i in range(self.iterations):
-                        dat_amp, dat_pha, Is, Qs = readout.readout(timeTrace = True)
-                        dat_cmpls += dat_amp * np.exp(1j*dat_pha)
-                        qt.msleep()
-                        pa.iterate()
-                    dat_amp = np.abs(self.dat_cmpl/self.iterations)
-                    dat_pha = np.angle(self.dat_cmpls/self.iterations)
-                    ''' end averaging '''
-                else:   #standard mode
-                    dat_amp, dat_pha, Is, Qs = readout.readout(timeTrace = True)
-                self._append_data(dat_amp, dat_pha, Is, Qs, [self.y_vec[it]], trace=True, it=it)
+                self._append_data([self.y_vec[it]],trace=True,it=it)
                 self._update_plots()
-                p.iterate()
+                if self.show_progress_bar: p.iterate()
+        #except Exception as e:
+        #   print e
         
         finally:
             self._safe_plots()
@@ -251,8 +229,9 @@ class Measure_td(object):
                 self._hdf_pha = self._data_hdf.add_value_vector('phase', x = self._hdf_x, unit='rad')
             if self.comment:
                 self._data_hdf.add_comment(self.comment)
-
-            if self.open_qviewkit: qviewkit.plot(self._data_hdf.get_filepath(), datasets=['amplitude', 'phase'])
+            #qviewkit.close('all') #as20160202
+            if self.open_qviewkit:
+                qviewkit.plot(self._data_hdf.get_filepath(), datasets=['amplitude', 'phase'])
             
     def _create_dat_plots(self,mode):
         
@@ -293,10 +272,13 @@ class Measure_td(object):
                 self.dat_cmpls = np.zeros((len(self.x_vec), self.ndev), np.complex128)
                 self.dat_ampa = np.zeros_like((len(self.x_vec), self.ndev))
                 self.dat_phaa = np.zeros_like(self.dat_ampa)
+        
+    def _append_data(self,it_v,trace=True,it=None):
 
-        
-    def _append_data(dat_amp, dat_pha, Is, Qs, it_v, trace, it=None):
-        
+        if trace:
+            dat_amp, dat_pha, Is, Qs = readout.readout(timeTrace = trace)
+        else:
+            dat_amp, dat_pha = readout.readout(timeTrace = trace)
         timestamp = time.time()
         
         if self.save_hdf:
@@ -318,13 +300,13 @@ class Measure_td(object):
             dat = np.append(dat, time.time())   #add time stamp
             self.data_raw.add_data_point(*dat)
             
-        #time domain data
-        if (not trace) and self.time_data and isinstance(it_v, (list, tuple, np.ndarray)):
-            dat = np.array(it_v)
-            dat = np.append(dat, Is[:])
-            dat = np.append(dat, Qs[:])
-            dat = np.append(dat, timestamp)
-            self.data_time.add_data_point(*dat)
+            #time domain data
+            if self.time_data and isinstance(it_v, (list, tuple, np.ndarray)):
+                dat = np.array(it_v)
+                dat = np.append(dat, Is[:])
+                dat = np.append(dat, Qs[:])
+                dat = np.append(dat, timestamp)
+                self.data_time.add_data_point(*dat)
             
         else:   #2dAWG
             #raw data
@@ -371,7 +353,6 @@ class Measure_td(object):
             self.data_avg.add_data_point(*dat[xi, :])
         self.data_avg.close_file()
         
-        #do that every time
         if final and self.save_hdf:
             self._hdf_amp_avg = self._data_hdf.add_value_vector('amplitude_avg', x = self._hdf_x, unit = 'V')
             self._hdf_pha_avg = self._data_hdf.add_value_vector('phase_avg', x = self._hdf_x, unit='rad')

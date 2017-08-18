@@ -12,6 +12,9 @@ import time,sys
 debug = False
 try_legacy = False
 
+def hourformat(time):
+    time = int(time)
+    return "%i:%02i:%02i"%(time/60/60,time/60%60,time%60)
 try:
     "try using the jupyter progress bar"
     #import somemodule.that.doesnt.exist
@@ -42,9 +45,9 @@ try:
                     0,
                     self.max_it,
                     "-?-" if est_cycle_time==None else time.strftime('%Y-%m-%d (%a) %H:%M:%S', time.localtime(time.time() + est_cycle_time * self.max_it )),
-                    "--:--:--" if est_cycle_time==None else time.strftime('%H:%M:%S', time.gmtime(est_cycle_time*self.max_it)),
+                    "--:--:--" if est_cycle_time==None else hourformat(est_cycle_time*self.max_it),
                     "00:00:00",
-                    "--:--:--" if est_cycle_time==None else time.strftime('%H:%M:%S', time.gmtime(est_cycle_time*self.max_it))),
+                    "--:--:--" if est_cycle_time==None else hourformat(est_cycle_time*self.max_it)),
                 )
 
             display(self.pi)
@@ -58,10 +61,10 @@ try:
             progr_info = "<table style='width:100%%'><tr><td>%s (%i/%i) </td><td>&#9992; %s    </td><td>&#128336;  %s   (estimated)</td><td>&#10010;  %s (elapsed) </td><td>&#9866;  %s (remaining)</td></tr></table>"%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
                     self.progr,
                     self.max_it,
-                    time.strftime('%Y-%m-%d (%a) %H:%M:%S', time.localtime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  -(0 if self.progr == 1 else 1)- self.progr))),
-                    time.strftime('%H:%M:%S', time.gmtime(self.start_eta_time-self.starttime+float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it -(0 if self.progr == 1 else 1) ))),
-                    time.strftime('%H:%M:%S', time.gmtime(time.time()-self.starttime)),
-                    time.strftime('%H:%M:%S', time.gmtime(float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  - self.progr))))
+                    time.strftime('%Y-%m-%d (%a) %H:%M:%S', time.localtime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  - self.progr))), #ETA
+                    hourformat(self.start_eta_time-self.starttime+float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it -(0 if self.progr == 1 else 1) )), #estimated
+                    hourformat(time.time()-self.starttime), #elapsed
+                    hourformat(float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  - self.progr))) #remaining
             self.pi.value = progr_info
             self.pb.value = self.progr
             if self.progr == 1:
@@ -108,10 +111,10 @@ except ImportError,e:
             outp = "<table style='width:100%%;border:none'><tr style='border:none'><td style='border:none'>%s (%i/%i) </td><td style='border:none'>&#9992; %s    </td><td style='border:none'>&#128336;  %s   (estimated)</td><td style='border:none'>&#10010;  %s (elapsed) </td><td style='border:none'>&#9866;  %s (remaining)</td></tr></table>"%("",
                     0,
                     self.max_it,
-                    "-?-" if est_cycle_time==None else time.ctime(time.time() + est_cycle_time * self.max_it ),
-                    "--:--:--" if est_cycle_time==None else time.strftime('%H:%M:%S', time.gmtime(est_cycle_time*self.max_it)),
+                    "-?-" if est_cycle_time==None else time.strftime('%Y-%m-%d (%a) %H:%M:%S', time.localtime(time.time() + est_cycle_time * self.max_it )),
+                    "--:--:--" if est_cycle_time==None else hourformat(est_cycle_time*self.max_it),
                     "00:00:00",
-                    "--:--:--" if est_cycle_time==None else time.strftime('%H:%M:%S', time.gmtime(est_cycle_time*self.max_it)))
+                    "--:--:--" if est_cycle_time==None else hourformat(est_cycle_time*self.max_it))
            
             self.pb = HTML(
             """
@@ -133,10 +136,10 @@ except ImportError,e:
             outp = "<table style='width:100%%;border:none'><tr style='border:none'><td style='border:none'>%s (%i/%i) </td><td style='border:none'>&#9992; %s    </td><td style='border:none'>&#128336;  %s   (estimated)</td><td style='border:none'>&#10010;  %s (elapsed) </td><td style='border:none'>&#9866;  %s (remaining)</td></tr></table>"%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
                     self.progr,
                     self.max_it,
-                    time.strftime('%Y-%m-%d (%a) %H:%M:%S', time.localtime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it -(0 if self.progr == 1 else 1)-  self.progr))),
-                    time.strftime('%H:%M:%S', time.gmtime(self.start_eta_time-self.starttime+float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it -(0 if self.progr == 1 else 1)))),
-                    time.strftime('%H:%M:%S', time.gmtime(time.time()-self.starttime)),
-                    time.strftime('%H:%M:%S', time.gmtime(float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  - self.progr))))
+                    time.strftime('%Y-%m-%d (%a) %H:%M:%S', time.localtime(time.time() + float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  - self.progr))), #ETA
+                    hourformat(self.start_eta_time-self.starttime+float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it )), #estimated
+                    hourformat(time.time()-self.starttime), #elapsed
+                    hourformat(float(time.time()-self.start_eta_time)/(self.progr-(0 if self.progr == 1 else 1)) * (self.max_it  - self.progr))) #remaining
             if self.progr == 1:
                 "this is a little academic, but the time between the first and the second iteration has usually a time lag."
                 self.start_eta_time = time.time()
@@ -150,7 +153,7 @@ except ImportError,e:
                     self.progr,
                     self.max_it,
                     time.strftime('%Y-%m-%d (%a) %H:%M:%S'),
-                    time.strftime('%H:%M:%S', time.gmtime(time.time()-self.starttime)))
+                    hourformat(time.time()-self.starttime))
                 display(Javascript("document.getElementById('%s_title').parentNode.remove();"%self.divid)) #title
                 self.pb = HTML(
                 """
