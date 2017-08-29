@@ -152,6 +152,9 @@ class Anritsu_VNA_MS4642B(Instrument):
             flags=Instrument.FLAG_GET,
             minval=0, maxval=1e-3,
             units='s', tags=['sweep'])
+            
+        self.add_parameter('sweep_mode', type=types.StringType,
+            flags=Instrument.FLAG_GETSET,tags=['sweep']) 
                     
         #Triggering Stuff
         self.add_parameter('trigger_source', type=types.StringType,
@@ -219,11 +222,6 @@ class Anritsu_VNA_MS4642B(Instrument):
           else:
               self._visainstrument.write('INIT1;*wai')
 
-    def hold(self, status):
-        if status:
-            self._visainstrument.write(':SENS:HOLD:FUNC HOLD')
-        else:
-            self._visainstrument.write(':SENS:HOLD:FUNC CONT')
         
     def avg_clear(self):
         self._visainstrument.write(':SENS%i:AVER:CLE' %(self._ci))
@@ -288,6 +286,22 @@ class Anritsu_VNA_MS4642B(Instrument):
     # SET and GET functions
     ###
     
+    def do_set_sweep_mode(self, mode):
+        '''
+        select the sweep mode from 'hold', 'cont', single'
+        '''
+        if mode == 'hold':
+            self._visainstrument.write(':SENS:HOLD:FUNC HOLD')
+        elif mode == 'cont':
+            self._visainstrument.write(':SENS:HOLD:FUNC CONT')
+        elif mode == 'single':
+            self._visainstrument.write(':SENS:HOLD:FUNC SING')
+        else:
+            logging.warning('invalid mode')
+            
+    def do_get_sweep_mode(self):
+        return self._visainstrument.ask(':SENS:HOLD:FUNC ?')
+    
     def do_set_nop(self, nop):
         '''
         Set Number of Points (nop) for sweep
@@ -344,10 +358,10 @@ class Anritsu_VNA_MS4642B(Instrument):
         '''
         logging.debug(__name__ + ' : setting Average to "%s"' % (status))
         if status:
-            self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,status))
+            self._visainstrument.write('SENS%i:AVER:STAT 1' % (self._ci))
             self._visainstrument.write('SENS%i:AVER:TYP SWE' % (self._ci))
         else:
-            self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,status))             
+            self._visainstrument.write('SENS%i:AVER:STAT 0' % (self._ci))             
     def do_get_Average(self):
         '''
         Get status of Average
@@ -1010,3 +1024,5 @@ class Anritsu_VNA_MS4642B(Instrument):
         This is a proxy function, returning True when the VNA has finished the required number of averages.
         '''
         return self.avg_status() == self.get_averages(query=False)
+            
+            
