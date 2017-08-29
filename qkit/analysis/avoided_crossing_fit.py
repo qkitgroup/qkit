@@ -505,6 +505,7 @@ class ACF_class():
             plt.plot(xlin, self.crossing_fct(xlin, pars)[:, i], fct_cols[i])
         plt.xlim(np.amin(np.concatenate(self.xdata)), np.amax(np.concatenate(self.xdata)))
         plt.ylim(np.amin(np.concatenate(self.ydata)), np.amax(np.concatenate(self.ydata)))
+        plt.show()
         return
 
 
