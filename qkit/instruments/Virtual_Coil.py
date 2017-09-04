@@ -70,7 +70,7 @@ class Virtual_Coil(Instrument):
             dacranges = ['bi']*self.channels
         else:
             if len(dacranges) != self.channels:
-                logging.errors('dacranges not specified properly')
+                logging.error('dacranges not specified properly')
         limits_dict = {'bi':[-2000,2000],'pos':[0,4000],'neg':[-4000,0]}
         self.range_limits = [limits_dict[dacranges[i]] for i in range(self.channels)]
         #print self.range_limits
