@@ -126,6 +126,6 @@ def optimize(data, c_amp = 1, c_pha = 2, show_complex_plot = False):
             plt.plot(np.real(c)[:10],np.imag(c)[:10],'.',color='r')   #show first 10 data points in red
             plt.plot(np.real(cmax),np.imag(cmax),'*',color='black',markersize=15)
         
-    if len(c_raw.shape) > 1: return np.array([np.array(data[0]),np.array(data_opt),errs])
-    else: return np.array([np.array(data[0]),np.array(data_opt)])
+    if len(c_raw.shape) > 1: return np.array([np.real(np.array(data[0])),np.real(np.array(data_opt)),np.real(errs)])
+    else: return np.array([np.real(np.array(data[0])),np.real(np.array(data_opt))])
     
