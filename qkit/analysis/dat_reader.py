@@ -534,7 +534,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     show_plot (optional): show the plot (optional, default = True)
     save_pdf (optional): save plot also as pdf file (optional, default = False)
     data, nfile: pass data object and file name which is used when file_name == 'dat_import'
-    opt: bool, set to True if data is to be optimized prior to fitting using the data_optimizer
+    opt: None per default or a list of columns that are passed to the do if data is to be optimized prior to fitting using the data_optimizer
     entryname: suffix to be added to the name of analysis entry
     spline_order: apply spline smoothing of data prior to fitting when spline_order != None
     phase_grad (boolean, optional): switch to differentiate phase data, spline smoothing is applied and data_c is regarded
@@ -617,11 +617,10 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     freq_conversion_factor = 1
     
     #data optimization
-    if opt:
+    if opt is not None:
         if no_do:
             logging.warning('Data is not optimized since package is not loaded.')
-        data_c = 1   #revoke choice in data column when using data optimizer (JB)
-        data = do.optimize(data,data_c,data_c+1)
+        data = do.optimize(data,*opt)
         
     if spline_order is not None:
         try:
