@@ -536,7 +536,7 @@ class spectrum(object):
             """
             loop: x_obj with parameters from x_vec
             """
-            for i, x in enumerate(self.x_vec):
+            for ix, x in enumerate(self.x_vec):
                 self.x_set_obj(x)
                 sleep(self.tdx)
                 
@@ -549,7 +549,7 @@ class spectrum(object):
                         """
                         loop: y_obj with parameters from y_vec (only 3D measurement)
                         """
-                        if (np.min(np.abs(self.center_freqs[i]-y*np.ones(len(self.center_freqs[i])))) > self.span/2.) and self.landscape:    #if point is not of interest (not close to one of the functions)
+                        if (np.min(np.abs(self.center_freqs[ix]-y*np.ones(len(self.center_freqs[ix])))) > self.span/2.) and self.landscape:    #if point is not of interest (not close to one of the functions)
                             data_amp = np.zeros(int(self._nop))
                             data_pha = np.zeros(int(self._nop))      #fill with zeros
                         else:
