@@ -81,7 +81,7 @@ class ACF_class():
         return a*(x - b)**2 + c
     
     
-    def transmon_f01(self, x, w0, L_eff, I_ext, djj, alpha):
+    def transmon_f01(self, x, w0, L, I_ext, djj):
         '''
         Input:
             w0      - Maximum frequency without detuning
