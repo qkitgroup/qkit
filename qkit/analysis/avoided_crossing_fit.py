@@ -81,21 +81,19 @@ class ACF_class():
         return a*(x - b)**2 + c
     
     
-    def transmon_f01(self, x, w0, L_eff, Phi_ext, djj, alpha):
+    def transmon_f01(self, x, w0, L_eff, I_ext, djj, alpha):
         '''
         Input:
             w0      - Maximum frequency without detuning
-            L_eff   - 2*pi*effective inductance/Phi0
-            Phi_ext - Offset flux
+            L_eff   - Oscillation period in current
+            I_ext   - Offset current
             djj     - Josephson junction asymmetry i.e. (Ic1 - Ic2)/(Ic1 + Ic2)
-            alpha   - Transmon anharmonicity
         Output:
             Primal transition frequency of a transmon qubit.
         
         Note: This function is oftentimes useless.
         ''' 
-        return w0 * ((((np.cos(L_eff*x - Phi_ext))**2)**.5)*
-                     (1+(djj**2)*(np.tan(L_eff*x - Phi_ext)**2)**.5)**.5)**.5 - alpha
+        return  w0 * (np.abs(np.cos(np.pi/L*(x - I_ext)))*(1 + djj**2*np.tan(np.pi/L*(x - I_ext))**2)**.5)**0.5
     
     
     
