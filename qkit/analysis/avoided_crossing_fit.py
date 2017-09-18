@@ -347,10 +347,8 @@ class ACF_class():
         dev = []
         pars = self._reshape(pars)
         
-        i=0
-        for fct in self.functions:
+        for i, fct in enumerate(self.functions):
             dev = np.append(dev, self.ydata[i] - self.crossing_fct(self.xdata[i], pars)[:, i])
-            i += 1
             
         return dev
 
@@ -369,7 +367,7 @@ class ACF_class():
         '''
         x = np.atleast_1d(x)
         fct_pars = pars[:-1]
-        g = pars[-1]
+        g = np.atleast_1d(pars[-1])
 
         #Create the nondiagonal symmetric interaction matrix
         int_mat = np.zeros((self._flen, self._flen))
@@ -386,10 +384,8 @@ class ACF_class():
         for n in range(np.size(x)):
             #Create diagonal parts of the matrix
             d_mat = np.zeros((self._flen, self._flen))
-            i = 0
-            for fct in self.functions:
+            for i, fct in enumerate(self.functions):
                 d_mat[i,i] = fct(x[n], *fct_pars[i])
-                i += 1
             
             mat = d_mat + int_mat
             func_vals[n, :] = np.linalg.eigvalsh(mat)
