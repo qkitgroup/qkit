@@ -50,6 +50,7 @@ try:
                 min=0,
                 max=self.max_it,
                 description=self.name,
+                layout={"width": "95%"},
                 )     
             
             self.pi = HTML(
@@ -86,6 +87,7 @@ try:
                             
             if self.progr == self.max_it: #last iteration
                 self.pb.color = "green"
+                self.pb.bar_style = "success"
                 pb_list.append([self.name,self.pb,self.pi]) #append to the list of done PBs
                 #progr_info = "%s (%i/%i) &#9992; %s    &#10010;  %s  "%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
                 #    self.progr,
