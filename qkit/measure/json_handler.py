@@ -24,6 +24,6 @@ class QkitJSONDecoder(json.JSONDecoder):
     def object_hook(self, obj):
         if obj.has_key('content') and obj.has_key("dtype") and len(obj)==2:
             if obj['dtype'] == 'ndarray':   return np.array(obj['content'])
-            if obj['dtype'] == 'instance':  return qt.instruments.get(obj['content'])
+            if obj['dtype'] == 'instance' or obj['dtype']=='qkitInstrument':  return qt.instruments.get(obj['content'])
         else:
             return obj 
