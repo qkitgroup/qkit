@@ -49,8 +49,8 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
     '''
     qt.mstart()
     if awg==None:
-        awg = sample.get_awg()
-    clock = sample.get_clock()
+        awg = sample.awg
+    clock = sample.clock
     wfm_func2 = wfm_func
     if iq != None:
         wfm_func2 = lambda t, sample: iq.convert(wfm_func(t,sample))
