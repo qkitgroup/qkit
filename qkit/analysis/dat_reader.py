@@ -55,6 +55,13 @@ except ImportError:
     logging.warning('no qtLAB environment')
     no_qt = True
 
+global new_data_structure 
+new_data_structure = False
+try:
+    from qkit.config.environment import cfg
+    new_data_structure = cfg['new_data_structure']
+except:
+    pass
 
 ''' fit function macros '''
 LORENTZIAN_SQRT = 0
@@ -107,7 +114,10 @@ def find_latest_file(ftype=None):
         return
     else:
         #extract newest file in specified folder
-        data_dir = os.path.join(data_dir_config, time.strftime('%Y%m%d'))
+        if not new_data_structure:
+            data_dir = os.path.join(data_dir_config, time.strftime('%Y%m%d'))
+        else:
+            data_dir = cfg["datadir"] + "/" + cfg["run_id"] + "/" + cfg["user"]
         try:
             nfile = max(glob.iglob(str(data_dir)+'\*\*.'+ftype), key=os.path.getctime)   #find newest file in directory
         except ValueError:
