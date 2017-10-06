@@ -55,7 +55,7 @@ except ImportError:
     logging.warning('no qtLAB environment')
     no_qt = True
 
-global new_data_structure 
+global new_data_structure
 new_data_structure = False
 try:
     from qkit.config.environment import cfg
@@ -918,7 +918,6 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
                     print 'Fit data successfully stored in h5 file: %s'%entryname
     if show_plot: plt.show()
     plt.close('dat_reader')
-    
     if pcov is None:
         return popt,float('inf')*np.ones(len(popt)) #fill up errors with 'inf' in case fit did not converge
     else:
