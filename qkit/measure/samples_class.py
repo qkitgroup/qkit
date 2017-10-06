@@ -10,6 +10,8 @@ import os, copy
 import numpy as np
 
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
+from qkit.storage.hdf_DateTimeGenerator import DateTimeGenerator as dtg
+
 import qkit.core.qt as qt
 
 class Sample(object):
@@ -70,17 +72,16 @@ class Sample(object):
         '''
         save sample object in the data directory
         '''
+        d = dtg()
+        path = d.new_filename(filename)['_folder']
 
-        if not os.path.exists(os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d"))):
-            os.makedirs(os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d")))
-
-        if filename==None:
-            filename=time.strftime("%H%M%S.sample")
+        if not os.path.exists(os.path.split(path)[0]):
+            os.makedirs(os.path.split(path)[0])
 
         copydict = copy.copy(self.__dict__)
-        with open(os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d"),filename),'w+') as filehandler:
+        with open(path+'.sample','w+') as filehandler:
             json.dump(obj=copydict, fp=filehandler, cls=QkitJSONEncoder, indent = 4, sort_keys=True)
-        print "Saved to " + str(os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d"),filename)).replace('\\','/')
+        print "Saved to " + str(path+'.sample').replace('\\','/')
 
     def load(self, filename):
         '''
