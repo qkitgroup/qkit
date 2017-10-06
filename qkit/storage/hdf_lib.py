@@ -17,7 +17,7 @@ from hdf_view import dataset_view
 from hdf_DateTimeGenerator import DateTimeGenerator
 from qkit.config.environment import cfg
 
-alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 
 class Data(object):
     "this is a basic hdf5 class adopted to our needs"
@@ -28,42 +28,39 @@ class Data(object):
         set file name generator is used.
 
         kwargs:
-            name (string) : default is 'data'
+            name (string):  default is 'data', will result in a file at datadir/uuid_name.h5
+            path (string): to open an existing file or specify the exact path. If None, the file will be created.
         """
 
-        name = kwargs.pop('name', 'data')
+        self._name = kwargs.pop('name', 'data')
 
-        "if path was omitted, a new filepath will be created"
-        path = kwargs.pop('path',None)
-        self._filename_generator = DateTimeGenerator()
-        self.generate_file_name(name, filepath = path, **kwargs)
-
+        #if path was omitted, a new filepath will be created
+        self._filepath = kwargs.pop('path',None)
+        
+        if self._filepath is None:
+            self.generate_file_name()
+           
         "setup the  file"
         self.hf = H5_file(self._filepath)
-
         self.hf.flush()
 
 
-    def generate_file_name(self, name, **kwargs):
-        # for now just a copy from the origial file
-
-
-        self._name = name
-
-        filepath = kwargs.get('filepath', None)
-        if filepath:
-            self._filepath = filepath
-        else:
-            self._unix_timestamp = int(time.time())
-            self._uuid = self._create_uuid()
-            self._localtime = time.localtime(self._unix_timestamp)
-            self._timestamp = time.asctime(self._localtime)
-            self._timemark = time.strftime('%H%M%S', self._localtime)
-            self._datemark = time.strftime('%Y%m%d', self._localtime)
-            self._filepath =  self._filename_generator.new_filename(self)
-            self._relpath = os.path.relpath(self._filepath, cfg['datadir'])
-
-        self._folder, self._filename = os.path.split(self._filepath)
+    def generate_file_name(self):
+        dtg = DateTimeGenerator()
+        self.__dict__.update(dtg.new_filename(self._name))
+        '''
+        this sets:
+            _unix_timestamp
+            _localtime    
+            _timestamp
+            _timemark
+            _datemark
+            _uuid
+            _filename
+            _folder
+            _relpath
+            _filepath        
+        '''
         
         if self._folder and not os.path.isdir(self._folder):
             os.makedirs(self._folder)
@@ -147,30 +144,3 @@ class Data(object):
         self.hf.close_file()
     def close(self):
         self.hf.close_file()
-        
-    def _create_uuid(self):
-        return self.encode_uuid()
-    
-    def encode_uuid(self,value=None):
-        if not value: value = self._unix_timestamp
-        output = ''
-        la = len(alphabet)
-        while(value):
-            output += alphabet[value%la]
-            value = value/la
-        return output[::-1]
-
-    def decode_uuid(self,string=''):
-        if not string: string = self._uuid
-        output = 0
-        multiplier = 1
-        string = string[::-1].upper()
-        la = len(alphabet)
-        while(string != ''):
-            f = alphabet.find(string[0])
-            if f == -1:
-                raise ValueError("Can not decode this: %s<--"%string[::-1])
-            output += f*multiplier
-            multiplier*=la
-            string = string[1:]
-        return output
