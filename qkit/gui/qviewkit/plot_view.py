@@ -10,14 +10,14 @@ in_pyqt5 = False
 try:
     from PyQt5 import QtCore, QtGui
     in_pyqt5 = True
-except ImportError, e:
+except ImportError as e:
     pass
 
 if not in_pyqt5:
     try:
         from PyQt4 import QtCore, QtGui
     except ImportError:
-        print "import of PyQt5 and PyQt4 failed. Install one of those."
+        print("import of PyQt5 and PyQt4 failed. Install one of those.")
         sys.exit(-1)
 
 

@@ -24,9 +24,9 @@ class info_thread(Thread):
         socks = dict(self.ifc.poller.poll(1000))# wait 1s
         if self.ifc.socket in socks and socks[self.ifc.socket] == zmq.POLLIN:
             tid, message = self.ifc.get_message()
-            print message,tid
+            print(message,tid)
             if int(tid)  == SIGNALS.get('close-gui'):
-                print "received close gui signal"
+                print("received close gui signal")
                 self.data.set_info_thread_continue(False)
                 self.data.close_all()
 

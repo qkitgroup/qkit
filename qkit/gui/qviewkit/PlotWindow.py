@@ -12,7 +12,7 @@ try:
     from PyQt5.QtWidgets import QWidget,QPlainTextEdit,QMenu,QAction
     #from PyQt5 import Qt
     in_pyqt5 = True
-except ImportError, e:
+except ImportError as e:
     pass
 if not in_pyqt5:
     try:
@@ -20,7 +20,7 @@ if not in_pyqt5:
         from PyQt4.QtCore import *
         from PyQt4.QtGui import *
     except ImportError:
-        print "import of PyQt5 and PyQt4 failed. Install one of those."
+        print("import of PyQt5 and PyQt4 failed. Install one of those.")
         sys.exit(-1)
 
 
@@ -151,10 +151,10 @@ class PlotWindow(QWidget,Ui_Form):
                 self.graphicsView.clear()
                 _display_text(self,self.graphicsView)
             else:
-                print "This should not be here: View Type:"+str(self.view_type)
-        except ValueError,e:
-            print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
-            print e
+                print("This should not be here: View Type:"+str(self.view_type))
+        except ValueError as e:
+            print("PlotWindow: Value Error; Dataset not yet available", self.dataset_url)
+            print(e)
 
 
     def _setup_signal_slots(self):
@@ -185,7 +185,7 @@ class PlotWindow(QWidget,Ui_Form):
         #print "Received Key Press Event!! You Pressed: "+ event.text()
         if ev.key() == Qt.Key_S:
             #print '# ',ev.key()
-            print self.data_coord
+            print(self.data_coord)
             sys.stdout.flush()
 
     def _setDefaultView(self):
@@ -438,7 +438,7 @@ class PlotWindow(QWidget,Ui_Form):
         pass
 
     def _init_XY_add(self):
-        for i,key in enumerate(self.DATA.ds_tree_items.iterkeys()):
+        for i,key in enumerate(self.DATA.ds_tree_items.keys()):
             keys = key.split("/")[-2:]
             key = "/".join(key for key in keys)
             self.addXPlotSelector.addItem("")
@@ -485,31 +485,31 @@ class PlotWindow(QWidget,Ui_Form):
     def addQvkMenu(self,menu):
         self.qvkMenu = QMenu("Qviewkit")
 
-        point = QAction(u'Point', self.qvkMenu)
+        point = QAction('Point', self.qvkMenu)
         self.qvkMenu.addAction(point)
         point.triggered.connect(self.setPointMode)
 
-        line = QAction(u'Line', self.qvkMenu)
+        line = QAction('Line', self.qvkMenu)
         self.qvkMenu.addAction(line)
         line.triggered.connect(self.setLineMode)
 
-        pointLine = QAction(u'Point+Line', self.qvkMenu)
+        pointLine = QAction('Point+Line', self.qvkMenu)
         self.qvkMenu.addAction(pointLine)
         pointLine.triggered.connect(self.setPointLineMode)
 
-        dB_scale = QAction(u'dB / linear', self.qvkMenu)
+        dB_scale = QAction('dB / linear', self.qvkMenu)
         self.qvkMenu.addAction(dB_scale)
         dB_scale.triggered.connect(self.setdBScale)
         
-        phase_wrap = QAction(u'(un)wrap phase data', self.qvkMenu)
+        phase_wrap = QAction('(un)wrap phase data', self.qvkMenu)
         self.qvkMenu.addAction(phase_wrap)
         phase_wrap.triggered.connect(self.setPhaseWrap)
         
-        linear_correction = QAction(u'linearly correct data', self.qvkMenu)
+        linear_correction = QAction('linearly correct data', self.qvkMenu)
         self.qvkMenu.addAction(linear_correction)
         linear_correction.triggered.connect(self.setLinearCorrection)
         
-        offset_correction = QAction(u'subtract offset', self.qvkMenu)
+        offset_correction = QAction('subtract offset', self.qvkMenu)
         self.qvkMenu.addAction(offset_correction)
         offset_correction.triggered.connect(self.setOffsetCorrection)
         

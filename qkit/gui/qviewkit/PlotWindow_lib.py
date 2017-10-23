@@ -11,7 +11,7 @@ try:
     from PyQt5.QtCore import Qt,QObject,pyqtSlot
     from PyQt5.QtWidgets import QWidget,QPlainTextEdit,QMenu,QAction
     in_pyqt5 = True
-except ImportError, e:
+except ImportError as e:
     pass
 
 if not in_pyqt5:
@@ -20,7 +20,7 @@ if not in_pyqt5:
         from PyQt4.QtCore import *
         from PyQt4.QtGui import *
     except ImportError:
-        print "import of PyQt5 and PyQt4 failed. Install one of those."
+        print("import of PyQt5 and PyQt4 failed. Install one of those.")
         sys.exit(-1)
 
 import numpy as np
@@ -214,7 +214,7 @@ def _display_1D_data(self,graphicsView):
         x_name = ds.attrs.get("x_name","_none_")
         x_unit = ds.attrs.get("x_unit","_none_")
 
-        x_data = [x0+dx*i for i in xrange(y_data.shape[0])]
+        x_data = [x0+dx*i for i in range(y_data.shape[0])]
 
         #only one entry in ds, line style does not make any sense
         if self.ds.shape[0]==1:
@@ -234,7 +234,7 @@ def _display_1D_data(self,graphicsView):
             self.TraceSelector.setValue(self.TraceNum)
             self.TraceValueChanged = False
 
-        x_data = [x0+dx*i for i in xrange(y_data.shape[1])]
+        x_data = [x0+dx*i for i in range(y_data.shape[1])]
         y_data = y_data[self.TraceNum]
 
         self.TraceValue.setText(self._getXValueFromTraceNum(ds,self.TraceNum))
@@ -495,7 +495,7 @@ def _display_table(self,graphicsView):
         for d in data:
             data_tmp.append([d])
         data = np.array(data_tmp)
-        graphicsView.setFormat(unicode(data))
+        graphicsView.setFormat(str(data))
     graphicsView.setData(data)
     
 def _display_text(self,graphicsView):
