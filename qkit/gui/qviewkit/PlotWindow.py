@@ -198,7 +198,8 @@ class PlotWindow(QWidget,Ui_Form):
         """
 
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
-        self.manipulations = {'dB':1, 'wrap':2, 'linear':4, 'remove_zeros':8, 'offset':16} #BITMASK for manipulation
+        self.manipulations = {'dB':1, 'wrap':2, 'linear':4, 'remove_zeros':8,
+                              'sub_offset_avg_y':16, 'norm_data_avg_x':32} #BITMASK for manipulation
 
         self.plot_style = 0
         self.manipulation = 8
@@ -458,7 +459,7 @@ class PlotWindow(QWidget,Ui_Form):
             xval = x0+num*dx
         else:
             xval = x0+(max_len+num)*dx
-        return str(xval)+" "+unit
+        return str(xval)+" "+str(unit)
 
     def _getYValueFromTraceNum(self,ds,num):
         y0 = ds.attrs.get("y0",0)
@@ -469,7 +470,7 @@ class PlotWindow(QWidget,Ui_Form):
             yval = y0+num*dy
         else:
             yval = y0+(max_len+num)*dy
-        return str(yval)+" "+unit
+        return str(yval)+" "+str(unit)
 
     def _getZValueFromTraceNum(self,ds,num):
         z0 = ds.attrs.get("z0",0)
@@ -480,7 +481,7 @@ class PlotWindow(QWidget,Ui_Form):
             zval = z0+num*dz
         else:
             zval = z0+(max_len+num)*dz
-        return str(zval)+" "+unit
+        return str(zval)+" "+str(unit)
 
     def addQvkMenu(self,menu):
         self.qvkMenu = QMenu("Qviewkit")
@@ -509,10 +510,13 @@ class PlotWindow(QWidget,Ui_Form):
         self.qvkMenu.addAction(linear_correction)
         linear_correction.triggered.connect(self.setLinearCorrection)
         
-        offset_correction = QAction('subtract offset', self.qvkMenu)
+        offset_correction = QAction('data-<data:y>', self.qvkMenu)
         self.qvkMenu.addAction(offset_correction)
         offset_correction.triggered.connect(self.setOffsetCorrection)
         
+        norm_correction = QAction('data/<data:x>', self.qvkMenu)
+        self.qvkMenu.addAction(norm_correction)
+        norm_correction.triggered.connect(self.setNormDataCorrection)
 
         menu.addMenu(self.qvkMenu)
 
@@ -557,7 +561,14 @@ class PlotWindow(QWidget,Ui_Form):
             
     @pyqtSlot()
     def setOffsetCorrection(self):
-        self.manipulation = self.manipulation ^ self.manipulations['offset']
+        self.manipulation = self.manipulation ^ self.manipulations['sub_offset_avg_y']
+        #print "{:08b}".format(self.manipulation)
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+
+    @pyqtSlot()
+    def setNormDataCorrection(self):
+        self.manipulation = self.manipulation ^ self.manipulations['norm_data_avg_x']
         #print "{:08b}".format(self.manipulation)
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()

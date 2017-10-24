@@ -413,9 +413,14 @@ def _display_2D_data(self,graphicsView):
     if self.manipulation & self.manipulations['remove_zeros']:
         data[np.where(data==0)] = np.NaN #replace all exact zeros in the hd5 data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
     
+    if self.manipulation & self.manipulations['sub_offset_avg_y']:
+        #ignore division by zero
+        old_warn = np.seterr(divide='print')
+        data = data - np.nanmean(data,axis=1,keepdims=True)
+        np.seterr(**old_warn)
     
     # subtract offset from the data
-    if self.manipulation & self.manipulations['offset']:
+    if self.manipulation & self.manipulations['norm_data_avg_x']:
         #ignore division by zero
         old_warn = np.seterr(divide='print')
         data = data / np.nanmean(data,axis=0,keepdims=True)
@@ -435,7 +440,7 @@ def _display_2D_data(self,graphicsView):
     scale=((xmax-xmin)/float(fill_x),(ymax-ymin)/float(fill_y))
     graphicsView.view.setLabel('left', y_name, units=y_unit)
     graphicsView.view.setLabel('bottom', x_name, units=x_unit)
-    graphicsView.view.setTitle(name+" ("+self.unit+")")
+    graphicsView.view.setTitle(str(name)+" ("+str(self.unit)+")")
     graphicsView.view.invertY(False)
     
     graphicsView.setImage(data,pos=pos,scale=scale)

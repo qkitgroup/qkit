@@ -47,9 +47,10 @@ class DATA(QObject):
         # self, item, dataset
         
         window = PlotWindow(parent,self,ds)
-        
-        self.open_plots[window_id]=window
-        self.open_ds[ds]=window_id
+
+        #print(window, window_id)
+        self.open_plots[str(window_id)]=window
+        self.open_ds[ds] = window_id
         
         window.show()   # non-modal
         
@@ -66,9 +67,9 @@ class DATA(QObject):
                 window_id.setCheckState(0,QtCore.Qt.Unchecked)
                 
                 # make sure data is consitent                
-                if window_id in self.open_plots:
-                    self.open_plots[window_id].deleteLater()
-                    self.open_plots.pop(window_id)
+                if str(window_id) in self.open_plots:
+                    self.open_plots[str(window_id)].deleteLater()
+                    self.open_plots.pop(str(window_id))
                     
                     
                 if ds in self.open_ds:

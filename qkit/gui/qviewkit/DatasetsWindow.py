@@ -147,7 +147,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             else:
                 parent = self.DATA.ds_tree_items[tree_key]
                 
-            s= "comment:\t" +str(self.h5file[tree_key].attrs.get('comment',"")+"\n")
+            s= "comment:\t"+str(self.h5file[tree_key].attrs.get('comment',""))+"\n"
             self.DATA.dataset_info[tree_key] = s
             
             for j,centry in enumerate(self.h5file[tree_key].keys()):
@@ -202,13 +202,13 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                 self.update_plots()
                 
             # uncheck 
-            window = self.DATA.open_plots[item]
+            window = self.DATA.open_plots[str(item)]
             window.destroyed.connect(self._close_plot_window)
                 
         if item.checkState(column) == QtCore.Qt.Unchecked:
             
             if self.DATA.plot_is_open(ds):
-                self.DATA.remove_plot(item,ds)
+                self.DATA.remove_plot(str(item),ds)
         
     def handleSelectionChanged(self):
         getSelected = self.treeWidget.selectedItems()
