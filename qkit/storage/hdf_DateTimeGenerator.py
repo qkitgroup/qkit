@@ -1,4 +1,4 @@
-# -*- cod   ing: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Created 2015
 
@@ -41,9 +41,9 @@ class DateTimeGenerator(object):
         return self.returndict
     
     def new_filename_v1(self, name):
-        filename = '%s' % (self.returndict['_timemark'])
+        filename = str(self.returndict['_timemark'])
         if name != '' and name is not None:
-            filename += '_%s' % (name)
+            filename += '_' + str(name)
         self.returndict['_filename'] = filename + '.h5'
         '''Old filename with datadir/YYMMDD/HHMMSS_name/HHMMSS_name.h5'''
         self.returndict['_relpath'] = os.path.join(
@@ -52,12 +52,12 @@ class DateTimeGenerator(object):
         )
     
     def new_filename_v2(self, name):
-        filename = '%s' % (self.returndict['_uuid'])
+        filename = str(self.returndict['_uuid'])
         if name != '' and name is not None:
-            filename += '_%s' % (name)
+            filename += '_' + str(name)
         self.returndict['_filename'] = filename + '.h5'
         '''New filename with datadir/run_id/user/uuid_name/uuid_name.h5'''
-        if not cfg.has_key('user') or not cfg.has_key('run_id'):
+        if 'user' not in cfg or 'run_id' not in cfg:
             logging.warning(__name__ + ": cfg['user'] or cfg['run_id'] is not set. Using defaults. Have fun searching your data.")
         
         self.returndict['_relpath'] = os.path.join(
@@ -71,7 +71,7 @@ def encode_uuid(value):
     # if not value: value = self._unix_timestamp
     output = ''
     la = len(alphabet)
-    while (value):
+    while value:
         output += alphabet[value % la]
         value = value / la
     return output[::-1]
@@ -83,10 +83,10 @@ def decode_uuid(string):
     multiplier = 1
     string = string[::-1].upper()
     la = len(alphabet)
-    while (string != ''):
+    while string != '':
         f = alphabet.find(string[0])
         if f == -1:
-            raise ValueError("Can not decode this: %s<--" % string[::-1])
+            raise ValueError("Can not decode this: {}<--".format(string[::-1]))
         output += f * multiplier
         multiplier *= la
         string = string[1:]
