@@ -48,7 +48,7 @@ class spectrum(object):
     m.measure_XX()
     '''
 
-    def __init__(self, vna, exp_name = ''):
+    def __init__(self, vna, exp_name = '', sample = None):
 
         self.vna = vna
         self.averaging_start_ready = "start_measurement" in self.vna.get_function_names() and "ready" in self.vna.get_function_names()
