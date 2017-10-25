@@ -29,6 +29,7 @@ from qkit.storage import hdf_lib as hdf
 from qkit.analysis.resonator import Resonator as resonator
 from qkit.gui.plot import plot as qviewkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
+from qkit.measure.measurement_class import Measurement 
 import qkit.measure.write_additional_files as waf
 
 ##################################################################
@@ -38,7 +39,6 @@ class spectrum(object):
     usage:
 
     m = spectrum(vna = vna1)
-    m2 = spectrum(vna = vna2, mw_src = mw_src1)      #where 'vna2'/'mw_src1' is the qt.instruments name
 
     m.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current',coil.set_current, unit = 'mA')
     m.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency',mw_src1.set_frequency, unit = 'Hz')
@@ -54,6 +54,7 @@ class spectrum(object):
         self.averaging_start_ready = "start_measurement" in self.vna.get_function_names() and "ready" in self.vna.get_function_names()
         if not self.averaging_start_ready: logging.warning(__name__ + ': With your VNA instrument driver (' + self.vna.get_type() + '), I can not see when a measurement is complete. So I only wait for a specific time and hope the VNA has finished. Please consider implemeting the necessary functions into your driver.')
         self.exp_name = exp_name
+        self._sample = sample
 
         self.landscape = None
         self.span = 200e6    #[Hz]
@@ -74,6 +75,10 @@ class spectrum(object):
         
         self.open_qviewkit = True
         self.qviewkit_singleInstance = False
+        
+        self._measurement_object = Measurement()
+        self._measurement_object.measurement_type = 'spectroscopy'
+        self._measurement_object.sample = self._sample
         
         self._qvk_process = False
         
@@ -221,6 +226,13 @@ class spectrum(object):
         '''
 
         self._data_file = hdf.Data(name=self._file_name)
+        self._measurement_object.uuid = self._data_file._uuid
+        self._measurement_object.hdf_relpath = self._data_file._relpath
+        self._measurement_object.instruments = qt.instruments.get_instruments()
+
+        self._measurement_object.save()
+        self._mo = self._data_file.add_textlist('measurement')
+        self._mo.append(self._measurement_object.get_JSON())
 
         # write logfile and instrument settings
         self._write_settings_dataset()
@@ -295,7 +307,7 @@ class spectrum(object):
         settings = waf.get_instrument_settings(self._data_file.get_filepath())
         self._settings.append(settings)
 
-    def measure_1D(self, rescan = True):
+    def measure_1D(self, rescan = True, web_visible = True):
         '''
         measure method to record a single (averaged) VNA trace, S11 or S21 according to the setting on the VNA
         rescan: If True (default), the averages on the VNA are cleared and a new measurement is started. 
@@ -305,6 +317,12 @@ class spectrum(object):
         self._scan_2D = False
         self._scan_3D = False
         self._scan_time = False
+        
+        self._measurement_object.measurement_func = 'measure_1D'
+        self._measurement_object.x_axis = 'frequency'
+        self._measurement_object.y_axis = ''
+        self._measurement_object.z_axis = ''
+        self._measurement_object.web_visible = web_visible
 
         if not self.dirname:
             self.dirname = 'VNA_tracedata'
@@ -368,7 +386,7 @@ class spectrum(object):
         qt.mend()
         self._end_measurement()
 
-    def measure_2D(self):
+    def measure_2D(self, web_visible = True):
         '''
         measure method to record a (averaged) VNA trace, S11 or S21 according to the setting on the VNA
         for all parameters x_vec in x_obj
@@ -381,6 +399,12 @@ class spectrum(object):
         self._scan_2D = True
         self._scan_3D = False
         self._scan_time = False
+        
+        self._measurement_object.measurement_func = 'measure_2D'
+        self._measurement_object.x_axis = self.x_coordname
+        self._measurement_object.y_axis = 'frequency'
+        self._measurement_object.z_axis = ''
+        self._measurement_object.web_visible = web_visible
 
         if not self.dirname:
             self.dirname = self.x_coordname
@@ -403,7 +427,7 @@ class spectrum(object):
         self._measure()
 
 
-    def measure_3D(self):
+    def measure_3D(self, web_visible = True):
         '''
         measure full window of vna while sweeping x_set_obj and y_set_obj with parameters x_vec/y_vec. sweep over y_set_obj is the inner loop, for every value x_vec[i] all values y_vec are measured.
 
@@ -418,6 +442,12 @@ class spectrum(object):
         self._scan_2D = False
         self._scan_3D = True
         self._scan_time = False
+        
+        self._measurement_object.measurement_func = 'measure_3D'
+        self._measurement_object.x_axis = self.x_coordname
+        self._measurement_object.y_axis = self.y_coordname
+        self._measurement_object.z_axis = 'frequency'
+        self._measurement_object.web_visible = web_visible
 
         if not self.dirname:
             self.dirname = self.x_coordname + ', ' + self.y_coordname
@@ -445,7 +475,7 @@ class spectrum(object):
         self._measure()
         
         
-    def measure_timetrace(self):
+    def measure_timetrace(self, web_visible = True):
         '''
         measure method to record a single VNA timetrace, this only makes sense when span is set to 0 Hz!,
         tested only with KEYSIGHT E5071C ENA and its corresponding qkit driver
@@ -459,6 +489,12 @@ class spectrum(object):
         self._scan_2D = False
         self._scan_3D = False
         self._scan_time = True
+        
+        self._measurement_object.measurement_func = 'measure_timetrace'
+        self._measurement_object.x_axis = 'time'
+        self._measurement_object.y_axis = ''
+        self._measurement_object.z_axis = ''
+        self._measurement_object.web_visible = web_visible
         
         if not self.dirname:
             self.dirname = 'VNA_timetrace'
