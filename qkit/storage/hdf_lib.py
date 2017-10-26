@@ -39,7 +39,9 @@ class Data(object):
         
         if self._filepath is None:
             self.generate_file_name()
-           
+        else:
+            self._filepath = os.path.abspath(self._filepath)
+            self._folder,self._filename = os.path.split(self._filepath)
         "setup the  file"
         self.hf = H5_file(self._filepath)
         self.hf.flush()
