@@ -70,10 +70,19 @@ class Sample(object):
 
     def save(self,filename=None):
         '''
-        save sample object in the data directory
+        save sample object.
+        Filename can either be:
+            - a full (absolute) path to the sample file or
+            - any other string that is added to the filename in the data dir
+            - None (default), the the sample object is stored in the data dir.
+            
+        returns the location of the sample file
         '''
-        d = dtg()
-        path = d.new_filename(filename)['_folder']
+        if filename is None or not(os.path.isabs(filename)):
+            d = dtg()
+            path = d.new_filename(filename)['_folder']
+        else:
+            path = filename
 
         if not os.path.exists(os.path.split(path)[0]):
             os.makedirs(os.path.split(path)[0])
@@ -81,7 +90,7 @@ class Sample(object):
         copydict = copy.copy(self.__dict__)
         with open(path+'.sample','w+') as filehandler:
             json.dump(obj=copydict, fp=filehandler, cls=QkitJSONEncoder, indent = 4, sort_keys=True)
-        print "Saved to " + str(path+'.sample').replace('\\','/')
+        return str(path+'.sample')
 
     def load(self, filename):
         '''
