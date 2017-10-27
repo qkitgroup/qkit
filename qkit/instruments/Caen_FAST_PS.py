@@ -391,6 +391,28 @@ class Caen_FAST_PS(Instrument):
     def _ask(self, cmd):
         self._soc.sendall(cmd+'\r')
         return self._soc.recv(1024).strip()
+       
+    def set_coil(self, coil):
+        '''
+        Adapts the PID values to the specific coils in our lab
+        
+        Input:
+            coil (int) : {0:default, 1:solenoid_red, 2:yoke_red, 3:solenoid_janice}
+
+        Output:
+            None
+        '''
+        PID_dict = {0:[0.0001, 0.0001, 0], 1:[0.0001, 0.0001, 0], 2:[0.0001, 0.1, 0], 3:[0.0001, 0.0001, 0]}
+        PID = PID_dict[coil]
+        recv = self._ask('MWG:43:%f' %PID[0])
+        if recv != self._ak_str: return 'ERROR: ' + error_msg[recv.split(':')[1]]
+        recv = self._ask('MWG:44:%f' %PID[1])
+        if recv != self._ak_str: return 'ERROR: ' + error_msg[recv.split(':')[1]]
+        recv = self._ask('MWG:45:%f' %PID[2])
+        if recv != self._ak_str: return 'ERROR: ' + error_msg[recv.split(':')[1]]
+        recv = self._ask('MSAVE)
+        if recv != self._ak_str: return 'ERROR: ' + error_msg[recv.split(':')[1]]   
+        
         
 error_msg = {'01':"Unknown command",
              '02':"Unknown Parameter",
