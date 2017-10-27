@@ -58,7 +58,7 @@ class Keysight_VNA_E5071C(Instrument):
         # Implement parameters
         self.add_parameter('nop', type=types.IntType,
             flags=Instrument.FLAG_GETSET,
-            minval=2, maxval=1601,
+            minval=2, maxval=20001,
             tags=['sweep'])
             
         self.add_parameter('bandwidth', type=types.FloatType,
