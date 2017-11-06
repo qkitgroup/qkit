@@ -1,5 +1,5 @@
-# spectroscopy.py spectroscopy measurement class for use with a vector network analyzer
-# JB/MP/AS@KIT 04/2015, 08/2015, 01/2016
+# transport.py  measurement class for IV like transport measurements
+# MMW/HR@KIT 11/2017
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,15 +18,15 @@
 
 import numpy as np
 import logging
-import matplotlib.pylab as plt
-from scipy.optimize import curve_fit
+#import matplotlib.pylab as plt
+#from scipy.optimize import curve_fit
 from time import sleep,time
 import sys
 import qt
 import threading
 
 from qkit.storage import hdf_lib as hdf
-from qkit.analysis.resonator import Resonator as resonator
+#from qkit.analysis.resonator import Resonator as resonator
 from qkit.gui.plot import plot as qviewkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.measurement_class import Measurement 
@@ -48,18 +48,15 @@ class spectrum(object):
     m.measure_XX()
     '''
 
-    def __init__(self, vna, exp_name = '', sample = None):
+    def __init__(self, IV_Device, exp_name = '', sample = None):
 
-        self.vna = vna
-        self.averaging_start_ready = "start_measurement" in self.vna.get_function_names() and "ready" in self.vna.get_function_names()
-        if not self.averaging_start_ready: logging.warning(__name__ + ': With your VNA instrument driver (' + self.vna.get_type() + '), I can not see when a measurement is complete. So I only wait for a specific time and hope the VNA has finished. Please consider implemeting the necessary functions into your driver.')
+        self.IVD = IV_Device
+        
+        
         self.exp_name = exp_name
         self._sample = sample
 
-        self.landscape = None
-        self.span = 200e6    #[Hz]
-        self.tdx = 0.002   #[s]
-        self.tdy = 0.002   #[s]
+
 
         self.comment = ''
         self.dirname = None
@@ -68,7 +65,7 @@ class spectrum(object):
         self.y_set_obj = None
 
         self.progress_bar = True
-        self._fit_resonator = False
+
         self._plot_comment=""
 
         self.set_log_function()
@@ -77,7 +74,7 @@ class spectrum(object):
         self.qviewkit_singleInstance = False
         
         self._measurement_object = Measurement()
-        self._measurement_object.measurement_type = 'spectroscopy'
+        self._measurement_object.measurement_type = 'transport'
         self._measurement_object.sample = self._sample
         
         self._qvk_process = False
@@ -161,61 +158,33 @@ class spectrum(object):
         self.delete_fit_function()
         self.y_unit = y_unit
 
-    def gen_fit_function(self, curve_f, curve_p, units = '', p0 = [-1,0.1,7]):
+        def set_sweep_type(self, sweep_type = 1):
         '''
-        curve_f: 'parab', 'hyp', specifies the fit function to be employed
-        curve_p: set of points that are the basis for the fit in the format [[x1,x2,x3,...],[y1,y2,y3,...]], frequencies in Hz
-        units: set this to 'Hz' in order to avoid large values that cause the fit routine to diverge
-        p0 (optional): start parameters for the fit, must be an 1D array of length 3 ([a,b,c,d]), 
-           where for the parabula p0[3] will be ignored 
-        The parabolic function takes the form  y = a*(x-b)**2 + c , where (a,b,c) = p0
-        The hyperbolic function takes the form y = sqrt[ a*(x-b)**2 + c ], where (a,b,c) = p0
+        Sets the  sweep type, in the moment only simple sweep types are defined: 
+        Input:
+        sweep_type:
+            0: single sweep START -> END 
+            1: double sweep START -> END -> START (default)
+            2: triple sweep START -> END -> START -> -END
+            3: quad sweep   START -> END -> START -> -END -> START
         
-        adds a trace to landscape
         '''
+        self.IV_sweep_type = sweep_type
 
-        if not self.landscape:
-            self.landscape = []
 
-        x_fit = curve_p[0]
-        if units == 'Hz':
-            y_fit = np.array(curve_p[1])*1e-9
-        else:
-            y_fit = np.array(curve_p[1])
-
-        try:
-            if curve_f == 'parab':
-                "remove the last item"
-                #p0.pop()
-                popt, pcov = curve_fit(self.f_parab, x_fit, y_fit, p0=p0)
-                if units == 'Hz':
-                    self.landscape.append(1e9*self.f_parab(self.x_vec, *popt))
-                else:
-                    self.landscape.append(self.f_parab(self.x_vec, *popt))
-            elif curve_f == 'hyp':
-                popt, pcov = curve_fit(self.f_hyp, x_fit, y_fit, p0=p0)
-                print popt
-                if units == 'Hz':
-                    self.landscape.append(1e9*self.f_hyp(self.x_vec, *popt))
-                else:
-                    self.landscape.append(self.f_hyp(self.x_vec, *popt))
-            else:
-                print 'function type not known...aborting'
-                raise ValueError
-        except Exception as message:
-            print 'fit not successful:', message
-            popt = p0
-
-    def _prepare_measurement_vna(self):
+    def _prepare_measurement_IVD(self):
         '''
         all the relevant settings from the vna are updated and called
         '''
 
-        self.vna.get_all()
-        #ttip.get_temperature()
-        self._nop = self.vna.get_nop()
-        self._sweeptime_averages = self.vna.get_sweeptime_averages()
-        self._freqpoints = self.vna.get_freqpoints()
+        self.IVD.get_all()
+        #ttip.get_temperature() 
+        # bias mode is either  current=0 or voltage=1
+        self._bias_mode = self.IVD.get_bias_mode()
+        
+        self._nop = self.IVD.get_nop()
+        self._sweeptime_averages = self.IVD.get_sweeptime_averages()
+        #self._freqpoints = self.IVD.get_freqpoints()
 
         if self.averaging_start_ready: self.vna.pre_measurement()
 
@@ -238,15 +207,18 @@ class spectrum(object):
         self._write_settings_dataset()
         self._log = waf.open_log_file(self._data_file.get_filepath())
 
-        if not self._scan_time:
-            self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
-            self._data_freq.add(self._freqpoints)
+        #if not self._scan_time:
+        #    self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
+        #    self._data_freq.add(self._freqpoints)
 
+        
         if self._scan_1D:
-            self._data_real = self._data_file.add_value_vector('real', x = self._data_freq, unit = '', save_timestamp = True)
-            self._data_imag = self._data_file.add_value_vector('imag', x = self._data_freq, unit = '', save_timestamp = True)
-            self._data_amp = self._data_file.add_value_vector('amplitude', x = self._data_freq, unit = 'arb. unit', save_timestamp = True)
-            self._data_pha = self._data_file.add_value_vector('phase', x = self._data_freq, unit = 'rad', save_timestamp = True)
+            if self._bias_mode:# current bias
+                #self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
+                for st in range(self.sweep_type):
+                    self._data_I[st] = self._data_file.add_value_vector('I_'+str(st), unit = 'A', save_timestamp = True)
+                    self._data_V[st] = self._data_file.add_value_vector('V_'+str(st), x = self._data_I, unit = 'V', save_timestamp = True)
+                
 
         if self._scan_2D:
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit = self.x_unit)
@@ -325,19 +297,20 @@ class spectrum(object):
         self._measurement_object.web_visible = web_visible
 
         if not self.dirname:
-            self.dirname = 'VNA_tracedata'
+            self.dirname = 'IVD_tracedata'
         self._file_name = self.dirname.replace(' ', '').replace(',','_')
         if self.exp_name:
             self._file_name += '_' + self.exp_name
-        self._prepare_measurement_vna()
+            
+        # prepare storage
+        self._prepare_measurement_IVD()
         self._prepare_measurement_file()
+
 
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
-        if self._fit_resonator:
-            self._resonator = resonator(self._data_file.get_filepath()) 
-        print 'recording trace...'
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['I_0', 'V_0'])
+        print('recording trace...')
         sys.stdout.flush()
 
         qt.mstart()
@@ -385,7 +358,7 @@ class spectrum(object):
 
         qt.mend()
         self._end_measurement()
-
+"""
     def measure_2D(self, web_visible = True):
         '''
         measure method to record a (averaged) VNA trace, S11 or S21 according to the setting on the VNA
@@ -473,94 +446,8 @@ class spectrum(object):
                 self.center_freqs.append([0])
 
         self._measure()
+"""        
         
-        
-    def measure_timetrace(self, web_visible = True):
-        '''
-        measure method to record a single VNA timetrace, this only makes sense when span is set to 0 Hz!,
-        tested only with KEYSIGHT E5071C ENA and its corresponding qkit driver
-        LGruenhaupt 11/2016
-        '''
-        if self.vna.get_span() > 0: 
-            print 'VNA span not set to 0 Hz... aborting'
-            return
-            
-        self._scan_1D = False
-        self._scan_2D = False
-        self._scan_3D = False
-        self._scan_time = True
-        
-        self._measurement_object.measurement_func = 'measure_timetrace'
-        self._measurement_object.x_axis = 'time'
-        self._measurement_object.y_axis = ''
-        self._measurement_object.z_axis = ''
-        self._measurement_object.web_visible = web_visible
-        
-        if not self.dirname:
-            self.dirname = 'VNA_timetrace'
-        self._file_name = self.dirname.replace(' ', '').replace(',','_')
-        if self.exp_name:
-            self._file_name += '_' + self.exp_name
-        
-        self.x_vec = np.arange(0,self.number_of_timetraces,1)
-        
-        self._prepare_measurement_vna()
-        self._prepare_measurement_file()
-        
-        if self.progress_bar: self._p = Progress_Bar(self.number_of_timetraces,'VNA timetrace '+self.dirname,self.vna.get_sweeptime_averages())
-        
-        print 'recording timetrace(s)...'
-        sys.stdout.flush()
-
-        qt.mstart()
-        try:
-            """
-            loop: x_obj with parameters from x_vec
-            """
-
-            for i, x in enumerate(self.x_vec):
-                
-                if self.log_function != None:
-                    for i,f in enumerate(self.log_function):
-                        self._log_value[i].append(float(f()))
-                        
-                if self.averaging_start_ready: #LG 11/2016
-                    self.vna.start_measurement()
-                    ti = time() #changed from time.time() to time() - LGruenhaupt OCT_2016
-                    tp = time() #added to enable use of progress bar
-                    #self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime_averages()) moved to line 303
-                    
-                    ''' This is to prevent the vna.ready() function from timing out. LG NOV/16 '''
-                    if self.vna.get_Average():
-                        print 'this function only makes sense without averaging'
-                        qt.mend()
-                        self._end_measuremt()
-                    else:
-                        #self._p = Progress_Bar(1,self.dirname,self.vna.get_sweeptime())
-                        qt.msleep(self.vna.get_sweeptime())
-                        #self._p.iterate()
-                        
-                        while not self.vna.ready(): qt.msleep(.2) #this is just to check if the measurement has finished
-                        
-                        data_amp, data_pha = self.vna.get_tracedata()
-                        self._data_amp.append(data_amp)
-                        self._data_pha.append(data_pha)
-                qt.msleep()       
-                if self.progress_bar:
-                    self._p.iterate()
-                
-                        
-                else: 
-                    print 'not implemented for this VNA, only works with Keysight ENA 5071C'
-                    qt.mend()
-                    self._end_measurement()
-                    
-        except Exception as e:
-            print e.__doc__
-            print e.message        
-        finally:
-            self._end_measurement()
-            qt.mend()
 
     def _measure(self):
         '''
@@ -667,82 +554,8 @@ class spectrum(object):
         self._data_file.close_file()
         waf.close_log_file(self._log)
         self.dirname = None
-        if self.averaging_start_ready: self.vna.post_measurement()
         
 
-    def set_resonator_fit(self,fit_resonator=True,fit_function='',f_min=None,f_max=None):
-        '''
-        sets fit parameter for resonator
-
-        fit_resonator (bool): True or False, default: True (optional)
-        fit_function (string): function which will be fitted to the data (optional)
-        f_min (float): lower frequency boundary for the fitting function, default: None (optional)
-        f_max (float): upper frequency boundary for the fitting function, default: None (optional)
-        fit types: 'lorentzian','skewed_lorentzian','circle_fit_reflection', 'circle_fit_notch','fano'
-        '''
-        if not fit_resonator:
-            self._fit_resonator = False
-            return
-        self._functions = {'lorentzian':0,'skewed_lorentzian':1,'circle_fit_reflection':2,'circle_fit_notch':3,'fano':5,'all_fits':5}
-        try:
-            self._fit_function = self._functions[fit_function]
-        except KeyError:
-            logging.error('Fit function not properly set. Must be either \'lorentzian\', \'skewed_lorentzian\', \'circle_fit_reflection\', \'circle_fit_notch\', \'fano\', or \'all_fits\'.')
-        else:
-            self._fit_resonator = True
-            self._f_min = f_min
-            self._f_max = f_max
-
-    def _do_fit_resonator(self):
-        '''
-        calls fit function in resonator class
-        fit function is specified in self.set_fit, with boundaries f_mim and f_max
-        only the last 'slice' of data is fitted, since we fit live while measuring.
-        '''
-
-        if self._fit_function == 0: #lorentzian
-            self._resonator.fit_lorentzian(f_min=self._f_min, f_max = self._f_max)
-        if self._fit_function == 1: #skewed_lorentzian
-            self._resonator.fit_skewed_lorentzian(f_min=self._f_min, f_max = self._f_max)
-        if self._fit_function == 2: #circle_reflection
-            self._resonator.fit_circle(reflection = True, f_min=self._f_min, f_max = self._f_max)
-        if self._fit_function == 3: #circle_notch
-            self._resonator.fit_circle(notch = True, f_min=self._f_min, f_max = self._f_max)
-        if self._fit_function == 4: #fano
-            self._resonator.fit_fano(f_min=self._f_min, f_max = self._f_max)
-        #if self._fit_function == 5: #all fits
-            #self._resonator.fit_all_fits(f_min=self._f_min, f_max = self._f_max)
-
-    def delete_fit_function(self, n = None):
-        '''
-        delete single fit function n (with 0 being the first one generated) or the complete landscape for n not specified
-        '''
-
-        if n:
-            self.landscape = np.delete(self.landscape, n, axis=0)
-        else:
-            self.landscape = None
-
-    def plot_fit_function(self, num_points = 100):
-        '''
-        try:
-            x_coords = np.linspace(self.x_vec[0], self.x_vec[-1], num_points)
-        except Exception as message:
-            print 'no x axis information specified', message
-            return
-        '''
-        if self.landscape:
-            for trace in self.landscape:
-                try:
-                    #plt.clear()
-                    plt.plot(self.x_vec, trace)
-                    plt.fill_between(self.x_vec, trace+float(self.span)/2, trace-float(self.span)/2, alpha=0.5)
-                except Exception:
-                    print 'invalid trace...skip'
-            plt.axhspan(self.y_vec[0], self.y_vec[-1], facecolor='0.5', alpha=0.5)
-            plt.show()
-        else:
-            print 'No trace generated.'
 
     def set_span(self, span):
         self.span = span
