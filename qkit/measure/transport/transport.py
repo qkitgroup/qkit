@@ -81,7 +81,7 @@ class spectrum(object):
         
         self.number_of_timetraces = 1   #relevant in time domain mode
         
-        
+        self._web_visible = True
 
     def set_log_function(self, func=None, name = None, unit = None, log_dtype = None):
         '''
@@ -158,8 +158,17 @@ class spectrum(object):
         self.delete_fit_function()
         self.y_unit = y_unit
 
-        def set_sweep_type(self, sweep_type = 1):
+    def set_web_visible(self, web_visible = True):
         '''
+        Sets the web_visible parameter for the measurement class
+        Input:
+        web_visible = True (Default) | False
+        '''
+        self._web_visible = web_visible
+        
+    def set_sweep_type(self, sweep_type = 1):
+        '''
+        # FIXME: HR this should go into the IVD driver 
         Sets the  sweep type, in the moment only simple sweep types are defined: 
         Input:
         sweep_type:
@@ -167,11 +176,21 @@ class spectrum(object):
             1: double sweep START -> END -> START (default)
             2: triple sweep START -> END -> START -> -END
             3: quad sweep   START -> END -> START -> -END -> START
+            ...
         
         '''
+        # define the number of datasets for each sweep type
+        self.IV_sweep_types = { 0:1 , 1:2, 2:3, 3:4 }
         self.IV_sweep_type = sweep_type
 
-
+    def get_sweep_type(self):
+        return self.IV_sweep_type
+    def get_num_ds_from_sweep_type(self,sweep_type):
+        # should be self.IVD.IV_sweep_types[sweep_type]
+        return self.IV_sweep_types[sweep_type]
+        
+        
+        
     def _prepare_measurement_IVD(self):
         '''
         all the relevant settings from the vna are updated and called
@@ -216,8 +235,8 @@ class spectrum(object):
             if self._bias_mode:# current bias
                 #self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
                 for st in range(self.sweep_type):
-                    self._data_I[st] = self._data_file.add_value_vector('I_'+str(st), unit = 'A', save_timestamp = True)
-                    self._data_V[st] = self._data_file.add_value_vector('V_'+str(st), x = self._data_I, unit = 'V', save_timestamp = True)
+                    self._data_I_[st] = self._data_file.add_value_vector('I_'+str(st), unit = 'A', save_timestamp = True)
+                    self._data_V_[st] = self._data_file.add_value_vector('V_'+str(st), x = self._data_I, unit = 'V', save_timestamp = True)
                 
 
         if self._scan_2D:
@@ -230,12 +249,6 @@ class spectrum(object):
                 self._log_value = []
                 for i in range(len(self.log_function)):
                     self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i], dtype=self.log_dtype[i]))
-
-            if self._nop < 10:
-                """creates view: plot middle point vs x-parameter, for qubit measurements"""
-                self._data_amp_mid = self._data_file.add_value_vector('amplitude_midpoint', unit = 'arb. unit', x = self._data_x, save_timestamp = True)
-                self._data_pha_mid = self._data_file.add_value_vector('phase_midpoint', unit = 'rad', x = self._data_x, save_timestamp = True)
-                #self._view = self._data_file.add_view("amplitude vs. " + self.x_coordname, x = self._data_x, y = self._data_amp[self._nop/2])
 
         if self._scan_3D:
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit = self.x_unit)
@@ -254,19 +267,6 @@ class spectrum(object):
                 self._log_value = []
                 for i in range(len(self.log_function)):
                     self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i], dtype=self.log_dtype[i]))
-
-        if self._scan_time:
-            self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
-            self._data_freq.add([self.vna.get_centerfreq()])
-            
-            self._data_time = self._data_file.add_coordinate('time', unit = 's')
-            self._data_time.add(np.arange(0,self._nop,1)*self.vna.get_sweeptime()/(self._nop-1))
-            
-            self._data_x = self._data_file.add_coordinate('trace_number', unit = '')
-            self._data_x.add(np.arange(0, self.number_of_timetraces, 1))
-            
-            self._data_amp = self._data_file.add_value_matrix('amplitude', x = self._data_x, y = self._data_time, unit = 'lin. mag.', save_timestamp = False)
-            self._data_pha = self._data_file.add_value_matrix('phase', x = self._data_x, y = self._data_time, unit = 'rad.', save_timestamp = False)
                     
         if self.comment:
             self._data_file.add_comment(self.comment)
@@ -279,7 +279,23 @@ class spectrum(object):
         settings = waf.get_instrument_settings(self._data_file.get_filepath())
         self._settings.append(settings)
 
-    def measure_1D(self, rescan = True, web_visible = True):
+    def _wait_progress_bar(self):
+        ti = time()
+        if self.progress_bar: 
+            self._p = Progress_Bar(self.IVD.get_averages(),self.dirname,self.IVD.get_sweeptime())
+        qt.msleep(.2)
+        # wait for data
+        while not self.IVD.ready():
+            if time()-ti > self.IVD.get_sweeptime(query=False):
+                if self.progress_bar: self._p.iterate()
+                ti = time()
+            qt.msleep(.2)
+        
+        if self.progress_bar:
+            while self._p.progr < self._p.max_it:
+                self._p.iterate()
+                
+    def measure_1D(self):
         '''
         measure method to record a single (averaged) VNA trace, S11 or S21 according to the setting on the VNA
         rescan: If True (default), the averages on the VNA are cleared and a new measurement is started. 
@@ -294,8 +310,7 @@ class spectrum(object):
         self._measurement_object.x_axis = 'frequency'
         self._measurement_object.y_axis = ''
         self._measurement_object.z_axis = ''
-        self._measurement_object.web_visible = web_visible
-
+        self._measurement_object.web_visible = self._web_visible
         if not self.dirname:
             self.dirname = 'IVD_tracedata'
         self._file_name = self.dirname.replace(' ', '').replace(',','_')
@@ -314,52 +329,25 @@ class spectrum(object):
         sys.stdout.flush()
 
         qt.mstart()
-        if rescan:
-            if self.averaging_start_ready:
-                self.vna.start_measurement()
-                ti = time()
-                if self.progress_bar: self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime())
-                qt.msleep(.2)
-                while not self.vna.ready():
-                    if time()-ti > self.vna.get_sweeptime(query=False):
-                        if self.progress_bar: self._p.iterate()
-                        ti = time()
-                    qt.msleep(.2)
-                if self.progress_bar:
-                    while self._p.progr < self._p.max_it:
-                        self._p.iterate()
-            else:
-                self.vna.avg_clear()
-                if self.vna.get_averages() == 1 or self.vna.get_Average() == False:   #no averaging
-                    if self.progress_bar:self._p = Progress_Bar(1,self.dirname,self.vna.get_sweeptime())
-                    qt.msleep(self.vna.get_sweeptime())      #wait single sweep
-                    if self.progress_bar: self._p.iterate()
-                else:   #with averaging
-                    if self.progress_bar: self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime())
-                    if "avg_status" in self.vna.get_function_names():
-                        for a in range(self.vna.get_averages()):
-                            while self.vna.avg_status() <= a:
-                                qt.msleep(.2) #maybe one would like to adjust this at a later point
-                            if self.progress_bar: self._p.iterate()
-                    else: #old style
-                        for a in range(self.vna.get_averages()):
-                            qt.msleep(self.vna.get_sweeptime())      #wait single sweep time
-                            if self.progress_bar: self._p.iterate()
+        
+        for st in range(self.sweep_type):
+        
+            self.IVD.sweep_setup(st) # delegate the sweep setup to the IVD device
+            
+            self.IVD.start_measurement() # this triggers a measurement start
+            
+            self._wait_progress_bar() # this waits for the data
+        
+            # get sweep data and save
+            data_I, data_V = self.IVD.get_tracedata()
+            self._data_I_[st].append(data_I)
+            self._data_A_[st].append(data_A)
 
-        data_amp, data_pha = self.vna.get_tracedata()
-        data_real, data_imag = self.vna.get_tracedata('RealImag')
-
-        self._data_amp.append(data_amp)
-        self._data_pha.append(data_pha)
-        self._data_real.append(data_real)
-        self._data_imag.append(data_imag)
-        if self._fit_resonator:
-            self._do_fit_resonator()
 
         qt.mend()
         self._end_measurement()
 """
-    def measure_2D(self, web_visible = True):
+    def measure_2D(self):
         '''
         measure method to record a (averaged) VNA trace, S11 or S21 according to the setting on the VNA
         for all parameters x_vec in x_obj
@@ -377,7 +365,7 @@ class spectrum(object):
         self._measurement_object.x_axis = self.x_coordname
         self._measurement_object.y_axis = 'frequency'
         self._measurement_object.z_axis = ''
-        self._measurement_object.web_visible = web_visible
+        self._measurement_object.web_visible = self._web_visible
 
         if not self.dirname:
             self.dirname = self.x_coordname
@@ -400,7 +388,7 @@ class spectrum(object):
         self._measure()
 
 
-    def measure_3D(self, web_visible = True):
+    def measure_3D(self):
         '''
         measure full window of vna while sweeping x_set_obj and y_set_obj with parameters x_vec/y_vec. sweep over y_set_obj is the inner loop, for every value x_vec[i] all values y_vec are measured.
 
@@ -420,7 +408,7 @@ class spectrum(object):
         self._measurement_object.x_axis = self.x_coordname
         self._measurement_object.y_axis = self.y_coordname
         self._measurement_object.z_axis = 'frequency'
-        self._measurement_object.web_visible = web_visible
+        self._measurement_object.web_visible = self._web_visible
 
         if not self.dirname:
             self.dirname = self.x_coordname + ', ' + self.y_coordname
@@ -432,8 +420,8 @@ class spectrum(object):
 
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
-        """opens qviewkit to plot measurement, amp and pha are opened by default"""
-        """only middle point in freq array is plotted vs x and y"""
+        '''opens qviewkit to plot measurement, amp and pha are opened by default'''
+        '''only middle point in freq array is plotted vs x and y'''
         if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath())
