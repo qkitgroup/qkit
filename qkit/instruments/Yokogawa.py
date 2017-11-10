@@ -16,559 +16,21 @@
 
 from instrument import Instrument
 import visa
-import types
 import logging
 import numpy
-import struct
+from sympy.functions.special.delta_functions import Heaviside
 import time
 
-class Yokogawa_GS820(Instrument):
-#    '''
-#    This is the driver for the Yokogawa GS820 multi channel source measure unit
-#
-#    Usage:
-#    Initialize with
-#    <name> = instruments.create('<name>', 'Yokogawa_GS820', address='<GBIP address>',
-#        reset=<bool>)
-#    '''
-#
-#    def __init__(self, name, address, reset=False):
-#        '''
-#        Initializes the Yokogawa GS820, and communicates with the wrapper.
-#
-#        Input:
-#            name (string)    : name of the instrument
-#            address (string) : GPIB address
-#            reset (bool)     : resets to default values
-#
-#        Output:
-#            None
-#        '''
-#        # Initialize wrapper functions
-#        logging.info(__name__ + ' : Initializing instrument Yokogawa_GS820')
-#        Instrument.__init__(self, name, tags=['physical'])
-#
-#        # Add some global constants
-#        self._address = address
-#        self._numchs = 2
-#        self._visainstrument = visa.instrument(self._address)
-#
-#        # Add parameters to wrapper
-#        self.add_parameter('source_range',
-#            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-#            channels=(1, self._numchs), channel_prefix='ch%d_',
-#            units='', type=types.StringType)
-#        self.add_parameter('sense_range',
-#            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-#            channels=(1, self._numchs), channel_prefix='ch%d_',
-#            units='', type=types.StringType)
-#        self.add_parameter('source_mode',
-#            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-#            channels=(1, self._numchs), channel_prefix='ch%d_',
-#            type=types.StringType, units='')
-#        self.add_parameter('sense_mode',
-#            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-#            channels=(1, self._numchs), channel_prefix='ch%d_',
-#            type=types.StringType, units='')
-#        self.add_parameter('source_trig',
-#            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-#            channels=(1, self._numchs), channel_prefix='ch%d_',
-#            type=types.StringType, units='')
-#        self.add_parameter('sense_trig',
-#            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-#            channels=(1, self._numchs), channel_prefix='ch%d_',
-#            type=types.StringType, units='')
-#        self.add_parameter('source_delay',
-#            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-#            channels=(1, self._numchs), channel_prefix='ch%d_',
-#            type=types.FloatType, minval=15e-6, maxval=3600, units='s')
-#        self.add_parameter('sense_delay',
-#            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-#            channels=(1, self._numchs), channel_prefix='ch%d_',
-#            type=types.FloatType, minval=15e-6, maxval=3600, units='s')
-#        self.add_parameter('sweep_mode',
-#            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-#            channels=(1, self._numchs), channel_prefix='ch%d_',
-#            type=types.StringType, units='')
-#        self.add_parameter('4W',
-#            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-#            channels=(1, self._numchs), channel_prefix='ch%d_',
-#            type=types.StringType, units='')
-#        self.add_parameter('level', 
-#            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-#            channels=(1,self._numchs),channel_prefix='ch%d_',
-#            type=types.FloatType, units='')
-#        self.add_parameter('value', flags=Instrument.FLAG_GET,
-#            channels=(1, self._numchs), channel_prefix='ch%d_',
-#            type=types.FloatType, units='')
-#        self.add_parameter('output',
-#            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-#            channels=(1,self._numchs),channel_prefix='ch%d_',
-#            type=types.StringType, units='')
-#        self.add_parameter('sync',
-#            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-#            type=types.StringType, units='')
-#
-#
-#        # Add functions to wrapper
-#        self.add_function('reset')
-#        self.add_function('get_all')
-#        self.add_function('set_range_auto')
-#        self.add_function('set_defaults')
-#        self.add_function('ramp_ch1_current')
-#        self.add_function('ramp_ch2_current')
-#
-#
-#        if reset:
-#            self.reset()
-#        else:
-#            self.get_all()
-#            self.set_defaults()
-#
-## functions
-#    def reset(self):
-#        '''
-#        Resets instrument to default values
-#
-#        Input:
-#            None
-#    
-#        Output:
-#            None
-#        '''
-#        logging.debug(__name__ + ' : Resetting instrument')
-#        self._visainstrument.write('*RST')
-#        self.get_all()
-#      
-#    def get_all(self):
-#        '''
-#        Reads all relevant parameters from instrument
-#
-#        Input:
-#            None
-#
-#        Output:
-#            None
-#        '''
-#        logging.debug(__name__ + ' : Get all relevant data from device')
-#        self.get_sync()
-#        for ch in range(self._numchs):
-#            self.get('ch%d_source_range' % (ch+1))
-#            self.get('ch%d_sense_range' % (ch+1))
-#            self.get('ch%d_source_mode' % (ch+1))
-#            self.get('ch%d_sense_mode' % (ch+1))
-#            self.get('ch%d_source_trig' % (ch+1))
-#            self.get('ch%d_sense_trig' % (ch+1))
-#            self.get('ch%d_source_delay' % (ch+1))
-#            self.get('ch%d_sense_delay' % (ch+1))
-#            self.get('ch%d_4W' % (ch+1))
-#            self.get('ch%d_level' % (ch+1))
-#            self.get('ch%d_output' % (ch+1))
-#
-#    def set_range_auto(self, channel):
-#        '''
-#        Switch autorange on.
-#        '''
-#        logging.debug('Set range to auto mode')
-#        self._visainstrument.write(':chan%d:sens:rang:auto on' % channel)
-#        
-#    def set_defaults(self):
-#        '''
-#        Set to driver defaults:
-#        Source range for channel 2 +-18 V
-#        Source mode for channel 2 voltage mode
-#        Source mode for channel 1 voltage mode
-#        Source range for channel 1 +-200 mV
-#        Sense mode for channel 1 voltage mode
-#        Sensee range for channel 1 +-200 mV
-#        Sourse trigger is set to external
-#        Sense trigger is set connected to source
-#        Source delay is set to 15 us
-#        Sense delay is set to 300 ms
-#        The measuring mode is set to 2-wire sense
-#        '''
-#        channel = 1
-#        self.set('ch%d_4W' % channel, 'off')
-#        self.set('ch%d_source_mode' % channel, 'volt')
-#        self.set('ch%d_sense_mode' % channel, 'volt')
-#        self.set('ch%d_source_range' % channel, '200mV')
-#        self.set('ch%d_sense_range' % channel, '200mV')
-#        self.set('ch%d_source_delay' % channel, 15e-6)
-#        self.set('ch%d_sense_delay' % channel, 0.3)
-#        self.set('ch%d_source_trig' % channel, 'ext')
-#        self.set('ch%d_sense_trig' % channel, 'sour')
-#        self._set_func_par_value(channel, 'sour', 'mode', 'sing')
-#    
-#        channel = 2
-#        self.set('ch%d_4W' % channel, 'off')
-#        self.set('ch%d_source_mode' % channel, 'volt')
-#        self.set('ch%d_sense_mode' % channel, 'volt')
-#        self.set('ch%d_source_range' % channel, '18V')
-#        self.set('ch%d_sense_range' % channel, '18V')
-#        self.set('ch%d_source_delay' % channel, 15e-6)
-#        self.set('ch%d_sense_delay' % channel, 0.3)
-#        self.set('ch%d_source_trig' % channel, 'ext')
-#        self.set('ch%d_sense_trig' % channel, 'sour')
-#        
-# # parameters
-# 
-# 
-#    def do_set_sync(self, val):
-#        '''
-#        Turns "on"/"off" the interchannel synchronization.
-#        The first channel is always " The master", second - "the slave"
-#        '''    
-#        logging.debug('Sets the channels in synchronized regime')
-#        if val in ['on','off']:
-#            logging.debug('Set mode to %s' % val)
-#            self._visainstrument.write(':sync:chan %s' % val)
-#        else:
-#            logging.error('Invalid value %s' % val)
-#            
-#    def do_get_sync(self):
-#        '''
-#        Gets synchronization mode.
-#        '''
-#        logging.debug('Gets synchronization mode')
-#        ans = self._visainstrument.ask(':sync:chan?')
-#        
-#        if int(ans):
-#            return 'on'
-#        else:
-#            return 'off'
-#
-#    def do_set_source_range(self, val, channel):
-#        '''
-#        sets source range to definite channel 
-#         
-#        Input:
-#            val (string)  :
-#            channel (int) : 
-#
-#        Output:
-#
-#        '''
-#        logging.debug('Set source range to %s' % val)
-#        self._set_func_par_value(channel, 'sour', 'rang', val)
-#        
-#        
-#
-#    def do_get_source_range(self, channel):
-#        '''
-#        Get source range 
-#        '''
-#        logging.debug('Get source range')
-#        return self._get_func_par(channel, 'sour', 'rang')
-#        
-#        
-#    def do_set_sense_range(self, val, channel):
-#        '''
-#        Set sense range to the specified channel
-#
-#        Input:
-#            val (string)      : 
-#            channel (int)     : 
-#
-#        Output:
-#            None
-#        '''
-#        logging.debug('Set sense range to %s' % val)
-#        if (val == 'auto'):
-#            self.set_range_auto(channel)
-#        else:
-#            self._set_func_par_value(channel, 'sens', 'rang', val)
-#
-#    def do_get_sense_range(self, channel):
-#        '''
-#        Get sense range for the current mode.
-#        
-#        Input:
-#            channel(int): 
-#        Output:
-#            range (string) : 
-#        '''
-#        logging.debug('Get sense range')
-#        return self._get_func_par(channel, 'sens', 'rang')
-#        
-#    def do_set_source_mode(self, mode, channel):
-#        '''
-#        Set source mode to current regime.
-#        '''    
-#        if mode in ['curr','volt']:
-#            logging.debug('Set mode to %s mode', mode)
-#            self._set_func_par_value(channel, 'sour', 'func', mode)
-#        else:
-#            logging.error('invalid mode %s' % mode)
-#        self.get_all()
-#
-#    def do_get_source_mode(self, channel):
-#        '''
-#        Get source mode 
-#        
-#        Input:
-#            channel (int) : 
-#        '''
-#        logging.debug('Get source mode')
-#        return self._get_func_par(channel, 'sour', 'func')
-#        
-#    def do_set_sweep_mode(self, mode, channel):
-#        '''
-#        Set source mode to current regime.
-#        '''    
-#        if mode in ['fix']:
-#            logging.debug('Set mode to %s sweep mode', mode)
-#            self._set_func_par_value(channel, 'sour', 'mode', mode)
-#        else:
-#            logging.error('invalid sweep mode %s' % mode)
-#        self.get_all()
-#
-#    def do_get_sweep_mode(self, channel):
-#        '''
-#        Get source mode 
-#        
-#        Input:
-#            channel (int) : 
-#        '''
-#        logging.debug('Get source sweep mode')
-#        return self._get_func_par(channel, 'sour', 'mode')
-#
-#    def do_set_sense_mode(self, mode, channel):
-#        '''
-#        Set sense mode to current regime.
-#        '''    
-#        if mode in ['curr','volt']:
-#            logging.debug('Set sense mode to %s mode', mode)
-#            self._set_func_par_value(channel, 'sens', 'func', mode)
-#        else:
-#            logging.error('invalid mode %s' % mode)
-#        self.get_all()
-#        
-#    def do_get_sense_mode(self, channel):
-#        '''
-#        Get sense mode for the current mode.
-#        
-#        Input:
-#            channel (int) : 
-#        '''
-#        logging.debug('Get sense mode')
-#        return self._get_func_par(channel, 'sens', 'func')
-#        
-#    def do_set_source_trig(self, trig, channel):
-#        '''
-#        Set source trigger.
-#        '''    
-#        if trig in ['ext','sens', 'aux']:
-#            logging.debug('Set source trig to %s trigger', trig)
-#            self._set_func_par_value(channel, 'sour', 'trig', trig)
-#        else:
-#            logging.error('invalid trig %s' % trig)
-#        self.get_all()
-#
-#    def do_get_source_trig(self, channel):
-#        '''
-#        Get source trigger
-#        '''
-#        logging.debug('Get source trigger')
-#        return self._get_func_par(channel, 'sour', 'trig')
-#
-#
-#    def do_set_sense_trig(self, trig, channel):
-#        '''
-#        Set sense trigger.
-#        '''    
-#        if trig in ['ext','sour', 'aux']:
-#            logging.debug('Set sense trig to %s trigger', trig)
-#            self._set_func_par_value(channel, 'sens', 'trig', trig)
-#        else:
-#            logging.error('invalid trig %s' % trig)
-#        self.get_all()
-#
-#    def do_get_sense_trig(self, channel):
-#        '''
-#        Get sense trigger
-#        
-#        '''
-#        logging.debug('Get sense trigger')
-#        return self._get_func_par(channel, 'sens', 'trig')
-#        
-#    def do_set_source_delay(self, val, channel):
-#        '''
-#        Set source delay
-#        '''
-#        logging.debug('Set source delay to %s' % val)
-#        self._set_func_par_value(channel, 'sour', 'del', val)
-#
-#    def do_get_source_delay(self, channel):
-#        '''
-#        Get source delay
-#        '''
-#        logging.debug('Get source delay')
-#        return float(self._get_func_par(channel, 'sour','del'))
-#        
-#    def do_set_sense_delay(self, val, channel):
-#        '''
-#        Set sense delay
-#        '''
-#        logging.debug('Set sense delay to %s' % val)
-#        self._set_func_par_value(channel, 'sens', 'del', val)
-#
-#
-#    def do_get_sense_delay(self, channel):
-#        '''
-#        Get sense delay
-#        '''
-#        logging.debug('Get sense delay')
-#        return float(self._get_func_par(channel, 'sens','del'))
-#        
-#    def do_set_4W(self, val, channel):
-#        '''
-#        Sets measurement mode to 4-wire or 2-wire mode.
-#        Value should be on or off. 
-#        "On" devotes to 4-wire mode. "Off" devotes to 2-wire mode.
-#        In the instrument appropriate command is ":sens:rem on/off"
-#        '''
-#        if val in ['on','off']:
-#            logging.debug('Set 4W to %s' % val)
-#            self._set_func_par_value(channel, 'sens', 'rem', val)
-#        else:
-#            logging.error('Invalid value %s' % val)
-#
-#    def do_get_4W(self, channel):
-#        '''
-#        Gets measurement mode
-#        '''
-#        logging.debug('Get 4-wire measurement mode')
-#        ans = self._get_func_par(channel, 'sens', 'rem')
-#        
-#        if int(ans):
-#            return 'on'
-#        else:
-#            return 'off'
-#        
-#    def do_set_level(self, val, channel):
-#        '''
-#        Set measuring level
-#        '''
-#        logging.debug('Set measuring level')
-#        if self.get('ch%d_output' % channel, query = False) == 'off':
-#            self.set('ch%d_output' % channel, 'on')
-#        self._set_func_par_value(channel, 'sour', 'lev', val)
-#        self._visainstrument.write(':chan%d:init' % channel)
-#        self._visainstrument.write(':trig')
-#        
-#    def do_get_level(self, channel):
-#        '''
-#        Gets source output level
-#        '''
-#        logging.debug('Get measuring level')
-#        return float(self._get_func_par(channel, 'sour','lev'))
-#        
-#    def do_set_output(self, val, channel):
-#        '''
-#        Sets outputs of channels in "on" or "off" position.
-#        
-#        '''
-#        if val in ['on','off']:
-#            logging.debug('Set output to %s' % val)
-#            self._set_func_par_value(channel, 'outp', 'stat', val)
-#            if (self.get_sync() == 'on')  and (channel == 1):
-#                self.set_ch2_output(self.get_ch2_output(query = False))
-#                
-#        else:
-#            logging.error('Invalid value %s' % val)
-#            
-#    def do_get_output(self, channel):
-#        '''
-#        Gets output state
-#        '''
-#        logging.debug('Get status of output')
-#        ans=self._get_func_par(channel, 'outp','stat')
-#        if ans=='zero':
-#            return 'off'
-#        if int(ans):
-#            return 'on'
-#        else:
-#            return 'off'
-#        
-#    def do_get_value(self, channel):
-#        '''
-#        Gets measured value
-#        '''
-#        logging.debug('Get measured value')
-#        return float(self._visainstrument.ask(':chan%d:fetc?' % channel))
-#
-#
-#
-#
-#  # core communication
-#    def _set_func_par_value(self, ch, func, par, val):
-#        '''
-#        For internal use only!!
-#        Changes the value of the parameter for the function specified
-#
-#        Input:
-#            ch (int)
-#            func (string) :
-#            par (string)  :
-#            val (depends) :
-#
-#        Output:
-#            None
-#        '''
-#        string = ':chan%d:%s:%s %s' %(ch, func, par, val)
-#        logging.debug(__name__ + ' : Set instrument to %s' % string)
-#        self._visainstrument.write(string)
-#
-#    def _get_func_par(self, ch, func, par):
-#        '''
-#        For internal use only!!
-#        Reads the value of the parameter for the function specified
-#        from the instrument
-#
-#        Input:
-#            ch (int)      :
-#            func (string) :
-#            par (string)  :
-#
-#        Output:
-#            val (string) :
-#        '''
-#        string = ':chan%d:%s:%s?' %(ch, func, par)
-#        ans = self._visainstrument.ask(string)
-#        logging.debug(__name__ + ' : ask instrument for %s (result %s)' % \
-#            (string, ans))
-#        return ans.lower()
-#
-#    def ramp_ch1_current(self,target, step, wait=0.1, showvalue=True):
-#        start = self.get_ch1_level()
-#        if(target < start): step = -step
-#        a = numpy.concatenate( (numpy.arange(start, target, step)[1:], [target]) )
-#        for i in a:
-#            if showvalue==True: print i,
-#            self.set_ch1_level(i)
-#            time.sleep(wait)
-#
-#
-#    def ramp_ch2_current(self,target, step, wait=0.1, showvalue=True):
-#        start = self.get_ch2_level()
-#        if(target < start): step = -step
-#        a = numpy.concatenate( (numpy.arange(start, target, step)[1:], [target]) )
-#        for i in a:
-#            if showvalue==True: print i,
-#            self.set_ch2_level(i)
-#            time.sleep(wait)
-
-
-
+class Yokogawa(Instrument):
     '''
     This is the driver for the Yokogawa GS820 Multi Channel Source Measure Unit
-
-
+    
+    
     Usage:
     Initialize with
-    <name> = instruments.create('<name>', 'Yokogawa_GS820', address='<GBIP address>, reset=<bool>')
+    <name> = instruments.create('<name>', 'Yokogawa', address='<GBIP address>, reset=<bool>')
     '''
-
+    
     def __init__(self, name, address, reset=False):
         '''
         Initializes the Yokogawa_GS820, and communicates with the wrapper.
@@ -586,197 +48,124 @@ class Yokogawa_GS820(Instrument):
         self._address = address
         self._visainstrument = visa.instrument(self._address)
         
-        self.add_function('set_mode_4W')
-        self.add_function('get_mode_4W')
-        self.add_function('set_source_mode')
-        self.add_function('get_source_mode')
-        self.add_function('set_sense_mode')
-        self.add_function('get_sense_mode')
-        self.add_function('set_source_range')
-        self.add_function('get_source_range')
-        self.add_function('set_sense_range')
-        self.add_function('get_sense_range')
-        self.add_function('set_sync')
-        self.add_function('get_sync')
-        self.add_function('set_source_trigger')
-        self.add_function('get_source_trigger')
-        self.add_function('set_sense_trigger')
-        self.add_function('get_sense_trigger')
-        self.add_function('set_source_delay')
-        self.add_function('get_source_delay')
-        self.add_function('set_sense_delay')
-        self.add_function('get_sense_delay')
+        self._bias_status_register  = { 'EOS1':0 , 'RDY1':1  , 'LL01':2  , 'LHI1':3  , 'TRP1':4  , 'EMR1':5  , 'EOS2':8  , 'RDY2':9  , 'LL02':10  , 'LHI2':11  , 'TRP2':12  , 'EMR2':13  , 'ILC':14  , 'SSB':15  }
+        self._sense_status_register = { 'EOM1':0 , 'CLO1':2  , 'CHI1':3  , 'OVR1':5  , 'EOM2':8  , 'CLO2':10  , 'CHI2':11  , 'OVR2':13 , 'EOT':14 , 'TSE':15 }
         
+        self._dAdV = 1
+        self._dVdA = 1
+        self._amp = 1
         
-        self.add_function('set_status')
-        self.add_function('get_status')
+        self._average = 1
+        self._integration_time = 2e-2
+        self._sense_delay = 15e-6
+        self._intrument_delay = 2.1e-3 # fixed
         
-        self.add_function('set_source_value')
-        self.add_function('get_source_value')
-        self.add_function('get_sense_value')
-        self.add_function('set_voltage')
-        self.add_function('get_voltage')
-        self.add_function('set_current')
-        self.add_function('get_current')
-        self.add_function('sweep_source')
+#        self._starts = [self._start, self._stop,  self._start, -self._stop]
+#        self._stops  = [self._stop,  self._start, -self._stop, self._start]
+#        self._steps  = [self._step, -self._step, -self._step, self._step]
+#        self._IV_sweep_types = { 0:1 , 1:2, 2:3, 3:4 }
+#        self._IV_sweep_type = 1
         
-        self.add_function('set_defaults')
-        self.add_function('get_all')
-        self.add_function('reset')
+#        self.add_function('set_mode_4W')
+#        self.add_function('get_mode_4W')
+#        self.add_function('set_bias_mode')
+#        self.add_function('get_bias_mode')
+#        self.add_function('set_sense_mode')
+#        self.add_function('get_sense_mode')
+#        self.add_function('set_bias_range')
+#        self.add_function('get_bias_range')
+#        self.add_function('set_sense_range')
+#        self.add_function('get_sense_range')
+#        self.add_function('set_sync')
+#        self.add_function('get_sync')
+#        self.add_function('set_bias_trigger')
+#        self.add_function('get_bias_trigger')
+#        self.add_function('set_sense_trigger')
+#        self.add_function('get_sense_trigger')
+#        self.add_function('set_bias_delay')
+#        self.add_function('get_bias_delay')
+#        self.add_function('set_sense_delay')
+#        self.add_function('get_sense_delay')
+#        self.add_function('set_sense_average')
+#        self.add_function('get_sense_average')
+#        self.add_function('set_sense_nplc')
+#        self.add_function('get_sense_nplc')
+#        self.add_function('set_plc')
+#        self.add_function('get_plc')
+#        self.add_function('set_sense_integration_time')
+#        self.add_function('get_sense_integration_time')
+#        
+#        self.add_function('set_status')
+#        self.add_function('get_status')
+#        
+#        self.add_function('set_bias_value')
+#        self.add_function('get_bias_value')
+#        self.add_function('get_sense_value')
+#        self.add_function('set_voltage')
+#        self.add_function('get_voltage')
+#        self.add_function('set_current')
+#        self.add_function('get_current')
+#        
+#        self.add_function('set_sweep_start')
+#        self.add_function('get_sweep_start')
+#        self.add_function('set_sweep_stop')
+#        self.add_function('get_sweep_stop')
+#        self.add_function('set_sweep_step')
+#        self.add_function('get_sweep_step')
+#        self.add_function('set_step_time')
+#        self.add_function('get_step_time')
+#        self.add_function('get_nop')
+#        self.add_function('get_sweep_time')
+#    #        self.add_function('get_sweep_parameters')
+#        self.add_function('get_sweep')
+#        
+#        self.add_function('set_defaults')
+#        self.add_function('get_all')
+#        self.add_function('reset')
+#        self.add_function('get_error')
+#        self.add_function('clear_error')
+#        self.add_function('get_bias_status_register')
+#        
+#        self.reset()
+#        
+#        self.add_function('set_dAdV')
+#        self.add_function('get_dAdV')
+#        self.add_function('set_dVdA')
+#        self.add_function('get_dVdA')
+#        self.add_function('set_amp')
+#        self.add_function('get_amp')
+#        self.add_function('get_V_from_I')
+#        
+#        self.add_function('set_sweep_type')
         
+    
+    
+    def set_dAdV(self, val=1):
+        self._dAdV = val
+    
+    def get_dAdV(self):
+        return(self._dAdV)
+    
+    def set_dVdA(self, val=1):
+        self._dVdA = val
+    
+    def get_dVdA(self):
+        return(self._dVdA)
         
+    def set_amp(self, val=1):
+        self._amp = val
+    
+    def get_amp(self):
+        return(self._amp)
         
-        
-        
-    def set_source_mode(self, mode, channel=1):
-        '''
-        Set source mode of channel <channel> to <mode> regime.
-        
-        Input:
-            mode (str): 'volt' | 'curr'
-            channel (int): 1 | 2
-        Output:
-            None
-        '''
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce:FUNCtion VOLTage|CURRent
-        try:
-            logging.debug('Set source mode of channel %s to %s' % (channel, mode))
-            self._visainstrument.write(':chan%i:sour:func %s' % (channel, mode))
-        except AttributeError:
-            logging.error('invalid input: cannot set source mode of channel %s to %s' % (channel, mode))
-        
-        
-    def get_source_mode(self, channel=1):
-        '''
-        Get source mode <output> of channel <channel>
-        
-        Input:
-            channel (int): 1 | 2
-        Output:
-            mode (str): 'volt' | 'curr'
-        '''
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce:FUNCtion VOLTage|CURRent
-        try:
-            return str(self._visainstrument.ask(':chan%i:sour:func?' % channel).lower())
-        except ValueError:
-            logging.debug('Source mode of channel %i not specified:' % channel)
-        
-        
-    def set_sense_mode(self, mode, channel=1):
-        '''
-        Set sense mode of channel <channel> to <mode> regime.
-        
-        Input:
-            mode (str): 'volt' | 'curr'
-            channel (int): 1 | 2
-        Output:
-            None
-        '''
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe:FUNCtion VOLTage|CURRent
-        try:
-            logging.debug('Set sense mode of channel %s to %s' % (channel, mode))
-            self._visainstrument.write(':chan%i:sens:func %s' % (channel, mode))
-        except AttributeError:
-            logging.error('invalid input: cannot set sense mode of channel %s to %s' % (channel, mode))
-        
-        
-    def get_sense_mode(self, channel=1):
-        '''
-        Get sense mode <output> of channel <channel>
-        
-        Input:
-            channel (int): 1 | 2
-        Output:
-            mode (str): 'volt' | 'curr'
-        '''
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe:FUNCtion VOLTage|CURRent
-        try:
-            return str(self._visainstrument.ask(':chan%i:sens:func?' % channel).lower())
-        except ValueError:
-            logging.debug('Sense mode of channel %i not specified:' % channel)
-        
-        
-    def set_source_range(self, val, channel=1):
-        '''
-        Set source range of channel <channel> to <val>
-        
-        Input:
-            val (float): 200mV | 2V | 20V | 50V | 200nA | 2uA | 20uA | 200uA | 2mA | 20mA | 200mA | 1 A | 3A
-            channel (int): 1 | 2
-        Output:
-            None
-        '''
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:VOLTage]:RANGe <voltage>|MINimum|MAXimum|UP|DOWN 
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:CURRent]:RANGe <current>|MINimum|MAXimum|UP|DOWN 
-        try:
-            logging.debug('Set source voltage range of channel %s to %s' % (channel, val))
-            if (val == 'auto'):
-                self.set_range_auto(channel)
-            else:
-                self._visainstrument.write(':chan%i:sour:rang %s' % (channel, val))
-        except AttributeError:
-            logging.error('invalid input: cannot set source range of channel %s to %s' % (channel, val))
-        
-        
-    def get_source_range(self, channel=1):
-        '''
-        Get source range for the current mode.
-        
-        Input:
-            channel (int): 1 | 2
-        Output:
-            range (float): 
-        '''
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:VOLTage]:RANGe <voltage>|MINimum|MAXimum|UP|DOWN 
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:CURRent]:RANGe <current>|MINimum|MAXimum|UP|DOWN 
-        try:
-            return float(self._visainstrument.ask(':chan%i:sour:rang?' % channel))
-        except ValueError:
-            logging.debug('Source range of channel %i not specified:' % channel)
-        
-        
-    def set_sense_range(self, val, channel=1):
-        '''
-        Set sense range of channel <channel> to <val>
-        
-        Input:
-            val (float): 'auto' | 200mV | 2V | 20V | 50V | 200nA | 2uA | 20uA | 200uA | 2mA | 20mA | 200mA | 1 A | 3A
-            channel (int): 1 | 2
-        Output:
-            None
-        '''
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe[:VOLTage]:RANGe <voltage>|MINimum|MAXimum|UP|DOWN
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe[:CURRent]:RANGe <current>|MINimum|MAXimum|UP|DOWN
-        try:
-            logging.debug('Set sense range of channel %s to %s' % (channel, val))
-            if val == 'auto':
-                self._visainstrument.write(':chan%d:sens:rang:auto on' % channel)
-            else:
-                self._visainstrument.write(':chan%i:sens:rang %f' % (channel, val))
-        except AttributeError:
-            logging.error('invalid input: cannot set sense range of channel %s to %f' % (channel, val))
-        
-        
-    def get_sense_range(self, channel=1):
-        '''
-        Get sense range for the current mode.
-        
-        Input:
-            channel(int): 
-        Output:
-            range (float) : 
-        '''
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe[:VOLTage]:RANGe <voltage>|MINimum|MAXimum|UP|DOWN
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe[:CURRent]:RANGe <current>|MINimum|MAXimum|UP|DOWN
-        try:
-            return float(self._visainstrument.ask(':chan%i:sens:rang?' % channel))
-        except ValueError:
-            logging.debug('Sense range of channel %i not specified:' % channel)
+    def get_V_from_I(self, I):
+        return I*self._dAdV
+    
         
         
     def set_mode_4W(self, val, channel=1):
         '''
-        Set wiring system of channel <channel> to <val>
+        Sets wiring system of channel <channel> to <val>
         
         Input:
             channel (int): 1 | 2
@@ -794,7 +183,7 @@ class Yokogawa_GS820(Instrument):
         
     def get_mode_4W(self, channel=1):
         '''
-        Get wiring system of channel <channel>
+        Gets wiring system of channel <channel>
         
         Input:
             channel (int): 1 | 2
@@ -806,127 +195,158 @@ class Yokogawa_GS820(Instrument):
             return bool(int(self._visainstrument.ask(':chan%s:sens:rem?' % channel)))
         except ValueError:
             logging.debug('Wiring system of channel %i not specified:' % channel)
-        
-        
-    def set_source_value(self, val, channel=1):
+    
+    
+    def set_bias_mode(self, mode, channel=1):
         '''
-        Set source value of channel <channel> to value >val>
+        Sets bias mode of channel <channel> to <mode> regime.
         
         Input:
-            val (float): arb.
+            mode (str): 'volt' | 'curr'
             channel (int): 1 | 2
         Output:
             None
         '''
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:VOLTage]:LEVel <voltage>|MINimum|MAXimum
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:CURRent]:LEVel <current>|MINimum|MAXimum
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce:FUNCtion VOLTage|CURRent
         try:
-            logging.debug(__name__ + ' : set source value of channel %s to %s' % (channel, str(val)))
-            self._visainstrument.write(':chan%s:sour:lev %f' % (channel, val))
+            logging.debug('Set bias mode of channel %s to %s' % (channel, mode))
+            self._visainstrument.write(':chan%i:sour:func %s' % (channel, mode))
         except AttributeError:
-            logging.error('invalid input: cannot set source value of channel %s to %f' % (channel, val))
+            logging.error('invalid input: cannot set bias mode of channel %s to %s' % (channel, mode))
         
         
-    def get_source_value(self, channel=1):
+    def get_bias_mode(self, channel=1):
         '''
-        Get source value of channel <channel>
+        Gets bias mode <output> of channel <channel>
         
         Input:
             channel (int): 1 | 2
         Output:
-            val (float)
+            mode (str): 'volt' | 'curr'
         '''
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:VOLTage]:LEVel <voltage>|MINimum|MAXimum
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:CURRent]:LEVel <current>|MINimum|MAXimum
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce:FUNCtion VOLTage|CURRent
         try:
-            return float(self._visainstrument.ask(':chan%s:sour:lev?' % channel))
+            return str(self._visainstrument.ask(':chan%i:sour:func?' % channel).lower())
         except ValueError:
-            logging.error('Cannot get source value of channel %i:' % channel)
+            logging.debug('Bias mode of channel %i not specified:' % channel)
         
         
-    def get_sense_value(self, channel=1):
+    def set_sense_mode(self, mode, channel=1):
         '''
-        Get sense value of channel <channel>
+        Sets sense mode of channel <channel> to <mode> regime.
         
         Input:
-            channel (int): 1 | 2
-        Output:
-            val (float)
-        '''
-        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:FETCh?
-        try:
-            return float(self._visainstrument.ask(':chan%d:fetc?' % channel))
-        except ValueError:
-            logging.error('Cannot get sense value of channel %i:' % channel)
-        
-        
-    def set_voltage(self, val, channel=1):
-        '''
-        Set voltage value of channel <channel> to <val>
-        
-        Input:
-            val (float): arb.
+            mode (str): 'volt' | 'curr'
             channel (int): 1 | 2
         Output:
             None
         '''
-        if self.get_source_mode(channel) == 'volt':
-            return self.set_source_value(val, channel)
-        elif self.get_source_mode(channel) == 'curr':
-            logging.error('Cannot set set voltage value of channel %i: in the current bias' % channel)
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe:FUNCtion VOLTage|CURRent
+        try:
+            logging.debug('Set sense mode of channel %s to %s' % (channel, mode))
+            self._visainstrument.write(':chan%i:sens:func %s' % (channel, mode))
+        except AttributeError:
+            logging.error('invalid input: cannot set sense mode of channel %s to %s' % (channel, mode))
         
         
-    def get_voltage(self, channel=1):
+    def get_sense_mode(self, channel=1):
         '''
-        Get voltage value of channel <channel>
+        Gets sense mode <output> of channel <channel>
         
         Input:
             channel (int): 1 | 2
         Output:
-            val (float)
+            mode (str): 'volt' | 'curr'
         '''
-        if self.get_source_mode(channel) == 'volt':
-            return self.get_source_value(channel)
-        elif self.get_sense_mode(channel) == 'volt':
-            return self.get_sense_value(channel)
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe:FUNCtion VOLTage|CURRent
+        try:
+            return str(self._visainstrument.ask(':chan%i:sens:func?' % channel).lower())
+        except ValueError:
+            logging.debug('Sense mode of channel %i not specified:' % channel)
         
         
-    def set_current(self, val, channel=1):
+    def set_bias_range(self, val, channel=1):
         '''
-        Set current value of channel <channel> to <val>
+        Sets bias range of channel <channel> to <val>
         
         Input:
-            val (float): arb.
+            val (float): 200mV | 2V | 20V | 50V | 200nA | 2uA | 20uA | 200uA | 2mA | 20mA | 200mA | 1 A | 3A
             channel (int): 1 | 2
         Output:
             None
         '''
-        if self.get_source_mode(channel) == 'curr':
-            return self.set_source_value(val, channel)
-        elif self.get_source_mode(channel) == 'volt':
-            logging.error('Cannot set set current value of channel %i: in the voltage bias' % channel)
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:VOLTage]:RANGe <voltage>|MINimum|MAXimum|UP|DOWN 
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:CURRent]:RANGe <current>|MINimum|MAXimum|UP|DOWN 
+        try:
+            logging.debug('Set bias voltage range of channel %s to %s' % (channel, val))
+            if (val == 'auto'):
+                self._visainstrument.write(':chan%d:sour:rang:auto 1' % channel)
+            else:
+                self._visainstrument.write(':chan%i:sour:rang %s' % (channel, val))
+        except AttributeError:
+            logging.error('invalid input: cannot set bias range of channel %s to %s' % (channel, val))
         
         
-    def get_current(self, channel=1):
+    def get_bias_range(self, channel=1):
         '''
-        Get current value of channel <channel>
+        Gets bias range for the current mode.
         
         Input:
             channel (int): 1 | 2
         Output:
-            val (float)
+            range (float): 
         '''
-        if self.get_source_mode(channel) == 'curr':
-            return self.get_source_value(channel)
-        elif self.get_sense_mode(channel) == 'curr':
-            return self.get_sense_value(channel)
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:VOLTage]:RANGe <voltage>|MINimum|MAXimum|UP|DOWN 
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:CURRent]:RANGe <current>|MINimum|MAXimum|UP|DOWN 
+        try:
+            return float(self._visainstrument.ask(':chan%i:sour:rang?' % channel))
+        except ValueError:
+            logging.debug('Bias range of channel %i not specified:' % channel)
+        
+        
+    def set_sense_range(self, val, channel=1):
+        '''
+        Sets sense range of channel <channel> to <val>
+        
+        Input:
+            val (float): 'auto' | 200mV | 2V | 20V | 50V | 200nA | 2uA | 20uA | 200uA | 2mA | 20mA | 200mA | 1 A | 3A
+            channel (int): 1 | 2
+        Output:
+            None
+        '''
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe[:VOLTage]:RANGe <voltage>|MINimum|MAXimum|UP|DOWN
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe[:CURRent]:RANGe <current>|MINimum|MAXimum|UP|DOWN
+        try:
+            logging.debug('Set sense range of channel %s to %s' % (channel, val))
+            if val == 'auto':
+                self._visainstrument.write(':chan%d:sens:rang:auto 1' % channel)
+            else:
+                self._visainstrument.write(':chan%i:sens:rang %f' % (channel, val))
+        except AttributeError:
+            logging.error('invalid input: cannot set sense range of channel %s to %f' % (channel, val))
+        
+        
+    def get_sense_range(self, channel=1):
+        '''
+        Gets sense range for the current mode.
+        
+        Input:
+            channel(int): 
+        Output:
+            range (float) : 
+        '''
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe[:VOLTage]:RANGe <voltage>|MINimum|MAXimum|UP|DOWN
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe[:CURRent]:RANGe <current>|MINimum|MAXimum|UP|DOWN
+        try:
+            return float(self._visainstrument.ask(':chan%i:sens:rang?' % channel))
+        except ValueError:
+            logging.debug('Sense range of channel %i not specified:' % channel)
         
         
     def set_sync(self, val):
         '''
-        Set the interchannel synchronization to <val>
-        Start | Stop the interchannel synchronization
-        The first channel is always the "master", the second the "slave"
+        Sets the interchannel synchronization to <val>
+        (The first channel is always the "master", the second the "slave")
         
         Input:
             val (bool): 1 (ON) | 2 (OFF)
@@ -957,27 +377,30 @@ class Yokogawa_GS820(Instrument):
             logging.debug('Interchannel synchronization not specified:')
         
         
-    def set_source_trigger(self, trigger, channel=1):
+    def set_bias_trigger(self, mode, channel=1, **val):
         '''
-        Set source trigger of channel <channel> to <trigger>
+        Sets bias trigger mode of channel <channel> to <mode> and value <val>
         
         Input:
-            trigger (str): ext (external) | aux (auxiliary) | tim1 (timer1) | tim2 (timer2) | sens (sense)
+            mode (str): ext (external) | aux (auxiliary) | tim1 (timer1) | tim2 (timer2) | sens (sense)
             channel (int): 1 | 2
+            **val: 100us <= time (float) <= 3600.000000s
         Output:
             None
         '''
         # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce:TRIGger EXTernal|AUXiliary|TIMer1|TIMer2|SENSe
+        # <<Corresponding Command Mnemonic>>: :TRIGger:TIMer1 <time>|MINimum|MAXimum
         try:
-            logging.debug('Set source trigger of channel %s to %s' % (channel, trigger))
-            self._visainstrument.write(':chan%i:sour:trig %s' % (channel, trigger))
+            logging.debug('Set bias trigger of channel %s to %s' % (channel, mode))
+            self._visainstrument.write(':chan%i:sour:trig %s' % (channel, mode))
+            if 'time' in val: self._visainstrument.write(':trig:%s %f' % (mode, val.get('time', 50e-3)))
         except AttributeError:
-            logging.error('invalid input: cannot set source trigger of channel %s to %s' % (channel, trigger))
+            logging.error('invalid input: cannot set bias trigger of channel %s to %s' % (channel, mode))
         
         
-    def get_source_trigger(self, channel=1):
+    def get_bias_trigger(self, channel=1):
         '''
-        Get source trigger <output> of channel <channel>
+        Gets bias trigger <output> of channel <channel>
         
         Input:
             channel (int): 1 | 2
@@ -988,30 +411,33 @@ class Yokogawa_GS820(Instrument):
         try:
             return str(self._visainstrument.ask(':chan%i:sour:trig?' % channel).lower())
         except ValueError:
-            logging.debug('Source trigger of channel %i not specified:' % channel)
+            logging.debug('Bias trigger of channel %i not specified:' % channel)
         
         
-    def set_sense_trigger(self, trigger, channel=1):
+    def set_sense_trigger(self, mode, channel=1, **val):
         '''
-        Set sense trigger of channel <channel> to <trigger>
+        Sets sense trigger mode of channel <channel> to <trigger> and value <val>
         
         Input:
-            trigger (str): ext (external) | aux (auxiliary) | tim1 (timer1) | tim2 (timer2) | sens (sense)
+            mode (str): ext (external) | aux (auxiliary) | tim1 (timer1) | tim2 (timer2) | sens (sense)
             channel (int): 1 | 2
+            **val: 100us <= time (float) <= 3600.000000s
         Output:
             None
         '''
         # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe:TRIGger EXTernal|AUXiliary|TIMer1|TIMer2|SENSe
+        # <<Corresponding Command Mnemonic>>: :TRIGger:TIMer1 <time>|MINimum|MAXimum
         try:
-            logging.debug('Set sense trigger of channel %s to %s' % (channel, trigger))
-            self._visainstrument.write(':chan%i:sens:trig %s' % (channel, trigger))
+            logging.debug('Set sense trigger of channel %s to %s' % (channel, mode))
+            self._visainstrument.write(':chan%i:sens:trig %s' % (channel, mode))
+            if 'time' in val: self._visainstrument.write(':trig:%s %f' % (mode, val.get('time', 50e-3)))
         except AttributeError:
-            logging.error('invalid input: cannot set sense trigger of channel %s to %s' % (channel, trigger))
+            logging.error('invalid input: cannot set sense trigger of channel %s to %s' % (channel, mode))
         
         
     def get_sense_trigger(self, channel=1):
         '''
-        Get sense trigger <output> of channel <channel>
+        Gets sense trigger <output> of channel <channel>
         
         Input:
             channel (int): 1 | 2
@@ -1025,9 +451,9 @@ class Yokogawa_GS820(Instrument):
             logging.debug('Sense trigger of channel %i not specified:' % channel)
         
         
-    def set_source_delay(self, val, channel=1):
+    def set_bias_delay(self, val, channel=1):
         '''
-        Set source dely of channel <channel> to <val>
+        Sets bias delay of channel <channel> to <val>
         
         Input:
             delay (float): 15us <= delay <= 3600s
@@ -1037,15 +463,15 @@ class Yokogawa_GS820(Instrument):
         '''
         # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce:DELay <time>|MINimum|MAXimum
         try:
-            logging.debug('Set source delay of channel %s to %s' % (channel, val))
+            logging.debug('Set bias delay of channel %s to %s' % (channel, val))
             self._visainstrument.write(':chan%i:sour:del %s' % (channel, val))
         except AttributeError:
-            logging.error('invalid input: cannot set source delay of channel %s to %s' % (channel, delay))
+            logging.error('invalid input: cannot set bias delay of channel %s to %s' % (channel, val))
         
         
-    def get_source_delay(self, channel=1):
+    def get_bias_delay(self, channel=1):
         '''
-        Get source delay <output> of channel <channel>
+        Gets bias delay <output> of channel <channel>
         
         Input:
             channel (int): 1 | 2
@@ -1056,15 +482,15 @@ class Yokogawa_GS820(Instrument):
         try:
             return float(self._visainstrument.ask(':chan%i:sour:del?' % channel))
         except ValueError:
-            logging.debug('Source delay of channel %i not specified:' % channel)
+            logging.debug('Bias delay of channel %i not specified:' % channel)
         
         
     def set_sense_delay(self, val, channel=1):
         '''
-        Set sense delay of channel <channel> to <val>
+        Sets sense delay of channel <channel> to <val>
         
         Input:
-            delay (float): 15us <= delay <= 3600s
+            val (float): 15us <= delay <= 3600s
             channel (int): 1 | 2
         Output:
             None
@@ -1074,12 +500,12 @@ class Yokogawa_GS820(Instrument):
             logging.debug('Set sense delay of channel %s to %s' % (channel, val))
             self._visainstrument.write(':chan%i:sens:del %s' % (channel, val))
         except AttributeError:
-            logging.error('invalid input: cannot set sense delay of channel %s to %s' % (channel, delay))
-        
-        
+            logging.error('invalid input: cannot set sense delay of channel %s to %s' % (channel, val))
+    
+    
     def get_sense_delay(self, channel=1):
         '''
-        Get sense delay <output> of channel <channel>
+        Gets sense delay <output> of channel <channel>
         
         Input:
             channel (int): 1 | 2
@@ -1091,11 +517,156 @@ class Yokogawa_GS820(Instrument):
             return float(self._visainstrument.ask(':chan%i:sens:del?' % channel))
         except ValueError:
             logging.debug('Sense delay of channel %i not specified:' % channel)
+    
+    
+    def set_sense_average(self, avg, channel=1):
+        '''
+        Sets sense average of channel <channel> to <avg>
         
+        Input:
+            avg (int)
+            channel (int): 1 | 2
+        Output:
+            None
+        '''
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe:AVERage[:STATe] 1|0|ON|OFF
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe:AVERage:COUNt <integer>|MINimum|MAXimum
+        try:
+            status = bool(Heaviside(avg-1.0000001))
+            logging.debug('Set sense average of channel %s to %i' % (channel, avg))
+            self._visainstrument.write(':chan%i:sens:aver:stat %i' % (channel, status))
+            if status: self._visainstrument.write(':chan%i:sens:aver:coun %i' % (channel, avg))
+        except AttributeError:
+            logging.error('invalid input: cannot set sense average of channel %s to %i' % (channel, avg))
+    
+    
+    def get_sense_average(self, channel=1):
+        '''
+        Gets sense average of channel <channel>
         
+        Input:
+            channel (int): 1 | 2
+        Output:
+            status (bool)
+            avg (int)
+        '''
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe:AVERage[:STATe] 1|0|ON|OFF
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe:AVERage:COUNt <integer>|MINimum|MAXimum
+        try:
+            status = bool(int(self._visainstrument.ask(':chan%i:sens:aver:stat?' % channel)))
+            avg = int(self._visainstrument.ask(':chan%i:sens:aver:coun?' % channel))
+            return status, avg
+        except ValueError:
+            logging.debug('Sense average of channel %i not specified:' % channel)
+    
+    
+    def set_sense_nplc(self, nplc, channel=1):
+        '''
+        Sets sense integrarion time of channel <channel> with the <nplc>-fold of one power line cycle
+        
+        Input:
+            channel (int): 1 | 2
+            nplc (float)
+        Output:
+            None
+        '''
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe:NPLC <real number>|MINimum|MAXimum
+        try:
+            logging.debug('Set sense integrarion time of channel %s to %i PLC' % (channel, nplc))
+            self._visainstrument.write(':chan%i:sens:nplc %i' % (channel, nplc))
+        except ValueError:
+            logging.debug('Number of PLC of channel %i not specified:' % channel)
+    
+    
+    def get_sense_nplc(self, channel=1):
+        '''
+        Gets sense integrarion time of channel <channel>
+        
+        Input:
+            channel (int): 1 | 2
+            nplc (float)
+        Output:
+            None
+        '''
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SENSe:NPLC <real number>|MINimum|MAXimum
+        try:
+            return float(self._visainstrument.ask(':chan%i:sens:nplc?' % channel))
+        except ValueError:
+            logging.debug('Number of PLC of channel %i not specified:' % channel)
+    
+    
+    def set_plc(self, plc):
+        '''
+        Sets power line cycle (PLC) to <plc>
+        
+        Input:
+            plc: 'auto' | 50 | 60
+        Output:
+            None
+        '''
+        # <<Corresponding Command Mnemonic>>: :SYSTem:LFRequency 50|60
+        # <<Corresponding Command Mnemonic>>: :SYSTem:LFRequency:AUTO 1|0|ON|OFF
+        try:
+            logging.debug('Set PLC to %s' % str(plc))
+            cmd = {'auto':':auto 1', '50':' 50', '60':' 60'}
+            self._visainstrument.write('syst:lfr%s' % cmd[str(plc)])
+        except ValueError:
+            logging.debug('PLC not specified:')
+    
+    
+    def get_plc(self):
+        '''
+        Gets power line cycle (PLC)
+        
+        Input:
+            None
+        Output:
+            plc (float): 50 | 60
+        '''
+        # <<Corresponding Command Mnemonic>>: :SYSTem:LFRequency 50|60
+        # <<Corresponding Command Mnemonic>>: :SYSTem:LFRequency:AUTO 1|0|ON|OFF
+        try:
+            return float(self._visainstrument.ask('syst:lfr?'))
+        except ValueError:
+            logging.debug('PLC not specified:')
+    
+    
+    def set_sense_integration_time(self, time, channel=1):
+        '''
+        Gets get sense integration time
+        
+        Input:
+            time (float): integer multiples of PLC (default 2e-2 )
+            channel (int): 1 | 2
+        Output:
+            None
+        '''
+        try:
+            nplc = int(time*self.get_plc())
+            logging.debug('Set sense integration time of channel %i to %f' % (channel, time))
+            self.set_sense_nplc(nplc=nplc, channel=channel) 
+        except ValueError:
+            logging.debug('Sense integrarion time of channel %i not specified:' % channel)
+    
+    
+    def get_sense_integration_time(self, channel=1):
+        '''
+        Gets get sense integration time
+        
+        Input:
+            None
+        Output:
+            time
+        '''
+        try:
+            return self.get_sense_nplc(channel=channel)/self.get_plc()
+        except ValueError:
+            logging.debug('Sense integration time not specified:')
+        
+    
     def set_status(self, status, channel=1):
         '''
-        Set output status of channel <channel> to <status>
+        Sets output status of channel <channel> to <status>
         
         Input:
             status (bool): True (ON) | False (OFF)
@@ -1105,7 +676,6 @@ class Yokogawa_GS820(Instrument):
         '''
         # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:OUTput:STATus 1|0|ON|OFF
         try:
-            print('need to start trigger seperately??')
             logging.debug('Set output status of channel %s to %r' % (channel, status))
             self._visainstrument.write(':chan%i:outp:stat %i' % (channel, status))
         except AttributeError:
@@ -1114,7 +684,7 @@ class Yokogawa_GS820(Instrument):
         
     def get_status(self, channel=1):
         '''
-        Get output status of channel <channel>
+        Gets output status of channel <channel>
         
         Input:
             channel (int): 1 | 2
@@ -1128,51 +698,575 @@ class Yokogawa_GS820(Instrument):
             logging.debug('Status of channel %i not specified:' % channel)
         
         
+    def set_bias_value(self, val, channel=1):
+        '''
+        Sets bias value of channel <channel> to value >val>
+        
+        Input:
+            val (float): arb.
+            channel (int): 1 | 2
+        Output:
+            None
+        '''
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:VOLTage]:LEVel <voltage>|MINimum|MAXimum
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:CURRent]:LEVel <current>|MINimum|MAXimum
+        try:
+            logging.debug(__name__ + ' : set bias value of channel %s to %s' % (channel, str(val)))
+            self._visainstrument.write(':chan%s:sour:lev %f' % (channel, val))
+        except AttributeError:
+            logging.error('invalid input: cannot set bias value of channel %s to %f' % (channel, val))
+        
+        
+    def get_bias_value(self, channel=1):
+        '''
+        Gets bias value of channel <channel>
+        
+        Input:
+            channel (int): 1 | 2
+        Output:
+            val (float)
+        '''
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:VOLTage]:LEVel <voltage>|MINimum|MAXimum
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:CURRent]:LEVel <current>|MINimum|MAXimum
+        try:
+            return float(self._visainstrument.ask(':chan%s:sour:lev?' % channel))
+        except ValueError:
+            logging.error('Cannot get bias value of channel %i:' % channel)
+        
+        
+    def get_sense_value(self, channel=1):
+        '''
+        Gets sense value of channel <channel>
+        
+        Input:
+            channel (int): 1 | 2
+        Output:
+            val (float)
+        '''
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:MEASure?
+        try:
+            return float(self._visainstrument.ask(':chan%d:meas?' % channel))
+        except ValueError:
+            logging.error('Cannot get sense value of channel %i:' % channel)
+        
+        
+    def set_voltage(self, val, channel=1):
+        '''
+        Sets voltage value of channel <channel> to <val>
+        
+        Input:
+            val (float): arb.
+            channel (int): 1 | 2
+        Output:
+            None
+        '''
+        if self.get_bias_mode(channel) == 'volt':
+            return self.set_bias_value(val, channel)
+        elif self.get_bias_mode(channel) == 'curr':
+            logging.error('Cannot set set voltage value of channel %i: in the current bias' % channel)
+        
+        
+    def get_voltage(self, channel=1):
+        '''
+        Gets voltage value of channel <channel>
+        
+        Input:
+            channel (int): 1 | 2
+        Output:
+            val (float)
+        '''
+        if self.get_bias_mode(channel) == 'volt':
+            return self.get_bias_value(channel)
+        elif self.get_sense_mode(channel) == 'volt':
+            return self.get_sense_value(channel)
+        
+        
+    def set_current(self, val, channel=1):
+        '''
+        Sets current value of channel <channel> to <val>
+        
+        Input:
+            val (float): arb.
+            channel (int): 1 | 2
+        Output:
+            None
+        '''
+        if self.get_bias_mode(channel) == 'curr':
+            return self.set_bias_value(val, channel)
+        elif self.get_bias_mode(channel) == 'volt':
+            logging.error('Cannot set set current value of channel %i: in the voltage bias' % channel)
+        
+        
+    def get_current(self, channel=1):
+        '''
+        Gets current value of channel <channel>
+        
+        Input:
+            channel (int): 1 | 2
+        Output:
+            val (float)
+        '''
+        if self.get_bias_mode(channel) == 'curr':
+            return self.get_bias_value(channel)
+        elif self.get_sense_mode(channel) == 'curr':
+            return self.get_sense_value(channel)
+    
+    
+    def set_sweep_start(self, start, channel=1):
+        '''
+        Sets sweep start value of channel <channel> to <start>
+        
+        Input:
+            start arr((float))
+            channel (int): 1 | 2
+        Output:
+            None
+        '''
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
+        try:
+            logging.debug('Set sweep start of channel %s to %s' % (channel, start))
+            self._visainstrument.write(':chan%s:sour:%s:swe:star %f' % (channel, self.get_bias_mode(channel), start))
+        except AttributeError:
+            logging.error('invalid input: cannot set sweep start of channel %s to %s' % (channel, start))
+    
+    
+    def get_sweep_start(self, channel=1):
+        '''
+        Gets sweep start value <output> of channel <channel>
+        
+        Input:
+            channel (int): 1 | 2
+        Output:
+            start (float)
+        '''
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
+        try:
+            return float(self._visainstrument.ask(':chan%s:sour:%s:swe:star?' % (channel, self.get_bias_mode(channel))))
+        except ValueError:
+            logging.debug('Sweep start of channel %i not specified:' % channel)
+    
+    
+    def set_sweep_stop(self, stop=0, channel=1):
+        '''
+        Sets sweep stop value of channel <channel> to <stop>
+        
+        Input:
+            stop (float)
+            channel (int): 1 | 2
+        Output:
+            None
+        '''
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
+        try:
+            logging.debug('Set sweep stop of channel %s to %s' % (channel, stop))
+            self._visainstrument.write(':chan%s:sour:%s:swe:stop %f' % (channel, self.get_bias_mode(channel), stop))
+        except AttributeError:
+            logging.error('invalid input: cannot set sweep stop of channel %s to %s' % (channel, stop))
+    
+    
+    def get_sweep_stop(self, channel=1):
+        '''
+        Gets sweep stop value <output> of channel <channel>
+        
+        Input:
+            channel (int): 1 | 2
+        Output:
+            stop (float)
+        '''
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
+        try:
+            return float(self._visainstrument.ask(':chan%s:sour:%s:swe:stop?' % (channel, self.get_bias_mode(channel))))
+        except ValueError:
+            logging.debug('Sweep stop of channel %i not specified:' % channel)
+    
+    
+    def set_sweep_step(self, step=0, channel=1):
+        '''
+        Sets sweep step value of channel <channel> to <step>
+        
+        Input:
+            step (float)
+            channel (int): 1 | 2
+        Output:
+            None
+        '''
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
+        try:
+            logging.debug('Set sweep step of channel %s to %s' % (channel, step))
+            self._visainstrument.write(':chan%s:sour:%s:swe:step %f' % (channel, self.get_bias_mode(channel), step))
+        except AttributeError:
+            logging.error('invalid input: cannot set sweep step of channel %s to %s' % (channel, step))
+    
+    
+    def get_sweep_step(self, channel=1):
+        '''
+        Gets sweep step value <output> of channel <channel>
+        
+        Input:
+            channel (int): 1 | 2
+        Output:
+            step (float)
+        '''
+        # <<Corresponding Command Mnemonic>>: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
+        try:
+            return float(self._visainstrument.ask(':chan%s:sour:%s:swe:step?' % (channel, self.get_bias_mode(channel))))
+        except ValueError:
+            logging.debug('Sweep step of channel %i not specified:' % channel)
+    
+    
+    def set_sweep_parameters(self, sweep, channel=1):
+        self.set_sweep_start(float(sweep[0]))
+        self.set_sweep_stop(float(sweep[1]))
+        self.set_sweep_step(float(sweep[2]))
+        print('sweep', sweep)
+        
+        self._step_time = self._integration_time*self._average+2.*self._sense_delay+self._intrument_delay
+        self.set_step_time(step_time=self._step_time, trigger='tim1', channel=channel)
+        self.set_sense_trigger(mode='sour', channel=channel)
+        self.set_sense_delay(self._sense_delay, channel=channel)
+        self.set_sense_integration_time(time=self._integration_time, channel=channel)
+        self.set_sense_average(avg=self._average, channel=channel)
+    
+    
+    def set_step_time(self, step_time, trigger='tim1', channel=1):
+        self.set_bias_trigger(mode=trigger, time=step_time, channel=channel)
+        
+    def get_step_time(self, channel=1):
+        try:
+            if self.get_bias_trigger(channel=channel)[0:3] == 'tim': return(float(self._visainstrument.ask(':trig:%s?' % self.get_bias_trigger(channel=channel))))
+        except ValueError:
+            logging.debug('Sweep step time of channel %i not specified:' % channel)
+    
+    
+    def get_nop(self, channel=1):
+        '''
+        Gets sweep nop <output> of channel <channel>
+        
+        Input:
+            channel (int): 1 | 2
+        Output:
+            nop (int)
+        '''
+        try:
+            return int((self.get_sweep_stop(channel=channel)-self.get_sweep_start(channel=channel))/self.get_sweep_step(channel=channel)+1)
+        except ValueError:
+            logging.debug('Sweep nop of channel %i not specified:' % channel)
+    
+    
+    def get_sweep_time(self, channel=1):
+        '''
+        Gets sweep time <output> of channel <channel>
+        
+        Input:
+            channel (int): 1 | 2
+        Output:
+            sweeptime (float)
+        '''
+        try:
+            return float(self.get_step_time(channel=channel)*(self.get_nop(channel=channel)-1))
+        except ValueError:
+            logging.debug('Sweep time of channel %i not specified:' % channel)
+    
+    
+    def take_sweep(self, channel=1):
+        '''
+        Starts bias sweep of channel <channel> with parameters <start>, <stop>, <step>, <average>
+        
+        Input:
+            channel (int): 1 | 2
+        Output:
+            bias_value (numpy.array(float))
+            sense_value (numpy.array(float))
+        '''
+        
+        self._visainstrument.write(':chan%i:sour:mode swe' % channel)
+        #self._visainstrument.write(':trac:poin %i' % self.get_nop(channel=channel))
+        self._visainstrument.write(':trac:poin max')
+        self._visainstrument.write(':trac:chan1:data:form asc')
+        self._visainstrument.write(':trac:bin:repl asc')
+        #self.set_bias_value(self._start, channel=channel)
+        
+        self._visainstrument.write(':chan%i:init' % channel)
+        #self.set_status(True, channel=channel)
+        self._wait_for_ready_for_sweep(channel=channel)
+        self._visainstrument.write(':trac:stat 1')
+        self._visainstrument.write(':star')
+        self._wait_for_end_of_sweep(channel=channel)
+        self._wait_for_end_of_measure(channel=channel)
+        self._visainstrument.write(':trac:stat 0')
+        #self.set_status(False, channel=channel)
+        print 'Sweep finished'
+        
+        bias_values = numpy.array([float(v) for v in self._visainstrument.ask('trac:chan%i:data:read? sl' % channel).split(',')])*self._dAdV
+        sense_values = numpy.array([float(v) for v in self._visainstrument.ask('trac:chan%i:data:read? ml' % channel).split(',')])/self._amp
+        
+        return bias_values, sense_values
+            
+    
+    def set_sweep_type(self, sweep_type = 1):
+        '''
+        # FIXME: HR this should go into the IVD driver 
+        Sets the sweep type, in the moment only simple sweep types are defined: 
+        Input:
+        sweep_type:
+            0: single sweep START -> END 
+            1: double sweep START -> END -> START (default)
+            2: triple sweep START -> END -> START -> -END
+            3: quad sweep   START -> END -> START -> -END -> START
+            ...
+        
+        '''
+        # define the number of datasets for each sweep type
+        self._IV_sweep_types = { 0:1 , 1:2, 2:3, 3:4 }
+        self._IV_sweep_type = sweep_type
+        
+        self._starts = [self._start, self._stop,  self._start, -self._stop][:self._IV_sweep_types[self._IV_sweep_type]]
+        self._stops  = [self._stop,  self._start, -self._stop, self._start][:self._IV_sweep_types[self._IV_sweep_type]]
+        self._steps  = [self._step, -self._step, -self._step, self._step][:self._IV_sweep_types[self._IV_sweep_type]]
+    
+    
     def set_defaults(self, channel=1):
         self._channel = 1
         self.set_mode_4W(val=True, channel=channel)
-        self.set_source_mode(mode='curr', channel=channel)
+        self.set_bias_mode(mode='curr', channel=channel)
         self.set_sense_mode(mode='volt', channel=channel)
-        self.set_source_range(val=20e-6, channel=channel)
-        self.set_sense_range(val=200e-3, channel=channel)
-        self.set_source_trigger(trigger='tim1', channel=channel)
-        self.set_sense_trigger(trigger='tim1', channel=channel)
-        self.set_source_delay(val=15e-6, channel=channel)
+        self.set_bias_range(val=200e-3, channel=channel)
+        self.set_sense_range(val=18, channel=channel)
+        self.set_bias_trigger(mode='tim1', channel=channel)
+        self.set_sense_trigger(mode='sour', channel=channel)
+        self.set_bias_delay(val=15e-6, channel=channel)
         self.set_sense_delay(val=15e-6, channel=channel)
-        self.set_source_value(val=0, channel=channel)
+        self.set_bias_value(val=0, channel=channel)
+        self._visainstrument.write('chan%i:sens:zero:auto 0' % channel)
         
         
     def get_all(self, channel=1):
         print('mode 4W = %r' % self.get_mode_4W(channel=channel))
-        print('source mode = %s' % self.get_source_mode(channel=channel))
+        print('bias mode = %s' % self.get_bias_mode(channel=channel))
         print('sense mode = %s' % self.get_sense_mode(channel=channel))
-        print('source range = %f' % self.get_source_range(channel=channel))
+        print('bias range = %f' % self.get_bias_range(channel=channel))
         print('sense range = %f' % self.get_sense_range(channel=channel))
-        print('source trigger = %s' % self.get_source_trigger(channel=channel))
+        print('bias trigger = %s' % self.get_bias_trigger(channel=channel))
         print('sense trigger = %s' % self.get_sense_trigger(channel=channel))
-        print('source delay = %f' % self.get_source_delay(channel=channel))
-        print('sense delay = %f' % self.get_sense_delay(channel=channel))
+        print('bias delay = %e' % self.get_bias_delay(channel=channel))
+        print('sense delay = %e' % self.get_sense_delay(channel=channel))
+        print('sense average = %i' % self.get_sense_average(channel=channel)[1])
+        print('sense nplc = %i' % self.get_sense_nplc(channel=channel))
+        print('plc = %f' % self.get_plc())
+        print('get sense integration time = %f' % self.get_sense_integration_time(channel=channel))
+        print('status = %r' % self.get_status(channel=channel))
+        #print('bias value = %f' % self.get_bias_value(channel=channel))
+        #print('sense value = %f' % self.get_sense_value(channel=channel))
+        print('sweep start = %f' % self.get_sweep_start(channel=channel))
+        print('sweep stop = %f' % self.get_sweep_stop(channel=channel))
+        print('sweep step = %f' % self.get_sweep_step(channel=channel))
         print('sync = %r' % self.get_sync())
-       
-       
-    def reset(self, channel=1):
+        print('error = %r' % self.get_error())
+    
+    
+    def reset(self):
+        '''
+        Resets <self>
+        
+        Input:
+            None
+        Output:
+            None
+        '''
         try:
             self._visainstrument.write('*RST')
-            logging.debug('Reset channel %s' % channel)
+            logging.debug('Reset %s' % __name__)
         except AttributeError:
-            logging.error('invalid input: cannot reset channel %s' % channel)
+            logging.error('invalid input: cannot reset %s' % __name__)
+    
+    
+    def get_error(self):
+        '''
+        Gets error of <self>
         
+        Input:
+            None
+        Output:
+            error (str)
+        '''
+        try:            
+            return str(self._visainstrument.ask(':syst:err?'))
+        except ValueError:
+            logging.debug('Error not specified:')
+    
+    
+    def clear_error(self):
+        '''
+        Clears error of <self>
         
-    def sweep_source(self, start, stop, step, points, spacing = 'lin', channel=1):
-        print('need to do: sweep_source')
-        self._visainstrument.write(':chan%s:sour:%s:swe:spac %s' % (channel, self.get_source_mode(channel), spacing))
-        self._visainstrument.write(':chan%s:sour:%s:swe:star %f' % (channel, self.get_source_mode(channel), start))
-        self._visainstrument.write(':chan%s:sour:%s:swe:stop %f' % (channel, self.get_source_mode(channel), stop))
-        self._visainstrument.write(':chan%s:sour:%s:swe:step %f' % (channel, self.get_source_mode(channel), step))
-        self._visainstrument.write(':chan%s:sour:%s:swe:poin %f' % (channel, self.get_source_mode(channel), points))
-        self._visainstrument.write(':star')
+        Input:
+            None
+        Output:
+            None
+        '''
+        try:
+            self._visainstrument.write('*CLS')
+            logging.debug('Clear error of %s' % __name__)
+        except AttributeError:
+            logging.error('invalid input: cannot clear error of %s' % __name__)
+    
+    
+    def get_bias_status_register(self):
+        '''
+        Gets the entire bias status register
         
+        Input:
+            None
+        Output:
+            status_register (bool):
+                0:  CH1 End of Sweep
+                1:  CH1 Ready for Sweep
+                2:  CH1 Low Limiting
+                3:  CH1 High Limiting
+                4:  CH1 Tripped
+                5:  CH1 Emergency (Temperature/Current over)
+                6:  ---
+                7:  ---
+                8:  CH2 End of Sweep
+                9:  CH2 Ready for Sweep
+                10: CH2 Low Limiting
+                11: CH2 High Limiting
+                12: CH2 Tripped
+                13: CH2 Emergency (Temperature/Current over)
+                14: Inter Locking
+                15: Start Sampling Error
+        '''
+        # <<Corresponding Command Mnemonic>>: :STATus:SOURce:CONDition?
+        try:            
+            bias_status_register = int(self._visainstrument.ask(':stat:sour:cond?'))
+            ans = []
+            for i in range(16):
+                ans.append(2**i == (bias_status_register) & 2**i)
+            return ans
+        except ValueError:
+            logging.debug('Bias status register not specified:')
+    
+    
+    def is_end_of_sweep(self, channel=1):
+        '''
+        Gets event of bias status register entry "End for Sweep" of channel <channel>
         
+        Input:
+            channel (int): 1 | 2
+        Output:
+            val (bool): True | False
+        '''
+        # <<Corresponding Command Mnemonic>>: :STATus:SOURce:EVENt?
+        try:            
+            return 2**(0+8*(channel-1)) == (int(self._visainstrument.ask(':stat:sour:even?'))) & 2**(0+8*(channel-1))
+        except ValueError:
+            logging.debug('Status register event "End of Sweep" of channel %i not specified:' % channel)
+    
+    
+    def _wait_for_end_of_sweep(self, channel=1):
+        '''
+        Waits until the event of status register entry "End for Sweep" of channel <channel> occurs
         
+        Input:
+            None
+        Output:
+            None
+        '''
+        while not (self.is_end_of_sweep(channel=channel)):
+            time.sleep(1e-6)
+    
+    
+    def is_ready_for_sweep(self, channel=1):
+        '''
+        Gets condition of bias status register entry "Ready for Sweep" of channel <channel>
         
+        Input:
+            channel (int): 1 | 2
+        Output:
+            val (bool): True | False
+        '''
+        # <<Corresponding Command Mnemonic>>: :STATus:SOURce:CONDition?
+        try:            
+            return 2**(1+8*(channel-1)) == (int(self._visainstrument.ask(':stat:sour:cond?'))) & 2**(1+8*(channel-1))
+        except ValueError:
+            logging.debug('Status register condition "Ready for Sweep" of channel %i not specified:' % channel)
+    
+    
+    def _wait_for_ready_for_sweep(self, channel=1):
+        '''
+        Waits until the condition of status register entry "Ready for Sweep" of channel <channel> occurs
         
+        Input:
+            None
+        Output:
+            None
+        '''
+        while not (self.is_ready_for_sweep(channel=channel)):
+            time.sleep(1e-6)
+    
+    
+    def get_sense_status_register(self):
+        '''
+        Gets the entire sense status register
+        
+        Input:
+            None
+        Output:
+            status_register (bool):
+                0:  CH1 End of Measure
+                1:  ---
+                2:  CH1 Compare result is Low
+                3:  CH1 Compare result is High
+                4:  ---
+                5:  CH1 Over Range
+                6:  ---
+                7:  ---
+                8:  CH2 End of Measure
+                9:  ---
+                10: CH2 Compare result is Low
+                11: CH2 Compare result is High
+                12: ---
+                13: CH2 Over Range
+                14: End of Trace
+                15: Trigger Sampling Error
+        '''
+        # <<Corresponding Command Mnemonic>>: :STATus:SENSe:CONDition?
+        try:            
+            sense_status_register = int(self._visainstrument.ask(':stat:sens:cond?'))
+            ans = []
+            for i in range(16):
+                ans.append(2**i == (sense_status_register) & 2**i)
+            return ans
+        except ValueError:
+            logging.debug('Sense status register not specified:')
+    
+    
+    def is_end_of_measure(self, channel=1):
+        '''
+        Gets condition of sense status register entry "End of Measure" of channel <channel>
+        
+        Input:
+            channel (int): 1 | 2
+        Output:
+            val (bool): True | False
+        '''
+        # <<Corresponding Command Mnemonic>>: :STATus:SENSe:CONDition?
+        try:            
+            return 2**(0+8*(channel-1)) == (int(self._visainstrument.ask(':stat:sens:cond?'))) & 2**(0+8*(channel-1))
+        except ValueError:
+            logging.debug('Status register event "End of Measure" of channel %i not specified:' % channel)
+    
+    
+    def _wait_for_end_of_measure(self, channel=1):
+        '''
+        Waits until the condition of sense register entry "End for Measure" of channel <channel> occurs
+        
+        Input:
+            channel (int): 1 | 2
+        Output:
+            None
+        '''
+        while not (self.is_end_of_measure(channel=channel)):
+            time.sleep(1e-6)
+    
+    
