@@ -34,7 +34,7 @@ import qkit.measure.write_additional_files as waf
 
 ##################################################################
 
-class spectrum(object):
+class transport(object):
     '''
     usage:
 
@@ -82,6 +82,15 @@ class spectrum(object):
         self.number_of_timetraces = 1   #relevant in time domain mode
         
         self._web_visible = True
+        
+        self.sweep = self.sweeps()
+        
+    def add_sweep_4quadrants(self, start, stop, step):
+        self.sweep.add_sweep(start, stop, step)
+        self.sweep.add_sweep(stop, start, -step)
+        self.sweep.add_sweep(start, -stop, -step)
+        self.sweep.add_sweep(-stop, start, step)
+        
 
     def set_log_function(self, func=None, name = None, unit = None, log_dtype = None):
         '''
@@ -202,42 +211,53 @@ class spectrum(object):
         self._bias_mode = self.IVD.get_bias_mode()
         
         self._nop = self.IVD.get_nop()
-        self._sweeptime_averages = self.IVD.get_sweeptime_averages()
+        #self._sweeptime_averages = self.IVD.get_sweeptime_averages()
         #self._freqpoints = self.IVD.get_freqpoints()
 
-        if self.averaging_start_ready: self.vna.pre_measurement()
+        #if self.averaging_start_ready: self.vna.pre_measurement()
 
     def _prepare_measurement_file(self):
         '''
         creates the output .h5-file with distinct dataset structures for each measurement type.
         at this point all measurement parameters are known and put in the output file
         '''
-
+        print ('filename '+self._file_name)
         self._data_file = hdf.Data(name=self._file_name)
         self._measurement_object.uuid = self._data_file._uuid
         self._measurement_object.hdf_relpath = self._data_file._relpath
         self._measurement_object.instruments = qt.instruments.get_instruments()
 
-        self._measurement_object.save()
+        #self._measurement_object.save()
         self._mo = self._data_file.add_textlist('measurement')
         self._mo.append(self._measurement_object.get_JSON())
 
         # write logfile and instrument settings
-        self._write_settings_dataset()
-        self._log = waf.open_log_file(self._data_file.get_filepath())
+        #self._write_settings_dataset()
+        #self._log = waf.open_log_file(self._data_file.get_filepath())
 
         #if not self._scan_time:
         #    self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
         #    self._data_freq.add(self._freqpoints)
 
-        
+        #st = self.IVD.get_sweep_type()
+        #num_ds = self.IVD.get_num_ds_from_sweep_type(st)
+        self._data_I  = []
+        self._data_V  = []
+        self._data_R  = []
         if self._scan_1D:
             if self._bias_mode:# current bias
                 #self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
-                for st in range(self.sweep_type):
-                    self._data_I_[st] = self._data_file.add_value_vector('I_'+str(st), unit = 'A', save_timestamp = True)
-                    self._data_V_[st] = self._data_file.add_value_vector('V_'+str(st), x = self._data_I, unit = 'V', save_timestamp = True)
-                
+                for st in range(self.sweep.get_nos()):
+                    self._data_V.append(self._data_file.add_value_vector('V_'+str(st), unit = 'V', save_timestamp = False))
+                    self._data_I.append(self._data_file.add_value_vector('I_'+str(st), x = self._data_V[st], unit = 'A', save_timestamp = False))
+                    self._data_R.append(self._data_file.add_value_vector('R_'+str(st), x = self._data_V[st], unit = 'Ohm', save_timestamp = False))
+                    
+                IV   = self._data_file.add_view('IV', x = self._data_V[0], y = self._data_I[0])
+                dVdI = self._data_file.add_view('dVdI', x = self._data_I[0] , y = self._data_R[0])
+                for i in range(self.sweep.get_nos()):
+                    dVdI.add(x=self._data_I[i],y=self._data_R[i])
+                    IV.add(x=self._data_V[i],y=self._data_I[i])
+                    
 
         if self._scan_2D:
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit = self.x_unit)
@@ -295,12 +315,14 @@ class spectrum(object):
             while self._p.progr < self._p.max_it:
                 self._p.iterate()
                 
-    def measure_1D(self):
+    def measure_1D(self, sweep_type=1):
         '''
         measure method to record a single (averaged) VNA trace, S11 or S21 according to the setting on the VNA
         rescan: If True (default), the averages on the VNA are cleared and a new measurement is started. 
                 If False, it will directly take the data from the VNA without waiting.
         '''
+        
+        self._sweep_type = sweep_type
         self._scan_1D = True
         self._scan_2D = False
         self._scan_3D = False
@@ -330,111 +352,118 @@ class spectrum(object):
 
         qt.mstart()
         
-        for st in range(self.sweep_type):
+        self.sweep.create_iterator()
+        self.IVD.set_status(True)
+        for st in range(self.sweep.get_nos()):
+            #print(self.sweep.get_sweep())
+            self.IVD.set_sweep_parameters(self.sweep.get_sweep())
+            data_bias, data_sense = self.IVD.take_sweep()
+            self._data_I[st].append(data_bias)
+            self._data_V[st].append(data_sense)
+        self.IVD.set_status(False)
         
-            self.IVD.sweep_setup(st) # delegate the sweep setup to the IVD device
-            
-            self.IVD.start_measurement() # this triggers a measurement start
-            
-            self._wait_progress_bar() # this waits for the data
-        
-            # get sweep data and save
-            data_I, data_V = self.IVD.get_tracedata()
-            self._data_I_[st].append(data_I)
-            self._data_A_[st].append(data_A)
+        # get sweep data and save
+#        st  = 0
+#        data_bias, data_sense = self.IVD.get_sweep()
+#        self._data_I[st].append(data_bias)
+#        self._data_V[st].append(data_sense)
+#        self._data_R[st].append(np.diff(data_sense)/np.diff(data_bias))
 
 
         qt.mend()
         self._end_measurement()
-"""
-    def measure_2D(self):
-        '''
-        measure method to record a (averaged) VNA trace, S11 or S21 according to the setting on the VNA
-        for all parameters x_vec in x_obj
-        '''
-
-        if not self.x_set_obj:
-            logging.error('axes parameters not properly set...aborting')
-            return
-        self._scan_1D = False
-        self._scan_2D = True
-        self._scan_3D = False
-        self._scan_time = False
-        
-        self._measurement_object.measurement_func = 'measure_2D'
-        self._measurement_object.x_axis = self.x_coordname
-        self._measurement_object.y_axis = 'frequency'
-        self._measurement_object.z_axis = ''
-        self._measurement_object.web_visible = self._web_visible
-
-        if not self.dirname:
-            self.dirname = self.x_coordname
-        self._file_name = '2D_' + self.dirname.replace(' ', '').replace(',','_')
-        if self.exp_name:
-            self._file_name += '_' + self.exp_name
-
-        if self.progress_bar: self._p = Progress_Bar(len(self.x_vec),'2D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
-
-        self._prepare_measurement_vna()
-        self._prepare_measurement_file()
-
-        """opens qviewkit to plot measurement, amp and pha are opened by default"""
-        if self._nop < 10:
-            if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude_midpoint', 'phase_midpoint'])
-        else:
-            if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
-        if self._fit_resonator:
-            self._resonator = resonator(self._data_file.get_filepath())
-        self._measure()
 
 
-    def measure_3D(self):
-        '''
-        measure full window of vna while sweeping x_set_obj and y_set_obj with parameters x_vec/y_vec. sweep over y_set_obj is the inner loop, for every value x_vec[i] all values y_vec are measured.
 
-        optional: measure method to perform the measurement according to landscape, if set
-        self.span is the range (in units of the vertical plot axis) data is taken around the specified funtion(s)
-        note: make sure to have properly set x,y vectors before generating traces
-        '''
-        if not self.x_set_obj or not self.y_set_obj:
-            logging.error('axes parameters not properly set...aborting')
-            return
-        self._scan_1D = False
-        self._scan_2D = False
-        self._scan_3D = True
-        self._scan_time = False
-        
-        self._measurement_object.measurement_func = 'measure_3D'
-        self._measurement_object.x_axis = self.x_coordname
-        self._measurement_object.y_axis = self.y_coordname
-        self._measurement_object.z_axis = 'frequency'
-        self._measurement_object.web_visible = self._web_visible
 
-        if not self.dirname:
-            self.dirname = self.x_coordname + ', ' + self.y_coordname
-        self._file_name = '3D_' + self.dirname.replace(' ', '').replace(',','_')
-        if self.exp_name:
-            self._file_name += '_' + self.exp_name
-
-        if self.progress_bar: self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec),'3D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
-
-        self._prepare_measurement_vna()
-        self._prepare_measurement_file()
-        '''opens qviewkit to plot measurement, amp and pha are opened by default'''
-        '''only middle point in freq array is plotted vs x and y'''
-        if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
-        if self._fit_resonator:
-            self._resonator = resonator(self._data_file.get_filepath())
-
-        if self.landscape:
-            self.center_freqs = np.array(self.landscape).T
-        else:
-            self.center_freqs = []     #load default sequence
-            for i in range(len(self.x_vec)):
-                self.center_freqs.append([0])
-
-        self._measure()
-"""        
+#    def measure_2D(self):
+#        '''
+#        measure method to record a (averaged) VNA trace, S11 or S21 according to the setting on the VNA
+#        for all parameters x_vec in x_obj
+#        '''
+#
+#        if not self.x_set_obj:
+#            logging.error('axes parameters not properly set...aborting')
+#            return
+#        self._scan_1D = False
+#        self._scan_2D = True
+#        self._scan_3D = False
+#        self._scan_time = False
+#        
+#        self._measurement_object.measurement_func = 'measure_2D'
+#        self._measurement_object.x_axis = self.x_coordname
+#        self._measurement_object.y_axis = 'frequency'
+#        self._measurement_object.z_axis = ''
+#        self._measurement_object.web_visible = self._web_visible
+#
+#        if not self.dirname:
+#            self.dirname = self.x_coordname
+#        self._file_name = '2D_' + self.dirname.replace(' ', '').replace(',','_')
+#        if self.exp_name:
+#            self._file_name += '_' + self.exp_name
+#
+#        if self.progress_bar: self._p = Progress_Bar(len(self.x_vec),'2D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
+#
+#        self._prepare_measurement_vna()
+#        self._prepare_measurement_file()
+#
+#        '''opens qviewkit to plot measurement, amp and pha are opened by default'''
+#        if self._nop < 10:
+#            if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude_midpoint', 'phase_midpoint'])
+#        else:
+#            if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
+#        if self._fit_resonator:
+#            self._resonator = resonator(self._data_file.get_filepath())
+#        self._measure()
+#
+#
+#    def measure_3D(self):
+#        '''
+#        measure full window of vna while sweeping x_set_obj and y_set_obj with parameters x_vec/y_vec. sweep over y_set_obj is the inner loop, for every value x_vec[i] all values y_vec are measured.
+#
+#        optional: measure method to perform the measurement according to landscape, if set
+#        self.span is the range (in units of the vertical plot axis) data is taken around the specified funtion(s)
+#        note: make sure to have properly set x,y vectors before generating traces
+#        '''
+#        if not self.x_set_obj or not self.y_set_obj:
+#            logging.error('axes parameters not properly set...aborting')
+#            return
+#        self._scan_1D = False
+#        self._scan_2D = False
+#        self._scan_3D = True
+#        self._scan_time = False
+#        
+#        self._measurement_object.measurement_func = 'measure_3D'
+#        self._measurement_object.x_axis = self.x_coordname
+#        self._measurement_object.y_axis = self.y_coordname
+#        self._measurement_object.z_axis = 'frequency'
+#        self._measurement_object.web_visible = self._web_visible
+#
+#        if not self.dirname:
+#            self.dirname = self.x_coordname + ', ' + self.y_coordname
+#        self._file_name = '3D_' + self.dirname.replace(' ', '').replace(',','_')
+#        if self.exp_name:
+#            self._file_name += '_' + self.exp_name
+#
+#        if self.progress_bar: self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec),'3D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
+#
+#        self._prepare_measurement_vna()
+#        self._prepare_measurement_file()
+#        '''opens qviewkit to plot measurement, amp and pha are opened by default'''
+#        '''only middle point in freq array is plotted vs x and y'''
+#        if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
+#        if self._fit_resonator:
+#            self._resonator = resonator(self._data_file.get_filepath())
+#
+#        if self.landscape:
+#            self.center_freqs = np.array(self.landscape).T
+#        else:
+#            self.center_freqs = []     #load default sequence
+#            for i in range(len(self.x_vec)):
+#                self.center_freqs.append([0])
+#
+#        self._measure()
+  
         
 
     def _measure(self):
@@ -575,3 +604,43 @@ class spectrum(object):
         Small comment to add at the end of plot pics for more information i.e. good for wiki entries.
         '''
         self._plot_comment=comment
+    
+    
+    class sweeps(object):
+        def __init__(self, name='default'):
+            self._starts = []
+            self._stops  = []
+            self._steps  = []
+            self.create_iterator()
+        
+        def create_iterator(self):
+            self._start_iter = iter(self._starts)
+            self._stop_iter = iter(self._stops)
+            self._step_iter = iter(self._steps)
+            
+            
+        def add_sweep(self, start, stop, step):
+            self._starts.append(start)
+            self._stops.append(stop)
+            self._steps.append(step)
+            
+            
+        def reset_sweeps(self):
+            self._starts = []
+            self._stops  = []
+            self._stops  = []
+            
+        
+        def get_sweep(self):
+            return (self._start_iter.next(),
+                    self._stop_iter.next(),
+                    self._step_iter.next())
+                    
+        def get_nos(self):
+            return len(self._starts)
+            
+            
+        def print_sweeps(self):
+            print(self._starts, self._stops, self._steps)
+            
+            
