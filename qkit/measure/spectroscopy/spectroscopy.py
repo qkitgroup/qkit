@@ -184,24 +184,25 @@ class spectrum(object):
             y_fit = np.array(curve_p[1])
 
         try:
+            multiplier = 1
+            if units == 'Hz':
+                multiplier = 1e9
+            
+            fit_fct = None
             if curve_f == 'parab':
-                "remove the last item"
-                #p0.pop()
-                popt, pcov = curve_fit(self.f_parab, x_fit, y_fit, p0=p0)
-                if units == 'Hz':
-                    self.landscape.append(1e9*self.f_parab(self.x_vec, *popt))
-                else:
-                    self.landscape.append(self.f_parab(self.x_vec, *popt))
+                fit_fct = self.f_parab
             elif curve_f == 'hyp':
-                popt, pcov = curve_fit(self.f_hyp, x_fit, y_fit, p0=p0)
-                print popt
-                if units == 'Hz':
-                    self.landscape.append(1e9*self.f_hyp(self.x_vec, *popt))
-                else:
-                    self.landscape.append(self.f_hyp(self.x_vec, *popt))
+                fit_fct = self.f_hyp
+            elif curve_f == 'lin':
+                fit_fct = self.f_lin
+                p0 = p0[:2]
             else:
                 print 'function type not known...aborting'
                 raise ValueError
+            
+            popt, pcov = curve_fit(fit_fct, x_fit, y_fit, p0=p0)
+            self.landscape.append(multiplier*fit_fct(self.x_vec, *popt))
+            
         except Exception as message:
             print 'fit not successful:', message
             popt = p0
@@ -768,6 +769,9 @@ class spectrum(object):
     def f_hyp(self,x,a,b,c):
         "hyperbolic function with the form y = sqrt[ a*(x-b)**2 + c ]"
         return np.sqrt(a*(x-b)**2+c)
+        
+    def f_lin(self,x,a,b):
+        return a*x+b
 
     def set_plot_comment(self, comment):
         '''
