@@ -333,7 +333,7 @@ class Caen_FAST_PS(Instrument):
     
     def ramp_finished(self):
         time.sleep(0.1)
-        while self.do_get_status() & 4096 : # YS: MST status bit 12 is true while ramping
+        while int(self._ask('MST:?').split(':')[1][-4]) == 1: #MP: gets status array; 4th from last digit indicates ramping process
             time.sleep(0.1)
         return True
     
@@ -353,14 +353,12 @@ class Caen_FAST_PS(Instrument):
         logging.debug(__name__ + ' : ramp current to %s' %current)
         recv = self._ask('MWIR:%s' %current)
         if recv == self._ak_str: 
-            if not wait:
-                return True
-            else:
+            if wait:
                 time.sleep(0.1)
                 while not self.ramp_finished():
                     time.sleep(0.1)
                 time.sleep(0.1)
-                return str(self.do_get_current())
+            return True
         else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
     
     def ramp_voltage(self, voltage, ramp_rate = False, wait = True):
@@ -410,7 +408,7 @@ class Caen_FAST_PS(Instrument):
         if recv != self._ak_str: return 'ERROR: ' + error_msg[recv.split(':')[1]]
         recv = self._ask('MWG:45:%f' %PID[2])
         if recv != self._ak_str: return 'ERROR: ' + error_msg[recv.split(':')[1]]
-        recv = self._ask('MSAVE)
+        recv = self._ask('MSAVE')
         if recv != self._ak_str: return 'ERROR: ' + error_msg[recv.split(':')[1]]   
         
         
