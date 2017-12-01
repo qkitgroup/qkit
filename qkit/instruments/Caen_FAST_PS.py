@@ -333,7 +333,7 @@ class Caen_FAST_PS(Instrument):
     
     def ramp_finished(self):
         time.sleep(0.1)
-        while int(self._ask('MST:?').split(':')[1][-4]) == 1: #MP: gets status array; 4th from last digit indicates ramping process
+        while int(self._ask('MST:?').split(':')[1], 16) & 2**12 == 2**12: #MP: gets 32bit status array; 12th from last bit indicates ramping process
             time.sleep(0.1)
         return True
     
