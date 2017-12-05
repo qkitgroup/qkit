@@ -26,7 +26,7 @@ import qt
 import threading
 
 from qkit.storage import hdf_lib as hdf
-#from qkit.analysis.resonator import Resonator as resonator
+from qkit.analysis.IV_curve import IV_curve
 from qkit.gui.plot import plot as qviewkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.measurement_class import Measurement 
@@ -85,11 +85,14 @@ class transport(object):
         
         self.sweep = self.sweeps()
         
-    def add_sweep_4quadrants(self, start, stop, step):
-        self.sweep.add_sweep(start, stop, step)
-        self.sweep.add_sweep(stop, start, -step)
-        self.sweep.add_sweep(start, -stop, -step)
-        self.sweep.add_sweep(-stop, start, step)
+        self._Fraunhofer = True
+        
+        
+    def add_sweep_4quadrants(self, start, stop, step, offset=0):
+        self.sweep.add_sweep(start+offset, stop+offset, step)
+        self.sweep.add_sweep(stop+offset, start+offset, -step)
+        self.sweep.add_sweep(start+offset, -stop+offset, -step)
+        self.sweep.add_sweep(-stop+offset, start+offset, step)
         
 
     def set_log_function(self, func=None, name = None, unit = None, log_dtype = None):
@@ -148,7 +151,7 @@ class transport(object):
         self.x_vec = x_vec
         self.x_coordname = x_coordname
         self.x_set_obj = x_set_obj
-        self.delete_fit_function()
+        #self.delete_fit_function()
         self.x_unit = x_unit
 
     def set_y_parameters(self, y_vec, y_coordname, y_set_obj, y_unit = ""):
@@ -210,7 +213,7 @@ class transport(object):
         # bias mode is either  current=0 or voltage=1
         self._bias_mode = self.IVD.get_bias_mode()
         
-        self._nop = self.IVD.get_nop()
+        #self._nop = self.IVD.get_nop()
         #self._sweeptime_averages = self.IVD.get_sweeptime_averages()
         #self._freqpoints = self.IVD.get_freqpoints()
 
@@ -239,36 +242,47 @@ class transport(object):
         #    self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
         #    self._data_freq.add(self._freqpoints)
 
-        #st = self.IVD.get_sweep_type()
-        #num_ds = self.IVD.get_num_ds_from_sweep_type(st)
         self._data_I  = []
         self._data_V  = []
-        self._data_R  = []
+        #self._data_dVdI  = []
         if self._scan_1D:
             if self._bias_mode:# current bias
                 #self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
                 for st in range(self.sweep.get_nos()):
                     self._data_V.append(self._data_file.add_value_vector('V_'+str(st), unit = 'V', save_timestamp = False))
                     self._data_I.append(self._data_file.add_value_vector('I_'+str(st), x = self._data_V[st], unit = 'A', save_timestamp = False))
-                    self._data_R.append(self._data_file.add_value_vector('R_'+str(st), x = self._data_V[st], unit = 'Ohm', save_timestamp = False))
+                    #self._data_dVdI.append(self._data_file.add_value_vector('_data_dVdI_'+str(st), x = self._data_V[st], unit = 'V/A', save_timestamp = False))
                     
                 IV   = self._data_file.add_view('IV', x = self._data_V[0], y = self._data_I[0])
-                dVdI = self._data_file.add_view('dVdI', x = self._data_I[0] , y = self._data_R[0])
-                for i in range(self.sweep.get_nos()):
-                    dVdI.add(x=self._data_I[i],y=self._data_R[i])
+                #dVdI = self._data_file.add_view('dVdI', x = self._data_I[0] , y = self._data_dVdI[0])
+                for i in range(1, self.sweep.get_nos()):
                     IV.add(x=self._data_V[i],y=self._data_I[i])
+                    #dVdI.add(x=self._data_I[i],y=self._data_dVdI[i])
                     
 
         if self._scan_2D:
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit = self.x_unit)
             self._data_x.add(self.x_vec)
-            self._data_amp = self._data_file.add_value_matrix('amplitude', x = self._data_x, y = self._data_freq, unit = 'arb. unit', save_timestamp = True)
-            self._data_pha = self._data_file.add_value_matrix('phase', x = self._data_x, y = self._data_freq, unit='rad', save_timestamp = True)
-
-            if self.log_function != None:   #use logging
-                self._log_value = []
-                for i in range(len(self.log_function)):
-                    self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i], dtype=self.log_dtype[i]))
+            
+            for st in range(self.sweep.get_nos()):
+                self._data_I.append(self._data_file.add_value_vector('I_'+str(st), unit = 'A', save_timestamp = False))
+                self._data_V.append(self._data_file.add_value_matrix('V_'+str(st), x = self._data_x, y = self._data_I[st], unit = 'V', save_timestamp = False))
+                #self._data_dVdI.append(self._data_file.add_value_matrix('dVdI_'+str(st), x = self._data_x, y = self._data_I[st], unit = 'V/A', save_timestamp = False))
+            
+            if self._Fraunhofer:
+                self._data_Ic = []
+                for st in range(self.sweep.get_nos()):
+                    self._data_Ic.append(self._data_file.add_value_vector('Ic_'+str(st), x = self._data_x, unit = 'A', save_timestamp = False))
+                
+                Fraunhofer = self._data_file.add_view('Fraunhofer', x=self._data_x, y=self._data_Ic[0])
+                for i in range(1, self.sweep.get_nos()):
+                    Fraunhofer.add(x=self._data_x, y=self._data_Ic[i])
+                
+                
+            #if self.log_function != None:   #use logging
+            #    self._log_value = []
+            #    for i in range(len(self.log_function)):
+            #        self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x = self._data_x, unit = self.log_unit[i], dtype=self.log_dtype[i]))
 
         if self._scan_3D:
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit = self.x_unit)
@@ -355,19 +369,13 @@ class transport(object):
         self.sweep.create_iterator()
         self.IVD.set_status(True)
         for st in range(self.sweep.get_nos()):
-            #print(self.sweep.get_sweep())
+            #print st
             self.IVD.set_sweep_parameters(self.sweep.get_sweep())
-            data_bias, data_sense = self.IVD.take_sweep()
+            data_bias, data_sense = self.IVD.take_IV()
             self._data_I[st].append(data_bias)
             self._data_V[st].append(data_sense)
+            #self._data_dVdI[st].append(np.gradient(self._data_V[st])/np.gradient(self._data_I[st]))
         self.IVD.set_status(False)
-        
-        # get sweep data and save
-#        st  = 0
-#        data_bias, data_sense = self.IVD.get_sweep()
-#        self._data_I[st].append(data_bias)
-#        self._data_V[st].append(data_sense)
-#        self._data_R[st].append(np.diff(data_sense)/np.diff(data_bias))
 
 
         qt.mend()
@@ -376,45 +384,42 @@ class transport(object):
 
 
 
-#    def measure_2D(self):
-#        '''
-#        measure method to record a (averaged) VNA trace, S11 or S21 according to the setting on the VNA
-#        for all parameters x_vec in x_obj
-#        '''
-#
-#        if not self.x_set_obj:
-#            logging.error('axes parameters not properly set...aborting')
-#            return
-#        self._scan_1D = False
-#        self._scan_2D = True
-#        self._scan_3D = False
-#        self._scan_time = False
-#        
-#        self._measurement_object.measurement_func = 'measure_2D'
-#        self._measurement_object.x_axis = self.x_coordname
-#        self._measurement_object.y_axis = 'frequency'
-#        self._measurement_object.z_axis = ''
-#        self._measurement_object.web_visible = self._web_visible
-#
-#        if not self.dirname:
-#            self.dirname = self.x_coordname
-#        self._file_name = '2D_' + self.dirname.replace(' ', '').replace(',','_')
-#        if self.exp_name:
-#            self._file_name += '_' + self.exp_name
-#
-#        if self.progress_bar: self._p = Progress_Bar(len(self.x_vec),'2D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
-#
-#        self._prepare_measurement_vna()
-#        self._prepare_measurement_file()
-#
-#        '''opens qviewkit to plot measurement, amp and pha are opened by default'''
-#        if self._nop < 10:
-#            if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude_midpoint', 'phase_midpoint'])
-#        else:
-#            if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
-#        if self._fit_resonator:
-#            self._resonator = resonator(self._data_file.get_filepath())
-#        self._measure()
+    def measure_2D(self):
+        '''
+        measure method to record a (averaged) VNA trace, S11 or S21 according to the setting on the VNA
+        for all parameters x_vec in x_obj
+        '''
+
+        if not self.x_set_obj:
+            logging.error('axes parameters not properly set...aborting')
+            return
+        self._scan_1D = False
+        self._scan_2D = True
+        self._scan_3D = False
+        
+        
+        self._measurement_object.measurement_func = 'measure_2D'
+        self._measurement_object.x_axis = self.x_coordname
+        self._measurement_object.y_axis = 'current'
+        self._measurement_object.z_axis = ''
+        self._measurement_object.web_visible = self._web_visible
+
+        if not self.dirname:
+            self.dirname = self.x_coordname
+        self._file_name = '2D_' + self.dirname.replace(' ', '').replace(',','_')
+        if self.exp_name:
+            self._file_name += '_' + self.exp_name
+
+        #if self.progress_bar: self._p = Progress_Bar(len(self.x_vec),'2D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
+
+        self._prepare_measurement_IVD()
+        self._prepare_measurement_file()
+
+        '''opens qviewkit to plot measurement, amp and pha are opened by default'''
+        
+        if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['I_0', 'V_0'])
+        
+        self._measure()
 #
 #
 #    def measure_3D(self):
@@ -476,88 +481,44 @@ class transport(object):
             """
             loop: x_obj with parameters from x_vec
             """
+            self.IVD.set_status(True)
             for ix, x in enumerate(self.x_vec):
                 self.x_set_obj(x)
-                sleep(self.tdx)
+                sleep(1)
                 
-                if self.log_function != None:
-                    for i,f in enumerate(self.log_function):
-                        self._log_value[i].append(float(f()))
+                #if self.log_function != None:
+                #    for i,f in enumerate(self.log_function):
+                #        self._log_value[i].append(float(f()))
 
-                if self._scan_3D:
-                    for y in self.y_vec:
-                        """
-                        loop: y_obj with parameters from y_vec (only 3D measurement)
-                        """
-                        if (np.min(np.abs(self.center_freqs[ix]-y*np.ones(len(self.center_freqs[ix])))) > self.span/2.) and self.landscape:    #if point is not of interest (not close to one of the functions)
-                            data_amp = np.zeros(int(self._nop))
-                            data_pha = np.zeros(int(self._nop))      #fill with zeros
-                        else:
-                            self.y_set_obj(y)
-                            sleep(self.tdy)
-                            if self.averaging_start_ready:
-                                self.vna.start_measurement()
-                                qt.msleep(.2) #just to make sure, the ready command does not *still* show ready
-                                while not self.vna.ready():
-                                    qt.msleep(.2)
-                            else:
-                                self.vna.avg_clear()
-                                qt.msleep(self._sweeptime_averages)
-                                
-                            #if "avg_status" in self.vna.get_function_names():
-                            #       while self.vna.avg_status() < self.vna.get_averages():
-                            #            qt.msleep(.2) #maybe one would like to adjust this at a later point
-                            
-                            """ measurement """
-                            data_amp, data_pha = self.vna.get_tracedata()
-
-                        if self._nop == 0: # this does not work yet.
-                           print data_amp[0], data_amp, self._nop
-                           self._data_amp.append(data_amp[0])
-                           self._data_pha.append(data_pha[0])
-                        else:
-                           self._data_amp.append(data_amp)
-                           self._data_pha.append(data_pha)
-                        if self._fit_resonator:
-                            self._do_fit_resonator()
-                        if self.progress_bar:
-                            self._p.iterate()
-                        qt.msleep()
-                    """
-                    filling of value-box is done here.
-                    after every y-loop the data is stored the next 2d structure
-                    """
-                    self._data_amp.next_matrix()
-                    self._data_pha.next_matrix()
+                
 
                 if self._scan_2D:
-                    if self.averaging_start_ready:
-                        self.vna.start_measurement()
-                        qt.msleep(.2) #just to make sure, the ready command does not *still* show ready
-                        while not self.vna.ready():
-                            qt.msleep(.2)
-                    else:
-                        self.vna.avg_clear()
-                        qt.msleep(self._sweeptime_averages)
                     """ measurement """
-                    data_amp, data_pha = self.vna.get_tracedata()
-                    self._data_amp.append(data_amp)
-                    self._data_pha.append(data_pha)
-                    if self._nop < 10:
-                        #print data_amp[self._nop/2]
-                        self._data_amp_mid.append(float(data_amp[self._nop/2]))
-                        self._data_pha_mid.append(float(data_pha[self._nop/2]))
+                    self.sweep.create_iterator()
+                    for st in range(self.sweep.get_nos()):
+                        self.IVD.set_sweep_parameters(self.sweep.get_sweep())
+                        data_bias, data_sense = self.IVD.take_IV(channel=1)
+                        self._data_I[st].add(data_bias)
+                        self._data_V[st].append(data_sense)
+                        #self._data_dVdI[st].append(np.array(np.gradient(self._data_V[st]))[-1]/np.gradient(self._data_I[st]))
                         
-                    if self._fit_resonator:
-                        self._do_fit_resonator()
-                    if self.progress_bar:
-                        self._p.iterate()
+                        if self._Fraunhofer:
+                            self._IVC = IV_curve()
+                            self._data_Ic[st].append(self._IVC.get_Ic(V=data_sense, I=data_bias, direction=self.IVD._direction))
+                    
+                    
+                    #if self.progress_bar:
+                    #    self._p.iterate()
                     qt.msleep()
+            self.IVD.set_status(False)
         except Exception as e:
             print e.__doc__
             print e.message        
         finally:
             self._end_measurement()
+            self.IVD.set_status(False, 1)
+            #self.IVD.ramp_current(0, 100e-6, channel=2)
+            self.IVD.set_status(False, 2)
             qt.mend()
 
     def _end_measurement(self):
@@ -569,7 +530,7 @@ class transport(object):
         t = threading.Thread(target=qviewkit.save_plots,args=[self._data_file.get_filepath(),self._plot_comment])
         t.start()
         self._data_file.close_file()
-        waf.close_log_file(self._log)
+        #waf.close_log_file(self._log)
         self.dirname = None
         
 

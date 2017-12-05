@@ -19,6 +19,8 @@ import types
 import nidaq_syncIV as nidaq
 from instrument import Instrument
 import qt
+import numpy
+import time
 
 def _get_channel(devchan):
     if not '/' in devchan:
@@ -89,6 +91,27 @@ class NI_DAQ_IV(Instrument):
         self.set_chan_config('RSE')
         self.set_count_time(0.1)
         self.get_all()
+        
+        
+        self._dAdV = 1
+        self._dAdV_B = 1
+        self._dVdA = 1
+        self._amp = 1
+        
+    def set_dAdV(self,dAdV = 1):
+        self._dAdV =  dAdV
+        
+    def set_dAdV_B(self,dAdV_B = 1):
+        self._dAdV_B =  dAdV_B
+    
+    def get_dAdV_B(self):
+        return self._dAdV_B
+        
+    def set_amplification(self,amp = 1):
+        self._amp =  amp
+        
+    def set_dVdA(self,dVdA = 1):
+        self._dVdA =  dVdA
 
     def get_all(self):
         ch_in = [_get_channel(ch) for ch in self._get_input_channels()]
@@ -133,13 +156,56 @@ class NI_DAQ_IV(Instrument):
 
     def sync_output_input(self,O_devchan,I_devchan,waveform,rate=1000,**kwargs):
         return nidaq.sync_write_read(O_devchan,I_devchan,waveform,rate=rate)
-
+        
+    def get_bias_mode(self, channel=1):
+        return 'curr'
+        
+    def set_status(self, status, channel=1):
+        return True
+        
+    def set_devchan(self, O_devchan = 'Dev1/ao0', I_devchan='Dev1/ai0'):
+        self.O_devchan = O_devchan
+        self.I_devchan = I_devchan
+        
+    def set_step_time(self, step_time):
+        self._step_time = step_time
+    
+    def set_sweep_parameters(self, sweep, channel=1):
+        self._step = sweep[2]
+        self.waveform = numpy.arange(sweep[0], sweep[1], sweep[2])
+        self.rate = 1./self._step_time
+        self.set_ao0(sweep[0]/self._dAdV)
+        
+    def take_IV(self, channel=1):
+        in_data = self.waveform/self._dAdV
+        out_data = nidaq.sync_write_read(self.O_devchan, self.I_devchan, in_data, rate=self.rate)/self._amp
+        return self.waveform, out_data
+    
+    """
+    def ramp_current(self, target, step, wait=0.1, channel=1):
+        '''
+        Ramps current from current value to <target>
+        
+        Input:
+            target (float)
+            step (float)
+            wait (float)
+        Output:
+            None
+        '''
+        start = self.get_ao1()*self._dAdV_B
+        if(target < start): step = -step
+        for i in numpy.concatenate((numpy.arange(start, target, step)[1:], [target])):
+            self.set_ao1(i/self._dAdV_B)
+            time.sleep(wait)
+    """
+    
     def write(self,devchan, data, freq=10000.0, minv=-10.0, maxv=10.0,timeout=10.0):
         return nidaq.write(devchan, data, freq=freq, minv=minv, maxv=maxv,timeout=timeout)
 
     def read(self,devchan, samples=1, freq=10000.0, minv=-10.0, maxv=10.0, timeout=10.0):
         return nidaq.read(devchan, samples=samples, freq=freq, minv=minv, maxv=maxv, timeout=timeout,config=self._chan_config)
-
+    
 
 def detect_instruments():
     '''Refresh NI DAQ instrument list.'''
