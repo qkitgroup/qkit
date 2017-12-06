@@ -110,7 +110,7 @@ class Sample(object):
             self.__dict__ = json.load(filehandle, cls = QkitJSONDecoder)
 
     def _load_legacy_pickle(self, filehandle):
-        self.__dict__ = pickle.loads(filehandle.read().split("<PICKLE PACKET BEGINS HERE>\n")[1])
+        self.__dict__ = pickle.loads(filehandle.read().split('<PICKLE PACKET BEGINS HERE>')[1].strip().replace('\r\n', '\n'))
 
         copydict = copy.copy(self.__dict__)
         for key in sorted(copydict):
