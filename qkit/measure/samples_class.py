@@ -3,11 +3,9 @@
 # modified MP 05/2017 switch from pickle to JSON
 # Sample Class to define all values necessary to measure a sample
 
-import time
 import json, pickle
 import logging
 import os, copy
-import numpy as np
 
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
 from qkit.storage.hdf_DateTimeGenerator import DateTimeGenerator as dtg
@@ -18,9 +16,11 @@ class Sample(object):
     '''
     Sample Class to define all values necessary to measure a sample
     '''
-    def __init__(self):
+    def __init__(self, path=None):
         self.name = 'Arbitrary Sample'
         self.comment = ''
+        if path:
+            self.load(path)
 
     def update_instruments(self):
         '''
@@ -87,10 +87,13 @@ class Sample(object):
         if not os.path.exists(os.path.split(path)[0]):
             os.makedirs(os.path.split(path)[0])
 
+        if not os.path.splitext(path)[-1] == '.sample':
+            path = path + '.sample'
+
         copydict = copy.copy(self.__dict__)
-        with open(path+'.sample','w+') as filehandler:
+        with open(path,'w+') as filehandler:
             json.dump(obj=copydict, fp=filehandler, cls=QkitJSONEncoder, indent = 4, sort_keys=True)
-        return str(path+'.sample')
+        return path
 
     def load(self, filename):
         '''
