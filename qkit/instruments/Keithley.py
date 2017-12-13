@@ -159,6 +159,41 @@ class Keithley(Instrument):
         return(self._amp)
     
     
+    def set_digio(self, line, status):
+        '''
+        Sets digital Input/Output line <line> to status <status> (0V | 5V)
+        
+        Input:
+            line (int): [1,14]
+            status (bool)
+        Output:
+            None
+        '''
+        # Corresponding Command: digio.writebit(N, data)
+        try:
+            logging.debug(__name__ + ': Set digial I/O of line %s to %i' % (line, status))
+            self._write('digio.writebit(%i, %i)' % (line, status))
+        except AttributeError:
+            logging.error(__name__ + ': Invalid input: cannot set digital I/O of line %s to %f' % (line, status))
+    
+    
+    def get_digio(self, line):
+        '''
+        Gets digital Input/Output status of line <line> (0V | 5V)
+        
+        Input:
+            line (int): [1,14]
+        Output:
+            status (bool)
+        '''
+        # Corresponding Command: data = digio.readbit(N)
+        try:
+            logging.debug(__name__ + ': Get digial I/O of line %s' % line)
+            return bool(int(float(self._ask('digio.readbit(%i)' % line))))
+        except AttributeError:
+            logging.error(__name__ + ': Invalid input: cannot get digital I/O of line %s' % line)
+    
+    
     def set_measurement_mode(self, val, channel=1):
         '''
         Sets measurement mode (wiring system) of channel <channel> to <val>
@@ -762,7 +797,7 @@ class Keithley(Instrument):
             logging.debug(__name__ + ': Set current of channel %s to %s' % (channel, str(val)))
             self._write('smu%s.source.leveli = %s' % (chr(96+channel), val))
         except AttributeError:
-            logging.error((__name__ + ': Invalid input: cannot set current of channel %s to %f' % (channel, val))
+            logging.error(__name__ + ': Invalid input: cannot set current of channel %s to %f' % (channel, val))
     
     
     def get_current(self, channel=1, **readingBuffer):
@@ -784,7 +819,7 @@ class Keithley(Instrument):
             else:
                 return float(self._ask('smu%s.measure.i()' % chr(96+channel)))
         except ValueError:
-            logging.error((__name__ + ': Cannot get current of channel %s:' % chr(64+channel))
+            logging.error(__name__ + ': Cannot get current of channel %s:' % chr(64+channel))
     
     
     def ramp_bias(self, stop, step, step_time=0.1, channel=2):
