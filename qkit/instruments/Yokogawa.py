@@ -19,7 +19,6 @@ from instrument import Instrument
 import visa
 import logging
 import numpy
-from sympy.functions.special.delta_functions import Heaviside
 import time
 
 class Yokogawa(Instrument):
@@ -594,7 +593,7 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SENSe:AVERage:COUNt <integer>|MINimum|MAXimum
         try:
             logging.debug(__name__ + ': Set sense average of channel %i to %i' % (channel, val))
-            status = bool(Heaviside(val-1-1e-10))
+            status = not(.5*(1-numpy.sign(val-1)))
             self._write(':chan%i:sens:aver:stat %i' % (channel, status))
             if status: self._write(':chan%i:sens:aver:coun %i' % (channel, val))
         except AttributeError:
@@ -1170,11 +1169,11 @@ class Yokogawa(Instrument):
             self._wait_for_end_of_measure(channel=channel_sense)
             self._write(':trac:stat 0')
             if self._pseudo_bias_mode == 1:     # current bias
-                bias_values  = numpy.array([float(val) for val in self._ask('trac:chan%i:data:read? sl' % channel_bias).split(',')])*self._dAdV
-                sense_values = numpy.array([float(val) for val in self._ask('trac:chan%i:data:read? ml' % channel_sense).split(',')])/self._amp
+                bias_values  = numpy.fromstring(string=self._ask('trac:chan%i:data:read? sl' % channel_bias), dtype=float, sep=',')*self._dAdV
+                sense_values = numpy.fromstring(string=self._ask('trac:chan%i:data:read? ml' % channel_sense), dtype=float, sep=',')/self._amp
             if self._pseudo_bias_mode == 2:     # voltage bias
-                bias_values  = numpy.array([float(val) for val in self._ask('trac:chan%i:data:read? sl' % channel_bias).split(',')])*self._amp
-                sense_values = numpy.array([float(val) for val in self._ask('trac:chan%i:data:read? ml' % channel_sense).split(',')])/self._dAdV
+                bias_values  = numpy.fromstring(string=self._ask('trac:chan%i:data:read? sl' % channel_bias), dtype=float, sep=',')*self._amp
+                sense_values = numpy.fromstring(string=self._ask('trac:chan%i:data:read? ml' % channel_sense), dtype=float, sep=',')/self._dAdV
             return bias_values, sense_values
         except:
             logging.error(__name__ + ': Cannot take sweep of channel %i:' % channel_bias)
@@ -1430,7 +1429,7 @@ class Yokogawa(Instrument):
         self.set_sense_mode('volt', channel=1)
         self.set_bias_mode('curr', channel=2)
         self.set_sense_mode('volt', channel=2)
-        self.set_bias_range(2, channel=1)
+        self.set_bias_range(-1, channel=1)
         self.set_sense_range(-1, channel=1)
         self.set_bias_range(-1, channel=2)
         self.set_sense_range(18, channel=2)
