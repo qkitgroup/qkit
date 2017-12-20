@@ -20,7 +20,6 @@ import visa
 import time
 import logging
 import numpy
-from sympy.functions.special.delta_functions import Heaviside
 
 class Keithley(Instrument):
     '''
@@ -55,7 +54,7 @@ class Keithley(Instrument):
         self._dAdV              = 1
         self._dVdA              = 1
         self._amp               = 1
-        self._pseudo_bias_mode  = 1
+        self._pseudo_bias_mode  = 1 # current bias
         
         # Reset
         if reset: self.reset()
@@ -477,13 +476,13 @@ class Keithley(Instrument):
             logging.error(__name__ + ': Sense delay of channel %s not specified:' % chr(64+channel))
     
     
-    def set_sense_average(self, val, mode=0, channel=1):
+    def set_sense_average(self, val, mode=1, channel=1):
         '''
         Sets sense average of channel <channel> to <val>
         
         Input:
             val (int)     : [1, 100]
-            mode (str)    : 0 (moving average) (default) | 1 (repeat average) | 2 (median)
+            mode (str)    : 0 (moving average) | 1 (repeat average) (default) | 2 (median)
             channel (int) : 1 (default) | 2
         Output:
             None
@@ -493,7 +492,7 @@ class Keithley(Instrument):
         # Corresponding Command: smuX.measure.filter.type = 0|1|2|smuX.FILTER_MOVING_AVG|smuX.FILTER_REPEAT_AVG|smuX.FILTER_MEDIAN
         try:
             logging.debug(__name__ + ': Set sense average of channel %s to %i and mode %s' % (chr(64+channel), val, self._avg_types[mode]))
-            status = bool(Heaviside(val-1-1e-10))
+            status = not(.5*(1-numpy.sign(val-1)))
             self._write('smu%s.measure.filter.enable = %i' % (chr(96+channel), status))
             if status:
                 self._write('smu%s.measure.filter.count = %i' % (chr(96+channel), val))
@@ -874,6 +873,7 @@ class Keithley(Instrument):
         self._step_signed = numpy.sign(self._stop-self._start)*numpy.abs(self._step)
         self._channel_bias  = channel_bias
         self._channel_sense = channel_sense
+        self.set_bias_value(self._start, self._channel_bias)
         # prepare Operation Status Bit (https://forum.tek.com/viewtopic.php?f=14&t=139110)
         cmd = """status.reset()
                  status.operation.user.condition = 0
@@ -882,6 +882,7 @@ class Keithley(Instrument):
                  status.operation.enable = status.operation.USER
                  status.request_enable = status.OSB"""
         self._write(cmd)
+        time.sleep(1e-1)
     
     
     def get_tracedata(self, channel_bias=1, channel_sense=2, **readingBuffer):
@@ -912,7 +913,7 @@ class Keithley(Instrument):
         cmd += """%s.appendmode = 1""" % readingBuffer_bias
         cmd += """%s.clear()""" % readingBuffer_sense
         cmd += """%s.appendmode = 1""" % readingBuffer_sense
-        cmd += """for i = %f, %f, %f do""" % (self._start, self._stop+self._step_signed, self._step_signed) # self._stop+self._step_signed
+        cmd += """for i = %f, %f, %f do""" % (self._start, self._stop, self._step_signed) # self._stop+self._step_signed
         cmd += """\tsmu%s.source.levelv = i""" % chr(96+self._channel_bias)
         cmd += """\tsmu%s.measure.v(%s)""" % (chr(96+self._channel_bias),  readingBuffer_bias)
         cmd += """\tsmu%s.measure.v(%s)""" % (chr(96+self._channel_sense), readingBuffer_sense)
@@ -923,8 +924,16 @@ class Keithley(Instrument):
         while visa.vpp43.read_stb(self._visainstrument.vi) == 0:
             time.sleep(0.1)
         # read data
-        bias_values  = numpy.array([float(self._ask('%s[%i]' % (readingBuffer_bias, i))) for i in range(1,int(float(self._ask('%s.n' % readingBuffer_bias)))+1)])
-        sense_values = numpy.array([float(self._ask('%s[%i]' % (readingBuffer_sense, i))) for i in range(1,int(float(self._ask('%s.n' % readingBuffer_sense)))+1)])
+        if self._pseudo_bias_mode == 1:     # current bias
+            bias_values  = numpy.array([float(self._ask('%s[%i]' % (readingBuffer_bias, i))) for i in range(1,int(float(self._ask('%s.n' % readingBuffer_bias)))+1)])*self._dAdV
+            sense_values = numpy.array([float(self._ask('%s[%i]' % (readingBuffer_sense, i))) for i in range(1,int(float(self._ask('%s.n' % readingBuffer_sense)))+1)])/self._amp
+            #bias_values  = numpy.fromstring(string=self._ask('''printbuffer(1, %s.n, %s)''' % (2*(readingBuffer_bias,))), dtype=float, sep=',')*self._dAdV
+            #sense_values = numpy.fromstring(string=self._ask('''printbuffer(1, %s.n, %s)''' % (2*(readingBuffer_sense,))), dtype=float, sep=',')/self._amp
+        if self._pseudo_bias_mode == 2:     # voltage bias
+            bias_values  = numpy.array([float(self._ask('%s[%i]' % (readingBuffer_bias, i))) for i in range(1,int(float(self._ask('%s.n' % readingBuffer_bias)))+1)])*self._amp
+            sense_values = numpy.array([float(self._ask('%s[%i]' % (readingBuffer_sense, i))) for i in range(1,int(float(self._ask('%s.n' % readingBuffer_sense)))+1)])/self._dAdV
+            #bias_values  = numpy.fromstring(string=self._ask('''printbuffer(1, %s.n, %s)''' % (2*(readingBuffer_bias,))), dtype=float, sep=',')*self._amp
+            #sense_values = numpy.fromstring(string=self._ask('''printbuffer(1, %s.n, %s)''' % (2*(readingBuffer_sense,))), dtype=float, sep=',')/self._dAdV
         return bias_values, sense_values
     
     
