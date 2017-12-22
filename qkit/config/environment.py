@@ -1,12 +1,35 @@
-import tempfile
-
+# file to define the default environment of QKIT
+##############################################################################
+# Please do not make changes to this file unless you know what you are doing !!!
+# If you want to redefine settings, please copy the file 
+# local.py_template -> local.py or
+# environment.py -> local.py
+# and make changes there.
+##############################################################################
 # create universal qkit-config. 
 # Every module in qkit can rely on these entries to exist.
-# In addition this is independent from qtlab
+# This file is independent from qtlab
+# HR@KIT 2015
+
+import qkit
+import os
+import tempfile
+
 cfg = {}
+# set up default path for
+cfg['qkitdir'] = os.path.split(qkit.__file__)[0]
+cfg['coredir'] = os.path.join(cfg['qkitdir'],'core')
+cfg['logdir']  = os.path.join(cfg['qkitdir'],'logs')
+cfg['execdir'] = cfg['qkitdir']
+cfg['rootdir'] = cfg['qkitdir']
+cfg['tempdir'] = tempfile.gettempdir()
 cfg['datadir'] = tempfile.gettempdir()
+
+
+# we don't use qtlab anymore
 cfg['qtlab'] = False
 
+# the 
 cfg['new_data_structure'] = False
 
 # plot related config settings
@@ -16,23 +39,32 @@ cfg['info_port'] = 5600  # this is the port we can listen on messages (signals) 
 cfg['info_host'] = 'localhost'  # this is the host we can listen on messages  
 cfg['ask_port']  = 5700  # this is the port rpc could use
 cfg['ask_host']  = 'localhost' # as above
+
 # if qtlab is used (qt_cfg exists and qt_cfg['qtlab']): 
 # qkit config entries are overridden by the qtlab ones
-try:
-    from qkit.core.lib.config import get_config
-    qt_cfg = get_config()
-    in_qt = qt_cfg.get('qtlab', False)
-except ImportError:
-    in_qt = False
-
-if in_qt:
-    for entry in qt_cfg.get_all():
-        if entry in cfg.keys():
-            cfg[entry] = qt_cfg[entry]
+#try:
+#    from qkit.core.lib.config import get_config
+#    qt_cfg = get_config()
+#    in_qt = qt_cfg.get('qtlab', False)
+#except ImportError:
+#    in_qt = False
+#
+#if in_qt:
+#    for entry in qt_cfg.get_all():
+#        if entry in cfg.keys():
+#            cfg[entry] = qt_cfg[entry]
 
 # there can also be a local config file for qkit (qkit/config/local.py) with variable cfg_local = {...}
 try:
     from qkit.config.local import cfg_local
+    for entry in cfg_local.iterkeys():
+        cfg[entry] = cfg_local[entry]
+except ImportError:
+    pass
+
+# there can also be a local config file for qkit (qkit/config/local.py) with variable cfg = {...}
+try:
+    from qkit.config.local import cfg as cfg_local
     for entry in cfg_local.iterkeys():
         cfg[entry] = cfg_local[entry]
 except ImportError:
