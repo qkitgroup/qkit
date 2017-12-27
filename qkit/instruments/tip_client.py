@@ -88,10 +88,10 @@ class tip_client(Instrument):
         self.add_parameter('interval', type=types.FloatType,
                            flags=Instrument.FLAG_GETSET,units="s",
                            channels=(1, 5), channel_prefix='T%d_')
-        self.add_parameter('range', type=types.FloatType,
+        self.add_parameter('range', type=types.IntType,
                            flags=Instrument.FLAG_GETSET,
                            channels=(1, 5), channel_prefix='T%d_')
-        self.add_parameter('excitation', type=types.FloatType,
+        self.add_parameter('excitation', type=types.IntType,
                            flags=Instrument.FLAG_GETSET,
                            channels=(1, 5), channel_prefix='T%d_')
 
@@ -265,7 +265,7 @@ class tip_client(Instrument):
         x = pickle.loads(self.recv())
         for y in x:
             if (y['last_Res'] / RANGE[y['range']]) < 0.01 or (y['last_Res'] / RANGE[y['range']]) > 50:
-                newrange = RANGE.keys()[argmin(abs(y['last_Res'] / array(RANGE.values()) - 1))]
+                newrange = max(4,RANGE.keys()[argmin(abs(y['last_Res'] / array(RANGE.values()) - 1))]) #we take a minimum RANGE setting of 4
                 print "%s has a R_meas/R_ref value of %.4f and is set to range %i but I would set it to %i." % (
                     y['name'], y['last_Res'] / RANGE[y['range']], y['range'], newrange)
                 self.do_set_range(newrange,y['channel'])
