@@ -15,7 +15,14 @@ import qkit
 import os
 import tempfile
 
+##
+## the configuration dictionary; later available as qkit.cfg[...]
+##
 cfg = {}
+
+##
+## A few path definitions:
+##
 # set up default path for
 cfg['qkitdir'] = os.path.split(qkit.__file__)[0]
 cfg['coredir'] = os.path.join(cfg['qkitdir'],'core')
@@ -29,22 +36,40 @@ cfg['instruments_dir']      = os.path.join(cfg['qkitdir'],'instruments')
 cfg['user_instruments_dir'] = tempfile.gettempdir()
 
 
-
-# 
+##
+## Save data with the new naming scheme
+##
 cfg['new_data_structure'] = False
 
+##
+## Load (py) visa (Virtual Instrument Software Architecture) lib 
+##
+#cfg['load_visa'] = False
 
-# plot related config settings
+
+##
+## set and define the plot engine 
+## in the moment only qviewkit is supported
 cfg['plot_engine'] = 'qkit.gui.qviewkit.main' # default: qviewkit
+
+##
+## Load QKIT info service, 
+## The info service provides zmq based informations on port cfg['info_port'] 
 #cfg['load_info_service'] = True # default: True
-# message handling related port setting defaults
 cfg['info_port'] = 5600  # this is the port we can listen on messages (signals) told by qkit
 cfg['info_host'] = 'localhost'  # this is the host we can listen on messages  
 cfg['ask_port']  = 5700  # this is the port rpc could use
 cfg['ask_host']  = 'localhost' # as above
 
+##
+## File based QKIT logging for internal messages 
+## the log file is located under cfg['logdir']
+## default log level is 'WARNING'
 cfg['log_level'] =  'DEBUG' # one of ['WARNING', 'DEBUG', 'INFO', 'ERROR', 'CRITICAL']
 
+##
+## QT related options
+## 
 # we don't use qtlab anymore
 cfg['qtlab'] = False
 #cfg['qt_compatible'] = True # by default we try to be compatible anyway.

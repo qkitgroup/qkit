@@ -1,3 +1,4 @@
+from __future__ import print_function
 # start zmq based info_service
 # on port and host defined in config/environment
 # HR@KIT/2017

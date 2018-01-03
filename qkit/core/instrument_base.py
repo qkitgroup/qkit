@@ -1,6 +1,6 @@
 # instrument_base.py, base class to implement instrument objects
 # Reinier Heeres <reinier@heeres.eu>, 2008
-# HR@KIT 2017
+# HR@KIT 2017 (converted to python3)
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
@@ -15,9 +15,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+from __future__ import print_function
+
 import qkit
 
-import types
+
 import copy
 import time
 import math
@@ -32,10 +34,10 @@ from qkit.core.qtflow import get_flowcontrol
 flow = get_flowcontrol()
 msleep = flow.measurement_idle # YS: instead of importing qt, import the required tools from qtflow directly
 
-from qkit.core.lib.config import get_config
-_config = get_config()
+#from qkit.core.lib.config import get_config
+#_config = get_config()
 
-class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject from pygtk
+class Instrument(object):
     """
     Base class for instruments.
 
@@ -151,7 +153,7 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
         Return whether instrument has any tag in 'tags'
         '''
 
-        if type(tags) is types.ListType:
+        if type(tags) is list:
             for tag in tags:
                 if tag in self._options['tags']:
                     return True
@@ -259,13 +261,13 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
         if 'flags' not in options:
             options['flags'] = Instrument.FLAG_GETSET
         if 'type' not in options:
-            options['type'] = types.NoneType
+            options['type'] = type(None)
         if 'tags' not in options:
             options['tags'] = []
 
         # If defining channels call add_parameter for each channel
         if 'channels' in options:
-            if len(options['channels']) == 2 and type(options['channels'][0]) is types.IntType:
+            if len(options['channels']) == 2 and type(options['channels'][0]) is int:
                 minch, maxch = options['channels']
                 channels = xrange(minch, maxch + 1)
             else:
@@ -365,15 +367,15 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
 #            property(lambda: self.get(name), lambda x: self.set(name, x)))
 
         if options['flags'] & self.FLAG_PERSIST:
-            val = _config.get('persist_%s_%s' % (self._name, name))
+            val = qkit.cfg.get('persist_%s_%s' % (self._name, name))
             options['value'] = val
         else:
             options['value'] = None
 
         if 'probe_interval' in options:
             interval = int(options['probe_interval'])
-            self._probe_ids.append(gobject.timeout_add(interval,
-                lambda: self.get(name)))
+            #self._probe_ids.append(gobject.timeout_add(interval,
+            #    lambda: self.get(name)))
 
         if 'listen_to' in options:
             insset = set([])
@@ -429,7 +431,7 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
         Input: name (string)
         Output: dictionary of options
         '''
-        if self._parameters.has_key(name):
+        if name in self._parameters:
             return self._parameters[name]
         else:
             return None
@@ -441,12 +443,12 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
         Input: name (string)
         Output: dictionary of options
         '''
-        if self._parameters.has_key(name):
+        if name in self._parameters:
             options = dict(self._parameters[name])
             for i in ('get_func', 'set_func'):
                 if i in options:
                     del options[i]
-            if 'type' in options and options['type'] is types.NoneType:
+            if 'type' in options and options['type'] is type(None):
                 options['type'] = None
             return options
         else:
@@ -460,7 +462,7 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
         Ouput:  None
         '''
         if name not in self._parameters:
-            print 'Parameter %s not defined' % name
+            print('Parameter %s not defined' % name)
             return None
 
         for key, val in kwargs.iteritems():
@@ -588,10 +590,10 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
                 else:
                     format = '%s'
 
-                if type(val) in (types.ListType, types.TupleType):
+                if type(val) in (list, tuple):
                     val = tuple(val)
 
-                elif type(val) is types.DictType:
+                elif type(val) is dict:
                     fmt = ""
                     first = True
                     for k in val.keys():
@@ -608,7 +610,7 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
 
                 valstr = format % (val)
 
-        except Exception, e:
+        except Exception as e:
             valstr = str(val)
 
         if 'units' in opt:
@@ -671,7 +673,7 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
         try:
             p = self._parameters[name]
         except:
-            print 'Could not retrieve options for parameter %s' % name
+            print('Could not retrieve options for parameter %s' % name)
             return None
 
         if 'channel' in p and 'channel' not in kwargs:
@@ -690,7 +692,7 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
 
         # Check this here; getting of cached values should work
         if not flags & 1: #Instrument.FLAG_GET:
-            print 'Instrument does not support getting of %s' % name
+            print('Instrument does not support getting of %s' % name)
             return None
 
         if 'base_name' in p:
@@ -702,15 +704,15 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
         value = func(**kwargs)
         if 'type' in p and value is not None:
             try:
-                if p['type'] == types.IntType:
+                if p['type'] == int:
                     value = int(value)
-                elif p['type'] == types.FloatType:
+                elif p['type'] == float:
                     value = float(value)
-                elif p['type'] == types.StringType:
+                elif p['type'] == bytes:
                     pass
-                elif p['type'] == types.BooleanType:
+                elif p['type'] == bool:
                     value = bool(value)
-                elif p['type'] == types.NoneType:
+                elif p['type'] == type(None):
                     pass
                 elif p['type'] == np.ndarray:
                     value = np.array(value)
@@ -747,7 +749,7 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
                 self._access_lock.release()
             return ret
 
-        if type(name) in (types.ListType, types.TupleType):
+        if type(name) in (list, tuple):
             changed = {}
             result = {}
             for key in name:
@@ -775,7 +777,7 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
         executing and return when the get finishes.
         '''
 
-        if _config.get('threading_warning', True):
+        if qkit.cfg.get('threading_warning', True):
             logging.warning('Using threading functions could result in QTLab becoming unstable!')
 
         thread = calltimer.ThreadCall(self.get, *args, **kwargs)
@@ -801,13 +803,13 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
     def _val_from_option_list(self, opts, value):
         if type(opts[0]) is not type(value):
             return None
-        if type(value) is types.StringType:
+        if type(value) is bytes:
             value = value.upper()
 
         match = None
         matches = 0
         for val in opts:
-            if type(val) is types.StringType:
+            if type(val) is bytes:
                 val = val.upper()
                 if val.startswith(value):
                     matches += 1
@@ -838,18 +840,18 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
         return None
 
     _CONVERT_MAP = {
-            types.IntType: int,
-            types.FloatType: float,
-            types.StringType: str,
-            types.BooleanType: bool,
-            types.TupleType: tuple,
-            types.ListType: list,
+            int: int,
+            float: float,
+            bytes: str,
+            bool: bool,
+            tuple: tuple,
+            list: list,
             np.ndarray: lambda x: x.tolist(),
     }
 
     def _convert_value(self, value, ttype):
-        if type(value) is types.BooleanType and \
-                ttype is not types.BooleanType:
+        if type(value) is bool and \
+                ttype is not bool:
             logging.warning('Setting a boolean, but that is not the expected type')
             raise ValueError()
 
@@ -878,13 +880,13 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
         Output: Value returned by the _do_set_<name> function,
                 or result of get in FLAG_GET_AFTER_SET specified.
         '''
-        if self._parameters.has_key(name):
+        if name in self._parameters:
             p = self._parameters[name]
         else:
             return None
 
         if not p['flags'] & Instrument.FLAG_SET:
-            print 'Instrument does not support setting of %s' % name
+            print('Instrument does not support setting of %s' % name)
             return None
 
         if 'channel' in p and 'channel' not in kwargs:
@@ -915,11 +917,11 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
                 return None
 
         if 'minval' in p and value < p['minval']:
-            print 'Trying to set too small value: %s' % value
+            print('Trying to set too small value: %s' % value)
             return None
 
         if 'maxval' in p and value > p['maxval']:
-            print 'Trying to set too large value: %s' % value
+            print('Trying to set too large value: %s' % value)
             return None
 
         if 'base_name' in p:
@@ -965,8 +967,9 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
             value = self._get_value(name, **kwargs)
 
         if p['flags'] & self.FLAG_PERSIST:
-            _config.set('persist_%s_%s' % (self._name, name), value)
-            _config.save()
+            #qkit.cfg.set('persist_%s_%s' % (self._name, name), value)
+            #_config.save()
+            pass
 
         p['value'] = value
         return value
@@ -1002,7 +1005,7 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
 
         result = True
         changed = {}
-        if type(name) == types.DictType:
+        if type(name) == dict:
             for key, val in name.iteritems():
                 val = self._set_value(key, val, **kwargs)
                 if val is not None:
@@ -1033,7 +1036,7 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
         so use with caution.
         '''
 
-        if self._parameters.has_key(name):
+        if name in self._parameters:
             p = self._parameters[name]
         else:
             return None
@@ -1071,7 +1074,7 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
         Input:  name of function (string)
         Output: dictionary of options for function 'name'
         '''
-        if self._functions.has_key(name):
+        if name in self._functions:
             return self._functions[name]
         else:
             return None
@@ -1080,8 +1083,8 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
         '''
         Return info about parameters for function.
         '''
-        if self._functions.has_key(name):
-            if self._functions[name].has_key('parameters'):
+        if name in self._functions:
+            if 'parameters' in self._functions[name]:
                 return self._functions[name]['parameters']
         return None
 

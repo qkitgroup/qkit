@@ -1,8 +1,12 @@
 import numpy as np
-import StringIO
 import types
 import sys
 import time
+
+try:
+    from StringIO import StringIO
+except ImportError:
+        from io import StringIO
 
 def dict_to_ordered_tuples(dic):
     '''Convert a dictionary to a list of tuples, sorted by key.'''
@@ -65,7 +69,7 @@ def get_arg_type(args, kwargs, checktypes, name=None):
     if name is not None and name in kwargs:
         return kwargs[name]
 
-    if type(checktypes) not in (types.ListType, types.TupleType):
+    if type(checktypes) not in (list, tuple):
         checktypes = [checktypes]
 
     for arg in args:

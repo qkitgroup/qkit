@@ -41,14 +41,14 @@ def _get_driver_module(name, do_reload=False):
         mod = importlib.import_module(name)
         if do_reload:
             reload(mod)
-    except ImportError, e:
+    except ImportError as e:
         fields = str(e).split(' ')
         if len(fields) > 0 and fields[-1] == name:
             logging.warning('Instrument driver %s not available', name)
         else:
             TB()
         return None
-    except Exception, e:
+    except Exception as e:
         TB()
         logging.error('Error loading instrument driver %s', name)
         return None
@@ -114,12 +114,12 @@ class Insttools(object):
         if isinstance(name, instrument.Instrument):# or isinstance(name, Proxy):
             return name
 
-        if type(name) == types.TupleType:
+        if type(name) == tuple:
             if len(name) != 1:
                 return None
             name = name[0]
 
-        if self._instruments.has_key(name):
+        if name in self._instruments:
             if proxy:
                 return self._instruments_info[name]['proxy']
             else:
@@ -240,6 +240,7 @@ class Insttools(object):
         if module is None:
             return self._create_invalid_ins(name, instype, **kwargs)
         reload(module)
+        
         insclass = getattr(module, instype, None)
         if insclass is None:
             logging.error('Driver does not contain instrument class')
@@ -247,7 +248,7 @@ class Insttools(object):
 
         try:
             ins = insclass(name, **kwargs)
-        except Exception, e:
+        except Exception as e:
             TB()
             logging.error('Error creating instrument %s: %s', name,e)
             return self._create_invalid_ins(name, instype, **kwargs)
@@ -274,7 +275,7 @@ class Insttools(object):
             Reloaded instrument (Proxy)
         '''
 
-        if type(ins) is types.StringType:
+        if type(ins) is bytes:
             ins = self.get(ins)
         if ins is None:
             return None
@@ -326,7 +327,7 @@ class Insttools(object):
         Input:  (1) instrument name
         Output: None
         '''
-        if self._instruments.has_key(name):
+        if name in self._instruments:
             del self._instruments[name]
             del self._instruments_info[name]
 

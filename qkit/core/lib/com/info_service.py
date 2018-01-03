@@ -35,7 +35,7 @@ class info_service(object):
             sig = SIGNALS.get(topic)
             self.socket.send("%d:%s" % (sig, message))
         else:
-            print "please specify a correct topic, specs are in SIGNALS.py"
+            print("please specify a correct topic, specs are in SIGNALS.py")
 
     def info(self,message):
         self.dist('info',message)

@@ -4,7 +4,7 @@
 __all__ = ['config','gui','measure','tools', 'analysis','core','instruments','storage','logs']
 
 # load configuration from $QKITDIR/config/*
-from config.environment import cfg
+from qkit.config.environment import cfg
 
 # if a local.py file is defined, load cfg dict and overwrite environment entries.
 try:
@@ -25,5 +25,5 @@ print ("QKIT configuration initialized -> available as qkit.cfg[...]")
 # start initialization (qkit/core/init)
 def start():
     print("Starting QKIT framework ... -> qkit.core.startup")
-    import core.startup
-    core.startup.start()
+    import qkit.core.startup
+    qkit.core.startup.start()

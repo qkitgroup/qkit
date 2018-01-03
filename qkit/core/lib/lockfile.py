@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 from qkit.core.lib.misc import exit_shell
@@ -23,7 +24,7 @@ def remove_lockfile():
 def check_lockfile(msg):
     if os.path.exists(get_lockfile()):
         if '-f' not in sys.argv:
-            print msg
+            print(msg)
 
             line = sys.stdin.readline().strip()
             if line != 's':

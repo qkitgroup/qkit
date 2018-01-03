@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # calltimer.py, class to do a callback several times in a separate thread.
 # Reinier Heeres, <reinier@heeres.eu>, 2008
 #
@@ -24,7 +25,7 @@ import logging
 
 import threading
 import time
-from misc import exact_time
+from .misc import exact_time
 
 #class ThreadSafeGObject(gobject.GObject): # YS: try to get rid of 32bit gobject from pygtk
 
@@ -125,7 +126,7 @@ class CallTimerThread(object):#(GObjectThread): # YS: try to get rid of 32bit go
 
             try:
                 extra_delay += f(i, *self._args, **self._kwargs)
-            except Exception, e:
+            except Exception as e:
                 self.emit('finished')
                 raise e
 
