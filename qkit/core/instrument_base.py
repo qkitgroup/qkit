@@ -30,7 +30,7 @@ from qkit.core.lib import calltimer
 import numpy as np
 import logging
 
-from qkit.core.qtflow import get_flowcontrol
+from qkit.core.qtflow_qkit import get_flowcontrol
 flow = get_flowcontrol()
 msleep = flow.measurement_idle # YS: instead of importing qt, import the required tools from qtflow directly
 

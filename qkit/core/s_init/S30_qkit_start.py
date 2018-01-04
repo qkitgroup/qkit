@@ -6,6 +6,7 @@ from __future__ import print_function
 import qkit
 import logging
 
+# orphanted code, not used in the moment
 def _parse_options():
     import optparse
     parser = optparse.OptionParser(description='QKIT')
@@ -35,7 +36,7 @@ qkit.instrument  = Instrument
 qkit.instruments = Insttools()
 
 if qkit.cfg.get("qt_compatible",True):
-    qkit.cfg["qt_compatible"]=True
+    qkit.cfg["qt_compatible"] = True
     print("QKIT start: Enabling depreciated 'qt' module")
     import qkit.core.qt_qkit as qt
     from qkit.core.qtflow_qkit import get_flowcontrol
@@ -56,8 +57,12 @@ if qkit.cfg.get("qt_compatible",True):
     except ImportError:
         import builtins
         builtins.qt = qt
-
-
+    # HR: Another hack to maintain compatibility:
+    # Lets pretend that the original qt instrument and instruments modules 
+    # are loaded. But instead every instrument driver loads tne qkit.core modules
+    import sys
+    sys.modules["instrument"] = qkit.core.instrument_base
+    sys.modules["instruments"] = qkit.core.instrument_tools
 
 # Set exception handler
 '''

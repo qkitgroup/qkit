@@ -23,7 +23,7 @@ import os
 import logging
 import sys
 import qkit.core.instrument_base as instrument
-#from qkit.core.lib.config import get_config
+
 #from qkit.core.insproxy import Proxy
 import importlib
 
@@ -239,8 +239,15 @@ class Insttools(object):
         module = _get_driver_module(instype)
         if module is None:
             return self._create_invalid_ins(name, instype, **kwargs)
-        reload(module)
-        
+            
+        # FIXME: Using reload() is a bad style in the orig. qt code. However lets bugfix it anyway
+        try:
+            reload(module)
+        except NameError as e:
+            # python 3.4+
+            from importlib import reload as localreload
+            localreload(module)
+
         insclass = getattr(module, instype, None)
         if insclass is None:
             logging.error('Driver does not contain instrument class')
