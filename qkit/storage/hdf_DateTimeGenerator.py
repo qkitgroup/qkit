@@ -9,8 +9,7 @@ Modified 2017 by S1
 import logging
 import os
 import time
-
-from qkit.config.environment import cfg
+import qkit
 
 alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -31,11 +30,11 @@ class DateTimeGenerator(object):
         self.returndict['_uuid'] = encode_uuid(self.returndict['_unix_timestamp'])
     
     def new_filename(self, name=None):
-        if cfg['new_data_structure']:
+        if qkit.cfg.get('new_data_structure',False):
             self.new_filename_v2(name)
         else:
             self.new_filename_v1(name)
-        self.returndict['_folder'] = os.path.join(cfg['datadir'], self.returndict['_relfolder'])
+        self.returndict['_folder'] = os.path.join(qkit.cfg['datadir'], self.returndict['_relfolder'])
         self.returndict['_relpath'] = os.path.join(self.returndict['_relfolder'],self.returndict['_filename'])
         self.returndict['_filepath'] = os.path.join(self.returndict['_folder'], self.returndict['_filename'])
         
@@ -58,12 +57,10 @@ class DateTimeGenerator(object):
             filename += '_' + str(name)
         self.returndict['_filename'] = filename + '.h5'
         '''New filename with datadir/run_id/user/uuid_name/uuid_name.h5'''
-        if 'user' not in cfg or 'run_id' not in cfg:
-            logging.warning(__name__ + ": cfg['user'] or cfg['run_id'] is not set. Using defaults. Have fun searching your data.")
         
         self.returndict['_relfolder'] = os.path.join(
-                cfg.get('run_id', 'NO_RUN'),
-                cfg.get('user', 'John_Doe').strip().replace(" ", "_"),
+                qkit.cfg.get('run_id', 'NO_RUN').strip().replace(" ", "_"),
+                qkit.cfg.get('user', 'John_Doe').strip().replace(" ", "_"),
                 filename
         )
 
