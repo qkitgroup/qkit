@@ -63,6 +63,7 @@ if qkit.cfg.get("qt_compatible",True):
     import sys
     sys.modules["instrument"] = qkit.core.instrument_base
     sys.modules["instruments"] = qkit.core.instrument_tools
+    sys.modules["qt"] = qkit.core.qt_qkit
 
 # Set exception handler
 '''

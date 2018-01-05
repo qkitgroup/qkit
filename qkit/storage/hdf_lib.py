@@ -15,7 +15,6 @@ from hdf_dataset import hdf_dataset
 from hdf_constants import ds_types
 from hdf_view import dataset_view
 from hdf_DateTimeGenerator import DateTimeGenerator
-from qkit.config.environment import cfg
 
 
 
