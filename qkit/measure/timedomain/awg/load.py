@@ -21,11 +21,10 @@ import numpy as np
 import os.path
 import time
 import logging
-import numpy
 import sys
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 import gc
-
+import matplotlib.pyplot as plt
 
 
 def load_sequence(ps, sample, iq = None, drive = 'c:', path = '\\waveforms', reset = True, markerseq1 = None, markerseq2 = None, ch2_amp = 2, chpair = 1, awg = None, show_progress_bar = True):
@@ -49,6 +48,7 @@ def load_sequence(ps, sample, iq = None, drive = 'c:', path = '\\waveforms', res
         chpair: if you use the 4ch Tabor AWG as a single 2ch instrument, you can chose to take the second channel pair here (this can be either 1 or 2).
     '''
     qt.mstart()
+    ps = np.atleast_1d(ps)
     if awg is None:
         awg = sample.awg
     if hasattr(sample, "clock"):
@@ -63,7 +63,7 @@ def load_sequence(ps, sample, iq = None, drive = 'c:', path = '\\waveforms', res
             awg.set_seq_length(len(ps))
         elif "Tabor" in awg.get_type():
             awg.set('p%i_runmode'%chpair,'SEQ')
-            awg.define_sequence(chpair*2-1,len(ps)) #AS: Maybe it is worth creating a real reset/preset function in the Tabor treiber?
+            awg.define_sequence(chpair*2-1, len(ps)) #AS: Maybe it is worth creating a real reset/preset function in the Tabor treiber?
         
         #amplitude settings of analog output
         awg.set_ch1_offset(0)
@@ -79,12 +79,21 @@ def load_sequence(ps, sample, iq = None, drive = 'c:', path = '\\waveforms', res
     
     #update all channels and times
     for i, seq in enumerate(ps):   #run through all sequences
-        qt.msleep()
-        wfm_samples = ps.get_waveform(clock)   #generate waveform
+        wfm_samples = seq.get_waveform(clock)   #generate waveform
+        
+        #Ajust waveform lengths to be divisible by 16
+        if "Tektronix" in awg.get_type():
+            sample_length = int(np.ceil(len(wfm_samples)/16.))*16 #Fix markers also!
+        elif "Tabor" in awg.get_type():
+            sample_length = int(np.ceil(len(wfm_samples)/16.))*16
+        else:
+            raise ValueError("AWG type not known.")
+        wfm_samples = np.append(wfm_samples, np.zeros(sample_length - len(wfm_samples)))
+        
         if iq is not None: 
             wfm_samples = iq.convert(wfm_samples)
         else: #homodyne
-            wfm_samples = [wfm_samples,np.zeros_like(wfm_samples, dtype=np.int8)]
+            wfm_samples = [wfm_samples, np.zeros_like(wfm_samples, dtype=np.int8)]
         
         #Manage Markers:
         if markerseq1 is not None:
@@ -126,7 +135,7 @@ def load_sequence(ps, sample, iq = None, drive = 'c:', path = '\\waveforms', res
                     awg.wfm_send2(wfm_samples[0], wfm_samples[1], marker1, marker2, chpair*2 - 1, i + 1)
                 else: continue
             else:
-                raise ValueError("AWG type not known")
+                raise ValueError("AWG type not known.")
             if show_progress_bar: p.iterate()
 
         gc.collect()
