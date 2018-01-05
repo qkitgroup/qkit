@@ -16,10 +16,12 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 from instrument import Instrument
-import visa
+from qkit import visa
 import time
 import logging
 import numpy
+from distutils.version import LooseVersion
+
 
 class Keithley(Instrument):
     '''
@@ -921,8 +923,13 @@ class Keithley(Instrument):
         cmd += """status.operation.user.condition = status.operation.user.BIT0"""
         self._write(cmd)
         # wait for operation complete (Operation Status Bit = 1)
-        while visa.vpp43.read_stb(self._visainstrument.vi) == 0:
-            time.sleep(0.1)
+        
+        if  LooseVersion(visa.__version__) < LooseVersion("1.5.0"):            # pyvisa 1.4
+            while visa.vpp43.read_stb(self._visainstrument.vi) == 0:
+                time.sleep(0.1)
+        else:                                                                  # pyvisa 1.8
+            while visa.visalib.read_stb(self._visainstrument.session)[0] == 0:
+                time.sleep(0.1)
         # read data
         if self._pseudo_bias_mode == 1:     # current bias
             bias_values  = numpy.array([float(self._ask('%s[%i]' % (readingBuffer_bias, i))) for i in range(1,int(float(self._ask('%s.n' % readingBuffer_bias)))+1)])*self._dAdV
@@ -976,7 +983,6 @@ class Keithley(Instrument):
         self.set_sense_range(val=-1, channel=self._channel_sense)
         self.set_bias_delay(val=15e-6, channel=self._channel_bias)
         self.set_sense_delay(val=15e-6, channel=self._channel_sense)
-        
     
     
     def get_all(self, channel=1):

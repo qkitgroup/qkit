@@ -24,6 +24,7 @@ import math
 from time import sleep
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+from distutils.version import LooseVersion
 
 
 class Windfreaktech_SynthHD(Instrument):
@@ -45,7 +46,11 @@ class Windfreaktech_SynthHD(Instrument):
         self._address = address
         self._model = model
         self._visainstrument = visa.instrument(self._address)
-        self._visainstrument.term_chars = '\n'
+        if LooseVersion(visa.__version__) < LooseVersion("1.5.0"):
+            self._visainstrument.term_chars = '\n'
+        else:
+            self._visainstrument.write_termination = '\n'
+            self._visainstrument.read_termination = '\n'
         self._numchannels = 2
         self._frequency = [None,None,None]
         self._power = [None,None,None]

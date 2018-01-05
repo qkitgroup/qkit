@@ -21,9 +21,12 @@ def _load_visa():
         logging.info("Modern pyvisa version loaded. Version %s" % visa.__version__)
         rm = visa.ResourceManager()
         qkit.visa = rm
-    def instrument(name): 
-        return rm.open_resource(name)
-    #qkit.visa.instrument = instrument
+        qkit.visa.__version__ = visa.__version__
+        
+        def instrument(resource_name, **kwargs):
+            return rm.open_resource(resource_name, **kwargs)
+        qkit.visa.instrument = instrument
+
 
 if qkit.cfg.get('load_visa',False):
     _load_visa()
@@ -31,13 +34,4 @@ if qkit.cfg.get('load_visa',False):
 """
 doc snipplet from 
 https://pyvisa.readthedocs.io/en/stable/migrating.html
->>> import visa
->>> keithley = visa.instrument("GPIB::12")
->>> print(keithley.ask("*IDN?"))
-change it to:
-
->>> import visa
->>> rm = visa.ResourceManager()
->>> keithley = rm.open_resource("GPIB::12")
->>> print(keithley.query("*IDN?"))
 """
