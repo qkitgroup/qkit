@@ -122,6 +122,10 @@ class Keysight_VNA_E5071C(Instrument):
   
         self.add_parameter('edel_status', type=types.BooleanType, # legacy name for parameter. This corresponds to the VNA's port extension values.
             flags=Instrument.FLAG_GETSET)
+        
+             
+        self.add_parameter('sweep_mode', type=types.StringType,  #JDB This parameter switches on/off hold. The hold function below does the same job, this is just for code compatibility to the agilent and anritsu drivers.
+            flags=Instrument.FLAG_GETSET,tags=['sweep']) 
                     
                     
         #Triggering Stuff
@@ -283,6 +287,26 @@ class Keysight_VNA_E5071C(Instrument):
     ###
     # SET and GET functions
     ###
+    def do_set_sweep_mode(self, mode):
+        '''
+        select the sweep mode from 'hold', 'cont'.
+        '''
+        self._visainstrument.write(":TRIG:SOUR INT")
+        if mode == 'hold':
+            self._visainstrument.write(':INIT%i:CONT OFF'%(self._ci))
+        elif mode == 'cont':
+            self._visainstrument.write(':INIT%i:CONT ON'%(self._ci))
+        else:
+            logging.warning('invalid mode')
+            
+    def do_get_sweep_mode(self):
+        self._hold=self._visainstrument.ask(':INIT%i:CONT?'%(self._ci))
+        if self._hold:
+            return 'hold'
+        else:
+            return 'cont'
+    
+    
     
     def do_set_nop(self, nop):
         '''
