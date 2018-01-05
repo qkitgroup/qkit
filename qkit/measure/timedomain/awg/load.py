@@ -28,7 +28,7 @@ import gc
 
 
 
-def load_sequence(ps, sample, iq = None, drive = 'c:', path = '\\waveforms', reset = True, marker = None, markerfunc = None, ch2_amp = 2, chpair = 1, awg = None, show_progress_bar = True):
+def load_sequence(ps, sample, iq = None, drive = 'c:', path = '\\waveforms', reset = True, markerseq1 = None, markerseq2 = None, ch2_amp = 2, chpair = 1, awg = None, show_progress_bar = True):
     '''
         set awg to sequence mode and push a number of waveforms into the sequencer
         
@@ -39,8 +39,9 @@ def load_sequence(ps, sample, iq = None, drive = 'c:', path = '\\waveforms', res
         
         iq: Reference to iq mixer instrument. If None (default), the wfm will not be changed. Otherwise, the wfm will be converted via iq.convert()
         
-        marker: marker array in the form [[ch1m1,ch1m2],[ch2m1,ch2m2]] and all entries arrays of sample length
-        markerfunc: analog to ps (function of ps index, i.e. 0, 1, ...), set marker to None when used
+        markerseq1: analog to pulse sequence for marker channel 1, set marker to None when used
+                    In case of the Tabor AWG, the last 10 entries in marker1 are set to 1, as this marker channel is used to trigger readout & DAC card
+        markerseq2: analog to pulse sequence for marker channel 2, set marker to None when used
         
         for the 6GS/s AWG, the waveform length must be divisible by 64
         for the 1.2GS/s AWG, it must be divisible by 4
@@ -48,7 +49,7 @@ def load_sequence(ps, sample, iq = None, drive = 'c:', path = '\\waveforms', res
         chpair: if you use the 4ch Tabor AWG as a single 2ch instrument, you can chose to take the second channel pair here (this can be either 1 or 2).
     '''
     qt.mstart()
-    if awg == None:
+    if awg is None:
         awg = sample.awg
     if hasattr(sample, "clock"):
         clock = sample.clock
@@ -79,37 +80,32 @@ def load_sequence(ps, sample, iq = None, drive = 'c:', path = '\\waveforms', res
     #update all channels and times
     for i, seq in enumerate(ps):   #run through all sequences
         qt.msleep()
-        wfm_samples = ps(clock)   #generate waveform
+        wfm_samples = ps.get_waveform(clock)   #generate waveform
         if iq is not None: 
             wfm_samples = iq.convert(wfm_samples)
         else: #homodyne
             wfm_samples = [wfm_samples,np.zeros_like(wfm_samples, dtype=np.int8)]
         
-        for chan in [0,1]:
-            if markerfunc is not None:   #use markerfunc
-                try:
-                    if markerfunc[chan][0] == None:
-                        marker1 = np.zeros_like(wfm_samples, dtype=np.int8)[0]
-                    else:
-                        marker1 = markerfunc[chan][0](i, sample)
-                    
-                    if markerfunc[chan][1] == None:
-                        marker2 = np.zeros_like(wfm_samples, dtype=np.int8)[0]
-                    else:
-                        marker2 = markerfunc[chan][1](i, sample)
-                
-                except TypeError:   #only one markerfunc given
-                    marker1, marker2 = np.zeros_like(wfm_samples, dtype=np.int8)
-                    if chan == 0:
-                        marker1 = markerfunc(i, sample)
-                    
-            elif marker is None:   #fill up with zeros
-                marker1, marker2 = np.zeros_like(wfm_samples, dtype=np.int8)
-            else: #or set your own markers
-                c_marker1, c_marker2 = marker[chan]
-                marker1 = c_marker1[i]
-                marker2 = c_marker2[id]
+        #Manage Markers:
+        if markerseq1 is not None:
+            marker1 = markerseq1.get_waveform(clock)
+            if len(marker1) is not len(wfm_samples[0]):
+                marker1 = np.append(marker1, np.zeros(len(wfm_samples[0]) - len(marker1), dtype = np.int8))
+        elif markerseq1 is None:
+            marker1 = np.zeros_like(wfm_samples, dtype=np.int8)[0]
+        # Set last 10 elements in marker1 to 1 if awg is Tabor -> Used for triggering readout & DAC card
+        if "Tabor" in awg.get_type():
+            marker1[-10:] = 1
             
+        if markerseq2 is not None:
+            marker2 = markerseq2.get_waveform(clock)
+            if len(marker2) is not len(wfm_samples[1]):
+                marker2 = np.append(marker2, np.zeros(len(wfm_samples[1]) - len(marker2), dtype = np.int8))
+        elif markerseq2 is None:
+            marker2 = np.zeros_like(wfm_samples, dtype=np.int8)[1]
+
+        
+        for chan in [0,1]:            
             if "Tektronix" in awg.get_type():
                 wfm_fn[chan] = 'ch%d_t%05d'%(chan + 1, i) # filename is kept until changed
                 if len(wfm_samples) == 1 and chan == 1:
