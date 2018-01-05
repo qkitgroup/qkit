@@ -49,12 +49,6 @@ from time import sleep
 #    from lib.network import remote_instrument
 #    remote_instrument.InstrumentServer() # YS: try to get rid of 32bit gobject from pygtk
 
-if False: # YS: really? you kiddin me?
-    import psyco
-    psyco.full()
-    logging.info('psyco acceleration enabled')
-else:
-    logging.info('psyco acceleration not enabled')
 import qkit.core.qt as qt
 #from qt import plot, plot3, Plot2D, Plot3D, Data # YS: try to get rid of 32bit gobject from pygtk
 
