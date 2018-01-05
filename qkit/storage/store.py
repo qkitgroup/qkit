@@ -21,24 +21,19 @@ from qkit.storage.hdf_DateTimeGenerator import DateTimeGenerator
 class Data(object):
     "this is a basic hdf5 class adopted to our needs"
     # a types
-    def __init__(self, name = None, abspath = None, copy_file = False):
+    def __init__(self, name = None, copy_file = False):
         """
         Creates an empty data set including the file, for which the currently
         set file name generator is used.
 
-        kwargs:
-            name (string):  default is 'data', will result in a file at datadir/uuid_name.h5
-            path (string): to open an existing file or specify the exact path. If None, the file will be created.
+        name (string):  filename or absolute filepath
         """
         self._name = name
 
-        #if path was omitted, a new filepath will be created
-        self._abspath = abspath
-        
-        if self._abspath is None:
+        if not os.path.isabs(self._name):
             self.generate_file_name()
         else:
-            self._filepath = os.path.abspath(self._abspath)
+            self._filepath = os.path.abspath(self._name)
             self._folder,self._filename = os.path.split(self._filepath)
         "setup the  file"
         self.hf = H5_file(self._filepath)
