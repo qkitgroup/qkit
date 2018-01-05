@@ -9,7 +9,6 @@ class Shape(np.vectorize):
     A vectorized function describing a possible shape
     defined on the standardized interval [0,1).
     """
-    # TODO: Add multiplication later
 
     def __mul__(self, other):
         return Shape(lambda x: self.pyfunc(x) * other.pyfunc(x))
@@ -41,11 +40,15 @@ class Pulse(object):
         if frequency_shift != 0:
             raise ValueError("Non-zero frequency shift is not yet supported.")
 
+    def __call__(self, time_fractions):
+        # Pulse class can be called like a vectorized function!
+        # TODO: Implement frequency shift (then remove error in init)
+        return self.amplitude * self.shape(time_fractions)
+
     def get_envelope(self, timestep):
         """Returns the envelope of the pulse as array with given time steps."""
-        # TODO: Implement frequency shift (then remove error in init)
         time_fractions = np.arange(0, self.length, timestep) / self.length
-        return self.amplitude * self.shape(time_fractions)
+        return self(time_fractions)
 
 
 class PulseSequence(object):
@@ -74,6 +77,7 @@ class PulseSequence(object):
         ])
 
     def get_pulse_dict(self):
+        """Returns all pulses in an ordered dictionary with starting time as key."""
         return collections.OrderedDict(sorted(self.pulses.items(), key=lambda t: t[0]))
 
     def get_waveform(self, timestep):
@@ -86,10 +90,7 @@ class PulseSequence(object):
 
         index = 0
         for pulse_time, pulse in pulses.iteritems():
-            # As times are floats, strict equality checks are senseless
-            # so we use np.isclose to match nearly equal time values
-            while not np.isclose(times[index], pulse_time, rtol=0, atol=timestep / 10) \
-                    and times[index] < pulse_time:
+            while times[index] < pulse_time:
                 index = index + 1
             # assert: index points to first time where pulse starting at time t plays a role
 
@@ -97,7 +98,9 @@ class PulseSequence(object):
                 # Only a marker pulse -> not visible in waveform
                 continue
 
-            pulse_envelope = pulse.get_envelope(timestep)
-            waveform[index:(index + len(pulse_envelope))] += pulse_envelope
+            sample_length = int(np.ceil(pulse.length / timestep))
+            time_fractions = (
+                times[index:(index + sample_length)] - pulse_time) / pulse.length
+            waveform[index:(index + sample_length)] += pulse(time_fractions)
 
         return waveform
