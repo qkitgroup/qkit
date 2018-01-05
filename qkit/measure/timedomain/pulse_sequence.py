@@ -1,7 +1,7 @@
 """Module to provide a high-level possibility to arange pulses for an experiment."""
 
-import numpy as np
 import collections
+import numpy as np
 
 
 class Shape(np.vectorize):
@@ -45,8 +45,9 @@ class Pulse(object):
         # TODO: Implement frequency shift (then remove error in init)
         return self.amplitude * self.shape(time_fractions)
 
-    def get_envelope(self, timestep):
+    def get_envelope(self, samplerate):
         """Returns the envelope of the pulse as array with given time steps."""
+        timestep = 1.0 / samplerate
         time_fractions = np.arange(0, self.length, timestep) / self.length
         return self(time_fractions)
 
@@ -80,8 +81,9 @@ class PulseSequence(object):
         """Returns all pulses in an ordered dictionary with starting time as key."""
         return collections.OrderedDict(sorted(self.pulses.items(), key=lambda t: t[0]))
 
-    def get_waveform(self, timestep):
+    def get_waveform(self, samplerate):
         """Returns the envelope of the whole pulse sequence with given time steps."""
+        timestep = 1.0 / samplerate
         times = np.arange(0, self.length + timestep, timestep)
         waveform = np.zeros(len(times), complex)
 
