@@ -42,6 +42,11 @@ cfg['user_instruments_dir'] = tempfile.gettempdir()
 cfg['new_data_structure'] = False
 
 ##
+## Create a database of all measurement-.h5 files with entries {uuid:abspath}
+##
+#cfg['load_file_service'] = True
+
+##
 ## Load (py) visa (Virtual Instrument Software Architecture) lib 
 ##
 #cfg['load_visa'] = False
