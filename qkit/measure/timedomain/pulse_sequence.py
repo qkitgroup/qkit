@@ -54,7 +54,9 @@ class Pulse(object):
 
 class PulseSequence(object):
     """Class to arange pulses for a time-domain experiment."""
-    pulses = dict([])
+    
+    def __init__(self):
+        self.pulses = dict([])
 
     def add(self, time, pulse):
         """Add a pulse starting at a given time to the sequence."""
