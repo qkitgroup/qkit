@@ -10,7 +10,7 @@ import os, copy
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
 from qkit.storage.hdf_DateTimeGenerator import DateTimeGenerator as dtg
 
-import qkit.core.qt as qt
+import qkit
 
 class Sample(object):
     '''
@@ -101,7 +101,7 @@ class Sample(object):
         '''
 
         if not os.path.isabs(filename):
-            filename = os.path.join(qt.config.get('datadir'),filename)
+            filename = os.path.join(qkit.cfg.get('datadir'),filename)
 
         try:
             with open(filename) as filehandle:
@@ -118,4 +118,4 @@ class Sample(object):
         copydict = copy.copy(self.__dict__)
         for key in sorted(copydict):
             if ('xxxx'+str(copydict[key]))[-4:] == ' ins':   #instrument
-                self.__dict__[key] = qt.instruments.get(copydict[key][:-4])
+                self.__dict__[key] = qkit.instruments.get(copydict[key][:-4])
