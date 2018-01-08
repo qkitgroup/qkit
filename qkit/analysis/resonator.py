@@ -4,7 +4,8 @@
 import numpy as np
 import logging
 
-from qkit.storage import hdf_lib
+import qkit
+from qkit.storage import store
 from qkit.analysis.circle_fit import circuit
 from qkit.storage.hdf_constants import ds_types
 from scipy.optimize import leastsq
@@ -31,7 +32,7 @@ class Resonator(object):
     '''
 
     def __init__(self, hf_path=None):
-        self._hf = hdf_lib.Data(path=hf_path)
+        self._hf = store.Data(path=hf_path)
 
         self._first_circle = True
         self._first_lorentzian = True
