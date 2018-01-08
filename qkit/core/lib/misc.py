@@ -37,21 +37,6 @@ def seconds_to_str(secs):
     secs = np.floor(secs - mins * 60)
     return '%02d:%02d:%02d' % (hours, mins, secs)
 
-def pil_to_pixbuf(pilimage):
-    '''Convert a PIL image to a pixbuf.'''
-    import gtk
-
-    data = StringIO.StringIO()
-    pilimage.save(data, 'ppm')
-    contents = data.getvalue()
-    data.close()
-
-    loader = gtk.gdk.PixbufLoader('pnm')
-    loader.write(contents, len (contents))
-    pixbuf = loader.get_pixbuf()
-    loader.close()
-
-    return pixbuf
 
 def sign(val):
     '''Return the sign of a value.'''
