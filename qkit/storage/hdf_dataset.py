@@ -9,7 +9,8 @@ Created 2015
 import logging
 import numpy
 import time
-from hdf_constants import ds_types
+import qkit
+from qkit.storage.hdf_constants import ds_types
 
 class hdf_dataset(object):
     """

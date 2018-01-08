@@ -7,7 +7,8 @@ Created 2015
 import logging
 import h5py
 import numpy as np
-from hdf_constants import ds_types
+import qkit
+from qkit.storage.hdf_constants import ds_types
 
 class H5_file(object):
     """ This base hdf5 class ist intended for QTlab as a base class for a 
