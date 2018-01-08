@@ -25,7 +25,8 @@ import sys
 import qt
 import threading
 
-from qkit.storage import hdf_lib as hdf
+import qkit
+from qkit.storage import store as hdf
 from qkit.analysis.IV_curve import IV_curve
 from qkit.gui.plot import plot as qviewkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar

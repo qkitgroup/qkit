@@ -29,7 +29,8 @@ if not in_pyqt5:
 
 
 import argparse
-from PlotWindow import PlotWindow
+import qkit
+from qkit.gui.qviewkit.PlotWindow import PlotWindow
 from threading import Lock
 
 class DATA(QObject):

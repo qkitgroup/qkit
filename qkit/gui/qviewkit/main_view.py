@@ -8,6 +8,8 @@
 
 
 import sys
+import qkit
+
 # support both PyQt4 and 5
 in_pyqt5 = False
 in_pyqt4 = False

@@ -6,7 +6,7 @@
 """
 
 import sys,os
-
+import qkit
 # support both PyQt4 and 5
 in_pyqt5 = False
 in_pyqt4 = False
@@ -31,7 +31,7 @@ import h5py
 
 
 
-from main_view import Ui_MainWindow
+from qkit.gui.qviewkit.main_view import Ui_MainWindow
 
 
 class DatasetsWindow(QMainWindow, Ui_MainWindow):

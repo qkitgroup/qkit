@@ -10,11 +10,12 @@ import logging
 import os
 import time
 
-from hdf_file import H5_file
-from hdf_dataset import hdf_dataset
-from hdf_constants import ds_types
-from hdf_view import dataset_view
-from hdf_DateTimeGenerator import DateTimeGenerator
+import qkit
+from qkit.storage.hdf_file import H5_file
+from qkit.storage.hdf_dataset import hdf_dataset
+from qkit.storage.hdf_constants import ds_types
+from qkit.storage.hdf_view import dataset_view
+from qkit.storage.hdf_DateTimeGenerator import DateTimeGenerator
 
 
 

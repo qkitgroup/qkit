@@ -26,6 +26,7 @@ dr.fit_data(None, fit_function = 'exp')
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+import qkit
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
@@ -49,8 +50,8 @@ except ImportError:
 
 no_qt = False
 try:
-    import qt
-    data_dir_config = qt.config.get('datadir')
+    import qkit
+    data_dir_config = qkit.cfg.get('datadir')
 except ImportError:
     logging.warning('no qtLAB environment')
     no_qt = True
@@ -58,8 +59,7 @@ except ImportError:
 global new_data_structure
 new_data_structure = False
 try:
-    from qkit.config.environment import cfg
-    new_data_structure = cfg['new_data_structure']
+    new_data_structure = qkit.cfg.get('new_data_structure',False)
 except:
     pass
 
@@ -117,7 +117,7 @@ def find_latest_file(ftype=None):
         if not new_data_structure:
             data_dir = os.path.join(data_dir_config, time.strftime('%Y%m%d'))
         else:
-            data_dir = cfg["datadir"] + "/" + cfg["run_id"] + "/" + cfg["user"]
+            data_dir = qkit.cfg["datadir"] + "/" + qkit.cfg["run_id"] + "/" + qkit.cfg["user"]
         try:
             nfile = max(glob.iglob(str(data_dir)+'\*\*.'+ftype), key=os.path.getctime)   #find newest file in directory
         except ValueError:
