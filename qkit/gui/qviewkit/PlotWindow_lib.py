@@ -100,30 +100,28 @@ def _display_1D_view(self,graphicsView):
 
         ## This is in our case used so far only for IQ plots. The functionality derives from this application.
         elif x_ds.attrs.get('ds_type',0) == ds_types['matrix']:
-            if x_ds.attrs.get('ds_type',0) == ds_types['matrix']:
-                self.VTraceXSelector.setEnabled(True)
-                range_max = np.minimum(x_ds.shape[0],y_ds.shape[0])
-                self.VTraceXSelector.setRange(-1*range_max,range_max-1)
-                self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
-                self.VTraceYSelector.setEnabled(False)
-    
-                x_data = np.array(x_ds[self.VTraceXNum])
-                y_data = np.array(y_ds[self.VTraceXNum])
+            self.VTraceXSelector.setEnabled(True)
+            range_max = np.minimum(x_ds.shape[0],y_ds.shape[0])
+            self.VTraceXSelector.setRange(-1*range_max,range_max-1)
+            self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
+            self.VTraceYSelector.setEnabled(False)
+
+            x_data = np.array(x_ds[self.VTraceXNum])
+            y_data = np.array(y_ds[self.VTraceXNum])
 
         elif x_ds.attrs.get('ds_type',0) == ds_types['box']:
-            if x_ds.attrs.get('ds_type',0) == ds_types['box']:
-                self.VTraceXSelector.setEnabled(True)
-                range_maxX = y_ds.shape[0]
-                self.VTraceXSelector.setRange(-1*range_maxX,range_maxX-1)
-                self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
-                self.VTraceYSelector.setEnabled(True)
-                range_maxY = y_ds.shape[1]
-                self.VTraceYSelector.setRange(-1*range_maxY,range_maxY-1)
-                self.VTraceYValue.setText(self._getYValueFromTraceNum(y_ds,self.VTraceYNum))
-                
-                x_data = np.array(x_ds[self.VTraceXNum,self.VTraceYNum,:])
-                y_data = np.array(y_ds[self.VTraceXNum,self.VTraceYNum,:])
-                
+            self.VTraceXSelector.setEnabled(True)
+            range_maxX = y_ds.shape[0]
+            self.VTraceXSelector.setRange(-1*range_maxX,range_maxX-1)
+            self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
+            self.VTraceYSelector.setEnabled(True)
+            range_maxY = y_ds.shape[1]
+            self.VTraceYSelector.setRange(-1*range_maxY,range_maxY-1)
+            self.VTraceYValue.setText(self._getYValueFromTraceNum(y_ds,self.VTraceYNum))
+            
+            x_data = np.array(x_ds[self.VTraceXNum,self.VTraceYNum,:])
+            y_data = np.array(y_ds[self.VTraceXNum,self.VTraceYNum,:])
+
         else:
             return
 
