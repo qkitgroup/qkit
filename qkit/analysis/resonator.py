@@ -32,7 +32,7 @@ class Resonator(object):
     '''
 
     def __init__(self, hf_path=None):
-        self._hf = store.Data(path=hf_path)
+        self._hf = store.Data(hf_path)
 
         self._first_circle = True
         self._first_lorentzian = True
