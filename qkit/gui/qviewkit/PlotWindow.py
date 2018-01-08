@@ -24,14 +24,13 @@ if not in_pyqt5:
         sys.exit(-1)
 
 
-
-
-
-from plot_view import Ui_Form
-import pyqtgraph as pg
-from qkit.storage.hdf_constants import ds_types, view_types
-from PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
 import sys
+import pyqtgraph as pg
+
+import qkit
+from qkit.gui.qviewkit.plot_view import Ui_Form
+from qkit.storage.hdf_constants import ds_types, view_types
+from qkit.gui.qviewkit.PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
 
 
 

@@ -20,9 +20,9 @@ if not in_pyqt5:
         print("import of PyQt5 and PyQt4 failed. Install one of those.")
         sys.exit(-1)
 
-
-
+import qkit
 from qkit.storage.hdf_constants import ds_types
+
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
 except AttributeError:

@@ -3,6 +3,7 @@
 
 
 import zmq
+import qkit
 from qkit.core.lib.com.signals import SIGNALS
 
 from threading import Thread

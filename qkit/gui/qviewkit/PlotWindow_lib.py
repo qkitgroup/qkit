@@ -26,6 +26,7 @@ if not in_pyqt5:
 import numpy as np
 import json
 import pyqtgraph as pg
+import qkit
 from qkit.storage.hdf_constants import ds_types
 
 def _display_1D_view(self,graphicsView):
