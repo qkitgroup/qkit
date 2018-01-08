@@ -25,7 +25,7 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
     echo (bool, optional): echo settings for debugging, default: False
     """
     # the plot engine for live plots is set in the environement
-    plot_viewer = qkit.cfg['plot_engine']
+    plot_viewer = qkit.cfg.get('plot_engine', None)
     ds = ""
     for s in datasets: ds+=s+","
     ds = ds.strip(",")
@@ -40,9 +40,9 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
         options += " -live "
 
     if echo:
-        print "Qviewkit open cmd: "+ cmd + options
+        print("Qviewkit open cmd: "+ cmd + options)
         P = Popen(cmd+options, shell=False, stdout=PIPE)
-        print P.stdout.read()
+        print(P.stdout.read())
         return P
     else:
         return Popen(cmd+options, shell=False)
@@ -76,7 +76,7 @@ class h5plot(object):
             pass
 
         # open the h5 file and get the hdf_lib object
-        self.hf = store.Data(name=self.path)
+        self.hf = store.Data(self.path)
 
         # check for datasets
         for i, pentry in enumerate(self.hf['/entry'].keys()):
@@ -88,12 +88,12 @@ class h5plot(object):
                     if self.ds.attrs.get('save_plot', True):
                         self.plt()
                 except Exception as e:
-                    print "Exception in qkit/gui/plot/plot.py while plotting"
-                    print self.key
-                    print e
+                    print("Exception in qkit/gui/plot/plot.py while plotting")
+                    print(self.key)
+                    print(e)
         #close hf file
         self.hf.close()
-        print 'Plots saved in', self.image_dir
+        print('Plots saved in ' + self.image_dir)
 
     def plt(self):
         logging.info(" -> plotting dataset: "+str(self.ds.attrs.get('name')))
