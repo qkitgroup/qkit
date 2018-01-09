@@ -3,7 +3,8 @@
 Library to ease the use of the file format hdf5 for datastorage
 It can be used with or without the qtlab environment.
 
-@author: hannes.rotzinger@kit.edu 2015
+@author: hannes.rotzinger@kit.edu 2018
+@author: marco.pfirrmann@kit.edu 2018
 @version: 0.1
 """
 import logging
@@ -31,16 +32,16 @@ class Data(object):
         self._name = name
 
         if not os.path.isabs(self._name):
-            self.generate_file_name()
+            self._generate_file_name()
         else:
             self._filepath = os.path.abspath(self._name)
             self._folder,self._filename = os.path.split(self._filepath)
         "setup the  file"
         self.hf = H5_file(self._filepath)
-        self.mapH5PathToObject()
+        self._mapH5PathToObject()
         self.hf.flush()
 
-    def mapH5PathToObject(self):
+    def _mapH5PathToObject(self):
         class group(object):
             pass
         
@@ -57,7 +58,7 @@ class Data(object):
         self.__dict__.update({'analysis':a})
         self.__dict__.update({'data':d})
 
-    def generate_file_name(self):
+    def _generate_file_name(self):
         dtg = DateTimeGenerator()
         self.__dict__.update(dtg.new_filename(self._name))
         '''
