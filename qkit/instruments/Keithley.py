@@ -41,22 +41,25 @@ class Keithley(Instrument):
             address (string) : GPIB address
             reset (bool)     : resets to default values, default=False
         '''
+        # Start VISA communication
         logging.info(__name__ + ': Initializing instrument Keithley_2636A')
         Instrument.__init__(self, name, tags=['physical'])
-        
-        # Global constants
         self._address           = address
         self._visainstrument    = visa.instrument(self._address)
+        
+        # Global constants
         self._mode_types        = {0:'curr', 1:'volt', 2:'res', 3:'pow'}
-        self._smu_function      = {'volt':'v', 'curr':'i'}
-        self._units             = {'curr':'A', 'volt':'V'}
+        self._smu_command       = {0:'i', 1:'v'}
+        self._IV_units          = {0:'A', 1:'V'}
         self._avg_types         = ['moving average', 'repeat average', 'median']
         self._measurement_modes = ['2-wire', '4-wire', 'calibration']
+        
         # external measuremnt setup
-        self._dAdV              = 1
-        self._dVdA              = 1
-        self._amp               = 1
-        self._pseudo_bias_mode  = 1 # current bias
+        self._dAdV = 1
+        self._dVdA = 1
+        self._amp = 1
+        self._sweep_mode = 0       # VV-mode
+        self._pseudo_bias_mode = 0 # current bias
         
         # Reset
         if reset: self.reset()
@@ -195,6 +198,58 @@ class Keithley(Instrument):
             logging.error(__name__ + ': Invalid input: cannot get digital I/O of line %s' % line)
     
     
+    def set_sweep_mode(self, mode=0, **channels):
+        '''
+        Sets an internal variable to decide weather voltage is both applied and measured (default), current is applied and voltage is measured or voltage is applied and current is measured.
+        VV-mode needs two different channels (bias channel <channel> and sense channel <channel2>), IV-mode and VI-mode only one (<channel>).
+        
+        Input:
+            mode (int) : 0 (VV-mode) (default) | 1 (IV-mode) | 2 (VI-mode)
+            **channels : channel  (int) : 1 (default) | 2
+                         channel2 (int) : 1 | 2 (default)
+        Output:
+            None
+        '''
+        self._sweep_mode = mode
+        self.set_defaults(channel=channels.get('channel', 1), channel2=channels.get('channel2', 2))
+    
+    
+    def get_sweep_mode(self):
+        '''
+        Gets an internal variable to decide weather voltage is both applied and measured (default), current is applied and voltage is measured or voltage is applied and current is measured.
+        
+        Input:
+            None
+        Output:
+            mode (int) : 0 (VV mode) | 1 (IV mode)
+        '''
+        return self._sweep_mode
+    
+    
+    def set_pseudo_bias_mode(self, mode):
+        '''
+        Sets an internal variable to decide weather bias or sense values are converted to currents
+        
+        Input:
+            mode (int) : 1 (current bias) | 2 (voltage bias)
+        Output:
+            None
+        '''
+        self._pseudo_bias_mode = mode
+    
+    
+    def get_pseudo_bias_mode(self):
+        '''
+        Gets an internal variable to decide weather bias or sense values are converted to currents
+        
+        Input:
+            None
+        Output:
+            mode (int) : 1 (current bias) | 2 (voltage bias)
+        '''
+        return self._pseudo_bias_mode
+    
+    
     def set_measurement_mode(self, val, channel=1):
         '''
         Sets measurement mode (wiring system) of channel <channel> to <val>
@@ -230,42 +285,17 @@ class Keithley(Instrument):
             logging.error(__name__ + ': Measurement mode of channel %s not specified:' % chr(64+channel))
     
     
-    def set_pseudo_bias_mode(self, mode):
-        '''
-        Sets an internal variable to decide weather bias or sense values are converted to currents
-        
-        Input:
-            mode (int) : 1 (current bias) | 2 (voltage bias)
-        Output:
-            None
-        '''
-        self._pseudo_bias_mode = mode
-    
-    
-    def get_pseudo_bias_mode(self):
-        '''
-        Gets an internal variable to decide weather bias or sense values are converted to currents
-        
-        Input:
-            None
-        Output:
-            mode (int) : 1 (current bias) | 2 (voltage bias)
-        '''
-        return self._pseudo_bias_mode
-    
-    
     def set_bias_mode(self, mode, channel=1):
         '''
         Sets bias mode of channel <channel> to <mode> regime.
         
         Input:
-            mode (str)    : 'curr' | 'volt'
+            mode (int)    : 0 (current) | 1 (voltage)
             channel (int) : 1 | 2
         Output:
             None
         '''
         # Corresponding Command: smuX.source.func = 0|1|smuX.OUTPUT_DCAMPS|smuX.OUTPUT_DCVOLTS
-        mode = self._mode_types.keys()[self._mode_types.values().index(mode)]
         try:
             logging.debug(__name__ + ': Set bias mode of channel %s to %s' % (chr(64+channel), mode))
             self._write('smu%s.source.func = %s' % (chr(96+channel), mode))
@@ -280,12 +310,12 @@ class Keithley(Instrument):
         Input:
             channel (int) : 1 | 2
         Output:
-            mode (int)    : 'curr' | 'volt'
+            mode (int)    : 0 (current) | 1 (voltage)
         '''
         # Corresponding Command: 0|1|smuX.OUTPUT_DCAMPS|smuX.OUTPUT_DCVOLTS = smuX.source.func
         try:
             logging.debug(__name__ + ': Get bias mode of channel %s' % chr(64+channel))
-            return self._mode_types[int(float(self._ask('smu%s.source.func' % chr(96+channel))))]
+            return int(float(self._ask('smu%s.source.func' % chr(96+channel))))
         except ValueError:
             logging.error(__name__ + ': Bias mode of channel %s not specified:' % chr(64+channel))
     
@@ -295,13 +325,12 @@ class Keithley(Instrument):
         Sets sense mode of channel <channel> to <mode> regime.
         
         Input:
-            mode (str)    : 'curr' | 'volt' | 'res' | 'pow'
+            mode (str)    : 0 (current) | 1 (voltage) | 2 (resistance) | 3 (power)
             channel (int) : 1 | 2
         Output:
             None
         '''
         # Corresponding Command: display.smuX.measure.func = 0|1|2|3|display.MEASURE_DCAMPS|display.MEASURE_DCVOLTS|display.MEASURE_OHMS|display.MEASURE_WATTS
-        mode = self._mode_types.keys()[self._mode_types.values().index(mode)]
         try:
             logging.debug(__name__ + ': Set sense mode of channel %s to %s' % (chr(64+channel), mode))
             self._write('display.smu%s.measure.func = %s' % (chr(96+channel), mode))
@@ -316,12 +345,12 @@ class Keithley(Instrument):
         Input:
             channel (int) : 1 | 2
         Output:
-            mode (str)    : 'curr' | 'volt' | 'res' | 'pow'
+            mode (str)    : 0 (current) | 1 (voltage) | 2 (resistance) | 3 (power)
         '''
         # Corresponding Command: 0|1|2|3|display.MEASURE_DCAMPS|display.MEASURE_DCVOLTS|display.MEASURE_OHMS|display.MEASURE_WATTS = display.smuX.measure.func
         try:
             logging.debug(__name__ + ': Get bias mode of channel %s' % chr(64+channel))
-            return self._mode_types[int(float(self._ask('display.smu%s.measure.func' % chr(96+channel))))]
+            return int(float(self._ask('display.smu%s.measure.func' % chr(96+channel))))
         except ValueError:
             logging.error(__name__ + ': Bias mode of channel %s not specified:' % chr(64+channel))
     
@@ -341,10 +370,10 @@ class Keithley(Instrument):
         try:
             logging.debug(__name__ + ': Set bias range of channel %s to %s' % (chr(64+channel), val))
             if val == -1:
-                self._write('smu%s.source.autorange%s = 1' % (chr(96+channel), self._smu_function[self.get_bias_mode(channel=channel)]))
+                self._write('smu%s.source.autorange%s = 1' % (chr(96+channel), self._smu_command[self.get_bias_mode(channel=channel)]))
             else:
-                self._write('smu%s.source.autorange%s = 0' % (chr(96+channel), self._smu_function[self.get_bias_mode(channel=channel)]))
-                self._write('smu%s.source.range%s = %f' % (chr(96+channel), self._smu_function[self.get_bias_mode(channel=channel)], val))
+                self._write('smu%s.source.autorange%s = 0' % (chr(96+channel), self._smu_command[self.get_bias_mode(channel=channel)]))
+                self._write('smu%s.source.range%s = %f' % (chr(96+channel), self._smu_command[self.get_bias_mode(channel=channel)], val))
         except AttributeError:
             logging.error(__name__ + ': Invalid input: cannot set bias range of channel %s to %s' % (chr(64+channel), val))
     
@@ -361,7 +390,7 @@ class Keithley(Instrument):
         # Corresponding Command: rangeValue = smuX.source.rangeY
         try:
             logging.debug(__name__ + ': Get bias range of channel %s' % chr(64+channel))
-            return float(self._ask('smu%s.source.range%s' % (chr(96+channel), self._smu_function[self.get_bias_mode(channel=channel)])))
+            return float(self._ask('smu%s.source.range%s' % (chr(96+channel), self._smu_command[self.get_bias_mode(channel=channel)])))
         except ValueError:
             logging.error(__name__ + ': Bias range of channel %s not specified:' % chr(64+channel))
     
@@ -381,10 +410,10 @@ class Keithley(Instrument):
         try:
             logging.debug(__name__ + ': Set sense range of channel %s to %s' % (chr(64+channel), val))
             if val == -1:
-                self._write('smu%s.measure.autorange%s = 1' % (chr(96+channel), self._smu_function[self.get_sense_mode(channel=channel)]))
+                self._write('smu%s.measure.autorange%s = 1' % (chr(96+channel), self._smu_command[self.get_sense_mode(channel=channel)]))
             else:
-                self._write('smu%s.measure.autorange%s = 0' % (chr(96+channel), self._smu_function[self.get_sense_mode(channel=channel)]))
-                self._write('smu%s.measure.range%s = %f' % (chr(96+channel), self._smu_function[self.get_sense_mode(channel=channel)], val))
+                self._write('smu%s.measure.autorange%s = 0' % (chr(96+channel), self._smu_command[self.get_sense_mode(channel=channel)]))
+                self._write('smu%s.measure.range%s = %f' % (chr(96+channel), self._smu_command[self.get_sense_mode(channel=channel)], val))
         except AttributeError:
             logging.error(__name__ + ': Invalid input: cannot set sense range of channel %s to %s' % (chr(64+channel), val))
     
@@ -401,7 +430,7 @@ class Keithley(Instrument):
         # Corresponding Command: rangeValue = smuX.measure.rangeY
         try:
             logging.debug(__name__ + ': Get sense range of channel %s' % chr(64+channel))
-            return float(self._ask('smu%s.measure.range%s' % (chr(96+channel), self._smu_function[self.get_sense_mode(channel=channel)])))
+            return float(self._ask('smu%s.measure.range%s' % (chr(96+channel), self._smu_command[self.get_sense_mode(channel=channel)])))
         except ValueError:
             logging.error(__name__ + ': Sense range of channel %s not specified:' % chr(64+channel))
     
@@ -494,7 +523,7 @@ class Keithley(Instrument):
         # Corresponding Command: smuX.measure.filter.type = 0|1|2|smuX.FILTER_MOVING_AVG|smuX.FILTER_REPEAT_AVG|smuX.FILTER_MEDIAN
         try:
             logging.debug(__name__ + ': Set sense average of channel %s to %i and mode %s' % (chr(64+channel), val, self._avg_types[mode]))
-            status = not(.5*(1-numpy.sign(val-1)))
+            status = not(.5*(1-numpy.sign(val-1)))                             # equals Heaviside(1-val) --> turns on for <val> >= 2
             self._write('smu%s.measure.filter.enable = %i' % (chr(96+channel), status))
             if status:
                 self._write('smu%s.measure.filter.count = %i' % (chr(96+channel), val))
@@ -673,7 +702,7 @@ class Keithley(Instrument):
         # Corresponding Command: smuX.source.levelY = sourceLevel
         try:
             logging.debug(__name__ + ': Set bias value of channel %s to %f' % (chr(64+channel), val))
-            self._write('smu%s.source.level%s = %f' % (chr(96+channel), self._smu_function[self.get_bias_mode(channel=channel)], val))
+            self._write('smu%s.source.level%s = %f' % (chr(96+channel), self._smu_command[self.get_bias_mode(channel=channel)], val))
         except AttributeError:
             logging.error(__name__ + ': Invalid input: cannot set bias value of channel %s to %f' % (chr(64+channel), val))
     
@@ -690,7 +719,7 @@ class Keithley(Instrument):
         # Corresponding Command: sourceLevel = smuX.source.levelY
         try:
             logging.debug(__name__ + ': Get bias value of channel %s' % chr(64+channel))
-            return float(self._ask('smu%s.source.level%s' % (chr(96+channel), self._smu_function[self.get_bias_mode(channel=channel)])))
+            return float(self._ask('smu%s.source.level%s' % (chr(96+channel), self._smu_command[self.get_bias_mode(channel=channel)])))
         except ValueError:
             logging.error(__name__ + ': Cannot get bias value of channel %s:' % chr(64+channel))
     
@@ -700,8 +729,8 @@ class Keithley(Instrument):
         Gets sense value of channel <channel>
         
         Input:
-            channel (int)         : 1 | 2
-            **readingBuffer (str) : 'smuX.nvbuffer1' (default)
+            channel (int)   : 1 | 2
+            **readingBuffer : readingBuffer (str): 'smuX.nvbuffer1' (default)
         Output:
             val (float)
         '''
@@ -710,9 +739,9 @@ class Keithley(Instrument):
         try:
             logging.debug(__name__ + ': Get sense value of channel %s' % chr(64+channel))
             if 'readingBuffer' in readingBuffer:
-                return float(self._ask('smu%s.measure.%s(%s)' % (chr(96+channel), self._smu_function[self.get_sense_mode(channel=channel)], readingBuffer.get('readingBuffer', 'smu%s.nvbuffer1' % chr(96+channel)))))
+                return float(self._ask('smu%s.measure.%s(%s)' % (chr(96+channel), self._smu_command[self.get_sense_mode(channel=channel)], readingBuffer.get('readingBuffer', 'smu%s.nvbuffer1' % chr(96+channel)))))
             else:
-                return float(self._ask('smu%s.measure.%s()' % (chr(96+channel), self._smu_function[self.get_sense_mode(channel=channel)])))
+                return float(self._ask('smu%s.measure.%s()' % (chr(96+channel), self._smu_command[self.get_sense_mode(channel=channel)])))
         except ValueError:
             logging.error(__name__ + ': Cannot get sense value of channel %s:' % chr(64+channel))
     
@@ -722,9 +751,9 @@ class Keithley(Instrument):
         Gets both current and voltage sense value of channel <channel>
         
         Input:
-            channel (int)          : 1 | 2
-            **iReadingBuffer (str) : 'smuX.nvbuffer1' (default)
-            **vReadingBuffer (str) : 'smuX.nvbuffer2' (default)
+            channel (int)   : 1 | 2
+            **readingBuffer : iReadingBuffer (str): 'smuX.nvbuffer1' (default)
+                              vReadingBuffer (str): 'smuX.nvbuffer2' (default)
         Output:
             i_val (float)
             v_val (float)
@@ -766,8 +795,8 @@ class Keithley(Instrument):
         Gets voltage value of channel <channel>
         
         Input:
-            channel (int)         : 1 | 2
-            **readingBuffer (str) : 'smuX.nvbuffer1' (default)
+            channel (int)   : 1 | 2
+            **readingBuffer : readingBuffer (str): 'smuX.nvbuffer1' (default)
         Output:
             val (float)
         '''
@@ -806,8 +835,8 @@ class Keithley(Instrument):
         Gets current value of channel <channel>
         
         Input:
-            channel (int)         : 1 | 2
-            **readingBuffer (str) : 'smuX.nvbuffer1' (default)
+            channel (int)   : 1 | 2
+            **readingBuffer : readingBuffer (str): 'smuX.nvbuffer1' (default)
         Output:
             val (float)
         '''
@@ -837,65 +866,96 @@ class Keithley(Instrument):
         '''
         start = self.get_bias_value(channel=channel)
         if (stop < start): step = -step
-        for I in numpy.arange(start, stop, step)+step:
-            self.set_bias_value(I, channel=channel)
+        for val in numpy.arange(start, stop, step)+step:
+            self.set_bias_value(val, channel=channel)
             time.sleep(step_time)
     
     
-    def set_sweep_parameters(self, sweep, channel_bias=1, channel_sense=2):
+    def set_sweep_parameters(self, sweep, channel=1, channel2=2, **readingBuffer):
         '''
-        Sets sweep parameters <sweep> and prepares instrument
+        Sets sweep parameters <sweep> and prepares instrument for VV-mode or IV-mode.
+        VV-mode needs two different channels (bias channel <channel> and sense channel <channel2>), IV-mode and VI-mode only one (<channel>).
         
         Input:
-            sweep obj(float)    : start, stop, step
-            channel_bias (int)  : 1 (default) | 2
-            channel_sense (int) : 1 | 2 (default)
+            sweep obj(float) : start, stop, step
+            channel (int)    : 1 (default) | 2
+            channel2 (int)   : 1 | 2 (default)
+            **readingBuffer  : iReadingBuffer (str): 'smu<channel>.nvbuffer1' (default)
+                               vReadingBuffer (str): 'smu<channel2>.nvbuffer2' (default)
         Output:
             None
         '''
         # Corresponding Command: format.data = value
         # Corresponding Command: format.asciiprecision = precision
         # Corresponding Command: status.reset()
+        # Corresponding Command: smuX.trigger.source.linearY(startValue, endValue, points)
+        # Corresponding Command: smuX.trigger.source.action = action
+        # Corresponding Command: smuX.trigger.measure.action = action
+        # Corresponding Command: bufferVar.clear()
+        # Corresponding Command: smuX.trigger.measure.iv(ibuffer, vbuffer)
+        # Corresponding Command: smuX.trigger.count = triggerCount
+        # Corresponding Command: smuX.trigger.arm.count = triggerArmCount
         # Corresponding Command: status.operation.user.condition = operationRegister
         # Corresponding Command: status.operation.user.enable = operationRegister
         # Corresponding Command: status.operation.user.ptr = operationRegister
         # Corresponding Command: status.operation.enable = operationRegister
         # Corresponding Command: status.request_enable = requestSRQEnableRegister
-        self._write('format.data = format.ASCII')
-        self._write('format.asciiprecision = 6')
-        self.direction = numpy.sign(sweep[1]-sweep[0])
-        if self._pseudo_bias_mode == 1:     # current bias
-            self._start = float(sweep[0])/self._dAdV
-            self._stop  = float(sweep[1])/self._dAdV
-            self._step  = numpy.abs(float(sweep[2]))/self._dAdV
-        if self._pseudo_bias_mode == 2:     # voltage bias
-            self._start = float(sweep[0])/self._amp
-            self._stop  = float(sweep[1])/self._amp
-            self._step  = numpy.abs(float(sweep[2]))/self._amp
-        self._step_signed = numpy.sign(self._stop-self._start)*numpy.abs(self._step)
-        self._channel_bias  = channel_bias
-        self._channel_sense = channel_sense
-        self.set_bias_value(self._start, self._channel_bias)
-        # prepare Operation Status Bit (https://forum.tek.com/viewtopic.php?f=14&t=139110)
-        cmd = """status.reset()
-                 status.operation.user.condition = 0
-                 status.operation.user.enable = status.operation.user.BIT0
-                 status.operation.user.ptr = status.operation.user.BIT0
-                 status.operation.enable = status.operation.USER
-                 status.request_enable = status.OSB"""
-        self._write(cmd)
-        time.sleep(1e-1)
+        try:
+            self._write('format.data = format.ASCII')
+            self._write('format.asciiprecision = 6')
+            if self._sweep_mode == 0:                                          # VV-mode
+                if self._pseudo_bias_mode == 0:     # current bias
+                    self._start = float(sweep[0])/self._dAdV
+                    self._stop  = float(sweep[1])/self._dAdV
+                    self._step  = numpy.abs(float(sweep[2]))/self._dAdV
+                if self._pseudo_bias_mode == 1:     # voltage bias
+                    self._start = float(sweep[0])/self._amp
+                    self._stop  = float(sweep[1])/self._amp
+                    self._step  = numpy.abs(float(sweep[2]))/self._amp
+                self._step_signed = numpy.sign(self._stop-self._start)*numpy.abs(self._step)
+                self.set_bias_value(val=self._start, channel=channel)
+                self._iReadingBuffer = readingBuffer.get('iReadingBuffer', 'smu%s.nvbuffer1' % chr(96+((self._pseudo_bias_mode+1)%2+channel%2)%2+1))
+                self._vReadingBuffer = readingBuffer.get('vReadingBuffer', 'smu%s.nvbuffer1' % chr(96+((self._pseudo_bias_mode+1)%2+channel2%2)%2+1))
+                cmd =  """%s.clear()""" % self._iReadingBuffer
+                cmd += """%s.appendmode = 1""" % self._iReadingBuffer
+                cmd += """%s.clear()""" % self._vReadingBuffer
+                cmd += """%s.appendmode = 1""" % self._vReadingBuffer
+            elif self._sweep_mode in [1, 2]:                                   # IV-mode or VI-mode
+                self._start = float(sweep[0])
+                self._stop  = float(sweep[1])
+                self._step  = float(sweep[2])
+                self._iReadingBuffer = readingBuffer.get('iReadingBuffer', 'smu%s.nvbuffer1' % chr(96+channel))
+                self._vReadingBuffer = readingBuffer.get('vReadingBuffer', 'smu%s.nvbuffer2' % chr(96+channel))
+                self._nop = int(numpy.abs((self._stop-self._start)/self._step)+1)
+                cmd =  'smu%s.trigger.source.linear%s(%f, %f, %i)' % (chr(96+channel), self._smu_command[self.get_bias_mode(channel=channel)], self._start, self._stop, self._nop)
+                cmd += 'smu%s.trigger.source.action = 1' % chr(96+channel)
+                cmd += 'smu%s.trigger.measure.action = 1' % chr(96+channel)
+                cmd += '%s.clear()' % self._iReadingBuffer
+                cmd += '%s.clear()' % self._vReadingBuffer
+                cmd += 'smu%s.trigger.measure.iv(%s, %s)' % (chr(96+channel), self._iReadingBuffer, self._vReadingBuffer)
+                cmd += 'smu%s.trigger.count = %i' % (chr(96+channel), self._nop)
+                cmd += 'smu%s.trigger.arm.count = 1' % chr(96+channel)
+            cmd += """status.reset()
+                      status.operation.user.condition = 0
+                      status.operation.user.enable = status.operation.user.BIT0
+                      status.operation.user.ptr = status.operation.user.BIT0
+                      status.operation.enable = status.operation.USER
+                      status.request_enable = status.OSB"""
+            self._write(cmd)
+            time.sleep(1e-3)
+        except:
+            logging.error(__name__ + ': Cannot set sweep parameters')
     
     
-    def get_tracedata(self, channel_bias=1, channel_sense=2, **readingBuffer):
+    def get_tracedata(self, channel=1, channel2=2, **readingBuffer):
         '''
         Starts bias sweep of channel <channel_bias> and gets trace data of channel <channel_sense>
         
         Input:
-            channel_bias (int)          : 1 (default) | 2
-            channel_sense (int)         : 1 | 2 (default)
-            **readingBuffer_bias (str)  : 'smua.nvbuffer1' (default)
-            **readingBuffer_sense (str) : 'smub.nvbuffer1' (default)
+            channel (int)    : 1 (default) | 2
+            channel2 (int)   : 1 | 2 (default)
+            **readingBuffer  : iReadingBuffer (str): 'smu<channel>.nvbuffer1' (default)
+                               vReadingBuffer (str): 'smu<channel2>.nvbuffer2' (default)
         Output:
             bias_values (numpy.array(float))
             sense_values (numpy.array(float))
@@ -906,83 +966,110 @@ class Keithley(Instrument):
         # Corresponding Command: reading = smuX.measure.Y(readingBuffer)
         # Corresponding Command: status.operation.user.condition = operationRegister
         # Corresponding Command: numberOfReadings = bufferVar.n
-        self._channel_bias  = channel_bias
-        self._channel_sense = channel_sense
-        readingBuffer_bias  = readingBuffer.get('readingBuffer_bias', 'smu%s.nvbuffer1' % chr(96+self._channel_bias))
-        readingBuffer_sense = readingBuffer.get('readingBuffer_sense', 'smu%s.nvbuffer1' % chr(96+self._channel_sense))
-        # sweep channel_bias and measure channel_sense
-        cmd =  """%s.clear()""" % readingBuffer_bias
-        cmd += """%s.appendmode = 1""" % readingBuffer_bias
-        cmd += """%s.clear()""" % readingBuffer_sense
-        cmd += """%s.appendmode = 1""" % readingBuffer_sense
-        cmd += """for i = %f, %f, %f do""" % (self._start, self._stop, self._step_signed) # self._stop+self._step_signed
-        cmd += """\tsmu%s.source.levelv = i""" % chr(96+self._channel_bias)
-        cmd += """\tsmu%s.measure.v(%s)""" % (chr(96+self._channel_bias),  readingBuffer_bias)
-        cmd += """\tsmu%s.measure.v(%s)""" % (chr(96+self._channel_sense), readingBuffer_sense)
-        cmd += """end\n"""
-        cmd += """status.operation.user.condition = status.operation.user.BIT0"""
-        self._write(cmd)
-        # wait for operation complete (Operation Status Bit = 1)
-        
-        if  LooseVersion(visa.__version__) < LooseVersion("1.5.0"):            # pyvisa 1.4
-            while visa.vpp43.read_stb(self._visainstrument.vi) == 0:
-                time.sleep(0.1)
-        else:                                                                  # pyvisa 1.8
-            while visa.visalib.read_stb(self._visainstrument.session)[0] == 0:
-                time.sleep(0.1)
-        # read data
-        if self._pseudo_bias_mode == 1:     # current bias
-            bias_values  = numpy.array([float(self._ask('%s[%i]' % (readingBuffer_bias, i))) for i in range(1,int(float(self._ask('%s.n' % readingBuffer_bias)))+1)])*self._dAdV
-            sense_values = numpy.array([float(self._ask('%s[%i]' % (readingBuffer_sense, i))) for i in range(1,int(float(self._ask('%s.n' % readingBuffer_sense)))+1)])/self._amp
-            #bias_values  = numpy.fromstring(string=self._ask('''printbuffer(1, %s.n, %s)''' % (2*(readingBuffer_bias,))), dtype=float, sep=',')*self._dAdV
-            #sense_values = numpy.fromstring(string=self._ask('''printbuffer(1, %s.n, %s)''' % (2*(readingBuffer_sense,))), dtype=float, sep=',')/self._amp
-        if self._pseudo_bias_mode == 2:     # voltage bias
-            bias_values  = numpy.array([float(self._ask('%s[%i]' % (readingBuffer_bias, i))) for i in range(1,int(float(self._ask('%s.n' % readingBuffer_bias)))+1)])*self._amp
-            sense_values = numpy.array([float(self._ask('%s[%i]' % (readingBuffer_sense, i))) for i in range(1,int(float(self._ask('%s.n' % readingBuffer_sense)))+1)])/self._dAdV
-            #bias_values  = numpy.fromstring(string=self._ask('''printbuffer(1, %s.n, %s)''' % (2*(readingBuffer_bias,))), dtype=float, sep=',')*self._amp
-            #sense_values = numpy.fromstring(string=self._ask('''printbuffer(1, %s.n, %s)''' % (2*(readingBuffer_sense,))), dtype=float, sep=',')/self._dAdV
-        return bias_values, sense_values
+        # Corresponding Command: smuX.trigger.initiate()
+        # Corresponding Command: waitcomplete()
+        try:
+            if self._sweep_mode == 0:                                          # VV-mode
+                # sweep channel and measure channel2
+                cmd =  """for i = %f, %f, %f do""" % (self._start, self._stop+self._step_signed/2., self._step_signed)
+                cmd += """\tsmu%s.source.levelv = i""" % chr(96+channel)
+                cmd += """\tsmu%s.measure.v(%s)""" % (chr(96+((self._pseudo_bias_mode+1)%2+channel%2)%2+1),  self._iReadingBuffer)
+                cmd += """\tsmu%s.measure.v(%s)""" % (chr(96+((self._pseudo_bias_mode+1)%2+channel2%2)%2+1), self._vReadingBuffer)
+                cmd += """end\n"""
+                self._write(cmd)
+            elif self._sweep_mode in [1, 2]:                                   # IV-mode or VI-mode
+                # sweep and measure channel
+                self._write("""smu%s.trigger.initiate()""" % chr(96+channel))
+                self._write("""waitcomplete()""")
+            self._write("""status.operation.user.condition = status.operation.user.BIT0""")
+            # wait for operation complete (Operation Status Bit = 1)
+            if  LooseVersion(visa.__version__) < LooseVersion("1.5.0"):        # pyvisa 1.4
+                while visa.vpp43.read_stb(self._visainstrument.vi) == 0:
+                    time.sleep(1e-1)
+            else:                                                              # pyvisa 1.8
+                while visa.visalib.read_stb(self._visainstrument.session)[0] == 0:
+                    time.sleep(1e-1)
+            # read data
+            I_values = numpy.array([float(self._ask('%s[%i]' % (self._iReadingBuffer, i))) for i in range(1,int(float(self._ask('%s.n' % self._iReadingBuffer)))+1)])
+            V_values = numpy.array([float(self._ask('%s[%i]' % (self._vReadingBuffer, i))) for i in range(1,int(float(self._ask('%s.n' % self._vReadingBuffer)))+1)])
+            #I_values = numpy.fromstring(string=self._ask('''printbuffer(1, %s.n, %s)''' % (2*(self._iReadingBuffer,))), dtype=float, sep=',')
+            #V_values = numpy.fromstring(string=self._ask('''printbuffer(1, %s.n, %s)''' % (2*(self._vReadingBuffer,))), dtype=float, sep=',')
+            if self._sweep_mode == 0:                                          # VV-mode
+                if self._pseudo_bias_mode == 0:                                # current bias
+                    I_values *= self._dAdV
+                    V_values /= self._amp
+                if self._pseudo_bias_mode == 1:                                # voltage bias
+                    I_values /= self._dAdV
+                    V_values *= self._amp
+            return I_values, V_values
+        except:
+            logging.error(__name__ + ': Cannot take sweep trace data')
     
     
-    def take_IV(self, sweep, channel_bias=1, channel_sense=2, **readingBuffer):
+    def take_IV(self, sweep, channel=1, channel2=2, **readingBuffer):
         '''
         Takes IV curve with sweep parameters <sweep> in doing a bias sweep of channel
         <channel_bias> and measure data of channel <channel_sense>
         
         Input:
-            sweep obj(float)            : start, stop, step
-            channel_bias (int)          : 1 (default) | 2
-            channel_sense (int)         : 1 | 2 (default)
-            **readingBuffer_bias (str)  : 'smua.nvbuffer1' (default)
-            **readingBuffer_sense (str) : 'smub.nvbuffer1' (default)
+            sweep obj(float) : start, stop, step
+            channel (int)    : 1 (default) | 2
+            channel2 (int)   : 1 | 2 (default)
+            **readingBuffer  : iReadingBuffer (str): 'smu<channel>.nvbuffer1' (default)
+                               vReadingBuffer (str): 'smu<channel2>.nvbuffer2' (default)
         Output:
-            bias_values (numpy.array(float))
-            sense_values (numpy.array(float))
+            I_values (numpy.array(float))
+            V_values (numpy.array(float))
         '''
-        self.set_sweep_parameters(sweep=sweep, channel_bias=channel_bias, channel_sense=channel_sense)
-        return self.get_tracedata(channel_bias=channel_bias, channel_sense=channel_sense, **readingBuffer)
+        if self._sweep_mode == 0:                                              # VV-mode
+            self.set_sweep_parameters(sweep=sweep, channel=channel, channel2=channel2, **readingBuffer)
+            return self.get_tracedata(channel=channel, channel2=channel2, **readingBuffer)
+        elif self._sweep_mode in [1, 2]:                                       # IV-mode or VI-mode
+            self.set_sweep_parameters(sweep=sweep, channel=channel, **readingBuffer)
+            return self.get_tracedata(channel=channel, **readingBuffer)
     
     
-    def set_defaults(self):
+    def set_defaults(self, channel=1, channel2=2):
         '''
-        Sets default settings
+        Sets default settings for different sweep modes.
+        VV-mode needs two different channels (bias channel <channel> and sense channel <channel2>), IV-mode and VI-mode only one (<channel>).
         
         Input:
             channel (int) : 1 (default) | 2
         Output:
             None
         '''
-        self._channel_bias = 1
-        self._channel_sense = 2
-        self.set_measurement_mode(val=0, channel=self._channel_bias)
-        self.set_measurement_mode(val=0, channel=self._channel_sense)
-        self.set_bias_mode(mode='volt', channel=self._channel_bias)
-        self.set_sense_mode(mode='volt', channel=self._channel_bias)
-        self.set_bias_mode(mode='curr', channel=self._channel_sense)
-        self.set_sense_mode(mode='volt', channel=self._channel_sense)
-        self.set_sense_range(val=-1, channel=self._channel_sense)
-        self.set_bias_delay(val=15e-6, channel=self._channel_bias)
-        self.set_sense_delay(val=15e-6, channel=self._channel_sense)
+        self._write('beeper.enable = 0')
+        if self._sweep_mode == 0:                                              # VV-mode
+            for chan in [channel, channel2]: self.set_measurement_mode(val=0, channel=chan)
+            for chan in [(channel, 1), (channel2, 0)]: self.set_bias_mode(mode=chan[1], channel=chan[0])
+            for chan in [channel, channel2]: self.set_sense_mode(mode=1, channel=chan)
+            for chan in [channel, channel2]: self.set_bias_range(val=-1, channel=chan)
+            for chan in [(channel, -1), (channel2, 200)]: self.set_sense_range(val=chan[1], channel=chan[0])
+            for chan in [channel, channel2]: self.set_bias_delay(val=15e-6, channel=chan)
+            for chan in [channel, channel2]: self.set_sense_delay(val=15e-6, channel=chan)
+            for chan in [channel, channel2]: self.set_sense_nplc(val=1, channel=chan)
+            for chan in [channel, channel2]: self.set_sense_average(val=1, mode=1, channel=chan)
+        elif self._sweep_mode == 1:                                            # IV-mode
+            self.set_measurement_mode(val=1, channel=channel)
+            self.set_bias_mode(mode=0, channel=channel)
+            self.set_sense_mode(mode=1, channel=channel)
+            self.set_bias_range(val=200e-3, channel=channel)
+            self.set_sense_range(val=-1, channel=channel)
+            self.set_bias_delay(val=15e-6, channel=channel)
+            self.set_sense_delay(val=15e-6, channel=channel)
+            self.set_sense_nplc(1)
+            self.set_sense_average(1)
+        elif self._sweep_mode == 2:                                            # VI-mode
+            self.set_measurement_mode(val=1, channel=channel)
+            self.set_bias_mode(mode=1, channel=channel)
+            self.set_sense_mode(mode=0, channel=channel)
+            self.set_bias_range(val=200e-3, channel=channel)
+            self.set_sense_range(val=-1, channel=channel)
+            self.set_bias_delay(val=15e-6, channel=channel)
+            self.set_sense_delay(val=15e-6, channel=channel)
+            self.set_sense_nplc(1)
+            self.set_sense_average(1)
     
     
     def get_all(self, channel=1):
@@ -1001,8 +1088,8 @@ class Keithley(Instrument):
         print('measurement mode   = %s'    % self._measurement_modes[self.get_measurement_mode(channel=channel)])
         print('bias mode          = %s'    % self.get_bias_mode(channel=channel))
         print('sense mode         = %s'    % self.get_sense_mode(channel=channel))
-        print('bias range         = %e%s'  % (self.get_bias_range(channel=channel), self._units[self.get_bias_mode(channel=channel)]))
-        print('sense range        = %e%s'  % (self.get_sense_range(channel=channel), self._units[self.get_sense_mode(channel=channel)]))
+        print('bias range         = %e%s'  % (self.get_bias_range(channel=channel), self._IV_units[self.get_bias_mode(channel=channel)]))
+        print('sense range        = %e%s'  % (self.get_sense_range(channel=channel), self._IV_units[self.get_sense_mode(channel=channel)]))
         print('bias delay         = %es'   % self.get_bias_delay(channel=channel))
         print('sense delay        = %es'   % self.get_sense_delay(channel=channel))
         print('sense average      = %i'    % self.get_sense_average(channel=channel)[1])
@@ -1010,8 +1097,8 @@ class Keithley(Instrument):
         print('plc                = %fHz'  % self.get_plc())
         print('sense nplc         = %i'    % self.get_sense_nplc(channel=channel))
         print('status             = %r'    % self.get_status(channel=channel))
-        print('bias value         = %f%s'  % (self.get_bias_value(channel=channel), self._units[self.get_bias_mode(channel=channel)]))
-        print('sense value        = %f%s'  % (self.get_sense_value(channel=channel), self._units[self.get_sense_mode(channel=channel)]))
+        print('bias value         = %f%s'  % (self.get_bias_value(channel=channel), self._IV_units[self.get_bias_mode(channel=channel)]))
+        print('sense value        = %f%s'  % (self.get_sense_value(channel=channel), self._IV_units[self.get_sense_mode(channel=channel)]))
         #for err in self.get_error(): print('error\t\t   = %i\n\t\t     %s\n\t\t     %i' % (err[0], err[1], err[2]))
     
     
@@ -1094,6 +1181,22 @@ class Keithley(Instrument):
             logging.error(__name__ + ': Invalid input: cannot clear error')
     
     
+    def close(self):
+        '''
+        Closes the VISA-instrument to disconnect the instrument
+        
+        Input:
+            None
+        Output:
+            None
+        '''
+        try:
+            logging.debug(__name__ + ': Close VISA-instrument')
+            self._visainstrument.close()
+        except AttributeError:
+            logging.error(__name__ + ': Invalid input: cannot close VISA-instrument')
+    
+    
     ### OLD VERSION: sweep I, measure V of one channel
     """
     def set_sweep_parameters(self, sweep, channel=1):
@@ -1121,7 +1224,7 @@ class Keithley(Instrument):
         self._stop  = float(sweep[1])/self._dAdV#/self._R_conversion
         self._step  = float(sweep[2])/self._dAdV#/self._R_conversion
         self._nop = int((self._stop-self._start)/self._step+1)
-        self._write('smu%s.trigger.source.linear%s(%f, %f, %i)' % (chr(96+channel), self._smu_function[self.get_bias_mode(channel=channel)], self._start, self._stop, self._nop))
+        self._write('smu%s.trigger.source.linear%s(%f, %f, %i)' % (chr(96+channel), self._smu_command[self.get_bias_mode(channel=channel)], self._start, self._stop, self._nop))
         self._write('smu%s.trigger.source.action = 1' % chr(96+channel))
         self._write('smu%s.trigger.measure.action = 1' % chr(96+channel))
         self._write('smu%s.nvbuffer1.clear()' % chr(96+channel))
