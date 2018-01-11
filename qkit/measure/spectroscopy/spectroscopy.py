@@ -604,8 +604,8 @@ class spectrum(object):
                             """ measurement """
                             data_amp, data_pha = self.vna.get_tracedata()
 
-                       self._data_amp.append(data_amp)
-                       self._data_pha.append(data_pha)
+                        self._data_amp.append(data_amp)
+                        self._data_pha.append(data_pha)
                         if self._fit_resonator:
                             self._do_fit_resonator()
                         if self.progress_bar:

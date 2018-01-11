@@ -86,7 +86,7 @@ class transport(object):
         
         self.sweep = self.sweeps()
         
-        self._dVdI = False
+        self._dVdI = False              # adds dV/dI data series, views, ...
         self._Fraunhofer = False
         
         
@@ -205,7 +205,7 @@ class transport(object):
         return self._dVdI
     
     
-    def set_Fraunhofer(self, status=True):
+    def set_Fraunhofer(self, status=False):
         '''
         Sets the Fraunhofer parameter for the transport class, meaning weather critical current is calulated or not
         
@@ -238,8 +238,7 @@ class transport(object):
 
         #ttip.get_temperature() 
         # bias mode is either  current=0 or voltage=1
-        #self._bias_mode = self.IVD.get_bias_mode()
-        self._bias_mode = 1
+        self._pseudo_bias_mode = self.IVD.get_pseudo_bias_mode()
         #self._nop = self.IVD.get_nop()
         #self._sweeptime_averages = self.IVD.get_sweeptime_averages()
         #self._freqpoints = self.IVD.get_freqpoints()
@@ -284,31 +283,6 @@ class transport(object):
             for i in range(1, self.sweep.get_nos()):
                 IV.add(x=self._data_V[i],y=self._data_I[i])
                 if self._dVdI: dVdI.add(x=self._data_I[i],y=self._data_dVdI[i])
-            
-#            if self._bias_mode == 1:# current bias
-#                # add data variables
-#                for st in range(self.sweep.get_nos()):
-#                    self._data_V.append(self._data_file.add_value_vector('V_'+str(st), unit = 'V', save_timestamp = False))
-#                    self._data_I.append(self._data_file.add_value_vector('I_'+str(st), x = self._data_V[st], unit = 'A', save_timestamp = False))
-#                    if self._dVdI: self._data_dVdI.append(self._data_file.add_value_vector('dVdI_'+str(st), x = self._data_V[st], unit = 'V/A', save_timestamp = False))
-#                # add views
-#                IV   = self._data_file.add_view('IV', x = self._data_V[0], y = self._data_I[0])
-#                if self._dVdI: dVdI = self._data_file.add_view('dVdI', x = self._data_I[0] , y = self._data_dVdI[0])
-#                for i in range(1, self.sweep.get_nos()):
-#                    IV.add(x=self._data_V[i],y=self._data_I[i])
-#                    if self._dVdI: dVdI.add(x=self._data_I[i],y=self._data_dVdI[i])
-#            elif self._bias_mode == 2 : # pseudo voltage bias
-#                # add data variables
-#                for st in range(self.sweep.get_nos()):
-#                    self._data_V.append(self._data_file.add_value_vector('V_'+str(st), unit = 'V', save_timestamp = False))
-#                    self._data_I.append(self._data_file.add_value_vector('I_'+str(st), x = self._data_V[st], unit = 'A', save_timestamp = False))
-#                    if self._dVdI: self._data_dVdI.append(self._data_file.add_value_vector('dVdI_'+str(st), x = self._data_V[st], unit = 'V/A', save_timestamp = False))
-#                # add views
-#                IV   = self._data_file.add_view('IV', x = self._data_V[0], y = self._data_I[0])
-#                if self._dVdI: dVdI = self._data_file.add_view('dVdI', x = self._data_I[0] , y = self._data_dVdI[0])
-#                for i in range(1, self.sweep.get_nos()):
-#                    IV.add(x=self._data_V[i],y=self._data_I[i])
-#                    if self._dVdI: dVdI.add(x=self._data_I[i],y=self._data_dVdI[i])
 
         if self._scan_2D:
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit = self.x_unit)
@@ -415,24 +389,17 @@ class transport(object):
 
         qt.mstart()
         
+        if self.IVD.get_sweep_mode() == 0: self.IVD.set_stati(True)
+        elif self.IVD.get_sweep_mode() in [1, 2]: self.IVD.set_status(True)
         self.sweep.create_iterator()
-        self.IVD.set_stati(True)
         for st in range(self.sweep.get_nos()):
-            # bias mode 1: current 2: voltage   
-            data_bias, data_sense = self.IVD.take_IV(sweep=self.sweep.get_sweep())
-            if self._bias_mode == 1:
-                self._data_I[st].append(data_bias)
-                self._data_V[st].append(data_sense)
-                if self._dVdI: self._data_dVdI[st].append(np.array(np.gradient(data_sense))/np.array(np.gradient(data_bias)))
-            if self._bias_mode == 2:
-                self._data_I[st].append(data_sense)
-                self._data_V[st].append(data_bias)
-                if self._dVdI: self._data_dVdI[st].append(np.array(np.gradient(data_bias))/np.array(np.gradient(data_sense)))
-            #print(np.array(self._data_file['entry/data0/v_%i' % st]))
-            #print(np.array(self._data_file['entry/data0/i_%i' % st]))
-            #if self._dVdI: self._data_dVdI[st].append(np.array(np.gradient(np.array(self._data_file['entry/data0/v_%i' % st])))/np.array(np.gradient(np.array(self._data_file['entry/data0/i_%i' % st]))))
+            I_values, V_values = self.IVD.take_IV(sweep=self.sweep.get_sweep())
+            self._data_I[st].append(I_values)
+            self._data_V[st].append(V_values)
+            if self._dVdI: self._data_dVdI[st].append(np.array(np.gradient(V_values))/np.array(np.gradient(I_values)))
         # switch off source
-        self.IVD.set_stati(False)
+        if self.IVD.get_sweep_mode() == 0: self.IVD.set_stati(False)
+        elif self.IVD.get_sweep_mode() in [1, 2]: self.IVD.set_status(False)
         qt.mend()
         self._end_measurement()
 
@@ -535,7 +502,8 @@ class transport(object):
             """
             loop: x_obj with parameters from x_vec
             """
-            self.IVD.set_stati(True)
+            if self.IVD.get_sweep_mode() == 0: self.IVD.set_stati(True)
+            elif self.IVD.get_sweep_mode() in [1, 2]: self.IVD.set_status(True)
             for ix, x in enumerate(self.x_vec):
                 self.x_set_obj(x)
                 sleep(1)
@@ -550,29 +518,19 @@ class transport(object):
                     """ measurement """
                     self.sweep.create_iterator()
                     for st in range(self.sweep.get_nos()):
-                        data_bias, data_sense = self.IVD.take_IV(sweep=self.sweep.get_sweep())
-                        if self._bias_mode == 1:
-                            self._data_I[st].append(data_bias)
-                            self._data_V[st].append(data_sense)
-                            if self._dVdI: self._data_dVdI[st].append(np.array(np.gradient(data_sense))/np.array(np.gradient(data_bias)))
-                        elif self._bias_mode == 2:
-                            self._data_I[st].append(data_sense)
-                            self._data_V[st].append(data_bias)
-                            if self._dVdI: self._data_dVdI[st].append(np.array(np.gradient(data_bias))/np.array(np.gradient(data_sense)))
-                        #print(type(self._data_V[st]))
-                        #print(st, 'V', np.array(self._data_file['entry/data0/v_%i' % st])[0])
-                        #print(st, 'I', np.array(self._data_file['entry/data0/i_%i' % st]))
-                        #if self._dVdI: self._data_dVdI[st].append(np.array(np.gradient(np.array(self._data_file['entry/data0/v_%i' % st])[0]))/np.array(np.gradient(np.array(self._data_file['entry/data0/i_%i' % st]))))
-                        
+                        I_values, V_values = self.IVD.take_IV(sweep=self.sweep.get_sweep())
+                        self._data_I[st].append(I_values)
+                        self._data_V[st].append(V_values)
+                        if self._dVdI: self._data_dVdI[st].append(np.array(np.gradient(V_values))/np.array(np.gradient(I_values)))
                         if self._Fraunhofer:
                             self._IVC = IV_curve()
-                            self._data_Ic[st].append(self._IVC.get_Ic(V=data_sense, I=data_bias, direction=self.IVD.direction))
-                    
+                            self._data_Ic[st].append(self._IVC.get_Ic(V=V_values, I=I_values, direction=self.IVD.direction))
                     
                     #if self.progress_bar:
                     #    self._p.iterate()
                     qt.msleep()
-            self.IVD.set_stati(False)
+            if self.IVD.get_sweep_mode() == 0: self.IVD.set_stati(False)
+            elif self.IVD.get_sweep_mode() in [1, 2]: self.IVD.set_status(False)
         except Exception as e:
             print e.__doc__
             print e.message        

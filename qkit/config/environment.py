@@ -77,7 +77,11 @@ cfg['log_level'] =  'DEBUG' # one of ['WARNING', 'DEBUG', 'INFO', 'ERROR', 'CRIT
 ## 
 # we don't use qtlab anymore
 cfg['qtlab'] = False
-#cfg['qt_compatible'] = True # by default we try to be compatible anyway.
+
+##
+## Try to be compatible with QT lab 
+## (by default we try to be compatible for now)
+#cfg['qt_compatible'] = True 
 
 # !!!! depreciated 'qt' module !!!!
 # if qtlab is used (qt_cfg exists and qt_cfg['qtlab']): 

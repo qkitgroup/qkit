@@ -16,10 +16,12 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 from instrument import Instrument
-import visa
+from qkit import visa
 import logging
 import numpy
 import time
+from distutils.version import LooseVersion
+
 
 class Yokogawa(Instrument):
     '''
@@ -39,15 +41,23 @@ class Yokogawa(Instrument):
             address (string) : GPIB address
             reset (bool)     : resets to default values, default=False
         '''
-        
+        # Start VISA communication
         logging.info(__name__ + ' : Initializing instrument Yokogawa_GS820')
         Instrument.__init__(self, name, tags=['physical'])
-        
-        # Global constants
         self._address = address
         self._visainstrument = visa.instrument(self._address)
-        self._units = {'curr':'A', 'volt':'V'}
-        self._measurement_modes = ['2-wire', '4-wire']
+        
+        # Set termination characters (nessecarry for Ethernet communication)
+        if  LooseVersion(visa.__version__) < LooseVersion("1.5.0"):            # pyvisa 1.4
+            self._visainstrument.term_chars = ''
+        else:                                                                  # pyvisa 1.8
+            self._visainstrument.read_termination  = ''
+            self._visainstrument.write_termination = ''
+        
+        # Global constants
+        self._measurement_modes     = {0:'2-wire', 1:'4-wire'}
+        self._IV_modes              = {0:'curr', 1:'volt'}
+        self._IV_units              = {0:'A', 1:'V'}
         self._bias_status_register  = [('EOS1', 'CH1 End of Sweep'),
                                        ('RDY1', 'CH1 Ready for Sweep'),
                                        ('LL01', 'CH1 Low Limiting'),
@@ -80,13 +90,13 @@ class Yokogawa(Instrument):
                                        ('OVR2', 'CH2 Over Range'),
                                        ('EOT', 'End of Trace'),
                                        ('TSE', 'Trigger Sampling Error')]
+        
         # external measuremnt setup
-#       self._R_conversion = 107.8
         self._dAdV = 1
         self._dVdA = 1
         self._amp = 1
-        self._pseudo_bias_mode = 1
-        self._intrument_delay = 1e-2 # fixed to avoid sampling errors
+        self._sweep_mode = 0       # VV-mode
+        self._pseudo_bias_mode = 0 # current bias
         
         # Reset
         if reset: self.reset()
@@ -115,8 +125,8 @@ class Yokogawa(Instrument):
         Output:
             ans (str)
         '''
-        if '?' in msg: return self._visainstrument.ask(msg)
-        else: return self._visainstrument.ask('%s?' % msg)
+        if '?' in msg: return self._visainstrument.ask(msg).rstrip()
+        else: return self._visainstrument.ask('%s?' % msg).rstrip()
     
     
     def set_dAdV(self, val=1):
@@ -191,39 +201,56 @@ class Yokogawa(Instrument):
         return(self._amp)
     
     
-    def set_sync(self, val):
+    def set_sweep_mode(self, mode=0, **channels):
         '''
-        Sets the interchannel synchronization to <val>
-        (The first channel is always the "master", the second the "slave")
+        Sets an internal variable to decide weather voltage is both applied and measured (default), current is applied and voltage is measured or voltage is applied and current is measured.
+        VV-mode needs two different channels (bias channel <channel> and sense channel <channel2>), IV-mode and VI-mode only one (<channel>).
         
         Input:
-            val (bool) : 0 (off) | 1 (on)
+            mode (int) : 0 (VV-mode) (default) | 1 (IV-mode) | 2 (VI-mode)
+            **channels : channel  (int) : 1 (default) | 2
+                         channel2 (int) : 1 | 2 (default)
         Output:
             None
         '''
-        # Corresponding Command: :SYNChronize:CHANnel 1|0|ON|OFF
-        try:
-            logging.debug(__name__ + ': Set the channels in synchronized mode to %i' % val)
-            self._write(':sync:chan %i' % val)
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set the interchannel synchronization to %f' % val)
+        self._sweep_mode = mode
+        self.set_defaults(channel=channels.get('channel', 1), channel2=channels.get('channel2', 2))
     
     
-    def get_sync(self):
+    def get_sweep_mode(self):
         '''
-        Gets the interchannel synchronization
+        Gets an internal variable to decide weather voltage is both applied and measured (default), current is applied and voltage is measured or voltage is applied and current is measured.
         
         Input:
             None
         Output:
-            val (bool) : 0 (off) | 1 (on)
+            mode (int) : 0 (VV mode) | 1 (IV mode)
         '''
-        # Corresponding Command: :SYNChronize:CHANnel 1|0|ON|OFF
-        try:
-            logging.debug(__name__ + ': Get the channels in synchronized mode')
-            return bool(int(self._ask(':sync:chan')))
-        except ValueError:
-            logging.error(__name__ + ': Interchannel synchronization not specified:')
+        return self._sweep_mode
+    
+    
+    def set_pseudo_bias_mode(self, mode=0):
+        '''
+        Sets an internal variable to decide weather bias or sense values are converted to currents
+        
+        Input:
+            mode (int) : 0 (current bias) (default) | 1 (voltage bias)
+        Output:
+            None
+        '''
+        self._pseudo_bias_mode = mode
+    
+    
+    def get_pseudo_bias_mode(self):
+        '''
+        Gets an internal variable to decide weather bias or sense values are converted to currents
+        
+        Input:
+            None
+        Output:
+            mode (int) : 0 (current bias) | 1 (voltage bias)
+        '''
+        return self._pseudo_bias_mode
     
     
     def set_measurement_mode(self, val, channel=1):
@@ -261,28 +288,39 @@ class Yokogawa(Instrument):
             logging.error(__name__ + ': Measurement mode of channel %i not specified:' % channel)
     
     
-    def set_pseudo_bias_mode(self, mode):
+    def set_sync(self, val):
         '''
-        Sets an internal variable to decide weather bias or sense values are converted to currents
+        Sets the interchannel synchronization to <val>
+        (The first channel is always the "master", the second the "slave")
         
         Input:
-            mode (int) : 1 (current bias) | 2 (voltage bias)
+            val (bool) : 0 (off) | 1 (on)
         Output:
             None
         '''
-        self._pseudo_bias_mode = mode
+        # Corresponding Command: :SYNChronize:CHANnel 1|0|ON|OFF
+        try:
+            logging.debug(__name__ + ': Set the channels in synchronized mode to %i' % val)
+            self._write(':sync:chan %i' % val)
+        except AttributeError:
+            logging.error(__name__ + ': Invalid input: cannot set the interchannel synchronization to %f' % val)
     
     
-    def get_pseudo_bias_mode(self):
+    def get_sync(self):
         '''
-        Gets an internal variable to decide weather bias or sense values are converted to currents
+        Gets the interchannel synchronization
         
         Input:
             None
         Output:
-            mode (int) : 1 (current bias) | 2 (voltage bias)
+            val (bool) : 0 (off) | 1 (on)
         '''
-        return self._pseudo_bias_mode
+        # Corresponding Command: :SYNChronize:CHANnel 1|0|ON|OFF
+        try:
+            logging.debug(__name__ + ': Get the channels in synchronized mode')
+            return bool(int(self._ask(':sync:chan')))
+        except ValueError:
+            logging.error(__name__ + ': Interchannel synchronization not specified:')
     
     
     def set_bias_mode(self, mode, channel=1):
@@ -290,7 +328,7 @@ class Yokogawa(Instrument):
         Sets bias mode of channel <channel> to <mode> regime
         
         Input:
-            mode (str)    : 'volt' | 'curr'
+            mode (int)    : 0 (current) | 1 (voltage)
             channel (int) : 1 (default) | 2
         Output:
             None
@@ -298,7 +336,7 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SOURce:FUNCtion VOLTage|CURRent
         try:
             logging.debug(__name__ + ': Set bias mode of channel %i to %s' % (channel, mode))
-            self._write(':chan%i:sour:func %s' % (channel, mode))
+            self._write(':chan%i:sour:func %s' % (channel, self._IV_modes[mode]))
         except AttributeError:
             logging.error(__name__ + ': Invalid input: cannot set bias mode of channel %i to %s' % (channel, mode))
     
@@ -310,12 +348,12 @@ class Yokogawa(Instrument):
         Input:
             channel (int) : 1 (default) | 2
         Output:
-            mode (str)    : 'volt' | 'curr'
+            mode (int)    : 0 (current) | 1 (voltage)
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce:FUNCtion VOLTage|CURRent
         try:
             logging.debug(__name__ + ': get bias mode of channel %i' % channel)
-            return str(self._ask(':chan%i:sour:func' % channel).lower())
+            return int(self._IV_modes.keys()[self._IV_modes.values().index(self._ask(':chan%i:sour:func' % channel).lower())])
         except ValueError:
             logging.error(__name__ + ': Bias mode of channel %i not specified:' % channel)
     
@@ -325,7 +363,7 @@ class Yokogawa(Instrument):
         Sets sense mode of channel <channel> to <mode> regime
         
         Input:
-            mode (str)    : 'volt' | 'curr'
+            mode (int)    : 0 (current) | 1 (voltage)
             channel (int) : 1 (default) | 2
         Output:
             None
@@ -333,7 +371,7 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SENSe:FUNCtion VOLTage|CURRent
         try:
             logging.debug(__name__ + ': Set sense mode of channel %i to %s' % (channel, mode))
-            self._write(':chan%i:sens:func %s' % (channel, mode))
+            self._write(':chan%i:sens:func %s' % (channel, self._IV_modes[mode]))
         except AttributeError:
             logging.error(__name__ + ': Invalid input: cannot set sense mode of channel %i to %s' % (channel, mode))
     
@@ -350,7 +388,7 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SENSe:FUNCtion VOLTage|CURRent
         try:
             logging.debug(__name__ + ': Get sense mode of channel %i' % channel)
-            return str(self._ask(':chan%i:sens:func' % channel).lower())
+            return int(self._IV_modes.keys()[self._IV_modes.values().index(self._ask(':chan%i:sens:func' % channel).lower())])
         except ValueError:
             logging.error(__name__ + ': Sense mode of channel %i not specified:' % channel)
     
@@ -581,7 +619,8 @@ class Yokogawa(Instrument):
     
     def set_sense_average(self, val, channel=1):
         '''
-        Sets sense average of channel <channel> to <val>
+        Sets sense average of channel <channel> to <val>.
+        If <val> is less than 1 average status is turned off, but the set value remains.
         
         Input:
             val (int)
@@ -593,7 +632,7 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SENSe:AVERage:COUNt <integer>|MINimum|MAXimum
         try:
             logging.debug(__name__ + ': Set sense average of channel %i to %i' % (channel, val))
-            status = not(.5*(1-numpy.sign(val-1)))
+            status = not(.5*(1-numpy.sign(val-1)))                             # equals Heaviside(1-val) --> turns on for <val> >= 2
             self._write(':chan%i:sens:aver:stat %i' % (channel, status))
             if status: self._write(':chan%i:sens:aver:coun %i' % (channel, val))
         except AttributeError:
@@ -626,7 +665,7 @@ class Yokogawa(Instrument):
         Sets power line cycle (PLC) to <plc>
         
         Input:
-            plc (str) : 'auto' | 50 | 60
+            plc (int) : -1 (auto) | 50 | 60
         Output:
             None
         '''
@@ -634,8 +673,8 @@ class Yokogawa(Instrument):
         # Corresponding Command: :SYSTem:LFRequency:AUTO 1|0|ON|OFF
         try:
             logging.debug(__name__ + ': Set PLC to %s' % str(plc))
-            cmd = {'auto':':auto 1', '50':' 50', '60':' 60'}
-            self._write('syst:lfr%s' % cmd[str(plc)])
+            cmd = {-1:':auto 1', 50:' 50', 60:' 60'}
+            self._write('syst:lfr%s' % cmd.get(int(plc), cmd[-1]))
         except ValueError:
             logging.error(__name__ + ': PLC not specified:')
     
@@ -647,13 +686,13 @@ class Yokogawa(Instrument):
         Input:
             None
         Output:
-            plc (float) : 50 | 60
+            plc (int) : 50 | 60
         '''
         # Corresponding Command: :SYSTem:LFRequency 50|60
         # Corresponding Command: :SYSTem:LFRequency:AUTO 1|0|ON|OFF
         try:
             logging.debug(__name__ + ': Get PLC')
-            return float(self._ask('syst:lfr'))
+            return int(self._ask('syst:lfr'))
         except ValueError:
             logging.error(__name__ + ': PLC not specified:')
     
@@ -691,40 +730,6 @@ class Yokogawa(Instrument):
             return float(self._ask(':chan%i:sens:nplc' % channel))
         except ValueError:
             logging.error(__name__ + ': Number of PLC of channel %i not specified:' % channel)
-    
-    
-    def set_sense_integration_time(self, val, channel=1):
-        '''
-        Sets get sense integration time of channel <channel> to <val>
-        
-        Input:
-            val (float)   : integer multiples of PLC (2e-2 @ 50Hz)
-            channel (int) : 1 (default) | 2
-        Output:
-            None
-        '''
-        try:
-            logging.debug(__name__ + ': Set sense integration time of channel %i to %f' % (channel, val))
-            nplc = int(val*self.get_plc())
-            self.set_sense_nplc(val=nplc, channel=channel) 
-        except ValueError:
-            logging.error(__name__ + ': Sense integrarion time of channel %i not specified:' % channel)
-    
-    
-    def get_sense_integration_time(self, channel=1):
-        '''
-        Gets get sense integration time of channel <channel>
-        
-        Input:
-            None
-        Output:
-            val (float)
-        '''
-        try:
-            logging.debug(__name__ + ': Get sense integration time of channel %i' % channel)
-            return self.get_sense_nplc(channel=channel)/self.get_plc()
-        except ValueError:
-            logging.error(__name__ + ': Sense integration time not specified:')
     
     
     def set_status(self, status, channel=1):
@@ -854,9 +859,9 @@ class Yokogawa(Instrument):
         Output:
             None
         '''
-        if self.get_bias_mode(channel) == 'volt':
+        if self.get_bias_mode(channel) == 1:                                   # voltage bias
             return self.set_bias_value(val, channel)
-        elif self.get_bias_mode(channel) == 'curr':
+        elif self.get_bias_mode(channel) == 0:                                 # current bias
             logging.error(__name__ + ': Cannot set voltage value of channel %i: in the current bias' % channel)
     
     
@@ -869,9 +874,9 @@ class Yokogawa(Instrument):
         Output:
             val (float)
         '''
-        if self.get_bias_mode(channel) == 'volt': 
+        if self.get_bias_mode(channel) == 1:                                   # voltage bias
             return self.get_bias_value(channel)
-        elif self.get_sense_mode(channel) == 'volt':
+        elif self.get_sense_mode(channel) == 1:                                # voltage sense
             return self.get_sense_value(channel)
         else:
             logging.error(__name__ + ': Cannot get voltage value of channel %i: neihter bias nor sense in voltage mode' % channel)
@@ -887,9 +892,9 @@ class Yokogawa(Instrument):
         Output:
             None
         '''
-        if self.get_bias_mode(channel) == 'curr':
+        if self.get_bias_mode(channel) == 0:                                   # current bias
             return self.set_bias_value(val, channel)
-        elif self.get_bias_mode(channel) == 'volt':
+        elif self.get_bias_mode(channel) == 1:                                 # voltage bias
             logging.error(__name__ + ': Cannot set current value of channel %i: in the voltage bias' % channel)
     
     
@@ -902,9 +907,9 @@ class Yokogawa(Instrument):
         Output:
             val (float)
         '''
-        if self.get_bias_mode(channel) == 'curr':
+        if self.get_bias_mode(channel) == 0:                                   # current bias
             return self.get_bias_value(channel)
-        elif self.get_sense_mode(channel) == 'curr':
+        elif self.get_sense_mode(channel) == 0:                                # current sense
             return self.get_sense_value(channel)
         else:
             logging.error(__name__ + ': Cannot get current value of channel %i: neihter bias nor sense in current mode' % channel)
@@ -924,8 +929,8 @@ class Yokogawa(Instrument):
         '''
         start = self.get_current(channel=channel)
         if (stop < start): step = -step
-        for I in numpy.arange(start, stop, step)+step:
-            self.set_current(I, channel=channel)
+        for val in numpy.arange(start, stop, step)+step:
+            self.set_current(val, channel=channel)
             time.sleep(step_time)
     
     
@@ -943,7 +948,7 @@ class Yokogawa(Instrument):
         try:
             logging.debug(__name__ + ': Set sweep start of channel %i to %f' % (channel, val))
             #self._write(':chan%i:sour:swe:star %f' % (channel, val))
-            self._write(':chan%i:sour:%s:swe:star %f' % (channel, self.get_bias_mode(channel), val))
+            self._write(':chan%i:sour:%s:swe:star %f' % (channel, self._IV_modes[self.get_bias_mode(channel)], val))
         except AttributeError:
             logging.error(__name__ + ': Invalid input: cannot set sweep start of channel %i to %f' % (channel, val))
     
@@ -960,7 +965,7 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
         try:
             logging.debug(__name__ + ': Get sweep start of channel %i' % channel)
-            return float(self._ask(':chan%i:sour:%s:swe:star' % (channel, self.get_bias_mode(channel))))
+            return float(self._ask(':chan%i:sour:%s:swe:star' % (channel, self._IV_modes[self.get_bias_mode(channel)])))
             #return float(self._ask(':chan%i:sour:swe:star' % channel))
         except ValueError:
             logging.error(__name__ + ': Sweep start of channel %i not specified:' % channel)
@@ -979,7 +984,7 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
         try:
             logging.debug(__name__ + ': Set sweep stop of channel %i to %f' % (channel, val))
-            self._write(':chan%i:sour:%s:swe:stop %f' % (channel, self.get_bias_mode(channel), val))
+            self._write(':chan%i:sour:%s:swe:stop %f' % (channel, self._IV_modes[self.get_bias_mode(channel)], val))
             #self._write(':chan%i:sour:swe:stop %f' % (channel, val))
         except AttributeError:
             logging.error(__name__ + ': Invalid input: cannot set sweep stop of channel %i to %f' % (channel, val))
@@ -997,7 +1002,7 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
         try:
             logging.debug(__name__ + ': Get sweep stop of channel %i' % channel)
-            return float(self._ask(':chan%i:sour:%s:swe:stop' % (channel, self.get_bias_mode(channel))))
+            return float(self._ask(':chan%i:sour:%s:swe:stop' % (channel, self._IV_modes[self.get_bias_mode(channel)])))
             #return float(self._ask(':chan%i:sour:swe:stop' % channel))
         except ValueError:
             logging.error(__name__ + ': Sweep stop of channel %i not specified:' % channel)
@@ -1016,7 +1021,7 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
         try:
             logging.debug(__name__ + ': Set sweep step of channel %i to %f' % (channel, val))
-            self._write(':chan%i:sour:%s:swe:step %f' % (channel, self.get_bias_mode(channel), val))
+            self._write(':chan%i:sour:%s:swe:step %f' % (channel, self._IV_modes[self.get_bias_mode(channel)], val))
             #self._write(':chan%i:sour:swe:step %f' % (channel, val))
         except AttributeError:
             logging.error(__name__ + ': Invalid input: cannot set sweep step of channel %i to %f' % (channel, val))
@@ -1034,44 +1039,10 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
         try:
             logging.debug(__name__ + ': Get sweep step of channel %i' % channel)
-            return float(self._ask(':chan%i:sour:%s:swe:step' % (channel, self.get_bias_mode(channel))))
+            return float(self._ask(':chan%i:sour:%s:swe:step' % (channel, self._IV_modes[self.get_bias_mode(channel)])))
             #return float(self._ask(':chan%i:sour:swe:step' % channel))
         except ValueError:
             logging.error(__name__ + ': Sweep step of channel %i not specified:' % channel)
-    
-    
-    def set_sweep_step_time(self, val, trigger='tim1', channel=1):
-        '''
-        Sets bias trigger to <trigger> of channel <channel> with sweep step time <val>
-        
-        Input:
-            val (float)
-            trigger (str) : 'tim1' | 'tim2'
-            channel (int) : 1 (default) | 2
-        Output:
-            None
-        '''
-        try:
-            logging.debug(__name__ + ': Set step time (trigger %i) of channel %s to %f' % (channel, trigger, val))
-            self.set_bias_trigger(mode=trigger, channel=channel, time=val)
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set sweep step time of channel %i to %f' % (channel, val))
-    
-    
-    def get_sweep_step_time(self, channel=1):
-        '''
-        Gets sweep step time if bias trigger of channel <channel> is 'timer'
-        
-        Input:
-            channel (int) : 1 (default) | 2
-        Output:
-            val (float)
-        '''
-        try:
-            logging.debug(__name__ + ': get step time (trigger tim%i) of channel %i' % (channel, channel))
-            if self.get_bias_trigger(channel=channel).lower()[0:3] == 'tim': return(float(self._ask(':trig:%s' % self.get_bias_trigger(channel=channel))))
-        except ValueError:
-            logging.error(__name__ + ': Sweep step time of channel %i not specified:' % channel)
     
     
     def get_sweep_nop(self, channel=1):
@@ -1090,7 +1061,7 @@ class Yokogawa(Instrument):
             logging.error(__name__ + ': Sweep nop of channel %i not specified:' % channel)
     
     
-    def get_sweep_time(self, channel=1):
+    def get_sweeptime(self, channel=1):
         '''
         Gets sweep time of channel <channel>
         
@@ -1101,88 +1072,130 @@ class Yokogawa(Instrument):
         '''
         try:
             logging.debug(__name__ + ': Get sweep time of channel %i' % channel)
-            return float(self.get_sweep_step_time(channel=channel)*(self.get_sweep_nop(channel=channel)-1))
+            return float((self.get_nplc(channel=channel)/self.get_plc(channel=channel)+self.get_bias_delay(channel=channel)+self.get_sense_delay(channel=channel))*(self.get_sweep_nop(channel=channel)-1))
         except ValueError:
             logging.error(__name__ + ': Sweep time of channel %i not specified:' % channel)
     
     
-    def set_sweep_parameters(self, sweep, channel_bias=1, channel_sense=2):
+    def set_sweep_parameters(self, sweep, channel=1, channel2=2):
         '''
-        Sets sweep parameters <sweep> and prepares instrument
+        Sets sweep parameters <sweep> and prepares instrument for VV-mode or IV-mode.
+        VV-mode needs two different channels (bias channel <channel> and sense channel <channel2>), IV-mode and VI-mode only one (<channel>).
         
         Input:
-            sweep obj(float)    : start, stop, step
-            channel_bias (int)  : 1 (default) | 2
-            channel_sense (int) : 1 | 2 (default)
+            sweep obj(float) : start, stop, step
+            channel (int)    : 1 (default) | 2
+            channel2 (int)   : 1 | 2 (default)
         Output:
             None
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce:MODE FIXed|SWEep|LIST|SINGle
+        # Corresponding Command: [:CHANnel<n>]:SWEep:TRIGger EXTernal|AUXiliary|TIMer1|TIMer2|SENSe
         # Corresponding Command: :TRACe:POINts <integer>|MINimum|MAXimum
         # Corresponding Command: :TRACe:CHANnel<n>:DATA:FORMat ASCii|BINary
         # Corresponding Command: :TRACe:BINary:REPLy BINary|ASCii
         # Corresponding Command: :TRACe[:STATe] 1|0|ON|OFF
-        self.direction = numpy.sign(sweep[1]-sweep[0])
-        if self._pseudo_bias_mode == 1:     # current bias
-            self.set_sweep_start(val=float(sweep[0])/self._dAdV, channel=channel_bias)
-            self.set_sweep_stop(val=float(sweep[1])/self._dAdV, channel=channel_bias)
-            self.set_sweep_step(val=numpy.abs(float(sweep[2]))/self._dAdV, channel=channel_bias) 
-        if self._pseudo_bias_mode == 2:     # voltage bias
-            self.set_sweep_start(val=float(sweep[0])/self._amp, channel=channel_bias)
-            self.set_sweep_stop(val=float(sweep[1])/self._amp, channel=channel_bias)    
-            self.set_sweep_step(val=numpy.abs(float(sweep[2]))/self._amp, channel=channel_bias)
-        avg = self.get_sense_average(channel=channel_bias)
-        self._step_time = 2.1*self.get_sense_integration_time(channel=channel_bias)*(int(avg[0])*avg[1]+int(not avg[0]))+2.*self.get_sense_delay(channel=channel_bias)+self._intrument_delay
-        self.set_sweep_step_time(val=self._step_time, trigger='tim1', channel=channel_bias)
-        self.set_sense_trigger(mode='sour', channel=channel_sense)
-        self.set_bias_value(val=self.get_sweep_start(channel=channel_bias), channel=channel_bias)
-        self._write(':chan%i:sour:mode swe' % channel_bias)
-        self._write(':trac:poin max')  # alternative: self._write(':trac:poin %i' % self.get_sweep_nop(channel=channel))
-        self._write(':trac:chan%i:data:form asc' % channel_sense)
-        self._write(':trac:bin:repl asc')
-        self.set_sync(True)
+        if self._sweep_mode == 0:                                              # VV-mode
+            try:
+                if self._pseudo_bias_mode == 0:     # current bias
+                    self.set_sweep_start(val=float(sweep[0])/self._dAdV, channel=channel)
+                    self.set_sweep_stop(val=float(sweep[1])/self._dAdV, channel=channel)
+                    self.set_sweep_step(val=numpy.abs(float(sweep[2]))/self._dAdV, channel=channel) 
+                if self._pseudo_bias_mode == 1:     # voltage bias
+                    self.set_sweep_start(val=float(sweep[0])/self._amp, channel=channel)
+                    self.set_sweep_stop(val=float(sweep[1])/self._amp, channel=channel)    
+                    self.set_sweep_step(val=numpy.abs(float(sweep[2]))/self._amp, channel=channel)
+                self.set_bias_trigger(mode='sens', channel=channel)
+                self.set_sense_trigger(mode='sour', channel=channel2)
+                self.set_bias_value(val=self.get_sweep_start(channel=channel), channel=channel)
+                self._write(':chan%i:sour:mode swe' % channel)
+                self._write(':chan%i:swe:trig ext' % channel)
+                self._write(':trac:poin max')  # alternative: self._write(':trac:poin %i' % self.get_sweep_nop(channel=channel))
+                self._write(':trac:chan%i:data:form asc' % channel2)
+                self._write(':trac:bin:repl asc')
+                self.set_sync(True)
+            except:
+                logging.error(__name__ + ': Cannot set sweep parameters od channel % i and %i.' % (channel, channel2))
+        elif self._sweep_mode in [1, 2]:                                       # IV-mode or VI-mode
+            try:
+                self.set_sweep_start(val=float(sweep[0]), channel=channel)
+                self.set_sweep_stop(val=float(sweep[1]), channel=channel)
+                self.set_sweep_step(val=numpy.abs(float(sweep[2])), channel=channel)
+                self.set_bias_trigger(mode='sens', channel=channel)
+                self.set_sense_trigger(mode='sour', channel=channel)
+                self.set_bias_value(val=self.get_sweep_start(channel=channel), channel=channel)
+                self._write(':chan%i:sour:mode swe' % channel)
+                self._write(':chan%i:swe:trig ext' % channel)
+                self._write(':trac:poin max')  # alternative: self._write(':trac:poin %i' % self.get_sweep_nop(channel=channel))
+                self._write(':trac:chan%i:data:form asc' % channel)
+                self._write(':trac:bin:repl asc')
+            except:
+                logging.error(__name__ + ': Cannot set sweep parameters of channel %i' % channel)
     
     
-    def get_tracedata(self, channel_bias=1, channel_sense=2):
+    def get_tracedata(self, channel=1, channel2=2):
         '''
-        Starts bias sweep of channel <channel_bias> and gets trace data of channel <channel_sense>
+        Starts bias sweep and gets trace data in the VV-mode or IV-mode.
+        VV-mode needs two different channels (bias channel <channel> and sense channel <channel2>), IV-mode and VI-mode only one (<channel>).
         
         Input:
-            channel_bias (int)  : 1 (default) | 2
-            channel_sense (int) : 1 | 2 (default)
+            channel (int)    : 1 (default) | 2
+            channel2 (int)   : 1 | 2 (default)
         Output:
-            bias_values (numpy.array(float))
-            sense_values (numpy.array(float))
+            I_values (numpy.array(float))
+            V_values (numpy.array(float))
         '''
         # Corresponding Command: [:CHANnel<n>]:INITiate [DUAL]
         # Corresponding Command: :STARt
         # Corresponding Command: :TRACe[:STATe] 1|0|ON|OFF
         # Corresponding Command: :TRACe:CHANnel<n>:DATA:READ? [TM|DO|DI|SF|SL|MF|ML|LC|HC|CP]
-        try:
-            self._write(':chan%i:init' % channel_bias)
-            self._wait_for_ready_for_sweep(channel=channel_bias)
-            self._write(':trac:stat 1')
-            self._wait_for_OPC()
-            self._write(':star')
-            self._wait_for_end_of_sweep(channel=channel_bias)
-            time.sleep(self.get_sense_delay(channel=channel_sense))
-            self._wait_for_end_of_measure(channel=channel_sense)
-            self._write(':trac:stat 0')
-            if self._pseudo_bias_mode == 1:     # current bias
-                bias_values  = numpy.fromstring(string=self._ask('trac:chan%i:data:read? sl' % channel_bias), dtype=float, sep=',')*self._dAdV
-                sense_values = numpy.fromstring(string=self._ask('trac:chan%i:data:read? ml' % channel_sense), dtype=float, sep=',')/self._amp
-            if self._pseudo_bias_mode == 2:     # voltage bias
-                bias_values  = numpy.fromstring(string=self._ask('trac:chan%i:data:read? sl' % channel_bias), dtype=float, sep=',')*self._amp
-                sense_values = numpy.fromstring(string=self._ask('trac:chan%i:data:read? ml' % channel_sense), dtype=float, sep=',')/self._dAdV
-            return bias_values, sense_values
-        except:
-            logging.error(__name__ + ': Cannot take sweep of channel %i:' % channel_bias)
+        if self._sweep_mode == 0:                                              # VV-mode
+            try:
+                self._write(':chan%i:init' % channel)
+                self._wait_for_ready_for_sweep(channel=channel)
+                self._write(':trac:stat 1')
+                self._wait_for_OPC()
+                time.sleep(100e-6)
+                self._write(':star')
+                self._wait_for_end_of_sweep(channel=channel)
+                time.sleep(self.get_sense_delay(channel=channel2))
+                self._wait_for_end_of_measure(channel=channel2)
+                self._write(':trac:stat 0')
+                if self._pseudo_bias_mode == 0:     # current bias
+                    I_values = numpy.fromstring(string=self._ask('trac:chan%i:data:read? sl' % channel),  dtype=float, sep=',')*self._dAdV
+                    V_values = numpy.fromstring(string=self._ask('trac:chan%i:data:read? ml' % channel2), dtype=float, sep=',')/self._amp
+                if self._pseudo_bias_mode == 1:     # voltage bias
+                    V_values = numpy.fromstring(string=self._ask('trac:chan%i:data:read? sl' % channel),  dtype=float, sep=',')*self._amp
+                    I_values = numpy.fromstring(string=self._ask('trac:chan%i:data:read? ml' % channel2), dtype=float, sep=',')/self._dAdV
+                return I_values, V_values
+            except:
+                logging.error(__name__ + ': Cannot take sweep data of channel % i and %i.' % (channel, channel2))
+        elif self._sweep_mode in [1, 2]:                                       # IV-mode or VI-mode
+            try:
+                self._write(':chan%i:init' % channel)
+                self._wait_for_ready_for_sweep(channel=channel)
+                self._write(':trac:stat 1')
+                self._wait_for_OPC()
+                self._write(':star')
+                self._wait_for_end_of_sweep(channel=channel)
+                time.sleep(self.get_sense_delay(channel=channel))
+                self._wait_for_end_of_measure(channel=channel)
+                self._write(':trac:stat 0')
+                if self._sweep_mode == 1:                                      # IV-mode
+                    I_values = numpy.array([float(val) for val in self._ask('trac:chan%i:data:read? sl' % channel).split(',')])
+                    V_values = numpy.array([float(val) for val in self._ask('trac:chan%i:data:read? ml' % channel).split(',')])
+                if self._sweep_mode == 2:                                      # VI-mode
+                    V_values = numpy.array([float(val) for val in self._ask('trac:chan%i:data:read? sl' % channel).split(',')])
+                    I_values = numpy.array([float(val) for val in self._ask('trac:chan%i:data:read? ml' % channel).split(',')])
+                return I_values, V_values
+            except:
+                logging.error(__name__ + ': Cannot take sweep of channel %i:' % channel)
     
-
-    def take_IV(self, sweep, channel_bias=1, channel_sense=2):
+   
+    def take_IV(self, sweep, channel=1, channel2=2):
         '''
-        Takes IV curve with sweep parameters <sweep> in doing a bias sweep of channel
-        <channel_bias> and measure data of channel <channel_sense>
+        Takes IV curve with sweep parameters <sweep> in the VV-mode or IV-mode.
+        VV-mode needs two different channels (bias channel <channel> and sense channel <channel2>), IV-mode and VI-mode only one (<channel>).
         
         Input:
             sweep obj(float): start, stop, step
@@ -1192,8 +1205,12 @@ class Yokogawa(Instrument):
             bias_values (numpy.array(float))
             sense_values (numpy.array(float))
         '''
-        self.set_sweep_parameters(sweep=sweep, channel_bias=channel_bias, channel_sense=channel_sense)
-        return self.get_tracedata(channel_bias=channel_bias, channel_sense=channel_sense)
+        if self._sweep_mode == 0:                                              # VV-mode
+            self.set_sweep_parameters(sweep=sweep, channel=channel, channel2=channel2)
+            return self.get_tracedata(channel=channel, channel2=channel2)
+        elif self._sweep_mode in [1, 2]:                                       # IV-mode or VI-mode
+            self.set_sweep_parameters(sweep=sweep, channel=channel)
+            return self.get_tracedata(channel=channel)
     
     
     def get_bias_status_register(self):
@@ -1421,28 +1438,54 @@ class Yokogawa(Instrument):
             time.sleep(1e-3)
     
     
-    def set_defaults(self):
+    def set_defaults(self, channel=1, channel2=2):
+        '''
+        Sets default settings for different sweep modes.
+        VV-mode needs two different channels (bias channel <channel> and sense channel <channel2>), IV-mode and VI-mode only one (<channel>).
+        
+        Input:
+            channel (int) : 1 (default) | 2
+        Output:
+            None
+        '''
         self._write(':syst:beep 0')
-        self.set_measurement_mode(False, channel=1)
-        self.set_measurement_mode(False, channel=2)
-        self.set_bias_mode('volt', channel=1)
-        self.set_sense_mode('volt', channel=1)
-        self.set_bias_mode('curr', channel=2)
-        self.set_sense_mode('volt', channel=2)
-        self.set_bias_range(-1, channel=1)
-        self.set_sense_range(-1, channel=1)
-        self.set_bias_range(-1, channel=2)
-        self.set_sense_range(18, channel=2)
-        self.set_bias_delay(val=15e-6, channel=1)
-        self.set_bias_delay(val=15e-6, channel=2)
-        self.set_sense_delay(val=15e-6, channel=1)
-        self.set_sense_delay(val=15e-6, channel=2)
-        self.set_sense_nplc(val=1, channel=1)
-        self.set_sense_nplc(val=1, channel=2)
-        self.set_sense_average(val=1, channel=1)
-        self.set_sense_average(val=1, channel=2)
-        self._write('chan1:sens:zero:auto 0')
-        self._write('chan2:sens:zero:auto 0')
+        if self._sweep_mode == 0:                                              # VV-mode
+            for chan in [channel, channel2]: self.set_measurement_mode(val=0, channel=chan)
+            for chan in [(channel, 1), (channel2,0)]: self.set_bias_mode(mode=chan[1], channel=chan[0])
+            for chan in [channel, channel2]: self.set_sense_mode(mode=1, channel=chan)
+            for chan in [channel, channel2]: self.set_bias_range(val=-1, channel=chan)
+            for chan in [(channel, -1), (channel2, 18)]: self.set_sense_range(val=chan[1], channel=chan[0])
+            for chan in [channel, channel2]: self.set_bias_delay(val=200e-6, channel=chan)
+            for chan in [channel, channel2]: self.set_sense_delay(val=15e-6, channel=chan)
+            for chan in [channel, channel2]: self.set_sense_nplc(val=1, channel=chan)
+            for chan in [channel, channel2]: self.set_sense_average(val=1, channel=chan)
+            for chan in [channel, channel2]: self._write('chan%i:sens:zero:auto 0' % chan)
+        elif self._sweep_mode == 1:                                            # IV-mode
+            self.set_measurement_mode(val=1, channel=channel)
+            self.set_bias_mode(mode=0, channel=channel)
+            self.set_sense_mode(mode=1, channel=channel)
+            self.set_bias_range(val=200e-3, channel=channel)
+            self.set_sense_range(val=-1, channel=channel)
+            self.set_bias_trigger(mode='sens', channel=channel)
+            self.set_sense_trigger(mode='sour', channel=channel)
+            self.set_bias_delay(val=200e-6, channel=channel)
+            self.set_sense_delay(val=15e-6, channel=channel)
+            self.set_sense_nplc(1)
+            self.set_sense_average(1)
+            self._write('chan%i:sens:zero:auto 0' % channel)
+        elif self._sweep_mode == 2:                                            # VI-mode
+            self.set_measurement_mode(val=1, channel=channel)
+            self.set_bias_mode(mode=1, channel=channel)
+            self.set_sense_mode(mode=0, channel=channel)
+            self.set_bias_range(val=200e-3, channel=channel)
+            self.set_sense_range(val=-1, channel=channel)
+            self.set_bias_trigger(mode='sens', channel=channel)
+            self.set_sense_trigger(mode='sour', channel=channel)
+            self.set_bias_delay(val=200e-6, channel=channel)
+            self.set_sense_delay(val=15e-6, channel=channel)
+            self.set_sense_nplc(1)
+            self.set_sense_average(1)
+            self._write('chan%i:sens:zero:auto 0' % channel)
     
     
     def get_all(self, channel=1):
@@ -1454,16 +1497,15 @@ class Yokogawa(Instrument):
         Output:
             None
         '''
-        #print('R_conversion       = %3.1f' % self.get_R_conversion())
         print('dAdV               = %eA/V' % self.get_dAdV())
         print('dVdA               = %eV/A' % self.get_dVdA())
         print('amplification      = %e'    % self.get_amp())
         print('synchronization    = %r'    % self.get_sync())
         print('measurement mode   = %s'    % self._measurement_modes[self.get_measurement_mode(channel=channel)])
-        print('bias mode          = %s'    % self.get_bias_mode(channel=channel))
-        print('sense mode         = %s'    % self.get_sense_mode(channel=channel))
-        print('bias range         = %e%s'  % (self.get_bias_range(channel=channel), self._units[self.get_bias_mode(channel=channel)]))
-        print('sense range        = %e%s'  % (self.get_sense_range(channel=channel), self._units[self.get_sense_mode(channel=channel)]))
+        print('bias mode          = %s'    % self._IV_modes[self.get_bias_mode(channel=channel)])
+        print('sense mode         = %s'    % self._IV_modes[self.get_sense_mode(channel=channel)])
+        print('bias range         = %e%s'  % (self.get_bias_range(channel=channel), self._IV_units[self.get_bias_mode(channel=channel)]))
+        print('sense range        = %e%s'  % (self.get_sense_range(channel=channel), self._IV_units[self.get_sense_mode(channel=channel)]))
         print('bias trigger       = %s'    % self.get_bias_trigger(channel=channel))
         print('sense trigger      = %s'    % self.get_sense_trigger(channel=channel))
         print('bias delay         = %es'   % self.get_bias_delay(channel=channel))
@@ -1471,23 +1513,20 @@ class Yokogawa(Instrument):
         print('sense average      = %i'    % self.get_sense_average(channel=channel)[1])
         print('plc                = %fHz'  % self.get_plc())
         print('sense nplc         = %i'    % self.get_sense_nplc(channel=channel))
-        print('get sense int time = %fs'   % self.get_sense_integration_time(channel=channel))
         print('status             = %r'    % self.get_status(channel=channel))
-        print('bias value         = %f%s'  % (self.get_bias_value(channel=channel), self._units[self.get_bias_mode(channel=channel)]))
-        print('sense value        = %f%s'  % (self.get_sense_value(channel=channel), self._units[self.get_sense_mode(channel=channel)]))
-        print('sweep start        = %f%s'  % (self.get_sweep_start(channel=channel), self._units[self.get_bias_mode(channel=channel)]))
-        print('sweep stop         = %f%s'  % (self.get_sweep_stop(channel=channel), self._units[self.get_bias_mode(channel=channel)]))
-        print('sweep step         = %f%s'  % (self.get_sweep_step(channel=channel), self._units[self.get_bias_mode(channel=channel)]))
-        print('sweep step time    = %fs'   % self.get_sweep_step_time(channel=channel))
+        print('bias value         = %f%s'  % (self.get_bias_value(channel=channel), self._IV_units[self.get_bias_mode(channel=channel)]))
+        print('sense value        = %f%s'  % (self.get_sense_value(channel=channel), self._IV_units[self.get_sense_mode(channel=channel)]))
+        print('sweep start        = %f%s'  % (self.get_sweep_start(channel=channel), self._IV_units[self.get_bias_mode(channel=channel)]))
+        print('sweep stop         = %f%s'  % (self.get_sweep_stop(channel=channel), self._IV_units[self.get_bias_mode(channel=channel)]))
+        print('sweep step         = %f%s'  % (self.get_sweep_step(channel=channel), self._IV_units[self.get_bias_mode(channel=channel)]))
         print('sweep nop          = %i'    % self.get_sweep_nop(channel=channel))
-        print('sweep time         = %fs'   % self.get_sweep_time(channel=channel))
         for err in self.get_error(): print('error              = %i\t%s' % (err[0], err[1]))
         currBSR = self.get_bias_status_register()
         BSR = [('\n\t%s:\t%r\t(%s)' % (bsr[0], currBSR[i], bsr[1])) for i, bsr in enumerate(self._bias_status_register) if bsr != ('', '')]
-        print 'Bias statur register:'+''.join(BSR)
+        print 'Bias status register:'+''.join(BSR)
         currSSR = self.get_sense_status_register()
         SSR = [('\n\t%s:\t%r\t(%s)' % (ssr[0], currSSR[i], ssr[1])) for i, ssr in enumerate(self._sense_status_register) if ssr != ('', '')]
-        print 'Bias statur register:'+''.join(SSR)
+        print 'Bias status register:'+''.join(SSR)
     
     
     def reset(self):
@@ -1546,130 +1585,107 @@ class Yokogawa(Instrument):
             logging.error(__name__ + ': Invalid input: cannot clear error')
     
     
+    def close(self):
+        '''
+        Closes the VISA-instrument to disconnect the instrument
+        
+        Input:
+            None
+        Output:
+            None
+        '''
+        try:
+            logging.debug(__name__ + ': Close VISA-instrument')
+            self._visainstrument.close()
+        except AttributeError:
+            logging.error(__name__ + ': Invalid input: cannot close VISA-instrument')
+    
+    
+    def ready(self, channel_bias=1, channel_sense=2):
+        '''
+        This is a proxy function, returning True when the IVD has finished the sweep
+        
+        Input:
+            None
+        Output:
+            ready (bool)
+        '''
+        return self.is_end_of_sweep(channel=channel_bias)
+        '''
+        if self.is_end_of_sweep(channel=channel_bias):
+            time.sleep(self.get_sense_delay(channel=channel_sense))
+            self._wait_for_end_of_measure(channel=channel_sense)
+            return True
+        else:
+            return False
+        '''
+    
     
     
     ### OLD VERSION: sweep I, measure V of one channel
     """
-    def set_R_conversion(self, val=1):
-        '''
-        Sets current-voltage conversion resistance to <val>
-        
-        Input:
-            val (float)
-        Output:
-            None
-        '''
-        self._R_conversion = val
-    
-    def get_R_conversion(self):
-        '''
-        Gets current-voltage conversion resistance
-        
-        Input:
-            None
-        Output:
-            val (float)
-        '''
-        return(self._R_conversion)
-    
-    def set_sweep_parameters(self, sweep, channel=1):
-        '''
-        Sets sweep parameters <sweep> and prepares instrument
-        
-        Input:
-            sweep obj(float): start, stop, step
-            channel (int): 1 | 2
-        Output:
-            None
-        '''
-        # Corresponding Command: [:CHANnel<n>]:SOURce:MODE FIXed|SWEep|LIST|SINGle
-        # Corresponding Command: :TRACe:POINts <integer>|MINimum|MAXimum
-        # Corresponding Command: :TRACe:CHANnel<n>:DATA:FORMat ASCii|BINary
-        # Corresponding Command: :TRACe:BINary:REPLy BINary|ASCii
-        # Corresponding Command: :TRACe[:STATe] 1|0|ON|OFF
-        self._direction = numpy.sign(float(sweep[2]))
-        self.set_sweep_start(val=float(sweep[0])/self._dAdV/self._R_conversion, channel=channel)
-        self.set_sweep_stop(val=float(sweep[1])/self._dAdV/self._R_conversion, channel=channel)
-        self.set_sweep_step(val=numpy.abs(float(sweep[2]))/self._dAdV/self._R_conversion, channel=channel)
-        avg = self.get_sense_average(channel=channel)
-        self._step_time = self.get_sense_integration_time(channel=channel)*(int(avg[0])*avg[1]+int(not avg[0]))+2.*self.get_sense_delay(channel=channel)+self._intrument_delay
-        self.set_sweep_step_time(val=self._step_time, trigger='tim1', channel=channel)
-        self.set_sense_trigger(mode='sour', channel=channel)
-        self.set_bias_value(val=self.get_sweep_start(channel=channel), channel=channel)
-        self._write(':chan%i:sour:mode swe' % channel)
-        self._write(':trac:poin max')  # alternative: self._write(':trac:poin %i' % self.get_sweep_nop(channel=channel))
-        self._write(':trac:chan%i:data:form asc' % channel)
-        self._write(':trac:bin:repl asc')
-    
-    def get_tracedata(self, channel=1):
-        '''
-        Starts bias sweep of channel <channel> and gets trace data
-        
-        Input:
-            channel (int) : 1 (default) | 2
-        Output:
-            bias_values (numpy.array(float))
-            sense_values (numpy.array(float))
-        '''
-        # Corresponding Command: [:CHANnel<n>]:INITiate [DUAL]
-        # Corresponding Command: :STARt
-        # Corresponding Command: :TRACe[:STATe] 1|0|ON|OFF
-        # Corresponding Command: :TRACe:CHANnel<n>:DATA:READ? [TM|DO|DI|SF|SL|MF|ML|LC|HC|CP]
-        try:
-            self._write(':chan%i:init' % channel)
-            self._wait_for_ready_for_sweep(channel=channel)
-            self._write(':trac:stat 1')
-            self._write(':star')
-            self._write('*TRG')
-            self._wait_for_end_of_sweep(channel=channel)
-            time.sleep(self.get_sense_delay(channel=channel))
-            self._wait_for_end_of_measure(channel=channel)
-            self._write(':trac:stat 0')
-            bias_values  = numpy.array([float(val) for val in self._ask('trac:chan%i:data:read? sl' % channel).split(',')])*self._dAdV*self._R_conversion
-            sense_values = numpy.array([float(val) for val in self._ask('trac:chan%i:data:read? ml' % channel).split(',')])/self._amp
-            return bias_values, sense_values
-        except:
-            logging.error(__name__ + ': Cannot take sweep of channel %i:' % channel)
-    
-    def take_IV(self, sweep, channel=1):
-        '''
-        Sets sweep parameters <sweep> and prepares instrument
-        
-        Input:
-            sweep obj(float): start, stop, step
-            channel (int): 1 | 2
-        Output:
-            bias_values (numpy.array(float))
-            sense_values (numpy.array(float))
-        '''
-        self.set_sweep_parameters(sweep=sweep, channel=channel)
-        return self.get_tracedata(channel=channel)
-    
-    def set_defaults(self, channel=1):
-        '''
-        Sets default settings
-        
-        Input:
-            channel (int) : 1 (default) | 2
-        Output:
-            None
-        '''
-        # <<Corresponding Command Mnemonic>> :SYSTem:BEEPer 1|0|ON|OFF
-        # <<Corresponding Command Mnemonic>> [:CHANnel<n>]:SENSe:ZERo:AUTO 1|0|ON|OFF
-        self._channel = 1
-        self._write(':syst:beep 0')
-        self.set_measurement_mode(val=1, channel=channel)
-        self.set_bias_mode(mode='curr', channel=channel)
-        self.set_sense_mode(mode='volt', channel=channel)
-        self.set_bias_range(val=200e-3, channel=channel)
-        self.set_sense_range(val=-1, channel=channel)
-        self.set_bias_trigger(mode='tim1', channel=channel)
-        self.set_sense_trigger(mode='sour', channel=channel)
-        self.set_bias_delay(val=15e-6, channel=channel)
-        self.set_sense_delay(val=15e-6, channel=channel)
-        self.set_sense_nplc(1)
-        self.set_sense_average(1)
-        self.set_bias_value(val=0, channel=channel)
-        self._write('chan%i:sens:zero:auto 0' % channel)
+#    def set_sense_integration_time(self, val, channel=1):
+#        '''
+#        Sets get sense integration time of channel <channel> to <val>
+#        
+#        Input:
+#            val (float)   : integer multiples of PLC (2e-2 @ 50Hz)
+#            channel (int) : 1 (default) | 2
+#        Output:
+#            None
+#        '''
+#        try:
+#            logging.debug(__name__ + ': Set sense integration time of channel %i to %f' % (channel, val))
+#            nplc = int(val*self.get_plc())
+#            self.set_sense_nplc(val=nplc, channel=channel) 
+#        except ValueError:
+#            logging.error(__name__ + ': Sense integrarion time of channel %i not specified:' % channel)
+#    
+#    def get_sense_integration_time(self, channel=1):
+#        '''
+#        Gets get sense integration time of channel <channel>
+#        
+#        Input:
+#            None
+#        Output:
+#            val (float)
+#        '''
+#        try:
+#            logging.debug(__name__ + ': Get sense integration time of channel %i' % channel)
+#            return self.get_sense_nplc(channel=channel)/self.get_plc()
+#        except ValueError:
+#            logging.error(__name__ + ': Sense integration time not specified:')
+#    
+#    def set_sweep_step_time(self, val, trigger='tim1', channel=1):
+#        '''
+#        Sets bias trigger to <trigger> of channel <channel> with sweep step time <val>
+#        
+#        Input:
+#            val (float)
+#            trigger (str) : 'tim1' | 'tim2'
+#            channel (int) : 1 (default) | 2
+#        Output:
+#            None
+#        '''
+#        try:
+#            logging.debug(__name__ + ': Set step time (trigger %i) of channel %s to %f' % (channel, trigger, val))
+#            self.set_bias_trigger(mode=trigger, channel=channel, time=val)
+#        except AttributeError:
+#            logging.error(__name__ + ': Invalid input: cannot set sweep step time of channel %i to %f' % (channel, val))
+#    
+#    def get_sweep_step_time(self, channel=1):
+#        '''
+#        Gets sweep step time if bias trigger of channel <channel> is 'timer'
+#        
+#        Input:
+#            channel (int) : 1 (default) | 2
+#        Output:
+#            val (float)
+#        '''
+#        try:
+#            logging.debug(__name__ + ': get step time (trigger tim%i) of channel %i' % (channel, channel))
+#            if self.get_bias_trigger(channel=channel).lower()[0:3] == 'tim': return(float(self._ask(':trig:%s' % self.get_bias_trigger(channel=channel))))
+#        except ValueError:
+#            logging.error(__name__ + ': Sweep step time of channel %i not specified:' % channel)
     """
     
