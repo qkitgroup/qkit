@@ -1,7 +1,7 @@
 # root init for QKIT
 # these directories are treated as modules
 # HR@KIT/2017
-__all__ = ['config','gui','measure','tools', 'analysis','core','instruments','storage','logs']
+__all__ = ['config','gui','measure','tools', 'analysis','core','instruments','services','storage','logs']
 
 # load configuration from $QKITDIR/config/*
 from qkit.config.environment import cfg
