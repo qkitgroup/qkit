@@ -59,7 +59,7 @@ except ImportError:
 global new_data_structure
 new_data_structure = False
 try:
-    new_data_structure = qkit.cfg.get('new_data_structure',False)
+    new_data_structure = qkit.cfg.get('datafolder_structure',1) == 2
 except:
     pass
 

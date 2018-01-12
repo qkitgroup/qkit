@@ -30,7 +30,7 @@ class DateTimeGenerator(object):
         self.returndict['_uuid'] = encode_uuid(self.returndict['_unix_timestamp'])
     
     def new_filename(self, name=None):
-        if qkit.cfg.get('new_data_structure',False):
+        if qkit.cfg.get('datafolder_structure',1) == 2:
             self.new_filename_v2(name)
         else:
             self.new_filename_v1(name)

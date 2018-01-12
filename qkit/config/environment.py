@@ -39,7 +39,7 @@ cfg['user_instruments_dir'] = tempfile.gettempdir()
 ##
 ## Save data with the new naming scheme
 ##
-cfg['new_data_structure'] = False
+cfg['datafolder_structure'] = 1
 
 ##
 ## Create a database of all measurement-.h5 files with entries {uuid:abspath}
@@ -86,7 +86,9 @@ cfg['qtlab'] = False
 # !!!! depreciated 'qt' module !!!!
 # if qtlab is used (qt_cfg exists and qt_cfg['qtlab']): 
 # qkit config entries are overridden by the qtlab ones
-if cfg['qtlab']:
+cfg['use_qtlab_config'] = True
+
+if cfg['use_qtlab_config']:
     try:
         from qkit.core.lib.config import get_config
         qt_cfg = get_config()
