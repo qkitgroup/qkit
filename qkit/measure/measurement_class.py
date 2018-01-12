@@ -41,7 +41,7 @@ class Measurement(object):
         if filepath:
             filepath=filepath
         else:
-            filepath = os.path.join(qkit.config.get('datadir'),self.hdf_relpath.replace('.h5', '.measurement'))
+            filepath = os.path.join(qkit.cfg.get('datadir'),self.hdf_relpath.replace('.h5', '.measurement'))
 
         with open(filepath,'w+') as filehandler:
             json.dump(obj=self._get_copydict(), fp=filehandler, cls=QkitJSONEncoder, indent = 4, sort_keys=True)
@@ -51,7 +51,7 @@ class Measurement(object):
         Load sample keys and entries to current sample instance.
         '''
         if not os.path.isabs(filename):
-            filename = os.path.join(qkit.config.get('datadir'),filename)
+            filename = os.path.join(qkit.cfg.get('datadir'),filename)
 
         with open(filename) as filehandle:
             self.__dict__ = json.load(filehandle, cls = QkitJSONDecoder)
