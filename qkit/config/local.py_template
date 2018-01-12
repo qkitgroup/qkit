@@ -1,4 +1,7 @@
-#cfg_local = {}
-#cfg_local['SomeGlobalVar'] = 42
+#cfg = {}
+#cfg['SomeGlobalVar'] = 42
 # e.g. uncomment the following line to use the x version  of qviewkit
-#cfg_local['plot_engine'] = 'qkit.gui.qviewkit_x.main'
+#cfg['plot_engine'] = 'qkit.gui.qviewkit_x.main'
+
+cfg['datadir'] = r'd:\data'
+cfg['datafolder_structure'] = 2

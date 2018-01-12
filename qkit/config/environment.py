@@ -30,10 +30,10 @@ cfg['logdir']  = os.path.join(cfg['qkitdir'],'logs')
 cfg['execdir'] = cfg['qkitdir']
 cfg['rootdir'] = cfg['qkitdir']
 cfg['tempdir'] = tempfile.gettempdir()
-cfg['datadir'] = tempfile.gettempdir()
+cfg['datadir'] = os.path.join(cfg['qkitdir'],'data')
 
 cfg['instruments_dir']      = os.path.join(cfg['qkitdir'],'instruments')
-cfg['user_instruments_dir'] = tempfile.gettempdir()
+cfg['user_instruments_dir'] = None
 
 
 ##
@@ -83,35 +83,8 @@ cfg['qtlab'] = False
 ## (by default we try to be compatible for now)
 #cfg['qt_compatible'] = True 
 
-# !!!! depreciated 'qt' module !!!!
-# if qtlab is used (qt_cfg exists and qt_cfg['qtlab']): 
-# qkit config entries are overridden by the qtlab ones
-cfg['use_qtlab_config'] = True
-
-if cfg['use_qtlab_config']:
-    try:
-        from qkit.core.lib.config import get_config
-        qt_cfg = get_config()
-        in_qt = qt_cfg.get('qtlab', False)
-    except ImportError:
-        in_qt = False
-    
-    if in_qt:
-        for entry in qt_cfg.get_all():
-            if entry in cfg.keys():
-                cfg[entry] = qt_cfg[entry]
-
-
-# there can also be a local config file for qkit (qkit/config/local.py) with variable cfg = {...}
-#try:
-#    from qkit.config.local import cfg as cfg_local
-#    for entry in cfg_local.iterkeys():
-#        cfg[entry] = cfg_local[entry]
-#except ImportError:
-#    pass
 #-----------------------------------------------------------
 # below this line, there can be system wide constants like 
-# cfg['ministry'] = 'silly walks' 
-
+# cfg['ministry'] = 'silly walks'
 
 
