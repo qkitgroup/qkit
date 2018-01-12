@@ -13,9 +13,6 @@ from qkit.storage import hdf_lib as hdf
 from qkit.gui.plot import plot as qviewkit
 import qkit.measure.write_additional_files as waf
 
-readout = qt.instruments.get('readout')
-mspec = qt.instruments.get('mspec')
-
 class Measure_td(object):
     
     '''
@@ -37,8 +34,10 @@ class Measure_td(object):
         - Check multi-tone readout
     '''
     
-    def __init__(self):
-    
+    def __init__(self, readout=None, mspec=None):
+        self.readout = qt.instruments.get('readout') if readout is None else readout
+        self.mspec = qt.instruments.get('mspec') if mspec is None else mspec
+
         self.comment = None
         
         self.x_set_obj = None
@@ -186,7 +185,7 @@ class Measure_td(object):
         if self.dirname == None:
             self.dirname = self.x_coordname
 
-        self.ndev = len(readout.get_tone_freq())   #returns array of readout frequencies (=1 for non-multiplexed readout)
+        self.ndev = len(self.readout.get_tone_freq())   #returns array of readout frequencies (=1 for non-multiplexed readout)
         
         self._hdf = hdf.Data(name=self.dirname)
         self._hdf_x = self._hdf.add_coordinate(self.x_coordname, unit = self.x_unit)
@@ -200,11 +199,11 @@ class Measure_td(object):
         
 
         self._hdf_readout_frequencies = self._hdf.add_value_vector(self.multiplex_attribute, unit = self.multiplex_unit)
-        self._hdf_readout_frequencies.append(readout.get_tone_freq())
+        self._hdf_readout_frequencies.append(self.readout.get_tone_freq())
         
         if self.ReadoutTrace:
             self._hdf_TimeTraceAxis = self._hdf.add_coordinate('recorded timepoint', unit = 's')
-            self._hdf_TimeTraceAxis.add(np.arange(mspec.get_samples())/readout.get_adc_clock())
+            self._hdf_TimeTraceAxis.add(np.arange(self.mspec.get_samples())/self.readout.get_adc_clock())
         
         if self.mode == 1: #1D
             self._hdf_amp = []
@@ -254,10 +253,10 @@ class Measure_td(object):
         
     def _append_data(self,iteration=0):
         if self.ReadoutTrace:
-            ampliData, phaseData, Is, Qs = readout.readout(timeTrace = True)
+            ampliData, phaseData, Is, Qs = self.readout.readout(timeTrace = True)
         else:
-            ampliData, phaseData = readout.readout(timeTrace = False)
-        
+            ampliData, phaseData = self.readout.readout(timeTrace = False)
+
         if self.mode == 1 or self.mode == 2: #1D,2D
             for i in range(self.ndev):                
                 self._hdf_amp[i].append(np.atleast_1d(ampliData.T[i]))
