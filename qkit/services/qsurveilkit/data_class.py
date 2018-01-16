@@ -25,7 +25,7 @@ import os
 from threading import Lock
 import numpy as np
 
-from qkit.storage import store as hdf_lib
+from qkit.storage import hdf_lib
 from qkit.gui.plot import plot as qviewkit
 
 
@@ -129,8 +129,8 @@ class DATA(object):
                 
         def create_logfile(self):
             print('Create new log file for parameter %s.'%self.name)
-            self.fname = os.path.join(self.log_path,time.strftime('%m%Y')+'/',self.name.replace(' ','_')+time.strftime('%d%m%Y%M%S')+'.h5')
-            print self.fname
+            self.fname = os.path.join(self.log_path,self.name.replace(' ','_')+time.strftime('%d%m%Y%H%M%S')+'.h5')
+            #print self.fname
             self.hf = hdf_lib.Data(path=self.fname)
             self.hdf_t = self.hf.add_coordinate('timestamps')
             self.hdf_v = self.hf.add_value_vector('values', x = self.hdf_t)
