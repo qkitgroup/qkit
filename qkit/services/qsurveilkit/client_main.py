@@ -22,14 +22,13 @@
 import sys
 from threading import Thread
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt4.QtCore import QObject, pyqtSignal
+from PyQt4.QtGui import QMainWindow, QApplication
 
 from plasma1_gui import Ui_MainWindow
 
 import argparse
 import ConfigParser
-import numpy
 import time
 from math import log10
 
@@ -53,7 +52,7 @@ class AcquisitionThread(Thread,QObject):
         
     def setup_remote_connection(self):
         self.c = rpyc.connect(self.data.localhost.ip,self.data.localhost.port)
-        print 'Connection established to %s via port %s.'%(str(self.data.localhost.ip),str(self.data.localhost.port))
+        print('Connection established to %s via port %s.'%(str(self.data.localhost.ip),str(self.data.localhost.port)))
         
     def acquire_datapoint_from_remote(self,p):   #p is the parameter instance of the local client data object
         return self.c.root.get_last_value(p.attribute_name)
@@ -75,7 +74,7 @@ class AcquisitionThread(Thread,QObject):
 
         self.setup_remote_connection()
 
-        print 'Client started.'
+        print('Client started.')
         while not self.data.wants_abort:
             for p in self.data.parameters:
                 #extract new data point
@@ -92,7 +91,7 @@ class AcquisitionThread(Thread,QObject):
                             p.timestamps = np.array(timestamps, dtype='float64')
                             p.values = np.array(values, dtype='float32')
                     except IOError:
-                        print 'Error retrieving history data for parameter %s.'%str(p.attribute_name)
+                        print('Error retrieving history data for parameter %s.'%str(p.attribute_name))
                 p.check_history = False   #switch off history request after one unsuccessful attempt
                 
                 #delete old data points
@@ -105,7 +104,7 @@ class AcquisitionThread(Thread,QObject):
             time.sleep(self.data.update_interval)
             
         self.close_connection()
-        print 'Connection closed.'
+        print('Connection closed.')
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -145,7 +144,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
     def closeEvent(self,event):
         self.data.wants_abort = True
-        print 'Client closing ...'
+        print('Client closing ...')
         event.accept()
     
     def _setup_graphs(self):
@@ -171,13 +170,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         return self.cb_scale_entries[self.cb_scale.currentIndex()]
         
     def _range_changed(self):   #combo box change event
-        if self.data.debug: print 'range_changed'
+        if self.data.debug: print('range_changed')
         for p in self.data.parameters:
             p.range = self._get_range()
             p.check_history = True
         
     def _start_acquisition(self):
-        print 'Start acquisition.'
+        print('Start acquisition.')
         self.acquisition_thread = AcquisitionThread(self.data)
         self.acquisition_thread.update_sig.connect(self._update_gui)
         self.acquisition_thread.start()
@@ -193,7 +192,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     if np.abs(log10(p.values[i] / median)) > 6 and np.abs(log10(p.values[i] / p.values[i-1])) > 6:
                         #if jumps detected collecting more than 5 orders of magnitude back or forth
                         p.values[i] = median
-                        if self.data.debug: print 'runaway detected in {:s}, segment #{:d}'.format(p.attribute_name,i)
+                        if self.data.debug: print('runaway detected in {:s}, segment #{:d}'.format(p.attribute_name,i))
             p.graph.plt.setData(x=np.array((p.timestamps-time.time())/3600), y=p.values)
             self._autorange_plots()
             self._update_labels()
@@ -206,7 +205,7 @@ class DATA(object):
             self.port = config.getint('LOCALHOST','port')
     class PARAMETER(object):
         def __init__(self,config,p_index,p_attr):
-            #print p_attr
+            #print(p_attr)
             self.p_index = p_index
             self.attribute_name = str(p_attr)
             self.name = config.get(str(p_attr),'name')
@@ -222,7 +221,7 @@ class DATA(object):
         self.update_interval = config.getfloat('gui','update_interval')
         
         p_instances = config.get('parameters','p').split(",")   #parameter instance names
-        #print p_instances
+        #print(p_instances)
         self.parameters = [self.PARAMETER(config,i,p) for i,p in enumerate(p_instances)]   #instanciate parameter array
         for i,p_i in enumerate(p_instances):   #create human readable aliases, such that objects are accessible from clients according to the seetings.cfg entry in []
             setattr(self,str(p_i),self.parameters[i])
@@ -257,8 +256,8 @@ def main(argv):
         # Start the app up
         sys.exit(app.exec_())
     except KeyboardInterrupt:
-        self.data.wants_abort = True
-        print 'Exiting client.'
+        data.wants_abort = True
+        print('Exiting client.')
         exit()
         
     

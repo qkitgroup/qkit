@@ -14,15 +14,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-
-#import random
-import time#,sys
-#import atexit
-#import math
+import time
 
 from threading import Thread 
-#from threading import Lock
-
         
 class IO_worker(Thread):
     " start a thread and get/set the IO data"
@@ -32,7 +26,7 @@ class IO_worker(Thread):
         
     def run(self):
         
-        print 'Worker started.'
+        print('Worker started.')
         while True:
             for p in self.DATA.parameters:
                 if p.logging:
@@ -42,7 +36,7 @@ class IO_worker(Thread):
                 for p in self.DATA.parameters:
                     if p.schedule():
                         p.store_value(p.data_request_object())
-                        if self.DATA.debug: print 'readout %s.'%p.name
+                        if self.DATA.debug: print('readout %s.'%p.name)
                                 
                 time.sleep(self.DATA.cycle_time)
             for p in self.DATA.parameters:

@@ -25,7 +25,7 @@ import os
 from threading import Lock
 import numpy as np
 
-from qkit.storage import hdf_lib
+from qkit.storage import store as hdf_lib
 from qkit.gui.plot import plot as qviewkit
 
 
@@ -45,7 +45,7 @@ class DATA(object):
             
     class PARAMETER(object):
         def __init__(self,config,p_index,p_attr):
-            #print p_attr
+            #print(p_attr)
             self.p_index = p_index
             #self.attribute_name = str(p_attr)
             self.name = config.get(str(p_attr),'name')
@@ -58,7 +58,7 @@ class DATA(object):
             self.log_path = config.get(str(p_attr),'log_path')
             self.log_lock = Lock()
             self.url_timestamps = None
-            print "Parameter %s loaded."%str(self.name)
+            print("Parameter %s loaded."%str(self.name))
             
         def get_all(self):
             with Lock():
@@ -112,7 +112,7 @@ class DATA(object):
                         return [timestamps_requested,data_points_requested]
                     
                 except KeyError:   #AttributeError, NameError:
-                    print 'Error opening h5 log file.'
+                    print('Error opening h5 log file.')
                     return [0]
             else:
                 return [0]
@@ -122,13 +122,13 @@ class DATA(object):
                 try:
                     self.value = float(value)
                 except ValueError:
-                    print 'type cast error, ignoring'
+                    print('type cast error, ignoring')
                 self.timestamp = time.time()
             if self.logging:
                 self.append_to_log()
                 
         def create_logfile(self):
-            print 'Create new log file for parameter %s.'%self.name
+            print('Create new log file for parameter %s.'%self.name)
             self.fname = os.path.join(self.log_path,time.strftime('%m%Y')+'/',self.name.replace(' ','_')+time.strftime('%d%m%Y%M%S')+'.h5')
             print self.fname
             self.hf = hdf_lib.Data(path=self.fname)
@@ -169,7 +169,7 @@ class DATA(object):
         self.cycle_time = config.getfloat('worker','cycle_time')
         
         p_instances = config.get('parameters','p').split(",")   #parameter instance names
-        #print p_instances
+        #print(p_instances)
         self.parameters = [self.PARAMETER(config,i,p) for i,p in enumerate(p_instances)]   #instanciate parameter array
         for i,p_i in enumerate(p_instances):   #create human readable aliases, such that objects are accessible from clients according to the seetings.cfg entry in []
             setattr(self,str(p_i),self.parameters[i])
