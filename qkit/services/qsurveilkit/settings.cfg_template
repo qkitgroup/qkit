@@ -1,0 +1,33 @@
+# configuration for server based 
+# local host port and IP
+# name, ip and port have to be adapted to the local settings
+[LOCALHOST] 
+name   = xx-xxXX
+ip     = 127.0.0.1
+port   = XXXX
+
+[parameters]
+p = pLL,pMC
+
+[pLL]
+name = pressure LL
+interval = 5 ; in seconds
+logging = 1
+log_path = /home/evaporate/devel/evaporate/log
+
+[pMC]
+name = pressure MC
+interval = 5 ; in seconds
+logging = 1
+log_path = /home/evaporate/devel/evaporate/log
+
+[worker]
+cycle_time = 0.05
+
+[gui]
+update_interval = 1
+
+[debug]
+dummymode = 0
+
+
