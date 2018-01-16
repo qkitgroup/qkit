@@ -33,7 +33,7 @@ else:
         def add_function(self,name):
             pass
 
-import visa
+from qkit import visa
 from time import sleep,clock
 import sys
 

@@ -4,7 +4,7 @@
 
 from instrument import Instrument
 from time import time, sleep
-import visa
+from qkit import visa
 import types
 import logging
 
