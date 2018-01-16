@@ -22,7 +22,7 @@ import numpy as np
 import serial
 
 
-class OxfordInstruments_Kelvinox_IGH(object):
+class OxfordInstruments_Kelvinox_IGH_serial(object):
 
     '''
     This is the python driver for the Oxford Instruments Kelvinox IGH Dilution Refrigerator and
