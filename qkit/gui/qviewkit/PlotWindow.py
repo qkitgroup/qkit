@@ -6,6 +6,7 @@ Qlicense: GPL
 """
 # support both PyQt4 and 5
 in_pyqt5 = False
+import sys
 try:
     from PyQt5 import QtCore
     from PyQt5.QtCore import Qt,QObject,pyqtSlot
@@ -17,14 +18,12 @@ except ImportError as e:
 if not in_pyqt5:
     try:
         from PyQt4 import QtCore
-        from PyQt4.QtCore import *
-        from PyQt4.QtGui import *
+        from PyQt4.QtCore import Qt,QObject,pyqtSlot
+        from PyQt4.QtGui import QWidget,QPlainTextEdit,QMenu,QAction
     except ImportError:
         print("import of PyQt5 and PyQt4 failed. Install one of those.")
         sys.exit(-1)
 
-
-import sys
 import pyqtgraph as pg
 
 import qkit
@@ -181,19 +180,20 @@ class PlotWindow(QWidget,Ui_Form):
             self.VTraceYValue.returnPressed.connect(self._setVTraceYValue)
 
     def keyPressEvent(self, ev):
-        #print "Received Key Press Event!! You Pressed: "+ event.text()
+        #print("Received Key Press Event!! You Pressed: "+ event.text())
         if ev.key() == Qt.Key_S:
             #print '# ',ev.key()
             print(self.data_coord)
             sys.stdout.flush()
 
     def _setDefaultView(self):
-        """Setup the view type: settle which type of window is displaying a dataset.
-            It is distinguished with what layout a dataset is displayed.
-            Co -> 1d
-            vec - 1d
-            matrix -> 2d
-            (...)
+        """
+        Setup the view type: settle which type of window is displaying a dataset.
+        It is distinguished with what layout a dataset is displayed.
+        Co -> 1d
+        vec -> 1d
+        matrix -> 2d
+        box -> 3d
         """
 
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
