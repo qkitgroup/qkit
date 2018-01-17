@@ -10,7 +10,8 @@ import sys
 try:
     from PyQt5 import QtCore
     from PyQt5.QtCore import Qt,QObject,pyqtSlot
-    from PyQt5.QtWidgets import QWidget,QPlainTextEdit,QMenu,QAction
+    from PyQt5.QtWidgets import QWidget,QPlainTextEdit,QMenu,QAction, QWidgetAction, QLabel
+    from PyQt5.QtGui import QBrush, QPainter, QPixmap
     #from PyQt5 import Qt
     in_pyqt5 = True
 except ImportError as e:
@@ -19,7 +20,7 @@ if not in_pyqt5:
     try:
         from PyQt4 import QtCore
         from PyQt4.QtCore import Qt,QObject,pyqtSlot
-        from PyQt4.QtGui import QWidget,QPlainTextEdit,QMenu,QAction
+        from PyQt4.QtGui import QWidget,QPlainTextEdit,QMenu,QAction, QWidgetAction, QLabel, QBrush, QPainter, QPixmap
     except ImportError:
         print("import of PyQt5 and PyQt4 failed. Install one of those.")
         sys.exit(-1)
@@ -30,7 +31,6 @@ import qkit
 from qkit.gui.qviewkit.plot_view import Ui_Form
 from qkit.storage.hdf_constants import ds_types, view_types
 from qkit.gui.qviewkit.PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
-
 
 
 class PlotWindow(QWidget,Ui_Form):
@@ -121,7 +121,8 @@ class PlotWindow(QWidget,Ui_Form):
             elif self.view_type == view_types['2D']:
                 if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
-                    self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
+                    self.graphicsView = ImageViewMplColorMaps(self.obj_parent, view = pg.PlotItem())
+                    #self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
                     self.graphicsView.setObjectName(self.dataset_url)
                     self.addQvkMenu(self.graphicsView.view.getMenu())
                     #self.addQvkMenu(self..graphicsView.getImageItem().getMenu())
@@ -571,3 +572,60 @@ class PlotWindow(QWidget,Ui_Form):
         #print "{:08b}".format(self.manipulation)
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
+
+"""
+The code below implements the matplotlib 2.0 colormaps 'viridis', 'inferno', 'plasma', and 'magma' to the available colors in our 2d plots.
+They are not (yet?) available in the standard pyqtgraph package. However there is a pull request #446, issued Feb 2017 by github user "WFrsh" to add them to the 
+standard available gradient dict.
+The code is a combination by his added rgb color maps and a monkey patch by user "honkomonk" posted in the comment section of pull request #561.
+"""
+
+from collections import OrderedDict
+
+class ImageViewMplColorMaps(pg.ImageView):
+    def __init__(self, parent=None, name='ImageView', view=None, imageItem=None, *args):
+        super(ImageViewMplColorMaps, self).__init__(parent=parent, name=name, view=view, imageItem=imageItem, *args)
+
+        self.gradientEditorItem = self.ui.histogram.item.gradient
+
+        self.activeCm = "viridis"
+        self.mplColorMaps = OrderedDict([
+                    ('inferno', {'ticks': [(0.0, (0, 0, 3, 255)), (0.25, (87, 15, 109, 255)), (0.5, (187, 55, 84, 255)), (0.75, (249, 142, 8, 255)), (1.0, (252, 254, 164, 255))], 'mode': 'rgb'}),
+                    ('plasma', {'ticks': [(0.0, (12, 7, 134, 255)), (0.25, (126, 3, 167, 255)), (0.5, (203, 71, 119, 255)), (0.75, (248, 149, 64, 255)), (1.0, (239, 248, 33, 255))], 'mode': 'rgb'}),
+                    ('magma', {'ticks': [(0.0, (0, 0, 3, 255)), (0.25, (80, 18, 123, 255)), (0.5, (182, 54, 121, 255)), (0.75, (251, 136, 97, 255)), (1.0, (251, 252, 191, 255))], 'mode': 'rgb'}),
+                    ('viridis', {'ticks': [(0.0, (68, 1, 84, 255)), (0.25, (58, 82, 139, 255)), (0.5, (32, 144, 140, 255)), (0.75, (94, 201, 97, 255)), (1.0, (253, 231, 36, 255))], 'mode': 'rgb'}),
+                    ])
+
+        self.registerCmap()
+
+    def registerCmap(self):
+        """ Add matplotlib cmaps to the GradientEditors context menu"""
+        self.gradientEditorItem.menu.addSeparator()
+        savedLength = self.gradientEditorItem.length
+        self.gradientEditorItem.length = 100
+        
+        
+        for name in self.mplColorMaps:
+            px = QPixmap(100, 15)
+            p = QPainter(px)
+            self.gradientEditorItem.restoreState(self.mplColorMaps[name])
+            grad = self.gradientEditorItem.getGradient()
+            brush = QBrush(grad)
+            p.fillRect(QtCore.QRect(0, 0, 100, 15), brush)
+            p.end()
+            label = QLabel()
+            label.setPixmap(px)
+            label.setContentsMargins(1, 1, 1, 1)
+            act =QWidgetAction(self.gradientEditorItem)
+            act.setDefaultWidget(label)
+            act.triggered.connect(self.cmapClicked)
+            act.name = name
+            self.gradientEditorItem.menu.addAction(act)
+        self.gradientEditorItem.length = savedLength
+
+
+    def cmapClicked(self):
+        """onclick handler for our custom entries in the GradientEditorItem's context menu"""
+        act = self.sender()
+        self.gradientEditorItem.restoreState(self.mplColorMaps[act.name])
+        self.activeCm = act.name
