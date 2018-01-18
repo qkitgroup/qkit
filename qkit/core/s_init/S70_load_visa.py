@@ -36,7 +36,10 @@ def _load_visa():
 
 
 if qkit.cfg.get('load_visa',find_loader('pyvisa') is not None):
+    qkit.cfg['load_visa'] = True
     _load_visa()
+else:
+    qkit.cfg['load_visa'] = False
 
 
 """
