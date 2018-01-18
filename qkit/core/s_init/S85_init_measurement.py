@@ -10,33 +10,40 @@ if qkit.cfg.get('datafolder_structure', 1) == 2:
         from IPython.display import display
         
         b = widgets.Button(
-                description='Done.',
+                description='Please Check!',
                 disabled=False,
                 button_style='info',  # 'success', 'info', 'warning', 'danger' or ''
         )
         
         b.f1 = widgets.Text(
                 value=str(qkit.cfg.get('run_id', '')),
-                placeholder='RUN_ID',
+                placeholder='***RUN_ID IS EMPTY***',
                 description='Please check: Run ID',
-                disabled=False
+                disabled=False,
+                style={'description_width': 'initial'}
         )
-        
-        if str(qkit.cfg.get('run_id', '')) == '':
-            b.f1.border_color = 'red'
         
         b.f2 = widgets.Text(
                 value=str(qkit.cfg.get('user', '')),
-                placeholder='USER',
+                placeholder='***USER IS EMPTY***',
                 description='user name',
-                disabled=False
+                disabled=False,
+                style={'description_width': 'initial'}
         )
+        if qkit.cfg.get('run_id', False):
+            b.f1.border_color = 'red'
+            b.button_style = 'danger'
         
-        if str(qkit.cfg.get('user', '')) == '':
+        if qkit.cfg.get('user', False):
             b.f2.border_color = 'red'
+            b.button_style = 'danger'
         
         
         def clickfunc(btn):
+            if not b.f1.value:
+                raise ValueError("RUN_ID is still empty!")
+            if not b.f2.value:
+                raise ValueError("USER is still empty!")
             qkit.cfg['run_id'] = b.f1.value
             qkit.cfg['user'] = b.f2.value
             btn.f1.disabled = True  # close()
@@ -45,6 +52,7 @@ if qkit.cfg.get('datafolder_structure', 1) == 2:
             btn.f2.disabled = True  # close()
             btn.disabled = True  # ()
             btn.button_style = 'success'
+            btn.description = 'Done.'
         
         
         b.on_click(clickfunc)
