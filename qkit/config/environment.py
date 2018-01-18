@@ -69,8 +69,10 @@ cfg['ask_host']  = 'localhost' # as above
 ##
 ## File based QKIT logging for internal messages 
 ## the log file is located under cfg['logdir']
+## stdout log is displayed in jupyter notebooks
 ## default log level is 'WARNING'
-cfg['log_level'] =  'DEBUG' # one of ['WARNING', 'DEBUG', 'INFO', 'ERROR', 'CRITICAL']
+cfg['file_log_level'] =  'DEBUG' # one of ['WARNING', 'DEBUG', 'INFO', 'ERROR', 'CRITICAL']
+cfg['stdout_log_level'] = 'WARNING'
 
 ##
 ## QT related options
