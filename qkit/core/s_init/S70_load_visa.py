@@ -4,6 +4,8 @@
 """
 import qkit
 import logging
+from pkgutil import find_loader
+
 
 def _load_visa():
     try:
@@ -32,8 +34,10 @@ def _load_visa():
         except OSError:
             raise OSError('Failed creating ResourceManager. Check if you have NI VISA or pyvisa-py installed.')
 
-if qkit.cfg.get('load_visa',True):
+
+if qkit.cfg.get('load_visa',find_loader('pyvisa') is not None):
     _load_visa()
+
 
 """
 doc snipplet from 
