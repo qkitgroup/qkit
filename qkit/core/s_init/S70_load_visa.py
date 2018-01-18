@@ -12,10 +12,12 @@ def _load_visa():
         logging.error("pyvisa not loaded %s"%e)
         
     from pkg_resources import get_distribution
-    if float(get_distribution('pyvisa').version) < 1.5:
+    from distutils.version import LooseVersion
+    if LooseVersion(get_distribution('pyvisa').version) < LooseVersion("1.5.0"):
         logging.warning("Old pyvisa version loaded. Please update to a version > 1.5.x")
         # compatibility with old visa lib
         qkit.visa = visa
+        qkit.visa.__version__ = get_distribution('pyvisa').version
     else:
         # active py visa version
         logging.info("Modern pyvisa version loaded. Version %s" % visa.__version__)
