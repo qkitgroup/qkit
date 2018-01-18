@@ -11,24 +11,26 @@ def _load_visa():
     except ImportError as e:
         logging.error("pyvisa not loaded %s"%e)
         
-    from distutils.version import LooseVersion
-    if  LooseVersion(visa.__version__) < LooseVersion("1.5.0"):
+    from pkg_resources import get_distribution
+    if float(get_distribution('pyvisa').version) < 1.5:
         logging.warning("Old pyvisa version loaded. Please update to a version > 1.5.x")
         # compatibility with old visa lib
         qkit.visa = visa
     else:
         # active py visa version
         logging.info("Modern pyvisa version loaded. Version %s" % visa.__version__)
-        rm = visa.ResourceManager()
-        qkit.visa = rm
-        qkit.visa.__version__ = visa.__version__
-        
-        def instrument(resource_name, **kwargs):
-            return rm.open_resource(resource_name, **kwargs)
-        qkit.visa.instrument = instrument
+        try:
+            rm = visa.ResourceManager()
+            qkit.visa = rm
+            qkit.visa.__version__ = visa.__version__
+            
+            def instrument(resource_name, **kwargs):
+                return rm.open_resource(resource_name, **kwargs)
+            qkit.visa.instrument = instrument
+        except OSError:
+            raise OSError('Failed creating ResourceManager. Check if you have NI VISA or pyvisa-py installed.')
 
-
-if qkit.cfg.get('load_visa',False):
+if qkit.cfg.get('load_visa',True):
     _load_visa()
 
 """
