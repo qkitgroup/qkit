@@ -10,8 +10,7 @@ import sys
 in_pyqt5 = False
 in_pyqt4 = False
 try:
-    from PyQt5 import QtCore
-    from PyQt5.QtCore import QObject
+    from PyQt5.QtCore import Qt, QObject
     from PyQt5.QtWidgets import QApplication
     in_pyqt5 = True
 except ImportError as e:
@@ -19,8 +18,7 @@ except ImportError as e:
 
 if not in_pyqt5:
     try:
-        from PyQt4 import QtCore
-        from PyQt4.QtCore import QObject,SIGNAL,SLOT
+        from PyQt4.QtCore import Qt, QObject
         from PyQt4.QtGui import QApplication
         in_pyqt4 = True
     except ImportError:
@@ -65,7 +63,7 @@ class DATA(QObject):
         def close_ds(ds):
             if ds in self.open_ds:
                 window_id = self.open_ds[ds]
-                window_id.setCheckState(0,QtCore.Qt.Unchecked)
+                window_id.setCheckState(0,Qt.Unchecked)
                 
                 # make sure data is consitent                
                 if str(window_id) in self.open_plots:
@@ -136,13 +134,13 @@ def main(argv):
     
     # if activated, start info thread
     if data.args.qkit_info:
-        from info_subsys import info_thread
+        from qkit.gui.qviewkit.info_subsys import info_thread
         it = info_thread(data)
         it.start()
         
             
     # create main window
-    from DatasetsWindow import DatasetsWindow
+    from qkit.gui.qviewkit.DatasetsWindow import DatasetsWindow
     #
     dsw = DatasetsWindow(data)
     dsw.show()
