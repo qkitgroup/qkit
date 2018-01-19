@@ -66,8 +66,13 @@ cfg['plot_engine'] = 'qkit.gui.qviewkit.main' # default: qviewkit
 #cfg['load_info_service'] = True # default: True
 #cfg['info_port'] = 5600  # this is the port we can listen on messages (signals) told by qkit
 #cfg['info_host'] = 'localhost'  # this is the host we can listen on messages  
-#cfg['ask_port']  = 5700  # this is the port rpc could use
-#cfg['ask_host']  = 'localhost' # as above
+
+##
+## Load QKIT remote interface service (ris), 
+## The info service provides zmq based informations on port cfg['info_port'] 
+#cfg['load_ri_service'] = False # default: False
+#cfg['ris_port']  = 5700  # this is the port rpc could use
+#cfg['ris_host']  = 'localhost' # as above
 
 ##
 ## File based QKIT logging for internal messages 
