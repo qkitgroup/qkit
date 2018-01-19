@@ -26,26 +26,35 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
     """
     # the plot engine for live plots is set in the environement
     plot_viewer = qkit.cfg.get('plot_engine', None)
-    ds = ""
-    for s in datasets: ds+=s+","
-    ds = ds.strip(",")
-
-    cmd = "python"
-    cmd += " -m "+ plot_viewer #load qviewkit/main.py as module, so we do not need to know its folder
-    options =  " -f " + h5_filepath.encode("string-escape") #raw string encoding
-    if ds:
-        options += " -ds "+ str(ds)
-    options += " -rt "+ str(refresh)
+    
+    # the final return call should look sth. like this:
+    # python -m qkit.gui.qviewkit.main -f [h5_filepath] -ds amplitude,phase -rt 2 -live
+    
+    cmd = ['python']
+    cmd.append('-m')
+    cmd.append(plot_viewer)
+    
+    cmd.append('-f')
+    cmd.append(h5_filepath.encode("string-escape")) #raw string encoding
+    
+    if datasets:
+        cmd.append('-ds')
+        ds = ""
+        for s in datasets:
+            ds += s+','
+        cmd.append(ds[:-1])
+    cmd.append('-rt')
+    cmd.append(str(refresh))
     if live:
-        options += " -live "
-
+        cmd.append('-live')
+    
     if echo:
-        print("Qviewkit open cmd: "+ cmd + options)
-        P = Popen(cmd+options, shell=False, stdout=PIPE)
+        print("Qviewkit open cmd: "+ str(cmd))
+        P = Popen(cmd, shell=False, stdout=PIPE)
         print(P.stdout.read())
-        return P
+        P
     else:
-        return Popen(cmd+options, shell=False)
+        Popen(cmd, shell=False)
 
 
 # this is for saving plots
