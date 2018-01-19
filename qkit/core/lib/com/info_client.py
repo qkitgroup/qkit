@@ -1,12 +1,12 @@
 # zmq based info_service client
 # HR@KIT/2017
 
-
+import qkit
 import zmq
-from lib.com.signals import SIGNALS
+from qkit.core.lib.com.signals import SIGNALS
 # reverse the SIGNAL
 RSIGNALS = dict((v,k) for k,v in SIGNALS.iteritems())
-from qkit.config.environment import cfg
+
 
 
 
@@ -16,11 +16,11 @@ class info_client(object):
         if host:
             self.host = host
         else:
-            self.host = cfg.get('info_host','localhost')
+            self.host = qkit.cfg.get('info_host','localhost')
         if port:
             self.port = port
         else:
-            self.port = cfg.get('info_port',5600)
+            self.port = qkit.cfg.get('info_port',5600)
             
         self.start_client(self.port,self.host)
         self.start_poll()
@@ -55,7 +55,7 @@ class info_client(object):
         
     def print_message(self):
         "wait until a message is available and print it"
-        print self.get_message(readable_topic = True)
+        print(self.get_message(readable_topic = True))
         
 
 if __name__ == "__main__":

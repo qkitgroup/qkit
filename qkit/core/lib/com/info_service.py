@@ -5,19 +5,21 @@
 import zmq
 import time
 
+import qkit
 from qkit.core.lib.com.signals import SIGNALS
-from qkit.config.environment import cfg
+
 
 class info_service(object):
-    def __init__(self,host = None,port = None):
+    def __init__(self,host = None, port = None):
         if host:
             self.host = host
         else:
-            self.host = cfg.get('info_host','localhost')
+            self.host = qkit.cfg.get('info_host','localhost')
+            
         if port:
             self.port = port
         else:
-            self.port = cfg.get('info_port',5600)
+            self.port = qkit.cfg.get('info_port',5600)
             
         self.start_service(self.host,self.port)
     def start_service(self,host,port):
