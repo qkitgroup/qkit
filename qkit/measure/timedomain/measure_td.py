@@ -8,8 +8,9 @@ import time
 import logging
 import threading
 
+import qkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
-from qkit.storage import hdf_lib as hdf
+from qkit.storage import store as hdf
 from qkit.gui.plot import plot as qviewkit
 import qkit.measure.write_additional_files as waf
 
@@ -302,6 +303,7 @@ class Measure_td(object):
         t.start()
         self._hdf.close_file()
         waf.close_log_file(self._log)
+        qkit.store_db.add(self._hdf.get_filepath())
         
     def set_plot_comment(self, comment):
         '''
