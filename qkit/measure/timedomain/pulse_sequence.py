@@ -62,15 +62,18 @@ class PulseSequence(object):
     def add(self, pulse):
         """Add a pulse to the sequence."""
         self.pulses[self._current_time] = pulse
+        return self
 
     def add_readout(self):
         """Add a readout pulse to the sequence."""
         # TODO Maybe think of better alternative than type mixing?
         self.pulses[self._current_time] = "Readout"
+        return self
     
     def wait(self, delay):
         """Add a delay (in seconds) to the sequence."""
         self._current_time += delay
+        return self
 
     @property
     def length(self):
