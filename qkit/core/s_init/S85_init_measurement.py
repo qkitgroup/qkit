@@ -30,11 +30,11 @@ if qkit.cfg.get('datafolder_structure', 1) == 2:
                 disabled=False,
                 style={'description_width': 'initial'}
         )
-        if qkit.cfg.get('run_id', False):
+        if not qkit.cfg.get('run_id', False):
             b.f1.border_color = 'red'
             b.button_style = 'danger'
         
-        if qkit.cfg.get('user', False):
+        if not qkit.cfg.get('user', False):
             b.f2.border_color = 'red'
             b.button_style = 'danger'
         
