@@ -39,6 +39,9 @@ cfg['user_instruments_dir'] = None
 ##
 ## Save data with the new naming scheme
 ##
+## Which version of datafolder structuring do you want?
+##  1 = YYYYMMDD/HHMMSS_NAME
+##  2 = RUN_ID/USERNAME/UUID_NAME
 cfg['datafolder_structure'] = 1
 
 ##

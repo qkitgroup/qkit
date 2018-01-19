@@ -18,6 +18,6 @@ if qkit.cfg.get('set_lockfile',False):
     lockfile.check_lockfile(msg)
 else:
     qkit.cfg['set_lockfile'] = False
-    logging.warn('10_lockfile.py: not creating nor checking lockfile !!!')
+    logging.info('S12_lockfile.py: not creating nor checking lockfile !!!')
 
 del msg

@@ -31,7 +31,7 @@ def _set_user_insdir():
         logging.info('Set user instruments dir to %s'% absdir)
     else:
         qkit.cfg['user_instruments_dir'] = None
-        logging.warning(__name__ + ' : "%s" is not a valid path for user_insdir, setting to None' % instdir)
+        logging.info(__name__ + ' : "%s" is not a valid path for user_instruments_dir, setting to None' % instdir)
         return None
 
     # old code below, may not be needed anymore

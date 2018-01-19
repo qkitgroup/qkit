@@ -37,7 +37,7 @@ qkit.instruments = Insttools()
 
 if qkit.cfg.get("qt_compatible",True):
     qkit.cfg["qt_compatible"] = True
-    print("QKIT start: Enabling depreciated 'qt' module")
+    logging.info("QKIT start: Enabling depreciated 'qt' module")
     import qkit.core.qt_qkit as qt
     from qkit.core.qtflow_qkit import get_flowcontrol
     qt.instrument  = qkit.instrument
