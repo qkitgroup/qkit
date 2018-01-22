@@ -148,7 +148,7 @@ class qplexkit(object):
             GPIO.setmode(GPIO.BCM)
             # setup GPIO
             for pin in self._gpio.values():
-                 GPIO.setup(pin+2, GPIO.OUT)
+                 GPIO.setup(pin, GPIO.OUT)
         except:
             logging.error('qplexkit: Cannot setup Raspberry Pi')
             raise RuntimeError('qplexkit: Cannot setup Raspberry Pi')
