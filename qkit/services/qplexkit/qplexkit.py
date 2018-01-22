@@ -27,6 +27,7 @@
 
 import zerorpc
 import RPi.GPIO as GPIO
+from qkit.config.services import cfg
 import numpy
 import time
 import logging
@@ -35,38 +36,30 @@ import json
 
 class qplexkit(object):
     '''
-    '''
-    """
-    ##########################################################################
-    #                        Room temperature circuit                        #
-    ##########################################################################
+    Qplexkit is a DC multiplexer for low level and low noise transport
+    measurements of micro and nano circuits at low temperatures. It uses MDSM 
+    connectors with 25 pins and enables to measure 12 different 4-wire 
+    experiments with the same four lines in switching between them by means of 
+    low temperature applicable latching relays. For low-ohmic experiments it 
+    provides additionally two switchable current divider at low temperatures 
+    to achieve better SNRs. The control unit at room temperature uses a 
+    Respberry Pi Model B+ and is embedded to Qkit - a quantum measurement suite
+    in python.
     
-    ──┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬────────── HIGH
-      │           │           │           │           │           │           │           │           │           │           │           │           │           │           
-    ──Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬──── GND
-      │     │     │     │     │     │     │     │     │     │     │     │     │     │     │     │     │     │     │     │     │     │     │     │     │     │     │     │     
-    ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐ ┌─┴─┐   
-    │ 0 │ │ 1 │ │ 2 │ │ 3 │ │ 4 │ │ 5 │ │ 6 │ │ 7 │ │ 8 │ │ 9 │ │10 │ │11 │ │12 │ │13 │ │14 │ │15 │ │16 │ │17 │ │18 │ │19 │ │20 │ │21 │ │22 │ │23 │ │24 │ │25 │ │ 0 │ │ 1 │   logical pin number to control letching relay
-    └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘   
-      └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     
-         │           │           │           │           │           │           │           │           │           │           │           │           │           │        
-         │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │        
-         └───╢ 0 ╟───┴───╢ 1 ╟───┴───╢ 2 ╟───┴───╢ 3 ╟───┴───╢ 4 ╟───┴───╢ 5 ╟───┴───╢ 6 ╟───┴───╢ 7 ╟───┴───╢ 8 ╟───┴───╢11 ╟───┴───╢12 ╟───┴───╢15 ╟───┴───╢16 ╟───┘        logical relay number (see Cryostat circuit)
-             ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝            
     
     ##########################################################################
     #                            Cryostat circuit                            #
     ##########################################################################
     
-                                                                    line 1               line 2                                                                  CURRENT DEVIDER
-                                                                 │      ₒ   │         │   ₒ      │
-                                                                 │    ┌─┴─┐ │         │ ┌─┴─┐    │
-                                                                 ├─■■─┤15 ├─┤         ├─┤16 ├─■■─┤
-                                                                 │    └───┘ │         │ └───┘    │
-                                                                 │     11   │         │  12      │
-                                                                 █          █         █          █
-                                                                 │          │         │          │
-                                                                 └──────────┴────╥────┴──────────┘
+                                                                    line 1               line 2                                                                  CURRENT DIVIDER
+                                                                 │      ₒ   │         │   ₒ      │                                                                
+                                                                 │    ╔═╧═╗ │         │ ╔═╧═╗    │                                                                
+                                                                 ├─■■─╢15 ╟─┤         ├─╢16 ╟─■■─┤                                                                
+                                                                 │    ╚═══╝ │         │ ╚═══╝    │                                                                
+                                                                 │     11   │         │  12      │                                                                
+                                                                 █          █         █          █                                                                
+                                                                 │          │         │          │                                                                
+                                                                 └──────────┴────╥────┴──────────┘                                                                
                                                                                  ║                                                                                
                                                                                  ║                                                                                DC MULTIPLEXER
                                                                                ╔═╩═╗                                                                              
@@ -85,14 +78,52 @@ class qplexkit(object):
     │ 0 │     │ 1 │     │ 2 │     │ 3 │     │ 4 │     │ 5 │     │ 6 │     │ 7 │     │ 8 │     │ 9 │     │10 │     │11 │     │12 │     │13 │     │14 │     │15 │   <exp>              : logical experiment number
     └───┘     └───┘     └───┘     └───┘     └───┘     └───┘     └───┘     └───┘     └───┘     └───┘     └───┘     └───┘     └───┘     └───┘     └───┘     └───┘
       0         1         2         3         4         /         5         /         6         7         8         9        10         /        11         /     <self._exps(<exp>)>: physical experiment number
-                                                                                                                                                                  
     0000      0001      0010      0011      0100      0101      0110      0111      1000      1001      1010      1011      1100      1101      1110      1111    bin(<exp>)         : equals path through relays ABCD (0:left, 1:right)
     
+    DC MULTIPLEX
+    Each logical latching relay (double solid lined) switches all four
+    measurement lines to select the wanted experiment (singel solid line). The 
+    logical relay numbers 9, 10, 11, 12 are dummy relais that do not exist 
+    physically, but simplify the control logic by using bit operations of this 
+    obtained symmertic setup.
     
-    relay 9, 10, 11, 12 are dummy relais that do not exist physically, but simplify bit operations due to symmerty
+    CURRENT DIVIDER
+    Above the DC multiplexer, latching relays (double solid lined) may connect 
+    a pair of two current lines with a 10Ω resistance (black box). Together 
+    with the down-streamed cables, filters etc (illustrated as resistances 
+    above) this forms switchable current dividers whose attenuation factor 
+    depends on the ratio of these resistances and attenuates both signal and 
+    noise. Since the added Nyquist noise depends on the square root of the 
+    temperature, this low temperature current divider provides better signal to
+    noise ratios compared to those operating at room temperature.
     
-    """
-        
+    
+    ##########################################################################
+    #                        Room temperature circuit                        #
+    ##########################################################################
+    
+    ───┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬───────────┬────────── HIGH
+       │           │           │           │           │           │           │           │           │           │           │           │           │           │           
+    ───Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬─────Є─────┬──── LOW
+     ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │   ₒ │     
+    ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐ ┌┴─┴┐    
+    │ 0 │ │ 1 │ │ 2 │ │ 3 │ │ 4 │ │ 5 │ │ 6 │ │ 7 │ │ 8 │ │ 9 │ │10 │ │11 │ │12 │ │13 │ │14 │ │15 │ │16 │ │17 │ │18 │ │19 │ │20 │ │21 │ │22 │ │23 │ │24 │ │25 │ │ 0 │ │ 1 │    non-latching relay (controled by logical pin number)
+    └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘    
+      └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘     └──┬──┘      
+         │           │           │           │           │           │           │           │           │           │           │           │           │           │         
+         ≈           ≈           ≈           ≈           ≈           ≈           ≈           ≈           ≈           ≈           ≈           ≈           ≈           ≈         connection to cryostat circuit
+         │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │   ╔═══╗   │         
+         └───╢ 0 ╟───┴───╢ 1 ╟───┴───╢ 2 ╟───┴───╢ 3 ╟───┴───╢ 4 ╟───┴───╢ 5 ╟───┴───╢ 6 ╟───┴───╢ 7 ╟───┴───╢ 8 ╟───┴───╢11 ╟───┴───╢12 ╟───┴───╢15 ╟───┴───╢16 ╟───┘         logical relay number (see Cryostat circuit)
+             ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝       ╚═══╝             
+    
+    To safe relay switch lines for low temperature relays (double solid lined),
+    they are arranged ring-shaped where each line is connected to the relay 
+    coil '+' on the one side and to the relay '-' on the other side. At room 
+    temperature they are open by default and can be connected either with HIGH 
+    or LOW by two non-latching relays (single solid lined) that are controlled 
+    by GPIOs of a Raspberry Pi 3 Model B.
+    '''
+    
     def __init__(self):
         '''
         Initiates variables to default configuration and sets raspberry up.
@@ -104,10 +135,10 @@ class qplexkit(object):
         '''
         # class variables
         self._switch_time = 10e-3
-        self._rels = {0:0, 1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8, 9:11, 10:12, 11:15, 12:16}             # logical relay number [physical relay numbers]
+        self._rels = {0:0, 1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8, 9:11, 10:12, 11:15, 12:16}             # logical relay number [physical relay number]
         self._rel_num = len(self._rels)
-        self._exps = {0:0, 1:1, 2:2, 3:3, 4:4, 5:6, 6:8, 7:9, 8:10, 9:11, 10:12, 11:14}                   # logical experiment number [physical experiment numbers]  numpy.concatenate([range(5), [6], range(8,13), [14]])  
-        self._pin = [(((0+2*i)%26, (3+2*i)%26),((2+2*i)%26, (1+2*i)%26)) for i in range(self._rel_num)]   # logical pin configuration [relay number]
+        self._exps = {0:0, 1:1, 2:2, 3:3, 4:4, 5:6, 6:8, 7:9, 8:10, 9:11, 10:12, 11:14}                   # logical experiment number [physical experiment number]
+        self._pin = [(((0+2*i)%26, (3+2*i)%26),((2+2*i)%26, (1+2*i)%26)) for i in range(self._rel_num)]   # logical pin configuration [relay number][relay value]
         self._gpio_num = len(numpy.unique(self._pin))
         self._gpio = {i:i+2 for i in range(self._gpio_num)}                                               # logical GPIO number [logical pin number]
         
@@ -120,9 +151,10 @@ class qplexkit(object):
                 GPIO.setup(pin, GPIO.OUT)
         except:
             logging.error('qplexkit: Cannot setup Raspberry Pi')
+            raise RuntimeError('qplexkit: Cannot setup Raspberry Pi')
         
         # actual settings
-        self._ccr_file = 'ccr.json'
+        self._ccr_file = cfg['qplexkit_ccr_file']
         try:
             self._ccr = self.read_ccr()
         except ValueError:
@@ -199,13 +231,13 @@ class qplexkit(object):
         return self._exps.keys()[self._exps.values().index(int(''.join(exp), 2))]
     
     
-    def set_current_devider(self, line, val, **kwargs):
+    def set_current_divider(self, line, val, **kwargs):
         '''
-        Sets current devider <line> to <val> in setting relevant relays if necessary.
+        Sets current divider of <line> to <val> by setting relevant the relay if necessary.
         
         Input:
             line (int) : line number ∈ [1,2]
-            val (bool) : 
+            val (bool) : current divider state
             **kwargs   : <ccr> (int): condition code register <ccr> of relay states
         Output:
             None
@@ -216,14 +248,15 @@ class qplexkit(object):
             return
     
     
-    def get_current_devider(self, line, **kwargs):
+    def get_current_divider(self, line, **kwargs):
         '''
-        Sets experiment to <exp> in setting relevant relays if necessary.
+        Gets <val> of current divider of <line>.
         
         Input:
-            **kwargs: <ccr> (int): condition code register <ccr> of relay states
+            line (int) : line number ∈ [1,2]
+            **kwargs   : <ccr> (int): condition code register <ccr> of relay states
         Output:
-            exp (int): physical experiment number ∈ [0,11]
+            val (bool) : current divider state
         '''
         return self.get_relay(rel=14+line, **kwargs)
     
@@ -401,7 +434,7 @@ class qplexkit(object):
         self.write_ccr()
         return
 
-
-#s = zerorpc.Server(qplexkit())
-#s.bind("tcp://129.13.93.109:4242")
-#s.run()
+_adress = cfg['qplexkit_adress']
+s = zerorpc.Server(qplexkit())
+s.bind(_adress)
+s.run()
