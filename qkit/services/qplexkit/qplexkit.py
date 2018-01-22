@@ -147,8 +147,8 @@ class qplexkit(object):
             # set board mode to Broadcom
             GPIO.setmode(GPIO.BCM)
             # setup GPIO
-            for pin in list(set(numpy.concatenate(numpy.concatenate(self._gpio)))):
-                GPIO.setup(pin, GPIO.OUT)
+            for pin in self._gpio.values():
+                 GPIO.setup(pin+2, GPIO.OUT)
         except:
             logging.error('qplexkit: Cannot setup Raspberry Pi')
             raise RuntimeError('qplexkit: Cannot setup Raspberry Pi')
@@ -157,7 +157,8 @@ class qplexkit(object):
         self._ccr_file = cfg['qplexkit_ccr_file']
         try:
             self._ccr = self.read_ccr()
-        except ValueError:
+        except (IOError, ValueError) as e:
+            logging.error('qplexkit: Cannot read condition code register: {:s}'.format(e))
             logging.info('qplexkit: Reset qplexkit and create new json-file')
             self._ccr = 0
             self.create_ccr()
@@ -280,6 +281,7 @@ class qplexkit(object):
         _pin_high    = self._pin[_rel][int(val)][1]                            # logical GPIO number set to HIGH
         _gpio_low    = self._gpio[_pin_low]                                    # physical GPIO number set to HIGH
         _gpio_high   = self._gpio[_pin_high]                                   # physical GPIO number set to LOW
+        print('qplexkit: Set relay {:d}({:d}) to {:d} with logical pins {:d}({:d}) and {:d}({:d})'.format(_rel, rel, val, _pin_low, _gpio_low, _pin_high, _gpio_high))
         logging.info('qplexkit: Set relay {:d}({:d}) to {:d} with logical pins {:d}({:d}) and {:d}({:d})'.format(_rel, rel, val, _pin_low, _gpio_low, _pin_high, _gpio_high))
         GPIO.output(_gpio_low, 1)
         logging.info('qplexkit: Set GPIO{:d} high'.format(_gpio_low))
