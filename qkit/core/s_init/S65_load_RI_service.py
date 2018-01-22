@@ -5,10 +5,11 @@ Start remote interface service (RIS)
 """
 import qkit
 import logging
-from qkit.core.lib.com.ri_service import RISThread 
+
 
 def _load_ri_service():
     logging.info(__file__+": loading remote interface service")
+    from qkit.core.lib.com.ri_service import RISThread
     qkit.ris = RISThread()
 
 if qkit.cfg.get('load_ri_service',False):
