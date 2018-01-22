@@ -34,6 +34,7 @@ class QKIT_visible(object):
         return eval(func)
 
     def get_cfg(self):
+        "returns the qkit.cfg dict"
         return qkit.cfg
     def get_current(self):
         return qkit.last[-1]
@@ -52,7 +53,7 @@ class RISThread(object):
     def __init__(self):
         self.ris = ""
         logging.info(__name__+"starting RIS ...")
-        thread = threading.Thread(target=self.run, args=())
+        thread = threading.Thread(target=self.run, name="ris", args=())
         thread.daemon = True                            # Daemonize thread
         thread.start()                                  # Start the execution
     def run(self):

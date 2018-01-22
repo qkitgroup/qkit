@@ -9,18 +9,41 @@ Remote interface client (RIC) to access the RI service or any zerorpc service
 import qkit
 import zerorpc
 
-ric = zerorpc.Client(); 
-host = qkit.cfg.get("ris_host","127.0.0.1")
-port = str(qkit.cfg.get("ris_port",5700))
+def __update_tab(ric):
+    # try to be smart and add the remote functions to the __dict__ for tabbing in ipython
+    rflist = ric._zerorpc_list()
+    for f in rflist: 
+        ric.__dict__.update({f:getattr(ric,f)})
 
-ric.connect("tcp://"+host+":"+port)
+#def update_doc(ric):
+def __getdoc():
+    return _zerorpc_help
+    
+def start_ric(host = None,port = None):
+    """
+    starts a remote interface client (ric)
+    to a 
+        host = host (default =  localhost)
+    at a 
+        port  = port (default =  5700)
+    
+    ric is based on zerorpc, so every zerorpc server should be accessible
+    
+    """
+    ric = zerorpc.Client(); 
+    if not host:
+        host = qkit.cfg.get("ris_host","127.0.0.1")
+    if not port:
+        port = qkit.cfg.get("ris_port",5700)
 
-# try to be smart and add the remote functions to the __dict__ for tabbing in ipython
-rflist = ric._zerorpc_list()
-for f in rflist: 
-    ric.__dict__.update({f:getattr(ric,f)})
+    ric.connect("tcp://" + host + ":" + str(port))
+    
+    qkit.ric = ric    
+    __update_tab(ric)
+    
+    return ric
 
-qkit.ric = ric
+#qkit.start_ric = start_ric
     
 """
 list of internal functions

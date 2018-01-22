@@ -22,8 +22,19 @@ except ImportError:
     pass
 
 print ("QKIT configuration initialized -> available as qkit.cfg[...]")
+
+"""
+startup functions
+"""
 # start initialization (qkit/core/init)
 def start():
     print("Starting QKIT framework ... -> qkit.core.startup")
     import qkit.core.startup
     qkit.core.startup.start()
+
+
+"""
+add a few convenience shortcuts 
+"""
+# remote interface client after qkit.start_ric() -> qkit.ric
+from qkit.core.lib.com.ri_client import start_ric
