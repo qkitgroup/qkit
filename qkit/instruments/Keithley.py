@@ -968,43 +968,49 @@ class Keithley(Instrument):
         # Corresponding Command: numberOfReadings = bufferVar.n
         # Corresponding Command: smuX.trigger.initiate()
         # Corresponding Command: waitcomplete()
-        try:
-            if self._sweep_mode == 0:                                          # VV-mode
-                # sweep channel and measure channel2
-                cmd =  """for i = %f, %f, %f do""" % (self._start, self._stop+self._step_signed/2., self._step_signed)
-                cmd += """\tsmu%s.source.levelv = i""" % chr(96+channel)
-                cmd += """\tsmu%s.measure.v(%s)""" % (chr(96+((self._pseudo_bias_mode+1)%2+channel%2)%2+1),  self._iReadingBuffer)
-                cmd += """\tsmu%s.measure.v(%s)""" % (chr(96+((self._pseudo_bias_mode+1)%2+channel2%2)%2+1), self._vReadingBuffer)
-                cmd += """end\n"""
-                self._write(cmd)
-            elif self._sweep_mode in [1, 2]:                                   # IV-mode or VI-mode
-                # sweep and measure channel
-                self._write("""smu%s.trigger.initiate()""" % chr(96+channel))
-                self._write("""waitcomplete()""")
-            self._write("""status.operation.user.condition = status.operation.user.BIT0""")
-            # wait for operation complete (Operation Status Bit = 1)
-            if  LooseVersion(visa.__version__) < LooseVersion("1.5.0"):        # pyvisa 1.4
-                while visa.vpp43.read_stb(self._visainstrument.vi) == 0:
-                    time.sleep(1e-1)
-            else:                                                              # pyvisa 1.8
-                while visa.visalib.read_stb(self._visainstrument.session)[0] == 0:
-                    time.sleep(1e-1)
-            # read data
-            I_values = numpy.array([float(self._ask('%s[%i]' % (self._iReadingBuffer, i))) for i in range(1,int(float(self._ask('%s.n' % self._iReadingBuffer)))+1)])
-            V_values = numpy.array([float(self._ask('%s[%i]' % (self._vReadingBuffer, i))) for i in range(1,int(float(self._ask('%s.n' % self._vReadingBuffer)))+1)])
-            #I_values = numpy.fromstring(string=self._ask('''printbuffer(1, %s.n, %s)''' % (2*(self._iReadingBuffer,))), dtype=float, sep=',')
-            #V_values = numpy.fromstring(string=self._ask('''printbuffer(1, %s.n, %s)''' % (2*(self._vReadingBuffer,))), dtype=float, sep=',')
-            if self._sweep_mode == 0:                                          # VV-mode
-                if self._pseudo_bias_mode == 0:                                # current bias
-                    I_values *= self._dAdV
-                    V_values /= self._amp
-                if self._pseudo_bias_mode == 1:                                # voltage bias
-                    I_values /= self._dAdV
-                    V_values *= self._amp
-            return I_values, V_values
-        except:
-            logging.error(__name__ + ': Cannot take sweep trace data')
-    
+        #try:
+        if self._sweep_mode == 0:                                          # VV-mode
+            # sweep channel and measure channel2
+            cmd =  """for i = %f, %f, %f do""" % (self._start, self._stop+self._step_signed/2., self._step_signed)
+            cmd += """\tsmu%s.source.levelv = i""" % chr(96+channel)
+            cmd += """\tsmu%s.measure.v(%s)""" % (chr(96+((self._pseudo_bias_mode+1)%2+channel%2)%2+1),  self._iReadingBuffer)
+            cmd += """\tsmu%s.measure.v(%s)""" % (chr(96+((self._pseudo_bias_mode+1)%2+channel2%2)%2+1), self._vReadingBuffer)
+            cmd += """end\n"""
+            self._write(cmd)
+        elif self._sweep_mode in [1, 2]:                                   # IV-mode or VI-mode
+            # sweep and measure channel
+            self._write("""smu%s.trigger.initiate()""" % chr(96+channel))
+            self._write("""waitcomplete()""")
+        self._write("""status.operation.user.condition = status.operation.user.BIT0""")
+        # wait for operation complete (Operation Status Bit = 1)
+        if  LooseVersion(visa.__version__) < LooseVersion("1.5.0"):        # pyvisa 1.4
+            visa.vpp43.read_stb(self._visainstrument.vi)
+            time.sleep(1e-1)
+            while visa.vpp43.read_stb(self._visainstrument.vi) == 0:
+                time.sleep(2e-1)
+        else:                                                              # pyvisa 1.8
+            visa.visalib.read_stb(self._visainstrument.session)[0]
+            time.sleep(1e-1)
+            while visa.visalib.read_stb(self._visainstrument.session)[0] == 0:
+                time.sleep(2e-1)
+            
+        time.sleep(0.1)
+        # read data
+        I_values = numpy.array([float(self._ask('%s[%i]' % (self._iReadingBuffer, i))) for i in range(1,int(float(self._ask('%s.n' % self._iReadingBuffer)))+1)])
+        V_values = numpy.array([float(self._ask('%s[%i]' % (self._vReadingBuffer, i))) for i in range(1,int(float(self._ask('%s.n' % self._vReadingBuffer)))+1)])
+        #I_values = numpy.fromstring(string=self._ask('''printbuffer(1, %s.n, %s)''' % (2*(self._iReadingBuffer,))), dtype=float, sep=',')
+        #V_values = numpy.fromstring(string=self._ask('''printbuffer(1, %s.n, %s)''' % (2*(self._vReadingBuffer,))), dtype=float, sep=',')
+        if self._sweep_mode == 0:                                          # VV-mode
+            if self._pseudo_bias_mode == 0:                                # current bias
+                I_values *= self._dAdV
+                V_values /= self._amp
+            if self._pseudo_bias_mode == 1:                                # voltage bias
+                I_values /= self._dAdV
+                V_values *= self._amp
+        return I_values, V_values
+        #except :
+        #    logging.error(__name__ + ': Cannot take sweep trace data')
+        #    logging.error(e)
     
     def take_IV(self, sweep, channel=1, channel2=2, **readingBuffer):
         '''
