@@ -5,9 +5,9 @@ Remote interface client (RIC) to access the RI service or any zerorpc service
 
 @author: HR@KIT 2018
 """
-
 import qkit
-import zerorpc
+
+#import logging # the logging mechanism does not work here, since qkit is not started
 
 def __update_tab(ric):
     # try to be smart and add the remote functions to the __dict__ for tabbing in ipython
@@ -15,11 +15,12 @@ def __update_tab(ric):
     for f in rflist: 
         ric.__dict__.update({f:getattr(ric,f)})
 
-#def update_doc(ric):
 def __getdoc():
     return _zerorpc_help
     
+    
 def start_ric(host = None,port = None):
+    import zerorpc
     """
     starts a remote interface client (ric)
     to a 
@@ -35,7 +36,7 @@ def start_ric(host = None,port = None):
         host = qkit.cfg.get("ris_host","127.0.0.1")
     if not port:
         port = qkit.cfg.get("ris_port",5700)
-
+    print("starting ric client on host %s and port %s" % (host,port))
     ric.connect("tcp://" + host + ":" + str(port))
     
     qkit.ric = ric    
@@ -43,8 +44,6 @@ def start_ric(host = None,port = None):
     
     return ric
 
-#qkit.start_ric = start_ric
-    
 """
 list of internal functions
 _zerorpc_list to list calls
