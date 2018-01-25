@@ -7,18 +7,14 @@
 import sys
 in_pyqt5 = False
 try:
-    from PyQt5 import QtCore
-    from PyQt5.QtCore import Qt,QObject,pyqtSlot
-    from PyQt5.QtWidgets import QWidget,QPlainTextEdit,QMenu,QAction
+    from PyQt5.QtCore import Qt
     in_pyqt5 = True
 except ImportError as e:
     pass
 
 if not in_pyqt5:
     try:
-        from PyQt4 import QtCore
-        from PyQt4.QtCore import *
-        from PyQt4.QtGui import *
+        from PyQt4.QtCore import Qt
     except ImportError:
         print("import of PyQt5 and PyQt4 failed. Install one of those.")
         sys.exit(-1)
@@ -351,7 +347,7 @@ def _display_2D_data(self,graphicsView):
                 
             data = data[self.TraceXNum,:,:]
             
-            fill_x = ds.shape[0]
+            fill_x = ds.shape[1]
             fill_y = ds.shape[2]
             x0 = ds.attrs.get("y0",0)
             dx = ds.attrs.get("dy",1)
@@ -371,7 +367,7 @@ def _display_2D_data(self,graphicsView):
                 self.TraceYValueChanged = False
 
             data = data[:,self.TraceYNum,:]
-            fill_x = ds.shape[1]
+            fill_x = ds.shape[0]
             fill_y = ds.shape[2]
             x0 = ds.attrs.get("x0",0)
             dx = ds.attrs.get("dx",1)
@@ -436,7 +432,7 @@ def _display_2D_data(self,graphicsView):
     graphicsView.clear()
     # scale is responsible for the "accidential" correct display of the axis
     # for downsweeps scale has negative values and extends the axis from the min values into the correct direction
-    scale=((xmax-xmin)/float(fill_x),(ymax-ymin)/float(fill_y))
+    scale=(dx,dy)
     graphicsView.view.setLabel('left', y_name, units=y_unit)
     graphicsView.view.setLabel('bottom', x_name, units=x_unit)
     graphicsView.view.setTitle(str(name)+" ("+str(self.unit)+")")
@@ -461,7 +457,7 @@ def _display_2D_data(self,graphicsView):
                 mousePoint = imIt.mapFromScene(mpos)
                 x_index = int(mousePoint.x())
                 y_index = int(mousePoint.y())
-                if x_index > 0 and y_index > 0:
+                if x_index >= 0 and y_index >= 0:
                     if x_index < fill_x and y_index < fill_y:
                         xval = x0+x_index*dx
                         yval = y0+y_index*dy
