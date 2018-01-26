@@ -1,4 +1,7 @@
 # Qkit
+![Qkitlogo](https://github.com/qkitgroup/qkit/images/Qkit_Logo.png "QKIT")
+
+
 Qkit -- a quantum measurement suite in python
 
 ### Features:
