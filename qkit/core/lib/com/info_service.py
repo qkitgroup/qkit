@@ -4,7 +4,7 @@
 
 import zmq
 import time
-
+import logging
 import qkit
 from qkit.core.lib.com.signals import SIGNALS
 
@@ -26,7 +26,16 @@ class info_service(object):
         
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.PUB)
-        self.socket.bind("tcp://*:%s" % port)
+        try:
+            self.socket.bind("tcp://*:%s" % port)
+        except zmq.ZMQError as e:
+            if e.errno == 48:
+                logging.warning("Info service: address/port in use. \nMaybe another instance of QKIT is running?")
+                logging.warning("Iot starting info service.")
+                self.context.destroy()
+            else:
+                raise e
+        #zmq.ZMQError.errno
         # wait until zmq is settled
         time.sleep(0.3)
     

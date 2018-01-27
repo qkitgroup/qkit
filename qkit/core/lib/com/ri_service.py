@@ -17,6 +17,7 @@ properly made threadsave by threading.Lock or similar.
 """
 import qkit
 import threading
+import zmq
 import zerorpc
 import logging
 
@@ -60,7 +61,15 @@ class RISThread(object):
         self.ris = zerorpc.Server(QKIT_visible())
         host = qkit.cfg.get("ris_host","127.0.0.1")
         port = str(qkit.cfg.get("ris_port",5700))
-        self.ris.bind("tcp://"+host+":"+port)
+        try:
+            self.ris.bind("tcp://"+host+":"+port)
+        except zmq.ZMQError as e:
+            if e.errno == 48:
+                logging.warning("RIS: address/port in use. \nMaybe another instance of QKIT is running?")
+                logging.warning("Not starting RIS.")
+                return False
+            else:
+                raise e
         self.ris.run()
     def stop(self):
             try:
