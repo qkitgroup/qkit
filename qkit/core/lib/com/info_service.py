@@ -31,7 +31,7 @@ class info_service(object):
         except zmq.ZMQError as e:
             if e.errno == 48:
                 logging.warning("Info service: address/port in use. \nMaybe another instance of QKIT is running?")
-                logging.warning("Iot starting info service.")
+                logging.warning("Not starting info service.")
                 self.context.destroy()
             else:
                 raise e
