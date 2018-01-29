@@ -9,14 +9,14 @@ from qkit.config.environment import cfg
 # if a local.py file is defined, load cfg dict and overwrite environment entries.
 try:
     from qkit.config.local import cfg_local
-    for entry in cfg_local.iterkeys():
+    for entry in cfg_local.keys():
         cfg[entry] = cfg_local[entry]
 except ImportError:
     pass
 
 try:    
     from qkit.config.local import cfg as cfg_local
-    for entry in cfg_local.iterkeys():
+    for entry in cfg_local.keys():
         cfg[entry] = cfg_local[entry]
 except ImportError:
     pass
