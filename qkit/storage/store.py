@@ -30,8 +30,10 @@ class Data(object):
         name (string):  filename or absolute filepath
         """
         self._name = name
-
-        if not os.path.isabs(self._name):
+        if os.path.isfile(self._name):
+            self._filepath = os.path.abspath(self._name)
+            self._folder, self._filename = os.path.split(self._filepath)
+        elif not os.path.isabs(self._name):
             self._generate_file_name()
         else:
             self._filepath = os.path.abspath(self._name)
