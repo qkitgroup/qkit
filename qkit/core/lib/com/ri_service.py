@@ -64,12 +64,10 @@ class RISThread(object):
         try:
             self.ris.bind("tcp://"+host+":"+port)
         except zmq.ZMQError as e:
-            if e.errno == 48:
-                logging.warning("RIS: address/port in use. \nMaybe another instance of QKIT is running?")
-                logging.warning("Not starting RIS.")
-                return False
-            else:
-                raise e
+            logging.warning("RIS: address/port in use. ZMQError:%d \nMaybe another instance of QKIT is running?"%(e.errno))
+            logging.warning("Not starting RIS.")
+            return False
+
         self.ris.run()
     def stop(self):
             try:

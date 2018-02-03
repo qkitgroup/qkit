@@ -29,12 +29,10 @@ class info_service(object):
         try:
             self.socket.bind("tcp://*:%s" % port)
         except zmq.ZMQError as e:
-            if e.errno == 48:
-                logging.warning("Info service: address/port in use. \nMaybe another instance of QKIT is running?")
-                logging.warning("Iot starting info service.")
-                self.context.destroy()
-            else:
-                raise e
+            logging.warning("Info service: address/port in use. ZMQError:%d \nMaybe another instance of QKIT is running?"%(e.errno))
+            logging.warning("Not starting info service.")
+            self.context.destroy()
+
         #zmq.ZMQError.errno
         # wait until zmq is settled
         time.sleep(0.3)
