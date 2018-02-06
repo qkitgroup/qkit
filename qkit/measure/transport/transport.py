@@ -38,27 +38,21 @@ import qkit.measure.write_additional_files as waf
 class transport(object):
     '''
     usage:
-
-    m = transport.transport(IV_Device = IVD1)
-
-    m.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current',coil.set_current, unit = 'mA')
-    m.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency',mw_src1.set_frequency, unit = 'Hz')
-
-    m.gen_fit_function(...)      several times
-
-    m.measure_XX()
+        tr = transport.transport(IV_Device = IVD)
+        
+        tr.set_dVdI(<bool>)
+        tr.sweep.reset_sweeps()
+        tr.add_sweep_4quadrants(start=<start>, stop=<stop>, step=<step>, offset=<offset>)
+        
+        tr.measure_XX()
     '''
-
+    
     def __init__(self, IV_Device, exp_name = '', sample = None):
-
+        
         self.IVD = IV_Device
-        
-        
         self.exp_name = exp_name
         self._sample = sample
-
-
-
+        
         self.comment = ''
         self.dirname = None
 
@@ -79,8 +73,6 @@ class transport(object):
         self._measurement_object.sample = self._sample
         
         self._qvk_process = False
-        
-        self.number_of_timetraces = 1   #relevant in time domain mode
         
         self._web_visible = True
         
@@ -144,11 +136,14 @@ class transport(object):
         '''
         Sets parameters for sweep. In a 3D measurement, the x-parameters will be the "outer" sweep.
         For every x value all y values are swept
+        
         Input:
-        x_vec (array): conains the sweeping values
-        x_coordname (string)
-        x_instrument (obj): callable object to execute with x_vec-values (i.e. vna.set_power())
-        x_unit (string): optional
+            x_vec (array): conains the sweeping values
+            x_coordname (string)
+            x_instrument (obj): callable object to execute with x_vec-values (i.e. vna.set_power())
+            x_unit (string): optional
+        Output:
+            None
         '''
         self.x_vec = x_vec
         self.x_coordname = x_coordname
@@ -160,23 +155,29 @@ class transport(object):
         '''
         Sets parameters for sweep. In a 3D measurement, the x-parameters will be the "outer" sweep.
         For every x value all y values are swept
+        
         Input:
-        y_vec (array): contains the sweeping values
-        y_coordname (string)
-        y_instrument (obj): callable object to execute with x_vec-values (i.e. vna.set_power())
-        y_unit (string): optional
+            y_vec (array): contains the sweeping values
+            y_coordname (string)
+            y_instrument (obj): callable object to execute with x_vec-values (i.e. vna.set_power())
+            y_unit (string): optional
+        Output:
+            None
         '''
         self.y_vec = y_vec
         self.y_coordname = y_coordname
         self.y_set_obj = y_set_obj
-        self.delete_fit_function()
+        #self.delete_fit_function()
         self.y_unit = y_unit
 
     def set_web_visible(self, web_visible = True):
         '''
         Sets the web_visible parameter for the measurement class
+        
         Input:
-        web_visible = True (Default) | False
+            web_visible = True (Default) | False
+        Output:
+            None
         '''
         self._web_visible = web_visible
     
@@ -231,20 +232,20 @@ class transport(object):
     
     def _prepare_measurement_IVD(self):
         '''
-        all the relevant settings from the vna are updated and called
+        All the relevant settings from the IVD are updated and called
+        
+        Input:
+            None
+        Output:
+            None
         '''
-
-        #self.IVD.get_all()
-
-        #ttip.get_temperature() 
-        # bias mode is either  current=0 or voltage=1
-        self._pseudo_bias_mode = self.IVD.get_pseudo_bias_mode()
-        #self._nop = self.IVD.get_nop()
-        #self._sweeptime_averages = self.IVD.get_sweeptime_averages()
-        #self._freqpoints = self.IVD.get_freqpoints()
-
-        #if self.averaging_start_ready: self.vna.pre_measurement()
-
+        self._sweep_mode       = self.IVD.get_sweep_mode()                     # 0 (VV-mode) | 1 (IV-mode) | 2 (VI-mode)
+        self._pseudo_bias_mode = self.IVD.get_pseudo_bias_mode()               # 0 (current bias) | 1 (voltage bias)
+        self._IV_modes         = {0:'I', 1:'V'}
+        self._IV_units         = {0:'A', 1:'V'}
+        self._bias             = int(not bool(self._sweep_mode))*self._pseudo_bias_mode+int(bool(self._sweep_mode))*(self._sweep_mode-1)   # 0 (current bias) | 1 (voltage bias)
+    
+    
     def _prepare_measurement_file(self):
         '''
         creates the output .h5-file with distinct dataset structures for each measurement type.
@@ -267,16 +268,25 @@ class transport(object):
         #if not self._scan_time:
         #    self._data_freq = self._data_file.add_coordinate('frequency', unit = 'Hz')
         #    self._data_freq.add(self._freqpoints)
-
+        
+        self._data_bias = []
         self._data_I  = []
         self._data_V  = []
         if self._dVdI: self._data_dVdI  = []
         if self._scan_1D:
             # add data variables
-            for st in range(self.sweep.get_nos()):
-                self._data_V.append(self._data_file.add_value_vector('V_'+str(st), unit = 'V', save_timestamp = False))
-                self._data_I.append(self._data_file.add_value_vector('I_'+str(st), x = self._data_V[st], unit = 'A', save_timestamp = False))
-                if self._dVdI: self._data_dVdI.append(self._data_file.add_value_vector('dVdI_'+str(st), x = self._data_V[st], unit = 'V/A', save_timestamp = False))
+            ### TODO: V/R over coordinate or measured value? V(I_real) or V(I_theo) in variable plots?
+            self.sweep.create_iterator()
+            for i in range(self.sweep.get_nos()):
+                self._data_bias.append(self._data_file.add_coordinate('{:s}_b_{!s}'.format(self._IV_modes[self._bias], i), unit=self._IV_units[self._bias]))
+                self._data_bias[i].add(self.get_bias_values(sweep=self.sweep.get_sweep()))
+                self._data_I.append(self._data_file.add_value_vector('I_{!s}'.format(i), x = self._data_bias[i], unit = 'A', save_timestamp = False))
+                self._data_V.append(self._data_file.add_value_vector('V_{!s}'.format(i), x = self._data_bias[i], unit = 'V', save_timestamp = False))
+                if self._dVdI: self._data_dVdI.append(self._data_file.add_value_vector('dVdI_{!s}'.format(i), x = self._data_bias[i], unit = 'V/A', save_timestamp = False))
+#            for i in range(self.sweep.get_nos()):
+#                self._data_V.append(self._data_file.add_value_vector('V_'+str(i), unit = 'V', save_timestamp = False))
+#                self._data_I.append(self._data_file.add_value_vector('I_'+str(i), x = self._data_V[i], unit = 'A', save_timestamp = False))
+#                if self._dVdI: self._data_dVdI.append(self._data_file.add_value_vector('dVdI_'+str(i), x = self._data_V[i], unit = 'V/A', save_timestamp = False))
             # add views
             IV   = self._data_file.add_view('IV', x = self._data_V[0], y = self._data_I[0])
             if self._dVdI: dVdI = self._data_file.add_view('dVdI', x = self._data_I[0] , y = self._data_dVdI[0])
@@ -288,16 +298,50 @@ class transport(object):
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit = self.x_unit)
             self._data_x.add(self.x_vec)
             
-            for st in range(self.sweep.get_nos()):
-                self._data_I.append(self._data_file.add_value_vector('I_'+str(st), unit = 'A', save_timestamp = False))
-                self._data_V.append(self._data_file.add_value_matrix('V_'+str(st), x = self._data_x, y = self._data_I[st], unit = 'V', save_timestamp = False))
-                if self._dVdI: self._data_dVdI.append(self._data_file.add_value_matrix('dVdI_'+str(st), x = self._data_x, y = self._data_I[st], unit = 'V/A', save_timestamp = False))
+            # add data variables
+            self.sweep.create_iterator()
+            for i in range(self.sweep.get_nos()):
+                self._data_bias.append(self._data_file.add_coordinate('{:s}_b_{!s}'.format(self._IV_modes[self._bias], i), unit = 'A'))
+                self._data_bias[i].add(self.get_bias_values(sweep=self.sweep.get_sweep()))
+                self._data_I.append(self._data_file.add_value_matrix('I_{!s}'.format(i), x = self._data_x, y = self._data_bias[i], unit = 'A', save_timestamp = False))
+                self._data_V.append(self._data_file.add_value_matrix('V_{!s}'.format(i), x = self._data_x, y = self._data_bias[i], unit = 'V', save_timestamp = False))
+                if self._dVdI: self._data_dVdI.append(self._data_file.add_value_matrix('dVdI_{!s}'.format(i), x = self._data_x, y = self._data_bias[i], unit = 'V/A', save_timestamp = False))
+            if self._Fraunhofer:
+                    self._data_Ic = []
+                    for i in range(self.sweep.get_nos()):
+                        self._data_Ic.append(self._data_file.add_value_vector('Ic_'+str(i), x = self._data_x, unit = 'A', save_timestamp = False))
+                    Fraunhofer = self._data_file.add_view('Fraunhofer', x=self._data_x, y=self._data_Ic[0])
+                    for i in range(1, self.sweep.get_nos()):
+                        Fraunhofer.add(x=self._data_x, y=self._data_Ic[i])
+#            if self.IVD.get_pseudo_bias_mode() == 0:
+#                for i in range(self.sweep.get_nos()):
+#                    self._data_I.append(self._data_file.add_value_vector('I_'+str(i), unit = 'A', save_timestamp = False))
+#                    self._data_V.append(self._data_file.add_value_matrix('V_'+str(i), x = self._data_x, y = self._data_I[i], unit = 'V', save_timestamp = False))
+#                    if self._dVdI: self._data_dVdI.append(self._data_file.add_value_matrix('dVdI_'+str(i), x = self._data_x, y = self._data_I[i], unit = 'V/A', save_timestamp = False))
+#                if self._Fraunhofer:
+#                    self._data_Ic = []
+#                    for i in range(self.sweep.get_nos()):
+#                        self._data_Ic.append(self._data_file.add_value_vector('Ic_'+str(i), x = self._data_x, unit = 'A', save_timestamp = False))
+#                    Fraunhofer = self._data_file.add_view('Fraunhofer', x=self._data_x, y=self._data_Ic[0])
+#                    for i in range(1, self.sweep.get_nos()):
+#                        Fraunhofer.add(x=self._data_x, y=self._data_Ic[i])
+#            elif self.IVD.get_pseudo_bias_mode() == 1:
+#                for i in range(self.sweep.get_nos()):
+#                    self._data_V.append(self._data_file.add_value_vector('V_'+str(i), unit = 'V', save_timestamp = False))
+#                    self._data_I.append(self._data_file.add_value_matrix('I_'+str(i), x = self._data_x, y = self._data_V[i], unit = 'A', save_timestamp = False))
+#                    if self._dVdI: self._data_dVdI.append(self._data_file.add_value_matrix('dVdI_'+str(i), x = self._data_x, y = self._data_I[i], unit = 'V/A', save_timestamp = False))
+
+#            # add views
+            IV   = self._data_file.add_view('IV', x = self._data_V[0], y = self._data_I[0])
+            if self._dVdI: dVdI = self._data_file.add_view('dVdI', x = self._data_I[0] , y = self._data_dVdI[0])
+            for i in range(1, self.sweep.get_nos()):
+                IV.add(x=self._data_V[i],y=self._data_I[i])
+                if self._dVdI: dVdI.add(x=eval('self._data_{:s}'.format(self._IV_modes[self._bias]))[i], y=self._data_dVdI[i])
             
             if self._Fraunhofer:
                 self._data_Ic = []
-                for st in range(self.sweep.get_nos()):
-                    self._data_Ic.append(self._data_file.add_value_vector('Ic_'+str(st), x = self._data_x, unit = 'A', save_timestamp = False))
-                
+                for i in range(self.sweep.get_nos()):
+                    self._data_Ic.append(self._data_file.add_value_vector('Ic_'+str(i), x = self._data_x, unit = 'A', save_timestamp = False))
                 Fraunhofer = self._data_file.add_view('Fraunhofer', x=self._data_x, y=self._data_Ic[0])
                 for i in range(1, self.sweep.get_nos()):
                     Fraunhofer.add(x=self._data_x, y=self._data_Ic[i])
@@ -340,18 +384,18 @@ class transport(object):
     def _wait_progress_bar(self):
         ti = time()
         if self.progress_bar: 
-            self._p = Progress_Bar(self.IVD.get_averages(),self.dirname,self.IVD.get_sweeptime())
+            self._pb = Progress_Bar(self.IVD.get_averages(),self.dirname,self.IVD.get_sweeptime())
         qt.msleep(.2)
         # wait for data
         while not self.IVD.ready():
             if time()-ti > self.IVD.get_sweeptime(query=False):
-                if self.progress_bar: self._p.iterate()
+                if self.progress_bar: self._pb.iterate()
                 ti = time()
             qt.msleep(.2)
         
         if self.progress_bar:
-            while self._p.progr < self._p.max_it:
-                self._p.iterate()
+            while self._pb.progr < self._pb.max_it:
+                self._pb.iterate()
                 
     def measure_1D(self):
         '''
@@ -375,31 +419,41 @@ class transport(object):
         self._file_name = self.dirname.replace(' ', '').replace(',','_')
         if self.exp_name:
             self._file_name += '_' + self.exp_name
-            
+        
+        # progress bar
+        if self.progress_bar: self._pb = Progress_Bar(max_it=self.sweep.get_nos(), name='1D IVD sweep '+self.dirname)
+        
         # prepare storage
         self._prepare_measurement_IVD()
         self._prepare_measurement_file()
-
-
-        """opens qviewkit to plot measurement, amp and pha are opened by default"""
+        
+        """opens qviewkit to plot measurement, IV is opened by default"""
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['I_0', 'V_0'])
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['IV'])
         print('recording trace...')
         sys.stdout.flush()
-
+        
         qt.mstart()
         
+        
+        # turn on IVD
         if self.IVD.get_sweep_mode() == 0: self.IVD.set_stati(True)
         elif self.IVD.get_sweep_mode() in [1, 2]: self.IVD.set_status(True)
         self.sweep.create_iterator()
-        for st in range(self.sweep.get_nos()):
+        for i in range(self.sweep.get_nos()):
+            # take data
             I_values, V_values = self.IVD.take_IV(sweep=self.sweep.get_sweep())
-            self._data_I[st].append(I_values)
-            self._data_V[st].append(V_values)
-            if self._dVdI: self._data_dVdI[st].append(np.array(np.gradient(V_values))/np.array(np.gradient(I_values)))
-        # switch off source
+            self._data_I[i].append(I_values)
+            self._data_V[i].append(V_values)
+            if self._dVdI: self._data_dVdI[i].append(np.array(np.gradient(V_values))/np.array(np.gradient(I_values)))
+            # progress bar
+            if self.progress_bar:
+                self._pb.iterate()
+            qt.msleep()
+        # turn off IVD
         if self.IVD.get_sweep_mode() == 0: self.IVD.set_stati(False)
         elif self.IVD.get_sweep_mode() in [1, 2]: self.IVD.set_status(False)
+        # end measurement
         qt.mend()
         self._end_measurement()
 
@@ -431,7 +485,7 @@ class transport(object):
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
-        #if self.progress_bar: self._p = Progress_Bar(len(self.x_vec),'2D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
+        if self.progress_bar: self._pb = Progress_Bar(max_it=len(self.x_vec)*self.sweep.get_nos(), name='2D IVD sweep '+self.dirname)
 
         self._prepare_measurement_IVD()
         self._prepare_measurement_file()
@@ -471,7 +525,7 @@ class transport(object):
 #        if self.exp_name:
 #            self._file_name += '_' + self.exp_name
 #
-#        if self.progress_bar: self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec),'3D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
+#        if self.progress_bar: self._pb = Progress_Bar(len(self.x_vec)*len(self.y_vec),'3D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
 #
 #        self._prepare_measurement_vna()
 #        self._prepare_measurement_file()
@@ -511,24 +565,23 @@ class transport(object):
                 #if self.log_function != None:
                 #    for i,f in enumerate(self.log_function):
                 #        self._log_value[i].append(float(f()))
-
                 
-
                 if self._scan_2D:
                     """ measurement """
                     self.sweep.create_iterator()
-                    for st in range(self.sweep.get_nos()):
+                    for i in range(self.sweep.get_nos()):
                         I_values, V_values = self.IVD.take_IV(sweep=self.sweep.get_sweep())
-                        self._data_I[st].append(I_values)
-                        self._data_V[st].append(V_values)
-                        if self._dVdI: self._data_dVdI[st].append(np.array(np.gradient(V_values))/np.array(np.gradient(I_values)))
+                        self._data_I[i].append(I_values)
+                        self._data_V[i].append(V_values)
+                        if self._dVdI: self._data_dVdI[i].append(np.array(np.gradient(V_values))/np.array(np.gradient(I_values)))
                         if self._Fraunhofer:
                             self._IVC = IV_curve()
-                            self._data_Ic[st].append(self._IVC.get_Ic(V=V_values, I=I_values, direction=self.IVD.direction))
+                            self._data_Ic[i].append(self._IVC.get_Ic(V=V_values, I=I_values, direction=self.IVD.direction))
+                        
+                        if self.progress_bar:
+                            self._pb.iterate()
+                        qt.msleep()
                     
-                    #if self.progress_bar:
-                    #    self._p.iterate()
-                    qt.msleep()
             if self.IVD.get_sweep_mode() == 0: self.IVD.set_stati(False)
             elif self.IVD.get_sweep_mode() in [1, 2]: self.IVD.set_status(False)
         except Exception as e:
@@ -537,9 +590,9 @@ class transport(object):
         finally:
             self._end_measurement()
             self.IVD.set_stati(False)
-            #self.IVD.ramp_current(0, 100e-6, channel=2)
             qt.mend()
-
+    
+    
     def _end_measurement(self):
         '''
         the data file is closed and filepath is printed
@@ -552,27 +605,24 @@ class transport(object):
         qkit.store_db.add(self._data_file.get_filepath())
         #waf.close_log_file(self._log)
         self.dirname = None
+    
+    
+    def get_bias_values(self, sweep):
+        '''
+        Gets a linear distributed numpy-array of set bias values
         
-
-
-    def set_span(self, span):
-        self.span = span
-
-    def get_span(self):
-        return self.span
-
-    def set_tdx(self, tdx):
-        self.tdx = tdx
-
-    def set_tdy(self, tdy):
-        self.tdy = tdy
-
-    def get_tdx(self):
-        return self.tdx
-
-    def get_tdy(self):
-        return self.tdy
-
+        Input:
+            sweep obj(float) : start, stop, step
+        Output
+            bias_values (numpy.array)
+        '''
+        start       = float(sweep[0])
+        stop        = float(sweep[1])
+        step        = float(sweep[2])
+        step_signed = np.sign(stop-start)*np.abs(step)
+        return np.arange(start, stop+step_signed/2., step_signed)
+    
+    
     def set_plot_comment(self, comment):
         '''
         Small comment to add at the end of plot pics for more information i.e. good for wiki entries.
