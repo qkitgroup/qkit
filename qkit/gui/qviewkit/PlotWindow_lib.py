@@ -25,6 +25,50 @@ import pyqtgraph as pg
 import qkit
 from qkit.storage.hdf_constants import ds_types
 
+
+
+
+""" A few handy methods for label and scale """
+def _get_ds_url(ds,url):
+    return ds.attr.get(url,None)
+       
+def _get_ds(self,ds_url):
+    return self.obj_parent.h5file[ds_url]
+
+def _get_axis_label(self,ds):
+    return ds.attrs.get("name","_none_")
+    
+def _get_axis_scale(self,ds):
+    # assumed that a axis is one dimensional:
+    x0 = ds[0]
+    dx = ds[1]-ds[0]
+    dsmax = ds[-1]
+    return (x0,dx,dsmax)
+
+def _get_axis_unit(self,ds):
+    return ds.attrs.get("x_unit","_none_")
+
+def _get_all_ds_labels_units_scales_from(self,ds,ds_urls= []):
+    """ method to unify the way labels, units, and scales are defined """
+    dss = []
+    for ds_url in ds_urls:
+        dss.append(self._get_ds(
+            self._get_ds_url(ds,ds_url)
+            ))
+        
+    labels = []    
+    for ds in dss:
+        labels.append(self.get_axis_label(ds))
+    
+    units = []    
+    for ds in dss:
+        units.append(self.get_axis_unit(ds))
+    
+    scales = []
+    for ds in dss:
+        scales.append(self.get_axis_scale(ds))
+    return dss, labels, units, scales
+
 def _display_1D_view(self,graphicsView):
     ds = self.ds
     overlay_num = ds.attrs.get("overlays",0)
