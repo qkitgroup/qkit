@@ -55,7 +55,9 @@ def _get_all_ds_labels_units_scales_from(self,ds,ds_urls= []):
         dss.append(self._get_ds(
             self._get_ds_url(ds,ds_url)
             ))
-        
+    # the last dataset is always the displayed data.
+    dss.append(ds)
+    
     labels = []    
     for ds in dss:
         labels.append(self.get_axis_label(ds))
@@ -91,7 +93,7 @@ def _display_1D_view(self,graphicsView):
         try:
             ds_errs.append(self.obj_parent.h5file[err_url])
         except:
-            ds_errs.append(0)
+            ds_errs.append([])
 
     graphicsView.clear()
 
@@ -101,9 +103,12 @@ def _display_1D_view(self,graphicsView):
     for i, x_ds in enumerate(ds_xs):
         y_ds = ds_ys[i]
         err_ds = ds_errs[i]
+        # retrieve the data type and store it in  x_ds_type, y_ds_type
+        x_ds_type = x_ds.attrs.get('ds_type',ds_types['coordinate'])
+        y_ds_type = y_ds.attrs.get('ds_type',ds_types['coordinate'])
         
-        if x_ds.attrs.get('ds_type',0) == ds_types['coordinate'] or x_ds.attrs.get('ds_type',0) == ds_types['vector']:
-            if y_ds.attrs.get('ds_type',0) == ds_types['vector'] or y_ds.attrs.get('ds_type',0) == ds_types['coordinate']:
+        if x_ds_type == ds_types['coordinate'] or x_ds_type == ds_types['vector']:
+            if y_ds_type == ds_types['vector'] or y_ds_type == ds_types['coordinate']:
                 self.VTraceXSelector.setEnabled(False)
                 self.VTraceYSelector.setEnabled(False)
                 x_data = np.array(x_ds)
@@ -111,7 +116,7 @@ def _display_1D_view(self,graphicsView):
                 if err_ds:
                     err_data = np.array(err_ds)
 
-            elif y_ds.attrs.get('ds_type',0) == ds_types['matrix']:
+            elif y_ds_type == ds_types['matrix']:
                 self.VTraceXSelector.setEnabled(True)
                 range_max = y_ds.shape[0]
                 self.VTraceXSelector.setRange(-1*range_max,range_max-1)
@@ -123,7 +128,7 @@ def _display_1D_view(self,graphicsView):
                 if err_ds:
                     err_data = np.array(err_ds[self.VTaceXNum])
 
-            elif y_ds.attrs.get('ds_type',0) == ds_types['box']:
+            elif y_ds_type == ds_types['box']:
                 self.VTraceXSelector.setEnabled(True)
                 range_maxX = y_ds.shape[0]
                 self.VTraceXSelector.setRange(-1*range_maxX,range_maxX-1)
@@ -139,7 +144,7 @@ def _display_1D_view(self,graphicsView):
                     err_data = np.array(err_ds[self.VTraceXNum,self.VTraceYNum,:])
 
         ## This is in our case used so far only for IQ plots. The functionality derives from this application.
-        elif x_ds.attrs.get('ds_type',0) == ds_types['matrix']:
+        elif x_ds_type == ds_types['matrix']:
             self.VTraceXSelector.setEnabled(True)
             range_max = np.minimum(x_ds.shape[0],y_ds.shape[0])
             self.VTraceXSelector.setRange(-1*range_max,range_max-1)
@@ -149,7 +154,7 @@ def _display_1D_view(self,graphicsView):
             x_data = np.array(x_ds[self.VTraceXNum])
             y_data = np.array(y_ds[self.VTraceXNum])
 
-        elif x_ds.attrs.get('ds_type',0) == ds_types['box']:
+        elif x_ds_type == ds_types['box']:
             self.VTraceXSelector.setEnabled(True)
             range_maxX = y_ds.shape[0]
             self.VTraceXSelector.setRange(-1*range_maxX,range_maxX-1)
