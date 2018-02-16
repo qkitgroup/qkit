@@ -134,7 +134,8 @@ class Agilent_VNA_E5071C(Instrument):
         self.add_function('def_trig')
         self.add_function('get_sweeptime')
         self.add_function('get_sweeptime_averages')
-        
+        self.add_function('ready')
+        self.add_function('start_measurement')
         self.get_all()
     
     def get_all(self):        
@@ -703,7 +704,7 @@ class Agilent_VNA_E5071C(Instrument):
         return self._visainstrument.write(msg)    
     def ask(self,msg):
         return self._visainstrument.ask(msg)
-    """
+
     def pre_measurement(self):
         '''
         Set everything needed for the measurement
@@ -717,7 +718,7 @@ class Agilent_VNA_E5071C(Instrument):
         For this VNA and measurement method, no special things have to be done.
         '''
         pass
-        
+
     def start_measurement(self):
         '''
         This function is called at the beginning of each single measurement in the spectroscopy script.
@@ -725,10 +726,13 @@ class Agilent_VNA_E5071C(Instrument):
         '''
         self._visainstrument.write(':TRIG:AVER ON')
         self.do_set_sweep_mode('single')
-    
+
     def ready(self):
         '''
         This is a proxy function, returning True when the VNA has finished the required number of averages.
         '''
-        return self.avg_status() == self.get_averages(query=False)
-    """
+        status=int(self._visainstrument.ask(':STAT:OPER:COND?'))
+        if status is 0:
+            return True
+        else:
+            return False
