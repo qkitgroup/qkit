@@ -27,12 +27,15 @@ from qkit.storage.hdf_constants import ds_types
 
 """ A few handy methods for label and scale """
 def _get_ds_url(ds,url):
-    return ds.attrs.get(url,'_none_')
+    try:
+        return ds.attrs.get(url,'_none_')
+    except:
+        return '_none_'
        
 def _get_ds(ds,ds_url):
     try:
         return ds.file[ds_url]
-    except Exception:
+    except:
         return None
     
 def _get_axis_scale(ds):
@@ -41,26 +44,33 @@ def _get_axis_scale(ds):
         x0 = ds[0]
         dx = ds[1]-ds[0]
         return (x0,dx)
-    except Exception:
+    except:
         return (0,1)
 
 def _get_unit(ds):
     try:
         return ds.attrs.get('unit','_none_')
-    except Exception:
+    except:
         return '_none_'
 
 def _get_name(ds):
     try:
         return ds.attrs.get('name','_none_')
-    except Exception:
+    except:
         return '_none_'
 
 def _get_all_ds_names_units_scales(ds,ds_urls= []):
     """ method to unify the way labels, units, and scales are defined """
     dss = []
+    
     for ds_url in ds_urls:
-        dss.append(_get_ds(ds, _get_ds_url(ds, ds_url)))
+        """
+        This is a hack for views. These entries are already absolute ds_urls.
+        """
+        if ds.attrs.get('ds_type',None) == ds_types['view']:
+            dss.append(_get_ds(ds, ds_url))
+        else: 
+            dss.append(_get_ds(ds, _get_ds_url(ds, ds_url)))
     # the last dataset is always the displayed data.
     dss.append(ds)
     
@@ -75,160 +85,134 @@ def _get_all_ds_names_units_scales(ds,ds_urls= []):
     return dss, names, units, scales
 
 def _display_1D_view(self,graphicsView):
-    ds = self.ds
-    overlay_num = ds.attrs.get("overlays",0)
-    overlay_urls = []
-    err_urls = []
-    for i in range(overlay_num+1):
-        ov = ds.attrs.get("xy_"+str(i),"")
-        if ov:
-            overlay_urls.append(ov.split(":"))
-        err_urls.append(ds.attrs.get("xy_"+str(i)+"_error",""))
-            
-    ds_xs = []
-    ds_ys = []
-    ds_errs = []
-    for xy in overlay_urls:
-        ds_xs.append(_get_ds(self.ds, xy[0]))
-        ds_ys.append(_get_ds(self.ds, xy[1]))
-        
-    for err_url in err_urls:
-        try:
-            ds_errs.append(_get_ds(self.ds, err_url))
-        except:
-            ds_errs.append([])
-
-    graphicsView.clear()
+    graphicsView.clear()    
 
     if not graphicsView.plotItem.legend:
         graphicsView.plotItem.addLegend(size=(160,48),offset=(30,15))
-        
-    for i, x_ds in enumerate(ds_xs):
-        y_ds = ds_ys[i]
-        err_ds = ds_errs[i]
-        # retrieve the data type and store it in  x_ds_type, y_ds_type
-        x_ds_type = x_ds.attrs.get('ds_type',ds_types['coordinate'])
-        y_ds_type = y_ds.attrs.get('ds_type',ds_types['coordinate'])
-        
-        if x_ds_type == ds_types['coordinate'] or x_ds_type == ds_types['vector']:
-            if y_ds_type == ds_types['vector'] or y_ds_type == ds_types['coordinate']:
-                self.VTraceXSelector.setEnabled(False)
-                self.VTraceYSelector.setEnabled(False)
-                x_data = np.array(x_ds)
-                y_data = np.array(y_ds)
-                if err_ds:
-                    err_data = np.array(err_ds)
+    
+    overlay_num = self.ds.attrs.get("overlays",0)
 
-            elif y_ds_type == ds_types['matrix']:
+    for i in range(overlay_num+1):
+        xyurls = self.ds.attrs.get("xy_"+str(i),"")
+        err_url = self.ds.attrs.get("xy_"+str(i)+"_error","")
+        if xyurls:
+            dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, [xyurls.split(":")[0], xyurls.split(":")[1], err_url])
+
+            # retrieve the data type and store it in  x_ds_type, y_ds_type
+            x_ds_type = dss[0].attrs.get('ds_type',ds_types['coordinate'])
+            y_ds_type = dss[1].attrs.get('ds_type',ds_types['coordinate'])
+            
+            if x_ds_type == ds_types['coordinate'] or x_ds_type == ds_types['vector']:
+                if y_ds_type == ds_types['vector'] or y_ds_type == ds_types['coordinate']:
+                    self.VTraceXSelector.setEnabled(False)
+                    self.VTraceYSelector.setEnabled(False)
+                    
+                    x_data = dss[0][()]
+                    y_data = dss[1][()]
+                    if err_url:
+                        err_data = dss[2][()]
+    
+                elif y_ds_type == ds_types['matrix']:
+                    self.VTraceXSelector.setEnabled(True)
+                    range_max = dss[1].shape[0]
+                    self.VTraceXSelector.setRange(-1*range_max,range_max-1)
+                    self.VTraceXValue.setText(self._getXValueFromTraceNum(dss[1],self.VTraceXNum))
+                    self.VTraceYSelector.setEnabled(False)
+        
+                    x_data = dss[0][()]
+                    y_data = dss[1][()][self.VTraceXNum]
+                    if err_url:
+                        err_data = dss[2][()][self.VTaceXNum]
+                
+                elif y_ds_type == ds_types['box']:
+                    self.VTraceXSelector.setEnabled(True)
+                    range_maxX = dss[1].shape[0]
+                    self.VTraceXSelector.setRange(-1*range_maxX,range_maxX-1)
+                    self.VTraceXValue.setText(self._getXValueFromTraceNum(dss[1],self.VTraceXNum))
+                    self.VTraceYSelector.setEnabled(True)
+                    range_maxY = dss[1].shape[1]
+                    self.VTraceYSelector.setRange(-1*range_maxY,range_maxY-1)
+                    self.VTraceYValue.setText(self._getYValueFromTraceNum(dss[1],self.VTraceYNum))
+                    
+                    x_data = dss[0][()]
+                    y_data = dss[1][()][self.VTraceXNum,self.VTraceYNum,:]
+                    if err_url:
+                        err_data = dss[2][()][self.VTraceXNum,self.VTraceYNum,:]
+                
+            ## This is in our case used so far only for IQ plots. The functionality derives from this application.
+            elif x_ds_type == ds_types['matrix']:
                 self.VTraceXSelector.setEnabled(True)
-                range_max = y_ds.shape[0]
+                range_max = np.minimum(dss[0].shape[0],dss[1].shape[0])
                 self.VTraceXSelector.setRange(-1*range_max,range_max-1)
-                self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
+                self.VTraceXValue.setText(self._getXValueFromTraceNum(dss[1],self.VTraceXNum))
                 self.VTraceYSelector.setEnabled(False)
     
-                x_data = np.array(x_ds)
-                y_data = np.array(y_ds[self.VTraceXNum])
-                if err_ds:
-                    err_data = np.array(err_ds[self.VTaceXNum])
-
-            elif y_ds_type == ds_types['box']:
+                x_data = dss[0][()][self.VTraceXNum]
+                y_data = dss[1][()][self.VTraceXNum]
+    
+            elif x_ds_type == ds_types['box']:
                 self.VTraceXSelector.setEnabled(True)
-                range_maxX = y_ds.shape[0]
+                range_maxX = dss[1].shape[0]
                 self.VTraceXSelector.setRange(-1*range_maxX,range_maxX-1)
-                self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
+                self.VTraceXValue.setText(self._getXValueFromTraceNum(dss[1],self.VTraceXNum))
                 self.VTraceYSelector.setEnabled(True)
-                range_maxY = y_ds.shape[1]
+                range_maxY = dss[1].shape[1]
                 self.VTraceYSelector.setRange(-1*range_maxY,range_maxY-1)
-                self.VTraceYValue.setText(self._getYValueFromTraceNum(y_ds,self.VTraceYNum))
+                self.VTraceYValue.setText(self._getYValueFromTraceNum(dss[1],self.VTraceYNum))
                 
-                x_data = np.array(x_ds)
-                y_data = np.array(y_ds[self.VTraceXNum,self.VTraceYNum,:])
-                if err_ds:
-                    err_data = np.array(err_ds[self.VTraceXNum,self.VTraceYNum,:])
-
-        ## This is in our case used so far only for IQ plots. The functionality derives from this application.
-        elif x_ds_type == ds_types['matrix']:
-            self.VTraceXSelector.setEnabled(True)
-            range_max = np.minimum(x_ds.shape[0],y_ds.shape[0])
-            self.VTraceXSelector.setRange(-1*range_max,range_max-1)
-            self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
-            self.VTraceYSelector.setEnabled(False)
-
-            x_data = np.array(x_ds[self.VTraceXNum])
-            y_data = np.array(y_ds[self.VTraceXNum])
-
-        elif x_ds_type == ds_types['box']:
-            self.VTraceXSelector.setEnabled(True)
-            range_maxX = y_ds.shape[0]
-            self.VTraceXSelector.setRange(-1*range_maxX,range_maxX-1)
-            self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
-            self.VTraceYSelector.setEnabled(True)
-            range_maxY = y_ds.shape[1]
-            self.VTraceYSelector.setRange(-1*range_maxY,range_maxY-1)
-            self.VTraceYValue.setText(self._getYValueFromTraceNum(y_ds,self.VTraceYNum))
+                x_data = dss[0][()][self.VTraceXNum,self.VTraceYNum,:]
+                y_data = dss[1][()][self.VTraceXNum,self.VTraceYNum,:]
+    
+            else:
+                return
+    
+            # set the y data  to the decibel scale 
+            if self.manipulation & self.manipulations['dB']:
+                y_data = 20 *np.log10(y_data)
+                units[1]='dB'
+              
+            # unwrap the phase
+            if self.manipulation & self.manipulations['wrap']:
+                y_data = np.unwrap(y_data)
             
-            x_data = np.array(x_ds[self.VTraceXNum,self.VTraceYNum,:])
-            y_data = np.array(y_ds[self.VTraceXNum,self.VTraceYNum,:])
-
-        else:
-            return
-
-        x_name = _get_name(x_ds)
-        y_name = _get_name(y_ds)
-        
-        self.x_unit = _get_unit(x_ds)
-        self.y_unit = _get_unit(y_ds)
-
-        graphicsView.setLabel('left', y_name, units=self.y_unit)
-        graphicsView.setLabel('bottom', x_name , units=self.x_unit)
-        
-        
-        view_params = json.loads(ds.attrs.get("view_params",{}))
-        
-        # this allows to set a couple of plot related settings
-        if view_params:
-            aspect = view_params.pop('aspect',False)
-            if aspect:
-                graphicsView.setAspectLocked(lock=True,ratio=aspect)
-            #bgcolor = view_params.pop('bgcolor',False)
-            #if bgcolor:
-            #    print tuple(bgcolor)
-            #    graphicsView.setBackgroundColor(tuple(bgcolor))
-                
-        try:
-            graphicsView.plotItem.legend.removeItem(y_name)
-        except:
-            pass
-
-        # set the y data  to the decibel scale 
-        if self.manipulation & self.manipulations['dB']:
-            y_data = 20 *np.log10(y_data)
-            self.y_unit='dB'
-            graphicsView.setLabel('bottom', x_name , units=self.x_unit)
-          
-        # unwrap the phase
-        if self.manipulation & self.manipulations['wrap']:
-            y_data = np.unwrap(y_data)
-        
-        # linearly correct the data    
-        if self.manipulation & self.manipulations['linear']:
-            y_data = y_data - np.linspace(y_data[0],y_data[-1],len(y_data))
-        
-        if self.plot_style==self.plot_styles['line']:
-            graphicsView.plot(y=y_data, x=x_data,pen=(i,3), name = y_name, connect='finite')
-        elif self.plot_style==self.plot_styles['linepoint']:
-            symbols=['+','o','s','t','d']
-            graphicsView.plot(y=y_data, x=x_data,pen=(i,3), name = y_name, connect='finite',symbol=symbols[i%len(symbols)])
-        elif self.plot_style==self.plot_styles['point']:
-            symbols=['+','o','s','d','t']
-            graphicsView.plot(y=y_data, x=x_data, name = y_name,pen=None,symbol=symbols[i%len(symbols)])    
-        if err_ds:
-            err = pg.ErrorBarItem(x=x_data, y=y_data, height=err_data, beam=0.25*x_ds.attrs.get("dx",0))
-            graphicsView.getPlotItem().addItem(err)    
+            # linearly correct the data    
+            if self.manipulation & self.manipulations['linear']:
+                y_data = y_data - np.linspace(y_data[0],y_data[-1],len(y_data))
+    
+            graphicsView.setLabel('left', names[1], units=units[1])
+            graphicsView.setLabel('bottom', names[0], units=units[0])
+                        
+            view_params = json.loads(self.ds.attrs.get("view_params",{}))
+            
+            # this allows to set a couple of plot related settings
+            if view_params:
+                aspect = view_params.pop('aspect',False)
+                if aspect:
+                    graphicsView.setAspectLocked(lock=True,ratio=aspect)
+                #bgcolor = view_params.pop('bgcolor',False)
+                #if bgcolor:
+                #    print tuple(bgcolor)
+                #    graphicsView.setBackgroundColor(tuple(bgcolor))
+                    
+            try:
+                graphicsView.plotItem.legend.removeItem(names[1])
+            except:
+                pass
+            
+            if self.plot_style==self.plot_styles['line']:
+                graphicsView.plot(y=y_data, x=x_data,pen=(i,3), name = names[1], connect='finite')
+            elif self.plot_style==self.plot_styles['linepoint']:
+                symbols=['+','o','s','t','d']
+                graphicsView.plot(y=y_data, x=x_data,pen=(i,3), name = names[1], connect='finite',symbol=symbols[i%len(symbols)])
+            elif self.plot_style==self.plot_styles['point']:
+                symbols=['+','o','s','d','t']
+                graphicsView.plot(y=y_data, x=x_data, name = names[1], pen=None, symbol=symbols[i%len(symbols)])    
+            if err_url:
+                err = pg.ErrorBarItem(x=x_data, y=y_data, height=err_data, beam=0.25*scales[0][0])
+                graphicsView.getPlotItem().addItem(err)    
             
     plIt = graphicsView.getPlotItem()
     plVi = plIt.getViewBox()
-    
     
     self._last_x_pos = 0   
     def mouseMoved(mpos):
@@ -237,8 +221,8 @@ def _display_1D_view(self,graphicsView):
             mousePoint = plVi.mapSceneToView(mpos)
             xval = mousePoint.x()
             yval = mousePoint.y()
-            self.PointX.setText("X: %.6e %s"%(xval,self.x_unit)) 
-            self.PointY.setText("Y: %.6e %s"%(yval,self.y_unit)) 
+            self.PointX.setText("X: %.6e %s"%(xval,units[0])) 
+            self.PointY.setText("Y: %.6e %s"%(yval,units[1])) 
             
             try:
                 self.data_coord=  "%e\t%e\t%e\t%e" % (xval, yval,self._last_x_pos-xval,xval/(self._last_x_pos-xval))
@@ -253,11 +237,6 @@ def _display_1D_data(self,graphicsView):
     """
     This is the most basic way to display data. It plots the values in the dataset against the hightes
     coordinate, ie a VNA trace or the latest IV curve (data vs bias).
-    """
-    y_data = self.ds[()] #cast to np-array
-    self.unit = _get_unit(self.ds)
-
-    """
     For getting the correct values on the x-axis and the labeling the different types of dataset are
     handled individually.
     """
@@ -268,7 +247,7 @@ def _display_1D_data(self,graphicsView):
         # timstamp_ds part of qkit the resulting error is fixed here for now.
         try:
             x_data =dss[0][()][:dss[1].shape[-1]] #x_data gets truncated to y_data shape if neccessary
-        except Exception:
+        except:
             x_data = [i for i in range(dss[1].shape[-1])]
         y_data = dss[1][()]
 
@@ -283,7 +262,7 @@ def _display_1D_data(self,graphicsView):
             If the trace to be displayed has been changed, the correct dataslice and the displayed
             text has to be adjusted.
             """
-            #is there a "np.where" that could do the job??? what information do we get here?
+            #calc trace number from entered value
             (x0, dx) = _get_axis_scale(_get_ds(self.ds, _get_ds_url(self.ds, 'x_ds_url')))
             num = int((self._trace_value-x0)/dx)
             self.TraceNum = num
