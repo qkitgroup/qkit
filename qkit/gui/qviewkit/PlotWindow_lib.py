@@ -27,10 +27,14 @@ from qkit.storage.hdf_constants import ds_types
 
 """ A few handy methods for label and scale """
 def _get_ds_url(ds,url):
-    try:
+    """
+    If 'url' is already a absolute url in the h5 file it gets returned.
+    Otherwise the absolute url in read out of the ds-metadata.
+    """
+    if _get_ds(ds, url): 
+        return url
+    else:
         return ds.attrs.get(url,'_none_')
-    except:
-        return '_none_'
        
 def _get_ds(ds,ds_url):
     try:
@@ -48,29 +52,17 @@ def _get_axis_scale(ds):
         return (0,1)
 
 def _get_unit(ds):
-    try:
-        return ds.attrs.get('unit','_none_')
-    except:
-        return '_none_'
+    return ds.attrs.get('unit','_none_')
 
 def _get_name(ds):
-    try:
-        return ds.attrs.get('name','_none_')
-    except:
-        return '_none_'
-
+    return ds.attrs.get('name','_none_')
+        
 def _get_all_ds_names_units_scales(ds,ds_urls= []):
     """ method to unify the way labels, units, and scales are defined """
     dss = []
     
     for ds_url in ds_urls:
-        """
-        This is a hack for views. These entries are already absolute ds_urls.
-        """
-        if ds.attrs.get('ds_type',None) == ds_types['view']:
-            dss.append(_get_ds(ds, ds_url))
-        else: 
-            dss.append(_get_ds(ds, _get_ds_url(ds, ds_url)))
+        dss.append(_get_ds(ds, _get_ds_url(ds, ds_url)))
     # the last dataset is always the displayed data.
     dss.append(ds)
     
@@ -94,9 +86,12 @@ def _display_1D_view(self,graphicsView):
 
     for i in range(overlay_num+1):
         xyurls = self.ds.attrs.get("xy_"+str(i),"")
-        err_url = self.ds.attrs.get("xy_"+str(i)+"_error","")
+        ds_urls = [xyurls.split(":")[0], xyurls.split(":")[1]]
         if xyurls:
-            dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, [xyurls.split(":")[0], xyurls.split(":")[1], err_url])
+            err_url = self.ds.attrs.get("xy_"+str(i)+"_error","")
+            if err_url:
+                ds_urls.append(err_url)
+            dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ds_urls)
 
             # retrieve the data type and store it in  x_ds_type, y_ds_type
             x_ds_type = dss[0].attrs.get('ds_type',ds_types['coordinate'])
