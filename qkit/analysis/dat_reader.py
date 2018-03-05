@@ -52,7 +52,7 @@ no_qt = False
 try:
     import qkit
     data_dir_config = qkit.cfg.get('datadir')
-except ImportError:
+except ImportError, AttributeError:
     logging.warning('no qtLAB environment')
     no_qt = True
 
@@ -623,10 +623,10 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
     if phase_grad:
         pha_unwrap = np.unwrap(data[data_c])   #unwrap phase data
         pha_tilt_corrected = pha_unwrap - np.linspace(pha_unwrap[0],pha_unwrap[-1],len(pha_unwrap))   #subtract tilt
-        pha_gr = np.gradient(pha_tilt_corrected)
         if not spline_order: spline_order = 1.e-3   #set default for spline smoothing
-        data[data_c] = spline_smooth_data(data[0],pha_gr,spline_order)
+        pha_smooth = spline_smooth_data(data[0],pha_tilt_corrected,spline_order)
         spline_order = None
+        data[data_c] = np.gradient(pha_smooth)
     
     #set default to frequency conversion factor
     freq_conversion_factor = 1
@@ -745,7 +745,7 @@ def fit_data(file_name = None, fit_function = LORENTZIAN, data_c = 2, ps = None,
                     if ylabel == '':
                         #ax.set_ylabel('arg(S21) (a.u.)', fontsize=13)
                         pass
-                    
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
     elif fit_function == DAMPED_SINE:
         #plot data
