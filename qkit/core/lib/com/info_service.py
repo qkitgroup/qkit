@@ -4,27 +4,36 @@
 
 import zmq
 import time
-
+import logging
+import qkit
 from qkit.core.lib.com.signals import SIGNALS
-from qkit.config.environment import cfg
+
 
 class info_service(object):
-    def __init__(self,host = None,port = None):
+    def __init__(self,host = None, port = None):
         if host:
             self.host = host
         else:
-            self.host = cfg.get('info_host','localhost')
+            self.host = qkit.cfg.get('info_host','localhost')
+            
         if port:
             self.port = port
         else:
-            self.port = cfg.get('info_port',5600)
+            self.port = qkit.cfg.get('info_port',5600)
             
         self.start_service(self.host,self.port)
     def start_service(self,host,port):
         
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.PUB)
-        self.socket.bind("tcp://*:%s" % port)
+        try:
+            self.socket.bind("tcp://*:%s" % port)
+        except zmq.ZMQError as e:
+            logging.warning("Info service: address/port in use. ZMQError:%d \nMaybe another instance of QKIT is running?"%(e.errno))
+            logging.warning("Not starting info service.")
+            self.context.destroy()
+
+        #zmq.ZMQError.errno
         # wait until zmq is settled
         time.sleep(0.3)
     
@@ -35,7 +44,7 @@ class info_service(object):
             sig = SIGNALS.get(topic)
             self.socket.send("%d:%s" % (sig, message))
         else:
-            print "please specify a correct topic, specs are in SIGNALS.py"
+            print("please specify a correct topic, specs are in SIGNALS.py")
 
     def info(self,message):
         self.dist('info',message)

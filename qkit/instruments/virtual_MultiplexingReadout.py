@@ -378,12 +378,17 @@ class virtual_MultiplexingReadout(Instrument):
         # build I and Q waveforms and send them to the DAC
         if(self._tone_relamp == None):
             amplitudes = 1./ntones*np.ones(ntones)
-        else:
+        elif len(self._tone_relamp) == ntones:
             amplitudes = 1./ntones*self._tone_relamp
+        else:
+            print "tone_relamp shape does not fit number of multiplexed frequencies. Setting tone_relamp to 1"
+            amplitudes = 1./ntones*np.ones(ntones)
         if(self._tone_pha == None):
             phases = np.zeros(ntones)
-        else:
+        elif len(self._tone_pha) == ntones:
             phases = self._tone_pha
+        else:
+            phases = np.zeros(ntones)
         I, Q,m1 = self.IQ_encode(self._dac_duration, IFtones, [amplitudes, amplitudes], [phases, phases], self._dac_clock, self._dac_attack, self._dac_decay)
         self._update_dac([self._dac_channel_I, self._dac_channel_Q], [I, Q],marker1 = [m1,m1],marker2 = [m1,m1])
         

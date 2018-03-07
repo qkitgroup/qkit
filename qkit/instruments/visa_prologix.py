@@ -67,7 +67,7 @@ class instrument(object):
             self._open_connection()
 
             if self.send_end:
-                    self.term_char = '\r\n'
+                    self.term_char = '\n'
                     self._set_EOI_assert()
 
             # disable the automatic saving of parameters in
@@ -148,22 +148,36 @@ class instrument(object):
         
         self._send(cmd)
         self._set_read()
-        return self.sock.recv(bufflen)
 
-    def _recv(self,**kwargs):
-        bufflen=kwargs.get("bufflen",self.chunk_size)
-        self._set_read()
-        
-        buff = self.sock.recv(bufflen)
-        return buff
+        response=''
+        while True:
+            resp=self.sock.recv(bufflen)
+            if resp == '':
+                raise RuntimeError("socket connection broken")
+            response+=resp
+            if response[-1] == '\n': # kind of delimeter used to check if message is complete, problem when response too short
+                break
+        return response
+
+    def _recv(self):
+        response=''
+        while True:
+            resp=self.sock.recv(bufflen)
+            if resp == '':
+                raise RuntimeError("socket connection broken")
+            response+=resp
+            if response[-1] == '\n': # kind of delimeter used to check if message is complete, problem when response too short
+                break
+        return response
+
     
     def _open_connection(self,**kwargs):
         # these calls should not be used any more
         self.ip = kwargs.get("ip",self.ip)
-        self.gpib_addr = kwargs.get("gpib_addr",self.gpib_addr)
+        #self.gpib_addr = kwargs.get("gpib_addr",self.gpib_addr)
         # Open TCP connect to port 1234 of GPIB-ETHERNET
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)
-        self.sock.settimeout(0.2)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #socket.IPPROTO_TCP)
+        self.sock.settimeout(3)
         self.sock.connect((self.ip, self.ethernet_port))
 
     def _close_connection(self):
@@ -204,9 +218,8 @@ class instrument(object):
 
     def _set_read_timeout(self,**kwargs):
         timeout = kwargs.get("timeout",self.timeout)
-        # Read timeout is maximal 3 seconds for my device
         if timeout > 3:
-                timeout = 3
+            timeout = 3
         self._send("++read_tmo_ms "+str(timeout*1000))
         
     def _set_EOI_assert(self,On=True): #
@@ -269,16 +282,16 @@ class instrument(object):
         return self._send_recv("*IDN?")
     
     def _dump_internal_vars(self):
-        print "timeout"+self.timeout 
-        print "chunk_size"+ self.chunk_size 
-        print "values_format"+ self.values_format 
-        print "term_char"+ self.term_char 
-        print "send_end"+ self.send_end 
-        print "delay"+self.delay
-        print "lock"+self.lock
-        print "gpib_addr"+self.gpib_addr
-        print "ip"+self.ip
-        print "ethernet_port"+ self.ethernet_port 
+        print "timeout"+ str(self.timeout) 
+        print "chunk_size"+ str(self.chunk_size) 
+        print "values_format"+ str(self.values_format) 
+        print "term_char"+ str(self.term_char) 
+        print "send_end"+ str(self.send_end) 
+        print "delay"+ str(self.delay)
+        print "lock"+str(self.lock)
+        print "gpib_addr"+ str(self.gpib_addr)
+        print "ip"+ str(self.ip)
+        print "ethernet_port"+ str(self.ethernet_port) 
 
 
     # generic error class

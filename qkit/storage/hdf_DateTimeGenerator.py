@@ -6,73 +6,86 @@ Created 2015
 
 Modified 2017 by S1
 """
-import time
-import os
-from qkit.config.environment import cfg
 import logging
+import os
+import time
+import qkit
+
+alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 
 class DateTimeGenerator(object):
-    '''
+    """
     Class to generate filenames / directories based on the date and time.
     Date (YYYYMMDD) -> Time (HHMMSS) -> data
-    '''
-
+    """
+    
     def __init__(self):
-        pass
+        self.returndict = {}
+        self.returndict['_unix_timestamp'] = int(time.time())
+        self.returndict['_localtime'] = time.localtime(self.returndict['_unix_timestamp'])
+        self.returndict['_timestamp'] = time.asctime(self.returndict['_localtime'])
+        self.returndict['_timemark'] = time.strftime('%H%M%S', self.returndict['_localtime'])
+        self.returndict['_datemark'] = time.strftime('%Y%m%d', self.returndict['_localtime'])
+        self.returndict['_uuid'] = encode_uuid(self.returndict['_unix_timestamp'])
+    
+    def new_filename(self, name=None):
+        if qkit.cfg.get('datafolder_structure',1) == 2:
+            self.new_filename_v2(name)
+        else:
+            self.new_filename_v1(name)
+        self.returndict['_folder'] = os.path.join(qkit.cfg['datadir'], self.returndict['_relfolder'])
+        self.returndict['_relpath'] = os.path.join(self.returndict['_relfolder'],self.returndict['_filename'])
+        self.returndict['_filepath'] = os.path.join(self.returndict['_folder'], self.returndict['_filename'])
         
-    def new_filename(self, data_obj):
-        if cfg['new_data_structure']: return self.new_filename_v2(data_obj)
-        else:  return self.new_filename_v1(data_obj)
+        return self.returndict
+    
+    def new_filename_v1(self, name):
+        filename = str(self.returndict['_timemark'])
+        if name != '' and name is not None:
+            filename += '_' + str(name)
+        self.returndict['_filename'] = filename + '.h5'
+        '''Old filename with datadir/YYMMDD/HHMMSS_name/HHMMSS_name.h5'''
+        self.returndict['_relfolder'] = os.path.join(
+                self.returndict['_datemark'],
+                filename
+        )
+    
+    def new_filename_v2(self, name):
+        filename = str(self.returndict['_uuid'])
+        if name != '' and name is not None:
+            filename += '_' + str(name)
+        self.returndict['_filename'] = filename + '.h5'
+        '''New filename with datadir/run_id/user/uuid_name/uuid_name.h5'''
         
-    def new_filename_v2(self, data_obj):
-            '''Return a new filename, based on name and timestamp.'''
-            filename = '%s_%s' % (data_obj._uuid, data_obj._name)
-            
-            if not cfg.has_key('user') or not cfg.has_key('run_id'):
-                logging.warning(__name__+": cfg['user'] or cfg['run_id'] is not set. Using defaults. Have fun searching your data.")
-            
-            return os.path.join(
-                        cfg['datadir'],
-                        cfg.get('run_id','NO_RUN'),
-                        cfg.get('user','John_Doe').strip().replace(" ","_"),
-                        filename,
-                        filename+'.h5'
-                        )
+        self.returndict['_relfolder'] = os.path.join(
+                qkit.cfg.get('run_id', 'NO_RUN').strip().replace(" ", "_"),
+                qkit.cfg.get('user', 'John_Doe').strip().replace(" ", "_"),
+                filename
+        )
 
-    def create_data_dir(self, datadir, name=None, ts=None, datesubdir=True, timesubdir=True):
-        '''
-        Create and return a new data directory.
 
-        Input:
-            datadir (string): base directory
-            name (string): optional name of measurement
-            ts (time.localtime()): timestamp which will be used if timesubdir=True
-            datesubdir (bool): whether to create a subdirectory for the date
-            timesubdir (bool): whether to create a subdirectory for the time
+def encode_uuid(value):
+    # if not value: value = self._unix_timestamp
+    output = ''
+    la = len(alphabet)
+    while value:
+        output += alphabet[value % la]
+        value = value / la
+    return output[::-1]
 
-        Output:
-            The directory to place the new file in
-        '''
 
-        path = datadir
-        if ts is None:
-            ts = time.localtime()
-        if datesubdir:
-            path = os.path.join(path, time.strftime('%Y%m%d', ts))
-        if timesubdir:
-            tsd = time.strftime('%H%M%S', ts)
-            if name is not None:
-                tsd += '_' + name
-            path = os.path.join(path, tsd)
-
-        return path
-
-    def new_filename_v1(self, data_obj):
-        '''Return a new filename, based on name and timestamp.'''
-
-        dir = self.create_data_dir(cfg['datadir'], name=data_obj._name,
-                ts=data_obj._localtime)
-        tstr = time.strftime('%H%M%S', data_obj._localtime)
-        filename = '%s_%s.h5' % (tstr, data_obj._name)
-
-        return os.path.join(dir, filename)
+def decode_uuid(string):
+    # if not string: string = self._uuid
+    output = 0
+    multiplier = 1
+    string = string[::-1].upper()
+    la = len(alphabet)
+    while string != '':
+        f = alphabet.find(string[0])
+        if f == -1:
+            raise ValueError("Can not decode this: {}<--".format(string[::-1]))
+        output += f * multiplier
+        multiplier *= la
+        string = string[1:]
+    return output

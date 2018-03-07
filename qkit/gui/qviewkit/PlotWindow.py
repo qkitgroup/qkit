@@ -6,33 +6,31 @@ Qlicense: GPL
 """
 # support both PyQt4 and 5
 in_pyqt5 = False
+import sys
 try:
     from PyQt5 import QtCore
     from PyQt5.QtCore import Qt,QObject,pyqtSlot
-    from PyQt5.QtWidgets import QWidget,QPlainTextEdit,QMenu,QAction
+    from PyQt5.QtWidgets import QWidget,QPlainTextEdit,QMenu,QAction, QWidgetAction, QLabel
+    from PyQt5.QtGui import QBrush, QPainter, QPixmap
     #from PyQt5 import Qt
     in_pyqt5 = True
-except ImportError, e:
+except ImportError as e:
     pass
 if not in_pyqt5:
     try:
         from PyQt4 import QtCore
-        from PyQt4.QtCore import *
-        from PyQt4.QtGui import *
+        from PyQt4.QtCore import Qt,QObject,pyqtSlot
+        from PyQt4.QtGui import QWidget,QPlainTextEdit,QMenu,QAction, QWidgetAction, QLabel, QBrush, QPainter, QPixmap
     except ImportError:
-        print "import of PyQt5 and PyQt4 failed. Install one of those."
+        print("import of PyQt5 and PyQt4 failed. Install one of those.")
         sys.exit(-1)
 
-
-
-
-
-from plot_view import Ui_Form
 import pyqtgraph as pg
-from qkit.storage.hdf_constants import ds_types, view_types
-from PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
-import sys
 
+import qkit
+from qkit.gui.qviewkit.plot_view import Ui_Form
+from qkit.storage.hdf_constants import ds_types, view_types
+from qkit.gui.qviewkit.PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
 
 
 class PlotWindow(QWidget,Ui_Form):
@@ -123,7 +121,8 @@ class PlotWindow(QWidget,Ui_Form):
             elif self.view_type == view_types['2D']:
                 if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
-                    self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
+                    self.graphicsView = ImageViewMplColorMaps(self.obj_parent, view = pg.PlotItem())
+                    #self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
                     self.graphicsView.setObjectName(self.dataset_url)
                     self.addQvkMenu(self.graphicsView.view.getMenu())
                     #self.addQvkMenu(self..graphicsView.getImageItem().getMenu())
@@ -151,10 +150,10 @@ class PlotWindow(QWidget,Ui_Form):
                 self.graphicsView.clear()
                 _display_text(self,self.graphicsView)
             else:
-                print "This should not be here: View Type:"+str(self.view_type)
-        except ValueError,e:
-            print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
-            print e
+                print("This should not be here: View Type:"+str(self.view_type))
+        except ValueError as e:
+            print("PlotWindow: Value Error; Dataset not yet available", self.dataset_url)
+            print(e)
 
 
     def _setup_signal_slots(self):
@@ -182,23 +181,25 @@ class PlotWindow(QWidget,Ui_Form):
             self.VTraceYValue.returnPressed.connect(self._setVTraceYValue)
 
     def keyPressEvent(self, ev):
-        #print "Received Key Press Event!! You Pressed: "+ event.text()
+        #print("Received Key Press Event!! You Pressed: "+ event.text())
         if ev.key() == Qt.Key_S:
             #print '# ',ev.key()
-            print self.data_coord
+            print(self.data_coord)
             sys.stdout.flush()
 
     def _setDefaultView(self):
-        """Setup the view type: settle which type of window is displaying a dataset.
-            It is distinguished with what layout a dataset is displayed.
-            Co -> 1d
-            vec - 1d
-            matrix -> 2d
-            (...)
+        """
+        Setup the view type: settle which type of window is displaying a dataset.
+        It is distinguished with what layout a dataset is displayed.
+        Co -> 1d
+        vec -> 1d
+        matrix -> 2d
+        box -> 3d
         """
 
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
-        self.manipulations = {'dB':1, 'wrap':2, 'linear':4, 'remove_zeros':8, 'offset':16} #BITMASK for manipulation
+        self.manipulations = {'dB':1, 'wrap':2, 'linear':4, 'remove_zeros':8,
+                              'sub_offset_avg_y':16, 'norm_data_avg_x':32} #BITMASK for manipulation
 
         self.plot_style = 0
         self.manipulation = 8
@@ -438,7 +439,7 @@ class PlotWindow(QWidget,Ui_Form):
         pass
 
     def _init_XY_add(self):
-        for i,key in enumerate(self.DATA.ds_tree_items.iterkeys()):
+        for i,key in enumerate(self.DATA.ds_tree_items.keys()):
             keys = key.split("/")[-2:]
             key = "/".join(key for key in keys)
             self.addXPlotSelector.addItem("")
@@ -458,7 +459,7 @@ class PlotWindow(QWidget,Ui_Form):
             xval = x0+num*dx
         else:
             xval = x0+(max_len+num)*dx
-        return str(xval)+" "+unit
+        return str(xval)+" "+str(unit)
 
     def _getYValueFromTraceNum(self,ds,num):
         y0 = ds.attrs.get("y0",0)
@@ -469,7 +470,7 @@ class PlotWindow(QWidget,Ui_Form):
             yval = y0+num*dy
         else:
             yval = y0+(max_len+num)*dy
-        return str(yval)+" "+unit
+        return str(yval)+" "+str(unit)
 
     def _getZValueFromTraceNum(self,ds,num):
         z0 = ds.attrs.get("z0",0)
@@ -480,39 +481,42 @@ class PlotWindow(QWidget,Ui_Form):
             zval = z0+num*dz
         else:
             zval = z0+(max_len+num)*dz
-        return str(zval)+" "+unit
+        return str(zval)+" "+str(unit)
 
     def addQvkMenu(self,menu):
         self.qvkMenu = QMenu("Qviewkit")
 
-        point = QAction(u'Point', self.qvkMenu)
+        point = QAction('Point', self.qvkMenu)
         self.qvkMenu.addAction(point)
         point.triggered.connect(self.setPointMode)
 
-        line = QAction(u'Line', self.qvkMenu)
+        line = QAction('Line', self.qvkMenu)
         self.qvkMenu.addAction(line)
         line.triggered.connect(self.setLineMode)
 
-        pointLine = QAction(u'Point+Line', self.qvkMenu)
+        pointLine = QAction('Point+Line', self.qvkMenu)
         self.qvkMenu.addAction(pointLine)
         pointLine.triggered.connect(self.setPointLineMode)
 
-        dB_scale = QAction(u'dB / linear', self.qvkMenu)
+        dB_scale = QAction('dB / linear', self.qvkMenu)
         self.qvkMenu.addAction(dB_scale)
         dB_scale.triggered.connect(self.setdBScale)
         
-        phase_wrap = QAction(u'(un)wrap phase data', self.qvkMenu)
+        phase_wrap = QAction('(un)wrap phase data', self.qvkMenu)
         self.qvkMenu.addAction(phase_wrap)
         phase_wrap.triggered.connect(self.setPhaseWrap)
         
-        linear_correction = QAction(u'linearly correct data', self.qvkMenu)
+        linear_correction = QAction('linearly correct data', self.qvkMenu)
         self.qvkMenu.addAction(linear_correction)
         linear_correction.triggered.connect(self.setLinearCorrection)
         
-        offset_correction = QAction(u'subtract offset', self.qvkMenu)
+        offset_correction = QAction('data-<data:y>', self.qvkMenu)
         self.qvkMenu.addAction(offset_correction)
         offset_correction.triggered.connect(self.setOffsetCorrection)
         
+        norm_correction = QAction('data/<data:x>', self.qvkMenu)
+        self.qvkMenu.addAction(norm_correction)
+        norm_correction.triggered.connect(self.setNormDataCorrection)
 
         menu.addMenu(self.qvkMenu)
 
@@ -557,7 +561,71 @@ class PlotWindow(QWidget,Ui_Form):
             
     @pyqtSlot()
     def setOffsetCorrection(self):
-        self.manipulation = self.manipulation ^ self.manipulations['offset']
+        self.manipulation = self.manipulation ^ self.manipulations['sub_offset_avg_y']
         #print "{:08b}".format(self.manipulation)
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
+
+    @pyqtSlot()
+    def setNormDataCorrection(self):
+        self.manipulation = self.manipulation ^ self.manipulations['norm_data_avg_x']
+        #print "{:08b}".format(self.manipulation)
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+
+"""
+The code below implements the matplotlib 2.0 colormaps 'viridis', 'inferno', 'plasma', and 'magma' to the available colors in our 2d plots.
+They are not (yet?) available in the standard pyqtgraph package. However there is a pull request #446, issued Feb 2017 by github user "WFrsh" to add them to the 
+standard available gradient dict.
+The code is a combination by his added rgb color maps and a monkey patch by user "honkomonk" posted in the comment section of pull request #561.
+"""
+
+from collections import OrderedDict
+
+class ImageViewMplColorMaps(pg.ImageView):
+    def __init__(self, parent=None, name='ImageView', view=None, imageItem=None, *args):
+        super(ImageViewMplColorMaps, self).__init__(parent=parent, name=name, view=view, imageItem=imageItem, *args)
+
+        self.gradientEditorItem = self.ui.histogram.item.gradient
+
+        self.activeCm = "viridis"
+        self.mplColorMaps = OrderedDict([
+                    ('inferno', {'ticks': [(0.0, (0, 0, 3, 255)), (0.25, (87, 15, 109, 255)), (0.5, (187, 55, 84, 255)), (0.75, (249, 142, 8, 255)), (1.0, (252, 254, 164, 255))], 'mode': 'rgb'}),
+                    ('plasma', {'ticks': [(0.0, (12, 7, 134, 255)), (0.25, (126, 3, 167, 255)), (0.5, (203, 71, 119, 255)), (0.75, (248, 149, 64, 255)), (1.0, (239, 248, 33, 255))], 'mode': 'rgb'}),
+                    ('magma', {'ticks': [(0.0, (0, 0, 3, 255)), (0.25, (80, 18, 123, 255)), (0.5, (182, 54, 121, 255)), (0.75, (251, 136, 97, 255)), (1.0, (251, 252, 191, 255))], 'mode': 'rgb'}),
+                    ('viridis', {'ticks': [(0.0, (68, 1, 84, 255)), (0.25, (58, 82, 139, 255)), (0.5, (32, 144, 140, 255)), (0.75, (94, 201, 97, 255)), (1.0, (253, 231, 36, 255))], 'mode': 'rgb'}),
+                    ])
+
+        self.registerCmap()
+
+    def registerCmap(self):
+        """ Add matplotlib cmaps to the GradientEditors context menu"""
+        self.gradientEditorItem.menu.addSeparator()
+        savedLength = self.gradientEditorItem.length
+        self.gradientEditorItem.length = 100
+        
+        
+        for name in self.mplColorMaps:
+            px = QPixmap(100, 15)
+            p = QPainter(px)
+            self.gradientEditorItem.restoreState(self.mplColorMaps[name])
+            grad = self.gradientEditorItem.getGradient()
+            brush = QBrush(grad)
+            p.fillRect(QtCore.QRect(0, 0, 100, 15), brush)
+            p.end()
+            label = QLabel()
+            label.setPixmap(px)
+            label.setContentsMargins(1, 1, 1, 1)
+            act =QWidgetAction(self.gradientEditorItem)
+            act.setDefaultWidget(label)
+            act.triggered.connect(self.cmapClicked)
+            act.name = name
+            self.gradientEditorItem.menu.addAction(act)
+        self.gradientEditorItem.length = savedLength
+
+
+    def cmapClicked(self):
+        """onclick handler for our custom entries in the GradientEditorItem's context menu"""
+        act = self.sender()
+        self.gradientEditorItem.restoreState(self.mplColorMaps[act.name])
+        self.activeCm = act.name

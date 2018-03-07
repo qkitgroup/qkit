@@ -81,21 +81,19 @@ class ACF_class():
         return a*(x - b)**2 + c
     
     
-    def transmon_f01(self, x, w0, L_eff, Phi_ext, djj, alpha):
+    def transmon_f01(self, x, w0, L, I_ext, djj):
         '''
         Input:
             w0      - Maximum frequency without detuning
-            L_eff   - 2*pi*effective inductance/Phi0
-            Phi_ext - Offset flux
+            L_eff   - Oscillation period in current
+            I_ext   - Offset current
             djj     - Josephson junction asymmetry i.e. (Ic1 - Ic2)/(Ic1 + Ic2)
-            alpha   - Transmon anharmonicity
         Output:
             Primal transition frequency of a transmon qubit.
         
         Note: This function is oftentimes useless.
         ''' 
-        return w0 * ((((np.cos(L_eff*x - Phi_ext))**2)**.5)*
-                     (1+(djj**2)*(np.tan(L_eff*x - Phi_ext)**2)**.5)**.5)**.5 - alpha
+        return  w0 * (np.abs(np.cos(np.pi/L*(x - I_ext)))*(1 + djj**2*np.tan(np.pi/L*(x - I_ext))**2)**.5)**0.5
     
     
     
@@ -349,10 +347,8 @@ class ACF_class():
         dev = []
         pars = self._reshape(pars)
         
-        i=0
-        for fct in self.functions:
+        for i, fct in enumerate(self.functions):
             dev = np.append(dev, self.ydata[i] - self.crossing_fct(self.xdata[i], pars)[:, i])
-            i += 1
             
         return dev
 
@@ -371,7 +367,7 @@ class ACF_class():
         '''
         x = np.atleast_1d(x)
         fct_pars = pars[:-1]
-        g = pars[-1]
+        g = np.atleast_1d(pars[-1])
 
         #Create the nondiagonal symmetric interaction matrix
         int_mat = np.zeros((self._flen, self._flen))
@@ -388,10 +384,8 @@ class ACF_class():
         for n in range(np.size(x)):
             #Create diagonal parts of the matrix
             d_mat = np.zeros((self._flen, self._flen))
-            i = 0
-            for fct in self.functions:
+            for i, fct in enumerate(self.functions):
                 d_mat[i,i] = fct(x[n], *fct_pars[i])
-                i += 1
             
             mat = d_mat + int_mat
             func_vals[n, :] = np.linalg.eigvalsh(mat)
@@ -505,6 +499,7 @@ class ACF_class():
             plt.plot(xlin, self.crossing_fct(xlin, pars)[:, i], fct_cols[i])
         plt.xlim(np.amin(np.concatenate(self.xdata)), np.amax(np.concatenate(self.xdata)))
         plt.ylim(np.amin(np.concatenate(self.ydata)), np.amax(np.concatenate(self.ydata)))
+        plt.show()
         return
 
 

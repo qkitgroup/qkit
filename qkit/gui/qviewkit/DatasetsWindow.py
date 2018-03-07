@@ -6,7 +6,7 @@
 """
 
 import sys,os
-
+import qkit
 # support both PyQt4 and 5
 in_pyqt5 = False
 in_pyqt4 = False
@@ -15,7 +15,7 @@ try:
     from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject,QTimer
     from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog
     in_pyqt5 = True
-except ImportError, e:
+except ImportError as e:
     pass
 if not in_pyqt5:    
     try:
@@ -24,14 +24,14 @@ if not in_pyqt5:
         from PyQt4.QtGui import *
         in_pyqt4 = True
     except ImportError:
-        print "import of PyQt5 and PyQt4 failed. Install one of those."
+        print("import of PyQt5 and PyQt4 failed. Install one of those.")
         sys.exit(-1)
 
 import h5py
 
 
 
-from main_view import Ui_MainWindow
+from qkit.gui.qviewkit.main_view import Ui_MainWindow
 
 
 class DatasetsWindow(QMainWindow, Ui_MainWindow):
@@ -76,7 +76,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                 if len(fd) == 2:
                     dsp = "/entry/"+fd[0]+"/"+fd[1]
                     self.DATA.ds_cmd_open[dsp] = True
-            print "Display:", self.DATA.ds_cmd_open
+            print("Display:", self.DATA.ds_cmd_open)
         if self.DATA.args.file:
             self.DATA.DataFilePath = self.DATA.args.file
             self.update_file()
@@ -140,23 +140,23 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         """itterate over the whole entry tree and collect the attributes """
         for i,pentry in enumerate(self.h5file["/entry"].keys()):
             tree_key = "/entry/"+pentry
-            if not self.DATA.ds_tree_items.has_key(tree_key):
+            if tree_key not in self.DATA.ds_tree_items:
                 parent = self.addParent(self.parent, column, str(pentry))
                 self.DATA.ds_tree_items[tree_key] = parent
                 parents.append(parent)
             else:
                 parent = self.DATA.ds_tree_items[tree_key]
                 
-            s= "comment:\t" +str(self.h5file[tree_key].attrs.get('comment',"")+"\n")
+            s= "comment:\t"+str(self.h5file[tree_key].attrs.get('comment',""))+"\n"
             self.DATA.dataset_info[tree_key] = s
             
             for j,centry in enumerate(self.h5file[tree_key].keys()):
                 tree_key = "/entry/"+pentry+"/"+centry
-                if not self.DATA.ds_tree_items.has_key(tree_key):
+                if tree_key not in self.DATA.ds_tree_items:
                     item = self.addChild(parent, column, str(centry),tree_key)
                     self.DATA.ds_tree_items[tree_key] = item
                     
-                    if self.DATA.ds_cmd_open.has_key(tree_key):
+                    if tree_key in self.DATA.ds_cmd_open:
                         # the order of the following two lines are important! otherwise two plots are opened
                         self.DATA.append_plot(self,item,tree_key)
                         item.setCheckState(0,QtCore.Qt.Checked)
@@ -165,11 +165,11 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                 s = ""
                 try:
                     s="shape\t"+str(self.h5file[tree_key].shape)+"\n"
-                    for k in self.h5file[tree_key].attrs.keys(): 
+                    for k in list(self.h5file[tree_key].attrs.keys()): 
                         s+=k +"\t" +str(self.h5file[tree_key].attrs[k])+"\n"
                     
-                except ValueError,e:
-                    print "catch: populate data list:",e
+                except ValueError as e:
+                    print("catch: populate data list:",e)
                 
                 self.DATA.dataset_info[tree_key] = s
                
@@ -202,13 +202,13 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                 self.update_plots()
                 
             # uncheck 
-            window = self.DATA.open_plots[item]
+            window = self.DATA.open_plots[str(item)]
             window.destroyed.connect(self._close_plot_window)
                 
         if item.checkState(column) == QtCore.Qt.Unchecked:
             
             if self.DATA.plot_is_open(ds):
-                self.DATA.remove_plot(item,ds)
+                self.DATA.remove_plot(str(item),ds)
         
     def handleSelectionChanged(self):
         getSelected = self.treeWidget.selectedItems()
@@ -236,8 +236,8 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             
             title = "Qviewkit: %s"%(self.DATA.DataFilePath.split(os.path.sep)[-1:][0][:6])
             self.setWindowTitle(title)
-        except IOError,e:
-            print e
+        except IOError as e:
+            print(e)
 
     def open_file(self):
         if in_pyqt5:

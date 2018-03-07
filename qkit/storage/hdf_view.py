@@ -5,7 +5,8 @@ Created 2015
 @author: hrotzing
 """
 import logging
-from hdf_constants import ds_types, view_types
+import qkit
+from qkit.storage.hdf_constants import ds_types, view_types
 import json
 class dataset_view(object):
 

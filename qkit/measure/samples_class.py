@@ -3,22 +3,24 @@
 # modified MP 05/2017 switch from pickle to JSON
 # Sample Class to define all values necessary to measure a sample
 
-import time
 import json, pickle
 import logging
 import os, copy
-import numpy as np
 
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
-import qkit.core.qt as qt
+from qkit.storage.hdf_DateTimeGenerator import DateTimeGenerator as dtg
+
+import qkit
 
 class Sample(object):
     '''
     Sample Class to define all values necessary to measure a sample
     '''
-    def __init__(self):
+    def __init__(self, path=None):
         self.name = 'Arbitrary Sample'
         self.comment = ''
+        if path:
+            self.load(path)
 
     def update_instruments(self):
         '''
@@ -68,19 +70,30 @@ class Sample(object):
 
     def save(self,filename=None):
         '''
-        save sample object in the data directory
+        save sample object.
+        Filename can either be:
+            - a full (absolute) path to the sample file or
+            - any other string that is added to the filename in the data dir
+            - None (default), the the sample object is stored in the data dir.
+            
+        returns the location of the sample file
         '''
+        if filename is None or not(os.path.isabs(filename)):
+            d = dtg()
+            path = d.new_filename(filename)['_folder']
+        else:
+            path = filename
 
-        if not os.path.exists(os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d"))):
-            os.makedirs(os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d")))
+        if not os.path.exists(os.path.split(path)[0]):
+            os.makedirs(os.path.split(path)[0])
 
-        if filename==None:
-            filename=time.strftime("%H%M%S.sample")
+        if not os.path.splitext(path)[-1] == '.sample':
+            path = path + '.sample'
 
         copydict = copy.copy(self.__dict__)
-        with open(os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d"),filename),'w+') as filehandler:
+        with open(path,'w+') as filehandler:
             json.dump(obj=copydict, fp=filehandler, cls=QkitJSONEncoder, indent = 4, sort_keys=True)
-        print "Saved to " + str(os.path.join(qt.config.get('datadir'),time.strftime("%Y%m%d"),filename)).replace('\\','/')
+        return path
 
     def load(self, filename):
         '''
@@ -88,7 +101,7 @@ class Sample(object):
         '''
 
         if not os.path.isabs(filename):
-            filename = os.path.join(qt.config.get('datadir'),filename)
+            filename = os.path.join(qkit.cfg.get('datadir'),filename)
 
         try:
             with open(filename) as filehandle:
@@ -100,9 +113,9 @@ class Sample(object):
             self.__dict__ = json.load(filehandle, cls = QkitJSONDecoder)
 
     def _load_legacy_pickle(self, filehandle):
-        self.__dict__ = pickle.loads(filehandle.read().split("<PICKLE PACKET BEGINS HERE>\n")[1])
+        self.__dict__ = pickle.loads(filehandle.read().split('<PICKLE PACKET BEGINS HERE>')[1].strip().replace('\r\n', '\n'))
 
         copydict = copy.copy(self.__dict__)
         for key in sorted(copydict):
             if ('xxxx'+str(copydict[key]))[-4:] == ' ins':   #instrument
-                self.__dict__[key] = qt.instruments.get(copydict[key][:-4])
+                self.__dict__[key] = qkit.instruments.get(copydict[key][:-4])

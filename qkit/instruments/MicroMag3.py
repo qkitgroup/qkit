@@ -4,7 +4,7 @@
 
 from instrument import Instrument
 from time import time, sleep
-import visa
+from qkit import visa
 import types
 import logging
 
@@ -36,7 +36,7 @@ class MicroMag3(Instrument):
         self._address = address
         self._visainstrument = visa.SerialInstrument(self._address, delay = 30e-3)
         self._values = {}
-        self._visainstrument.stop_bits = 1
+        self._visainstrument.stop_bits = 1  # This works only using pyvisa 1.4
         self.reset()
 
         #Add parameters

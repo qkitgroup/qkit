@@ -146,7 +146,7 @@ class Caen_FAST_PS(Instrument):
             None
         '''
         logging.debug(__name__ + ' : set setvoltage to %s' % setvoltage)
-        recv = self._ask('MWV:%s' %rate)
+        recv = self._ask('MWV:%s' %setvoltage)
         if recv == self._ak_str: return True
         else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
         
@@ -163,6 +163,7 @@ class Caen_FAST_PS(Instrument):
         logging.debug(__name__ + ' : get current')
         recv = self._ask('MRI:?')
         return float(recv.split(':')[1])
+        
 
     def do_get_setcurrent(self):
         '''
@@ -189,7 +190,7 @@ class Caen_FAST_PS(Instrument):
             None
         '''
         logging.debug(__name__ + ' : set setcurrent to %s' % setcurrent)
-        recv = self._ask('MWI:%s' %rate)
+        recv = self._ask('MWI:%s' %setcurrent)
         if recv == self._ak_str: return True
         else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
 
@@ -251,7 +252,7 @@ class Caen_FAST_PS(Instrument):
         Output:
             rate (float) : current_ramp_rate in A/s
         '''
-        logging.debug(__name__ + ' : get setcurrent')
+        logging.debug(__name__ + ' : get current ramp rate')
         recv = self._ask('MSRI:?')
         ret = recv.split(':')[1]
         return ret
@@ -281,7 +282,7 @@ class Caen_FAST_PS(Instrument):
         Output:
             rate (float) : voltage_ramp_rate in V/s
         '''
-        logging.debug(__name__ + ' : get setcurrent')
+        logging.debug(__name__ + ' : get voltage ramp rate')
         recv = self._ask('MSRV:?')
         ret = recv.split(':')[1]
         return ret
@@ -330,6 +331,12 @@ class Caen_FAST_PS(Instrument):
         if recv == self._ak_str: return True
         else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
     
+    def ramp_finished(self):
+        time.sleep(0.1)
+        while int(self._ask('MST:?').split(':')[1], 16) & 2**12 == 2**12: #MP: gets 32bit status array; 12th from last bit indicates ramping process
+            time.sleep(0.1)
+        return True
+    
     def ramp_current(self, current, ramp_rate = False, wait = True):
         '''
         Ramps current with given rate
@@ -337,6 +344,7 @@ class Caen_FAST_PS(Instrument):
         Input:
             current (float) : destination value in A
             ramp_rate (float) : ramp rate in A/s (optional)
+            wait (bool) : wait until set current value is reached before returning its value (recommended)
         
         Output:
             None
@@ -345,22 +353,22 @@ class Caen_FAST_PS(Instrument):
         logging.debug(__name__ + ' : ramp current to %s' %current)
         recv = self._ask('MWIR:%s' %current)
         if recv == self._ak_str: 
-            if not wait:
-                return True
-            else:
-                while not numpy.allclose(self.get_setcurrent(),current):
+            if wait:
+                time.sleep(0.1)
+                while not self.ramp_finished():
                     time.sleep(0.1)
-                time.sleep(0.5)
-                return True
+                time.sleep(0.1)
+            return True
         else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
     
-    def ramp_voltage(self, voltage, ramp_rate = False):
+    def ramp_voltage(self, voltage, ramp_rate = False, wait = True):
         '''
         Ramps voltage with given rate
         
         Input:
             voltage (float) : destination value in V
             ramp_rate (float) : ramp rate in V/s (optional)
+            wait (bool) : wait until set current value is reached before returning its value (recommended)
         
         Output:
             None
@@ -368,12 +376,41 @@ class Caen_FAST_PS(Instrument):
         if ramp_rate: self.do_set_voltage_ramp_rate(ramp_rate)
         logging.debug(__name__ + ' : ramp voltage to %s' %voltage)
         recv = self._ask('MWVR:%s' %voltage)
-        if recv == self._ak_str: return True
-        else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
+        if recv == self._ak_str:
+            if not wait:
+                return True
+            else:
+                time.sleep(0.1)
+                while not self.ramp_finished():
+                    time.sleep(0.1)
+                time.sleep(0.1)
+                return str(self.do_get_voltage())
        
     def _ask(self, cmd):
         self._soc.sendall(cmd+'\r')
         return self._soc.recv(1024).strip()
+       
+    def set_coil(self, coil):
+        '''
+        Adapts the PID values to the specific coils in our lab
+        
+        Input:
+            coil (int) : {0:default, 1:solenoid_red, 2:yoke_red, 3:solenoid_janice}
+
+        Output:
+            None
+        '''
+        PID_dict = {0:[0.0001, 0.0001, 0], 1:[0.0001, 0.0001, 0], 2:[0.0001, 0.1, 0], 3:[0.0001, 0.0001, 0]}
+        PID = PID_dict[coil]
+        recv = self._ask('MWG:43:%f' %PID[0])
+        if recv != self._ak_str: return 'ERROR: ' + error_msg[recv.split(':')[1]]
+        recv = self._ask('MWG:44:%f' %PID[1])
+        if recv != self._ak_str: return 'ERROR: ' + error_msg[recv.split(':')[1]]
+        recv = self._ask('MWG:45:%f' %PID[2])
+        if recv != self._ak_str: return 'ERROR: ' + error_msg[recv.split(':')[1]]
+        recv = self._ask('MSAVE')
+        if recv != self._ak_str: return 'ERROR: ' + error_msg[recv.split(':')[1]]   
+        
         
 error_msg = {'01':"Unknown command",
              '02':"Unknown Parameter",

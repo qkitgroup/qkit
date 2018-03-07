@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 from instrument import Instrument
-import visa
+from qkit import visa
 import types
 import logging
 from time import sleep
@@ -58,7 +58,7 @@ class Keysight_VNA_E5071C(Instrument):
         # Implement parameters
         self.add_parameter('nop', type=types.IntType,
             flags=Instrument.FLAG_GETSET,
-            minval=2, maxval=1601,
+            minval=2, maxval=20001,
             tags=['sweep'])
             
         self.add_parameter('bandwidth', type=types.FloatType,
@@ -122,6 +122,10 @@ class Keysight_VNA_E5071C(Instrument):
   
         self.add_parameter('edel_status', type=types.BooleanType, # legacy name for parameter. This corresponds to the VNA's port extension values.
             flags=Instrument.FLAG_GETSET)
+        
+             
+        self.add_parameter('sweep_mode', type=types.StringType,  #JDB This parameter switches on/off hold. The hold function below does the same job, this is just for code compatibility to the agilent and anritsu drivers.
+            flags=Instrument.FLAG_GETSET,tags=['sweep']) 
                     
                     
         #Triggering Stuff
@@ -237,7 +241,7 @@ class Keysight_VNA_E5071C(Instrument):
         self._visainstrument.write('FORM:DATA REAL')
         self._visainstrument.write('FORM:BORD SWAPPED') #SWAPPED
         #data = self._visainstrument.ask_for_values('CALC%d:SEL:DATA:SDAT?'%(self._ci), format = visa.double)              
-        data = self._visainstrument.ask_for_values('CALC%i:SEL:DATA:SDAT?'%(self._ci), format = 3)
+        data = self._visainstrument.ask_for_values('CALC%i:SEL:DATA:SDAT?'%(self._ci), fmt = 3)
         data_size = numpy.size(data)
         datareal = numpy.array(data[0:data_size:2])
         dataimag = numpy.array(data[1:data_size:2])
@@ -283,6 +287,26 @@ class Keysight_VNA_E5071C(Instrument):
     ###
     # SET and GET functions
     ###
+    def do_set_sweep_mode(self, mode):
+        '''
+        select the sweep mode from 'hold', 'cont'.
+        '''
+        self._visainstrument.write(":TRIG:SOUR INT")
+        if mode == 'hold':
+            self._visainstrument.write(':INIT%i:CONT OFF'%(self._ci))
+        elif mode == 'cont':
+            self._visainstrument.write(':INIT%i:CONT ON'%(self._ci))
+        else:
+            logging.warning('invalid mode')
+            
+    def do_get_sweep_mode(self):
+        self._hold=self._visainstrument.ask(':INIT%i:CONT?'%(self._ci))
+        if self._hold:
+            return 'hold'
+        else:
+            return 'cont'
+    
+    
     
     def do_set_nop(self, nop):
         '''

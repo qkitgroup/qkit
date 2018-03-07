@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 from instrument import Instrument
-import visa
+from qkit import visa
 import types
 import logging
 import numpy
@@ -152,6 +152,9 @@ class Anritsu_VNA_MS4642B(Instrument):
             flags=Instrument.FLAG_GET,
             minval=0, maxval=1e-3,
             units='s', tags=['sweep'])
+            
+        self.add_parameter('sweep_mode', type=types.StringType,
+            flags=Instrument.FLAG_GETSET,tags=['sweep']) 
                     
         #Triggering Stuff
         self.add_parameter('trigger_source', type=types.StringType,
@@ -219,11 +222,6 @@ class Anritsu_VNA_MS4642B(Instrument):
           else:
               self._visainstrument.write('INIT1;*wai')
 
-    def hold(self, status):
-        if status:
-            self._visainstrument.write(':SENS:HOLD:FUNC HOLD')
-        else:
-            self._visainstrument.write(':SENS:HOLD:FUNC CONT')
         
     def avg_clear(self):
         self._visainstrument.write(':SENS%i:AVER:CLE' %(self._ci))
@@ -245,7 +243,7 @@ class Anritsu_VNA_MS4642B(Instrument):
             'AmpPha':_ Amplitude and Phase
         '''
         #data = self._visainstrument.ask_for_values(':FORMAT REAL,32;*CLS;CALC1:DATA:NSW? SDAT,1;*OPC',format=1)      
-        data = self._visainstrument.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; CALC%i:SEL:DATA:SDAT?'%(self._ci), format = visa.double)      
+        data = self._visainstrument.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; CALC%i:SEL:DATA:SDAT?'%(self._ci), fmt = 3)      
         data_size = numpy.size(data)
         datareal = numpy.array(data[0:data_size:2])
         dataimag = numpy.array(data[1:data_size:2])
@@ -271,7 +269,7 @@ class Anritsu_VNA_MS4642B(Instrument):
       
     def get_freqpoints(self, query = False):      
       if query == True:        
-        self._freqpoints = self._visainstrument.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; :SENS%i:FREQ:DATA?'%(self._ci), format = visa.double)
+        self._freqpoints = self._visainstrument.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; :SENS%i:FREQ:DATA?'%(self._ci), fmt = visa.double)
       
         #self._freqpoints = numpy.array(self._visainstrument.ask_for_values('SENS%i:FREQ:DATA:SDAT?'%self._ci,format=1)) / 1e9
         #self._freqpoints = numpy.array(self._visainstrument.ask_for_values(':FORMAT REAL,32;*CLS;CALC1:DATA:STIM?;*OPC',format=1)) / 1e9
@@ -287,6 +285,22 @@ class Anritsu_VNA_MS4642B(Instrument):
     ###
     # SET and GET functions
     ###
+    
+    def do_set_sweep_mode(self, mode):
+        '''
+        select the sweep mode from 'hold', 'cont', single'
+        '''
+        if mode == 'hold':
+            self._visainstrument.write(':SENS:HOLD:FUNC HOLD')
+        elif mode == 'cont':
+            self._visainstrument.write(':SENS:HOLD:FUNC CONT')
+        elif mode == 'single':
+            self._visainstrument.write(':SENS:HOLD:FUNC SING')
+        else:
+            logging.warning('invalid mode')
+            
+    def do_get_sweep_mode(self):
+        return self._visainstrument.ask(':SENS:HOLD:FUNC ?')
     
     def do_set_nop(self, nop):
         '''
@@ -344,10 +358,10 @@ class Anritsu_VNA_MS4642B(Instrument):
         '''
         logging.debug(__name__ + ' : setting Average to "%s"' % (status))
         if status:
-            self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,status))
+            self._visainstrument.write('SENS%i:AVER:STAT 1' % (self._ci))
             self._visainstrument.write('SENS%i:AVER:TYP SWE' % (self._ci))
         else:
-            self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,status))             
+            self._visainstrument.write('SENS%i:AVER:STAT 0' % (self._ci))             
     def do_get_Average(self):
         '''
         Get status of Average
@@ -1010,3 +1024,5 @@ class Anritsu_VNA_MS4642B(Instrument):
         This is a proxy function, returning True when the VNA has finished the required number of averages.
         '''
         return self.avg_status() == self.get_averages(query=False)
+            
+            

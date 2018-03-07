@@ -134,7 +134,14 @@ class Instrument(object):#(SharedGObject): # YS: try to get rid of 32bit gobject
         '''
 
         return self._name
-
+    
+    def _json(self):
+        '''
+        This function is called by the QkitJSONEncoder and should return a 
+        dictionary that will be saved to the JSON file.
+        '''
+        return {'dtype' : 'qkitInstrument', 'content': str(self.get_name())}
+        
     def get_type(self):
         """Return type of instrument as a string."""
         modname = str(self.__module__)

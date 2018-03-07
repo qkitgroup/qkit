@@ -10,26 +10,25 @@ import sys
 in_pyqt5 = False
 in_pyqt4 = False
 try:
-    from PyQt5 import QtCore
-    from PyQt5.QtCore import QObject
+    from PyQt5.QtCore import Qt, QObject
     from PyQt5.QtWidgets import QApplication
     in_pyqt5 = True
-except ImportError, e:
-    print "import of PyQt5 failed, trying PyQt4"
+except ImportError as e:
+    print("import of PyQt5 failed, trying PyQt4")
 
 if not in_pyqt5:
     try:
-        from PyQt4 import QtCore
-        from PyQt4.QtCore import QObject,SIGNAL,SLOT
+        from PyQt4.QtCore import Qt, QObject
         from PyQt4.QtGui import QApplication
         in_pyqt4 = True
     except ImportError:
-        print "import of PyQt5 and PyQt4 failed. Install one of those."
+        print("import of PyQt5 and PyQt4 failed. Install one of those.")
         sys.exit(-1)
 
 
 import argparse
-from PlotWindow import PlotWindow
+import qkit
+from qkit.gui.qviewkit.PlotWindow import PlotWindow
 from threading import Lock
 
 class DATA(QObject):
@@ -47,35 +46,36 @@ class DATA(QObject):
         # self, item, dataset
         
         window = PlotWindow(parent,self,ds)
-        
-        self.open_plots[window_id]=window
-        self.open_ds[ds]=window_id
+
+        #print(window, window_id)
+        self.open_plots[str(window_id)]=window
+        self.open_ds[ds] = window_id
         
         window.show()   # non-modal
         
         return window
     def _toBe_deleted(self,ds):
-        if self.open_ds.has_key(ds):
+        if ds in self.open_ds:
             self.toBe_deleted.append(ds)
             
     def _remove_plot_widgets(self, closeAll = False):
         # helper func to close widgets
         def close_ds(ds):
-            if self.open_ds.has_key(ds):
+            if ds in self.open_ds:
                 window_id = self.open_ds[ds]
-                window_id.setCheckState(0,QtCore.Qt.Unchecked)
+                window_id.setCheckState(0,Qt.Unchecked)
                 
                 # make sure data is consitent                
-                if self.open_plots.has_key(window_id):
-                    self.open_plots[window_id].deleteLater()
-                    self.open_plots.pop(window_id)
+                if str(window_id) in self.open_plots:
+                    self.open_plots[str(window_id)].deleteLater()
+                    self.open_plots.pop(str(window_id))
                     
                     
-                if self.open_ds.has_key(ds):
+                if ds in self.open_ds:
                     self.open_ds.pop(ds)
 
         if closeAll:
-            for ds in self.open_ds.keys():
+            for ds in list(self.open_ds.keys()):
                 close_ds(ds)
         else:
             for ds in self.toBe_deleted:
@@ -85,19 +85,19 @@ class DATA(QObject):
             
     def remove_plot(self,window_id,ds):
 
-        if self.open_plots.has_key(window_id):
+        if window_id in self.open_plots:
             win = self.open_plots.pop(window_id)
             win.deleteLater()
             
-        if self.open_ds.has_key(ds):
+        if ds in self.open_ds:
             self.open_ds.pop(ds)
 
         
     def plot_is_open(self,ds):
-        return self.open_ds.has_key(ds)
+        return ds in self.open_ds
         
     def has_dataset(self,ds):
-        return self.dataset_info.has_key(ds)
+        return ds in self.dataset_info
         
     def set_info_thread_continue(self,On):
         with self.lock:
@@ -134,13 +134,13 @@ def main(argv):
     
     # if activated, start info thread
     if data.args.qkit_info:
-        from info_subsys import info_thread
+        from qkit.gui.qviewkit.info_subsys import info_thread
         it = info_thread(data)
         it.start()
         
             
     # create main window
-    from DatasetsWindow import DatasetsWindow
+    from qkit.gui.qviewkit.DatasetsWindow import DatasetsWindow
     #
     dsw = DatasetsWindow(data)
     dsw.show()

@@ -3,7 +3,7 @@
 # modified by Sebastian Probst <Sebastian.Probst@kit.edu>, 2012
 
 from instrument import Instrument
-import visa
+from qkit import visa
 import types
 import logging
 import numpy as np

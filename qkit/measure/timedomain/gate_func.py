@@ -48,7 +48,7 @@ class Gate_Func(object):
         outputs:
          -
         """
-        self.awg = qt.instruments.get(awg)
+        self.awg = awg
         self._sample = sample
         if pulser:
             self.pulser = qt.instruments.get(pulser)

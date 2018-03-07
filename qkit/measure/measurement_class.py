@@ -4,8 +4,7 @@
 import logging
 import json, types
 import os, copy
-import qkit.core.qt as qt
-from qkit.config.environment import cfg
+import qkit
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
 from qkit.measure.samples_class import Sample
 
@@ -26,8 +25,8 @@ class Measurement(object):
         self.y_axis = ''
         self.z_axis = ''
         self.instruments = None
-        self.user = cfg.get('user','John_Doe').strip().replace(" ","_")
-        self.run_id = cfg.get('run_id','NO_RUN')
+        self.user = qkit.cfg.get('user','John_Doe').strip().replace(" ","_")
+        self.run_id = qkit.cfg.get('run_id','NO_RUN').strip().replace(" ","_")
 
     def get_JSON(self):
         """
@@ -42,7 +41,7 @@ class Measurement(object):
         if filepath:
             filepath=filepath
         else:
-            filepath = os.path.join(qt.config.get('datadir'),self.hdf_relpath.replace('.h5', '.measurement'))
+            filepath = os.path.join(qkit.cfg.get('datadir'),self.hdf_relpath.replace('.h5', '.measurement'))
 
         with open(filepath,'w+') as filehandler:
             json.dump(obj=self._get_copydict(), fp=filehandler, cls=QkitJSONEncoder, indent = 4, sort_keys=True)
@@ -52,7 +51,7 @@ class Measurement(object):
         Load sample keys and entries to current sample instance.
         '''
         if not os.path.isabs(filename):
-            filename = os.path.join(qt.config.get('datadir'),filename)
+            filename = os.path.join(qkit.cfg.get('datadir'),filename)
 
         with open(filename) as filehandle:
             self.__dict__ = json.load(filehandle, cls = QkitJSONDecoder)
@@ -73,24 +72,24 @@ class Measurement(object):
         if copydict['sample']:
             copydict['sample'] = copydict['sample'].__dict__ # change entry to dict to make it readable for JSONEncoder
         if copydict['instruments']:
-			if type(copydict['instruments']) is not types.DictType: # conversion needed during measurement
-				copydict['instruments'] = self._JSON_instruments_dict()
+            if type(copydict['instruments']) is not types.DictType: # conversion needed during measurement
+                copydict['instruments'] = self._JSON_instruments_dict()
         return copydict
             
-	def _JSON_instruments_dict(self):
-		'''
-		Iterates through all entries in the self.instruments dict and creates a dict with the individial instrument
-		name together with all attributs, attribute values and information about setter function. This is needed
-		for an automized reading and re-setting of a measurement.
-		'''
-		return_dict = {}
-		for ins_name in self.instruments:
-			ins = self.instruments[ins_name]
-			param_dict = {}
-			for param_name in ins.get_parameter_names():
-				has_setter = 'set_func' in ins.get_parameter_options(param_name)
-				param_dict.update({param_name:{'content':ins.get(param_name, query=False), 'has_setter':has_setter}})
-			return_dict.update({ins_name:param_dict})
+    def _JSON_instruments_dict(self):
+        '''
+        Iterates through all entries in the self.instruments dict and creates a dict with the individial instrument
+        name together with all attributs, attribute values and information about setter function. This is needed
+        for an automized reading and re-setting of a measurement.
+        '''
+        return_dict = {}
+        for ins_name in self.instruments:
+            ins = self.instruments[ins_name]
+            param_dict = {}
+            for param_name in ins.get_parameter_names():
+                has_setter = 'set_func' in ins.get_parameter_options(param_name)
+                param_dict.update({param_name:{'content':ins.get(param_name, query=False), 'has_setter':has_setter}})
+            return_dict.update({ins_name:param_dict})
         return return_dict
 
     def update_instrument(self, ins_name):
@@ -98,10 +97,10 @@ class Measurement(object):
         Sets all parameters of the instrument ins_name to the values used in the measurements.
         '''
         try:
-            ins = qt.instruments.get(ins_name)
+            ins = qkit.instruments.get(ins_name)
             params_dict = self.instruments['instruments'][ins_name]
         except AttributeError or NameError:
-                logging.error('Relevant instruments and attributes not properly specified.')
+                logging.error('Relevant instruments and attributes not properly specified. '+str(ins_name))
         else:
             '''
             Use only parameters with setter and update the instrument

@@ -7,25 +7,22 @@
 import sys
 in_pyqt5 = False
 try:
-    from PyQt5 import QtCore
-    from PyQt5.QtCore import Qt,QObject,pyqtSlot
-    from PyQt5.QtWidgets import QWidget,QPlainTextEdit,QMenu,QAction
+    from PyQt5.QtCore import Qt
     in_pyqt5 = True
-except ImportError, e:
+except ImportError as e:
     pass
 
 if not in_pyqt5:
     try:
-        from PyQt4 import QtCore
-        from PyQt4.QtCore import *
-        from PyQt4.QtGui import *
+        from PyQt4.QtCore import Qt
     except ImportError:
-        print "import of PyQt5 and PyQt4 failed. Install one of those."
+        print("import of PyQt5 and PyQt4 failed. Install one of those.")
         sys.exit(-1)
 
 import numpy as np
 import json
 import pyqtgraph as pg
+import qkit
 from qkit.storage.hdf_constants import ds_types
 
 def _display_1D_view(self,graphicsView):
@@ -99,30 +96,28 @@ def _display_1D_view(self,graphicsView):
 
         ## This is in our case used so far only for IQ plots. The functionality derives from this application.
         elif x_ds.attrs.get('ds_type',0) == ds_types['matrix']:
-            if x_ds.attrs.get('ds_type',0) == ds_types['matrix']:
-                self.VTraceXSelector.setEnabled(True)
-                range_max = np.minimum(x_ds.shape[0],y_ds.shape[0])
-                self.VTraceXSelector.setRange(-1*range_max,range_max-1)
-                self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
-                self.VTraceYSelector.setEnabled(False)
-    
-                x_data = np.array(x_ds[self.VTraceXNum])
-                y_data = np.array(y_ds[self.VTraceXNum])
+            self.VTraceXSelector.setEnabled(True)
+            range_max = np.minimum(x_ds.shape[0],y_ds.shape[0])
+            self.VTraceXSelector.setRange(-1*range_max,range_max-1)
+            self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
+            self.VTraceYSelector.setEnabled(False)
+
+            x_data = np.array(x_ds[self.VTraceXNum])
+            y_data = np.array(y_ds[self.VTraceXNum])
 
         elif x_ds.attrs.get('ds_type',0) == ds_types['box']:
-            if x_ds.attrs.get('ds_type',0) == ds_types['box']:
-                self.VTraceXSelector.setEnabled(True)
-                range_maxX = y_ds.shape[0]
-                self.VTraceXSelector.setRange(-1*range_maxX,range_maxX-1)
-                self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
-                self.VTraceYSelector.setEnabled(True)
-                range_maxY = y_ds.shape[1]
-                self.VTraceYSelector.setRange(-1*range_maxY,range_maxY-1)
-                self.VTraceYValue.setText(self._getYValueFromTraceNum(y_ds,self.VTraceYNum))
-                
-                x_data = np.array(x_ds[self.VTraceXNum,self.VTraceYNum,:])
-                y_data = np.array(y_ds[self.VTraceXNum,self.VTraceYNum,:])
-                
+            self.VTraceXSelector.setEnabled(True)
+            range_maxX = y_ds.shape[0]
+            self.VTraceXSelector.setRange(-1*range_maxX,range_maxX-1)
+            self.VTraceXValue.setText(self._getXValueFromTraceNum(y_ds,self.VTraceXNum))
+            self.VTraceYSelector.setEnabled(True)
+            range_maxY = y_ds.shape[1]
+            self.VTraceYSelector.setRange(-1*range_maxY,range_maxY-1)
+            self.VTraceYValue.setText(self._getYValueFromTraceNum(y_ds,self.VTraceYNum))
+            
+            x_data = np.array(x_ds[self.VTraceXNum,self.VTraceYNum,:])
+            y_data = np.array(y_ds[self.VTraceXNum,self.VTraceYNum,:])
+
         else:
             return
 
@@ -214,7 +209,7 @@ def _display_1D_data(self,graphicsView):
         x_name = ds.attrs.get("x_name","_none_")
         x_unit = ds.attrs.get("x_unit","_none_")
 
-        x_data = [x0+dx*i for i in xrange(y_data.shape[0])]
+        x_data = [x0+dx*i for i in range(y_data.shape[0])]
 
         #only one entry in ds, line style does not make any sense
         if self.ds.shape[0]==1:
@@ -234,7 +229,7 @@ def _display_1D_data(self,graphicsView):
             self.TraceSelector.setValue(self.TraceNum)
             self.TraceValueChanged = False
 
-        x_data = [x0+dx*i for i in xrange(y_data.shape[1])]
+        x_data = [x0+dx*i for i in range(y_data.shape[1])]
         y_data = y_data[self.TraceNum]
 
         self.TraceValue.setText(self._getXValueFromTraceNum(ds,self.TraceNum))
@@ -352,7 +347,7 @@ def _display_2D_data(self,graphicsView):
                 
             data = data[self.TraceXNum,:,:]
             
-            fill_x = ds.shape[0]
+            fill_x = ds.shape[1]
             fill_y = ds.shape[2]
             x0 = ds.attrs.get("y0",0)
             dx = ds.attrs.get("dy",1)
@@ -372,7 +367,7 @@ def _display_2D_data(self,graphicsView):
                 self.TraceYValueChanged = False
 
             data = data[:,self.TraceYNum,:]
-            fill_x = ds.shape[1]
+            fill_x = ds.shape[0]
             fill_y = ds.shape[2]
             x0 = ds.attrs.get("x0",0)
             dx = ds.attrs.get("dx",1)
@@ -412,10 +407,19 @@ def _display_2D_data(self,graphicsView):
      
     if self.manipulation & self.manipulations['remove_zeros']:
         data[np.where(data==0)] = np.NaN #replace all exact zeros in the hd5 data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
-     
-     # subtract offset from the data    
-    if self.manipulation & self.manipulations['offset']:
+    
+    if self.manipulation & self.manipulations['sub_offset_avg_y']:
+        #ignore division by zero
+        old_warn = np.seterr(divide='print')
         data = data - np.nanmean(data,axis=1,keepdims=True)
+        np.seterr(**old_warn)
+    
+    # subtract offset from the data
+    if self.manipulation & self.manipulations['norm_data_avg_x']:
+        #ignore division by zero
+        old_warn = np.seterr(divide='print')
+        data = data / np.nanmean(data,axis=0,keepdims=True)
+        np.seterr(**old_warn)
         
 
     xmin = x0-dx/2 #center the data around the labels
@@ -428,10 +432,10 @@ def _display_2D_data(self,graphicsView):
     graphicsView.clear()
     # scale is responsible for the "accidential" correct display of the axis
     # for downsweeps scale has negative values and extends the axis from the min values into the correct direction
-    scale=((xmax-xmin)/float(fill_x),(ymax-ymin)/float(fill_y))
+    scale=(dx,dy)
     graphicsView.view.setLabel('left', y_name, units=y_unit)
     graphicsView.view.setLabel('bottom', x_name, units=x_unit)
-    graphicsView.view.setTitle(name+" ("+self.unit+")")
+    graphicsView.view.setTitle(str(name)+" ("+str(self.unit)+")")
     graphicsView.view.invertY(False)
     
     graphicsView.setImage(data,pos=pos,scale=scale)
@@ -453,7 +457,7 @@ def _display_2D_data(self,graphicsView):
                 mousePoint = imIt.mapFromScene(mpos)
                 x_index = int(mousePoint.x())
                 y_index = int(mousePoint.y())
-                if x_index > 0 and y_index > 0:
+                if x_index >= 0 and y_index >= 0:
                     if x_index < fill_x and y_index < fill_y:
                         xval = x0+x_index*dx
                         yval = y0+y_index*dy
@@ -491,7 +495,7 @@ def _display_table(self,graphicsView):
         for d in data:
             data_tmp.append([d])
         data = np.array(data_tmp)
-        graphicsView.setFormat(unicode(data))
+        graphicsView.setFormat(str(data))
     graphicsView.setData(data)
     
 def _display_text(self,graphicsView):
