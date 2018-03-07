@@ -119,7 +119,7 @@ def find_latest_file(ftype=None):
         else:
             data_dir = qkit.cfg["datadir"] + "/" + qkit.cfg["run_id"] + "/" + qkit.cfg["user"]
         try:
-            nfile = max(glob.iglob(str(data_dir)+'\*\*.'+ftype), key=os.path.getctime)   #find newest file in directory
+            nfile = max(glob.iglob(str(data_dir)+'/*/*.'+ftype), key=os.path.getctime)   #find newest file in directory
         except ValueError:
             print 'no .%s file in todays directory '%ftype +str(data_dir)+':'
 
