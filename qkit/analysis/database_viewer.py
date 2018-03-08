@@ -37,6 +37,7 @@ import pandas as pd
 import qkit
 import qkit.storage.store as st
 import numpy as np
+import logging
 try:
     import qgrid as qd
 except(ImportError):
@@ -66,19 +67,23 @@ class Database_Viewer():
         reads out timestamp, name, run, user, comment from database and creates the dataframe
         """
         for i, j in self.db.items():
-            dt = qkit.storage.hdf_DateTimeGenerator.decode_uuid(str(i))
-            timestamp = pd.to_datetime(dt, unit='s')
-            j_split = (j.replace('/', '\\')).split('\\')
-            name = j_split[-1][7:-3]
-            user = j_split[-3]
-            run = j_split[-4]
-            h5tmp = st.Data(qkit.store_db.h5_db[i])
-            tmp = h5tmp.hf['/entry/data0']
-            comment = tmp.attrs.get('comment')
-            h5tmp.close()
-            dftemp = pd.DataFrame({'timestamp': timestamp, 'run': run, 'user': user, 'name': name, 'comment': comment},
-                              index=[i])
-            self.df = self.df.append(dftemp)
+            try:
+                dt = qkit.storage.hdf_DateTimeGenerator.decode_uuid(str(i))
+                timestamp = pd.to_datetime(dt, unit='s')
+                j_split = (j.replace('/', '\\')).split('\\')
+                name = j_split[-1][7:-3]
+                user = j_split[-3]
+                run = j_split[-4]
+                h5tmp = st.Data(qkit.store_db.h5_db[i])
+                tmp = h5tmp.hf['/entry/data0']
+                comment = tmp.attrs.get('comment')
+                h5tmp.close()
+                dftemp = pd.DataFrame({'timestamp': timestamp, 'run': run, 'user': user, 'name': name, 'comment': comment},
+                                  index=[i])
+                self.df = self.df.append(dftemp)
+            except ValueError as e:
+                    logging.error("database viewer: %s"%e)
+        
         self.df = self.df[['timestamp', 'name', 'run', 'user', 'comment']]
 
     def _get_settings_column(self, device, setting, uid=None):
