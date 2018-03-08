@@ -36,6 +36,7 @@ dbv.df              # without qgrid
 import pandas as pd
 import qkit
 import qkit.storage.store as st
+import h5py
 import numpy as np
 import logging
 try:
@@ -68,16 +69,20 @@ class Database_Viewer():
         """
         for i, j in self.db.items():
             try:
+                
                 dt = qkit.storage.hdf_DateTimeGenerator.decode_uuid(str(i))
                 timestamp = pd.to_datetime(dt, unit='s')
                 j_split = (j.replace('/', '\\')).split('\\')
                 name = j_split[-1][7:-3]
                 user = j_split[-3]
                 run = j_split[-4]
-                h5tmp = st.Data(qkit.store_db.h5_db[i])
-                tmp = h5tmp.hf['/entry/data0']
-                comment = tmp.attrs.get('comment')
-                h5tmp.close()
+                
+                fname = qkit.store_db.h5_db[i]
+                
+                h5f=h5py.File(fname)
+                comment = h5f['/entry/data0'].attrs.get('comment')
+                h5f.close()
+                
                 dftemp = pd.DataFrame({'timestamp': timestamp, 'run': run, 'user': user, 'name': name, 'comment': comment},
                                   index=[i])
                 self.df = self.df.append(dftemp)
