@@ -58,8 +58,8 @@ class transport(object):
 
         self.x_set_obj = None
         self.y_set_obj = None
-        self.tdx = 0.002   # (s)
-        self.tdy = 0.002   # (s)
+        self.tdx = 2e-3   # (s)
+        self.tdy = 2e-3   # (s)
 
         self.progress_bar = True
 
@@ -565,14 +565,14 @@ class transport(object):
                             if self.progress_bar:
                                 self._pb.iterate()
                             qt.msleep()
-                            
                     '''
                     filling of value-box is done here.
                     after every y-loop the data is stored the next 2d structure
                     '''
-                    self._data_I[i].next_matrix()
-                    self._data_V[i].next_matrix()
-                    if self._dVdI: self._data_dVdI[i].next_matrix()
+                    for i in range(self.sweep.get_nos()):
+                        self._data_I[i].next_matrix()
+                        self._data_V[i].next_matrix()
+                        if self._dVdI: self._data_dVdI[i].next_matrix()
                 
                 if self._scan_2D:
                     ''' measurement '''
@@ -606,7 +606,6 @@ class transport(object):
         the data file is closed and filepath is printed
         '''
         print self._data_file.get_filepath()
-        #qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment) #old version where we have to wait for the plots
         t = threading.Thread(target=qviewkit.save_plots,args=[self._data_file.get_filepath(),self._plot_comment])
         t.start()
         self._data_file.close_file()
