@@ -219,7 +219,7 @@ def gauss(pulse, sample, length = None,position = None, low = 0, high = 1, clock
     #wfm[int(np.ceil(sample_start)):int(sample_end)] = high
     pulsesamples = int(int(sample_end)-int(sample_start))
     for i in range(pulsesamples):
-        wfm[np.ceil(sample_start)+i] = high*np.exp(-(i-pulsesamples/2.)**2/(2.*(pulsesamples/5.)**2))
+        wfm[int(np.ceil(sample_start)+i)] = high*np.exp(-(i-pulsesamples/2.)**2/(2.*(pulsesamples/5.)**2))
     if(np.ceil(sample_end) != np.floor(sample_end)): wfm[int(sample_end)] = low + (high-low)*(sample_end-int(sample_end))
     return wfm
 
