@@ -449,7 +449,7 @@ def drag(pulse, sample, amplitude, length = None, position=None, clock = None):
         else:
             logging.warning('overlap attribute not found in sample object')
     wfm = gauss(pulse, sample, length=np.ceil(length*1e9)/1e9, position=position) + 1j * np.concatenate([np.diff(gauss(pulse, sample,length=np.ceil(length*1e9)/1e9, position=position)*amplitude),[0]]) # actual pulse
-    wfm[(position-pulse)*clock-1:(position-pulse)*clock+1]=wfm.real[(position-pulse)*clock-1:(position-pulse)*clock+1] # for smooth derivative
-    wfm[position*clock-1:position*clock+1]= wfm.real[position*clock-1:position*clock+1] 
+    wfm[int((position-pulse)*clock-1):int((position-pulse)*clock+1)]=wfm.real[int((position-pulse)*clock-1):int((position-pulse)*clock+1)] # for smooth derivative
+    wfm[int(position*clock-1):int(position*clock+1)]= wfm.real[int(position*clock-1):int(position*clock+1)] 
     
     return wfm
