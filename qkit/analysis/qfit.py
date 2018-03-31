@@ -1,5 +1,6 @@
 # qfit.py
-# based on dat_reader.py and data_optimizer.py, started 2015 by the qkit team
+# based on dat_reader.py and data_optimizer.py by JB@KIT, 
+# 2015-2018 by JB@KIT and the qkit team
 # data reading and fitting
 
 # import and basic usage
@@ -433,21 +434,21 @@ class QFIT(object):
         data_opt /= maxv
         if len(self.c_raw.shape) > 1:
             errs /= maxv
-            
+        
         #gauss plane plot
         if self.cfg['show_complex_plot']:
             if len(self.c_raw.shape) > 1:
                 plt.figure(figsize=(10,13))
                 ax1 = plt.subplot2grid((4, 1), (0, 0))
                 ax2 = plt.subplot2grid((4, 1), (1, 0), rowspan = 3)
-                ax1.errorbar(data_opt,np.zeros_like(data_opt),xerr=errs,color='blue',fmt='o',elinewidth=0.8,capsize=5,markersize=8,ecolor='red')
+                ax1.errorbar(data_opt,np.zeros_like(data_opt),xerr=np.real(errs),color='blue',fmt='o',elinewidth=0.8,capsize=5,markersize=8,ecolor='red')
                 ax1.plot([0],[0],'*',color='red',markersize=20)
                 prange = np.max(data_opt)-np.min(data_opt)
                 ax1.set_xlim(np.min(data_opt)-0.05*prange,np.max(data_opt)+0.05*prange)
+                
                 ax2.plot(np.real(c),np.imag(c),'.')
                 ax2.plot(np.real(c)[:10],np.imag(c)[:10],'.',color='r')   #show first 10 data points in red
                 ax2.plot(np.real(cmax),np.imag(cmax),'*',color='black',markersize=15)
-
                 self.errors = np.real(np.array(errs))
             else:
                 plt.figure(figsize=(10,10))
