@@ -25,6 +25,7 @@ from time import sleep, time
 import types
 import logging
 import numpy
+import platform
 
 class Spectrum_M3i2132(Instrument):
     '''
@@ -155,21 +156,43 @@ class Spectrum_M3i2132(Instrument):
         Output:
             None
         '''
-        logging.debug(__name__ + ' : Loading spcm_win32.dll')
-        self._spcm_win32 = windll.LoadLibrary('C:\\WINDOWS\\System32\\spcm_win32')
 
-        self._spcm_win32.open           = self._spcm_win32["_spcm_hOpen@4"]
-        self._spcm_win32.close          = self._spcm_win32["_spcm_vClose@4"]
-        self._spcm_win32.SetParam32     = self._spcm_win32["_spcm_dwSetParam_i32@12"]
-        self._spcm_win32.SetParam64m    = self._spcm_win32["_spcm_dwSetParam_i64m@16"]
-        self._spcm_win32.SetParam64     = self._spcm_win32["_spcm_dwSetParam_i64@16"]
-        self._spcm_win32.GetParam32     = self._spcm_win32["_spcm_dwGetParam_i32@12"]
-        self._spcm_win32.GetParam64m    = self._spcm_win32["_spcm_dwGetParam_i64m@16"]
-        self._spcm_win32.GetParam64     = self._spcm_win32["_spcm_dwGetParam_i64@12"]
-        self._spcm_win32.DefTransfer64m = self._spcm_win32["_spcm_dwDefTransfer_i64m@36"]
-        self._spcm_win32.DefTransfer64  = self._spcm_win32["_spcm_dwDefTransfer_i64@36"]
-        self._spcm_win32.InValidateBuf  = self._spcm_win32["_spcm_dwInvalidateBuf@8"]
-        self._spcm_win32.GetErrorInfo   = self._spcm_win32["_spcm_dwGetErrorInfo_i32@16"]
+        if platform.architecture()[0] == '64bit': self.pf_64Bit = True
+        else: self.pf_64Bit = False
+
+        if self.pf_64Bit:
+            logging.debug(__name__ + ' : Loading spcm_win64.dll')
+            self._spcm_win32 = windll.LoadLibrary('C:\\WINDOWS\\System32\\spcm_win64.dll')
+
+            #function names are not decorated in the 64 bit version
+            self._spcm_win32.open           = self._spcm_win32["spcm_hOpen"]
+            self._spcm_win32.close          = self._spcm_win32["spcm_vClose"]
+            self._spcm_win32.SetParam32     = self._spcm_win32["spcm_dwSetParam_i32"]
+            self._spcm_win32.SetParam64m    = self._spcm_win32["spcm_dwSetParam_i64m"]
+            self._spcm_win32.SetParam64     = self._spcm_win32["spcm_dwSetParam_i64"]
+            self._spcm_win32.GetParam32     = self._spcm_win32["spcm_dwGetParam_i32"]
+            self._spcm_win32.GetParam64m    = self._spcm_win32["spcm_dwGetParam_i64m"]
+            self._spcm_win32.GetParam64     = self._spcm_win32["spcm_dwGetParam_i64"]
+            self._spcm_win32.DefTransfer64m = self._spcm_win32["spcm_dwDefTransfer_i64m"]
+            self._spcm_win32.DefTransfer64  = self._spcm_win32["spcm_dwDefTransfer_i64"]
+            self._spcm_win32.InValidateBuf  = self._spcm_win32["spcm_dwInvalidateBuf"]
+            self._spcm_win32.GetErrorInfo   = self._spcm_win32["spcm_dwGetErrorInfo_i32"]
+        else:
+            logging.debug(__name__ + ' : Loading spcm_win32.dll')
+            self._spcm_win32 = windll.LoadLibrary('C:\\WINDOWS\\System32\\spcm_win32.dll')
+
+            self._spcm_win32.open           = self._spcm_win32["_spcm_hOpen@4"]
+            self._spcm_win32.close          = self._spcm_win32["_spcm_vClose@4"]
+            self._spcm_win32.SetParam32     = self._spcm_win32["_spcm_dwSetParam_i32@12"]
+            self._spcm_win32.SetParam64m    = self._spcm_win32["_spcm_dwSetParam_i64m@16"]
+            self._spcm_win32.SetParam64     = self._spcm_win32["_spcm_dwSetParam_i64@16"]
+            self._spcm_win32.GetParam32     = self._spcm_win32["_spcm_dwGetParam_i32@12"]
+            self._spcm_win32.GetParam64m    = self._spcm_win32["_spcm_dwGetParam_i64m@16"]
+            self._spcm_win32.GetParam64     = self._spcm_win32["_spcm_dwGetParam_i64@12"]
+            self._spcm_win32.DefTransfer64m = self._spcm_win32["_spcm_dwDefTransfer_i64m@36"]
+            self._spcm_win32.DefTransfer64  = self._spcm_win32["_spcm_dwDefTransfer_i64@36"]
+            self._spcm_win32.InValidateBuf  = self._spcm_win32["_spcm_dwInvalidateBuf@8"]
+            self._spcm_win32.GetErrorInfo   = self._spcm_win32["_spcm_dwGetErrorInfo_i32@16"]
 
     def _open(self):
         '''
