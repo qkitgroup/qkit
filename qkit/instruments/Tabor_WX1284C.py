@@ -145,6 +145,8 @@ class Tabor_WX1284C(Instrument):
         self.add_parameter('status', type=types.BooleanType,
             flags=Instrument.FLAG_GETSET,
             channels=(1, self._numchannels),channel_prefix='ch%d_')
+        self.add_parameter('sync_position', type=types.FloatType,
+                flags=Instrument.FLAG_GETSET,units='s')
 
         if numchannels == 4:
             self.add_parameter('trigger_mode', type=types.StringType,
@@ -671,11 +673,24 @@ class Tabor_WX1284C(Instrument):
             On or Off
         '''
         channel +=self._choff
-        if self.ask(":OUTP:SYNC:SOUR ?")==str(channel):
+        if numchannels == 4:
+            channel = 2*channel+1
+        if int(self.ask(":OUTP:SYNC:SOUR ?"))==channel:
             if self.ask(":OUTP:SYNC ?")=="ON":
                 return True
         return False
+    
+    def do_set_sync_position(self,position):
+        '''
+        Set the position of the SYNC output pulse.
+        Input:
+            position: start of the pulse after the start of the waveform in seconds. This is internally converted into samples and rounded to 32.
+        '''
+        samplepos = int(round(position * self.get_clock() /32))*32
+        self.write(":OUTP:SYNC:POS%i"%samplepos)
 
+    def do_get_sync_position(self):
+        return float(self.ask(":OUTP:SYNC:POS?"))/self.get_clock()
 
     def set_trig_impedance(self, impedance):
         '''
