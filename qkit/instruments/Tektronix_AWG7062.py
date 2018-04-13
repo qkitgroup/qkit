@@ -25,6 +25,7 @@ import logging
 import numpy
 import struct
 import time
+from distutils.version import LooseVersion
 #import hashlib
 
 class Tektronix_AWG7062(Instrument):
@@ -1051,8 +1052,8 @@ class Tektronix_AWG7062(Instrument):
         # Check for errors
         dim = len(w)
 
-        if(m1 == None): m1 = numpy.zeros_like(w)
-        if(m2 == None): m1 = numpy.zeros_like(w)
+        if m1 is None: m1 = numpy.zeros_like(w)
+        if m2 is None: m2 = numpy.zeros_like(w)
         if (not((len(w)==len(m1)) and ((len(m1)==len(m2))))):
             return 'error'
 
@@ -1080,7 +1081,10 @@ class Tektronix_AWG7062(Instrument):
 
         mes = s1 + s2 + s3 + s4 + s5 + s6
 
-        self._visainstrument.write(mes)
+        if LooseVersion(visa.__version__)< LooseVersion("1.5.0"):
+            self._visainstrument.write(mes)
+        else:
+            self._visainstrument.write_raw(mes)
         #print "%s sent to AWG"%filename
 
     def wfm_resend(self, channel, w=[], m1=[], m2=[], clock=[]):

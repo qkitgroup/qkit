@@ -28,6 +28,7 @@ def _load_visa():
                 rm = visa.ResourceManager()
                 qkit.visa = rm
                 qkit.visa.__version__ = visa.__version__
+                qkit.visa.VisaIOError = visa.VisaIOError
                 
                 def instrument(resource_name, **kwargs):
                     return rm.open_resource(resource_name, **kwargs)
