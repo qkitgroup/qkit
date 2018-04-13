@@ -111,8 +111,8 @@ def initialize(sample):
     #put something into the manipulation awg
     load_awg.update_sequence([100e-9,1e-6],gwf.square,sample)
 
-    sample.readout.set_LO(sample.fr-sample.readout_iq_frequency)   #set LO higher and use mixer as a down-converter
-    sample.readout.set_tone_freq([sample.fr])   #probe tone frequency
+    sample.readout.set_LO(np.mean(sample.fr)-sample.readout_iq_frequency)   #set LO higher and use mixer as a down-converter. For multiplexing set LO to centerfreq - IQ freq
+    sample.readout.set_tone_freq(np.atleast_1d(sample.fr))   #probe tone frequency
     sample.readout.set_tone_pha([ sample.__dict__.get('readout_pha',0) ])   #phase shift (usually not necessary)      -0.1 is nice 1.3
     sample.readout.set_tone_relamp([ sample.__dict__.get('readout_relamp',1) ])   #relative amplitude of tone
 
