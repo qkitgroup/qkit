@@ -154,6 +154,10 @@ class virtual_measure_spec(Instrument):
 
     def spec_stop(self):
         self._dacq.stop()
+        
+    def set_input_amp(self, level):
+        self._dacq.set_input_amp_ch0(level)
+        self._dacq.set_input_amp_ch1(level)
 
     #make spec.timeout settable by mspec via remote
     def do_set_spec_timeout(self, timeout):

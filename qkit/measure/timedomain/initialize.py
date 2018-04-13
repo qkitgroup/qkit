@@ -142,8 +142,7 @@ def set_spec_input_level(sample,level):
     level can be one of 200,500,1000,2500
     '''
     sample.mspec.spec_stop() 
-    #sample.mspec.set_input_amp_ch0(level) 
-    #sample.mspec.set_input_amp_ch1(level)
+    sample.mspec.set_input_amp(level)
 
 def record_single_trace(sample):
     #record single probe tone signal and plot
