@@ -14,6 +14,9 @@ usage:
 
 readout = qt.instruments.create('readout','virtual_MultiplexingReadout',awg=qubit.readout_awg,mixer_up_src=qubit.readout_mw_source,
             mixer_down_src=qubit.readout_mw_source,mspec=mspec,sample=qubit)
+            
+Mandatory sample attributes:
+    readout_awg, readout_mw_source, mspec
 '''
 
 # This program is free software; you can redistribute it and/or modify
@@ -43,7 +46,7 @@ from qkit.measure.timedomain.awg import load_awg as lawg
 
 class virtual_MultiplexingReadout(Instrument):
 
-    def __init__(self, name, awg, mixer_up_src, mixer_down_src, mspec, sample = None, LO_up_power=12, LO_down_power=12):
+    def __init__(self, name, sample = None, LO_up_power=12, LO_down_power=12):
         Instrument.__init__(self, name, tags=['virtual'])
 
         #self._instruments = instruments.get_instruments()
@@ -68,12 +71,12 @@ class virtual_MultiplexingReadout(Instrument):
 
         self.add_function('update')
         self.add_function('readout')
-        self._awg = awg
+        self._awg = sample.readout_awg
         #JB obsolete self._awg_drive = awg_drive
         #JB obsolete self._awg_path = awg_path
-        self._mixer_up_src = mixer_up_src
-        self._mixer_down_src = mixer_down_src
-        self._mspec = mspec
+        self._mixer_up_src = sample.readout_mw_source
+        self._mixer_down_src = sample.readout_mw_source
+        self._mspec = sample.mspec
         
         if sample == None:
             logging.warning('Sample object was not given for virtual_MultiplexingReadout.')# This is only needed if you need a readout wfm that is as long as the manipulation.')
@@ -119,8 +122,8 @@ class virtual_MultiplexingReadout(Instrument):
             self._mspec.set_blocks(1)
             self._mspec.set_spec_trigger_delay(0)
             self._mspec.set_samples(1024)
-            mspec.spec_stop()
-            mspec.set_samplerate(500e6)   #adc samplerate in Hz, 500MHz is maximum
+            self._mspec.spec_stop()
+            self._mspec.set_samplerate(500e6)   #adc samplerate in Hz, 500MHz is maximum
             
             
             self._mspec.spec_stop()   #stop card before modifying a setting
