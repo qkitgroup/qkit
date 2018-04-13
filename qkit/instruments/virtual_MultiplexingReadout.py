@@ -480,8 +480,8 @@ class virtual_MultiplexingReadout(Instrument):
             if (phases.ndim == 1): phases = np.array([phases, phases])
             
         # generate multitone waveform
-        I = np.zeros(np.ceil((nSamples+1)/16.)*16)
-        Q = np.zeros(np.ceil((nSamples+1)/16.)*16)
+        I = np.zeros(int(np.ceil((nSamples+1)/16.)*16))
+        Q = np.zeros(int(np.ceil((nSamples+1)/16.)*16))
         for idx in range(0, frequencies.size):
             I[1:nSamples+1] += amplitudes[0, idx]*np.sin(omegas[idx]*indices+phases[0, idx])
             Q[1:nSamples+1] += amplitudes[1, idx]*np.cos(omegas[idx]*indices+phases[1, idx])
