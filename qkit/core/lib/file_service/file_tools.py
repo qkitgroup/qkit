@@ -90,7 +90,6 @@ class store_db(object):
             comment = ""
             j_split = (path.replace('/', '\\')).split('\\')
             name = j_split[-1][7:-3]
-            print uuid
             if ord(uuid[0]) > ord('O'):
                 try:
                     tm = self.get_time(uuid)
@@ -101,8 +100,10 @@ class store_db(object):
                 run = j_split[-4]
             else:
                 tm = uuid
-                dt= '{}-{}-{} {}:{}:{}'.format(j_split[-3][:4], j_split[-3][4:6], j_split[-3][6:], tm[:2], tm[2:4], tm[4:])
-                print dt
+                if j_split[-3][0:3] is not 201:
+                    dt=None
+                else:
+                    dt= '{}-{}-{} {}:{}:{}'.format(j_split[-3][:4], j_split[-3][4:6], j_split[-3][6:], tm[:2], tm[2:4], tm[4:])
                 user = None
                 run = None
             if m_h5py and self.scan_hdf:

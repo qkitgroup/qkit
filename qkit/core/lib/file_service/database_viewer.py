@@ -80,7 +80,7 @@ class DatabaseViewer():
             self.df['fit_freq'] = pd.to_numeric(self.df['fit_freq'], errors='coerce')
         else:
             self.df = self.df[['datetime', 'name', 'run', 'user']]
-        self.df['datetime'] = pd.to_datetime(self.df['datetime'])
+        self.df['datetime'] = pd.to_datetime(self.df['datetime'], errors='coerce')
 
 
     def _get_settings_column(self, device, setting, uid=None):
