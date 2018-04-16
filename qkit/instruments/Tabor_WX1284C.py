@@ -673,7 +673,7 @@ class Tabor_WX1284C(Instrument):
             On or Off
         '''
         channel +=self._choff
-        if numchannels == 4:
+        if self._numchannels == 4:
             channel = 2*channel+1
         if int(self.ask(":OUTP:SYNC:SOUR ?"))==channel:
             if self.ask(":OUTP:SYNC ?")=="ON":
