@@ -239,7 +239,11 @@ class RS_FSUP(Instrument):
         self._visainstrument.write('INIT; *WAI')    
     
     def get_trace(self, tracenumber=1):
-        return self._visainstrument.ask_for_values('trac:data? trace%i'%tracenumber)
+        return self._visainstrument.query_ascii_values('trac:data? trace%i'%tracenumber)
+        
+    def get_tracedata(self,tracenumber=1):
+        amp = self._visainstrument.query_ascii_values('trac:data? trace%i'%tracenumber)
+        return [amp,numpy.zeros_like(amp)]    
     
     def get_frequencies(self):
         '''
