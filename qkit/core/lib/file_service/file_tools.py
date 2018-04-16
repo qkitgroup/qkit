@@ -98,35 +98,34 @@ class store_db(object):
             name = j_split[-1][7:-3]
             user = j_split[-3]
             run = j_split[-4]
-            if m_h5py:
-                if self.scan_hdf:
+            if m_h5py and self.scan_hdf:
+                try:
+                    h5f=h5py.File(path)
+                    comment = h5f['/entry/data0'].attrs.get('comment')
+                except Exception as e:
+                    logging.error("store_db %s:%s"%(path,e))
+                try:
+                    fit_comment = h5f['/entry/analysis0/dr_values'].attrs.get('comment').split(', ')
+                    comm_begin = [i[0] for i in fit_comment]
                     try:
-                        h5f=h5py.File(path)
-                        comment = h5f['/entry/data0'].attrs.get('comment')
-                    except Exception as e:
-                        logging.error("store_db %s:%s"%(path,e))
-                    try:
-                        fit_comment = h5f['/entry/analysis0/dr_values'].attrs.get('comment').split(', ')
-                        comm_begin = [i[0] for i in fit_comment]
-                        try:
-                            fit_data_f = float(h5f['/entry/analysis0/dr_values'][comm_begin.index('f')])
-                        except (ValueError, IndexError):
-                            fit_data_f = None
-                        try:
-                            fit_data_t = float(h5f['/entry/analysis0/dr_values'][comm_begin.index('T')])
-                        except (ValueError, IndexError):
-                            fit_data_t = None
-                    except (KeyError, AttributeError):
+                        fit_data_f = float(h5f['/entry/analysis0/dr_values'][comm_begin.index('f')])
+                    except (ValueError, IndexError):
                         fit_data_f = None
-                        fit_data_t = None
                     try:
-                        rating = float(h5f['/entry/analysis0/rating'][0])
-                    except(AttributeError, KeyError):
-                        rating = None
-                    finally:
-                        h5f.close()
-                    h5_info = {'time':tm,   'datetime':dt, 'name' : name, 'user':user, 'comment':comment,
-                               'run':run, 'fit_freq': fit_data_f, 'fit_time': fit_data_t, 'rating': rating}
+                        fit_data_t = float(h5f['/entry/analysis0/dr_values'][comm_begin.index('T')])
+                    except (ValueError, IndexError):
+                        fit_data_t = None
+                except (KeyError, AttributeError):
+                    fit_data_f = None
+                    fit_data_t = None
+                try:
+                    rating = float(h5f['/entry/analysis0/rating'][0])
+                except(AttributeError, KeyError):
+                    rating = None
+                finally:
+                    h5f.close()
+                h5_info = {'time':tm,   'datetime':dt, 'name' : name, 'user':user, 'comment':comment,
+                           'run':run, 'fit_freq': fit_data_f, 'fit_time': fit_data_t, 'rating': rating}
             else:
                 h5_info = {'time': tm, 'datetime': dt, 'name': name, 'user': user}
 
