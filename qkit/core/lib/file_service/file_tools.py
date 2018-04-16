@@ -88,16 +88,23 @@ class store_db(object):
             tm = ""
             dt = ""
             comment = ""
-            
-            try:
-                tm = self.get_time(uuid)
-                dt = self.get_date(uuid)
-            except ValueError as e:
-                logging.info(e)
             j_split = (path.replace('/', '\\')).split('\\')
             name = j_split[-1][7:-3]
-            user = j_split[-3]
-            run = j_split[-4]
+            print uuid
+            if ord(uuid[0]) > ord('O'):
+                try:
+                    tm = self.get_time(uuid)
+                    dt = self.get_date(uuid)
+                except ValueError as e:
+                    logging.info(e)
+                user = j_split[-3]
+                run = j_split[-4]
+            else:
+                tm = uuid
+                dt= '{}-{}-{} {}:{}:{}'.format(j_split[-3][:4], j_split[-3][4:6], j_split[-3][6:], tm[:2], tm[2:4], tm[4:])
+                print dt
+                user = None
+                run = None
             if m_h5py and self.scan_hdf:
                 try:
                     h5f=h5py.File(path)
@@ -127,7 +134,7 @@ class store_db(object):
                 h5_info = {'time':tm,   'datetime':dt, 'name' : name, 'user':user, 'comment':comment,
                            'run':run, 'fit_freq': fit_data_f, 'fit_time': fit_data_t, 'rating': rating}
             else:
-                h5_info = {'time': tm, 'datetime': dt, 'name': name, 'user': user}
+                h5_info = {'time': tm, 'datetime': dt, 'run':run, 'name': name, 'user': user}
 
             self.h5_info[uuid] = h5_info
 
