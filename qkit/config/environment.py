@@ -48,6 +48,7 @@ cfg['datafolder_structure'] = 1
 ## Create a database of all measurement-.h5 files with entries {uuid:abspath}
 ##
 #cfg['load_file_service'] = True
+#cfg['file_service_scan_hdf'] = False
 
 ##
 ## Load (py) visa (Virtual Instrument Software Architecture) lib 

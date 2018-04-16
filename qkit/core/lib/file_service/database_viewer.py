@@ -39,57 +39,46 @@ import qkit.storage.store as st
 import h5py
 import numpy as np
 import logging
+import threading
+from time import sleep
+
 try:
     import qgrid as qd
+    found_qgrid = True
 except(ImportError):
-    print 'qgrid required for nice tables'
+    found_qgrid = False
 
 
-class Database_Viewer():
+class DatabaseViewer():
     """class that creates a pandas data frame from your measurement
     data and allows to extract import values from h5-files"""
 
     def __init__(self):
         """instantiate a pandas dataframe from with the help of qkit.store_db"""
-        self._update_database()
-        self.df = pd.DataFrame()
+        self.scan_h5 = qkit.cfg.get('file_service_scan_hdf', False)
         self._initiate_basic_df()
 
     def _update_database(self):
         """
-        updates the database to find new added values. However if there are new measurements
-        a new Database_Measurements object has to be initiated yet
+        updates the database to find newly added measurement_files.
         """
         qkit.store_db.update_database()
-        self.db = qkit.store_db.h5_db
+        self.df=self._initiate_basic_df()
 
     def _initiate_basic_df(self):
         """
-        reads out timestamp, name, run, user, comment from database and creates the dataframe
+        creates the dataframe
         """
-        for i, j in self.db.items():
-            try:
-                
-                dt = qkit.storage.hdf_DateTimeGenerator.decode_uuid(str(i))
-                timestamp = pd.to_datetime(dt, unit='s')
-                j_split = (j.replace('/', '\\')).split('\\')
-                name = j_split[-1][7:-3]
-                user = j_split[-3]
-                run = j_split[-4]
-                
-                fname = qkit.store_db.h5_db[i]
-                
-                h5f=h5py.File(fname)
-                comment = h5f['/entry/data0'].attrs.get('comment')
-                h5f.close()
-                
-                dftemp = pd.DataFrame({'timestamp': timestamp, 'run': run, 'user': user, 'name': name, 'comment': comment},
-                                  index=[i])
-                self.df = self.df.append(dftemp)
-            except ValueError as e:
-                    logging.error("database viewer: %s"%e)
-        
-        self.df = self.df[['timestamp', 'name', 'run', 'user', 'comment']]
+        self.df = pd.DataFrame(qkit.store_db.h5_info).T
+        if self.scan_h5:
+            self.df = self.df[['datetime', 'name', 'run', 'user', 'comment', 'fit_time', 'fit_freq', 'rating']]
+            self.df['rating'] = pd.to_numeric(self.df['rating'], errors='coerce')
+            self.df['fit_time'] = pd.to_numeric(self.df['fit_time'], errors='coerce')
+            self.df['fit_freq'] = pd.to_numeric(self.df['fit_freq'], errors='coerce')
+        else:
+            self.df = self.df[['datetime', 'name', 'run', 'user']]
+        self.df['datetime'] = pd.to_datetime(self.df['datetime'])
+
 
     def _get_settings_column(self, device, setting, uid=None):
 
@@ -115,8 +104,8 @@ class Database_Viewer():
                     value = data.iloc[value_index, 1]
             except(IOError, IndexError):
                 value = None
-            dftemp=pd.DataFrame({device + ' ' + setting: value}, index=[i])
-            dfsetting=dfsetting.append(dftemp)
+            dftemp = pd.DataFrame({device + ' ' + setting: value}, index=[i])
+            dfsetting = pd.concat([dfsetting,dftemp])
         return dfsetting
 
     def add_settings_column(self, device, setting, measurement_id=None):
@@ -124,63 +113,42 @@ class Database_Viewer():
         Reads out a specific setting from your chosen device. If you provide a uid,
         then only these files will be considered
         :param device: your device name
-        :type string
+        :type str
         :param setting: setting of your device
-        :type string
+        :type str
         :param uid: measurement_id (list). If None (default), all are used
-        :type string
+        :type str
         """
         settings_column=self._get_settings_column(device, setting, measurement_id)
         self.df=pd.concat([self.df, settings_column],axis=1)
-
-    def add_fit_column(self, fit_variable, uid=None):
-        """
-        Extract fit_values of a chosen fit_variable from the h5-files if data has been fitted with the dat_reader
-        :param fit_variable: fit_variable as specified in the dat_reader
-        :param uid: measurement_id (list), if None (default) all are used
-        :type string
-        """
-        self._update_database()
-        if fit_variable in self.df.columns:  # avoiding more than one rating column after new ratings have been added
-            self.remove_column(fit_variable)
-        df_fit_value = pd.DataFrame()
-        if uid is None:
-            uid=self.df.index
-        for i in uid:
-            h5tmp = st.Data(qkit.store_db.h5_db[i])
-            try:
-                index = h5tmp.analysis.dr_values.attrs.get('comment').split(', ').index(fit_variable)
-                fit_data = h5tmp.analysis.dr_values[index]
-            except AttributeError:
-                fit_data = None
-            dftemp = pd.DataFrame({fit_variable: fit_data}, index=[i])
-            df_fit_value = df_fit_value.append(dftemp)
-        self.df = pd.concat([self.df, df_fit_value], axis=1)
 
     def remove_column(self, column):
         """
         If your data frame is getting too wide, you can remove single columns
         :param column: column name of your data frame
-        :type string
+        :type str
         """
         self.df = self.df.drop([column], axis=1)
 
-    def show_database(self):
+    def show(self):
         """
-        used to show the data base as a qgrid object. This function requires a working qgrid
-        :return: data frame as qgrid object
+        used to show the data base as a qgrid object or if not installed pandas data frame
+        :return: data frame as qgrid object or pandas object
         """
-        grid=qd.show_grid(self.df, grid_options={'editable': False}, show_toolbar=False)
-        return grid
+        if found_qgrid:
+            self.grid=qd.show_grid(self.df, show_toolbar=False)
+            return self.grid
+        else:
+            return self.df
 
     def search(self, column, expression=None, value=None, bounds=None):
         """
         allows you to search a specific column for either a string, a value, or values within bounds.
         You have to pass exactly one variable. If you are only looking for the uids write ".index" behind it.
         :param column: name of the column you want to search
-        :type string
+        :type str
         :param expression: if you wanna search for a string use this
-        :type string
+        :type str
         :param value: if you wanna search for a value use this
         :type int or float
         :param bounds: list of lower and upper bound
@@ -188,7 +156,7 @@ class Database_Viewer():
         :return: pandas data frame where the values you are searching for are included
         """
         if expression is not None and value is None and bounds is None:
-            return self.df[self.df[column].str.contains(string, na=False)]
+            return self.df[self.df[column].str.contains(expression, na=False)]
         if value is not None and expression is None and bounds is None:
             print [self.df[column] == value]
             return self.df[self.df[column] == value]
@@ -199,10 +167,10 @@ class Database_Viewer():
 
     def set_rating(self, uid, rating):
         """
-        If you want to rate your measurements, so you can filter for good ones. You can add a rating into the analysis
+        If you want to rate your measurements, so that you can filter for good ones. You can add a rating into the analysis
         folder of the h5 file
         :param uid: uid of the measurement file you wanna rate
-        :type basestring
+        :type str
         :param rating: a simple value to rate your measurement
         :type int, float
         """
@@ -222,7 +190,7 @@ class Database_Viewer():
             self.remove_column('rating')
         dfrating = pd.DataFrame()
         if uid is None:
-            uid=self.df.index
+            uid = self.df.index
         for i in uid:
             h5tmp = st.Data(qkit.store_db.h5_db[i])
             try:
@@ -231,12 +199,5 @@ class Database_Viewer():
                 rating = None
             h5tmp.close()
             dftemp = pd.DataFrame({'rating': rating}, index=[i])
-            dfrating = dfrating.append(dftemp)
+            dfrating = pd.concat([dfrating, dftemp])
         self.df = pd.concat([self.df, dfrating], axis=1)
-
-
-
-
-
-
-

@@ -30,6 +30,8 @@ import numpy
 import struct
 import time
 
+import pyvisa.constants as vc
+
 
 class Tabor_WX1284C(Instrument):
     '''
@@ -47,12 +49,41 @@ class Tabor_WX1284C(Instrument):
         Output:
             None
         '''
-        logging.debug(__name__ + ' : Initializing instrument')
+        logging.debug(__name__ + ' : Initializing instrument at '+address)
         Instrument.__init__(self, name, tags=['physical'])
 
+
+
+
         self._address = address
-        self._visainstrument = visa.instrument(self._address,term_chars = "\r\n")
-        self._visainstrument.timeout=2
+        if visa.qkit_visa_version == 1:
+            self._visainstrument = visa.instrument(self._address,term_chars = "\r\n")
+            self._visainstrument.timeout=2
+        else:
+            self._visainstrument = visa.instrument(self._address)
+            self._visainstrument.timeout=2000L
+            self._visainstrument.visalib.set_buffer(self._visainstrument.session, vc.VI_READ_BUF, 4000)
+            self._visainstrument.visalib.set_buffer(self._visainstrument.session, vc.VI_WRITE_BUF, 32000)
+
+            self._visainstrument.read_termination = '\n'
+            self._visainstrument.write_termination = '\n'
+
+                #intf_type = self._visainstrument.get_visa_attribute(vc.VI_ATTR_INTF_TYPE)
+
+            if self._visainstrument.get_visa_attribute(vc.VI_ATTR_INTF_TYPE) in (vc.VI_INTF_USB, vc.VI_INTF_GPIB, vc.VI_INTF_TCPIP):
+                self._visainstrument.set_visa_attribute(vc.VI_ATTR_WR_BUF_OPER_MODE, vc.VI_FLUSH_ON_ACCESS)
+                self._visainstrument.set_visa_attribute(vc.VI_ATTR_RD_BUF_OPER_MODE, vc.VI_FLUSH_ON_ACCESS)
+                if self._visainstrument.get_visa_attribute(vc.VI_ATTR_INTF_TYPE) == vc.VI_INTF_TCPIP:
+                    self._visainstrument.set_visa_attribute(vc.VI_ATTR_TERMCHAR_EN, vc.VI_TRUE)
+
+            self._visainstrument.clear()
+
+
+        
+        
+        
+        self._ins_VISA_INSTR = False#(self._visainstrument.resource_class == "INSTR") #check whether we have INSTR or SOCKET type
+        
         self._values = {}
         self._values['files'] = {}
         self._clock = clock
@@ -114,6 +145,8 @@ class Tabor_WX1284C(Instrument):
         self.add_parameter('status', type=types.BooleanType,
             flags=Instrument.FLAG_GETSET,
             channels=(1, self._numchannels),channel_prefix='ch%d_')
+        self.add_parameter('sync_position', type=types.FloatType,
+                flags=Instrument.FLAG_GETSET,units='s')
 
         if numchannels == 4:
             self.add_parameter('trigger_mode', type=types.StringType,
@@ -174,11 +207,11 @@ class Tabor_WX1284C(Instrument):
 
         self.add_function('wfm_send')
         self.add_function('wfm_send2')
-
+        
         if reset:
             self.reset()
         else:
-            self.get_all()
+            self.get_all()    
         self.write(":INST1;:MARK:SOUR USER;:INST3;:MARK:SOUR USER")
 
         print("The device is set up with %i channels. You use the channels %s" %(numchannels, str(range(self._choff+1, numchannels + self._choff+1))))
@@ -188,16 +221,17 @@ class Tabor_WX1284C(Instrument):
         '''
         Communication with the device is sometimes problematic. This functions helps by clearing the queue and reading/resetting the error memory.
         '''
-        tmo= self._visainstrument.timeout
-        self._visainstrument.timeout = .1
-        if verbose: print "Emptying Queue"
-        try:
-            for i in range(200):
-                rl = str(self._visainstrument.read())
-                if verbose: print "In Buffer %i: "%i+rl
-        except visa.VisaIOError:
-            if verbose: print "Timeout after %i iterations"%i
-        self._visainstrument.timeout = tmo
+        if not self._ins_VISA_INSTR:
+            tmo= self._visainstrument.timeout
+            self._visainstrument.timeout = .1
+            if verbose: print "Emptying Queue"
+            try:
+                for i in range(200):
+                    rl = str(self._visainstrument.read())
+                    if verbose: print "In Buffer %i: "%i+rl
+            except visa.VisaIOError:
+                if verbose: print "Timeout after %i iterations"%i
+            self._visainstrument.timeout = tmo
         if verbose: print "Clearing Error Memory:"
         for i in range(200):
             try:
@@ -260,7 +294,8 @@ class Tabor_WX1284C(Instrument):
         logging.info(__name__ + ' : Reading all data from instrument')
         #self.check()
         try:
-            self.get_trigger_impedance()
+            pass
+            #self.get_trigger_impedance()
         except Exception:
             logging.warning('command trigger impedance not supported')
         self.get_trigger_level()
@@ -301,7 +336,6 @@ class Tabor_WX1284C(Instrument):
         output:
             None
         '''
-
         self.set_runmode('USER')
         self.set_ch1_output(True)
         self.set_ch2_output(True)
@@ -343,7 +377,8 @@ class Tabor_WX1284C(Instrument):
     def ask(self,cmd):
         for i in range(15):
             try:
-                return self._visainstrument.ask(cmd)
+                logging.debug(__name__ + "(" +self.get_name()+" ask command:"+cmd[:100]+":")
+                return self._visainstrument.ask(cmd).strip()
             except visa.VisaIOError as e:
                 logging.debug(__name__ + "(" +self.get_name()+"): VisaIOError, retry ->%s<-"%e)
         raise ValueError(__name__ + "(" +self.get_name()+"): ask('%s') not successful after 15 retries ->%s<-"%(cmd[0:100],e))
@@ -351,10 +386,18 @@ class Tabor_WX1284C(Instrument):
     def write(self,cmd):
         for i in range(15):
             try:
+                logging.debug(__name__ + "(" +self.get_name()+" write command:"+cmd[:100]+":")
                 return self._visainstrument.write(cmd)
             except visa.VisaIOError as e:
                 logging.debug(__name__ + "(" +self.get_name()+") :VisaIOError, retry ->%s<-"%e)
         raise ValueError(__name__ + "(" +self.get_name()+") : write('%s') not successful after 15 retries ->%s<-"%(cmd[0:100],e))
+
+    def write_raw(self,cmd):
+        if visa.qkit_visa_version == 1:
+            self.write(cmd)
+        else:
+            self._visainstrument.write_raw(cmd)
+
 
     def clear_waveforms(self):
         '''
@@ -630,11 +673,24 @@ class Tabor_WX1284C(Instrument):
             On or Off
         '''
         channel +=self._choff
-        if self.ask(":OUTP:SYNC:SOUR ?")==str(channel):
+        if self._numchannels == 4:
+            channel = 2*channel+1
+        if int(self.ask(":OUTP:SYNC:SOUR ?"))==channel:
             if self.ask(":OUTP:SYNC ?")=="ON":
                 return True
         return False
+    
+    def do_set_sync_position(self,position):
+        '''
+        Set the position of the SYNC output pulse.
+        Input:
+            position: start of the pulse after the start of the waveform in seconds. This is internally converted into samples and rounded to 32.
+        '''
+        samplepos = int(round(position * self.get_clock() /32))*32
+        self.write(":OUTP:SYNC:POS%i"%samplepos)
 
+    def do_get_sync_position(self):
+        return float(self.ask(":OUTP:SYNC:POS?"))/self.get_clock()
 
     def set_trig_impedance(self, impedance):
         '''
@@ -1010,7 +1066,7 @@ class Tabor_WX1284C(Instrument):
         for i in range(0,len(w)):
             ws = ws + struct.pack('<H', 8191*w[i]+8192+m1[i]*2**14+m2[i]*2**15)
 
-        self.write(':TRAC#%i%i%s' %(int(numpy.log10(len(ws))+1), len(ws), ws))
+        self.write_raw(':TRAC#%i%i%s' %(int(numpy.log10(len(ws))+1), len(ws), ws))
 
     def wfm_send2(self, w1, w2, m1=None, m2=None, channel=1, seg=1):
         '''
@@ -1038,8 +1094,8 @@ class Tabor_WX1284C(Instrument):
             m1 = numpy.append(m1, numpy.zeros(192 - len(m1)))
             m2 = numpy.append(m2, numpy.zeros(192 - len(m2)))
 
-        if(m1 == None): m1 = numpy.zeros_like(w1)
-        if(m2 == None): m2 = numpy.zeros_like(w1)
+        if m1 is None : m1 = numpy.zeros_like(w1)
+        if m2 is None : m2 = numpy.zeros_like(w1)
         if (not((len(w1)==len(m1)) and ((len(m1)==len(m2))))):
             raise ValueError("error, the length of your waveform and markes does not match")
 
@@ -1054,7 +1110,7 @@ class Tabor_WX1284C(Instrument):
         wfm = numpy.append(numpy.reshape(numpy.array(8191*w2+8192+m1*2**14+m2*2**15,dtype=numpy.dtype('<H')),(-1,16)),numpy.reshape(numpy.array(8191*w1+8192+m1*2**14+m2*2**15,dtype=numpy.dtype('<H')),(-1,16)),axis=1).flatten()
         ws =str(buffer(wfm))
 
-        self.write(':TRAC#%i%i%s' %(int(numpy.log10(len(ws))+1), len(ws), ws))
+        self.write_raw(':TRAC#%i%i%s' %(int(numpy.log10(len(ws))+1), len(ws), ws))
 
 
     def define_sequence(self,channel, segments=None,loops=None,jump_flags=None):
@@ -1090,7 +1146,7 @@ class Tabor_WX1284C(Instrument):
         ws = ''
         for i in range(len(segments)):
             ws = ws + struct.pack('<LHH', loops[i],segments[i],jump_flags[i])
-        self.write(':SEQ#%i%i%s' %(int(numpy.log10(len(ws))+1), len(ws), ws))
+        self.write_raw(':SEQ#%i%i%s' %(int(numpy.log10(len(ws))+1), len(ws), ws))
 
     def set_seq_length(self,length,chpair=1):
         self.define_sequence((2*chpair-1 if self._numchannels == 4 else chpair),length)

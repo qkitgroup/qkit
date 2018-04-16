@@ -1,13 +1,14 @@
 # qfit.py
-# based on dat_reader.py and data_optimizer.py, started 2015 by the qkit team
+# based on dat_reader.py and data_optimizer.py by JB@KIT, 
+# 2015-2018 by JB@KIT and the qkit team
 # data reading and fitting
 
 # import and basic usage
 """
 from qkit import qfit as qfit
 qf = qfit.QFIT()
-qf.acquire('filename') / qf.acquire_latest()
-[qf.optimize()]
+qf.load('data/file.h5', entries=['time', 'phase'])
+[qf.rotate_IQ_plane()]
 qf.fit_exp()
 """
 # a customized fit funcitoncan be set via directly writing in self.fit_function
@@ -140,37 +141,47 @@ class QFIT(object):
 
     #\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=
 
-    def set_data(self, coordinate, data):
+    def load(self, *args, **kwargs):
         '''
-        load data from a numpy array
-        '''
-        self.coordinate = coordinate
-        self.data = data
-        self.file_name = None
-        self.urls = None
-        self.file_name = 'data_import'
-        self.coordinate_label = ''
-        self.data_label = ''
+        load data from either
+         + numpy array
+         + data file (h5 or text based file)
+         + recent data file in data_dir
 
-    def acquire(self, file_name, entries = None, return_data = False):
+        entries need to be given with keyword 'entries'
+        coordinate and data need to be given with keywords 'coordinate' and 'data'
         '''
-        load specified data file
-        '''
-        self.file_name = file_name
-        self.__acquire(entries=entries, return_data = False)
 
-    def acquire_latest(self, entries=None):
-        '''
-        load latest data file
-        '''
-        if self.cfg['hdf_lib']:
-            ftype = 'h5'
+        if 'coordinate' in kwargs.keys() and 'data' in kwargs.keys():
+            self.coordinate = kwargs['coordinate']
+            self.data = kwargs['data']
+            self.amplitude = None
+            self.phase = None
+            self.file_name = None
+            self.urls = None
+            self.file_name = 'data_import'
+            self.coordinate_label = ''
+            self.data_label = ''
+            return
+        elif len(args) == 0:   #no file name provided
+            if self.cfg['hdf_lib']: ftype = 'h5'
+            else: ftype = 'dat'
+            self.find_latest_file(ftype)
+        elif os.path.isfile(args[0]):   #test for file existence
+            self.file_name = args[0]
         else:
-            ftype = 'dat'
-        self.find_latest_file(ftype)
-        self.__acquire(entries = entries, return_data = False)
+            logging.error('Error parsing function arguments.')
 
-    def __acquire(self,entries,return_data):
+        if 'entries' in kwargs.keys():   #h5 file mode
+            entries = kwargs['entries']
+        else: entries = None
+
+        if 'return_data' in kwargs.keys():
+            return self.__acquire(entries=entries, return_data = kwargs['return_data'])
+        else:
+            self.__acquire(entries=entries, return_data = False)
+
+    def __acquire(self, entries, return_data):
         self.errors = None
         self.optimized = False
         if self.file_name[-2:] == 'h5':
@@ -208,14 +219,16 @@ class QFIT(object):
             self.data = data[1]
             self.data_label = self.urls[1].split('/')[-1]
             self.data_url = self.urls[1]
-        else:   #if more than two, read out the data_column set in the config
+        elif len(self.urls) > 2:   #if more than two, read out the data_column set in the config
             self.coordinate = data[0]
             self.data = data[self.cfg['data_column']]
             self.data_label = self.urls[self.cfg['data_column']].split('/')[-1]
             self.data_url = self.urls[self.cfg['data_column']]
+        else:
+            logging.warning('Coordinate and data attributes not assigned properly.')
         self.coordinate_label = self.urls[0].split('/')[-1]
         if return_data:
-            return np.array(data), self.urls
+            return data, self.urls
 
     def find_latest_file(self, ftype):
         '''
@@ -230,6 +243,7 @@ class QFIT(object):
             nfile = max(glob.iglob(str(self.data_dir)+'/*/*/*.'+ftype), key=os.path.getctime)   #find newest file in directory
         except ValueError:
             logging.error('No .{:s} file located in directory {:s}.'.format(str(ftype), str(self.data_dir)))
+            return
         
         self.file_name = str(nfile).replace('\\','/')
         if self.cfg['show_output']: print 'Latest file: {:s}'.format(self.file_name)
@@ -351,16 +365,19 @@ class QFIT(object):
 
     #\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=
 
-    def optimize(self,entries=None):
+    def rotate_IQ_plane(self,entries=None):
         '''
         requires coordinate, amplitude, and phase data to be specified in entries
         data can be a list of arrays in amplitude and phase or be averaged data
         '''
-        self.discover_hdf_data(entries = entries)
-        if len(self.urls) != 3:
-            logging.error('Invalid entry specification. Aborting.')
-            return
-        self.coordinate, self.amplitude, self.phase = self.read_hdf_data(return_data = True)[0]
+        if self.file_name[-2:] == 'h5':
+            self.discover_hdf_data(entries = entries)
+            if len(self.urls) != 3:
+                logging.error('Invalid entry specification. Aborting.')
+                return
+            self.coordinate, self.amplitude, self.phase = self.read_hdf_data(return_data = True)[0]
+        else:
+            logging.warning('Reading out amplitude and phase attributes.')
         
         '''
         The data optimizer is fed with microwave data of both quadratures, typically amplitude and phase.
@@ -433,21 +450,21 @@ class QFIT(object):
         data_opt /= maxv
         if len(self.c_raw.shape) > 1:
             errs /= maxv
-            
+        
         #gauss plane plot
         if self.cfg['show_complex_plot']:
             if len(self.c_raw.shape) > 1:
                 plt.figure(figsize=(10,13))
                 ax1 = plt.subplot2grid((4, 1), (0, 0))
                 ax2 = plt.subplot2grid((4, 1), (1, 0), rowspan = 3)
-                ax1.errorbar(data_opt,np.zeros_like(data_opt),xerr=errs,color='blue',fmt='o',elinewidth=0.8,capsize=5,markersize=8,ecolor='red')
+                ax1.errorbar(data_opt,np.zeros_like(data_opt),xerr=np.real(errs),color='blue',fmt='o',elinewidth=0.8,capsize=5,markersize=8,ecolor='red')
                 ax1.plot([0],[0],'*',color='red',markersize=20)
                 prange = np.max(data_opt)-np.min(data_opt)
                 ax1.set_xlim(np.min(data_opt)-0.05*prange,np.max(data_opt)+0.05*prange)
+                
                 ax2.plot(np.real(c),np.imag(c),'.')
                 ax2.plot(np.real(c)[:10],np.imag(c)[:10],'.',color='r')   #show first 10 data points in red
                 ax2.plot(np.real(cmax),np.imag(cmax),'*',color='black',markersize=15)
-
                 self.errors = np.real(np.array(errs))
             else:
                 plt.figure(figsize=(10,10))

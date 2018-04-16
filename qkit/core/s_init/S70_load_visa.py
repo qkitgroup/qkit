@@ -21,6 +21,7 @@ def _load_visa():
             # compatibility with old visa lib
             qkit.visa = visa
             qkit.visa.__version__ = get_distribution('pyvisa').version
+            qkit.visa.qkit_visa_version = 1 #This makes it just much easier to distinguish between the main versions
         else:
             # active py visa version
             logging.info("Modern pyvisa version loaded. Version %s" % visa.__version__)
@@ -28,6 +29,8 @@ def _load_visa():
                 rm = visa.ResourceManager()
                 qkit.visa = rm
                 qkit.visa.__version__ = visa.__version__
+                qkit.visa.qkit_visa_version = 2
+                qkit.visa.VisaIOError = visa.VisaIOError
                 
                 def instrument(resource_name, **kwargs):
                     return rm.open_resource(resource_name, **kwargs)
