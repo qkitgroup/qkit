@@ -1,6 +1,6 @@
 # virtual_MultiplexingReadout.py
 # initiated and written by M. Jerger 2011/2012
-# updated by A. Schneider <andre.schneider@kit.edu> and J. Braumueller <jochen.braumueller@kit.edu>, 05/2016, 08/2016
+# updated by A. Schneider <andre.schneider@kit.edu> and J. Braumueller <jochen.braumueller@kit.edu>, 05/2016, 08/2016, 04/2018
 
 # This script may be regarded as a wrapper, handling data acquisition with the ADC (commonly known here as mspec)
 # and readout pulse generation by the DAC (which is the AWG used for generating readout pulses).
@@ -445,7 +445,7 @@ class virtual_MultiplexingReadout(Instrument):
             except:
                 logging.warning('Clock and amplitude settings not written.')
             if self._sample:
-                lawg.update_sequence([1],lambda t, sample: [samples[0],samples[1]], self._sample, awg = self._awg)
+                lawg.update_sequence([1],lambda t, sample: [samples[0],samples[1]], self._sample, awg = self._awg, marker = [[marker1[0],marker2[0],[marker1[0],marker2[0]], show_progress_bar=False)
             else:
                 logging.error('Please provide sample object in instantiating readout when using Tektronix AWG for readout.')
 
