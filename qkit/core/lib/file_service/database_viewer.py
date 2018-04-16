@@ -69,7 +69,10 @@ class DatabaseViewer():
         """
         creates the dataframe
         """
-        self.df = pd.DataFrame(qkit.store_db.h5_info).T
+        if len(qkit.store_db.h5_info) is 0: # necessary if a data directory is chosen without any h5 file
+            self.df = pd.DataFrame(columns=['datetime', 'name', 'run', 'user'])
+        else:
+            self.df = pd.DataFrame(qkit.store_db.h5_info).T
         if self.scan_h5:
             self.df = self.df[['datetime', 'name', 'run', 'user', 'comment', 'fit_time', 'fit_freq', 'rating']]
             self.df['rating'] = pd.to_numeric(self.df['rating'], errors='coerce')
