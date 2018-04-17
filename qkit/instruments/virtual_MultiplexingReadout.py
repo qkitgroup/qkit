@@ -12,11 +12,10 @@
 '''
 usage:
 
-readout = qt.instruments.create('readout','virtual_MultiplexingReadout',awg=qubit.readout_awg,mixer_up_src=qubit.readout_mw_source,
-            mixer_down_src=qubit.readout_mw_source,mspec=mspec,sample=qubit)
+readout = qt.instruments.create('readout','virtual_MultiplexingReadout',sample=qubit)
             
 Mandatory sample attributes:
-    readout_awg, readout_mw_source, mspec
+    readout_awg, readout_mw_src, mspec
 '''
 
 # This program is free software; you can redistribute it and/or modify
@@ -74,8 +73,8 @@ class virtual_MultiplexingReadout(Instrument):
         self._awg = sample.readout_awg
         #JB obsolete self._awg_drive = awg_drive
         #JB obsolete self._awg_path = awg_path
-        self._mixer_up_src = sample.readout_mw_source
-        self._mixer_down_src = sample.readout_mw_source
+        self._mixer_up_src = sample.readout_mw_src
+        self._mixer_down_src = sample.readout_mw_src
         self._mspec = sample.mspec
         
         if sample == None:
@@ -445,7 +444,7 @@ class virtual_MultiplexingReadout(Instrument):
             except:
                 logging.warning('Clock and amplitude settings not written.')
             if self._sample:
-                lawg.update_sequence([1],lambda t, sample: [samples[0],samples[1]], self._sample, awg = self._awg, marker = [[marker1[0],marker2[0],[marker1[0],marker2[0]], show_progress_bar=False)
+                lawg.update_sequence([1],lambda t, sample: [samples[0],samples[1]], self._sample, awg = self._awg, marker = [[marker1,marker2],[marker1,marker2]], show_progress_bar=False)
             else:
                 logging.error('Please provide sample object in instantiating readout when using Tektronix AWG for readout.')
 
@@ -477,7 +476,7 @@ class virtual_MultiplexingReadout(Instrument):
             amplitudes = np.array(amplitudes)
             if (amplitudes.ndim == 1): amplitudes = np.array([amplitudes, amplitudes])
         if(phases == None):
-            phases = np.zeros(2, frequencies.size)
+            phases = np.zeros((2, frequencies.size))
         else:
             phases = np.array(phases)
             if (phases.ndim == 1): phases = np.array([phases, phases])
@@ -502,7 +501,7 @@ class virtual_MultiplexingReadout(Instrument):
         m1[1:len(I)-1] = 1
         if self.dac_delay != 0:
             if self.dac_delay <= -1:
-                dac_delay = self._sample.exc_T
+                dac_delay = self._sample.exc_T - self._sample.overlap
             else:
                 dac_delay = self.dac_delay
             
