@@ -162,7 +162,7 @@ class Spectrum_M4i2211(Instrument):
         Output:
             None
         '''
-        if platform.architecture()[0] is '64bit':
+        if platform.architecture()[0] == '64bit':
             pf_64Bit = True
         else:
             pf_64Bit = False
