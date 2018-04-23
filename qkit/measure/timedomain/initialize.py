@@ -18,6 +18,7 @@
 
 import matplotlib.pyplot as plt
 import logging
+import numpy as np
 from qkit.measure.timedomain import gate_func
 import qkit.measure.timedomain.awg.load_awg as load_awg
 import qkit.measure.timedomain.awg.generate_waveform as gwf
@@ -40,7 +41,7 @@ def initialize(sample):
         'spec_samplerate',#   1250000000.0
 
         'f01',#   5469700000.0
-        'fr',#   5023790528.0
+        'fr',#   9e9
         'iq_frequency',#   80000000.0
         'readout_iq_frequency',#   30000000.0
 
@@ -53,7 +54,7 @@ def initialize(sample):
         'qubit_mw_src',     # Instrument 'mw_src_manip'
         'readout_awg',      # Instrument 'tekawg'
         'readout_mw_src',   # Instrument 'mw_src_readout'   
-        'mspec'             # Instrument
+        'mspec'             # Instrument             
     ]
 
     breakpoint = False
@@ -76,7 +77,7 @@ def initialize(sample):
 
     sample.update_instruments() #this could be seen as obsolete once this script is ready #CHECK
 
-    sample.readout_mw_src.set_power(12)
+    sample.readout_mw_src.set_power(15)
     sample.qubit_mw_src.set_power(0)
     sample.readout_mw_src.set_status(True)
     sample.qubit_mw_src.set_status(True)
@@ -98,20 +99,23 @@ def initialize(sample):
         sample.awg.set_common_clock(True)
         sample.awg.set_clock(sample.clock)
         sample.readout_awg.set_clock(sample.readout_clock)
+        load_awg.update_sequence([100e-9],gwf.square,sample,show_progress_bar=False)
+
+        sample.awg.set_p1_trigger_time(sample.T_rep)
+        sample.awg.set_p1_sync_output(True)
 
         for i in range(1,3):
-            sample.awg.set('p%i_runmode'%i,'SEQ')   
+            sample.awg.set('p%i_runmode'%i,'USER')   
             sample.awg.set('p%i_trigger_mode'%i,'TRIG')
             sample.awg.set('p%i_trigger_source'%i,'TIM')
             sample.awg.set('p%i_sequence_mode'%i,'STEP')
             sample.awg.set('p%i_trigger_delay'%i,0)
-        sample.awg.set_p1_trigger_time(sample.T_rep)
-        sample.awg.set_p1_sync_output(True)
+            sample.awg.set('p%i_runmode'%i,'SEQ')   
         
     #put something into the manipulation awg
-    load_awg.update_sequence([100e-9,1e-6],gwf.square,sample)
-
-    sample.readout.set_LO(np.mean(sample.fr)-sample.readout_iq_frequency)   #set LO higher and use mixer as a down-converter. For multiplexing set LO to centerfreq - IQ freq
+    
+    sample.readout.set_tone_amp(1)
+    sample.readout.set_LO(np.mean(sample.fr)-sample.readout_iq_frequency)   #set LO lower and use mixer as a up-converter. For multiplexing set LO to centerfreq - IQ freq
     sample.readout.set_tone_freq(np.atleast_1d(sample.fr))   #probe tone frequency
     sample.readout.set_tone_pha([ sample.__dict__.get('readout_pha',0) ])   #phase shift (usually not necessary)      -0.1 is nice 1.3
     sample.readout.set_tone_relamp([ sample.__dict__.get('readout_relamp',1) ])   #relative amplitude of tone
@@ -123,18 +127,18 @@ def initialize(sample):
     sample.mspec.set_samplerate(sample.spec_samplerate)   
     sample.spec_samplerate = sample.mspec.get_samplerate() #We want to have the actual samplerate in the sample object
 
-    set_spec_input_level(sample,200)
+    set_spec_input_level(sample,sample.__dict__.get('spec_input_level',250))
+    #record_single_trace(sample)
 
-    record_single_trace(sample)
 
-
-def update_timings(sample):
+def update_timings(sample, zero_dac_delay = False):
     sample.awg.set('p1_trigger_time',sample.T_rep)
     sample.awg.set('trigger_time',sample.T_rep)
     sample.mspec.set_trigger_rate(1/float(sample.T_rep))
     sample.readout.set_dac_duration(sample.readout_tone_length) #length of the readout tone
     sample.readout.set_dac_clock(sample.clock)
-    sample.readout.set_dac_delay(sample.exc_T)
+    if zero_dac_delay: sample.readout.set_dac_delay(sample.exc_T*0.9)
+    else: sample.readout.set_dac_delay(-1)
     sample.readout.update()
 
 def set_spec_input_level(sample,level):
@@ -147,11 +151,12 @@ def set_spec_input_level(sample,level):
 def record_single_trace(sample):
     #record single probe tone signal and plot
     sample.qubit_mw_src.set_status(0)
-    sample.mspec.set_window(0,768)
+    sample.mspec.set_window(0,1024)
     sample.mspec.set_averages(1)
+    sample.mspec.start_with_trigger()
     plt.figure(figsize=(15,5))
     plt.plot(sample.mspec.acquire())
-    plt.xticks(arange(0,sample.mspec.get_samples(),32))
+    plt.xticks(np.arange(0,sample.mspec.get_samples(),32))
     plt.xlim((0,sample.mspec.get_samples()))
     plt.grid()
     plt.xlabel('samples (%.0fMHz samplerate: 1sample = %.3gns)'%(sample.mspec.get_samplerate()/1e6,1./sample.mspec.get_samplerate()*1e9))
@@ -174,3 +179,64 @@ def record_single_trace(sample):
     else:
         print "The amplitude seems reasonable. Check the image nevertheless."
     sample.mspec.set_window(*sample.acqu_window)
+    
+def record_averaged_trace(sample):
+    #record average signal and plot
+    sample.mspec.spec_stop()
+    sample.mspec.set_spec_trigger_delay(0)
+    sample.mspec.set_samples(1024)
+    sample.mspec.set_averages(1e3)
+    sample.mspec.set_segments(1)
+    sample.mspec.start_with_trigger()
+    plt.figure(figsize=(18,7))
+    plt.plot(sample.mspec.acquire())
+    plt.xlim((0,sample.mspec.get_samples()))
+    plt.grid()
+    plt.xlabel('samples (%.0fMHz samplerate: 1sample = %.3gns)'%(sample.mspec.get_samplerate()/1e6,1./sample.mspec.get_samplerate()*1e9))
+    if sample.mspec.get_samples() > 512:
+        plt.xticks(np.arange(0,sample.mspec.get_samples(),32))
+    else:
+        plt.xticks(np.arange(0,sample.mspec.get_samples(),16))
+    plt.twiny()
+    plt.xlabel('seconds')
+    plt.xticks(np.arange(0,float(sample.mspec.get_samples())/sample.mspec.get_samplerate()*1e9,100))
+    plt.xlim(0,float(sample.mspec.get_samples())/sample.mspec.get_samplerate()*1e9)
+    plt.ylabel('amplitude')
+    
+def align_windows(sample, samples=768):
+    #record single probe tone signal and plot
+    sample.mspec.set_averages(1e3)
+    sample.mspec.set_spec_trigger_delay(0)
+    sample.mspec.set_samples(samples)
+    #spec.stop()
+    #spec.set_post_trigger(256)
+    plt.figure(figsize=(18,7))
+    sample.qubit_mw_src.set_status(1)
+    #qt.msleep(1)
+    plt.plot(sample.mspec.acquire())
+    sample.qubit_mw_src.set_status(0)
+    #qt.msleep(1)
+    plt.plot(sample.mspec.acquire(),'--k')
+    plt.xticks(np.arange(0,sample.mspec.get_samples(),16))
+    #plt.xticks(np.arange(0,sample.mspec.get_samples(),20))
+    plt.xlim((0,sample.mspec.get_samples()))
+    plt.grid()
+    plt.xlabel('samples (%.0fMHz samplerate: 1sample = %.3gns)'%(sample.mspec.get_samplerate()/1e6,1./sample.mspec.get_samplerate()*1e9))
+    plt.ylabel('amplitude')
+    plt.twiny()
+    plt.xlabel('nano seconds')
+    plt.xticks(np.arange(0,float(sample.mspec.get_samples())/sample.mspec.get_samplerate()*1e9,100))
+    plt.xlim(0,float(sample.mspec.get_samples())/sample.mspec.get_samplerate()*1e9)
+    plt.grid(axis='x',c='r')
+    
+def check_sidebands(sample):
+    rec = sample.readout.spectrum()
+    plt.figure(figsize=(20,10))
+    plt.plot(rec[0],rec[1],'--o')
+    ylim = plt.ylim()
+    plt.plot([sample.fr,sample.fr],[0,np.max(rec[1])*1.5],'g')
+    plt.plot([sample.readout.get_LO(),sample.readout.get_LO()],[0,np.max(rec[1])*1.5],'r')
+    plt.plot([0,10e9],[sample.readout.readout()[0][0]]*2,'g')
+    plt.ylim(ylim)
+    plt.xlim([sample.readout.get_LO()-sample.readout_iq_frequency*1.5,sample.readout.get_LO()+sample.readout_iq_frequency*1.5])
+    plt.grid()
