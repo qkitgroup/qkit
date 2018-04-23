@@ -240,7 +240,7 @@ class QFIT(object):
         else:
             self.data_dir = os.path.join(self.cfg['data_dir'], self.run_id, self.user)
         try:
-            nfile = max(glob.iglob(str(self.data_dir)+'/*/*/*.'+ftype), key=os.path.getctime)   #find newest file in directory
+            nfile = max(glob.iglob(str(self.data_dir)+'/*/*.'+ftype), key=os.path.getctime)   #find newest file in directory
         except ValueError:
             logging.error('No .{:s} file located in directory {:s}.'.format(str(ftype), str(self.data_dir)))
             return
