@@ -444,7 +444,7 @@ class virtual_MultiplexingReadout(Instrument):
             except:
                 logging.warning('Clock and amplitude settings not written.')
             if self._sample:
-                lawg.update_sequence([1],lambda t, sample: [samples[0],samples[1]], self._sample, awg = self._awg, marker = [[marker1,marker2],[marker1,marker2]], show_progress_bar=False)
+                lawg.update_sequence([1],lambda t, sample: [samples[channels[0]],samples[channels[1]]], self._sample, awg = self._awg, marker = [[marker1,marker2],[marker1,marker2]], show_progress_bar=False)
             else:
                 logging.error('Please provide sample object in instantiating readout when using Tektronix AWG for readout.')
 
