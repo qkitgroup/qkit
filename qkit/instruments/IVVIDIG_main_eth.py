@@ -22,17 +22,14 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-#from instrument import Instrument
-
-
-
+from instrument import Instrument
 import types
 import zmq as zmq
 from time import sleep
 import logging
 import numpy
 
-class IVVIDIG_main():
+class IVVIDIG_main_eth(Instrument):
     '''
     This is the python driver for the IVVI-rack with S5a data module control via a Raspberry Pi Ethernet to Serial Bridge based on ZMQ
 
@@ -41,7 +38,7 @@ class IVVIDIG_main():
     <name> = instruments.create('<name>', 'IVVIDIG', address='111.111.111.111')
     '''
 
-    def __init__(self, name, address):
+    def __init__(self, name, address='10.22.197.115'):
         '''
         Initialzes the IVVIDIG, and communicates with the Rasbpi
 
@@ -52,7 +49,7 @@ class IVVIDIG_main():
             None
         '''
         logging.info(__name__ + ' : Initializing instrument IVVIDIG')
-        #Instrument.__init__(self, name, tags=['physical'])
+        Instrument.__init__(self, name, tags=['physical'])
 
         self._address = address
         self._port = 6543
@@ -297,7 +294,6 @@ class IVVIDIG_main():
                         retries_left = 0
                         expect_reply = False
                         
-
                 else:
                     print "No response from server, retrying"
                     # Socket is confused. Close and remove it.
@@ -312,7 +308,8 @@ class IVVIDIG_main():
                     # Create new connection
                     self._open_zmq_connection()
 
-        data_out_numbers = [ord(s) for s in data_out_string]
+        data_out_numbers = [int(s) for s in data_out_string.split(' ')]
+        #data_out_numbers = [ord(s) for s in data_out_string]
 
         if (data_out_numbers[1] != 0) or (len(data_out_numbers) != data_out_numbers[0]):
             logging.error(__name__ + ' : Error while reading : %s', data_out_numbers)
