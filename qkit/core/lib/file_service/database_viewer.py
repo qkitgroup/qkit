@@ -40,35 +40,35 @@ import h5py
 import numpy as np
 import logging
 import threading
-from time import sleep
 
 try:
     import qgrid as qd
     found_qgrid = True
-except(ImportError):
+except ImportError:
     found_qgrid = False
 
 
-class DatabaseViewer():
+class DatabaseViewer:
     """class that creates a pandas data frame from your measurement
     data and allows to extract import values from h5-files"""
 
     def __init__(self):
         """instantiate a pandas dataframe from with the help of qkit.store_db"""
         self.scan_h5 = qkit.cfg.get('file_service_scan_hdf', False)
-        self._initiate_basic_df()
+        self._initiate_basic_df_threaded()
 
     def _update_database(self):
         """
         updates the database to find newly added measurement_files.
         """
         qkit.store_db.update_database()
-        self.df=self._initiate_basic_df()
+        self._initiate_basic_df()
 
     def _initiate_basic_df(self):
         """
         creates the dataframe
         """
+        qkit.store_db.updating_db.wait(40)
         if len(qkit.store_db.h5_info) is 0: # necessary if a data directory is chosen without any h5 file
             self.df = pd.DataFrame(columns=['datetime', 'name', 'run', 'user'])
         else:
@@ -82,15 +82,13 @@ class DatabaseViewer():
             self.df = self.df[['datetime', 'name', 'run', 'user']]
         self.df['datetime'] = pd.to_datetime(self.df['datetime'], errors='coerce')
 
-
     def _get_settings_column(self, device, setting, uid=None):
-
-        dfsetting=pd.DataFrame()
+        dfsetting = pd.DataFrame()
         if uid is None:
             uid = self.df.index
         for i in uid:
             try:
-                data = pd.read_csv(self.db[i].replace('.h5', '.set'), sep=' ', header=0, names=["Settings", "Values"])
+                data = pd.read_csv(qkit.store_db[i].replace('.h5', '.set'), sep=' ', header=0, names=["Settings", "Values"])
                 # only looking at the right instrument
                 all_ins_index = data.index[data['Settings']=='Instrument:']
                 index_start = data.index[data['Values']==device][0]
@@ -139,7 +137,7 @@ class DatabaseViewer():
         :return: data frame as qgrid object or pandas object
         """
         if found_qgrid:
-            self.grid=qd.show_grid(self.df, show_toolbar=False)
+            self.grid = qd.show_grid(self.df, show_toolbar=False, grid_options={'enableColumnReorder': True})
             return self.grid
         else:
             return self.df
@@ -177,10 +175,12 @@ class DatabaseViewer():
         :param rating: a simple value to rate your measurement
         :type int, float
         """
-        h5tmp = st.Data(qkit.store_db.h5_db[uid])
-        ds = h5tmp.add_value_vector('rating', folder='analysis')
-        ds.add([rating])
-        h5tmp.close()
+        try:
+            h5tmp = st.Data(qkit.store_db.h5_db[uid])
+            ds = h5tmp.add_value_vector('rating', folder='analysis')
+            ds.add([rating])
+        finally:
+            h5tmp.close()
 
     def add_ratings_column(self, uid=None):
         """
@@ -200,7 +200,12 @@ class DatabaseViewer():
                 rating = h5tmp.analysis.rating[0]
             except(AttributeError):
                 rating = None
-            h5tmp.close()
+            finally:
+                h5tmp.close()
             dftemp = pd.DataFrame({'rating': rating}, index=[i])
             dfrating = pd.concat([dfrating, dftemp])
         self.df = pd.concat([self.df, dfrating], axis=1)
+
+    def _initiate_basic_df_threaded(self):
+        t1 = threading.Thread(name= 'initiate_data_df', target=self._initiate_basic_df)
+        t1.start()

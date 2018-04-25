@@ -30,7 +30,8 @@ class store_db(object):
         self.lock = threading.Lock()
         self.alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         self.scan_hdf = qkit.cfg.get('file_service_scan_hdf', False)
-        self.update_database()
+        self.updating_db = threading.Event()
+        self.create_database()
         
     def get_uuid(self,time):
         """
@@ -48,8 +49,6 @@ class store_db(object):
             output += self.alphabet[time % la]
             time = time / la
         return output[::-1]
-
-
     
     def get_time(self,uuid):
         """
@@ -90,7 +89,7 @@ class store_db(object):
             comment = ""
             j_split = (path.replace('/', '\\')).split('\\')
             name = j_split[-1][7:-3]
-            if ord(uuid[0]) > ord('O'):
+            if ord(uuid[0]) > ord('L'):
                 try:
                     tm = self.get_time(uuid)
                     dt = self.get_date(uuid)
@@ -100,10 +99,10 @@ class store_db(object):
                 run = j_split[-4]
             else:
                 tm = uuid
-                if j_split[-3][0:3] is not 201:
-                    dt=None
+                if j_split[-3][0:3] is not 201:  # not really a measurement file then
+                    dt = None
                 else:
-                    dt= '{}-{}-{} {}:{}:{}'.format(j_split[-3][:4], j_split[-3][4:6], j_split[-3][6:], tm[:2], tm[2:4], tm[4:])
+                    dt = '{}-{}-{} {}:{}:{}'.format(j_split[-3][:4], j_split[-3][4:6], j_split[-3][6:], tm[:2], tm[2:4], tm[4:])
                 user = None
                 run = None
             if m_h5py and self.scan_hdf:
@@ -132,8 +131,8 @@ class store_db(object):
                     rating = None
                 finally:
                     h5f.close()
-                h5_info = {'time':tm,   'datetime':dt, 'name' : name, 'user':user, 'comment':comment,
-                           'run':run, 'fit_freq': fit_data_f, 'fit_time': fit_data_t, 'rating': rating}
+                h5_info = {'time': tm,   'datetime': dt, 'name': name, 'user': user, 'comment': comment,
+                           'run': run, 'fit_freq': fit_data_f, 'fit_time': fit_data_t, 'rating': rating}
             else:
                 h5_info = {'time': tm, 'datetime': dt, 'run':run, 'name': name, 'user': user}
 
@@ -144,19 +143,21 @@ class store_db(object):
         fqpath = os.path.join(root, fname)
         if fqpath[-3:] == '.h5':            
             self.h5_db[uuid] = fqpath
-            self._collect_info(uuid,fqpath)
+            self._collect_info(uuid, fqpath)
         elif fqpath[-3:] == 'set':
             self.set_db[uuid] = fqpath
         elif fqpath[-3:] == 'ent':
             self.measure_db[uuid] = fqpath
             
     def update_database(self):
+        self.updating_db.clear()
         with self.lock:
             logging.debug("Store_db: Start to update database.")
             for root, dirs, files in os.walk(qkit.cfg['datadir']):
                 for f in files:
                     self._inspect_and_add_Leaf(f,root)
             logging.debug("Store_db: Updating database done.")
+        self.updating_db.set()
     
 #    def add_f(self,filename):
 #        """
@@ -185,3 +186,4 @@ class store_db(object):
     def create_database(self):
         t1 = threading.Thread(name='creating_db', target=self.update_database)
         t1.start()
+
