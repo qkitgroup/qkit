@@ -3,7 +3,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from ipywidgets import interact, widgets
+from ipywidgets import interact, widgets, Layout
 
 import qkit.measure.timedomain.pulse_sequence as ps
 #from qkit.measure.timedomain.awg.load import load_sequence as awgload
@@ -32,8 +32,33 @@ class TdChannel(object):
         self._times = []
         self._interleave = False
         # Dictionary for x-axis scaling
-        self._xunit = { "s": 1, "ms": 1e-3, "us": 1e-6, "ns": 1e-9}
+        self._x_unit = { "s": 1, "ms": 1e-3, "us": 1e-6, "ns": 1e-9}
 
+    def add_sequence(self, sequence, *args):
+        '''
+        Append sequence to sequences currently stored in channel.
+
+        Input:
+            sequence - sequence object
+            *args    - time where sequence is called
+        '''
+        if args is ():
+            print("No time given.")
+            return False
+        len0 = 0
+        for arg in args:
+            if len0 is 0:
+                len0 = len(arg)
+            elif len(arg) is not len0:
+                print("Dimensions of input arrays do not match.")
+                return False
+        self._sequences.append(sequence)
+        self._times.append(np.vstack((args)).T)
+        if (len(self._sequences) >= 1) and self._interleave:
+            if not self.interleave():
+                print("Dimension of new time array does not fit previous inputs.\nInterleaving no longer possible.")
+        return True
+    
     def set_sequence(self, sequence, *args):
         '''
         Set sequence in channel to sequence deleting previouisly stored sequences.
@@ -44,36 +69,18 @@ class TdChannel(object):
         '''
         self._sequences = []
         self._times = []
+        if args is ():
+            print("No time given.")
+            return False
         self.add_sequence(sequence, *args)
         return True
 
-    def add_sequence(self, sequence, *args):
-        '''
-        Append sequence to sequences currently stored in channel.
-
-        Input:
-            sequence - sequence object
-            *args    - time where sequence is called
-        '''
-        if (len(self._sequences) > 1) and self._interleave:
-            self.interleave()
-        len0 = 0
-        for arg in args:
-            if len0 is 0:
-                len0 = len(arg)
-            elif len(arg) is not len0:
-                print("Dimensions of input arrays do not match.")
-                return False
-        self._sequences.append(sequence)
-        self._times.append(np.vstack((args)).T)
-        return True
-    
     def delete_sequence(self, seq_nr):
         '''
         Delete sequence number seq_nr (counting from 0).
         '''
-        temp = self._sequences.pop[seq_nr]
-        temp = self._times.pop[seq_nr]
+        temp = self._sequences.pop(seq_nr)
+        temp = self._times.pop(seq_nr)
         return True
 
     def get_sequence_dict(self):
@@ -113,29 +120,87 @@ class TdChannel(object):
 
         Input:
             x_unit  - Unit of the x-axis in the plot. Options are "s", "ms", "us", "ns".
-            
-        
-        Readout pulse is displayed as transparent box starting at t = 0 (with multiple readout pulses the first one is fixed at t = 0).
-        Positive times (left side) are before, negative times after the readout pulse.
         """
+        sequences, readout_indices = self._get_sequences()
+        seq_max = len(readout_indices) - 1
+        
+        bounds = self._get_boundaries(sequences, readout_indices, x_unit)
+
+        interact(lambda sequence: self._plot_sequence(sequences[sequence], readout_indices[sequence], x_unit, bounds), 
+                sequence = widgets.IntSlider(value = 0, min = 0, max = seq_max, layout = Layout(width = "98%", height = "50px")))
+        return True
+
+    def _plot_sequence(self, seq, ro_ind, x_unit, bounds):
+        """
+        The actual plotting of the sequences happens here.
+        
+        Input:
+            seq    - sequence (as array) to be plotted
+            ro_ind - Index of the readout in seq
+            x_unit - x_unit for the time axis
+            bounds - min and max values for plot boundaries
+        """
+        fig = plt.figure(figsize=(18,6))
+        xmin, xmax, ymin, ymax = bounds
+        samplerate = self._sample.clock
+        time = -(np.arange(0, len(seq) + 1, 1) - ro_ind) / (samplerate * self._x_unit[x_unit])
+        # make sure last point of the waveform goes to zero
+        seq = np.append(seq, 0)
+
+        # plot sequence
+        plt.plot(time, seq)
+        # plot readout
+        plt.fill([0, 0, - self._sample.readout_tone_length / self._x_unit[x_unit], - self._sample.readout_tone_length / self._x_unit[x_unit]], 
+                [0, ymax, ymax, 0], color = "C7", alpha = 0.3)
+        plt.xlim(xmin + 0.005 * abs(xmax - xmin), xmax - 0.006 * abs(xmax - xmin))
+        plt.ylim(ymin, ymax + 0.025 * (ymax - ymin))
+        plt.xlabel("time " + x_unit)
+        # add label for readout
+        plt.text(-0.5*self._sample.readout_tone_length / self._x_unit[x_unit], ymax/2.,
+                 "readout", horizontalalignment = "center", verticalalignment = "center", rotation = 90, size = 14)
+        return
     
+    def _get_boundaries(self, sequences, readout_indices, x_unit):
+        """
+        Returns plot boundaries for a given x-unit.
+
+        Input:
+            x_unit - see dictionary
+        Output:
+            List of boundaries
+        """
+        xmin = max(readout_indices)/ (self._x_unit[x_unit] * self._sample.clock)
+        xmax = - (max(np.array([len(seq) for seq in sequences]) - np.array(readout_indices)) /self._sample.clock + self._sample.readout_tone_length)/self._x_unit[x_unit]
+        ymin = np.amin(np.concatenate(sequences))
+        ymax = np.amax(np.concatenate(sequences))
+        bounds = [xmin, xmax, ymin, ymax]
+        return bounds
+
     def _get_sequences(self):
         '''
         Explicitly calculate the waveforms of all sequences at their input time.
 
         Output:
             List of waveform arrays.
+            List of readout indices.
         '''
         seq_list = []
+        ro_inds = []
         for i in range(len(self._sequences)):
             for time in self._times[i]:
-                seq_list.append(self._sequences[i](time))
+                seq, ro_ind = self._sequences[i](time)
+                seq_list.append(seq)
+                ro_inds.append(ro_ind)
         if self._interleave:
-            temp_list = []
-            for i in range(len(self._times[0])):
-                temp_list += seq_list[i::len(self._times[0])]
-            seq_list = temp_list
-        return seq_list
+            seqs_temp = []
+            ro_inds_temp = []
+            time_dim = len(self._times[0])
+            for i in range(time_dim):
+                seqs_temp += seq_list[i::time_dim]
+                ro_inds_temp += ro_inds[i::time_dim]
+            seq_list = seqs_temp
+            ro_inds = ro_inds_temp
+        return seq_list, ro_inds
 
 
 class TdExperiment(object):
@@ -182,10 +247,6 @@ class TdExperiment(object):
         self._channels = [None]  # type: List[TdExperimentChannel]
         self._channels.extend([] for i in range(num_channels)) # TdExperimentChannel("C{}".format(i+1))
     
-    @property
-    def channel(self):
-        return self._channels
-
     def set_sequences(self, seq, channel = 1):
         """
         Input:
@@ -259,7 +320,7 @@ class TdExperiment(object):
                 wfm = seq.get_waveform(self.samplerate)
                 readout_time = seq.readout_time
                 if seq.readout_time is not None:
-                    plt.fill_between(np.array([0, 0 - self._sample.readout_tone_length])/self._xunit[x_unit], [1, 1],
+                    plt.fill_between(np.array([0, 0 - self._sample.readout_tone_length])/self._x_unit[x_unit], [1, 1],
                     color = self._chancols[chan + 1], alpha = 0.3)
                 else:
                     readout_time = 0
@@ -268,12 +329,12 @@ class TdExperiment(object):
                 readout_time = 0
 
             #readout_time0 = max(readout_time, readout_time0)
-            time = (np.arange(-1, len(wfm), 1)/self.samplerate - readout_time)/self._xunit[x_unit]
+            time = (np.arange(-1, len(wfm), 1)/self.samplerate - readout_time)/self._x_unit[x_unit]
             wfm = np.append([0], wfm) # Set first point to 0, looks better in plot
             plt.plot(-time, wfm, color = self._chancols[chan + 1])
         
-        xmin = max(self._xmin[channels])/self._xunit[x_unit]
-        xmax = -(max(self._xmax[channels]))/self._xunit[x_unit] # Invert time axis such that t>0 before readout
+        xmin = max(self._xmin[channels])/self._x_unit[x_unit]
+        xmax = -(max(self._xmax[channels]))/self._x_unit[x_unit] # Invert time axis such that t>0 before readout
         plt.xlim(xmin + 0.01*np.abs(xmax - xmin), xmax - 0.01*np.abs(xmax - xmin))
         plt.ylim(1.1*min(self._ymin[channels]), 1.1*max(self._ymax[channels]))
         plt.xlabel("time " + x_unit)
@@ -311,6 +372,3 @@ class TdExperiment(object):
 
     def _get_readout_marker(self, channel = None):
         return False
-
-exp = TdExperiment(None, 4)
-exp.channel[1] =

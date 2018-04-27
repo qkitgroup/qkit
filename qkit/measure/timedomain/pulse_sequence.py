@@ -109,7 +109,8 @@ class PulseSequence(object):
     def __call__(self, *args):
         """
         Returns the envelope of the whole pulse sequence for the input time.
-        Also returns the index where the readout pulse starts.
+        Also returns the index where the readout pulse starts. 
+        If no readout tone is found it is assumed to be at the end of the sequence.
         """
         readout_index = -1
         if len(args) < self._varnum:
@@ -160,9 +161,9 @@ class PulseSequence(object):
             if not pulse_dict["skip"]:
                 index = len(waveform)
         
-        if readout_index = -1:
+        if readout_index == -1:
             readout_index = len(waveform)
-            
+
         return waveform, readout_index
 
     def add(self, pulse, skip = False):
