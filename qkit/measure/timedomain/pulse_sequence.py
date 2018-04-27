@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from inspect import getargspec as getargspec
 from inspect import getsourcelines as getsourcelines
-
+import logging
 
 class Shape(np.vectorize):
     """
@@ -109,6 +109,7 @@ class PulseSequence(object):
     def __call__(self, *args):
         """
         Returns the envelope of the whole pulse sequence for the input time.
+        Also returns the index where the readout pulse starts (actually index before readout).
         """
         readout_index = -1
         if len(args) < self._varnum:
@@ -144,10 +145,13 @@ class PulseSequence(object):
                 wfm = np.zeros(int(round(length * self.samplerate)))
                 readout_index = index
             else:
-                if length is not 0:
+                if length > 0.5*timestep:
                     wfm = pulse_dict["pulse"](np.arange(0, length, timestep) / length)
                 else:
                     wfm = np.zeros(0)
+            
+            if (length < 0.5*timestep) and True:
+                logging.warning("{:}-pulse is shorter than {:.2f} nanoseconds and thus is omitted.".format(pulse_dict["name"], 0.5*timestep*1e9))
 
             # Append wfm to waveform: Make sure waveform is long enough and account for skipping
             wfm = np.atleast_1d(wfm)
@@ -155,7 +159,7 @@ class PulseSequence(object):
             waveform[index:index + len(wfm)] += wfm
             if not pulse_dict["skip"]:
                 index = len(waveform)
-        return waveform
+        return waveform, readout_index
 
     def add(self, pulse, skip = False):
         """
