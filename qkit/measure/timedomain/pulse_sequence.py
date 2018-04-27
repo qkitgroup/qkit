@@ -150,7 +150,7 @@ class PulseSequence(object):
                 else:
                     wfm = np.zeros(0)
             
-            if (length < 0.5*timestep) and True:
+            if (length < 0.5*timestep) and (length != 0):
                 logging.warning("{:}-pulse is shorter than {:.2f} nanoseconds and thus is omitted.".format(pulse_dict["name"], 0.5*timestep*1e9))
 
             # Append wfm to waveform: Make sure waveform is long enough and account for skipping
