@@ -23,31 +23,31 @@ import time
 import logging
 import sys
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
-import gc
 import matplotlib.pyplot as plt
+import gc
 
 
-def load_sequence(ps, sample, iq = None, drive = 'c:', path = '\\waveforms', reset = True, markerseq1 = None, markerseq2 = None, ch2_amp = 2, chpair = 1, awg = None, show_progress_bar = True):
-    '''
+def load_sequence(ps, sample = None, iq = None, awg = None, chpair = 1, reset = True, drive = 'c:', path = '\\waveforms', markerseq1 = None, markerseq2 = None, show_progress_bar = True):
+    """
         set awg to sequence mode and push a number of waveforms into the sequencer
         
-        inputs:
+        Inputs:        
+            ps      - List of pulse sequence objects, to be loaded into the awg
+            sample  - sample object
+            iq      - Reference to iq mixer instrument. If None (default), the wfm will not be changed. Otherwise, the wfm will be converted via iq.convert()
+            reset   - Reset AWG.
         
-        ps: List of pulse sequence objects, to be loaded into the awg
-        sample: sample object
-        
-        iq: Reference to iq mixer instrument. If None (default), the wfm will not be changed. Otherwise, the wfm will be converted via iq.convert()
-        
-        markerseq1: analog to pulse sequence for marker channel 1, set marker to None when used
-                    In case of the Tabor AWG, the last 10 entries in marker1 are set to 1, as this marker channel is used to trigger readout & DAC card
-        markerseq2: analog to pulse sequence for marker channel 2, set marker to None when used
+        markerseq1  - analog to pulse sequence for marker channel 1. Set marker to None when not used.
+                      In case of the Tabor AWG, marker1 is used to trigger readout awg (Tek). Make sure you know what you're doing!
+        markerseq2  - analog to pulse sequence for marker channel 2. set marker to None when used
         
         for the 6GS/s AWG, the waveform length must be divisible by 64
         for the 1.2GS/s AWG, it must be divisible by 4
         
         chpair: if you use the 4ch Tabor AWG as a single 2ch instrument, you can chose to take the second channel pair here (this can be either 1 or 2).
-    '''
-    qt.mstart()
+    """
+    if sample is None:
+        print("No sample object given.")
     ps = np.atleast_1d(ps)
     if awg is None:
         awg = sample.awg
@@ -69,7 +69,7 @@ def load_sequence(ps, sample, iq = None, drive = 'c:', path = '\\waveforms', res
         awg.set_ch1_offset(0)
         awg.set_ch2_offset(0)
         awg.set_ch1_amplitude(2)
-        awg.set_ch2_amplitude(ch2_amp) #Why does this have to be a variable?
+        awg.set_ch2_amplitude(2) #Why does this have to be a variable?
 
     #generate empty tuples for Tektronix
     wfm_fn = [None,None]
