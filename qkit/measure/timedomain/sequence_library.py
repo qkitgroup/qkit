@@ -4,6 +4,7 @@ A. Stehli (04/2018)
 
 This library provides the measurement sequences for standard qubit experiments.
 Currently this includes:
+    rabi experiment
     T1 measurments
     Ramsey experiments
     Spin/Hahn echo
