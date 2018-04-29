@@ -35,7 +35,7 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
     cmd.append(plot_viewer)
     
     cmd.append('-f')
-    cmd.append(h5_filepath.encode("string-escape")) #raw string encoding
+    cmd.append(h5_filepath)
     
     if datasets:
         cmd.append('-ds')
