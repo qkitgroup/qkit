@@ -1,10 +1,44 @@
 # root init for QKIT
 # these directories are treated as modules
-# HR@KIT/2017
+# HR@KIT/2017/2018
 __all__ = ['config','gui','measure','tools', 'analysis','core','instruments','services','storage','logs']
 
+import os.path
+
+class ConfClass(dict):
+    def __init__(self, *args):
+        dict.__init__(self, args)
+    def preset_analyse(self,verbose = False):
+        """ Sets basic settings, most of the services are not loaded (default)
+            The file index service is run and the UUID registry is populated.
+        """
+
+        self['load_info_service'] = False
+        self['load_ri_service']   = False
+        self['load_visa']         = False
+        if verbose:
+            print ("Not starting the info_service, ri_service and visa.")
+    def preset_measure(self,verbose = False):
+        """ Setup of the measurement settings, services are loaded or initialized.
+        """
+        self['load_info_service'] = True
+        self['load_ri_service']   = True
+        self['load_visa']         = True
+        
+        if self['datadir'] == os.path.join(self['qkitdir'],'data'):
+                print("Please set a valid data directory! (datadir)")
+        if verbose:
+            print ("Starting the info_service, ri_service and visa.")
+cfg = ConfClass()
+
 # load configuration from $QKITDIR/config/*
-from qkit.config.environment import cfg
+
+try:
+    from qkit.config.environment import cfg as cfg_local
+    for entry in cfg_local.keys():
+        cfg[entry] = cfg_local[entry]
+except ImportError:
+    pass
 
 # if a local.py file is defined, load cfg dict and overwrite environment entries.
 try:
@@ -21,6 +55,10 @@ try:
 except ImportError:
     pass
 
+
+# clean up 
+del cfg_local
+# init message
 print ("QKIT configuration initialized -> available as qkit.cfg[...]")
 
 """

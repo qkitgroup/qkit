@@ -21,5 +21,4 @@ if qkit.cfg.get('load_info_service',True):
 else:
     # dummy info service
     def info_service(msg): pass
-    qkit.info = info_service()
-    qckit.info = qkit.info
+    qkit.info = info_service
