@@ -11,7 +11,7 @@ import qkit.measure.timedomain.pulse_sequence as ps
 
 
 class TdChannel(object):
-    '''
+    """
     Class managing the channels for TdExperiment.
 
     Important functions:
@@ -19,7 +19,7 @@ class TdChannel(object):
         add_sequence:    Add sequence maintaining currently stored sequences
         delete_sequence: Delete previously stored sequences
         plot:            Plot the pulse sequences
-    '''
+    """
     def __init__(self, sample, name):
         """
         Input:
@@ -35,13 +35,13 @@ class TdChannel(object):
         self._x_unit = { "s": 1, "ms": 1e-3, "us": 1e-6, "ns": 1e-9}
 
     def add_sequence(self, sequence, *args):
-        '''
+        """
         Append sequence to sequences currently stored in channel.
 
         Input:
             sequence - sequence object
             *args    - time where sequence is called
-        '''
+        """
         if args is ():
             print("No time given.")
             return False
@@ -60,13 +60,13 @@ class TdChannel(object):
         return True
     
     def set_sequence(self, sequence, *args):
-        '''
+        """
         Set sequence in channel to sequence deleting previouisly stored sequences.
 
         Input:
             sequence - sequence object
             *args    - time where sequence is called
-        '''
+        """
         self._sequences = []
         self._times = []
         if args is ():
@@ -76,9 +76,9 @@ class TdChannel(object):
         return True
 
     def delete_sequence(self, seq_nr):
-        '''
+        """
         Delete sequence number seq_nr (counting from 0).
-        '''
+        """
         temp = self._sequences.pop(seq_nr)
         temp = self._times.pop(seq_nr)
         return True
@@ -119,7 +119,7 @@ class TdChannel(object):
         Readout pulse is fixed at t = 0, where is t>0 before the readout tone.
 
         Input:
-            x_unit  - Unit of the x-axis in the plot. Options are "s", "ms", "us", "ns".
+            x_unit  - unit of the x-axis in the plot. Options are "s", "ms", "us", "ns".
         """
         sequences, readout_indices = self._get_sequences()
         seq_max = len(readout_indices) - 1
@@ -181,13 +181,13 @@ class TdChannel(object):
         return bounds
 
     def _get_sequences(self):
-        '''
+        """
         Explicitly calculate the waveforms of all sequences at their input time.
 
         Output:
             List of waveform arrays.
             List of readout indices.
-        '''
+        """
         seq_list = []
         ro_inds = []
         for i in range(len(self._sequences)):
@@ -227,8 +227,8 @@ class TdExperiment(object):
     def __init__(self, sample, channels = 1):
         """
         input:
-            sample   - Sample object.
-            channels - Number of channels used in the experiment.
+            sample   - sample object.
+            channels - number of channels used in the experiment.
         """
         if sample is None:
             print("No sample object given.")
@@ -245,45 +245,59 @@ class TdExperiment(object):
         # Dictonary for channel colors
         self._chancols = {1 : "C0", 2 : "C1", 3 : "C2", 4 : "C3", 5 : "C4", 6 : "C5", 7 : "C6"}
     
-    def set_sequence(self, seq, time, channel = 1):
+    def set_sequence(self, sequence, time, channel = 1):
         """
+        Delete previously added sequences, replaxing them with sequence.
+        If channel is None set all sequences in all channels to sequence.
+
         Input:
-            seq     - Sequence object.
-            time    - time where sequence is called
-            channel - Channel number in which sequence will be loaded
+            sequence - sequence object.
+            time     - time where sequence is called
+            channel  - channel number in which sequence will be loaded
         
-        Delete previously added sequences, replaxing them with seq.
-        If channel is None set all sequences in all channels to seq.
         """
         if channel is not None:
-            self.channels[channel].set_sequence(seq, time)
+            self.channels[channel].set_sequence(sequence, time)
         elif channel is None:
             for channel in self.channels:
-                channel.set_sequence(seq, time)
+                channel.set_sequence(sequence, time)
         return True
 
-    def add_sequence(self, seq, time, channel = 1):
+    def add_sequence(self, sequence, time, channel = 1):
         """
+        Sequence is added to current sequences.
+        If channel is None all sequence is added to all channels.
+        
         Input:
-            seq     - Sequence or list of sequences.
-            time    - time where sequence is called
-            channel - Channel number in which sequence will be loaded.
+            sequence - sequence or list of sequences.
+            time     - time where sequence is called
+            channel  - channel number in which sequence will be loaded.
 
-        Sequence seq is added to current sequences.
-        If channel is None all sequences are appended by seq.
         """
         if channel > self._num_chans:
             print("Channel number {:d} is larger than total number of channels {:d}".format(channel, self._num_chans))
             return False
         if channel is not None:
-            self.channels[channel].add_sequence(seq, time)
+            self.channels[channel].add_sequence(sequence, time)
         elif channel is None:
             for channel in self.channels:
-                channel.add_sequence(seq, time)
+                channel.add_sequence(sequence, time)
         return True
     
     def delete_sequence(self, seq_nr, channel = 1):
-        self.channels[channel].delete_sequence(seq_nr)
+        """
+        Delete sequence seq_nr in stated channel.
+        If channel is None sequence seq_nr is deleted from all channels.
+
+        Input:
+            seq_nr   - number of the sequence to be deleted
+            channel  - channel number
+        """
+        if channel is not None:
+            self.channels[channel].delete_sequence(seq_nr)
+        else:
+            for chan in self.channels[1:]:
+                chan.delete_sequence(seq_nr)
         return True
 
     def get_sequence_dicts(self):
@@ -298,12 +312,19 @@ class TdExperiment(object):
             chan_dicts.append(chan.get_sequence_dict())
         return chan_dicts
     
-    def interleave(self, value = True):
+    def interleave(self, value = True, channel = 1):
         """
         For each channel, sequences with an equal number of timesteps may be interleaved.
+
+        Input:
+            value   - value of interleave (True/False)
+            channel - channel to be interleaved. If channel is None action applies to all channels.
         """
-        for chan in self.channels[1:]:
-            chan.interleave(value)
+        if channel is not None:
+            self.channels[channel].interleave(value)
+        else:
+            for chan in self.channels[1:]:
+                chan.interleave(value)
         return True
 
     def plot(self, x_unit = "ns"): 
@@ -366,19 +387,11 @@ class TdExperiment(object):
         plt.ylim(ymin, ymax + 0.025 * (ymax - ymin))
         plt.xlabel("time " + x_unit)
         return
-        
-    def load(self, device, channels = None, readout_channel = None):
-        # Case descrimination:
-        # actual_load_awg/fpga(self._sequences)
-        return False
 
-    def _get_readout_marker(self, channel = None):
-        return False
-    
     def get_sequences(self):
-        '''
+        """
         Returns a list of sequences for each channel, as well as a list of indices for the readout timing.
-        '''
+        """
         seqs = []
         ro_inds = []
         for chan in self.channels[1:]:
@@ -388,13 +401,13 @@ class TdExperiment(object):
         return seqs, ro_inds
 
     def _sync(self):
-        '''
+        """
         Synchronize sequences of all channels to the same readout time.
 
         Output:
             sequences       - list of synchronized sequences as arrays (one each channel)
             readout_indices - array of new readout indices
-        '''
+        """
         seqs, ro_inds = self.get_sequences()
         # find maximum readout indices
         lens = [len(ro_ind) for ro_ind in ro_inds]
@@ -417,3 +430,11 @@ class TdExperiment(object):
                 sequences[i].append(s)
             ind += 1
         return sequences, readout_indices
+    
+    def load(self, device, channels = None, readout_channel = None):
+        # Case descrimination:
+        # actual_load_awg/fpga(self._sequences)
+        return False
+
+    def _get_readout_marker(self, channel = None):
+        return False
