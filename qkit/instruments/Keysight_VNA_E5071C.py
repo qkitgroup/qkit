@@ -77,6 +77,11 @@ class Keysight_VNA_E5071C(Instrument):
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])
+
+        self.add_parameter('cwfreq', type=types.FloatType,
+            flags=Instrument.FLAG_GETSET,
+            minval=0, maxval=20e9,
+            units='Hz', tags=['sweep'])
             
         self.add_parameter('startfreq', type=types.FloatType,
             flags=Instrument.FLAG_GETSET,
@@ -97,6 +102,9 @@ class Keysight_VNA_E5071C(Instrument):
             flags=Instrument.FLAG_GETSET,
             minval=-85, maxval=10,
             units='dBm', tags=['sweep'])
+
+        self.add_parameter('cw', type=types.BooleanType,
+            flags=Instrument.FLAG_GETSET)
 
         self.add_parameter('zerospan', type=types.BooleanType,
             flags=Instrument.FLAG_GETSET)
@@ -122,11 +130,12 @@ class Keysight_VNA_E5071C(Instrument):
   
         self.add_parameter('edel_status', type=types.BooleanType, # legacy name for parameter. This corresponds to the VNA's port extension values.
             flags=Instrument.FLAG_GETSET)
-        
-             
+                   
         self.add_parameter('sweep_mode', type=types.StringType,  #JDB This parameter switches on/off hold. The hold function below does the same job, this is just for code compatibility to the agilent and anritsu drivers.
             flags=Instrument.FLAG_GETSET,tags=['sweep']) 
                     
+        self.add_parameter('sweep_type', type=types.StringType,
+            flags=Instrument.FLAG_GETSET,tags=['sweep']) 
                     
         #Triggering Stuff
         self.add_parameter('trigger_source', type=types.StringType,
@@ -167,6 +176,8 @@ class Keysight_VNA_E5071C(Instrument):
         self.get_sweeptime()
         self.get_sweeptime_averages()
         self.get_edel_status()
+        self.get_cw()
+        self.get_cwfreq()
         for port in range(self._pi):
             self.get('port%d_edel' % (port+1))
         
@@ -318,11 +329,24 @@ class Keysight_VNA_E5071C(Instrument):
         Output:
             None
         '''
+
         logging.debug(__name__ + ' : setting Number of Points to %s ' % (nop))
         if self._zerospan:
           print 'in zerospan mode, nop is 1'
         else:
-          self._visainstrument.write(':SENS%i:SWE:POIN %i' %(self._ci,nop))
+          cw = self.get_cw()
+          if(nop == 1) and (not cw):
+              logging.info(__name__ + 'nop == 1 is only supported in CW mode.')
+              self.set_cw(True)
+          else:
+              self._visainstrument.write(':SENS%i:SWE:POIN %i' %(self._ci,nop))
+          """
+          Comment below is copy from Anritsu driver
+          if(cw):
+            self._visainstrument.write(':SENS%i:SWE:CW:POIN %i' %(self._ci,nop))
+          else:
+            self._visainstrument.write(':SENS%i:SWE:POIN %i' %(self._ci,nop))
+          """
           self._nop = nop
           self.get_freqpoints() #Update List of frequency points  
         
@@ -336,7 +360,7 @@ class Keysight_VNA_E5071C(Instrument):
             nop (int)
         '''
         logging.debug(__name__ + ' : getting Number of Points')
-        if self._zerospan:
+        if self._zerospan or self.get_cw:
           return 1
         else:
           self._nop = int(self._visainstrument.ask(':SENS%i:SWE:POIN?' %(self._ci)))    
@@ -457,6 +481,14 @@ class Keysight_VNA_E5071C(Instrument):
         '''
         logging.debug(__name__ + ' : getting center frequency')
         return  float(self._visainstrument.ask('SENS%i:FREQ:CENT?'%(self._ci)))
+
+    def do_set_cwfreq(self, cf):
+        ''' set cw frequency '''
+        self._visainstrument.write('SENS%i:FREQ:CW %f' % (self._ci,cf))
+    
+    def do_get_cwfreq(self):
+        ''' get cw frequency '''
+        return float(self._visainstrument.ask('SENS%i:FREQ:CW?'%(self._ci)))
         
     def do_set_span(self,span):
         '''
@@ -641,6 +673,25 @@ class Keysight_VNA_E5071C(Instrument):
         logging.debug(__name__ + ' : getting bandwidth')
         # getting value from instrument
         return  float(self._visainstrument.ask('SENS%i:BWID:RES?'%self._ci))                
+    
+    def do_set_cw(self, val):
+        '''
+        Set instrument to CW (single frequency) mode and back
+        '''
+        if val:
+            self._visainstrument.write(':SENS%i:SWE:TYPE POW' %(self._ci))
+        else:
+            self._visainstrument.write(':SENS%i:SWE:TPYE LIN' %(self._ci))
+        self._cw = val
+        
+    def do_get_cw(self):
+        '''
+        retrieve CW mode status from device
+        '''
+        sweep_type = self._visainstrument.ask(':SENS%i:SWE:TYPE?'%(self._ci))
+        if sweep_type == 'POW': ret = True
+        else: ret = False
+        return ret
 
     def do_set_zerospan(self,val):
         '''
@@ -747,6 +798,47 @@ class Keysight_VNA_E5071C(Instrument):
         '''
         logging.debug(__name__ + ' : getting channel index')
         return self._ci
+    
+    def do_get_sweep_type(self):
+        '''
+        Get the Sweep Type
+
+        Input:
+            None
+
+        Output:
+            Sweep Type (string). One of
+            LIN:    Frequency-based linear sweep
+            LOG:    Frequency-based logarithmic sweep
+            SEGM:   Segment-based sweep with frequency-based segments
+            POW:    Power-based sweep with either Power-based sweep with a 
+                CW frequency, or Power-based sweep with swept-frequency
+        '''
+        logging.debug(__name__ + ' : getting sweep type')
+        
+        return str(self._visainstrument.ask('SENS%i:SWE:TYPE?' %(self._ci)))
+    
+    def do_set_sweep_type(self,swtype):
+        '''
+        Set the Sweep Type
+        Input:
+            swtype (string):    One of
+                LIN:    Frequency-based linear sweep
+                LOG:    Frequency-based logarithmic sweep
+                SEGM:   Segment-based sweep with frequency-based segments
+                POW:    Power-based sweep with either Power-based sweep with a 
+                    CW frequency, or Power-based sweep with swept-frequency
+
+        Output:
+            None            
+        '''
+        if swtype in ('LIN','LOG','SEGM','POW'):
+            
+            logging.debug(__name__ + ' : Setting sweep type to %s'%(swtype))
+            return self._visainstrument.write('SENS%i:SWE:TYPE %s' %(self._ci,swtype))
+            
+        else:
+            logging.debug(__name__ + ' : Illegal argument %s'%(swtype))
           
     def write(self,msg):
       return self._visainstrument.write(msg)    
