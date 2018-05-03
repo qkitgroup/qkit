@@ -14,8 +14,6 @@ if qkit.cfg.get('load_info_service',True):
     
     from qkit.core.lib.com.info_service import info_service
     qkit.info = info_service()
-
-    #qckit.info.info("hallo welt")
 else:
     # dummy info service
     def info_service(msg): pass
