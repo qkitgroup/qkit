@@ -25,57 +25,6 @@ import pyqtgraph as pg
 import qkit
 from qkit.storage.hdf_constants import ds_types
 
-""" A few handy methods for label and scale """
-def _get_ds_url(ds,url):
-    """
-    If 'url' is already a absolute url in the h5 file it gets returned.
-    Otherwise the absolute url in read out of the ds-metadata.
-    """
-    if _get_ds(ds, url): 
-        return url
-    else:
-        return ds.attrs.get(url,'_none_')
-       
-def _get_ds(ds,ds_url):
-    try:
-        return ds.file[ds_url]
-    except:
-        return None
-    
-def _get_axis_scale(ds):
-    # assumed that a axis is one dimensional:
-    try:
-        x0 = ds[0]
-        dx = ds[1]-ds[0]
-        return (x0,dx)
-    except:
-        return (0,1)
-
-def _get_unit(ds):
-    return ds.attrs.get('unit','_none_')
-
-def _get_name(ds):
-    return ds.attrs.get('name','_none_')
-        
-def _get_all_ds_names_units_scales(ds,ds_urls= []):
-    """ method to unify the way labels, units, and scales are defined """
-    dss = []
-    
-    for ds_url in ds_urls:
-        dss.append(_get_ds(ds, _get_ds_url(ds, ds_url)))
-    # the last dataset is always the displayed data.
-    dss.append(ds)
-    
-    names = []
-    units = []  
-    scales = []
-    for ds in dss:
-        names.append(_get_name(ds))
-        units.append(_get_unit(ds))
-        scales.append(_get_axis_scale(ds))
-
-    return dss, names, units, scales
-
 def _display_1D_view(self,graphicsView):
     graphicsView.clear()    
 
@@ -160,20 +109,9 @@ def _display_1D_view(self,graphicsView):
     
             else:
                 return
-    
-            # set the y data  to the decibel scale 
-            if self.manipulation & self.manipulations['dB']:
-                y_data = 20 *np.log10(y_data)
-                units[1]='dB'
-              
-            # unwrap the phase
-            if self.manipulation & self.manipulations['wrap']:
-                y_data = np.unwrap(y_data)
             
-            # linearly correct the data    
-            if self.manipulation & self.manipulations['linear']:
-                y_data = y_data - np.linspace(y_data[0],y_data[-1],len(y_data))
-    
+            y_data, units[1] = _do_data_manipulation(y_data, units[1], ds_types['vector'], self.manipulation, self.manipulations)
+
             graphicsView.setLabel('left', names[1], units=units[1])
             graphicsView.setLabel('bottom', names[0], units=units[0])
                         
@@ -304,20 +242,8 @@ def _display_1D_data(self,graphicsView):
         
         x_data =dss[0][()][:dss[1].shape[-1]] #x_data gets truncated to y_data shape if neccessary
         y_data = dss[1][()][self.TraceXNum,self.TraceYNum,:]
-
-
-    # set the y data  to the decibel scale 
-    if self.manipulation & self.manipulations['dB']:
-        y_data = 20 *np.log10(y_data)
-        units[1] = 'dB'
     
-    # unwrap the phase
-    if self.manipulation & self.manipulations['wrap']:
-        y_data = np.unwrap(y_data)
-        
-    # linearly correct the data    
-    if self.manipulation & self.manipulations['linear']:
-        y_data = y_data - np.linspace(y_data[0],y_data[-1],len(y_data))
+    y_data, units[1] = _do_data_manipulation(y_data, units[1], self.ds_type, self.manipulation, self.manipulations)
     
     graphicsView.setLabel('left', names[1], units=units[1])
     graphicsView.setLabel('bottom', names[0] , units=units[0])
@@ -428,34 +354,8 @@ def _display_2D_data(self,graphicsView):
         self.TraceXValue.setText(self._getXValueFromTraceNum(self.ds,self.TraceXNum))
         self.TraceYValue.setText(self._getYValueFromTraceNum(self.ds,self.TraceYNum))
         self.TraceZValue.setText(self._getZValueFromTraceNum(self.ds,self.TraceZNum))
-
-    # set the y data  to the decibel scale 
-    if self.manipulation & self.manipulations['dB']:
-        data = 20 *np.log10(data)
-        self.unit = 'dB'
-        
-    # unwrap the phase
-    if self.manipulation & self.manipulations['wrap']:
-        data = np.unwrap(data)
     
-    if self.manipulation & self.manipulations['linear']:
-        data = data - np.outer(data[:,-1]-data[:,0],np.linspace(0,1,data.shape[1]))
-     
-    if self.manipulation & self.manipulations['remove_zeros']:
-        data[np.where(data==0)] = np.NaN #replace all exact zeros in the hd5 data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
-    
-    if self.manipulation & self.manipulations['sub_offset_avg_y']:
-        #ignore division by zero
-        old_warn = np.seterr(divide='print')
-        data = data - np.nanmean(data,axis=1,keepdims=True)
-        np.seterr(**old_warn)
-    
-    # subtract offset from the data
-    if self.manipulation & self.manipulations['norm_data_avg_x']:
-        #ignore division by zero
-        old_warn = np.seterr(divide='print')
-        data = data / np.nanmean(data,axis=0,keepdims=True)
-        np.seterr(**old_warn)
+    data, units[2] = _do_data_manipulation(data, units[2], self.ds_type, self.manipulation, self.manipulations)
 
     graphicsView.clear()   
     graphicsView.view.setLabel('left', names[1], units=units[1])
@@ -473,8 +373,8 @@ def _display_2D_data(self,graphicsView):
     """
     The error in the ROI may come from a not always correct setting of xmin/xmax...
     """
+    graphicsView.roi.setSize([abs(fill_x * scales[0][1]),abs(fill_y * scales[1][1])])
     graphicsView.roi.setPos([scales[0][0],scales[1][0]])
-    graphicsView.roi.setSize([fill_x * scales[0][1],fill_y * scales[1][1]])
     graphicsView.roi.setAcceptedMouseButtons(Qt.RightButton)
     graphicsView.roi.sigClicked.connect(lambda: self.clickRoi(graphicsView.roi.pos(), graphicsView.roi.size()))
     
@@ -564,3 +464,90 @@ def _display_string(graphicsView, ds):
     for d in data: 
         txt += d+'\n'
     return txt
+
+""" A few handy methods for label and scale """
+def _get_ds_url(ds,url):
+    """
+    If 'url' is already a absolute url in the h5 file it gets returned.
+    Otherwise the absolute url in read out of the ds-metadata.
+    """
+    if _get_ds(ds, url): 
+        return url
+    else:
+        return ds.attrs.get(url,'_none_')
+       
+def _get_ds(ds,ds_url):
+    try:
+        return ds.file[ds_url]
+    except:
+        return None
+    
+def _get_axis_scale(ds):
+    # assumed that a axis is one dimensional:
+    try:
+        x0 = ds[0]
+        dx = ds[1]-ds[0]
+        return (x0,dx)
+    except:
+        return (0,1)
+
+def _get_unit(ds):
+    return ds.attrs.get('unit','_none_')
+
+def _get_name(ds):
+    return ds.attrs.get('name','_none_')
+        
+def _get_all_ds_names_units_scales(ds,ds_urls= []):
+    """ method to unify the way labels, units, and scales are defined """
+    dss = []
+    
+    for ds_url in ds_urls:
+        dss.append(_get_ds(ds, _get_ds_url(ds, ds_url)))
+    # the last dataset is always the displayed data.
+    dss.append(ds)
+    
+    names = []
+    units = []  
+    scales = []
+    for ds in dss:
+        names.append(_get_name(ds))
+        units.append(_get_unit(ds))
+        scales.append(_get_axis_scale(ds))
+
+    return dss, names, units, scales
+
+""" Unify the data manipulation to share code """
+
+def _do_data_manipulation(data, unit, ds_type, manipulation, manipulations):
+    # set the y data  to the decibel scale 
+    if manipulation & manipulations['dB']:
+        data = 20 * np.log10(data)
+        unit = 'dB'
+        
+    # unwrap the phase
+    if manipulation & manipulations['wrap']:
+        data = np.unwrap(data)
+    
+    if manipulation & manipulations['linear']:
+        if ds_type == ds_types['vector']:
+            data = data - np.linspace(data[0],data[-1],len(data))  
+        else:
+            data = data - np.outer(data[:,-1]-data[:,0],np.linspace(0,1,data.shape[1]))
+     
+    if manipulation & manipulations['remove_zeros']:
+        data[np.where(data==0)] = np.NaN #replace all exact zeros in the hd5 data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
+    
+    if manipulation & manipulations['sub_offset_avg_y']:
+        #ignore division by zero
+        old_warn = np.seterr(divide='print')
+        np.seterr(**old_warn)
+        data = data - np.nanmean(data,axis=1,keepdims=True)
+           
+    # subtract offset from the data
+    if manipulation & manipulations['norm_data_avg_x']:
+        #ignore division by zero
+        old_warn = np.seterr(divide='print')
+        np.seterr(**old_warn)
+        data = data / np.nanmean(data,axis=0,keepdims=True)
+        
+    return data, unit
