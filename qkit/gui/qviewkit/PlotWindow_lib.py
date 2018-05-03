@@ -441,9 +441,9 @@ def _display_2D_data(self,graphicsView):
     graphicsView.setImage(data,pos=pos,scale=scale)
     graphicsView.show()
 
-    # Fixme roi ...
+    # Fixme roi ... (HR)BUG:  The size has to be set before the position. I hope this fixes it now.
+    graphicsView.roi.setSize([abs(xmax-xmin),abs(ymax-ymin)])
     graphicsView.roi.setPos([xmin,ymin])
-    graphicsView.roi.setSize([xmax-xmin,ymax-ymin])
     graphicsView.roi.setAcceptedMouseButtons(Qt.RightButton)
     graphicsView.roi.sigClicked.connect(lambda: self.clickRoi(graphicsView.roi.pos(), graphicsView.roi.size()))
     
