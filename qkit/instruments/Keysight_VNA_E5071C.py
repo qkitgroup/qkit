@@ -299,7 +299,7 @@ class Keysight_VNA_E5071C(Instrument):
             logging.warning('invalid mode')
             
     def do_get_sweep_mode(self):
-        return self._visainstrument.ask(':INIT%i:CONT?'%(self._ci))
+        return int(self._visainstrument.ask(':INIT%i:CONT?'%(self._ci)))
     
     def do_set_nop(self, nop):
         '''
@@ -728,16 +728,16 @@ class Keysight_VNA_E5071C(Instrument):
         Set Trigger Mode
 
         Input:
-            source (string) : AUTO | MANual | EXTernal | REMote
+            source (string) : INTernal | MANual | EXTernal | REMote
 
         Output:
             None
         '''
         logging.debug(__name__ + ' : setting trigger source to "%s"' % source)
-        if source.upper() in ['AUTO', 'MAN', 'EXT', 'BUS']:
+        if source.upper() in ['INT', 'MAN', 'EXT', 'BUS']:
             self._visainstrument.write('TRIG:SEQ:SOUR %s' % source.upper())        
         else:
-            raise ValueError('set_trigger_source(): must be AUTO | MANual | EXTernal | REMote')
+            raise ValueError('set_trigger_source(): must be INTernal | MANual | EXTernal | REMote')
 
     def do_get_trigger_source(self):
         '''
@@ -747,10 +747,10 @@ class Keysight_VNA_E5071C(Instrument):
             None
 
         Output:
-            source (string) : AUTO | MANual | EXTernal | BUS
+            source (string) : INTernal | MANual | EXTernal | BUS
         '''
         logging.debug(__name__ + ' : getting trigger source')
-        return self._visainstrument.ask('TRIG:SEQ:SOUR?')        
+        return str(self._visainstrument.ask('TRIG:SEQ:SOUR?')).rstrip()
         
 
     def do_set_channel_index(self,val):
@@ -799,7 +799,7 @@ class Keysight_VNA_E5071C(Instrument):
         '''
         logging.debug(__name__ + ' : getting sweep type')
         
-        return self._visainstrument.ask('SENS%i:SWE:TYPE?' %(self._ci))
+        return str(self._visainstrument.ask('SENS%i:SWE:TYPE?' %(self._ci))).rstrip()
     
     def do_set_sweep_type(self,swtype):
         '''
