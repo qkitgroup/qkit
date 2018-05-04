@@ -147,6 +147,8 @@ class Keysight_VNA_E5071C(Instrument):
         self.add_function('avg_clear')
         self.add_function('avg_status')
         self.add_function('def_trig')
+        self.add_function('get_hold')
+        self.add_function('hold')
         self.add_function('get_sweeptime')
         self.add_function('get_sweeptime_averages')
         self.add_function('pre_measurement')
@@ -181,6 +183,21 @@ class Keysight_VNA_E5071C(Instrument):
     ###
     #Communication with device
     ###
+    
+    
+    def hold(self, status):     # added MW July 13
+        self._visainstrument.write(":TRIG:SOUR INT")
+        if status:
+            self._visainstrument.write(':INIT%i:CONT OFF'%(self._ci))
+            #print 'continuous off'
+        else:
+            self._visainstrument.write(':INIT%i:CONT ON'%(self._ci))
+            #print 'continuous on'
+
+    def get_hold(self):     # added MW July 13
+        #self._visainstrument.read(':INIT%i:CONT?'%(self._ci))
+        self._hold=self._visainstrument.ask(':INIT%i:CONT?'%(self._ci))
+        return self._hold 
     
     def init(self):
         if self._zerospan:
@@ -274,8 +291,10 @@ class Keysight_VNA_E5071C(Instrument):
       
         #self._freqpoints = numpy.array(self._visainstrument.ask_for_values('SENS%i:FREQ:DATA:SDAT?'%self._ci,format=1)) / 1e9
         #self._freqpoints = numpy.array(self._visainstrument.ask_for_values(':FORMAT REAL,32;*CLS;CALC1:DATA:STIM?;*OPC',format=1)) / 1e9
+      elif self.get_cw():
+          self._freqpoints = numpy.array(self.get_cwfreq())
       else:
-        self._freqpoints = numpy.linspace(self._start,self._stop,self._nop)
+          self._freqpoints = numpy.linspace(self._start,self._stop,self._nop)
       return self._freqpoints
 
     ###
@@ -342,8 +361,8 @@ class Keysight_VNA_E5071C(Instrument):
             nop (int)
         '''
         logging.debug(__name__ + ' : getting Number of Points')
-        if self._zerospan or self.get_cw:
-          return 1
+        if self._zerospan or self.get_cw():
+          self._nop = 1
         else:
           self._nop = int(self._visainstrument.ask(':SENS%i:SWE:POIN?' %(self._ci)))    
         return self._nop 
@@ -661,16 +680,17 @@ class Keysight_VNA_E5071C(Instrument):
         Set instrument to CW (single frequency) mode and back
         '''
         if val:
-            self._visainstrument.write(':SENS%i:SWE:TYPE POW' %(self._ci))
+            self.set_cwfreq(self.get_centerfreq())
+            self.set_nop(2)
+            return self._visainstrument.write(':SENS%i:SWE:TYPE POW' %(self._ci))
         else:
-            self._visainstrument.write(':SENS%i:SWE:TPYE LIN' %(self._ci))
-        self._cw = val
+            return self._visainstrument.write(':SENS%i:SWE:TYPE LIN' %(self._ci))
         
     def do_get_cw(self):
         '''
         retrieve CW mode status from device
         '''
-        sweep_type = self._visainstrument.ask(':SENS%i:SWE:TYPE?'%(self._ci))
+        sweep_type = str(self._visainstrument.ask(':SENS%i:SWE:TYPE?'%(self._ci))).rstrip()
         if sweep_type == 'POW': ret = True
         else: ret = False
         return ret
