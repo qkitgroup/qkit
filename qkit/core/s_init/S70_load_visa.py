@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-@author: HR@KIT/2017
+@author: MiWi,HR,S1@KIT/2017,2018
 """
 import qkit
 import logging
@@ -11,7 +11,7 @@ def _load_visa():
     try:
         import visa
     except Exception as e:
-        logging.error("pyvisa not loaded %s"%e)
+        raise type(e)('Failed loading visa. Check if you have NI VISA or pyvisa-py installed. Original error: ' + str(e))
         qkit.cfg['load_visa'] = False
     else:
         from pkg_resources import get_distribution
@@ -38,13 +38,14 @@ def _load_visa():
             except OSError:
                 raise OSError('Failed creating ResourceManager. Check if you have NI VISA or pyvisa-py installed.')
 
+class DummyVisa(object):
+    def __getattr__(self,name):
+        raise qkit.QkitCfgError("Please set qkit.cfg['load_visa'] = True if you need visa.")
 
-if qkit.cfg.get('load_visa',find_loader('pyvisa') is not None):
-    qkit.cfg['load_visa'] = True
-    _load_visa()
+if qkit.cfg.get('load_visa',False):
+    _load_visa()()
 else:
-    qkit.cfg['load_visa'] = False
-
+    qkit.visa = DummyVisa()
 
 """
 doc snipplet from 

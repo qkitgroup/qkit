@@ -15,3 +15,6 @@ cfg['datadir'] = r'd:\data'
 #  1 = YYYYMMDD/HHMMSS_NAME
 #  2 = RUN_ID/USERNAME/UUID_NAME
 cfg['datafolder_structure'] = 2
+
+# If you are using qkit for measurements, you should install visa and set the following line:
+cfg['load_visa'] = True
