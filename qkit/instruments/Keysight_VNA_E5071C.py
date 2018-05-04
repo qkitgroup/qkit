@@ -21,7 +21,6 @@ import types
 import logging
 from time import sleep
 import numpy
-import math
 
 class Keysight_VNA_E5071C(Instrument):
     '''
@@ -148,8 +147,6 @@ class Keysight_VNA_E5071C(Instrument):
         self.add_function('avg_clear')
         self.add_function('avg_status')
         self.add_function('def_trig')
-        self.add_function('get_hold')
-        self.add_function('hold')
         self.add_function('get_sweeptime')
         self.add_function('get_sweeptime_averages')
         self.add_function('pre_measurement')
@@ -193,21 +190,7 @@ class Keysight_VNA_E5071C(Instrument):
             for i in range(self.get_averages()):            
               self._visainstrument.write('INIT1;*wai')
           else:
-              self._visainstrument.write('INIT1;*wai')
-              
-    def hold(self, status):     # added MW July 13
-        self._visainstrument.write(":TRIG:SOUR INT")
-        if status:
-            self._visainstrument.write(':INIT%i:CONT OFF'%(self._ci))
-            #print 'continuous off'
-        else:
-            self._visainstrument.write(':INIT%i:CONT ON'%(self._ci))
-            #print 'continuous on'
-
-    def get_hold(self):     # added MW July 13
-        #self._visainstrument.read(':INIT%i:CONT?'%(self._ci))
-        self._hold=self._visainstrument.ask(':INIT%i:CONT?'%(self._ci))
-        return self._hold     
+              self._visainstrument.write('INIT1;*wai')   
 
     def def_trig(self):
         self._visainstrument.write(':TRIG:AVER ON')
@@ -267,16 +250,16 @@ class Keysight_VNA_E5071C(Instrument):
             datareal = numpy.mean(datareal)
             dataimag = numpy.mean(dataimag)
             dataamp = numpy.sqrt(datareal*datareal+dataimag*dataimag)
-            for i in arange(len(datareal)):    #added MW July 2013
+            for i in numpy.arange(len(datareal)):    #added MW July 2013
                 if datareal[i]>=0 and dataimag[i] >=0:   #1. quadrant
-                    datapha.append(arctan(dataimag[i]/datareal[i]))
+                    datapha = numpy.arctan(dataimag[i]/datareal[i])
                 elif  datareal[i] <0 and dataimag[i] >=0:  #2. quadrant
-                    data.pha.append(arctan(dataimag[i]/datareal[i])+ pi)
+                    datapha = numpy.arctan(dataimag[i]/datareal[i])+ numpy.pi
                 elif  datareal[i] <0 and dataimag[i] <0:  #3. quadrant
-                    datapha.append(arctan(dataimag[i]/datareal[i])- pi)
+                    datapha = numpy.arctan(dataimag[i]/datareal[i])- numpy.pi
                 elif  datareal[i] >=0 and dataimag[i]<0:   #4. quadrant
-                    datapha.append(arctan(dataimag[i]/datareal[i]))   
-
+                    datapha = numpy.arctan(dataimag[i]/datareal[i])
+                    
             return dataamp, datapha
           else:
             dataamp = numpy.sqrt(datareal*datareal+dataimag*dataimag)
@@ -298,26 +281,25 @@ class Keysight_VNA_E5071C(Instrument):
     ###
     # SET and GET functions
     ###
+    
     def do_set_sweep_mode(self, mode):
         '''
-        select the sweep mode from 'hold', 'cont'.
+        select the sweep mode from 'hold', 'cont', single'
+        single means only one single trace, not all the averages even if averages
+         larger than 1 and Average==True
         '''
-        self._visainstrument.write(":TRIG:SOUR INT")
         if mode == 'hold':
             self._visainstrument.write(':INIT%i:CONT OFF'%(self._ci))
         elif mode == 'cont':
             self._visainstrument.write(':INIT%i:CONT ON'%(self._ci))
+        elif mode == 'single':
+            self._visainstrument.write(':INIT%i:CONT ON'%(self._ci))
+            self._visainstrument.write(':INIT%i:CONT OFF'%(self._ci))
         else:
             logging.warning('invalid mode')
             
     def do_get_sweep_mode(self):
-        self._hold=self._visainstrument.ask(':INIT%i:CONT?'%(self._ci))
-        if self._hold:
-            return 'hold'
-        else:
-            return 'cont'
-    
-    
+        return self._visainstrument.ask(':INIT%i:CONT?'%(self._ci))
     
     def do_set_nop(self, nop):
         '''
@@ -752,10 +734,11 @@ class Keysight_VNA_E5071C(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting trigger source to "%s"' % source)
-        if source.upper() in [AUTO, MAN, EXT, REM]:
-            self._visainstrument.write('TRIG:SOUR %s' % source.upper())        
+        if source.upper() in ['AUTO', 'MAN', 'EXT', 'BUS']:
+            self._visainstrument.write('TRIG:SEQ:SOUR %s' % source.upper())        
         else:
             raise ValueError('set_trigger_source(): must be AUTO | MANual | EXTernal | REMote')
+
     def do_get_trigger_source(self):
         '''
         Get Trigger Mode
@@ -764,10 +747,10 @@ class Keysight_VNA_E5071C(Instrument):
             None
 
         Output:
-            source (string) : AUTO | MANual | EXTernal | REMote
+            source (string) : AUTO | MANual | EXTernal | BUS
         '''
         logging.debug(__name__ + ' : getting trigger source')
-        return self._visainstrument.ask('TRIG:SOUR?')        
+        return self._visainstrument.ask('TRIG:SEQ:SOUR?')        
         
 
     def do_set_channel_index(self,val):
@@ -816,7 +799,7 @@ class Keysight_VNA_E5071C(Instrument):
         '''
         logging.debug(__name__ + ' : getting sweep type')
         
-        return str(self._visainstrument.ask('SENS%i:SWE:TYPE?' %(self._ci)))
+        return self._visainstrument.ask('SENS%i:SWE:TYPE?' %(self._ci))
     
     def do_set_sweep_type(self,swtype):
         '''
