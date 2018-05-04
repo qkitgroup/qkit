@@ -4,6 +4,8 @@
 import qkit
 import os
 import importlib
+import logging
+from time import time
 
 def start():
     #print('Starting the core of the Qkit framework...')
@@ -14,8 +16,11 @@ def start():
     
     # load all modules starting with a 'S' character
     for module in filelist:
+        starttime = time()
         if not module.startswith('S') or module[-3:] != '.py':
             continue
         print("Loading module ... "+module)
         importlib.import_module("."+module[:-3],package='qkit.core.'+initdir_name)
-    del module        
+        logging.debug("Loading module "+str(module)+" took  {:.1f}s.".format(time()-starttime))
+    del module,starttime
+    
