@@ -25,10 +25,10 @@ def _setup_logging():
     rootLogger.addHandler(jupyterLogger)
     rootLogger.setLevel(min(stdoutLogLevel, fileLogLevel))
     
-    logging.debug(' ---------- LOGGING STARTED ---------- ')
+    logging.info(' ---------- LOGGING STARTED ---------- ')
     
-    logging.info('Set logging level for file to: %s ' % fileLogLevel)
-    logging.info('Set logging level for stdout to: %s ' % stdoutLogLevel)
+    logging.debug('Set logging level for file to: %s ' % fileLogLevel)
+    logging.debug('Set logging level for stdout to: %s ' % stdoutLogLevel)
 
 
 def set_debug(enable):

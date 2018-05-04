@@ -80,7 +80,7 @@ cfg['plot_engine'] = 'qkit.gui.qviewkit.main' # default: qviewkit
 ## the log file is located under cfg['logdir']
 ## stdout log is displayed in jupyter notebooks
 ## default log level is 'WARNING'
-cfg['file_log_level'] =  'DEBUG' # one of ['WARNING', 'DEBUG', 'INFO', 'ERROR', 'CRITICAL']
+cfg['file_log_level'] =  'INFO' # one of ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 cfg['stdout_log_level'] = 'WARNING'
 
 ##
