@@ -52,11 +52,13 @@ class Data(object):
             a.__dict__[n] = o
             for nn, oo in o.attrs.iteritems():
                 o.__dict__[nn] = oo
+        a.__dict__['comment'] = self.hf.agrp.attrs.get('comment', '')
         d = group()
         for n, o in self.hf.hf['/entry/data0'].iteritems():
             d.__dict__[n] = o
             for nn, oo in o.attrs.iteritems():
                 o.__dict__[nn] = oo
+        d.__dict__['comment'] = self.hf.dgrp.attrs.get('comment', '')
         self.__dict__.update({'analysis':a})
         self.__dict__.update({'data':d})
 
