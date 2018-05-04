@@ -5,6 +5,12 @@ __all__ = ['config','gui','measure','tools', 'analysis','core','instruments','se
 
 import os.path
 
+class QkitCfgError(Exception):
+    '''
+    If something with qkit.cfg does not fit to what the user wants to do, this is the error to throw.
+    '''
+    pass
+
 class ConfClass(dict):
     def __init__(self, *args):
         dict.__init__(self, args)
