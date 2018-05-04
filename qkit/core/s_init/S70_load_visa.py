@@ -43,7 +43,7 @@ class DummyVisa(object):
         raise qkit.QkitCfgError("Please set qkit.cfg['load_visa'] = True if you need visa.")
 
 if qkit.cfg.get('load_visa',False):
-    _load_visa()()
+    _load_visa()
 else:
     qkit.visa = DummyVisa()
 
