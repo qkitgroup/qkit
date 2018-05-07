@@ -192,7 +192,7 @@ class hdf_dataset(object):
 
         """
         # we cast everything to a float numpy array
-        data = numpy.atleast_1d(data,dtype=self.dtype)
+        data = numpy.atleast_1d(numpy.array(data,dtype=self.dtype))
         if self.y_object:
             logging.info("add is only for 1-Dim data. Please use append 2-Dim data.")
             return False
