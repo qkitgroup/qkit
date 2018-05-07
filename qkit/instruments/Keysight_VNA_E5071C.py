@@ -292,7 +292,7 @@ class Keysight_VNA_E5071C(Instrument):
         #self._freqpoints = numpy.array(self._visainstrument.ask_for_values('SENS%i:FREQ:DATA:SDAT?'%self._ci,format=1)) / 1e9
         #self._freqpoints = numpy.array(self._visainstrument.ask_for_values(':FORMAT REAL,32;*CLS;CALC1:DATA:STIM?;*OPC',format=1)) / 1e9
       elif self.get_cw():
-          self._freqpoints = numpy.array(self.get_cwfreq())
+          self._freqpoints = numpy.atleast_1d(self.get_cwfreq())
       else:
           self._freqpoints = numpy.linspace(self._start,self._stop,self._nop)
       return self._freqpoints
