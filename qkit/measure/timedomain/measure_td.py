@@ -188,7 +188,7 @@ class Measure_td(object):
 
         self.ndev = len(self.readout.get_tone_freq())   #returns array of readout frequencies (=1 for non-multiplexed readout)
         
-        self._hdf = hdf.Data(name=self.dirname)
+        self._hdf = hdf.Data(name=self.dirname, mode='a')
         self._hdf_x = self._hdf.add_coordinate(self.x_coordname, unit = self.x_unit)
         self._hdf_x.add(self.x_vec)
         

@@ -131,7 +131,7 @@ class DATA(object):
             print('Create new log file for parameter %s.'%self.name)
             self.fname = os.path.join(self.log_path,self.name.replace(' ','_')+time.strftime('%d%m%Y%H%M%S')+'.h5')
             #print self.fname
-            self.hf = hdf_lib.Data(self.fname)
+            self.hf = hdf_lib.Data(self.fname, mode='a')
             self.hdf_t = self.hf.add_coordinate('timestamps')
             self.hdf_v = self.hf.add_value_vector('values', x = self.hdf_t)
             self.url_timestamps = '/entry/data0/timestamps'

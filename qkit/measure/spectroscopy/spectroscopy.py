@@ -227,7 +227,7 @@ class spectrum(object):
         at this point all measurement parameters are known and put in the output file
         '''
 
-        self._data_file = hdf.Data(name=self._file_name)
+        self._data_file = hdf.Data(name=self._file_name, mode='a')
         self._measurement_object.uuid = self._data_file._uuid
         self._measurement_object.hdf_relpath = self._data_file._relpath
         self._measurement_object.instruments = qt.instruments.get_instruments()
