@@ -21,9 +21,9 @@ class H5_file(object):
     
     """    
     
-    def __init__(self,output_file,**kw):
+    def __init__(self,output_file, mode,**kw):
         
-        self.create_file(output_file)
+        self.create_file(output_file, mode)
         
         if self.hf.attrs.get("qt-file",None) or self.hf.attrs.get("qkit",None):
             "File existed before and was created by qkit."
@@ -38,9 +38,9 @@ class H5_file(object):
         
 
         
-    def create_file(self,output_file):
-        self.hf = h5py.File(output_file,'a')
-        
+    def create_file(self,output_file, mode):
+        self.hf = h5py.File(output_file, mode)
+
     def set_base_attributes(self,nexus=True):
         "stores some attributes and creates the default data group"
         # store version of the file format

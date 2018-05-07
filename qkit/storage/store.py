@@ -22,7 +22,7 @@ from qkit.storage.hdf_DateTimeGenerator import DateTimeGenerator
 class Data(object):
     "this is a basic hdf5 class adopted to our needs"
     # a types
-    def __init__(self, name = None, copy_file = False):
+    def __init__(self, name = None, mode = 'r+', copy_file = False):
         """
         Creates an empty data set including the file, for which the currently
         set file name generator is used.
@@ -39,7 +39,11 @@ class Data(object):
             self._filepath = os.path.abspath(self._name)
             self._folder,self._filename = os.path.split(self._filepath)
         "setup the  file"
-        self.hf = H5_file(self._filepath)
+        try:
+            self.hf = H5_file(self._filepath, mode)
+        except IOError:
+            print('IOError: File does not exist. Use argument \"mode=\'a\'\" to create a new h5 file.')
+            return
         self._mapH5PathToObject()
         self.hf.flush()
 
