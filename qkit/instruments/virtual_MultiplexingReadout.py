@@ -294,9 +294,9 @@ class virtual_MultiplexingReadout(Instrument):
                 sig_amp = np.zeros((Is.shape[1],Is.shape[0], len(self._tone_freq)))
                 sig_pha = np.zeros((Is.shape[1],Is.shape[0], len(self._tone_freq)))
                 for idx in range(Is.shape[1]):
-                    sig_amp[idx,:, :], sig_pha[idx,:, :] = self.digital_down_conversion(Is[:, idx], Qs[:, idx], self._tone_freq)
+                    sig_amp[idx,:, :], sig_pha[idx,:, :] = self.digital_down_conversion(Is[:, idx], Qs[:, idx])
             else:
-                sig_amp, sig_pha = self.digital_down_conversion(Is, Qs, self._tone_freq)
+                sig_amp, sig_pha = self.digital_down_conversion(Is, Qs)
 
         if(timeTrace):
             return sig_amp, sig_pha, Is, Qs
@@ -382,15 +382,17 @@ class virtual_MultiplexingReadout(Instrument):
         sig_pha = np.abs(f_signal)
         return sig_amp, sig_pha
 
-    def digital_down_conversion(self, I, Q, freqs):
+    def digital_down_conversion(self, I, Q, freqs=None):
         """
         performs a digital down conversion to get rid of the carrier frequency.
         Useful for timetrace readout, when only envelope is needed.
         :param I:
         :param Q:
-        :param freq:
+        :param freqs:
         :return:
         """
+        if freqs is None:
+            freqs = np.array(self._tone_freq) - self._LO
         samplerate = self.get_adc_clock()
         lowpass_order = 8
         cut_off_freq = 0.4  # in units of fs/2
