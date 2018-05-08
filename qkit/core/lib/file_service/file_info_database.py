@@ -250,7 +250,7 @@ class fid(object):
             if m_h5py and qkit.cfg.get('fid_scan_hdf', False):
                 try:
                     h5f=h5py.File(path)
-                    comment = h5f['/entry/data0'].attrs.get('comment')
+                    comment = h5f.hf.dgrp.attrs.get('comment', '')
                 except Exception as e:
                     logging.error("store_db %s:%s"%(path,e))
                 try:
@@ -268,7 +268,7 @@ class fid(object):
                     fit_data_f = None
                     fit_data_t = None
                 try:
-                    rating = float(h5f['/entry/analysis0/rating'][0])
+                    rating = float(h5f.hf.agrp.attrs.get('rating', None))
                 except(AttributeError, KeyError):
                     rating = None
                 finally:
@@ -460,9 +460,10 @@ class fid(object):
         """
         try:
             h5tmp = st.Data(qkit.store_db.h5_db[uid])
-            ds = h5tmp.add_value_vector('rating', folder='analysis')
-            ds.add([rating])
-        finally:
+        except Exception as e:    
+            print(str(e)+': unable to open h5 file with uuid '+str(uid))
+        else:
+            h5tmp.hf.agrp.attrs['rating'] = rating
             h5tmp.close()
 
     def add_ratings_column(self, uid=None):
@@ -479,12 +480,8 @@ class fid(object):
             uid = self.df.index
         for i in uid:
             h5tmp = st.Data(qkit.store_db.h5_db[i])
-            try:
-                rating = h5tmp.analysis.rating[0]
-            except(AttributeError):
-                rating = None
-            finally:
-                h5tmp.close()
+            rating = h5tmp.hf.agrp.get('rating', None)
+            h5tmp.close()
             dftemp = pd.DataFrame({'rating': rating}, index=[i])
             dfrating = pd.concat([dfrating, dftemp])
         self.df = pd.concat([self.df, dfrating], axis=1)
