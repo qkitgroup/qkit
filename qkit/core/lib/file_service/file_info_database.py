@@ -102,6 +102,7 @@ class fid(object):
         self.set_db = {}
         self.measure_db = {}
         self.h5_info_db = {}
+        self.df = None
         self.lock = threading.Lock()
         self._alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -160,7 +161,7 @@ class fid(object):
         with self.lock:
             return self.h5_db.get(key, args)
 
-    def view(self,file_id = None):
+    def view(self, file_id=None):
         """
         view a datafile with qviewkit
         =============================
@@ -186,16 +187,17 @@ class fid(object):
         Returns:
             None
         """
-        if not file_id:
+        print type(file_id)
+        if file_id is None:
             return None
-        elif type(file_id) == int:
+        elif type(file_id) is int:
             return None
-        elif type(file_id) == list:
-            return None
-        # check if uuid
-        filepath = self.h5_db.get(file_id,False)
-        if filepath:
-            plot(filepath, live=False)
+        elif type(file_id) is pd.Index or list:
+            for i in file_id:
+                filepath = self.h5_db.get(i, False)
+                if filepath:
+                    plot(filepath, live=False)
+
             
     def update_all(self):
         """ updates file and grid database if activated
@@ -290,10 +292,8 @@ class fid(object):
             self.set_db[uuid] = fqpath
         elif fqpath[-3:] == 'ent':
             self.measure_db[uuid] = fqpath
-            
 
-    
-        
+
     def add(self, h5_filename):
         uuid = h5_filename[:6]
         basename = h5_filename[:-2]
@@ -392,13 +392,12 @@ class fid(object):
         """
         self.df = self.df.drop([column], axis=1)
 
-    
     def _on_row_selected(self,row):
         # index = row.new[0]
         self._selected_df = self.grid.get_selected_df()
         
-    def _on_openSelected_clicked(self,b):
-        uuid = self._selected_df.index[0]
+    def _on_openSelected_clicked(self, b):
+        uuid = self._selected_df.index
         logging.info("Open qviekit with uuid:%s"%uuid)
         self.view(uuid)
         
@@ -407,8 +406,6 @@ class fid(object):
         used to show the data base as a qgrid object or if not installed pandas data frame
         :return: data frame as qgrid object or pandas object
         """
-        
-        
         if found_qgrid:
             from IPython.display import display
             import ipywidgets as widgets
@@ -422,8 +419,6 @@ class fid(object):
             return self.grid
         else:
             return self.df
-            
-
 
     def search(self, column, expression=None, value=None, bounds=None):
         """
@@ -485,4 +480,3 @@ class fid(object):
             dftemp = pd.DataFrame({'rating': rating}, index=[i])
             dfrating = pd.concat([dfrating, dftemp])
         self.df = pd.concat([self.df, dfrating], axis=1)
-
