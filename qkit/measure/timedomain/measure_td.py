@@ -346,12 +346,12 @@ class Measure_td(object):
                 if self.mode < 3:  # mode 2 not yet fully supported but working for DDC timetrace experiments
                     self._hdf_I.append(Is)
                     self._hdf_Q.append(Qs)
-            if self.mode == 3:
-                for ix in range(len(self.y_vec)):  # actually the x-vector in hdf TODO: keep x and y constant
-                    self._hdf_I.append(Is[:, ix])
-                    self._hdf_Q.append(Qs[:, ix])
-                self._hdf_I.next_matrix()
-                self._hdf_Q.next_matrix()
+                if self.mode == 3:
+                    for ix in range(len(self.x_vec)):
+                        self._hdf_I.append(Is[:, ix])
+                        self._hdf_Q.append(Qs[:, ix])
+                    self._hdf_I.next_matrix()
+                    self._hdf_Q.next_matrix()
         
         else:  # for AWG DDC ReadoutTrace, all data are there at once
             for i in range(self.ndev):
