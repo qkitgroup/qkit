@@ -23,6 +23,32 @@ from qkit.measure.timedomain import gate_func
 import qkit.measure.timedomain.awg.load_awg as load_awg
 import qkit.measure.timedomain.awg.generate_waveform as gwf
 
+params = { #typical values are given in (brackets)
+        'T_rep':                " repetition rate [s] (200e-6)",
+        'exc_T':                " maximum window for manipulation [s]  (20e-6)",
+        'readout_tone_length':  " length of readout tone [s]  (400e-09)",
+
+        'clock':                " samplerate for manipulation awg [S/s] (1.2e9)",
+        'readout_clock':        " samplerate for readout dac [S/s] (1.2e9)",
+        'spec_samplerate':      " samplerate for readout adc [S/s] (1.25e9)",
+
+        'f01':                  " qubit transition frequency [Hz] (5.469e9)",
+        'fr':                   " resounator readout frequency [Hz] (9e9)",
+        'iq_frequency':         " IQ frequency for manipulation [Hz] (80e6)",
+        'readout_iq_frequency': " IQ frequency for readout [Hz] (30e6)",
+
+        'mw_power':             " power for the qubit microwave source",
+
+        'acqu_window':          " position of the adc recording window as arra [start, end]. No longer needed to be divisible by 32. (samples) [96,545]",
+        'overlap':              " time in seconds where the manipulation pulse should lap into the readout pulse [s] (1e-6)",
+
+        'awg':                  " Instrument: qubit manipulation awg",
+        'qubit_mw_src':         " Instrument: qubit manipulation microwave source",
+        'readout_awg':          " Instrument: readout awg",
+        'readout_mw_src':       " Instrument: readout microwave source",
+        'mspec':                " Instrument virtual_measure_spec"
+}
+
 def initialize(sample):
     '''
     doc-string tbd
@@ -32,31 +58,6 @@ def initialize(sample):
     '''
     
     #Check if we have all necessary parameters in our sample object:
-    params = ['T_rep',# repetition rate (s)
-        'exc_T',#   2e-05
-        'readout_tone_length',#   4e-07
-
-        'clock',#   1200000000.0 samples per second for awg
-        'readout_clock',#   1200000000.0
-        'spec_samplerate',#   1250000000.0
-
-        'f01',#   5469700000.0
-        'fr',#   9e9
-        'iq_frequency',#   80000000.0
-        'readout_iq_frequency',#   30000000.0
-
-        'mw_power',         # power for the qubit microwave source
-
-        'acqu_window',     # [start, end] (samples)
-        'overlap',          # time in seconds where the manipulation pulse should lap into the readout pulse
-
-        'awg',              # Instrument for qubit manipulation
-        'qubit_mw_src',     # Instrument 'mw_src_manip'
-        'readout_awg',      # Instrument 'tekawg'
-        'readout_mw_src',   # Instrument 'mw_src_readout'   
-        'mspec'             # Instrument             
-    ]
-
     breakpoint = False
     for p in params:
         if p not in sample.__dict__:
@@ -103,6 +104,12 @@ def initialize(sample):
 
         sample.awg.set_p1_trigger_time(sample.T_rep)
         sample.awg.set_p1_sync_output(True)
+        
+        if sample.T_rep < 1.5 * sample.exc_T:
+            raise ValueError("Your repetition rate T_rep is too small for the chosen window exc_T.")
+        
+        if  "Tektronix" in sample.readout_awg.get_type() and sample.T_rep < 170e-6:
+            raise ValueError("You are using the Tektronix AWG as readout. This has a bug and your repetition rate should be >= 200us.")
 
         for i in range(1,3):
             sample.awg.set('p%i_runmode'%i,'USER')   
@@ -143,7 +150,7 @@ def update_timings(sample, zero_dac_delay = False):
 
 def set_spec_input_level(sample,level):
     '''
-    level can be one of 200,500,1000,2500
+    possible levels depend on the card and are specified in mV.
     '''
     sample.mspec.spec_stop() 
     sample.mspec.set_input_amp(level)
@@ -153,7 +160,6 @@ def record_single_trace(sample):
     sample.qubit_mw_src.set_status(0)
     sample.mspec.set_window(0,1024)
     sample.mspec.set_averages(1)
-    #sample.mspec.start_with_trigger()
     plt.figure(figsize=(15,5))
     plt.plot(sample.mspec.acquire())
     plt.xticks(np.arange(0,sample.mspec.get_samples(),32))
@@ -169,7 +175,7 @@ def record_single_trace(sample):
     samples=[sample.mspec.acquire() for i in range(5)]
     clips=np.size(np.where(np.array(samples).flatten()==127))+np.size(np.where(np.array(samples).flatten()==-128))
     if clips > 50:
-         raise ValueError("Clipping detected, please reduce amplifier voltage (%r Clips)" %clips)
+        logging.error("Clipping detected, please reduce amplifier voltage (%r Clips)" %clips)
     elif clips > 0:
         print "In 5 measurements, only %i points had the maximum amplitude. This sounds good, go on."%clips
     elif np.max(samples)<15:
@@ -187,7 +193,6 @@ def record_averaged_trace(sample):
     sample.mspec.set_samples(1024)
     sample.mspec.set_averages(1e3)
     sample.mspec.set_segments(1)
-    #sample.mspec.start_with_trigger()
     plt.figure(figsize=(18,7))
     plt.plot(sample.mspec.acquire())
     plt.xlim((0,sample.mspec.get_samples()))
@@ -202,6 +207,7 @@ def record_averaged_trace(sample):
     plt.xticks(np.arange(0,float(sample.mspec.get_samples())/sample.mspec.get_samplerate()*1e9,100))
     plt.xlim(0,float(sample.mspec.get_samples())/sample.mspec.get_samplerate()*1e9)
     plt.ylabel('amplitude')
+    sample.mspec.set_window(*sample.acqu_window)
     
 def align_windows(sample, samples=768):
     #record single probe tone signal and plot
@@ -211,6 +217,10 @@ def align_windows(sample, samples=768):
     #spec.stop()
     #spec.set_post_trigger(256)
     plt.figure(figsize=(18,7))
+    sample.qubit_mw_src.set_frequency(sample.readout_mw_src.get_frequency())
+    pwr = sample.qubit_mw_src.get_power()
+    sample.qubit_mw_src.set_power(5)
+    load_awg.update_sequence([50e-9], gwf.square, sample, show_progress_bar=False) # 50ns = 25 Samples, 20 MHz
     sample.qubit_mw_src.set_status(1)
     #qt.msleep(1)
     plt.plot(sample.mspec.acquire())
@@ -228,6 +238,7 @@ def align_windows(sample, samples=768):
     plt.xticks(np.arange(0,float(sample.mspec.get_samples())/sample.mspec.get_samplerate()*1e9,100))
     plt.xlim(0,float(sample.mspec.get_samples())/sample.mspec.get_samplerate()*1e9)
     plt.grid(axis='x',c='r')
+    sample.qubit_mw_src.set_power(pwr)
     
 def check_sidebands(sample):
     rec = sample.readout.spectrum()
