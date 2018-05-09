@@ -4,7 +4,7 @@
 __all__ = ['config','gui','measure','tools', 'analysis','core','instruments','services','storage','logs']
 
 import os.path
-
+import logging
 class QkitCfgError(Exception):
     '''
     If something with qkit.cfg does not fit to what the user wants to do, this is the error to throw.
@@ -41,25 +41,22 @@ cfg = ConfClass()
 
 try:
     from qkit.config.environment import cfg as cfg_local
-    for entry in cfg_local.keys():
-        cfg[entry] = cfg_local[entry]
+    cfg.update(cfg_local)
 except ImportError:
     pass
 
 # if a local.py file is defined, load cfg dict and overwrite environment entries.
 try:
     from qkit.config.local import cfg_local
-    for entry in cfg_local.keys():
-        cfg[entry] = cfg_local[entry]
+    cfg.update(cfg_local)
 except ImportError:
     pass
 
 try:    
     from qkit.config.local import cfg as cfg_local
-    for entry in cfg_local.keys():
-        cfg[entry] = cfg_local[entry]
+    cfg.update(cfg_local)
 except ImportError:
-    pass
+    logging.warning("No local config file found. Basic functionality will still work. Please have a look at the qkit/config/local.py_template")
 
 
 # clean up 
