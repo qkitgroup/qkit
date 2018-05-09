@@ -21,6 +21,13 @@ class Sample(object):
         self.comment = ''
         if path:
             self.load(path)
+            
+    def get(self,argname,default=None):
+        '''
+        Gets an argument of the sample and returns default, if it does not exist.
+        '''
+        return self.__dict__.get(argname,default)
+        
 
     def update_instruments(self):
         '''
