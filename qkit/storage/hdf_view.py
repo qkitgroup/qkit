@@ -64,10 +64,12 @@ class dataset_view(object):
         self.view_num += 1
         
     def _exec_filter(self,view_num):
+        """
+        FIXME: this does not work!
         # this is a somewhat dangerous function, since it allows to modify the 
         # hdf file while it is being updated by another program
         # as usual, power comes with responsibility...
-    
+        
         # prepare filter
         x_ds_url,y_ds_url = self.ds.attrs.get("xy_" + str(view_num)).split(':')
         print x_ds_url,y_ds_url
@@ -80,6 +82,7 @@ class dataset_view(object):
         try:
             exec(flt, globals(), locs)
             #exec(self.filter,locs)
-        except SyntaxError,e:
-            print "The filter code has to be proper python code!", e
-        
+        except SyntaxError as e:
+            print("The filter code has to be proper python code! %s "% e)
+        """
+        pass
