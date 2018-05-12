@@ -13,6 +13,7 @@ from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.storage import store as hdf
 from qkit.gui.plot import plot as qviewkit
 import qkit.measure.write_additional_files as waf
+from qkit.measure.timedomain.initialize import InitializeTimeDomain as iniTD
 
 class Measure_td(object):
     
@@ -35,9 +36,10 @@ class Measure_td(object):
         - Check multi-tone readout
     '''
     
-    def __init__(self, readout=None, mspec=None):
-        self.readout = qt.instruments.get('readout') if readout is None else readout
-        self.mspec = qt.instruments.get('mspec') if mspec is None else mspec
+    def __init__(self, sample):
+        self.sample = sample
+        self.readout = sample.readout
+        self.mspec = sample.mspec
 
         self.comment = None
         self.mode = None
@@ -60,6 +62,7 @@ class Measure_td(object):
         self._plot_comment = ''
         self.multiplex_attribute = "readout pulse frequency"
         self.multiplex_unit = "Hz"
+        self.init = iniTD(sample)
 
         
     def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit = None):
