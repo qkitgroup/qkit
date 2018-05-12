@@ -136,7 +136,7 @@ def initialize(sample):
     sample.readout.set_tone_amp(1)
     sample.readout.set_LO(np.mean(sample.fr)-sample.readout_iq_frequency)   #set LO lower and use mixer as a up-converter. For multiplexing set LO to centerfreq - IQ freq
     sample.readout.set_tone_freq(np.atleast_1d(sample.fr))   #probe tone frequency
-    sample.readout.set_tone_pha(np.atleast_1d(sample.readout_pha))   #phase shift (usually not necessary)      -0.1 is nice 1.3
+    sample.readout.set_tone_pha(np.atleast_1d(sample.readout_pha))   #phase shift (usually not necessary)
     sample.readout.set_tone_relamp(np.atleast_1d(sample.readout_relamp))   #relative amplitude of tone
 
     update_timings(sample)
@@ -287,10 +287,10 @@ def check_sidebands(sample):
     plt.plot(rec[0],rec[1],'--o')
     ylim = plt.ylim()
     plt.vlines(sample.readout.get_LO(),*ylim,color='r')
-    for fr in np.atleast_1d(sample.fr):
-        plt.plot([fr],ro[0][0],'+',ms=50,mew=3)
+    for i,fr in enumerate(np.atleast_1d(sample.fr)):
+        plt.plot([fr],ro[0][i],'+',ms=50,mew=3)
     plt.ylim(0,ylim[1])
-    spread = np.ptp(np.append(np.atleast_1d(fr),sample.readout.get_LO()))*1.5
+    spread = np.ptp(np.append(np.atleast_1d(sample.fr),sample.readout.get_LO()))*1.2
     plt.xlim([sample.readout.get_LO()-spread,sample.readout.get_LO()+spread])
     plt.grid()
 
