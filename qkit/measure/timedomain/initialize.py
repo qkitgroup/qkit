@@ -220,7 +220,7 @@ def record_averaged_trace(sample):
     plt.ylabel('amplitude')
     sample.mspec.set_window(*sample.acqu_window)
     
-def align_windows(sample, samples=768):
+def align_pulses(sample, samples=768):
     #record single probe tone signal and plot
     samples = int(samples/32)*16
     sample.mspec.spec_stop()
@@ -252,6 +252,18 @@ def align_windows(sample, samples=768):
     plt.xlim(-duration+32/sr,+duration+32/sr)
     plt.grid(axis='x')
     sample.qubit_mw_src.set_power(pwr)
+    
+    print "You can now change the sample.readout_delay parameter to align the two pulses. The readout pulse should start when the manipulation ends."
+    print "If you are satisfied just press <Enter> or tell me the new delay."
+    plt.show()
+    inp = raw_input("readout_delay ({:g}s) = ".format(sample.readout_delay))
+    if inp == '':
+        return
+    if np.abs(float(inp)) > 1e-3:
+        raise ValueError("Your delay is more than a mili second. I guess you are wrong.")
+    sample.readout_delay = float(inp)
+    update_timings(sample)
+    align_pulses(sample)
     
 def crop_recording_window(sample):
     sample.mspec.spec_stop()
