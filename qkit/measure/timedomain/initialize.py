@@ -22,6 +22,7 @@ import numpy as np
 from qkit.measure.timedomain import gate_func
 import qkit.measure.timedomain.awg.load_awg as load_awg
 import qkit.measure.timedomain.awg.generate_waveform as gwf
+import ipywidgets as widgets
 
 params = { #typical values are given in (brackets)
         'T_rep':                " repetition rate [s] (200e-6)",
@@ -48,6 +49,13 @@ params = { #typical values are given in (brackets)
         'readout_mw_src':       " Instrument: readout microwave source",
         'mspec':                " Instrument virtual_measure_spec"
 }
+optional_params = {
+        'overlap':              [" Overlap between manipulation window and readout pulse.", 0],
+        'readout_delay':        [" Time offset of the readout pulse to adjust the timing of the devices", 0],
+        'readout_pha':          [" Phase of the readout tone", 0],
+        'readout_relamp':       [" relative amplitude of the different readout tones" , 1],
+        'spec_input_level':     [" Input range in mV of the spectrum adc card. Restricted to card-dependant values", 250]
+}
 
 def initialize(sample):
     '''
@@ -57,7 +65,7 @@ def initialize(sample):
      
     '''
     
-    #Check if we have all necessary parameters in our sample object:
+    # Check if we have all necessary parameters in our sample object:
     breakpoint = False
     for p in params:
         if p not in sample.__dict__:
@@ -65,6 +73,10 @@ def initialize(sample):
             breakpoint = True
     if breakpoint: raise ValueError("Not all vallues in your sample file are present. I can not continue. Sorry.")
 
+    # If some parameters with a good default are not given, set them in the sample object, so that the user knows them.
+    for p,v in optional_params.iteritems():
+        if p not in sample.__dict__:
+            sample.__dict__[p] = v[1]
     #Init the spectrum card
     sample.mspec.spec_stop()
     sample.mspec.set_segments(1)
@@ -124,8 +136,8 @@ def initialize(sample):
     sample.readout.set_tone_amp(1)
     sample.readout.set_LO(np.mean(sample.fr)-sample.readout_iq_frequency)   #set LO lower and use mixer as a up-converter. For multiplexing set LO to centerfreq - IQ freq
     sample.readout.set_tone_freq(np.atleast_1d(sample.fr))   #probe tone frequency
-    sample.readout.set_tone_pha([ sample.__dict__.get('readout_pha',0) ])   #phase shift (usually not necessary)      -0.1 is nice 1.3
-    sample.readout.set_tone_relamp([ sample.__dict__.get('readout_relamp',1) ])   #relative amplitude of tone
+    sample.readout.set_tone_pha(np.atleast_1d(sample.readout_pha))   #phase shift (usually not necessary)      -0.1 is nice 1.3
+    sample.readout.set_tone_relamp(np.atleast_1d(sample.readout_relamp))   #relative amplitude of tone
 
     update_timings(sample)
 
@@ -134,7 +146,7 @@ def initialize(sample):
     sample.mspec.set_samplerate(sample.spec_samplerate)   
     sample.spec_samplerate = sample.mspec.get_samplerate() #We want to have the actual samplerate in the sample object
 
-    set_spec_input_level(sample,sample.__dict__.get('spec_input_level',250))
+    set_spec_input_level(sample,sample.spec_input_level)
     #record_single_trace(sample)
 
 
@@ -160,8 +172,10 @@ def record_single_trace(sample):
     sample.qubit_mw_src.set_status(0)
     sample.mspec.set_window(0,1024)
     sample.mspec.set_averages(1)
+    sample.mspec.set_segments(5)
+    samples = sample.mspec.acquire()
     plt.figure(figsize=(15,5))
-    plt.plot(sample.mspec.acquire())
+    plt.plot(samples[:,:,0])
     plt.xticks(np.arange(0,sample.mspec.get_samples(),32))
     plt.xlim((0,sample.mspec.get_samples()))
     plt.grid()
@@ -172,7 +186,6 @@ def record_single_trace(sample):
     plt.xticks(np.arange(0,float(sample.mspec.get_samples())/sample.mspec.get_samplerate()*1e9,100))
     plt.xlim(0,float(sample.mspec.get_samples())/sample.mspec.get_samplerate()*1e9)
     plt.ylim(-128,127)
-    samples=[sample.mspec.acquire() for i in range(5)]
     clips=np.size(np.where(np.array(samples).flatten()==127))+np.size(np.where(np.array(samples).flatten()==-128))
     if clips > 50:
         logging.error("Clipping detected, please reduce amplifier voltage (%r Clips)" %clips)
@@ -191,9 +204,9 @@ def record_averaged_trace(sample):
     sample.mspec.spec_stop()
     sample.mspec.set_spec_trigger_delay(0)
     sample.mspec.set_samples(1024)
-    sample.mspec.set_averages(1e3)
+    sample.mspec.set_averages(1e4)
     sample.mspec.set_segments(1)
-    plt.figure(figsize=(18,7))
+    plt.figure(figsize=(15,5))
     plt.plot(sample.mspec.acquire())
     plt.xlim((0,sample.mspec.get_samples()))
     plt.grid()
@@ -211,43 +224,71 @@ def record_averaged_trace(sample):
     
 def align_windows(sample, samples=768):
     #record single probe tone signal and plot
-    sample.mspec.set_averages(1e3)
+    samples = int(samples/32)*16
+    sample.mspec.spec_stop()
+    sample.mspec.set_averages(1e4)
     sample.mspec.set_spec_trigger_delay(0)
-    sample.mspec.set_samples(samples)
-    #spec.stop()
-    #spec.set_post_trigger(256)
-    plt.figure(figsize=(18,7))
+    sample.mspec.set_samples(samples*2)
+    sample.mspec._dacq.set_post_trigger(samples)
+        
     sample.qubit_mw_src.set_frequency(sample.readout_mw_src.get_frequency())
+    sr = sample.mspec.get_samplerate()/1e9
     pwr = sample.qubit_mw_src.get_power()
     sample.qubit_mw_src.set_power(5)
     load_awg.update_sequence([50e-9], gwf.square, sample, show_progress_bar=False) # 50ns = 25 Samples, 20 MHz
     sample.qubit_mw_src.set_status(1)
-    #qt.msleep(1)
-    plt.plot(sample.mspec.acquire())
+    plt.figure(figsize=(15,5))
+    plt.plot(np.arange(-samples+32,samples+32),sample.mspec.acquire())
     sample.qubit_mw_src.set_status(0)
-    #qt.msleep(1)
-    plt.plot(sample.mspec.acquire(),'--k')
-    plt.xticks(np.arange(0,sample.mspec.get_samples(),16))
-    #plt.xticks(np.arange(0,sample.mspec.get_samples(),20))
-    plt.xlim((0,sample.mspec.get_samples()))
+    plt.plot(np.arange(-samples+32,samples+32),sample.mspec.acquire(),'--k')
+    plt.xlim((-samples+32,samples+32))
     plt.grid()
-    plt.xlabel('samples (%.0fMHz samplerate: 1sample = %.3gns)'%(sample.mspec.get_samplerate()/1e6,1./sample.mspec.get_samplerate()*1e9))
+    plt.xlabel('samples (%.0fMHz samplerate: 1 sample = %.3gns)'%(sr*1e3,1./sr))
     plt.ylabel('amplitude')
     plt.twiny()
     plt.xlabel('nano seconds')
-    plt.xticks(np.arange(0,float(sample.mspec.get_samples())/sample.mspec.get_samplerate()*1e9,100))
-    plt.xlim(0,float(sample.mspec.get_samples())/sample.mspec.get_samplerate()*1e9)
-    plt.grid(axis='x',c='r')
+    duration = float(samples)/sr
+    plt.xticks(np.arange(-round(duration,-2),round(duration,-2),100))
+    plt.xlim(-duration+32/sr,+duration+32/sr)
+    plt.grid(axis='x')
     sample.qubit_mw_src.set_power(pwr)
+    
+def crop_recording_window(sample):
+    sample.mspec.spec_stop()
+    sample.mspec.set_averages(1e4)
+    sample.mspec.set_window(0,512)
+    msp = sample.mspec.acquire()
+    
+    def pltfunc(start,end,done):
+        if done:
+            sample.acqu_window = [start,end]
+            sample.mspec.set_window(start,end)
+            sw.disabled = True
+            ew.disabled = True
+            dw.disabled = True
+            dw.description = "acqu_window set to [{:d}:{:d}]".format(start,end)
+        else:
+            plt.figure(figsize=(15,5))
+            plt.plot(msp)
+            plt.axvspan(0,start,color='k',alpha=.2)
+            plt.axvspan(end,len(msp),color='k',alpha=.2)
+            plt.xlim(0,len(msp))
+            plt.show()
+    sw =  widgets.IntSlider(min=0,max=len(msp),step=1,value=sample.acqu_window[0],continuous_update=True)
+    ew = widgets.IntSlider(min=0,max=len(msp),step=1,value=sample.acqu_window[1],continuous_update=True)
+    dw = widgets.Checkbox(value=False,description="Done!",indent=True)
+    wgt = widgets.interact(pltfunc,start=sw,end=ew,done=dw)
     
 def check_sidebands(sample):
     rec = sample.readout.spectrum()
-    plt.figure(figsize=(20,10))
+    ro = sample.readout.readout()
+    plt.figure(figsize=(15,5))
     plt.plot(rec[0],rec[1],'--o')
     ylim = plt.ylim()
-    plt.plot([sample.fr,sample.fr],[0,np.max(rec[1])*1.5],'g')
-    plt.plot([sample.readout.get_LO(),sample.readout.get_LO()],[0,np.max(rec[1])*1.5],'r')
-    plt.plot([0,10e9],[sample.readout.readout()[0][0]]*2,'g')
-    plt.ylim(ylim)
-    plt.xlim([sample.readout.get_LO()-sample.readout_iq_frequency*1.5,sample.readout.get_LO()+sample.readout_iq_frequency*1.5])
+    plt.vlines(sample.readout.get_LO(),*ylim,color='r')
+    for fr in np.atleast_1d(sample.fr):
+        plt.plot([fr],ro[0][0],'+',ms=50,mew=3)
+    plt.ylim(0,ylim[1])
+    spread = np.ptp(np.append(np.atleast_1d(fr),sample.readout.get_LO()))*1.5
+    plt.xlim([sample.readout.get_LO()-spread,sample.readout.get_LO()+spread])
     plt.grid()
