@@ -46,7 +46,7 @@ from qkit.measure.timedomain.awg import load_awg as lawg
 
 class virtual_MultiplexingReadout(Instrument):
 
-    def __init__(self, name, sample = None, LO_up_power=12, LO_down_power=12):
+    def __init__(self, name, sample = None):
         # ToDo: object should not set params previously set by the user
 
         Instrument.__init__(self, name, tags=['virtual'])
@@ -96,7 +96,6 @@ class virtual_MultiplexingReadout(Instrument):
             #self._dac_duration = 10e-9
             
         elif "Tabor_WX1284C" == self._awg.get_type():   #Tabor AWG
-            #self._awg.preset() #this sets various things like trigger level, modes etc. Remember to execute this each time you restart the AWG
             self._awg.set_trigger_impedance(50)   #50 Ohms
             self._awg.preset_readout()   #sets runmode = 'AUTO', trigger_mode='TRIG', starts with the end of the manipulation signal
             self.do_set_dac_delay(-1)
@@ -113,19 +112,9 @@ class virtual_MultiplexingReadout(Instrument):
         ''' default settings '''
         try:
             
-            self._mixer_up_src.set_power(LO_up_power)
-            self._mixer_down_src.set_power(LO_down_power)
             self._awg.set_clock(self._sample.readout_clock)
             self._dac_clock = self._awg.get_clock()
             
-            #self._mspec.set_trigger_rate(1/float(qubit.T_rep))
-            self._mspec.spec_stop()
-            self._mspec.set_segments(1)
-            self._mspec.set_blocks(1)
-            self._mspec.set_spec_trigger_delay(0)
-            self._mspec.set_samples(1024)
-            self._mspec.spec_stop()
-            self._mspec.set_samplerate(500e6)   #adc samplerate in Hz, 500MHz is maximum
             self._dac_channel_I = 0
             self._dac_channel_Q = 1
             self._adc_channel_I = 1
