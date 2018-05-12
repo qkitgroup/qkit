@@ -80,7 +80,7 @@ class virtual_MultiplexingReadout(Instrument):
         self._mixer_down_src = sample.readout_mw_src
         self._mspec = sample.mspec
         
-        if sample == None:
+        if sample is None:
             logging.warning('Sample object was not given for virtual_MultiplexingReadout.')# This is only needed if you need a readout wfm that is as long as the manipulation.')
         self._sample = sample
         
@@ -324,7 +324,7 @@ class virtual_MultiplexingReadout(Instrument):
                 I, Q       - signal acquired at rate samplerate
                 samplerate - rate at which I and Q were sampled
         '''
-        if(samplerate == None): samplerate = self.get_adc_clock()
+        if(samplerate is None): samplerate = self.get_adc_clock()
 
         sig_t = np.array(I) + 1j*np.array(Q)
         sig_f = np.fft.fftshift(np.fft.fft(sig_t))
@@ -347,9 +347,9 @@ class virtual_MultiplexingReadout(Instrument):
             Output:
                 currently three vectors: frequency, amplitude, phase of each fft point
         '''
-        if(samplerate == None): samplerate = self.get_adc_clock()
-        if(freqs == None): freqs = self._tone_freq
-        if(phase == None): phase = self._phase
+        if(samplerate is None): samplerate = self.get_adc_clock()
+        if(freqs is None): freqs = self._tone_freq
+        if(phase is None): phase = self._phase
         freqs = np.array(freqs)-self._LO
 
         sig_t = (np.array(I) + 1j*np.array(Q))*np.exp(1j*phase)
@@ -433,15 +433,19 @@ class virtual_MultiplexingReadout(Instrument):
             logging.warning(__name__ + ' : maximum IF frequency of %fMHz is above the limit of the ADC.'%(IFMax/1e6))
 
         # build I and Q waveforms and send them to the DAC
-        if(self._tone_relamp == None):
+        if(self._tone_relamp is None):
             amplitudes = 1./ntones*np.ones(ntones)
+        elif len(self._tone_relamp) == 1:
+            amplitudes = 1./ntones*self._tone_relamp * np.ones(ntones)
         elif len(self._tone_relamp) == ntones:
             amplitudes = 1./ntones*self._tone_relamp
         else:
             print "tone_relamp shape does not fit number of multiplexed frequencies. Setting tone_relamp to 1"
             amplitudes = 1./ntones*np.ones(ntones)
-        if(self._tone_pha == None):
+        if(self._tone_pha is None):
             phases = np.zeros(ntones)
+        elif len(self._tone_pha) == 1:
+            phases = self._tone_pha * np.ones(ntones)
         elif len(self._tone_pha) == ntones:
             phases = self._tone_pha
         else:
@@ -459,10 +463,10 @@ class virtual_MultiplexingReadout(Instrument):
                 channels - channels to install them on
         '''
         samples = np.array(samples)
-        if(marker1 == None):
+        if(marker1 is None):
             marker1 = np.zeros(samples.shape)
             marker1[:,1:10]=1
-        if(marker2 == None):
+        if(marker2 is None):
             marker2 = np.zeros(samples.shape)
             marker2[:,1:10]=1
 
@@ -519,18 +523,18 @@ class virtual_MultiplexingReadout(Instrument):
                 two vectors containing samples for I and Q
         '''
 
-        if(samplerate == None): samplerate = self._dac_clock
+        if(samplerate is None): samplerate = self._dac_clock
         nSamples = int(samplerate*duration)
         indices = np.arange(0, nSamples)
         frequencies = np.array(frequencies)
         omegas = 2.*np.pi*frequencies/samplerate
 
-        if(amplitudes == None):
+        if(amplitudes is None):
             amplitudes = np.ones((2, frequencies.size))
         else:
             amplitudes = np.array(amplitudes)
             if (amplitudes.ndim == 1): amplitudes = np.array([amplitudes, amplitudes])
-        if(phases == None):
+        if(phases is None):
             phases = np.zeros((2, frequencies.size))
         else:
             phases = np.array(phases)
