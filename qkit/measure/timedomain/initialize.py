@@ -224,6 +224,7 @@ def align_windows(sample, samples=768):
     #record single probe tone signal and plot
     samples = int(samples/32)*16
     sample.mspec.spec_stop()
+    sample.mspec.set_segments(2)
     sample.mspec.set_averages(1e4)
     sample.mspec.set_spec_trigger_delay(0)
     sample.mspec.set_samples(samples*2)
@@ -233,12 +234,13 @@ def align_windows(sample, samples=768):
     sr = sample.mspec.get_samplerate()/1e9
     pwr = sample.qubit_mw_src.get_power()
     sample.qubit_mw_src.set_power(5)
-    load_awg.update_sequence([50e-9], gwf.square, sample, show_progress_bar=False) # 50ns = 25 Samples, 20 MHz
+    load_awg.update_sequence([0,50e-9], gwf.square, sample, show_progress_bar=False) # 50ns = 25 Samples, 20 MHz
     sample.qubit_mw_src.set_status(1)
-    plt.figure(figsize=(15,5))
-    plt.plot(np.arange(-samples+32,samples+32),sample.mspec.acquire())
+    msp = sample.mspec.acquire()
     sample.qubit_mw_src.set_status(0)
-    plt.plot(np.arange(-samples+32,samples+32),sample.mspec.acquire(),'--k')
+    plt.figure(figsize=(15,5))
+    plt.plot(np.arange(-samples+32,samples+32),msp[:,:,1])
+    plt.plot(np.arange(-samples+32,samples+32),msp[:,:,0],'--k')
     plt.xlim((-samples+32,samples+32))
     plt.grid()
     plt.xlabel('samples (%.0fMHz samplerate: 1 sample = %.3gns)'%(sr*1e3,1./sr))
