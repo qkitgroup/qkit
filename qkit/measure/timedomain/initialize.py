@@ -1,5 +1,5 @@
 # initialize.py
-# collected and adapted by Andre Schneider (S1)
+# collected and adapted by Andre Schneider (S1) 2018/05
 
 
 # This program is free software; you can redistribute it and/or modify
@@ -69,11 +69,11 @@ def initialize(sample):
     breakpoint = False
     for p in params:
         if p not in sample.__dict__:
-            logging.error("Please specify '"+p+"' in your sample object.")
+            logging.error("Please specify '"+p+"' in your sample object:"+params[p])
             breakpoint = True
     if breakpoint: raise ValueError("Not all vallues in your sample file are present. I can not continue. Sorry.")
 
-    # If some parameters with a good default are not given, set them in the sample object, so that the user knows them.
+    # If some parameters are not given, that have a good default, set them in the sample object, so that the user knows them.
     for p,v in optional_params.iteritems():
         if p not in sample.__dict__:
             sample.__dict__[p] = v[1]
@@ -83,11 +83,9 @@ def initialize(sample):
     sample.mspec.set_blocks(1)
     sample.mspec.set_window(0,512)
 
-    sample.readout_mw_src.enable_high_power = True #CHECK
-    sample.qubit_mw_src.enable_high_power   = True #CHECK
-    sample.readout_mw_src.set_parameter_bounds('power',-20,30) #for the anritzu sources #CHECK
-    sample.qubit_mw_src.set_parameter_bounds('power',-20,30)
-
+    if sample.readout_mw_src.has_parameter('high_power'):
+        sample.readout_mw_src.set_high_power(True)
+    
     update_qubit_mw_src(sample)
     
     sample.readout_mw_src.set_power(15)

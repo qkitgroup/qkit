@@ -72,12 +72,12 @@ class Anritsu_MG37022(Instrument):
             units='dBm', tags=['sweep'])
         self.add_parameter('status', type=types.BooleanType,
             flags=Instrument.FLAG_GETSET)
+        self.add_parameter('high_power', type=types.BooleanType,
+            flags=Instrument.FLAG_GETSET)
         
         # Implement functions
         self.add_function('get_all')
         self.get_all()
-        
-        self.enable_high_power = False
         
     # initialization related
     def get_all(self):
@@ -163,18 +163,15 @@ class Anritsu_MG37022(Instrument):
         Output:
             None
         '''
-        if not self.enable_high_power and power > 12:
-            logging.warning('power limited to 12dBm')
+        logging.debug(__name__ + ' : setting power to %s dBm' % power)
+        if(power == None): #This block is needed for the slope function.
+            power = self._power
         else:
-            logging.debug(__name__ + ' : setting power to %s dBm' % power)
-            if(power == None):
-                power = self._power
-            else:
-                self._power = power
-            # compensate cables
-            if(self._slope != None):
-                power = power+self._slope*(math.sqrt(self._frequency/10.e9)-1)
-            self._visainstrument.write('POW:LEV %.2f' % power)
+            self._power = power
+        # compensate cables
+        if(self._slope != None):
+            power = power+self._slope*(math.sqrt(self._frequency/10.e9)-1)
+        self._visainstrument.write('POW:LEV %.2f' % power)
             
     def do_get_status(self):
         '''
@@ -232,8 +229,28 @@ class Anritsu_MG37022(Instrument):
         '''
         self._visainstrument.write('PHAS:ADJ %.1f DEG' %phase_offset)
         self._visainstrument.write('PHAS:DISP ON')
+            
+    def do_set_high_power(self, enabled):
+        '''
+        As default, the power parameter is limited to +12dB, to avoid
+        any damage by careless use.
+        You can enable the high power mode to increase the power to +30dBm.
+        Be careful.
         
-        
+        Input:
+            enabled: True or False
+        '''
+        if enabled:
+            self.set_parameter_bounds('power',-20,30)
+        else:
+            self.set_parameter_bounds('power',-130,12)
+            
+    def do_get_high_power(self):
+        '''
+        Gets the current state of the high_power option.
+        '''
+        return self.get_parameter_options('power')['maxval'] > 13
+            
     #shortcuts
     def off(self):
         '''
