@@ -88,8 +88,8 @@ def initialize(sample):
     sample.readout_mw_src.set_parameter_bounds('power',-20,30) #for the anritzu sources #CHECK
     sample.qubit_mw_src.set_parameter_bounds('power',-20,30)
 
-    sample.update_instruments() #this could be seen as obsolete once this script is ready #CHECK
-
+    update_qubit_mw_src(sample)
+    
     sample.readout_mw_src.set_power(15)
     sample.qubit_mw_src.set_power(0)
     sample.readout_mw_src.set_status(True)
@@ -278,6 +278,7 @@ def crop_recording_window(sample):
     ew = widgets.IntSlider(min=0,max=len(msp),step=1,value=sample.acqu_window[1],continuous_update=True)
     dw = widgets.Checkbox(value=False,description="Done!",indent=True)
     wgt = widgets.interact(pltfunc,start=sw,end=ew,done=dw)
+    sample.mspec.set_window(*sample.acqu_window)
     
 def check_sidebands(sample):
     rec = sample.readout.spectrum()
@@ -292,3 +293,7 @@ def check_sidebands(sample):
     spread = np.ptp(np.append(np.atleast_1d(fr),sample.readout.get_LO()))*1.5
     plt.xlim([sample.readout.get_LO()-spread,sample.readout.get_LO()+spread])
     plt.grid()
+
+def update_qubit_mw_src(sample):
+    sample.qubit_mw_src.set_power(sample.mw_power)
+    sample.qubit_mw_src.set_frequency(sample.f01 - sample.iq_frequency)

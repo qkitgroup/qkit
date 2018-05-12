@@ -29,41 +29,12 @@ class Sample(object):
         return self.__dict__.get(argname,default)
         
 
-    def update_instruments(self):
-        '''
-        Updates the following values:
-        - awg clock
-        - qubit_mw_src power
-        - qubit_mw_src f01-iq_frequency
-        '''
-        try:
-            self.awg
-            self.clock
-            self.qubit_mw_src
-            self.f01
-            self.iq_frequency
-            self.mw_power
-        except AttributeError or NameError:
-            logging.error('Relevant instruments and attributes not properly specified.')
-        else:
-            if self.awg == None:
-                logging.error(__name__ + ' : awg not defined')
-            else:
-                self.awg.set_clock(self.clock)
-
-            if self.qubit_mw_src == None:
-                logging.error(__name__ + ' : qubit_mw_src not defined')
-            else:
-                self.qubit_mw_src.set_frequency(self.f01-self.iq_frequency)
-                self.qubit_mw_src.set_power(self.mw_power)
-
     def set_times(self,tpi):
         '''
         pass tpi to this function and it will update tpi as well as tpi2 = tpi/2
         '''
         self.tpi  = tpi
         self.tpi2 = tpi/2.
-
 
     def get_all(self):
         '''
