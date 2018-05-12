@@ -67,7 +67,7 @@ class Gate_Func(object):
         self.selftriggered = (self.pulser == None and self.ni_daq == None)
         
         if self.selftriggered:
-            self._gate_low  =  lambda: self.awg.set({'trigger_time':1, 'p1_trigger_time':1})
+            self._gate_low  =  lambda: self.awg.set({'trigger_time':2, 'p1_trigger_time':2})
             self._gate_high = lambda: self.awg.set({'trigger_time':sample.T_rep, 'p1_trigger_time':sample.T_rep})
         
         if self.selftriggered and not ('Tabor' in self.awg.get_type()):
