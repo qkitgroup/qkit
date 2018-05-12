@@ -556,10 +556,9 @@ class virtual_MultiplexingReadout(Instrument):
         m1[1:len(I)-1] = 1
         if self.dac_delay != 0:
             if self.dac_delay <= -1:
-                dac_delay = self._sample.exc_T - self._sample.overlap
+                dac_delay = self._sample.exc_T - self._sample.overlap + self._sample.readout_delay
             else:
                 dac_delay = self.dac_delay
-            
             I = np.append(np.zeros(int(dac_delay*samplerate/16)*16),I)
             Q = np.append(np.zeros(int(dac_delay*samplerate/16)*16),Q)
             m1 = np.append(np.zeros(int(dac_delay*samplerate/16)*16),m1)
