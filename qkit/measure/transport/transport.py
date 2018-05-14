@@ -333,7 +333,7 @@ class transport(object):
         self._measurement_object.uuid        = self._data_file._uuid
         self._measurement_object.hdf_relpath = self._data_file._relpath
         self._measurement_object.instruments = qt.instruments.get_instruments()
-        #self._measurement_object.save()
+        self._measurement_object.save()
         self._mo = self._data_file.add_textlist('measurement')
         self._mo.append(self._measurement_object.get_JSON())
 
