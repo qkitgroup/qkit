@@ -4,6 +4,7 @@
 @author: hannes.rotzinger@kit.edu / 2015,2016,2017 
          marco.pfirrmann@kit.edu / 2016, 2017
 @license: GPL
+
 """
 import sys
 in_pyqt5 = False
@@ -38,7 +39,30 @@ except AttributeError:
         return QtGui.QApplication.translate(context, text, disambig)
 
 class Ui_Form(object):
+    """Ui_form class builds the general UI for the plot windows.
+
+    This class creates the overall plot window based on the QtGui class. 
+    Depending on the ds_type we add some signal slots for the user to add more
+    possiblilities to view the data.
+    setupUi() creates the overall window and ds_type sensitive signal slots 
+    are added by the respective functions.
+    """
     def setupUi(self, Form,ds_type):
+        """Sets up the general window
+        
+        This function coordinates the changing input from the signal slots and
+        updates the attributes that are parsed to the plotting lib functions.
+        update_plots() is either periodically called e.g. by the timer or once 
+        on startup.
+        
+        Args:
+            self: Object of the Ui_Form class.
+            Form: PlotWindow object that inherits the used calls here from the
+                underlying QWidget class.
+            ds_type: Integer
+        Returns:
+            No return variable. The function operates on the given object.
+        """
         Form.setObjectName(_fromUtf8("Form"))
         Form.resize(750, 450)
         self.gridLayout_Top = QtGui.QGridLayout(Form)
@@ -81,9 +105,21 @@ class Ui_Form(object):
             self.setupView(Form)
         
     def setupCoordinate(self,Form):
+        # see setupVector()
         self.setupVector(Form)
 
     def setupVector(self,Form):
+        """Set up slots for value_vector.
+        
+        It is possible to plot the data over the x_axis and display the numeric
+        values in a table.
+        Args:
+            self: Object of the Ui_Form class.
+            Form: PlotWindow object that inherits the used calls here from the
+                underlying QWidget class.
+        Returns:
+            No return variable. The function operates on the given object.
+        """
         self.PlotTypeSelector = QtGui.QComboBox(Form)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
@@ -103,6 +139,18 @@ class Ui_Form(object):
         
 
     def setupView(self,Form):
+        """Set up slots for views.
+        
+        The x- and y-values of higher dimensional datasets can be selected to
+        be displayed in the 1d plot.
+
+        Args:
+            self: Object of the Ui_Form class.
+            Form: PlotWindow object that inherits the used calls here from the
+                underlying QWidget class.
+        Returns:
+            No return variable. The function operates on the given object.
+        """
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -118,6 +166,19 @@ class Ui_Form(object):
         
 
     def setupMatrix(self,Form):
+        """Set up slots for value_matrix.
+        
+        The data can be plotted color coded as a 2d plot, as a 1d plot at a
+        user selected value of the x_axis or the numerical values can be
+        displayed in a table.
+
+        Args:
+            self: Object of the Ui_Form class.
+            Form: PlotWindow object that inherits the used calls here from the
+                underlying QWidget class.
+        Returns:
+            No return variable. The function operates on the given object.
+        """
         self.PlotTypeSelector = QtGui.QComboBox(Form)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
@@ -151,6 +212,19 @@ class Ui_Form(object):
         
         
     def setupBox(self,Form):
+        """Set up slots for value_box.
+        
+        The data can be plotted color coded as a 2d plot at a user selected
+        value of either the x_, y_ or z_axis or as a 1d plot at a user selected 
+        value of the x_ and y_axis.
+
+        Args:
+            self: Object of the Ui_Form class.
+            Form: PlotWindow object that inherits the used calls here from the
+                underlying QWidget class.
+        Returns:
+            No return variable. The function operates on the given object.
+        """
         self.PlotTypeSelector = QtGui.QComboBox(Form)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
@@ -191,11 +265,7 @@ class Ui_Form(object):
 
     def setupTxt(self,Form):
         pass
-        #self.setupMatrix()
 
-
-
-        
     def _addIndicatorLabels(self,Form,sizePolicy,indicators=[]):
         self.IndicatorLayout = QtGui.QVBoxLayout()
         self.IndicatorLayout.setSizeConstraint(QtGui.QLayout.SetMinimumSize)
