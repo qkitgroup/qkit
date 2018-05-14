@@ -187,18 +187,21 @@ class fid(object):
         Returns:
             None
         """
-        print type(file_id)
+        #print ("hallo",type(file_id))
         if file_id is None:
             return None
         elif type(file_id) is int:
-            return None
-        elif type(file_id) is pd.Index or list:
+            return(None)
+        elif type(file_id) is pd.Index or  type(file_id) is list:
             for i in file_id:
                 filepath = self.h5_db.get(i, False)
                 if filepath:
                     plot(filepath, live=False)
-
+        elif type(file_id) is str:
             
+            filepath = self.h5_db.get(file_id, False)
+            if filepath:
+                plot(filepath, live=False)
     def update_all(self):
         """ updates file and grid database if activated
         """
@@ -250,33 +253,35 @@ class fid(object):
                 user = None
                 run = None
             if m_h5py and qkit.cfg.get('fid_scan_hdf', False):
+                h5_info_db = {}
                 try:
                     h5f=h5py.File(path)
-                    comment = h5f.hf.dgrp.attrs.get('comment', '')
+                    comment = h5f['/entry/data0'].attrs.get('comment', '')     
+                    try:
+                        fit_comment = h5f['/entry/analysis0/dr_values'].attrs.get('comment',"").split(', ')
+                        comm_begin = [i[0] for i in fit_comment]
+                        try:
+                            fit_data_f = float(h5f['/entry/analysis0/dr_values'][comm_begin.index('f')])
+                        except (ValueError, IndexError):
+                            fit_data_f = None
+                        try:
+                            fit_data_t = float(h5f['/entry/analysis0/dr_values'][comm_begin.index('T')])
+                        except (ValueError, IndexError):
+                            fit_data_t = None
+                    except (KeyError, AttributeError):
+                        fit_data_f = None
+                        fit_data_t = None
+                    try:
+                        rating = float(h5f['/entry/analysis0'].attrs.get('rating', -1))
+                    except(AttributeError, KeyError):
+                        rating = None
+                    finally:
+                        h5f.close()
+                
+                    h5_info_db = {'time': tm,   'datetime': dt, 'name': name, 'user': user, 'comment': comment,
+                               'run': run, 'fit_freq': fit_data_f, 'fit_time': fit_data_t, 'rating': rating}
                 except Exception as e:
                     logging.error("store_db %s:%s"%(path,e))
-                try:
-                    fit_comment = h5f['/entry/analysis0/dr_values'].attrs.get('comment').split(', ')
-                    comm_begin = [i[0] for i in fit_comment]
-                    try:
-                        fit_data_f = float(h5f['/entry/analysis0/dr_values'][comm_begin.index('f')])
-                    except (ValueError, IndexError):
-                        fit_data_f = None
-                    try:
-                        fit_data_t = float(h5f['/entry/analysis0/dr_values'][comm_begin.index('T')])
-                    except (ValueError, IndexError):
-                        fit_data_t = None
-                except (KeyError, AttributeError):
-                    fit_data_f = None
-                    fit_data_t = None
-                try:
-                    rating = float(h5f.hf.agrp.attrs.get('rating', None))
-                except(AttributeError, KeyError):
-                    rating = None
-                finally:
-                    h5f.close()
-                h5_info_db = {'time': tm,   'datetime': dt, 'name': name, 'user': user, 'comment': comment,
-                           'run': run, 'fit_freq': fit_data_f, 'fit_time': fit_data_t, 'rating': rating}
             else:
                 h5_info_db = {'time': tm, 'datetime': dt, 'run':run, 'name': name, 'user': user}
 
