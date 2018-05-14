@@ -116,6 +116,28 @@ class Keithley(Instrument):
         '''
         return self._dAdV
 
+    def set_amp(self, val=1):
+        '''
+        Sets amplification factor of external measurement setup to <val>
+        
+        Input:
+            val (float): 1 (default)
+        Output:
+            None
+        '''
+        self._amp = val
+
+    def get_amp(self):
+        '''
+        Gets amplification factor of external measurement setup
+        
+        Input:
+            None
+        Output:
+            val (float)
+        '''
+        return self._amp
+
     def set_dVdA(self, val=1):
         '''
         Sets current-voltage conversion of external voltage source used for voltage bias to <val> (in V/A)
@@ -138,27 +160,27 @@ class Keithley(Instrument):
         '''
         return self._dVdA
 
-    def set_amp(self, val=1):
+    def set_Vdiv(self, val=1):
         '''
-        Sets amplification factor of external measurement setup to <val>
+        Sets voltage divider factor of external measurement setup to <val>
         
         Input:
             val (float): 1 (default)
         Output:
             None
         '''
-        self._amp = val
+        self._Vdiv = val
 
-    def get_amp(self):
+    def get_Vdiv(self):
         '''
-        Gets amplification factor of external measurement setup
+        Gets voltage divider factor of external measurement setup
         
         Input:
             None
         Output:
             val (float)
         '''
-        return self._amp
+        return self._Vdiv
 
     ### TODO: add attenuation for voltage bias: def set_att(self, val=1), def get_att(self)
     
@@ -981,7 +1003,7 @@ class Keithley(Instrument):
                     V_values /= self._amp
                 elif self._pseudo_bias_mode == 1:  # voltage bias
                     I_values /= self._dVdA
-                    V_values *= self._amp
+                    V_values /= self._Vdiv
             return I_values, V_values
         except ValueError as e:
             logging.error(__name__ + ': Cannot take sweep trace data: {:s}'.format(e))
