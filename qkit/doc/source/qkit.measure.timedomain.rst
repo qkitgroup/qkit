@@ -7,7 +7,6 @@ Subpackages
 .. toctree::
 
     qkit.measure.timedomain.awg
-    qkit.measure.timedomain.transport
 
 Submodules
 ----------
