@@ -135,6 +135,9 @@ class Measure_td(object):
                     qt.msleep() 
                     self._append_data()
                     if self.show_progress_bar: p.iterate()
+                for i in range(self.ndev):
+                    self._hdf_amp[i].next_matrix()
+                    self._hdf_pha[i].next_matrix()
         finally:
             self._end_measurement()
             qt.mend()

@@ -5,10 +5,11 @@ Created 2015
 @author: hrotzing
 """
 import logging
+
 import h5py
-import numpy as np
 import qkit
 from qkit.storage.hdf_constants import ds_types
+
 
 class H5_file(object):
     """Base hdf5 class intended for qkit.
@@ -215,15 +216,25 @@ class H5_file(object):
                     fill[0] += len(data)
                     ds[:] = data
             ds.attrs.modify("fill", fill)
-
-        if len(ds.shape) == 2:       # 2 dim dataset: matrix
+        
+        if len(ds.shape) == 2:  # 2 dim dataset: matrix
             fill = ds.attrs.get('fill')
-            dim1 = ds.shape[0]+1
-            ds.resize((dim1,len(data)))
-            fill[0] += 1
-            fill[1] = len(data)
+            if len(data.shape) == 1 and data.shape[0] == 1:  # appending data as single points on a 2D dataset
+                if next_matrix:
+                    ds.resize((ds.shape[0] + 1, ds.shape[1]))
+                    fill[0] += 1
+                    fill[1] = 1
+                else:
+                    ds.resize((max(1, ds.shape[0]), max(fill[1] + 1, ds.shape[1])))
+                    fill[1] += 1
+                ds[fill[0], max(0, fill[1] - 1)] = data[0]
+            else:  # appending data as vectors on a 2D dataset
+                dim1 = ds.shape[0] + 1
+                ds.resize((dim1, len(data)))
+                fill[0] += 1
+                fill[1] = len(data)
+                ds[fill[0] - 1, :] = data
             ds.attrs.modify('fill', fill)
-            ds[fill[0]-1,:] = data
 
 
         if len(ds.shape) == 3:      # 3 dim dataset: box
