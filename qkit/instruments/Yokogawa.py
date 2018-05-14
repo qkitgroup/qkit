@@ -151,28 +151,6 @@ class Yokogawa(Instrument):
         '''
         return self._dAdV
 
-    def set_dVdA(self, val=1):
-        '''
-        Sets current-voltage conversion of external voltage source used for voltage bias to <val> (in V/A)
-        
-        Input:
-            val (float): 1 (default)
-        Output:
-            None
-        '''
-        self._dVdA = val
-
-    def get_dVdA(self):
-        '''
-        Gets current-voltage conversion of external voltage source used for voltage bias (in V/A)
-        
-        Input:
-            None
-        Output:
-            val (float)
-        '''
-        return self._dVdA
-
     def set_amp(self, val=1):
         '''
         Sets amplification factor of external measurement setup to <val>
@@ -195,7 +173,49 @@ class Yokogawa(Instrument):
         '''
         return self._amp
 
-    ### TODO: add attenuation for voltage bias: def set_att(self, val=1), def get_att(self)
+    def set_dVdA(self, val=1):
+        '''
+        Sets current-voltage conversion of external voltage source used for voltage bias to <val> (in V/A)
+        
+        Input:
+            val (float): 1 (default)
+        Output:
+            None
+        '''
+        self._dVdA = val
+
+    def get_dVdA(self):
+        '''
+        Gets current-voltage conversion of external voltage source used for voltage bias (in V/A)
+        
+        Input:
+            None
+        Output:
+            val (float)
+        '''
+        return self._dVdA
+    
+    def set_Vdiv(self, val=1):
+        '''
+        Sets voltage divider factor of external measurement setup to <val>
+        
+        Input:
+            val (float): 1 (default)
+        Output:
+            None
+        '''
+        self._Vdiv = val
+
+    def get_Vdiv(self):
+        '''
+        Gets voltage divider factor of external measurement setup
+        
+        Input:
+            None
+        Output:
+            val (float)
+        '''
+        return self._Vdiv
 
     def set_sweep_mode(self, mode=0, **kwargs):
         '''
@@ -1132,7 +1152,7 @@ class Yokogawa(Instrument):
                     I_values = numpy.fromstring(string=self._ask('trac:chan{:d}:data:read? sl'.format(self.channel_bias)), dtype=float, sep=',')*self._dAdV
                     V_values = numpy.fromstring(string=self._ask('trac:chan{:d}:data:read? ml'.format(self.channel_sense)), dtype=float, sep=',')/self._amp
                 elif self._pseudo_bias_mode == 1:  # voltage bias
-                    V_values = numpy.fromstring(string=self._ask('trac:chan{:d}:data:read? sl'.format(self.channel_bias)), dtype=float, sep=',')*self._amp
+                    V_values = numpy.fromstring(string=self._ask('trac:chan{:d}:data:read? sl'.format(self.channel_bias)), dtype=float, sep=',')/self._Vdiv
                     I_values = numpy.fromstring(string=self._ask('trac:chan{:d}:data:read? ml'.format(self.channel_sense)), dtype=float, sep=',')/self._dVdA
                 return I_values, V_values
             except:
