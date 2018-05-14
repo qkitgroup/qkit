@@ -9,10 +9,12 @@ import qkit
 from qkit.storage.hdf_constants import ds_types, view_types
 import json
 class dataset_view(object):
-
-    """
-    This class describes a view on one or two datasets.        
+    """This class describes a view on one or two datasets.        
     
+    Views do not contain any data but only ds_url information about the datasets
+    that should  be displayed. The attributes 'overlays' and 'xy_i' hold the 
+    information about how many plots are created over one another and which
+    datasets are plotted against each other.
     """
     
     def __init__(self, hdf_file, name, x=None, y=None, error=None, filter = None,
@@ -40,14 +42,20 @@ class dataset_view(object):
 
         
     def add(self,x=None, y=None, error=None, pyfilter = None):
-            if x:
-                self.x_object = str(x.ds_url)
-            self.y_object = str(y.ds_url)
-            self.error_object = None
-            if error:
-                self.error_object = str(error.ds_url)
-            self.filter = pyfilter
-            self._setup_metadata(init = False)
+        """Adds one y vs x overlay plot to the dataset_view object.        
+    
+        Args:
+            x, y, error: hdf_datasets; y over x gets plotted with error being 
+                the y-error data.
+        """
+        if x:
+            self.x_object = str(x.ds_url)
+        self.y_object = str(y.ds_url)
+        self.error_object = None
+        if error:
+            self.error_object = str(error.ds_url)
+        self.filter = pyfilter
+        self._setup_metadata(init = False)
         
     def _setup_metadata(self,init=True):
         ds = self.ds
