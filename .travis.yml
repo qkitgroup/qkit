@@ -3,6 +3,6 @@ python:
   - 2.7
 install:
   - pip install sphinx sphinx_rtd_theme
-script: make html
+script: qkit/doc; make html; cd ../../
 after_success:
   - ./push.sh
