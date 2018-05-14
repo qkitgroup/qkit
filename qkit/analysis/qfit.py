@@ -4,13 +4,18 @@
 # data reading and fitting
 
 # import and basic usage
-""" ::
+'''
+usage:
+
+.. code-block:: python
+
     from qkit import qfit as qfit
     qf = qfit.QFIT()
     qf.load('data/file.h5', entries=['time', 'phase'])
-    [qf.rotate_IQ_plane()]
+    qf.rotate_IQ_plane()
     qf.fit_exp()
-"""
+
+'''
 # a customized fit funcitoncan be set via directly writing in self.fit_function
 # and providing full initial parameters
 # for further information see doc strings
@@ -47,9 +52,9 @@ except ImportError: pass
 
 def _fill_p0(guesses,p0):
     '''
-    - fill estimated guesses with specified initial values (in p0)
-    - p0 can be a smaller list than len(guesses) and may contain 'None' entries
-      e.g. guesses=[0,0,0,0,0] and p0 = [None,1,2] then the resulting guesses = [0,1,2,0,0]
+    Fill estimated guesses with specified initial values (in p0). 
+    p0 can be a smaller list than len(guesses) and may contain 'None' entries 
+    e.g. guesses=[0,0,0,0,0] and p0 = [None,1,2] then the resulting guesses = [0,1,2,0,0]
     '''
     if guesses is None: return p0
     if p0 is not None:
@@ -57,7 +62,7 @@ def _fill_p0(guesses,p0):
             for i,p in enumerate(p0):
                 if p is not None:
                     guesses[i] = p
-        except Exception as m:
+        except Exception:
             logging.error('List of given initial parameters invalid. Aborting.')
             raise ValueError
     return guesses
@@ -133,6 +138,9 @@ class QFIT(object):
         return a*np.exp(-t/Td)*0.5*(1+d*np.cos(2*np.pi*fs*t+ph))+offs
 
     def __get_parameters(self, fit_function):
+        '''
+        Parameters of known fit functions used for plotting purposes.
+        '''
         return {self.__f_Lorentzian_sqrt: ['f0','k','a','offs'],
             self.__f_Lorentzian: ['f0','k','a','offs'],
             self.__f_damped_sine: ['f','Td','a','offs','ph'],
@@ -145,12 +153,12 @@ class QFIT(object):
 
     def load(self, *args, **kwargs):
         '''
-        Load data from either
+        Load data from either:
          - numpy arrays: must specify keyword arguments 'coordinate' and 'data'
          - data file (h5 or text based file): specify filename
          - recent data file in data_dir: no arguments provided
 
-        h5 entries need to be given with keyword 'entries'
+        h5 entries need to be given with keyword 'entries'.
         '''
 
         if 'coordinate' in kwargs.keys() and 'data' in kwargs.keys():
