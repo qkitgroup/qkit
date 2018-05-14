@@ -28,16 +28,28 @@ if not in_pyqt5:
         sys.exit(-1)
 
 import h5py
-
-
-
 from qkit.gui.qviewkit.main_view import Ui_MainWindow
 
-
 class DatasetsWindow(QMainWindow, Ui_MainWindow):
+    """DatasetsWindow fills the frame of the Ui_MainWindow.
+
+    This class reads the file content and displays i.e. the dataset tree and
+    the dataset attributes and handles the signal slots from the UI buttons
+    i.e. the checking/unchecking of the live option.
+    """
     refresh_signal = pyqtSignal()
     pw_refresh_signal = pyqtSignal()
     def __init__(self,DATA):
+        """Inits DatasetsWindows with a DATA object coming from the main call
+        in main.py.
+
+        The Ui_MainWindow gets set up, the signal slots to the UI buttons get
+        connected and set_cmd_options() evaluates the parsed arguments of the 
+        main call.
+        Once a file is opened the handle functions emmit signals as soon as 
+        some user interaction happens (i.e. a dataset is clicked to be opened)
+        and update_plots() emmits the update signal.
+        """
         self.DATA = DATA
         #QMainWindow.__init__(self,None,Qt.WindowStaysOnTopHint)
         QMainWindow.__init__(self)
@@ -54,14 +66,10 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         self.setup_timer()
         self.set_cmd_options()
         
-        
-        
     def setup_timer(self):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_file)
         self.timer.timeout.connect(self.live_update_onoff)
-
-
             
     def set_cmd_options(self):
         # prepare datasets to display
@@ -98,8 +106,6 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         self.liveCheckBox.clicked.connect(self.live_update_onoff)
         self.pw_refresh_signal.connect(self.update_file)
 
-        
-        
     def closeEvent(self, event):
         widgetList = QApplication.topLevelWidgets()
 
@@ -109,10 +115,8 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
     
     @pyqtSlot()
     def _close_plot_window(self):
-
         self.DATA._remove_plot_widgets()
-        
-        
+                
     def live_update_onoff(self):
         if self.liveCheckBox.isChecked():
 
@@ -127,7 +131,6 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
     def _refresh_time_handler(self,refreshTime):
         self.refreshTime_value = refreshTime*1000 # ms -> s
         
-
     def populate_data_list(self):
         """
         populate_data_list is called regularly withing the refresh cycle to
@@ -259,12 +262,3 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             
     def update_plots(self):
         self.refresh_signal.emit()
-
-        
-            
-if __name__ == "__main__":
-
-    app = QtGui.QApplication(sys.argv)
-    window = Window()
-    window.show()
-    sys.exit(app.exec_())
