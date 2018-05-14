@@ -36,9 +36,12 @@ class Measure_td(object):
         - Check multi-tone readout
     '''
     
-    def __init__(self, sample):
+    def __init__(self, sample,readout = None):
         self.sample = sample
-        self.readout = sample.readout
+        if readout is None:
+            self.readout = sample.readout
+        else:
+            self.readout = readout
         self.mspec = sample.mspec
 
         self.comment = None
