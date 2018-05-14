@@ -752,14 +752,18 @@ class QFIT(object):
     def fit(self,p0=None):
         '''
         Perform fitting and plotting based on the function stored in self.fit_function. 
-        self.fit_function may be set manually with an arbitrary function before executing fit(self): ::
+        self.fit_function may be set manually with an arbitrary function before executing fit(self):
 
-        def f_custom(self, coordinate, p1, p2, p3):
-            return (coordinate+p1)*p2+np.exp(p3)
-        self.fit_function = f_custom
-        self.p0 = [1,2,3]   #must be provided
-        self.fit()
+        .. code-block:: python
+        
+            def f_custom(coordinate, p1, p2, p3):
+                return (coordinate+p1)*p2+np.exp(p3)
+            self.fit_function = f_custom
+            self.p0 = [1,2,3]   #must be provided
+            self.fit()
+            
         '''
+
         #check for unit in frequency
         if np.mean(self.coordinate) > 1.e6:
             self.freq_conversion_factor = 1e-9
