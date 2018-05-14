@@ -3,6 +3,14 @@
 @author: hannes.rotzinger@kit.edu / 2015,2016,2017, 2018
          marco.pfirrmann@kit.edu / 2016, 2017, 2018
 @license: GPL
+
+This file handles the actual display of the data within the respective canvas.
+The functions here are called (case sensitive) by PlotWindow and the
+information is mainly stored in self variables of the PlotWindow class object.
+Possible display options are 1d (for data and views), 2d, table, as well as
+JSON encoded and plain text.
+The _display functions are supported by simple getter functions for metadata
+readout.
 """
 import sys
 in_pyqt5 = False
@@ -26,6 +34,21 @@ import qkit
 from qkit.storage.hdf_constants import ds_types
 
 def _display_1D_view(self,graphicsView):
+    """displays the 1d plot(s) views from the respective datasets.
+
+    The entries in the overlay dict get evaluated and handled according to 
+    their ds-type. Depending on the ds-type the QComboBox handles the index of 
+    the shown data.
+
+    Args:
+        self: Object of the PlotWindow class.
+        graphicsView: Object of pyqtgraph's PlotWidget class.
+
+    Returns:
+        No return variable. The function operates on an object of the 
+        PlotWindow class.
+    """
+    
     graphicsView.clear()    
 
     if not graphicsView.plotItem.legend:
@@ -33,6 +56,8 @@ def _display_1D_view(self,graphicsView):
     
     overlay_num = self.ds.attrs.get("overlays",0)
 
+    ## evaluate the overlay-entries to get the ds_urls of the datasets to be 
+    ## displayed.
     for i in range(overlay_num+1):
         xyurls = self.ds.attrs.get("xy_"+str(i),"")
         ds_urls = [xyurls.split(":")[0], xyurls.split(":")[1]]
@@ -42,10 +67,12 @@ def _display_1D_view(self,graphicsView):
                 ds_urls.append(err_url)
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ds_urls)
 
-            # retrieve the data type and store it in  x_ds_type, y_ds_type
+            ## retrieve the data type and store it in  x_ds_type, y_ds_type
             x_ds_type = dss[0].attrs.get('ds_type',ds_types['coordinate'])
             y_ds_type = dss[1].attrs.get('ds_type',ds_types['coordinate'])
             
+            ## If there are more than one dataset we need to check the dimensions
+            ## first, the "lower" dimensional ds is the limiting factor.
             if x_ds_type == ds_types['coordinate'] or x_ds_type == ds_types['vector']:
                 if y_ds_type == ds_types['vector'] or y_ds_type == ds_types['coordinate']:
                     self.VTraceXSelector.setEnabled(False)
@@ -83,7 +110,8 @@ def _display_1D_view(self,graphicsView):
                     if err_url:
                         err_data = dss[2][()][self.VTraceXNum,self.VTraceYNum,:]
                 
-            ## This is in our case used so far only for IQ plots. The functionality derives from this application.
+            ## This is in our case used so far only for IQ plots. The 
+            ## functionality derives from this application.
             elif x_ds_type == ds_types['matrix']:
                 self.VTraceXSelector.setEnabled(True)
                 range_max = np.minimum(dss[0].shape[0],dss[1].shape[0])
@@ -110,6 +138,7 @@ def _display_1D_view(self,graphicsView):
             else:
                 return
             
+            ## Any data manipulation (dB <-> lin scale, etc) is done here
             y_data, units[1] = _do_data_manipulation(y_data, units[1], ds_types['vector'], self.manipulation, self.manipulations)
 
             graphicsView.setLabel('left', names[1], units=units[1])
@@ -167,11 +196,21 @@ def _display_1D_view(self,graphicsView):
     self.proxy = pg.SignalProxy(plVi.scene().sigMouseMoved, rateLimit=15, slot=mouseMoved)
 
 def _display_1D_data(self,graphicsView):
-    """
-    This is the most basic way to display data. It plots the values in the dataset against the hightes
-    coordinate, ie a VNA trace or the latest IV curve (data vs bias).
-    For getting the correct values on the x-axis and the labeling the different types of dataset are
-    handled individually.
+    """displays 1d data from the respective dataset.
+
+    This is the most basic way to display data. It plots the values in the 
+    dataset against the highest coordinate, ie a VNA trace or the latest IV 
+    curve (data vs bias).
+    Depending on the ds-type, the QComboBox handles the index of the shown 
+    data.
+    
+    Args:
+        self: Object of the PlotWindow class.
+        graphicsView: Object of pyqtgraph's PlotWidget class.
+
+    Returns:
+        No return variable. The function operates on an object of the 
+        PlotWindow class.
     """
     if self.ds_type == ds_types['vector'] or self.ds_type == ds_types['coordinate'] or (self.ds_type == -1 and len(self.ds.shape) == 1): #last expresson is for old hdf-files
         dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url'])
@@ -243,6 +282,7 @@ def _display_1D_data(self,graphicsView):
         x_data =dss[0][()][:dss[1].shape[-1]] #x_data gets truncated to y_data shape if neccessary
         y_data = dss[1][()][self.TraceXNum,self.TraceYNum,:]
     
+    ## Any data manipulation (dB <-> lin scale, etc) is done here
     y_data, units[1] = _do_data_manipulation(y_data, units[1], self.ds_type, self.manipulation, self.manipulations)
     
     graphicsView.setLabel('left', names[1], units=units[1])
@@ -284,14 +324,27 @@ def _display_1D_data(self,graphicsView):
     self.proxy = pg.SignalProxy(plVi.scene().sigMouseMoved, rateLimit=15, slot=mouseMoved)
 
 def _display_2D_data(self,graphicsView):
-    """
-    The 2d color plot gets treated similar: data and labels are looked up with respect to the dataset type
-    and the PlotType for ds-boxes.
-    Here the only relevant information is the data to be plotted (a 2d matrix of values) and the x- and 
-    y-axis. From them the specific "slice" of data is selected and the lable infos are read out. The exact data
-    in the datasets on the x- and y-axis are not needed. The underlying pyqtgraph fct works with a position 
-    (x0, y0) and a scale (dx, dy) for creating the axis tics and tic lables. This means it is not possible
-    to display any non-linear scaled axis data.
+    """displays a 2d matrix of data color coded.
+
+    The 2d color plot gets treated similar: data and labels are looked up with 
+    respect to the dataset type and the PlotType for ds-boxes.
+    Here the only relevant information is the data to be plotted (a 2d matrix 
+    of values) and the x- and y-axis. From them the specific "slice" of data is
+    selected and the lable infos are read out. The exact data in the datasets 
+    on the x- and y-axis are not needed. The underlying pyqtgraph fct works 
+    with a position (x0, y0) and a scale (dx, dy) for creating the axis tics 
+    and tic lables. This means it is not possible to display any non-linear 
+    scaled axis data.
+    Depending on the ds-type, the QComboBox handles the index of the shown 
+    data.
+    
+    Args:
+        self: Object of the PlotWindow class.
+        graphicsView: Modified object of pyqtgraph's ImageView class.
+
+    Returns:
+        No return variable. The function operates on an object of the 
+        PlotWindow class.
     """
 
     if self.ds_type == ds_types['matrix']:
@@ -414,7 +467,21 @@ def _display_2D_data(self,graphicsView):
     self.proxy = pg.SignalProxy(imVi.scene().sigMouseMoved, rateLimit=15, slot=mouseMoved)
 
 def _display_table(self,graphicsView):
-    #load the dataset:
+    """displays the data values in a table.
+
+    This function shows a table with the numerical values of the dataset with
+    the shape depending on the ds-type.
+    
+    Args:
+        self: Object of the PlotWindow class.
+        graphicsView: Object of pyqtgraph's TableWidget class.
+
+    Returns:
+        No return variable. The function operates on an object of the 
+        PlotWindow class.
+    """
+    ## ds-type "box" is not (yet?) implemented here. This may be done in the 
+    ## future.
     data = np.array(self.ds)
     if self.ds_type == ds_types['matrix']:
         data = data.transpose()
@@ -431,10 +498,25 @@ def _display_table(self,graphicsView):
     graphicsView.setData(data)
     
 def _display_text(self,graphicsView):
+    """displays the data (=String) in the dataset.
+
+    This function mainly handles our JSON encoded entries in the settings 
+    datasets. The JSON dict is read out and displayed with indentations to be
+    nicely readable. If the input string is not JSON encodable it is displayed
+    by the _display_string() fcn as it is.
+    
+    Args:
+        self: Object of the PlotWindow class.
+        graphicsView: Object of PyQt's QPlainTextEdit class.
+
+    Returns:
+        No return variable. The function operates on an object of the 
+        PlotWindow class.
+    """
     try:
         json_dict = json.loads(self.ds.value[0])
     except ValueError:
-        txt = _display_string(graphicsView, self.ds)
+        txt = _display_string(self.ds)
     else:
         sample = json_dict.pop('sample')
         instruments = json_dict.pop('instruments')
@@ -458,7 +540,15 @@ def _display_text(self,graphicsView):
                 txt = txt[:-3]
     graphicsView.insertPlainText(txt.rstrip())
 
-def _display_string(graphicsView, ds):
+def _display_string(ds):
+    """Reads the sting in dataset ds and returns a formatted string.
+
+    Args:
+        ds: hdf_dataset.
+
+    Returns:
+        Formatted string.
+    """
     data =np.array(ds)
     txt = ""
     for d in data: 
@@ -467,23 +557,51 @@ def _display_string(graphicsView, ds):
 
 """ A few handy methods for label and scale """
 def _get_ds_url(ds,url):
-    """
-    If 'url' is already a absolute url in the h5 file it gets returned.
+    """Gets the absolute ds_url.
+
+    If 'url' is already a absolute url in the h5 file it gets returned 
+    unchanged.
     Otherwise the absolute url in read out of the ds-metadata.
+    
+    Args:
+        ds: hdf_dataset.
+        url: string of absolute or relative ds_url
+
+    Returns:
+        String of the absolute ds_url.
     """
+
     if _get_ds(ds, url): 
         return url
     else:
         return ds.attrs.get(url,'_none_')
        
 def _get_ds(ds,ds_url):
+    """Returns the dataset associated with the given ds_url in the same file as
+    the given dataset ds.
+    
+    Args:
+        ds: hdf_dataset.
+        ds_url: absolute ds_url
+
+    Returns:
+        Object of hdf_dataset class.
+    """
     try:
         return ds.file[ds_url]
     except:
         return None
     
 def _get_axis_scale(ds):
-    # assumed that a axis is one dimensional:
+    """Returns the scale of a coordinate, x0 and dx at an assumed linear 
+    scaling.
+    
+    Args:
+        ds: hdf_dataset.
+
+    Returns:
+        Tuple with of axis origin and delta distance.
+    """
     try:
         x0 = ds[0]
         dx = ds[1]-ds[0]
@@ -492,13 +610,44 @@ def _get_axis_scale(ds):
         return (0,1)
 
 def _get_unit(ds):
+    """Returns the unit of a dataset.
+    
+    Args:
+        ds: hdf_dataset.
+
+    Returns:
+        String with unit.
+    """
     return ds.attrs.get('unit','_none_')
 
 def _get_name(ds):
+    """Returns the name of a dataset.
+    
+    Args:
+        ds: hdf_dataset.
+
+    Returns:
+        String with name.
+    """
     return ds.attrs.get('name','_none_')
         
 def _get_all_ds_names_units_scales(ds,ds_urls= []):
-    """ method to unify the way labels, units, and scales are defined """
+    """Reads and returns all the relevant information of the given datasets.
+    
+    This function gathers all the needed metadata to correctly display the
+    dataset given in ds. The metadata of the datasets associated with the given 
+    urls are read out (data, name, unit, and scale). This information is used
+    by the _display_...() fcts to correcly label and scale the plots. The order
+    in the input- and output-list is maintained.
+    
+    Args:
+        ds: hdf_dataset.
+        ds_url: List of urls to be read. 
+
+    Returns:
+        Multiple lists containing the data/metadata 'dataset', 'name', 'unit',
+        and 'scale' of the input urls.
+    """    
     dss = []
     
     for ds_url in ds_urls:
@@ -519,6 +668,26 @@ def _get_all_ds_names_units_scales(ds,ds_urls= []):
 """ Unify the data manipulation to share code """
 
 def _do_data_manipulation(data, unit, ds_type, manipulation, manipulations):
+    """Data manipulation for display gets done here.
+    
+    This function gathers all the needed metadata to correctly display the
+    dataset given in ds. The metadata of the datasets associated with the given 
+    urls are read out (data, name, unit, and scale). This information is used
+    by the _display_...() fcts to correcly label and scale the plots. The order
+    in the input- and output-list is maintained.
+    
+    Args:
+        data: Numpy array of the to be displayed / to be manipulated data.
+        ds_type: Dataset type for information about the dimension.
+        manipulation: Integer, power of 2 number indicating the manipulation to
+            be performed.
+        manipulations: Lookup dict, mapping a manipulation to a power of 2.
+
+    Returns:
+        Tuple of a numpy array containing the manipulated data with the same
+        dimension as the input array and a string of the data unit after the 
+        manipulation.
+    """    
     # set the y data  to the decibel scale 
     if manipulation & manipulations['dB']:
         data = 20 * np.log10(data)
