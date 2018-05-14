@@ -48,7 +48,7 @@ class transport(object):
     '''
     
     def __init__(self, IV_Device, exp_name = '', sample = None):
-        
+        ### TODO: channels (probably as kwargs??)
         self.IVD = IV_Device
         self.exp_name = exp_name
         self._sample = sample
@@ -266,7 +266,7 @@ class transport(object):
         at this point all measurement parameters are known and put in the output file
         '''
         print ('filename '+self._file_name)
-        self._data_file                      = hdf.Data(name=self._file_name, mode='a')
+        self._data_file                      = hdf.Data(name=self._file_name)
         self._measurement_object.uuid        = self._data_file._uuid
         self._measurement_object.hdf_relpath = self._data_file._relpath
         self._measurement_object.instruments = qt.instruments.get_instruments()
@@ -276,7 +276,8 @@ class transport(object):
         self._mo.append(self._measurement_object.get_JSON())
 
         # write logfile and instrument settings
-        #self._write_settings_dataset()
+        self._write_settings_dataset()
+        ### FIXME: what is log_file???
         #self._log = waf.open_log_file(self._data_file.get_filepath())
         
         self._data_bias = []
@@ -332,10 +333,10 @@ class transport(object):
 #                for i in range(1, self.sweep.get_nos()):
 #                    Fraunhofer.add(x=self._data_x, y=self._data_Ic[i])
                 
-            #if self.log_function != None:   #use logging
-            #    self._log_value = []
-            #    for i in range(len(self.log_function)):
-            #        self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x=self._data_x, unit = self.log_unit[i], dtype=self.log_dtype[i]))
+            if self.log_function != None:   #use logging
+                self._log_value = []
+                for i in range(len(self.log_function)):
+                    self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x=self._data_x, unit = self.log_unit[i], dtype=self.log_dtype[i]))
                 
         if self._scan_3D:
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit = self.x_unit)
@@ -346,7 +347,7 @@ class transport(object):
             ## add data variables
             self.sweep.create_iterator()
             for i in range(self.sweep.get_nos()):
-                self._data_bias.append(self._data_file.add_coordinate('{:s}_b_{!s}'.format(self._IV_modes[self._bias], i), unit = 'A'))
+                self._data_bias.append(self._data_file.add_coordinate('{:s}_b_{!s}'.format(self._IV_modes[self._bias], i), unit = self._IV_units[self._bias]))        
                 self._data_bias[i].add(self.get_bias_values(sweep=self.sweep.get_sweep()))
                 self._data_I.append(self._data_file.add_value_box('I_{!s}'.format(i), x=self._data_x, y=self._data_y, z=self._data_bias[i], unit = 'A', save_timestamp = False))
                 self._data_V.append(self._data_file.add_value_box('V_{!s}'.format(i), x=self._data_x, y=self._data_y, z=self._data_bias[i], unit = 'V', save_timestamp = False))
@@ -357,11 +358,11 @@ class transport(object):
             for i in range(1, self.sweep.get_nos()):
                 IV.add(x=self._data_V[i],y=self._data_I[i])
                 if self._dVdI: dVdI.add(x=eval('self._data_{:s}'.format(self._IV_modes[self._bias]))[i], y=self._data_dVdI[i])
-#            
-#            if self.log_function != None:   #use logging
-#                self._log_value = []
-#                for i in range(len(self.log_function)):
-#                    self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x=self._data_x, unit = self.log_unit[i], dtype=self.log_dtype[i]))
+            
+            if self.log_function != None:   #use logging
+                self._log_value = []
+                for i in range(len(self.log_function)):
+                    self._log_value.append(self._data_file.add_value_vector(self.log_name[i], x=self._data_x, unit = self.log_unit[i], dtype=self.log_dtype[i]))
                     
         if self.comment:
             self._data_file.add_comment(self.comment)
@@ -420,7 +421,7 @@ class transport(object):
         
         '''opens qviewkit to plot measurement, sense values are opened by default'''
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['{:s}_{:d}'.format(self._IV_modes[not(self._bias)].lower(), i) for i in range(self.sweep.get_nos())])
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath())#, datasets=['{:s}_{:d}'.format(self._IV_modes[not(self._bias)].lower(), i) for i in range(self.sweep.get_nos())])
         print('recording trace...')
         sys.stdout.flush()
         
@@ -484,7 +485,7 @@ class transport(object):
 
         '''opens qviewkit to plot measurement, sense values are opened by default'''
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['{:s}_{:d}'.format(self._IV_modes[not(self._bias)].lower(), i) for i in range(self.sweep.get_nos())])
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath())#, datasets=['{:s}_{:d}'.format(self._IV_modes[not(self._bias)].lower(), i) for i in range(self.sweep.get_nos())])
         
         self._measure()
 
@@ -522,7 +523,7 @@ class transport(object):
         self._prepare_measurement_file()
         '''opens qviewkit to plot measurement, sense values are opened by default'''
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['{:s}_{:d}'.format(self._IV_modes[not(self._bias)].lower(), i) for i in range(self.sweep.get_nos())])
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath())#, datasets=['{:s}_{:d}'.format(self._IV_modes[not(self._bias)].lower(), i) for i in range(self.sweep.get_nos())])
         
         self._measure()
     
@@ -543,10 +544,10 @@ class transport(object):
                 self.x_set_obj(x)
                 sleep(self.tdx)
                 
-                #if self.log_function != None:
-                #    for i,f in enumerate(self.log_function):
-                #        self._log_value[i].append(float(f()))
-
+                if self.log_function != None:
+                    for i,f in enumerate(self.log_function):
+                        self._log_value[i].append(float(f()))
+                
                 if self._scan_3D:
                     for y in self.y_vec:
                         '''
