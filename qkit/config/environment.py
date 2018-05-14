@@ -84,6 +84,11 @@ cfg['file_log_level'] =  'INFO' # one of ['DEBUG', 'INFO', 'WARNING', 'ERROR', '
 cfg['stdout_log_level'] = 'WARNING'
 
 ##
+## check via git if updates are available
+##
+#cfg['check_for_updates'] = False
+
+##
 ## QT related options
 ## 
 # we don't use qtlab anymore
