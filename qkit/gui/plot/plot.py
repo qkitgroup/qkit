@@ -14,15 +14,26 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 # this is for live-plots
 def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
-    """
-    opens a .h5-file with qviewkit in a python subprocess to be independent from other processes i.e. measurement.
+    """Opens a .h5-file with qviewkit in a python subprocess.
+    
+    This is the outermost function to open a h5 file with qviewkit.
+    To be independent from other processes i.e. running measurement the viewer
+    is opend in a python subprocess. The function opens a shell and executes
+    the qviewkit main routine with the given arguments.
 
-    input:
-    h5_filepath (string)
-    datasets (array, optional): dataset urls to be opened at start of qviewkit, default: []
-    refresh (int, optional): refreshing time in seconds for live view, default: 2
-    live (bool, optional): checks constantly the file for changes, default: True
-    echo (bool, optional): echo settings for debugging, default: False
+    Args:
+        h5_filepath: String, absolute filepath.
+        datasets: Optional arrays of dataset urls to be opened at start of 
+            qviewkit, default: []
+        refresh: Optional integer refreshing time in seconds for live view, 
+            default: 2
+        live: Boolean, optional for constant checks for updates. 
+            default: True
+        echo: Boolean, optional. Echo settings for debugging, default: False
+    Return:
+        Popen call with the correct commend that opens a shell and executes
+        the main qviewkit routine with a given filename. If given, some
+        datasets open automaticall.
     """
     # the plot engine for live plots is set in the environement
     plot_viewer = qkit.cfg.get('plot_engine', None)
@@ -59,17 +70,30 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
 
 # this is for saving plots
 def save_plots(h5_filepath, comment='', save_pdf=False):
-    """
-    Save plots is a helper function to extract and save image plots from hdf-files
-
+    """Saves plots of all datasets with default settings. 
+    
+    Args:
+        h5_filepath: String, absolute filepath.
+        comment: Optional comment for the plots to be added to the filenames.
+            default : ''
+        save_pdf: Optional boolean setting for the output file type.
+            default: False
     """
     h5plot(h5_filepath, comment=comment, save_pdf=save_pdf)
 
 
 class h5plot(object):
+    """h5plot class plots and saves all dataset in the h5 file.
+
+    We recursively walk through the entry tree of datasets, check for their
+    ds_type and plot the data in a default setting with matplotlib. The plots 
+    are then saved in an 'image' folder beside the h5 file. 
+    """
 
     def __init__(self,h5_filepath, comment='', save_pdf=False):
-
+        """Inits h5plot with a h5_filepath (string, absolute path), optional 
+        comment string, and optional save_pdf boolean.
+        """
         self.comment = comment
         self.save_pdf = save_pdf
         self.path = h5_filepath
@@ -95,7 +119,7 @@ class h5plot(object):
                     self.key='/entry/'+pentry+"/"+centry
                     self.ds = self.hf[self.key]
                     if self.ds.attrs.get('save_plot', True):
-                        self.plt()
+                        self.plt() # this is the plot function
                 except Exception as e:
                     print("Exception in qkit/gui/plot/plot.py while plotting")
                     print(self.key)
@@ -105,6 +129,14 @@ class h5plot(object):
         print('Plots saved in ' + self.image_dir)
 
     def plt(self):
+        """Creates the matplotlib figure, checks for some metadata and calls 
+        the plotting with respect to the ds_type of the dataset.
+        
+        Args:
+            self: Object of the h5plot class.
+        Returns:
+            No return variable. The function operates on the given object.
+        """
         logging.info(" -> plotting dataset: "+str(self.ds.attrs.get('name')))
 
         self.ds_type = self.ds.attrs.get('ds_type', '')
@@ -133,6 +165,8 @@ class h5plot(object):
         else:
             return
 
+        ## Some labeling depending on the ds_type. The label variables are set
+        ## in the respective plt_xxx() fcts.
         self.ax.set_xlabel(self.x_label)
         self.ax.set_ylabel(self.y_label)
         self.ax.xaxis.label.set_fontsize(20)
@@ -159,10 +193,14 @@ class h5plot(object):
         """
 
     def plt_vector(self):
-        """
-        dataset is only one-dimensional
-        print data vs. x-coordinate
-        """
+        """Plot one-dimensional dataset. Print data vs. x-coordinate.
+        
+        Args:
+            self: Object of the h5plot class.
+        Returns:
+            No return variable. The function operates on the self- matplotlib 
+            objects.
+        """        
         self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_'))
         self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
         self.data_y = np.array(self.ds)
@@ -183,10 +221,15 @@ class h5plot(object):
             self.ax.plot(0,self.data_y, plt_style)
 
     def plt_matrix(self):
-        """
-        dataset is two-dimensional
-        print data color-coded y-coordinate vs. x-coordinate
-        """
+        """Plot two-dimensional dataset. print data color-coded y-coordinate 
+        vs. x-coordinate.
+        
+        Args:
+            self: Object of the h5plot class.
+        Returns:
+            No return variable. The function operates on the self- matplotlib 
+            objects.
+        """  
 
         self.x_ds = self.hf[self.x_ds_url]
         self.y_ds = self.hf[self.y_ds_url]
@@ -222,10 +265,15 @@ class h5plot(object):
             i.set_fontsize(16)
 
     def plt_box(self):
-        """
-        dataset is two-dimensional
-        print data color-coded y-coordinate vs. x-coordinate
-        """
+        """Plot two-dimensional dataset. print data color-coded y-coordinate 
+        vs. x-coordinate.
+        
+        Args:
+            self: Object of the h5plot class.
+        Returns:
+            No return variable. The function operates on the self- matplotlib 
+            objects.
+        """  
 
         self.x_ds = self.hf[self.x_ds_url]
         self.y_ds = self.hf[self.y_ds_url]
@@ -269,12 +317,21 @@ class h5plot(object):
         # not (yet?) implemented. we'll see ...
         pass
     def plt_view(self):
-        """
+        """Plot views with possible multi-level overlays.
+        
         First shot at (automatically) plotting views.
-        Since this structure is rather flexible, there is no universal approach for meaningful plots.
-        First demand was IV curves from the transport measurements.
-        The code is a recycled version of the _display_1D_view() fct of qkit.gui.qviewkit.PlotWindow_lib
-        """
+        Since this structure is rather flexible, there is no universal approach
+        for meaningful plots. First demand was IV curves from the transport 
+        measurements.
+        The code is a recycled version of the _display_1D_view() fct of 
+        qkit.gui.qviewkit.PlotWindow_lib
+        
+        Args:
+            self: Object of the h5plot class.
+        Returns:
+            No return variable. The function operates on the self- matplotlib 
+            objects.
+        """  
         # views are organized in overlays, the number of x vs y plot in one figure (i.e. data and fit)
         overlay_num = self.ds.attrs.get("overlays",0)
         overlay_urls = []
@@ -378,6 +435,7 @@ class h5plot(object):
             
 
     def _get_vrange(self,data,percent):
+        
         '''
         This function calculates ranges for the colorbar to get rid of spikes in the data.
         If the data is evenly distributed, this should not change anything in your colorbar.
