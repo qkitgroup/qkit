@@ -10,7 +10,6 @@ file info database
 ==================
 
 
-
 lets introduce a set of 
 fid configuration settings (defaults)
 =====================================
@@ -21,11 +20,12 @@ fid_init_viewer  = True
 
 databases
 =========
+
 h5_db
 ----------
 This is the main database. It holds an index of UUID <-> h5-file path.
 usage: 
-h5_db.get("UUID") or fid.get("UUId") returns the h5_file path
+qkit.h5_db.get("UUID") or qkit.fid.get("UUID") returns the h5_file path
 
 h5_info_db
 ----------
@@ -39,7 +39,7 @@ Hold an UUID index with the settings for a h5_file
 
 
 basic usage
-============
+===========
 
 this is done automatically on qkit startup: (in n.op.)
 -------------------------------------------
@@ -77,7 +77,7 @@ import time
 
 try:
     import h5py
-    import qkit.storage.store as st
+    #import qkit.storage.store as st
     m_h5py = True
 except ImportError as e:
     logging.error("qkit.fid:%s"%e)
@@ -141,7 +141,7 @@ class fid(object):
         while uuid != '':
             f = self._alphabet.find(uuid[0])
             if f == -1:
-                raise ValueError("store_db.get_time: Can not decode this: {}<--".format(uuid[::-1]))
+                raise ValueError("fid.get_time: Can not decode this: {}<--".format(uuid[::-1]))
             output += f * multiplier
             multiplier *= la
             uuid = uuid[1:]
@@ -255,7 +255,7 @@ class fid(object):
             if m_h5py and qkit.cfg.get('fid_scan_hdf', False):
                 h5_info_db = {}
                 try:
-                    h5f=h5py.File(path)
+                    h5f=h5py.File(path,'r')
                     comment = h5f['/entry/data0'].attrs.get('comment', '')     
                     try:
                         fit_comment = h5f['/entry/analysis0/dr_values'].attrs.get('comment',"").split(', ')
@@ -280,8 +280,8 @@ class fid(object):
                 
                     h5_info_db = {'time': tm,   'datetime': dt, 'name': name, 'user': user, 'comment': comment,
                                'run': run, 'fit_freq': fit_data_f, 'fit_time': fit_data_t, 'rating': rating}
-                except Exception as e:
-                    logging.error("store_db %s:%s"%(path,e))
+                except IOError as e:
+                    logging.error("fid %s:%s"%(path,e))
             else:
                 h5_info_db = {'time': tm, 'datetime': dt, 'run':run, 'name': name, 'user': user}
 
@@ -354,7 +354,7 @@ class fid(object):
             uid = self.df.index
         for i in uid:
             try:
-                data = pd.read_csv(qkit.store_db[i].replace('.h5', '.set'), sep=' ', header=0, names=["Settings", "Values"])
+                data = pd.read_csv(self.h5_db[i].replace('.h5', '.set'), sep=' ', header=0, names=["Settings", "Values"])
                 # only looking at the right instrument
                 all_ins_index = data.index[data['Settings']=='Instrument:']
                 index_start = data.index[data['Values']==device][0]
@@ -458,6 +458,8 @@ class fid(object):
         :param rating: a simple value to rate your measurement
         :type int, float
         """
+        """
+        # Fixme: no qkit.store_db anymore
         try:
             h5tmp = st.Data(qkit.store_db.h5_db[uid])
         except Exception as e:    
@@ -465,6 +467,8 @@ class fid(object):
         else:
             h5tmp.hf.agrp.attrs['rating'] = rating
             h5tmp.close()
+        """
+        pass
 
     def add_ratings_column(self, uid=None):
         """
@@ -472,7 +476,8 @@ class fid(object):
         :param uid: List of uids. If None (default) all are used.
         :return: None
         """
-        #self._update_database()
+        #Fixme: not using qkit.store_db,etc.
+        """
         if 'rating' in self.df.columns:  # avoiding more than one rating column after new ratings have been added
             self.remove_column('rating')
         dfrating = pd.DataFrame()
@@ -485,3 +490,5 @@ class fid(object):
             dftemp = pd.DataFrame({'rating': rating}, index=[i])
             dfrating = pd.concat([dfrating, dftemp])
         self.df = pd.concat([self.df, dfrating], axis=1)
+        """
+        pass

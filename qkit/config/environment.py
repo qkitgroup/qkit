@@ -47,8 +47,12 @@ cfg['datafolder_structure'] = 1
 ##
 ## Create a database of all measurement-.h5 files with entries {uuid:abspath}
 ##
-#cfg['load_file_service'] = True
-#cfg['file_service_scan_hdf'] = False
+## load the file info database (fid):
+#fid_scan_datadir = True
+## check also the content of hdf files (slow) ?
+#fid_scan_hdf     = False
+## should the viewer object be created on startup (slow, needs pandas) ?
+#fid_init_viewer  = True
 
 ##
 ## Load (py) visa (Virtual Instrument Software Architecture) lib 
