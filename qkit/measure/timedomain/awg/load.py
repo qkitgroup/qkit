@@ -27,19 +27,16 @@ import matplotlib.pyplot as plt
 import gc
 
 
-def load_sequence(ps, sample = None, iq = None, awg = None, chpair = 1, reset = True, drive = 'c:', path = '\\waveforms', markerseq1 = None, markerseq2 = None, show_progress_bar = True):
+def load_sequence(sequences, times, sample = None, iq = None, awg = None, chpair = 1, reset = True, drive = 'c:', path = '\\waveforms', show_progress_bar = True):
     """
         set awg to sequence mode and push a number of waveforms into the sequencer
         
         Inputs:        
-            ps      - List of pulse sequence objects, to be loaded into the awg
-            sample  - sample object
-            iq      - Reference to iq mixer instrument. If None (default), the wfm will not be changed. Otherwise, the wfm will be converted via iq.convert()
-            reset   - Reset AWG.
-        
-        markerseq1  - analog to pulse sequence for marker channel 1. Set marker to None when not used.
-                      In case of the Tabor AWG, marker1 is used to trigger readout awg (Tek). Make sure you know what you're doing!
-        markerseq2  - analog to pulse sequence for marker channel 2. set marker to None when used
+            sequences - List of pulse sequence objects, to be loaded into the awg
+            times     - List of pulse sequence objects, to be loaded into the awg
+            sample    - sample object
+            iq        - Reference to iq mixer instrument. If None (default), the wfm will not be changed. Otherwise, the wfm will be converted via iq.convert()
+            reset     - Reset AWG.
         
         for the 6GS/s AWG, the waveform length must be divisible by 64
         for the 1.2GS/s AWG, it must be divisible by 4
@@ -48,7 +45,7 @@ def load_sequence(ps, sample = None, iq = None, awg = None, chpair = 1, reset = 
     """
     if sample is None:
         print("No sample object given.")
-    ps = np.atleast_1d(ps)
+    sequences = np.atleast_1d(sequences)
     if awg is None:
         awg = sample.awg
     if hasattr(sample, "clock"):
@@ -60,10 +57,10 @@ def load_sequence(ps, sample = None, iq = None, awg = None, chpair = 1, reset = 
         if "Tektronix" in awg.get_type():
             awg.set_runmode('SEQ')
             awg.set_seq_length(0)   #clear sequence, necessary?
-            awg.set_seq_length(len(ps))
+            awg.set_seq_length(len(sequences))
         elif "Tabor" in awg.get_type():
             awg.set('p%i_runmode'%chpair,'SEQ')
-            awg.define_sequence(chpair*2-1, len(ps)) #AS: Maybe it is worth creating a real reset/preset function in the Tabor treiber?
+            awg.define_sequence(chpair*2-1, len(sequences)) #AS: Maybe it is worth creating a real reset/preset function in the Tabor treiber?
         
         #amplitude settings of analog output
         awg.set_ch1_offset(0)
@@ -75,10 +72,10 @@ def load_sequence(ps, sample = None, iq = None, awg = None, chpair = 1, reset = 
     wfm_fn = [None,None]
     wfm_pn = [None,None]
     if show_progress_bar: 
-        p = Progress_Bar(len(ps)*(2 if "Tektronix" in awg.get_type() else 1),'Load AWG')   #init progress bar
+        p = Progress_Bar(len(sequences)*(2 if "Tektronix" in awg.get_type() else 1),'Load AWG')   #init progress bar
     
     #update all channels and times
-    for i, seq in enumerate(ps):   #run through all sequences
+    for i, seq in enumerate(sequences):   #run through all sequences
         wfm_samples = seq.get_waveform(clock)   #generate waveform
         
         #Ajust waveform lengths to be divisible by 16
@@ -144,7 +141,7 @@ def load_sequence(ps, sample = None, iq = None, awg = None, chpair = 1, reset = 
         # enable channels
         awg.set_ch1_status(True)
         awg.set_ch2_status(True)
-        awg.set_seq_goto(len(ps), 1)
+        awg.set_seq_goto(len(sequences), 1)
         awg.run()
         awg.wait(10, False)
     elif reset and "Tabor" in awg.get_type():
@@ -152,5 +149,4 @@ def load_sequence(ps, sample = None, iq = None, awg = None, chpair = 1, reset = 
         #awg.preset()
         awg.set_ch1_status(True)
         awg.set_ch2_status(True)
-    qt.mend()
     return np.all([awg.get('ch%i_status'%i) for i in [1,2]])
