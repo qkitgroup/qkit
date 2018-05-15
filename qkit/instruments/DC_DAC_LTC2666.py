@@ -1,0 +1,57 @@
+#JB@KIT 01/2018
+'''
+qkit instrument driver for DC DAC LTC2666 (client)
+ +- 5V dc digital to analog converter, 8 (16) channels, 16 bit amplitude resolution
+'''
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
+
+from instrument import Instrument
+import types
+import logging
+
+class DcDac_LTC2666(Instrument):
+    '''
+    Instrument class for DC DAC LTC2666.
+    '''
+    def __init__(self, name, host='ip-address', port=9931, nchannels = 8):
+        '''
+        Initialize qkit parameters and connect to the zerorpc server as a client.
+        '''
+        Instrument.__init__(self, name, tags=['physical'])
+        
+        self.nchannels = nchannels
+        self.add_parameter('dac', type=types.FloatType, flags=Instrument.FLAG_SET, units='V', channels=(1, self.nchannels), channel_prefix='ch%d_', unit = 'V')
+            
+        self.HOST, self.PORT = host, port
+        
+        #initiate connection to zerorpc server
+        logging.debug(__name__ + ': initiating connection to DAC server {:s} on port {:d}'.format(self.HOST, self.PORT))
+        self.c = zerorpc.Client()
+        self.c.connect("tcp://{:s}:{:d}".format(self.HOST, self.PORT))
+
+    def do_set_dac(self,voltage,channel):
+        '''
+        Set dac voltage in range -5V..5V.
+        '''
+        try:
+            self.c.set_voltage(channel, voltage)
+        except RemoteError as detail:
+            logging.error("Remote Error: {:s}".format(detail))
+            
+    def close_connection(self):
+        logging.debug(__name__ + ': closing connection to DAC server {:s} on port {:d}'.format(self.HOST, self.PORT))
+        self.c.close()
