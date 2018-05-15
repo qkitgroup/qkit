@@ -103,6 +103,11 @@ cfg['qtlab'] = False
 ## (by default we try to be compatible for now)
 #cfg['qt_compatible'] = True 
 
+##
+## To avoid huge log files, logfile maintainance is on per default.
+## This keeps only the latest 10 logfiles in your logdir.
+#cfg['maintain_logiles'] = True
+
 #-----------------------------------------------------------
 # below this line, there can be system wide constants like 
 # cfg['ministry'] = 'silly walks'
