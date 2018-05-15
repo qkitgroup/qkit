@@ -56,8 +56,7 @@ try:
     from qkit.config.local import cfg as cfg_local
     cfg.update(cfg_local)
 except ImportError:
-    logging.warning("No local config file found. Basic functionality will still work. Please have a look at the qkit/config/local.py_template")
-
+    pass
 
 # clean up 
 del cfg_local
