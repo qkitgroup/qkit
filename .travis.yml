@@ -3,7 +3,7 @@ python:
   - 2.7
 install:
   - pip install sphinx sphinx_rtd_theme
-  - pip install h5py scipy zmq zerorpc PyQt4 serial RPi 
+  - pip install h5py scipy zmq zerorpc #PyQt4 serial RPi 
 script:
   - pwd
   - PYTHONPATH=$PYTHONPATH:./qkit/
