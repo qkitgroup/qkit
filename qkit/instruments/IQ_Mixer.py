@@ -533,7 +533,6 @@ class IQ_Mixer(Instrument):
         self.do_set_iq_frequency(iq_frequency)
         
         self._sample.iq_frequency = self._validate_iq_setting()
-        self._sample.update_instruments()
         
         self._f_rounded = np.round(self._sideband_frequency,-3) #The FSUP can only resolve 7 digits in frequency, so for Frequencies <10GHz, you can not set frequencies finer than kHz. But as the MW source can, there will be a missmatch if we do not round here.
 
