@@ -1,8 +1,9 @@
-#!/usr/bin/env python
 # DATA class v1.0 written by HR,JB@KIT 2011, 2016
 
-# DATA exchange class, also holds global variables for thread management
-# data class generalized based on the TIP data class
+'''
+DATA exchange class, also holds global variables for thread management. 
+Generalized version based on TIP.
+'''
 
 
 # This program is free software; you can redistribute it and/or modify
@@ -28,10 +29,10 @@ import numpy as np
 from qkit.storage import store as hdf_lib
 from qkit.gui.plot import plot as qviewkit
 
-
-# DATA class, to be instanced with 'config' argument
 class DATA(object):
-
+    '''
+    DATA class. Controls all access to parameter values and stored data.
+    '''
     class LOCALHOST(object):
         def __init__(self,config):
             self.name = config.get('LOCALHOST','name')
@@ -45,12 +46,13 @@ class DATA(object):
             
     class PARAMETER(object):
         def __init__(self,config,p_index,p_attr):
-            #print(p_attr)
+            '''
+            Initialize parameter attributes, mostly taken from the config file.
+            '''
             self.p_index = p_index
-            #self.attribute_name = str(p_attr)
             self.name = config.get(str(p_attr),'name')
             self.interval = config.getfloat(str(p_attr),'interval')
-            self.data_request_object = lambda: 0
+            self.data_request_object = lambda: 0   #this is written by server_main.py
             self.value = 0
             self.timestamp = 0
             self.next_schedule = time.time() + self.interval
@@ -61,6 +63,9 @@ class DATA(object):
             print("Parameter %s loaded."%str(self.name))
             
         def get_all(self):
+            '''
+            Get all parameter attributes.
+            '''
             with Lock():
                 return {
                     "parameter": self.p_index,
@@ -72,6 +77,9 @@ class DATA(object):
                     }
 
         def set_interval(self,interval):
+            '''
+            Setup the scheduling, which corresponds to the value request interval.
+            '''
             interval = float(interval)
             if interval == 0:
                 interval = 120*365*24*3600 #120 years
@@ -87,9 +95,9 @@ class DATA(object):
         
         def get_history(self,range,nchunks=100):
             '''
-            read out h5 file
-            range: history data range
-            nchunks: number of data points to be returned
+            Read out the h5 file.
+            - range: history data range
+            - nchunks: number of data points to be returned
             '''
             
             if self.url_timestamps != None:
@@ -118,6 +126,9 @@ class DATA(object):
                 return [0]
         
         def store_value(self,value):
+            '''
+            Store method, used by the worker.
+            '''
             with Lock():
                 try:
                     self.value = float(value)
@@ -148,8 +159,9 @@ class DATA(object):
         
         def schedule(self):
             '''
-            specifiy whether the parameter is to be updated,
-            typicalled called in each worker iteration
+            Specifiy whether the parameter is to be updated, 
+            typicalled called in each worker iteration. 
+            Returns True if new parameter value needs to be read.
             '''
             if time.time() > self.next_schedule:
                 while time.time() > self.next_schedule:
@@ -163,7 +175,9 @@ class DATA(object):
             return True
     
     def __init__(self,config):
-        
+        '''
+        Reads the cfg file and instanciates all parameters accordingly.
+        '''
         self.wants_abort = False
         self.debug = True
         self.cycle_time = config.getfloat('worker','cycle_time')

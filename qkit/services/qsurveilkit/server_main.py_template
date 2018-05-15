@@ -4,7 +4,19 @@
 # logging/monitoring server main file, version 1.0 written by HR,JB@KIT 2011, 2016
 
 '''
-requires a 'settings.cfg' file in the working directory
+server_main.py template, the main server file for qsurveilkit.
+Requires a 'settings.cfg' file in the same directory.
+
+usage:
+
+.. code-block:: bash
+
+    #start server
+    python server_main.py &
+
+    #start client
+    python cleint_main.py &
+
 '''
 
 # This program is free software; you can redistribute it and/or modify
@@ -23,19 +35,15 @@ requires a 'settings.cfg' file in the working directory
 
 
 import ConfigParser
-import sys#,time
+import sys
 import argparse
 import atexit
-
-#import random
-
-#from threading import Thread
 
 from worker import IO_worker
 from data_class import DATA
 import srv_thread as srv   # server thread to spread information
 
-# --- instrument readout drivers ---
+#Append driver path to system path and load driver.
 sys.path.append('../evaporate/lib')
 from er_MKS_PDR900 import Pressure_Dev
 
@@ -44,6 +52,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Derived from TIP v0.1 (HR@KIT 2011), updated and generalized by HR,JB@KIT 2016")
 
+    #load cfg file
     parser.add_argument('ConfigFile', nargs='?', default='settings.cfg',
                         help='Configuration file name')
     args=parser.parse_args()
@@ -51,6 +60,7 @@ if __name__ == "__main__":
     Conf = ConfigParser.RawConfigParser()
     Conf.read(args.ConfigFile)
     
+    #instanciate DATA object
     DATA = DATA(Conf)
     DATA.config = Conf
     
@@ -63,10 +73,8 @@ if __name__ == "__main__":
     
     atexit.register(DATA.atexit)
     
-    #DATA.pLL.store_value(3)
-    
-    
     try:
+        #start IO worker
         IO = IO_worker(DATA) 
         IO.setDaemon(1)
         IO.start()
@@ -74,7 +82,7 @@ if __name__ == "__main__":
         srv.remote_service_operator(DATA)
         
     except KeyboardInterrupt:
-        print "tip.py: Exiting tip.py"
+        logging.warning("qsurveilkit: Exiting server_main.py")
         DATA.set_wants_abort()
         #dserv.server.shutdown()
         exit()

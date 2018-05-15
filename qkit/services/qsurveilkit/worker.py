@@ -19,13 +19,18 @@ import time
 from threading import Thread 
         
 class IO_worker(Thread):
-    " start a thread and get/set the IO data"
+    '''
+    Worker class which triggers the acquisition of all parameters from the instruments via the server. 
+    Inherits from thread.
+    '''
     def __init__(self,DATA):
         self.DATA = DATA
         Thread.__init__(self)
         
     def run(self):
-        
+        '''
+        Run method of the worker thread.
+        '''
         print('Worker started.')
         while True:
             for p in self.DATA.parameters:
