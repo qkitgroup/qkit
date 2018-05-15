@@ -4,7 +4,7 @@ python:
 install:
   - pip install sphinx sphinx_rtd_theme
   - pip install h5py scipy zmq zerorpc #PyQt4 serial RPi 
-  - pip install ipython
+  - pip install ipython matplotlib RPIO rpyc
 script:
   - pwd
   - PYTHONPATH=$PYTHONPATH:./qkit/
