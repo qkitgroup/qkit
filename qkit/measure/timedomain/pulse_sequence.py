@@ -41,12 +41,12 @@ class Pulse(object):
 
     def __init__(self, length, shape=ShapeLib.rect, name = None, amplitude=1, frequency_shift=0):
         """
-        Input:
-            length          - length of the pulse. This can also be a (lambda) function for variable pulse lengths.
-            shape           - pulse shape (i.e. rect, gauss, ...)
-            name            - name you want to give your pulse (i.e. pi-pulse, ...)
-            amplitude       - relative amplitude of your pulse
-            frequency_shift - frequency shift of your pulse (currently not implemented)
+        Inits a pulse with:
+            length:          length of the pulse. This can also be a (lambda) function for variable pulse lengths.
+            shape:           pulse shape (i.e. rect, gauss, ...)
+            name:            name you want to give your pulse (i.e. pi-pulse, ...)
+            amplitude:       relative amplitude of your pulse
+            frequency_shift: frequency shift of your pulse (currently not implemented)
         """
         self.length = length  # type: float or string
         self.shape = shape
@@ -65,6 +65,12 @@ class Pulse(object):
     def get_envelope(self, samplerate):
         """
         Returns the envelope of the pulse as array with given time steps.
+        
+        Args:
+            samplerate: samplerate for calculating the envelope
+
+        Returns:
+            envelope of the pulse as numpy array
         """
         timestep = 1.0 / samplerate
         if callable(self.length):
@@ -78,15 +84,15 @@ class PulseSequence(object):
     """
     Class for aranging pulses for a time-domain experiment.
     Sequence objects are callable, returning the sequence envelope for a given time step.
-
-    Important functions:
-        add         - adds a given pulse to the experiment
-        add_wait    - adds a wait time
-        add_readout - adds the readout to the experiment
-        plot        - plots schematic of the sequence
-        get_pulses  - returns list of currently added pulses and their properties.
     Add wait as variable times in the experiment.
-    Add readout to let devices know when readout happens and to synchornize different channels.
+    Add readout to synchornize different channels in more sophisticated experiments.
+
+    Attributes:
+        add:         adds a given pulse to the experiment
+        add_wait:    adds a wait time
+        add_readout: adds the readout to the experiment
+        plot:        plots schematic of the sequence
+        get_pulses:  returns list of currently added pulses and their properties.
     """
     
     def __init__(self, sample = None, samplerate = None):
@@ -110,8 +116,15 @@ class PulseSequence(object):
     def __call__(self, *args):
         """
         Returns the envelope of the whole pulse sequence for the input time.
-        Also returns the index where the readout pulse starts. 
+        Also returns the index where the readout pulse starts.
         If no readout tone is found it is assumed to be at the end of the sequence.
+
+        Args:
+            *args: function arguments for time dependent pulse lengths/wait times
+
+        Returns:
+            waveform:      numpy array of the squence envelope
+            readout_index: index of the readout tone
         """
         readout_index = -1
         if len(args) < self._varnum:
@@ -169,8 +182,11 @@ class PulseSequence(object):
 
     def add(self, pulse, skip = False):
         """
-        Add a pulse object to the sequence.
-        If skip is True the next pulse in the sequence will not wait until this pulse is finished (i.e. they happen at the same time).
+        Append a pulse to the sequence.
+
+        Args:
+            pulse: pulse object
+            skip:  if True the next pulse in the sequence will not wait until this pulse is finished (i.e. they happen at the same time)
         """
         pulse_dict = {}
         if pulse.name in ["readout", "wait"]:
@@ -203,7 +219,10 @@ class PulseSequence(object):
     def add_wait(self, time):
         """
         Add a wait time to the sequence.
-        Using a (lambda) function makes the wait time variable.
+        Use a (lambda) function for variable wait times.
+
+        Args:
+            time: float or function
         """
         pulse_dict = {}
         pulse_dict["name"] = "wait"
@@ -230,7 +249,9 @@ class PulseSequence(object):
     def add_readout(self, skip = False):
         """
         Add a readout pulse to the sequence.
-        If skip is True the next pulse will follow at the same time as the readout.
+
+        Args:
+            skip: If True the next pulse will follow at the same time as the readout.
         """
         pulse_dict = {}
         pulse_dict["name"] = "readout"
@@ -246,7 +267,7 @@ class PulseSequence(object):
     def get_pulses(self):
         """
         Returns a list of all pulses and their properties. 
-        The properties of each pulse are stored in a dictionary, containing its name, shape, length and skip parameter.
+        The properties of each pulse are stored in a dictionary with keys: name, shape, length, skip value
         """
         dict_list = []
         for pulse_dict in self._pulses:
@@ -321,7 +342,13 @@ class PulseSequence(object):
         return
 
     def _pulselength_as_str(self, pulse_length):
-        # Note: currently only works for lambda functions.
+        """
+        Returns the pulse length as string.
+        For variable time pulses this is the function code.
+
+        Args:
+            pulse_length: length of the pulse (float or function)
+        """
         length = None
         if callable(pulse_length):
             fct_code = getsourcelines(pulse_length)[0][0]
