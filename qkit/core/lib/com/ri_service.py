@@ -38,16 +38,32 @@ class QKIT_visible(object):
         "returns the qkit.cfg dict"
         return qkit.cfg
     def get_current(self):
-        return qkit.last[-1]
+        pass
+        #return qkit.last[-1]
     def get_last(self):
-        return qkit.last[-2]
+        pass
+        #return qkit.last[-2]
     def stop_measure(self):
-        return qkit.flow.stop()
+        pass
+        #return qkit.flow.stop()
     def ex(self,func):
         if qkit.cfg.get("ris_debug",False):
             return eval(func)
         else:
             return False
+    
+    def get_instruments(self):
+        return qkit.instruments.get_instrument_names()
+    def get_instrument_param(selfs,instrument,parameter):
+        return qkit.instruments.get(instrument).get(parameter)
+    def get_all_instrument_params(self):
+        return_dict = {}
+        for ins in qt.instruments.get_instruments().values():
+            param_dict = {}
+            for param in ins.get_parameter_names():
+                param_dict.update({param: [ins.get(param, query=False), ins.get_parameter_options(param).get('units', "")]})
+            return_dict.update({ins.get_name(): param_dict})
+        return return_dict
 
 
 class RISThread(object):
