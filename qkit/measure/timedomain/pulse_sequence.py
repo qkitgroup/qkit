@@ -91,9 +91,10 @@ class PulseSequence(object):
     
     def __init__(self, sample = None, samplerate = None):
         """
-        Input:
-            sample     - Sample object
-            samplerate - Samplerate of your device
+        Inits PulseSequence with sample and samplerate:
+            sample:     Sample object
+            samplerate: Samplerate of your device
+                        This should already be specified in your sample object as sample.clock
         """
         self._pulses = []
         self._sample = sample
