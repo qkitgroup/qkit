@@ -3,11 +3,19 @@
 Remote interface client (RIC) to access the RI service or any zerorpc service
 
 
-@author: HR@KIT 2018
+@author: HR,AS@KIT 2018
+
+To use the client to control a qkit instance, just open a new notebook and execute the following:
+    
+    import qkit.core.lib.com.ri_client as rc
+    rc.control_panel(rc.start_ric())
+    
 """
 import qkit
 
 #import logging # the logging mechanism does not work here, since qkit is not started
+
+
 
 def __update_tab(ric):
     # try to be smart and add the remote functions to the __dict__ for tabbing in ipython
@@ -53,3 +61,45 @@ _zerorpc_help to retrieve the docstring of a call
 _zerorpc_args to retrieve the argspec of a call
 _zerorpc_inspect to retrieve everything at once
 """
+
+
+def control_panel(ric = None):
+    from ipywidgets import Button, HTML,HBox,Accordion
+    from IPython.core.display import display
+    def fmt(inp):
+        if inp is None:
+            return "--"
+        elif type(inp) is float:
+            return "{:.4g}".format(inp)
+        else:
+            return str(inp)
+
+    if ric is None:
+        ric = qkit.ric
+
+    def update_instrument_params(b):
+        insdict = ric.get_all_instrument_params()
+        for ins in sorted(insdict):
+            if not ins in b.accordions:
+                b.accordions[ins] = Accordion()
+            table = "<table style='line-height:180%'>"  # <tr style='font-weight:bold'><td> Parameter </td><td>Value</td></tr>
+            for p in sorted(insdict[ins]):
+                table += "<tr><td style='text-align:right;padding-right:10px'>" + str(p) + "</td><td>" + fmt(insdict[ins][p][0]) + insdict[ins][p][
+                    1] + "</td></tr>"
+            table += """</table>"""
+            b.accordions[ins].children = [HTML(table)]
+            b.accordions[ins].set_title(0, ins)
+        for child in b.accordions.keys():
+            if child not in insdict:
+                del b.accordions[child]
+        b.hbox.children = b.accordions.values()
+
+    update_button = Button(description="Update")
+    update_button.on_click(update_instrument_params)
+    update_button.accordions = {}
+    update_button.hbox = HBox()
+    stop_button = Button(description="Stop measurement")
+    stop_button.on_click(lambda b: qkit.ric.stop_measure())
+    stop_button.button_style = "danger"
+    update_instrument_params(update_button)
+    display(HBox([update_button,stop_button]),update_button.hbox)
