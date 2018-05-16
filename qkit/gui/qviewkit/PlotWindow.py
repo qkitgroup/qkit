@@ -31,7 +31,7 @@ import qkit
 from qkit.gui.qviewkit.plot_view import Ui_Form
 from qkit.storage.hdf_constants import ds_types, view_types
 from qkit.gui.qviewkit.PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
-
+from qkit.gui.qviewkit.PlotWindow_lib import _get_ds, _get_ds_url, _get_name
 
 class PlotWindow(QWidget,Ui_Form):
     """PlotWindow class organizes the correct display of data in a h5 file.
@@ -97,6 +97,14 @@ class PlotWindow(QWidget,Ui_Form):
         self.ds = self.obj_parent.h5file[self.dataset_url]
         self.ds_type = self.ds.attrs.get('ds_type', -1)
         
+        # The axis names are parsed to plot_view's Ui_Form class to label the UI selectors 
+        x_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('x_ds_url', '')))
+        y_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('y_ds_url', '')))
+        z_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('z_ds_url', '')))
+        x_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').split(':')[1]).attrs.get('x_ds_url', '')))
+        y_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').split(':')[1]).attrs.get('y_ds_url', '')))
+        selector_label = [x_ds_name, y_ds_name, z_ds_name, x_ds_name_view, y_ds_name_view]    
+
         ## At first window creation the attributes are set to state zero.
         if self._windowJustCreated:
             # A few state variables:
@@ -113,7 +121,7 @@ class PlotWindow(QWidget,Ui_Form):
             self.VTraceYValueChanged = False
 
             # the following calls rely on ds_type and setup the layout of the plot window.
-            self.setupUi(self,self.ds_type)
+            self.setupUi(self,self.ds_type, selector_label)
 
             window_title = str(self.dataset_url.split('/')[-1]) +" "+ str(self.DATA.filename)
             self.setWindowTitle(window_title)
@@ -191,8 +199,10 @@ class PlotWindow(QWidget,Ui_Form):
 
         elif self.ds_type == ds_types['matrix'] or self.ds_type == -1:
             self.PlotTypeSelector.currentIndexChanged.connect(self._onPlotTypeChangeMatrix)
-            self.TraceSelector.valueChanged.connect(self._setTraceNum)
-            self.TraceValue.returnPressed.connect(self._setTraceValue)
+            self.TraceXSelector.valueChanged.connect(self._setBTraceXNum)
+            self.TraceYSelector.valueChanged.connect(self._setBTraceYNum)
+            self.TraceXValue.returnPressed.connect(self._setBTraceXValue)            
+            self.TraceYValue.returnPressed.connect(self._setBTraceYValue) 
 
         elif self.ds_type == ds_types['box']:
             self.PlotTypeSelector.currentIndexChanged.connect(self._onPlotTypeChangeBox)
@@ -276,10 +286,14 @@ class PlotWindow(QWidget,Ui_Form):
         self.PlotTypeSelector.setCurrentIndex(0)
 
     def _defaultMatrix(self):
-        self.TraceSelector.setEnabled(False)
-        shape = self.ds.shape[0]
-        self.TraceSelector.setRange(-1*shape,shape-1)
-        self.PlotTypeSelector.setCurrentIndex(0)
+        shape = self.ds.shape
+        self.TraceXSelector.setEnabled(False)
+        self.TraceXSelector.setRange(-1*shape[0],shape[0]-1)
+        self.TraceXNum = -1        
+
+        self.TraceYSelector.setEnabled(False)
+        self.TraceYSelector.setRange(-1*shape[1],shape[1]-1)
+        self.TraceYNum = -1
 
     def _defaultBox(self):
         shape = self.ds.shape
@@ -330,16 +344,6 @@ class PlotWindow(QWidget,Ui_Form):
         else:
             self.TraceSelector.setEnabled(True)
             self.PlotTypeSelector.setEnabled(False)
-
-    ####### this looks ugly
-    def _setTraceValue(self):
-        xval = str(self.TraceValue.displayText())
-        try:
-            self._trace_value = float(xval.split()[0])
-        except ValueError:
-            return
-        self.TraceValueChanged = True
-        self.obj_parent.pw_refresh_signal.emit()
 
 
     def _setTraceNum(self,num):
@@ -433,13 +437,20 @@ class PlotWindow(QWidget,Ui_Form):
         self._onPlotTypeChanged = True
         if index == 0:
             self.view_type = view_types['2D']
-            self.TraceSelector.setEnabled(False)
+            self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(False)
         if index == 1:
             self.view_type = view_types['1D']
-            self.TraceSelector.setEnabled(True)
+            self.TraceXSelector.setEnabled(True)
+            self.TraceYSelector.setEnabled(False)
         if index == 2:
+            self.view_type = view_types['1D']
+            self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(True)
+        if index == 3:
             self.view_type = view_types['table']
-            self.TraceSelector.setEnabled(False)
+            self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(False)
 
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
