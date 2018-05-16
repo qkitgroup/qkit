@@ -629,7 +629,10 @@ def _get_name(ds):
     Returns:
         String with name.
     """
-    return ds.attrs.get('name','_none_')
+    try:
+        return ds.attrs.get('name','_none_')
+    except:
+        return '_none_'
         
 def _get_all_ds_names_units_scales(ds,ds_urls= []):
     """Reads and returns all the relevant information of the given datasets.
