@@ -225,26 +225,48 @@ def _display_1D_data(self,graphicsView):
 
     elif self.ds_type == ds_types['matrix'] or (self.ds_type == -1 and len(self.ds.shape) == 2): #last expresson is for old hdf-files
         """
-        For a matrix type the data to be displayed on the x-axis is the y-axis (highest coordinate) of the ds
+        For a matrix type the data to be displayed on the x-axis depends on the selected plot_type
         """
-        dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['y_ds_url'])
+        
+        if self.PlotTypeSelector.currentIndex() == 1: #y_ds on x-axis
+            dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['y_ds_url'])
+            if self.TraceXValueChanged:
+                """
+                If the trace to be displayed has been changed, the correct dataslice and the displayed
+                text has to be adjusted.
+                """
+                #calc trace number from entered value
+                (x0, dx) = _get_axis_scale(_get_ds(self.ds, _get_ds_url(self.ds, 'x_ds_url')))
+                num = int((self._traceX_value-x0)/dx)
+                self.TraceXNum = num
+                self.TraceXSelector.setValue(self.TraceXNum)
+                self.TraceXValueChanged = False
+            
+            y_data = dss[1][()][self.TraceXNum]
+            x_data =dss[0][()][:dss[1].shape[-1]] #x_data gets truncated to y_data shape if neccessary
 
-        if self.TraceValueChanged:
-            """
-            If the trace to be displayed has been changed, the correct dataslice and the displayed
-            text has to be adjusted.
-            """
-            #calc trace number from entered value
-            (x0, dx) = _get_axis_scale(_get_ds(self.ds, _get_ds_url(self.ds, 'x_ds_url')))
-            num = int((self._trace_value-x0)/dx)
-            self.TraceNum = num
-            self.TraceSelector.setValue(self.TraceNum)
-            self.TraceValueChanged = False
+        if self.PlotTypeSelector.currentIndex() == 2: #x_ds on x-axis
+            dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url'])
+            if self.TraceYValueChanged:
+                """
+                If the trace to be displayed has been changed, the correct dataslice and the displayed
+                text has to be adjusted.
+                """
 
-        self.TraceValue.setText(self._getXValueFromTraceNum(self.ds,self.TraceNum))
+                #calc trace number from entered value
+                (x0, dx) = _get_axis_scale(_get_ds(self.ds, _get_ds_url(self.ds, 'y_ds_url')))
+                num = int((self._traceY_value-x0)/dx)
+                self.TraceYNum = num
+                self.TraceYSelector.setValue(self.TraceYNum)
+                self.TraceYValueChanged = False
 
-        x_data =dss[0][()][:dss[1].shape[-1]] #x_data gets truncated to y_data shape if neccessary
-        y_data = dss[1][()][self.TraceNum]
+            y_data = dss[1][()][:,self.TraceYNum]
+            x_data =dss[0][()][:dss[1].shape[0]] #x_data gets truncated to y_data shape if neccessary
+
+        self.TraceXValue.setText(self._getXValueFromTraceNum(self.ds,self.TraceXNum))
+        self.TraceYValue.setText(self._getYValueFromTraceNum(self.ds,self.TraceYNum))
+
+
 
     elif self.ds_type == ds_types['box']:
         """
