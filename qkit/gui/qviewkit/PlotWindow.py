@@ -101,8 +101,13 @@ class PlotWindow(QWidget,Ui_Form):
         x_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('x_ds_url', '')))
         y_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('y_ds_url', '')))
         z_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('z_ds_url', '')))
-        x_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').split(':')[1]).attrs.get('x_ds_url', '')))
-        y_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').split(':')[1]).attrs.get('y_ds_url', '')))
+        if self.ds.attrs.get('xy_0', ''):
+            x_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').split(':')[1]).attrs.get('x_ds_url', '')))
+            y_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').split(':')[1]).attrs.get('y_ds_url', '')))
+        else:
+            x_ds_name_view = '_none_'
+            y_ds_name_view = '_none_'
+
         selector_label = [x_ds_name, y_ds_name, z_ds_name, x_ds_name_view, y_ds_name_view]    
 
         ## At first window creation the attributes are set to state zero.
