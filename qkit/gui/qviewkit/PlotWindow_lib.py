@@ -311,7 +311,7 @@ def _display_1D_data(self,graphicsView):
     graphicsView.setLabel('bottom', names[0] , units=units[0])
 
     #if only one entry in the dataset --> point-style
-    if self.ds.shape[-1]==1:
+    if y_data.shape[-1]==1:
         self.plot_style = self.plot_styles['point']
 
     if self.plot_style==self.plot_styles['line']:
