@@ -173,6 +173,7 @@ class PlotWindow(QWidget,Ui_Form):
                     self.graphicsView = pg.TableWidget(sortable=False)
                     self.graphicsView.setWindowTitle(self.dataset_url+'_table')
                     self.graphicsView.setObjectName(self.dataset_url)
+                    self.graphicsView.setFormat("%.6g")
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 _display_table(self,self.graphicsView)
 
