@@ -1,7 +1,7 @@
 # brings QKIT around 
 # HR@KIT/2017 based on work by R. Heeres/2008
+# YS@KIT/2018: Further emancipated from qtlab
 from __future__ import print_function
-
 
 import qkit
 import logging
@@ -20,16 +20,13 @@ def _parse_options():
     args, pargs = parser.parse_args()
     logging.debug('Started with args %r', args)
 
-
-
 from qkit.core.lib import temp
 temp.File.set_temp_dir(qkit.cfg['tempdir'])
-
 
 #
 # assign Instrument and Instruments 
 #
-from qkit.core.instrument_base import Instrument 
+from qkit.core.instrument_base import Instrument
 from qkit.core.instrument_tools import Insttools
 
 qkit.instrument  = Instrument
@@ -38,7 +35,14 @@ qkit.instruments = Insttools()
 if qkit.cfg.get("qt_compatible",True):
     qkit.cfg["qt_compatible"] = True
     logging.info("QKIT start: Enabling depreciated 'qt' module")
-    import qkit.core.qt_qkit as qt
+
+    class qt:
+        """
+        Placeholder for the deprecated qt module, used for legacy support.
+        It is used as container for some modules previously imported through qt.
+        """
+        pass
+
     from qkit.core.qtflow_qkit import get_flowcontrol
     qt.instrument  = qkit.instrument
     qt.instruments = qkit.instruments
@@ -49,7 +53,7 @@ if qkit.cfg.get("qt_compatible",True):
     qt.msleep = qt.flow.measurement_idle
     qt.mstart = qt.flow.measurement_start
     qt.mend = qt.flow.measurement_end
-    
+
     # this is a very bad hack to get around scope issues.
     try:
         import __builtin__
@@ -63,7 +67,8 @@ if qkit.cfg.get("qt_compatible",True):
     import sys
     sys.modules["instrument"] = qkit.core.instrument_base
     sys.modules["instruments"] = qkit.core.instrument_tools
-    sys.modules["qt"] = qkit.core.qt_qkit
+    #sys.modules["qt"] = qkit.core.qt_qkit
+    sys.modules["qt"] = qt
 
 # Set exception handler
 '''
@@ -75,7 +80,7 @@ try:
 except Exception, e:
     print 'Error: %s' % str(e)
 '''
-	
+
 # Other functions should be registered using qt.flow.register_exit_handler
 from qkit.core.lib.misc import register_exit
 import qkit.core.qtflow_qkit as qtflow
