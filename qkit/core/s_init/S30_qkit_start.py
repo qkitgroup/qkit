@@ -6,20 +6,6 @@ from __future__ import print_function
 import qkit
 import logging
 
-# orphanted code, not used in the moment
-def _parse_options():
-    import optparse
-    parser = optparse.OptionParser(description='QKIT')
-    parser.add_option('--nogui', default=False, action='store_true')
-    parser.add_option('-p', '--port', type=int, default=0,
-        help='Port to listen on for GUI/remote communication')
-    parser.add_option('--name', type=str, default='',
-        help='Shared instance name')
-    parser.add_option('--nolock', default=False, action='store_true')
-
-    args, pargs = parser.parse_args()
-    logging.debug('Started with args %r', args)
-
 from qkit.core.lib import temp
 temp.File.set_temp_dir(qkit.cfg['tempdir'])
 
@@ -42,6 +28,7 @@ if qkit.cfg.get("qt_compatible",True):
         It is used as container for some modules previously imported through qt.
         """
         pass
+
     qt.config = qkit.cfg
 
     qt.instrument  = qkit.instrument
@@ -69,19 +56,7 @@ if qkit.cfg.get("qt_compatible",True):
     import sys
     sys.modules["instrument"] = qkit.core.instrument_base
     sys.modules["instruments"] = qkit.core.instrument_tools
-    #sys.modules["qt"] = qkit.core.qt_qkit
     sys.modules["qt"] = qt
-
-# Set exception handler
-'''
-try:
-    import qtflow
-    # Note: This does not seem to work for 'KeyboardInterrupt',
-    # likely it is already caught by ipython itself.
-    get_ipython().set_custom_exc((Exception, ), qtflow.exception_handler)
-except Exception, e:
-    print 'Error: %s' % str(e)
-'''
 
 # Other functions should be registered using qt.flow.register_exit_handler
 from qkit.core.lib.misc import register_exit
