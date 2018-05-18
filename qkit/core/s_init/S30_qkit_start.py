@@ -43,7 +43,7 @@ if qkit.cfg.get("qt_compatible",True):
         """
         pass
 
-    from qkit.core.qtflow_qkit import get_flowcontrol
+    from qkit.core.flow import get_flowcontrol
     qt.instrument  = qkit.instrument
     qt.instruments = qkit.instruments
 
@@ -83,5 +83,5 @@ except Exception, e:
 
 # Other functions should be registered using qt.flow.register_exit_handler
 from qkit.core.lib.misc import register_exit
-import qkit.core.qtflow_qkit as qtflow
-register_exit(qtflow.qtlab_exit)
+import qkit.core.flow as flow
+register_exit(flow.qtlab_exit)
