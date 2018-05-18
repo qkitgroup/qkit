@@ -1,7 +1,8 @@
 # qtflow.py, handle 'flow control' in the QT lab environment
 # Pieter de Groot, <pieterdegroot@gmail.com>, 2008
 # Reinier Heeres, <reinier@heeres.eu>, 2008
-# HR@KIT 2017 (python3 conversion & cleanup for QKIT)
+# HR@KIT/2017 (python3 conversion & cleanup for QKIT)
+# YS@KIT/2018: Further emancipated from qtlab
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -275,9 +276,9 @@ class FlowControl(object):
 #
 #        #os.chdir(curdir)
 
-    def close_gui(self):
-        logging.info('Emitting close-gui signal')
-        #self.emit('close-gui') 
+#    def close_gui(self):
+#        logging.info('Emitting close-gui signal')
+#        #self.emit('close-gui')
 
 def exception_handler(self, etype, value, tb, tb_offset=None):
     # when the 'tb_offset' keyword argument is omitted above, ipython

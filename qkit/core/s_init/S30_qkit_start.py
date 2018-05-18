@@ -42,13 +42,15 @@ if qkit.cfg.get("qt_compatible",True):
         It is used as container for some modules previously imported through qt.
         """
         pass
+    qt.config = qkit.cfg
 
-    from qkit.core.flow import get_flowcontrol
     qt.instrument  = qkit.instrument
     qt.instruments = qkit.instruments
 
     qt.frontpanels = {}
     qt.sliders = {}
+
+    from qkit.core.flow import get_flowcontrol
     qt.flow = get_flowcontrol()
     qt.msleep = qt.flow.measurement_idle
     qt.mstart = qt.flow.measurement_start
