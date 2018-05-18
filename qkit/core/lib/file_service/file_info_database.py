@@ -14,8 +14,11 @@ lets introduce a set of
 fid configuration settings (defaults)
 =====================================
 fid_scan_datadir = True
+    Indicates whether you want to scan your datadir for h5 files at startup.
 fid_scan_hdf     = False
+    This will open every h5 file found and extract attributes.
 fid_init_viewer  = True
+    Make a database out of the dictionary of h5 files.
 
 
 databases
@@ -60,7 +63,7 @@ import and basic usage of the h5-grid-viewer
 # for further information see doc strings
 
 
-after startup, the folowing command is available in a jupyter notebook:
+after startup, the following command is available in a jupyter notebook:
 -----------------------------------------------------------------------
 qkit.fid.show()
 
@@ -221,7 +224,8 @@ class fid(object):
             
     def update_grid_db(self):
         with self.lock:
-            if qkit.cfg.get('fid_init_viewer',False):
+            if qkit.cfg.get('fid_init_viewer',True):
+                qkit.cfg['fid_init_viewer'] = True
                 self._initiate_basic_df()
             else:
                 qkit.cfg['fid_init_viewer'] = False
@@ -328,7 +332,7 @@ class fid(object):
 #        updates the database to find newly added measurement_files.
 #        """
 #        self._initiate_basic_df()
-
+    
     def _initiate_basic_df(self):
         """
         creates the dataframe
