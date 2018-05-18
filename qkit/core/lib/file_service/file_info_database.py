@@ -77,6 +77,7 @@ import numpy as np
 import threading
 import logging
 import time
+import json
 
 try:
     import h5py
@@ -237,7 +238,6 @@ class fid(object):
     def _collect_info(self,uuid,path):
             tm = ""
             dt = ""
-            comment = ""
             j_split = (path.replace('/', '\\')).split('\\')
             name = j_split[-1][7:-3]
             if ord(uuid[0]) > ord('L'):
@@ -256,38 +256,42 @@ class fid(object):
                     dt = '{}-{}-{} {}:{}:{}'.format(j_split[-3][:4], j_split[-3][4:6], j_split[-3][6:], tm[:2], tm[2:4], tm[4:])
                 user = None
                 run = None
+            h5_info_db = {'time': tm, 'datetime': dt, 'run': run, 'name': name, 'user': user}
             if m_h5py and qkit.cfg.get('fid_scan_hdf', False):
-                h5_info_db = {}
+                h5_info_db.update({'rating':-1})
                 try:
                     h5f=h5py.File(path,'r')
-                    comment = h5f['/entry/data0'].attrs.get('comment', '')     
+                    h5_info_db.update({'comment': h5f['/entry/data0'].attrs.get('comment', '')})
                     try:
+                        # this is legacy and should be removed at some point
+                        # please use the entry/analysis0 attributes instead.
                         fit_comment = h5f['/entry/analysis0/dr_values'].attrs.get('comment',"").split(', ')
                         comm_begin = [i[0] for i in fit_comment]
                         try:
-                            fit_data_f = float(h5f['/entry/analysis0/dr_values'][comm_begin.index('f')])
+                            h5_info_db.update({'fit_freq': float(h5f['/entry/analysis0/dr_values'][comm_begin.index('f')])})
                         except (ValueError, IndexError):
-                            fit_data_f = None
+                            pass
                         try:
-                            fit_data_t = float(h5f['/entry/analysis0/dr_values'][comm_begin.index('T')])
+                            h5_info_db.update({'fit_time': float(h5f['/entry/analysis0/dr_values'][comm_begin.index('T')])})
                         except (ValueError, IndexError):
-                            fit_data_t = None
+                            pass
                     except (KeyError, AttributeError):
-                        fit_data_f = None
-                        fit_data_t = None
+                        pass
                     try:
-                        rating = float(h5f['/entry/analysis0'].attrs.get('rating', -1))
+                        h5_info_db.update(dict(h5f['/entry/analysis0'].attrs))
                     except(AttributeError, KeyError):
-                        rating = None
+                        pass
+                    try:
+                        mmt = json.loads(h5f['/entry/data0/measurement'][0])
+                        h5_info_db.update(
+                                {arg: mmt[arg] for arg in ['run_id', 'user', 'rating', 'smt'] if mmt.has_key(arg)}
+                        )
+                    except(AttributeError, KeyError):
+                        pass
                     finally:
                         h5f.close()
-                
-                    h5_info_db = {'time': tm,   'datetime': dt, 'name': name, 'user': user, 'comment': comment,
-                               'run': run, 'fit_freq': fit_data_f, 'fit_time': fit_data_t, 'rating': rating}
                 except IOError as e:
                     logging.error("fid %s:%s"%(path,e))
-            else:
-                h5_info_db = {'time': tm, 'datetime': dt, 'run':run, 'name': name, 'user': user}
 
             self.h5_info_db[uuid] = h5_info_db
 
@@ -344,10 +348,10 @@ class fid(object):
             self.df = pd.DataFrame(self.h5_info_db).T
             
         if qkit.cfg.get('fid_scan_hdf', False):
-            self.df = self.df[['datetime', 'name', 'run', 'user', 'comment', 'fit_time', 'fit_freq', 'rating']]
-            self.df['rating'] = pd.to_numeric(self.df['rating'], errors='coerce')
-            self.df['fit_time'] = pd.to_numeric(self.df['fit_time'], errors='coerce')
-            self.df['fit_freq'] = pd.to_numeric(self.df['fit_freq'], errors='coerce')
+            #self.df = self.df[['datetime', 'name', 'run', 'user', 'comment', 'fit_time', 'fit_freq', 'rating']]
+            for key in ['rating','fit_time','fit_freq']:
+                if key in self.df.keys():
+                    self.df[key] = pd.to_numeric(self.df[key], errors='coerce')
         else:
             self.df = self.df[['datetime', 'name', 'run', 'user']]
         self.df['datetime'] = pd.to_datetime(self.df['datetime'], errors='coerce')
