@@ -32,19 +32,6 @@ class FlowControl(object):
     Class for flow control of the QT measurement environment.
     '''
 
-    #__gsignals__ = {
-    #        'measurement-start': (gobject.SIGNAL_RUN_FIRST,
-    #            gobject.TYPE_NONE,()),
-    #        'measurement-end': (gobject.SIGNAL_RUN_FIRST,
-    #            gobject.TYPE_NONE,()),
-    #        'measurement-idle': (gobject.SIGNAL_RUN_FIRST,
-    #            gobject.TYPE_NONE,()),
-    #        'stop-request': (gobject.SIGNAL_RUN_FIRST,
-    #            gobject.TYPE_NONE,()),
-    #        'close-gui': (gobject.SIGNAL_RUN_FIRST,
-    #            gobject.TYPE_NONE,()),
-    #} 
-
     STATUS_STOPPED = 0
     STATUS_RUNNING = 1
 
@@ -109,8 +96,8 @@ class FlowControl(object):
         '''
         start = exact_time()
         dt = 0
-	# TODO possibly this implementation of event handling using threads
-	# can be done in a better way using ipython-0.11 inputhook support?
+    # TODO possibly this implementation of event handling using threads
+    # can be done in a better way using ipython-0.11 inputhook support?
         #gtk.gdk.threads_enter()
         #while gtk.events_pending() and (not exact or (dt + 0.001) < delay):
         #    gtk.main_iteration_do(False)
@@ -118,7 +105,7 @@ class FlowControl(object):
         #gtk.gdk.threads_leave() # YS: try to get rid of GTK
         
         # YS: in the current version no events are expected since we don't use the GTK gui
-        
+
         if delay > dt and wait:
             time.sleep(delay - dt)
 
@@ -183,34 +170,34 @@ class FlowControl(object):
             except Exception as e:
                 print('Error in func %s: %s' % (func.__name__, str(e)))
 
-    def register_callback(self, time_msec, func, handle=None):
-        '''
-        Register a function to be called every time_msec miliseconds.
-
-        <handle> is a name you can use to refer to it when removing the
-        callback using 'remove_callback'. If you don't specify a specific
-        name, a handle will be generated.
-
-        Returns: callback handle
-        '''
-
-        hid = gobject.timeout_add(time_msec, func)
-        if handle is None:
-            handle = hid
-        self._callbacks[handle] = hid
-        return handle
-
-    def remove_callback(self, handle):
-        '''
-        Remove a callback that was created with 'register_callback'
-        '''
-        if handle not in self._callbacks:
-            logging.warning('Callback %s not found')
-            return False
-
-        #gobject.source_remove(self._callbacks[handle])
-        del self._callbacks[handle]
-        return True
+#    def register_callback(self, time_msec, func, handle=None):
+#        '''
+#        Register a function to be called every time_msec miliseconds.
+#
+#        <handle> is a name you can use to refer to it when removing the
+#        callback using 'remove_callback'. If you don't specify a specific
+#       name, a handle will be generated.
+#
+#        Returns: callback handle
+#        '''
+#
+#        hid = gobject.timeout_add(time_msec, func)
+#        if handle is None:
+#            handle = hid
+#        self._callbacks[handle] = hid
+#        return handle
+#
+#    def remove_callback(self, handle):
+#        '''
+#        Remove a callback that was created with 'register_callback'
+#        '''
+#        if handle not in self._callbacks:
+#            logging.warning('Callback %s not found')
+#            return False
+#
+#        #gobject.source_remove(self._callbacks[handle])
+#        del self._callbacks[handle]
+#        return True
 
     ############
     ### status
@@ -228,17 +215,6 @@ class FlowControl(object):
 
     def is_measuring(self):
         return self.get_status() == 'running'
-
-#    def get_live_plot(self):
-#        from . import qt
-#        return qt.config.get('live-plot', True)
-
-#    def set_live_plot(self, val):
-#        from . import qt
-#        qt.config.set('live-plot', val)
-
-    def toggle_live_plot(self):
-        self.set_live_plot(not self.get_live_plot())
 
     def check_abort(self):
         '''Check whether an abort has been requested.'''
@@ -259,26 +235,6 @@ class FlowControl(object):
     def set_pause(self, pause):
         '''Set / unset pause state.'''
         self._pause = pause
-
-#    def start_gui(self): # YS: is executed in 02_qtlab_start.py but commented
-#        from . import qt
-#
-#        curdir = os.getcwd()
-#        #os.chdir(qt.config['execdir'])
-#
-#        args = ['-p', str(qt.config['port']), '--name', qt.config['instance_name']]
-#        if os.name == 'nt':
-#            args.insert(0, 'qtlabgui.bat')
-#            os.spawnv(os.P_NOWAIT, 'qtlabgui.bat', args)
-#        if os.name == 'posix':
-#            args.insert(0, 'qtlabgui')
-#            pid = os.spawnv(os.P_NOWAIT, 'qtlabgui', args)
-#
-#        #os.chdir(curdir)
-
-#    def close_gui(self):
-#        logging.info('Emitting close-gui signal')
-#        #self.emit('close-gui')
 
 def exception_handler(self, etype, value, tb, tb_offset=None):
     # when the 'tb_offset' keyword argument is omitted above, ipython
