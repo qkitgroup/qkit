@@ -102,6 +102,8 @@ from qkit.gui.plot.plot import plot
 class fid(object):
     def __init__(self):
         
+        self.column_sorting = ['datetime', 'name', 'run', 'user', 'comment', 'rating']
+        self.columns_ignore = ['time']
         self.h5_db = {}
         self.set_db = {}
         self.measure_db = {}
@@ -294,7 +296,19 @@ class fid(object):
                     logging.error("fid %s:%s"%(path,e))
 
             self.h5_info_db[uuid] = h5_info_db
-
+        
+    def _set_hdf_attribute(self,UUID,attribute,value):
+        h5_filepath = self.h5_db[UUID]
+        h = h5py.File(h5_filepath,'r+')['entry']
+        try:
+            if not 'analysis0' in h:
+                h.create_group('analysis0')
+            h['analysis0'].attrs[attribute] = value
+        finally:
+            h.file.close()
+        self.h5_info_db[UUID].update({attribute:value})
+    
+    
     def _inspect_and_add_Leaf(self,fname,root):
         uuid = fname[:6]
         fqpath = os.path.join(root, fname)
@@ -427,7 +441,9 @@ class fid(object):
             display(_openSelected)
             _openSelected.on_click(self._on_openSelected_clicked)
             
-            self.grid = qd.show_grid(self.df, show_toolbar=False, grid_options={'enableColumnReorder': True})
+            rows =  [d for d in self.column_sorting  if d     in list(self.df.keys()) and d not in self.columns_ignore]
+            rows += [d for d in list(self.df.keys()) if d not in self.column_sorting  and d not in self.columns_ignore]
+            self.grid = qd.show_grid(self.df[rows], show_toolbar=False, grid_options={'enableColumnReorder': True})
             self.grid.observe(self._on_row_selected, names=['_selected_rows'])
             return self.grid
         else:
