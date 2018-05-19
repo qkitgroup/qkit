@@ -28,7 +28,7 @@ h5_db
 ----------
 This is the main database. It holds an index of UUID <-> h5-file path.
 usage: 
-qkit.h5_db.get("UUID") or qkit.fid.get("UUID") returns the h5_file path
+qkit.fid.h5_db.get("UUID") or qkit.fid.get("UUID") returns the h5_file path
 
 h5_info_db
 ----------
@@ -73,19 +73,12 @@ qkit.fid.show()
 
 import qkit
 import os
-import numpy as np
+
 import threading
 import logging
 import time
 import json
-
-try:
-    import h5py
-    #import qkit.storage.store as st
-    m_h5py = True
-except ImportError as e:
-    logging.error("qkit.fid:%s"%e)
-    m_h5py = False
+import numpy as np
 
 try:
     import pandas as pd
@@ -94,71 +87,19 @@ try:
 except ImportError:
     found_qgrid = False
 
+from file_info_database_lib import file_system_service
+
 # display using qviewkit
 from qkit.gui.plot.plot import plot
 
-
-
-class fid(object):
+class fid(file_system_service):
     def __init__(self):
-        
         self.column_sorting = ['datetime', 'name', 'run', 'user', 'comment', 'rating']
         self.columns_ignore = ['time']
-        self.h5_db = {}
-        self.set_db = {}
-        self.measure_db = {}
-        self.h5_info_db = {}
         self.df = None
-        self.lock = threading.Lock()
-        self._alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
         # create initial database in the background. This can take a while...
         self.create_database()
-        
-        
-    def get_uuid(self,time):
-        """
-        
-        returns a UUID from a given time, e.g. returned by time.time()
-        The UUID is returned with a precision of (integer) seconds 
-        and has a fixed length of six characters.
-        
-        Derived from encode_uuid(), orginally located in hdf_DateTimeGenerator.py (AS/MP/HR)
-        """
-        # if not value: value = self._unix_timestamp
-        output = ''
-        time = int(time)
-        la = len(self._alphabet)
-        while time:
-            output += self._alphabet[time % la]
-            time = time / la
-        return output[::-1]
-    
-    def get_time(self,uuid):
-        """
-        returns a integer time value from a given UUID timestamp (reverse of get_UUID())
-        orginally located in hdf_DateTimeGenerator.py (AS/MP/HR)
-        """
-        # if not string: string = self._uuid
-        output = 0
-        multiplier = 1
-        uuid = uuid[::-1].upper()
-        la = len(self._alphabet)
-        while uuid != '':
-            f = self._alphabet.find(uuid[0])
-            if f == -1:
-                raise ValueError("fid.get_time: Can not decode this: {}<--".format(uuid[::-1]))
-            output += f * multiplier
-            multiplier *= la
-            uuid = uuid[1:]
-        return output
-        
-    def get_date(self,uuid):
-        """
-        Returns a date string from a given UUID timestamp (reverse of get_uuid())
-        """
-        return time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(self.get_time(uuid)))
-    
+            
     def __getitem__(self, key):
         with self.lock:
             return self.h5_db.get(key, None)
@@ -187,9 +128,7 @@ class fid(object):
                the data file is looked up via the h5_db and opened
            path:
                the data file is opened using the path 
-    
-    
-    
+               
         Returns:
             None
         """
@@ -208,23 +147,17 @@ class fid(object):
             filepath = self.h5_db.get(file_id, False)
             if filepath:
                 plot(filepath, live=False)
+
+    def create_database(self):
+        t1 = threading.Thread(name='creating_db', target=self.update_all)
+        t1.start()
+
     def update_all(self):
         """ updates file and grid database if activated
         """
         self.update_file_db()
         self.update_grid_db()
-        
-    def update_file_db(self):
-        with self.lock:
-            if qkit.cfg.get('fid_scan_datadir',True):
-                qkit.cfg['fid_scan_datadir'] = True
-                logging.debug("file info database: Start to update database.")
-                for root, dirs, files in os.walk(qkit.cfg['datadir']):
-                    for f in files:
-                        self._inspect_and_add_Leaf(f,root)
-                logging.debug("file info database: Updating database done.")
 
-            
     def update_grid_db(self):
         with self.lock:
             if qkit.cfg.get('fid_init_viewer',True):
@@ -232,128 +165,11 @@ class fid(object):
                 self._initiate_basic_df()
             else:
                 qkit.cfg['fid_init_viewer'] = False
-                
-    def create_database(self):
-        t1 = threading.Thread(name='creating_db', target=self.update_all)
-        t1.start()
-
-    def _collect_info(self,uuid,path):
-            tm = ""
-            dt = ""
-            j_split = (path.replace('/', '\\')).split('\\')
-            name = j_split[-1][7:-3]
-            if ord(uuid[0]) > ord('L'):
-                try:
-                    tm = self.get_time(uuid)
-                    dt = self.get_date(uuid)
-                except ValueError as e:
-                    logging.info(e)
-                user = j_split[-3]
-                run = j_split[-4]
-            else:
-                tm = uuid
-                if j_split[-3][0:3] is not 201:  # not really a measurement file then
-                    dt = None
-                else:
-                    dt = '{}-{}-{} {}:{}:{}'.format(j_split[-3][:4], j_split[-3][4:6], j_split[-3][6:], tm[:2], tm[2:4], tm[4:])
-                user = None
-                run = None
-            h5_info_db = {'time': tm, 'datetime': dt, 'run': run, 'name': name, 'user': user}
-            if m_h5py and qkit.cfg.get('fid_scan_hdf', False):
-                h5_info_db.update({'rating':-1})
-                try:
-                    h5f=h5py.File(path,'r')
-                    h5_info_db.update({'comment': h5f['/entry/data0'].attrs.get('comment', '')})
-                    try:
-                        # this is legacy and should be removed at some point
-                        # please use the entry/analysis0 attributes instead.
-                        fit_comment = h5f['/entry/analysis0/dr_values'].attrs.get('comment',"").split(', ')
-                        comm_begin = [i[0] for i in fit_comment]
-                        try:
-                            h5_info_db.update({'fit_freq': float(h5f['/entry/analysis0/dr_values'][comm_begin.index('f')])})
-                        except (ValueError, IndexError):
-                            pass
-                        try:
-                            h5_info_db.update({'fit_time': float(h5f['/entry/analysis0/dr_values'][comm_begin.index('T')])})
-                        except (ValueError, IndexError):
-                            pass
-                    except (KeyError, AttributeError):
-                        pass
-                    try:
-                        h5_info_db.update(dict(h5f['/entry/analysis0'].attrs))
-                    except(AttributeError, KeyError):
-                        pass
-                    try:
-                        mmt = json.loads(h5f['/entry/data0/measurement'][0])
-                        h5_info_db.update(
-                                {arg: mmt[arg] for arg in ['run_id', 'user', 'rating', 'smt'] if mmt.has_key(arg)}
-                        )
-                    except(AttributeError, KeyError):
-                        pass
-                    finally:
-                        h5f.close()
-                except IOError as e:
-                    logging.error("fid %s:%s"%(path,e))
-
-            self.h5_info_db[uuid] = h5_info_db
-        
-    def _set_hdf_attribute(self,UUID,attribute,value):
-        h5_filepath = self.h5_db[UUID]
-        h = h5py.File(h5_filepath,'r+')['entry']
-        try:
-            if not 'analysis0' in h:
-                h.create_group('analysis0')
-            h['analysis0'].attrs[attribute] = value
-        finally:
-            h.file.close()
-        self.h5_info_db[UUID].update({attribute:value})
-    
-    
-    def _inspect_and_add_Leaf(self,fname,root):
-        uuid = fname[:6]
-        fqpath = os.path.join(root, fname)
-        if fqpath[-3:] == '.h5':            
-            self.h5_db[uuid] = fqpath
-            self._collect_info(uuid, fqpath)
-        elif fqpath[-3:] == 'set':
-            self.set_db[uuid] = fqpath
-        elif fqpath[-3:] == 'ent':
-            self.measure_db[uuid] = fqpath
-
-
-    def add(self, h5_filename):
-        uuid = h5_filename[:6]
-        basename = h5_filename[:-2]
-        if h5_filename[-3:] != '.h5':
-            raise ValueError("Your filename '{:s}' is not a .h5 filename.".format(h5_filename))
-        with self.lock:
-            if os.path.isfile(basename + 'h5'):
-                self.h5_db[uuid] = basename + 'h5'
-                logging.debug("Store_db: Adding manually h5: " + basename + 'h5')
-            else:
-                raise ValueError("File '{:s}' does not exist.".format(basename + 'h5'))
-            if os.path.isfile(basename + 'set'):
-                self.set_db[uuid] = basename + 'set'
-                logging.debug("Store_db: Adding manually set: " + basename + 'set')
-            if os.path.isfile(basename + 'measurement'):
-                self.h5_db[uuid] = basename + 'measurement'
-                logging.debug("Store_db: Adding manually measurement: " + basename + 'measurement')
-    
-
-
-#class DatabaseViewer:
-    """class that creates a pandas data frame from your measurement
-    data and allows to extract import values from h5-files"""
-    
-#    def _update_dbv(self):
-#        """
-#        updates the database to find newly added measurement_files.
-#        """
-#        self._initiate_basic_df()
     
     def _initiate_basic_df(self):
         """
-        creates the dataframe
+        Creates a pandas data frame from your measurement
+        data and allows to extract import values from h5-files
         """
         
         if len(self.h5_info_db) is 0: # necessary if a data directory is chosen without any h5 file
