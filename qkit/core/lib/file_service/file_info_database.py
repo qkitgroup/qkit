@@ -63,10 +63,14 @@ import and basic usage of the h5-grid-viewer
 # for further information see doc strings
 
 
-after startup, the following command is available in a jupyter notebook:
------------------------------------------------------------------------
+after startup, the following main commands are available in a jupyter notebook:
+-------------------------------------------------------------------------------
 qkit.fid.show()
+qkit.fid.view(file_id)
 
+qkit.fid.get_uuid(time)
+qkit.fid.get_time(uuid)
+qkit.fid.get_date(uuid)
 """
 
 
@@ -128,7 +132,7 @@ class fid(file_system_service):
                the data file is looked up via the h5_db and opened
            path:
                the data file is opened using the path 
-               
+
         Returns:
             None
         """
@@ -143,7 +147,6 @@ class fid(file_system_service):
                 if filepath:
                     plot(filepath, live=False)
         elif type(file_id) is str:
-            
             filepath = self.h5_db.get(file_id, False)
             if filepath:
                 plot(filepath, live=False)

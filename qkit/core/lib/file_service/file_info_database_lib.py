@@ -8,6 +8,8 @@ import json
 import numpy as np
 import h5py
 
+import cPickle
+
 class UUID_base(object):
     _alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -60,11 +62,48 @@ class file_system_service(UUID_base):
     set_db = {}
     measure_db = {}
     h5_info_db = {}
+
+    _h5_n_mtime = {}
     
+    _h5_mtime_db_path   = os.path.join(qkit.cfg['logdir'],"h5_mtime.db")
+    _h5_info_cache_path = os.path.join(qkit.cfg['logdir'],"h5_info_cache.db")
+
     lock = threading.Lock()
+
+    def _load_cache_files(self):
+        """ to speed up things, try to load the h5 
+            information from previous runs. 
+        """
+        self._new_cache = False
+        self._h5_mtime_db = {}
+        self._h5_info_cache_db = {}
+        self._n_mtime = {}
+        try:
+            with open(self._h5_mtime_db_path,'r') as f:
+                self._h5_mtime_db = cPickle.load(f)
+            with open(self._h5_info_cache_path,'r') as f:
+                self._h5_info_cache_db = cPickle.load(f)
+        except IOError as e:
+            logging.info("m_time_db not found. %s"%e)
+            self._new_cache = True
+
+    def _store_cache_files(self):
+        """ writes the cached files on disk, 
+        qkit.cfg['logdir'] is used by default.
+
+        exeptions are not handled ... if something fails here 
+        there is a severe general problem, e.g. the disk is full.
+        """
+        write_protocol = -1 # 0=text, 1...x binary, -1 highest binary. 
+        with open(self._h5_mtime_db_path,'w+') as f:
+            cPickle.dump(self._h5_n_mtime,f,protocol=write_protocol)
+        with open(self._h5_info_cache_path,'w+') as f:
+            cPickle.dump(self.h5_info_db,f,protocol=write_protocol)
 
     def update_file_db(self):
         with self.lock:
+            start_time = time.time()
+            self._load_cache_files()
             if qkit.cfg.get('fid_scan_datadir',True):
                 qkit.cfg['fid_scan_datadir'] = True
                 logging.debug("file info database: Start to update database.")
@@ -72,6 +111,45 @@ class file_system_service(UUID_base):
                     for f in files:
                         self._inspect_and_add_Leaf(f,root)
                 logging.debug("file info database: Updating database done.")
+            self._store_cache_files()
+            print ("Initialized the file info database (qkit.fid) in %.3f seconds."%(time.time()-start_time))
+
+    def _inspect_and_add_Leaf(self,fname,root):
+        """
+        inspect the filenames if .h5, .set or .measurement
+
+        to speed up things, the files are only scanned 
+        if something has changed (os.stat.m_time) on disk. 
+        """
+
+        # join to absolute path:
+        fqpath = os.path.join(root, fname)
+
+        # take the prefix ...
+        uuid = fname[:6]
+
+        # ... and check the suffix
+        if fqpath[-3:] == '.h5':
+
+            self.h5_db[uuid] = fqpath
+            # we only care about the mtime of .h5 files 
+            mtime = os.stat(fqpath).st_mtime
+
+            # store the file's modification time 
+            self._h5_n_mtime[uuid] = mtime
+
+            if mtime == self._h5_mtime_db.get(uuid,0):
+                if self._h5_info_cache_db.get(uuid,0):
+                    self.h5_info_db[uuid] = self._h5_info_cache_db.get(uuid)
+                else:
+                    self._collect_info(uuid, fqpath) # collect_info is expensive.
+            else:
+                self._collect_info(uuid, fqpath) # collect_info is expensive. 
+
+        elif fqpath[-3:] == 'set':
+            self.set_db[uuid] = fqpath
+        elif fqpath[-3:] == 'ent':
+            self.measure_db[uuid] = fqpath
 
     def _collect_info(self,uuid,path):
             tm = ""
@@ -95,7 +173,7 @@ class file_system_service(UUID_base):
                 user = None
                 run = None
             h5_info_db = {'time': tm, 'datetime': dt, 'run': run, 'name': name, 'user': user}
-
+            
             if qkit.cfg.get('fid_scan_hdf', False):
                 h5_info_db.update({'rating':-1})
                 try:
@@ -134,16 +212,7 @@ class file_system_service(UUID_base):
 
             self.h5_info_db[uuid] = h5_info_db
 
-    def _inspect_and_add_Leaf(self,fname,root):
-        uuid = fname[:6]
-        fqpath = os.path.join(root, fname)
-        if fqpath[-3:] == '.h5':            
-            self.h5_db[uuid] = fqpath
-            self._collect_info(uuid, fqpath)
-        elif fqpath[-3:] == 'set':
-            self.set_db[uuid] = fqpath
-        elif fqpath[-3:] == 'ent':
-            self.measure_db[uuid] = fqpath
+
 
 
     def add(self, h5_filename):
