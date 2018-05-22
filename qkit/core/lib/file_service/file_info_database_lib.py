@@ -79,9 +79,9 @@ class file_system_service(UUID_base):
         self._h5_info_cache_db = {}
         self._n_mtime = {}
         try:
-            with open(self._h5_mtime_db_path,'r') as f:
+            with open(self._h5_mtime_db_path,'rb') as f:
                 self._h5_mtime_db = cPickle.load(f)
-            with open(self._h5_info_cache_path,'r') as f:
+            with open(self._h5_info_cache_path,'rb') as f:
                 self._h5_info_cache_db = cPickle.load(f)
         except IOError as e:
             logging.info("m_time_db not found. %s"%e)
@@ -95,9 +95,9 @@ class file_system_service(UUID_base):
         there is a severe general problem, e.g. the disk is full.
         """
         write_protocol = -1 # 0=text, 1...x binary, -1 highest binary. 
-        with open(self._h5_mtime_db_path,'w+') as f:
+        with open(self._h5_mtime_db_path,'wb+') as f:
             cPickle.dump(self._h5_n_mtime,f,protocol=write_protocol)
-        with open(self._h5_info_cache_path,'w+') as f:
+        with open(self._h5_info_cache_path,'wb+') as f:
             cPickle.dump(self.h5_info_db,f,protocol=write_protocol)
 
     def update_file_db(self):
@@ -131,7 +131,11 @@ class file_system_service(UUID_base):
         # ... and check the suffix
         if fqpath[-3:] == '.h5':
 
+            # save the path using uuids as an index
+            # Note: All path entries with the same uuid are 
+            # overwritten with the last found uuid indexed file
             self.h5_db[uuid] = fqpath
+
             # we only care about the mtime of .h5 files 
             mtime = os.stat(fqpath).st_mtime
 
