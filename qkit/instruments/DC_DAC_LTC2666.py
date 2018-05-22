@@ -22,35 +22,47 @@ qkit instrument driver for DC DAC LTC2666 (client)
 from instrument import Instrument
 import types
 import logging
+import zerorpc
 
-class DcDac_LTC2666(Instrument):
+class DC_DAC_LTC2666(Instrument):
     '''
     Instrument class for DC DAC LTC2666.
     '''
-    def __init__(self, name, host='ip-address', port=9931, nchannels = 8):
+    def __init__(self, name, host='ip-address', port=9931, nchannels = 16):
         '''
         Initialize qkit parameters and connect to the zerorpc server as a client.
         '''
         Instrument.__init__(self, name, tags=['physical'])
         
-        self.nchannels = nchannels
-        self.add_parameter('dac', type=types.FloatType, flags=Instrument.FLAG_SET, units='V', channels=(1, self.nchannels), channel_prefix='ch%d_', unit = 'V')
-            
-        self.HOST, self.PORT = host, port
+        self.channels = nchannels
+        self.add_parameter('voltage', type=types.FloatType, flags=Instrument.FLAG_GETSET, 
+                units='V', channels=(0, self.channels-1), channel_prefix='ch%d_')
+        self.voltages = [0]*self.channels
         
-        #initiate connection to zerorpc server
+        self.HOST, self.PORT = host, port
+        self.init_connection()
+    
+    def init_connection(self):
+        '''
+        initiate connection to zerorpc server
+        '''
         logging.debug(__name__ + ': initiating connection to DAC server {:s} on port {:d}'.format(self.HOST, self.PORT))
         self.c = zerorpc.Client()
         self.c.connect("tcp://{:s}:{:d}".format(self.HOST, self.PORT))
 
-    def do_set_dac(self,voltage,channel):
+    def do_set_voltage(self, voltage, channel):
         '''
         Set dac voltage in range -5V..5V.
         '''
         try:
             self.c.set_voltage(channel, voltage)
-        except RemoteError as detail:
-            logging.error("Remote Error: {:s}".format(detail))
+        except Exception as detail:
+            logging.error('{:s}'.format(detail))
+    def do_get_voltage(self, channel):
+        '''
+        Get the current voltage setting for channel.
+        '''
+        return self.voltages[channel]
             
     def close_connection(self):
         logging.debug(__name__ + ': closing connection to DAC server {:s} on port {:d}'.format(self.HOST, self.PORT))
