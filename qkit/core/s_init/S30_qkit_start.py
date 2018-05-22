@@ -7,6 +7,7 @@ import qkit
 import logging
 
 from qkit.core.lib import temp
+
 temp.File.set_temp_dir(qkit.cfg['tempdir'])
 
 #
@@ -15,12 +16,23 @@ temp.File.set_temp_dir(qkit.cfg['tempdir'])
 from qkit.core.instrument_base import Instrument
 from qkit.core.instrument_tools import Insttools
 
-qkit.instrument  = Instrument
+qkit.instrument = Instrument
 qkit.instruments = Insttools()
 
-if qkit.cfg.get("qt_compatible",True):
+#
+# assign flow
+#
+import qkit.core.flow as flow
+
+qkit.flow = flow.FlowControl()
+
+#
+# legacy support qt
+#
+if qkit.cfg.get("qt_compatible", True):
     qkit.cfg["qt_compatible"] = True
     logging.info("QKIT start: Enabling depreciated 'qt' module")
+
 
     class qt:
         """
@@ -29,15 +41,17 @@ if qkit.cfg.get("qt_compatible",True):
         """
         pass
 
+
     qt.config = qkit.cfg
 
-    qt.instrument  = qkit.instrument
+    qt.instrument = qkit.instrument
     qt.instruments = qkit.instruments
 
     qt.frontpanels = {}
     qt.sliders = {}
 
     from qkit.core.flow import get_flowcontrol
+
     qt.flow = get_flowcontrol()
     qt.msleep = qt.flow.measurement_idle
     qt.mstart = qt.flow.measurement_start
@@ -46,19 +60,22 @@ if qkit.cfg.get("qt_compatible",True):
     # this is a very bad hack to get around scope issues.
     try:
         import __builtin__
+
         __builtin__.qt = qt
     except ImportError:
         import builtins
+
         builtins.qt = qt
     # HR: Another hack to maintain compatibility:
     # Lets pretend that the original qt instrument and instruments modules 
     # are loaded. But instead every instrument driver loads tne qkit.core modules
     import sys
+
     sys.modules["instrument"] = qkit.core.instrument_base
     sys.modules["instruments"] = qkit.core.instrument_tools
     sys.modules["qt"] = qt
 
 # Other functions should be registered using qt.flow.register_exit_handler
 from qkit.core.lib.misc import register_exit
-import qkit.core.flow as flow
+
 register_exit(flow.qtlab_exit)
