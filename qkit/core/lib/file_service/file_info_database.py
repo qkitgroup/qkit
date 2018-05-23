@@ -191,30 +191,34 @@ class fid(file_system_service):
         self.df['datetime'] = pd.to_datetime(self.df['datetime'], errors='coerce')
         self.df.fillna("", inplace=True) # Replace NAs with empty string to be able to detect changes
 
+    def _get_setting_from_set_file(self, filename, instrument, value):
+        with open(filename, 'r') as f:
+            instrument_found = False
+            for line in f:
+                if line.startswith("Instrument: "):
+                    if instrument_found:
+                        return
+                    if line[12:].strip() == instrument:
+                        instrument_found = True
+                if instrument_found:
+                    i = line.strip().split(":")
+                    if i[0] == value:
+                        return i[1][1:]
+    
     def _get_settings_column(self, device, setting, uid=None):
         dfsetting = pd.DataFrame()
         if uid is None:
             uid = self.df.index
         for i in uid:
             try:
-                data = pd.read_csv(self.h5_db[i].replace('.h5', '.set'), sep=' ', header=0, names=["Settings", "Values"])
-                # only looking at the right instrument
-                all_ins_index = data.index[data['Settings']=='Instrument:']
-                index_start = data.index[data['Values']==device][0]
-                index_index = np.where(all_ins_index == index_start)[0]
-                if all_ins_index[index_index][0] == index_start:
-                    index_stop = len(data.index)
-                else:
-                    index_stop = all_ins_index[index_index+1][0]
-                value_index = data.index[data['Settings']=='\t'+setting+':']
-                value_index = value_index[np.where(np.isin(value_index, range(index_start, index_stop)))][0]
+                value = self._get_setting_from_set_file(self.h5_db[i].replace('.h5', '.set'),device,setting)
                 try:
-                    value = float(data.iloc[value_index, 1])
+                    value = float(value)
                 except(ValueError):
-                    value = data.iloc[value_index, 1]
+                    pass
             except(IOError, IndexError):
                 value = None
-            dftemp = pd.DataFrame({device + ' ' + setting: value}, index=[i])
+            dftemp = pd.DataFrame({device + ':' + setting: value}, index=[i])
             dfsetting = pd.concat([dfsetting,dftemp])
         return dfsetting
 
