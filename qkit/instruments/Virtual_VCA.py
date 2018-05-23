@@ -31,7 +31,6 @@ from instrument import Instrument
 import instruments
 import types
 import logging
-import qt
 import numpy as np
 from scipy import interpolate
 
@@ -51,7 +50,7 @@ attenuation0408=[0,  1.11278882e+00,  3.73766693e+00,  7.14756693e+00,
 attenuation0812=[]
 
 
-class Virtual_vca(Instrument):
+class Virtual_VCA(Instrument):
 
     def __init__(self, name, dac_port, freqrange):
         """
