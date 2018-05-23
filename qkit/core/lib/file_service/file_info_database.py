@@ -315,6 +315,26 @@ class fid(file_system_service):
         else:
             return self.df
 
+    def filtered_uuids(self):
+        """
+        Thsi function gives you a list of UUIDs in your current view.
+        If you have selected more than one line, only the selection is returned.
+        Otherwise, all measurements in the current view are given.
+        This is especially handy if you did some filtering beforehand
+        
+        This of course only works if qgrid is installed.
+        
+        :return: list of UUIDs
+        """
+        if found_qgrid:
+            if len(self._selected_df) > 1:
+                return list(self._selected_df.index)
+            else:
+                return list(self.grid.get_changed_df().index)
+        else:
+            logging.warning("Module qgrid is not installed. Filtering the database is only supported with qgrid.")
+            return False
+    
     def search(self, column, expression=None, value=None, bounds=None):
         """
         allows you to search a specific column for either a string, a value, or values within bounds.
