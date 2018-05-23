@@ -47,7 +47,7 @@ class Ui_Form(object):
     setupUi() creates the overall window and ds_type sensitive signal slots 
     are added by the respective functions.
     """
-    def setupUi(self, Form,ds_type):
+    def setupUi(self, Form,ds_type, selector_labels):
         """Sets up the general window
         
         This function coordinates the changing input from the signal slots and
@@ -60,6 +60,7 @@ class Ui_Form(object):
             Form: PlotWindow object that inherits the used calls here from the
                 underlying QWidget class.
             ds_type: Integer
+            selector_labels: String list with names of the datasets on all axis
         Returns:
             No return variable. The function operates on the given object.
         """
@@ -91,6 +92,7 @@ class Ui_Form(object):
         Form.setWindowTitle(_translate("Form", "Form", None))
         QtCore.QMetaObject.connectSlotsByName(Form)        
         
+        self.selector_labels = selector_labels
         if ds_type == ds_types['coordinate']:
             self.setupCoordinate(Form)
         if ds_type == ds_types['vector']:
@@ -155,9 +157,9 @@ class Ui_Form(object):
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "VTraceXSelector", 
-                                        TraceIndicator="VTraceXValue", prefix = "TraceX: ")
+                                        TraceIndicator="VTraceXValue", prefix = self.selector_labels[3]+': ')
         self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "VTraceYSelector", 
-                                        TraceIndicator="VTraceYValue", prefix = "TraceY: ")        
+                                        TraceIndicator="VTraceYValue", prefix = self.selector_labels[4]+': ')        
 
         spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
@@ -190,9 +192,11 @@ class Ui_Form(object):
         self.PlotTypeSelector.addItem(_fromUtf8(""))
         self.PlotTypeSelector.addItem(_fromUtf8(""))
         self.PlotTypeSelector.addItem(_fromUtf8(""))
+        self.PlotTypeSelector.addItem(_fromUtf8(""))
         self.PlotTypeSelector.setItemText(0, _translate("Form", "Color Plot", None))
-        self.PlotTypeSelector.setItemText(1, _translate("Form", "Line Plot", None))
-        self.PlotTypeSelector.setItemText(2, _translate("Form", "Table", None))
+        self.PlotTypeSelector.setItemText(1, _translate("Form", "Line Plot X", None))
+        self.PlotTypeSelector.setItemText(2, _translate("Form", "Line Plot Y", None))
+        self.PlotTypeSelector.setItemText(3, _translate("Form", "Table", None))
         
         
         self.PlotTypeLayout = QtGui.QVBoxLayout()
@@ -202,8 +206,10 @@ class Ui_Form(object):
         self.PlotTypeLayout.addWidget(emptyL)
         self.horizontalLayout.addLayout(self.PlotTypeLayout,stretch = -10)
         
-        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceSelector",
-                                        TraceIndicator="TraceValue")
+        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceXSelector",
+                                        TraceIndicator="TraceXValue", prefix = self.selector_labels[0]+': ')
+        self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceYSelector", 
+                                        TraceIndicator="TraceYValue", prefix = self.selector_labels[1]+': ')
         
         #The indicators should be located at the most right side of the bar
         spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
@@ -251,11 +257,11 @@ class Ui_Form(object):
         self.horizontalLayout.addLayout(self.PlotTypeLayout,stretch = -10)
        
         self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceXSelector", 
-                                        TraceIndicator="TraceXValue", prefix = "TraceX: ")
+                                        TraceIndicator="TraceXValue", prefix = self.selector_labels[0]+': ')
         self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceYSelector", 
-                                        TraceIndicator="TraceYValue", prefix = "TraceY: ")
+                                        TraceIndicator="TraceYValue", prefix = self.selector_labels[1]+': ')
         self._addTraceSelectorIndicator(Form,sizePolicy,TraceSelector = "TraceZSelector",  
-                                        TraceIndicator="TraceZValue",  prefix = "TraceZ: ")        
+                                        TraceIndicator="TraceZValue",  prefix = self.selector_labels[2]+': ')        
 
         spacerItem = QtGui.QSpacerItem(40, 1, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
