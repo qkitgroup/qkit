@@ -47,7 +47,7 @@ def load_sequence(ps, sample, iq = None, drive = 'c:', path = '\\waveforms', res
         
         chpair: if you use the 4ch Tabor AWG as a single 2ch instrument, you can chose to take the second channel pair here (this can be either 1 or 2).
     '''
-    qt.mstart()
+    qkit.flow.start()
     ps = np.atleast_1d(ps)
     if awg is None:
         awg = sample.awg
@@ -152,5 +152,5 @@ def load_sequence(ps, sample, iq = None, drive = 'c:', path = '\\waveforms', res
         #awg.preset()
         awg.set_ch1_status(True)
         awg.set_ch2_status(True)
-    qt.mend()
+    qkit.flow.end()
     return np.all([awg.get('ch%i_status'%i) for i in [1,2]])

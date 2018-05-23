@@ -32,7 +32,7 @@ qkit.flow.end = qkit.flow.measurement_end
 #
 # legacy support qt
 #
-if qkit.cfg.get("qt_compatible", True):
+if qkit.cfg.get("qt_compatible", False):
     qkit.cfg["qt_compatible"] = True
     logging.info("QKIT start: Enabling depreciated 'qt' module")
 
