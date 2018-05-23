@@ -22,7 +22,6 @@ import logging
 #from scipy.optimize import curve_fit
 from time import sleep
 import sys
-import qt
 import threading
 
 import qkit
@@ -521,7 +520,7 @@ class transport(object):
 
         ## measurement
         sys.stdout.flush()
-        qt.mstart()
+        qkit.flow.start()
         
         # turn on IVD
         if self.IVD.get_sweep_mode() == 0:
@@ -543,14 +542,14 @@ class transport(object):
             # progress bar
             if self.progress_bar:
                 self._pb.iterate()
-            qt.msleep()
+            qkit.flow.sleep()
         # turn off IVD
         if self.IVD.get_sweep_mode() == 0:
             self.IVD.set_stati(status=False)
         elif self.IVD.get_sweep_mode() in [1, 2]:
             self.IVD.set_status(status=False, channel=self._channel)
         # end measurement
-        qt.mend()
+        qkit.flow.end()
         self._end_measurement()
     
     
@@ -672,7 +671,7 @@ class transport(object):
                       iReadingBuffer (str): for Keithley 2636A only
                       vReadingBuffer (str): for Keithley 2636A only
         '''
-        qt.mstart()
+        qkit.flow.start()
         try:
             # turn on IVD
             if self.IVD.get_sweep_mode() == 0:
@@ -710,7 +709,7 @@ class transport(object):
                             # progress bar
                             if self.progress_bar:
                                 self._pb.iterate()
-                            qt.msleep()
+                            qkit.flow.sleep()
                     ## filling of value-box by storing data in the next 2d structure after every y-loop
                     for i in range(self.sweep.get_nos()):
                         self._data_I[i].next_matrix()
@@ -731,7 +730,7 @@ class transport(object):
                         # progress bar
                         if self.progress_bar:
                             self._pb.iterate()
-                        qt.msleep()
+                        qkit.flow.sleep()
 
         except Exception as e:
             print e.__doc__
@@ -743,7 +742,7 @@ class transport(object):
                 self.IVD.set_stati(status=False)
             elif self.IVD.get_sweep_mode() in [1, 2]:
                 self.IVD.set_status(status=False, channel=self._channel)
-            qt.mend()
+            qkit.flow.end()
         return
     
     

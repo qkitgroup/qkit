@@ -32,7 +32,7 @@ usage and inputs:
 
 import logging
 import time
-import qt
+import qkit
 
 class Gate_Func(object):
 
@@ -51,13 +51,13 @@ class Gate_Func(object):
         self.awg = awg
         self._sample = sample
         if pulser:
-            self.pulser = qt.instruments.get(pulser)
+            self.pulser = qkit.instruments.get(pulser)
             self._gate_high = self.pulser.set_mode_continuous
             self._gate_low = self.pulser.set_mode_gated
         else:
             self.pulser = None
         if ni_daq:
-            self.ni_daq = qt.instruments.get(ni_daq)
+            self.ni_daq = qkit.instruments.get(ni_daq)
             self.ni_daq_ch = ni_daq_ch
             self._gate_high = lambda: self.ni_daq.digital_out(self.ni_daq_ch, 1)
             self._gate_low = lambda: self.ni_daq.digital_out(self.ni_daq_ch, 0)

@@ -1,7 +1,6 @@
 # modified and adapted by JB@KIT 04/2015, 09/2015
 # time domain measurement class
 
-import qt
 import numpy as np
 import os.path
 import time
@@ -94,7 +93,7 @@ class Measure_td(object):
             print 'axes parameters not properly set...aborting'
             return
 
-        qt.mstart()
+        qkit.flow.start()
         self.mode = 1 #1: 1D, 2: 2D, 3:1D_AWG/2D_AWG
         self._prepare_measurement_file()
         
@@ -103,13 +102,13 @@ class Measure_td(object):
             # measurement loop
             for x in self.x_vec:
                 self.x_set_obj(x)
-                qt.msleep() # better done during measurement (waiting for trigger)
+                qkit.flow.sleep() # better done during measurement (waiting for trigger)
                 self._append_data()
                 if self.show_progress_bar: p.iterate()
         finally:
             #self._safe_plots()
             self._end_measurement()
-            qt.mend()
+            qkit.flow.end()
 
 
     def measure_2D(self):
@@ -120,7 +119,7 @@ class Measure_td(object):
         if self.ReadoutTrace:
             raise ValueError('ReadoutTrace is currently not supported for 2D measurements')
         
-        qt.mstart()
+        qkit.flow.start()
         self.mode = 2 #1: 1D, 2: 2D, 3:1D_AWG/2D_AWG
         self._prepare_measurement_file()
 
@@ -130,9 +129,9 @@ class Measure_td(object):
             for x in self.x_vec:
                 self.x_set_obj(x)
                 for y in self.y_vec:
-                    qt.msleep() 
+                    qkit.flow.sleep()
                     self.y_set_obj(y)
-                    qt.msleep() 
+                    qkit.flow.sleep()
                     self._append_data()
                     if self.show_progress_bar: p.iterate()
                 for i in range(self.ndev):
@@ -140,7 +139,7 @@ class Measure_td(object):
                     self._hdf_pha[i].next_matrix()
         finally:
             self._end_measurement()
-            qt.mend()
+            qkit.flow.end()
 
 
     def measure_1D_AWG(self, iterations = 100):
@@ -168,8 +167,8 @@ class Measure_td(object):
             print 'axes parameters not properly set...aborting'
             return
     
-        qt.mstart()
-        qt.msleep()   # if stop button was pressed by now, abort without creating data files
+        qkit.flow.start()
+        qkit.flow.sleep()   # if stop button was pressed by now, abort without creating data files
         
         self.mode = 3  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG
         self._prepare_measurement_file()
@@ -179,14 +178,14 @@ class Measure_td(object):
         try:
             # measurement loop
             for it in range(len(self.y_vec)):
-                qt.msleep() # better done during measurement (waiting for trigger)
+                qkit.flow.sleep() # better done during measurement (waiting for trigger)
                 self.y_set_obj(self.y_vec[it])
                 self._append_data(iteration=it)
                 if self.show_progress_bar: p.iterate()
         finally:
             self._end_measurement()
         
-            qt.mend()
+            qkit.flow.end()
 
     def measure_1D_ddc_time_trace(self):
         """
@@ -200,11 +199,11 @@ class Measure_td(object):
         self.mode = 1  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG
         self._prepare_measurement_file()
         try:
-            qt.msleep()
+            qkit.flow.sleep()
             self._append_data(ddc=True)
         finally:
             self._end_measurement()
-            qt.mend()
+            qkit.flow.end()
 
     def measure_2D_ddc_time_trace(self):
         """
@@ -226,14 +225,14 @@ class Measure_td(object):
             p = Progress_Bar(len(self.y_vec),name=self.dirname)
         try:
             for y in self.y_vec:
-                qt.msleep()
+                qkit.flow.sleep()
                 self.y_set_obj(y)
-                qt.msleep()
+                qkit.flow.sleep()
                 self._append_data(ddc=True)
                 if self.show_progress_bar: p.iterate()
         finally:
             self._end_measurement()
-            qt.mend()
+            qkit.flow.end()
 
     def measure_1D_awg_ddc_timetrace(self):
         """
@@ -254,11 +253,11 @@ class Measure_td(object):
         self._prepare_measurement_file()
 
         try:
-            qt.msleep()
+            qkit.flow.sleep()
             self._append_data(ddc=True)
         finally:
             self._end_measurement()
-            qt.mend()
+            qkit.flow.end()
 
 
     def _prepare_measurement_file(self):
