@@ -244,7 +244,10 @@ class file_system_service(UUID_base):
         try:
             if not 'analysis0' in h:
                 h.create_group('analysis0')
-            h['analysis0'].attrs[attribute] = value
+            if value=="":
+                del h['analysis0'].attrs[attribute]
+            else:
+                h['analysis0'].attrs[attribute] = value
         finally:
             h.file.close()
         self.h5_info_db[UUID].update({attribute:value})
