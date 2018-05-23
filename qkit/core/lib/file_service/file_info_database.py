@@ -98,6 +98,7 @@ from qkit.gui.plot.plot import plot
 
 class fid(file_system_service):
     def __init__(self):
+        self._batch_update = False
         self.column_sorting = ['datetime', 'name', 'run', 'user', 'comment', 'rating']
         self.columns_ignore = ['time']
         self.df = None
@@ -188,6 +189,7 @@ class fid(file_system_service):
         else:
             self.df = self.df[['datetime', 'name', 'run', 'user']]
         self.df['datetime'] = pd.to_datetime(self.df['datetime'], errors='coerce')
+        self.df.fillna("", inplace=True) # Replace NAs with empty string to be able to detect changes
 
     def _get_settings_column(self, device, setting, uid=None):
         dfsetting = pd.DataFrame()
@@ -239,14 +241,46 @@ class fid(file_system_service):
         self.df = self.df.drop([column], axis=1)
 
     def _on_row_selected(self,row):
-        # index = row.new[0]
         self._selected_df = self.grid.get_selected_df()
         
     def _on_openSelected_clicked(self, b):
         uuid = self._selected_df.index
         logging.info("Open qviekit with uuid:%s"%uuid)
         self.view(uuid)
+
+    def _grid_observer(self,change):
+        logging.debug('grid observer called, batch_update: ' + str(self._batch_update))
+        c = self.grid
+        keys = [i for i in list(c.df.keys()) if i != "qgrid_unfiltered_index"]
+        if self._batch_update:
+            self._batch_update = False
+            changed_df = c.df
+        else:
+            changed_df = c.get_changed_df()
+        try:
+            uuids = [i for i in list(changed_df.index) if i in self.df.index]
+            indices = np.where(self.df.loc[uuids,keys] != changed_df.loc[uuids,keys])
+            logging.debug("I found {} changes".format(len(indices[0])))
+            for i in range(len(indices[0])):
+                index = uuids[indices[0][i]]
+                key = keys[indices[1][i]]
+                new_value = changed_df.loc[index,key]
+                if self.df.loc[index,key] != new_value:
+                    self._set_hdf_attribute(index, key, new_value)
+                    logging.debug("{}[{}] '{}'-> '{}'".format(index, key, self.df.loc[index, key], new_value))
+                    self.df.loc[index,key] = new_value
+        except(ValueError, KeyError):
+            logging.info("Updating the measurment database failed.")
+            self.debug = [self.df.copy(),changed_df,keys]
+                
+    def _batch_change_attribute(self,b):
+        tmp = self.grid.get_changed_df()
+        tmp.loc[self._selected_df.index, b.key_dd.value] = b.value_tf.value
+        self._batch_update = True
+        self.grid.df = tmp
         
+        
+
     def show(self):
         """
         used to show the data base as a qgrid object or if not installed pandas data frame
@@ -255,15 +289,24 @@ class fid(file_system_service):
         if found_qgrid:
             from IPython.display import display
             import ipywidgets as widgets
+            rows = [d for d in self.column_sorting if d in list(self.df.keys()) and d not in self.columns_ignore]
+            rows += [d for d in list(self.df.keys()) if d not in self.column_sorting and d not in self.columns_ignore]
+
             _openSelected = widgets.Button(description='open selected',disabled=False,
                                            button_style='',tooltip='open selected')
-            display(_openSelected)
             _openSelected.on_click(self._on_openSelected_clicked)
             
-            rows =  [d for d in self.column_sorting  if d     in list(self.df.keys()) and d not in self.columns_ignore]
-            rows += [d for d in list(self.df.keys()) if d not in self.column_sorting  and d not in self.columns_ignore]
+            _batch_modifier = widgets.Button(description='for all selected rows', tooltip='Change the selected attribute to the specified value for all rows selected.')
+            _batch_modifier.key_dd = widgets.Dropdown(options=rows, description="Set")
+            _batch_modifier.value_tf = widgets.Text(value='', placeholder='Value', description='to:')
+            _batch_modifier.on_click(self._batch_change_attribute)
+            
+            display(widgets.HBox([_openSelected,_batch_modifier.key_dd,_batch_modifier.value_tf,_batch_modifier]))
+            
+            df = self.df.copy()
             self.grid = qd.show_grid(self.df[rows], show_toolbar=False, grid_options={'enableColumnReorder': True})
             self.grid.observe(self._on_row_selected, names=['_selected_rows'])
+            self.grid.observe(self._grid_observer, names=['_df'])
             return self.grid
         else:
             return self.df
