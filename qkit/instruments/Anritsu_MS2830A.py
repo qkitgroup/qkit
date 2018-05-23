@@ -21,7 +21,7 @@
 # common device messages. 
 
 
-from instrument import Instrument
+from qkit.core.instrument_base import Instrument
 from qkit import visa
 import types
 import logging

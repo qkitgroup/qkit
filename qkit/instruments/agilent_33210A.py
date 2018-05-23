@@ -21,7 +21,7 @@
 QTLAB = True
 
 if QTLAB:
-    from instrument import Instrument
+    from qkit.core.instrument_base import Instrument
 else:
     class Instrument(object):
         FLAG_GETSET = 0 

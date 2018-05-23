@@ -1,4 +1,4 @@
-from instrument import Instrument
+from qkit.core.instrument_base import Instrument
 from lib.network import remote_instrument as ri
 from lib.network import object_sharer as objsh
 import logging

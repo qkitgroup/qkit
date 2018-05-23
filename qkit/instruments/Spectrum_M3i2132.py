@@ -19,7 +19,7 @@
 from ctypes import *
 from _Spectrum_M3i2132.errors import errors as _spcm_errors
 from _Spectrum_M3i2132.regs import regs as _spcm_regs
-from instrument import Instrument
+from qkit.core.instrument_base import Instrument
 import pickle
 from time import sleep, time
 import types
