@@ -17,7 +17,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import logging
-import qt
+import qkit
 import copy
 import object_sharer as objsh
 
@@ -27,20 +27,20 @@ class InstrumentServer(objsh.SharedObject):
         objsh.SharedObject.__init__(self, name='instrument_server')
 
     def ins_get(self, insname, parname):
-        return qt.instruments[insname].get(parname)
+        return qkit.instruments[insname].get(parname)
 
     def ins_set(self, insname, parname, val):
-        return qt.instruments[insname].set(parname, val)
+        return qkit.instruments[insname].set(parname, val)
 
     def ins_call(self, insname, funcname, *args, **kwargs):
-        func = getattr(qt.instruments[insname], funcname)
+        func = getattr(qkit.instruments[insname], funcname)
         return func(*args, **kwargs)
 
     def get_ins_list(self):
-        return qt.instruments.get_instrument_names()
+        return qkit.instruments.get_instrument_names()
 
     def get_ins_parameters(self, insname):
-        params = copy.copy(qt.instruments[insname].get_parameters())
+        params = copy.copy(qkit.instruments[insname].get_parameters())
         for name in params.keys():
             params[name] = copy.copy(params[name])
             params[name]['get_func'] = None
@@ -48,7 +48,7 @@ class InstrumentServer(objsh.SharedObject):
         return params
 
     def get_ins_functions(self, insname):
-        funcs = copy.copy(qt.instruments[insname].get_functions())
+        funcs = copy.copy(qkit.instruments[insname].get_functions())
         for name in funcs.keys():
             funcs[name] = copy.copy(funcs[name])
         return funcs
@@ -61,7 +61,7 @@ def create(remote_instance, remote_name, prefix='remote_', name=None):
 
     if name is None:
         name = prefix + remote_name
-    ins = qt.instruments.create(name, 'Remote_Instrument',
+    ins = qkit.instruments.create(name, 'Remote_Instrument',
             remote_name=remote_name, inssrv=srv)
     return ins
 
@@ -75,7 +75,7 @@ def create_all(remote_instance, prefix='remote_'):
     for insname in inslist:
         logging.info('Creating instrument: %s', insname)
         localname = '%s%s' % (prefix, insname)
-        qt.instruments.create(localname, 'Remote_Instrument',
+        qkit.instruments.create(localname, 'Remote_Instrument',
                 remote_name=insname, inssrv=srv)
 
 
