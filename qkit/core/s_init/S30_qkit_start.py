@@ -11,12 +11,10 @@ from qkit.core.lib import temp
 temp.File.set_temp_dir(qkit.cfg['tempdir'])
 
 #
-# assign Instrument and Instruments 
+# assign instruments
 #
-from qkit.core.instrument_base import Instrument
 from qkit.core.instrument_tools import Insttools
 
-qkit.instrument = Instrument
 qkit.instruments = Insttools()
 
 #
@@ -47,7 +45,9 @@ if qkit.cfg.get("qt_compatible", False):
 
     qt.config = qkit.cfg
 
-    qt.instrument = qkit.instrument
+    import qkit.core.instrument_base
+
+    qt.instrument = qkit.core.instrument_base.Instrument
     qt.instruments = qkit.instruments
 
     qt.frontpanels = {}
