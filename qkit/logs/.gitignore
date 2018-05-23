@@ -1,0 +1,4 @@
+# The qkit/log folder is used to store log files and database data.
+# We therefore ignore this folder completely in git.
+# 
+*.*
