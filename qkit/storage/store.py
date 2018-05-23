@@ -122,8 +122,11 @@ class Data(object):
     def add_comment(self,comment, folder = "data" ):
         if folder == "data":
             self.hf.dgrp.attrs.create('comment',comment)
-        if folder == "analysis":
+        elif folder == "analysis":
             self.hf.agrp.attrs.create("comment",comment)
+        else: 
+            logging.warning("Foler muset be either 'data' (default) or 'analysis': '%s' provided" % (folder))
+            raise ValueError
 
     def add_textlist(self,name,comment = "" ,folder="data", **meta):
         """Adds a dataset containing only text to the h5 file.
@@ -182,7 +185,7 @@ class Data(object):
             hdf_dataset object.
         """
         ds =  hdf_dataset(self.hf, name, x=x, unit=unit, ds_type = ds_types['vector'],
-                          comment=comment, folder=folder, dim = 2, **meta)
+                          comment=comment, folder=folder, dim = 1, **meta)
         return ds
 
     def add_value_matrix(self, name, x , y, unit = "", comment = "",folder="data",**meta):
@@ -205,7 +208,7 @@ class Data(object):
             hdf_dataset object.
         """
         ds =  hdf_dataset(self.hf, name, x=x, y=y, unit=unit, ds_type = ds_types['matrix'],
-                          comment=comment, folder=folder, dim = 3, **meta)
+                          comment=comment, folder=folder, dim = 2, **meta)
         return ds
 
     def add_value_box(self, name, x , y, z, unit = "", comment = "",folder="data",**meta):
@@ -229,7 +232,7 @@ class Data(object):
             hdf_dataset object.
         """        
         ds =  hdf_dataset(self.hf,name, x=x, y=y, z=z, unit=unit, ds_type = ds_types['box'],
-                          comment=comment, folder=folder,**meta)
+                          comment=comment, folder=folder, dim = 3, **meta)
         return ds
 
     def add_view(self,name,x = None, y = None, error = None, filter  = None, view_params = {}):
