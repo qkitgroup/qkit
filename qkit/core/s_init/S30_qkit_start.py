@@ -25,6 +25,9 @@ qkit.instruments = Insttools()
 import qkit.core.flow as flow
 
 qkit.flow = flow.FlowControl()
+qkit.flow.sleep = qkit.flow.measurement_idle
+qkit.flow.start = qkit.flow.measurement_start
+qkit.flow.end = qkit.flow.measurement_end
 
 #
 # legacy support qt
