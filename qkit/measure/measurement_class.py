@@ -13,7 +13,10 @@ class Measurement(object):
     Measurement class to define general information about the specific measurement.
     '''
     def __init__(self):
-        self.git_commit_id = qkit.git['commit_id']
+        try:
+            self.git_commit_id = qkit.git['commit_id']
+        except AttributeError:
+            pass
         self.uuid = None
         self.hdf_relpath = ''
         self.sample = None
