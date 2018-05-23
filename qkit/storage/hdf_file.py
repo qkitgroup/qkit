@@ -48,8 +48,7 @@ class H5_file(object):
     def set_base_attributes(self,nexus=True):
         "stores some attributes and creates the default data group"
         # store version of the file format
-        #self.hf.attrs.create("qt-file","1.0") # qtlab file version
-        self.hf.attrs.create("qkit", "1.0")  # qtlab version
+        self.hf.attrs.create("qkit", "1.0")  # qkit version
         if nexus:
             # make the structure compatible with the nexus format
             # maybe some day the data can by analyzed by the software supporting nexus
@@ -124,9 +123,8 @@ class H5_file(object):
             chunks=(5, 5, tracelength)
             
         else:
-            logging.ERROR("Create datasets: wrong number of dims.")
-            
-
+            logging.error("Create datasets: '%s' is wrong number of dims." %(dim))
+            raise ValueError
 
         if folder == "data":
             self.grp = self.dgrp
@@ -137,8 +135,8 @@ class H5_file(object):
             self.grp = self.vgrp
 
         else:
-            logging.error("please specify either no folder, folder = 'data' , folder = 'analysis' or folder ='view' ")
-            raise
+            logging.error("please specify either: folder = 'data' , folder = 'analysis' or folder ='view' ")
+            raise ValueError
             
         if name in self.grp.keys():
             logging.info("Item '%s' already exists in data set." % (name))
