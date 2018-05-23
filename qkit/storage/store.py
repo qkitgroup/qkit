@@ -161,10 +161,10 @@ class Data(object):
             hdf_dataset object.
         """
         ds =  hdf_dataset(self.hf, name,unit=unit, ds_type = ds_types['coordinate'],
-                          comment= comment, folder=folder, dtype='float64', **meta)
+                          comment= comment, folder=folder, dtype='float64', dim = 1, **meta)
         return ds
 
-    def add_value_vector(self, name, x = None, unit = "", comment = "",folder="data",**meta):
+    def add_value_vector(self, name, x, unit = "", comment = "",folder="data",**meta):
         """Adds a 1dim dataset to the h5 file.
         
         This function is a wrapper to create a hdf_dataset object with some 
@@ -182,10 +182,10 @@ class Data(object):
             hdf_dataset object.
         """
         ds =  hdf_dataset(self.hf, name, x=x, unit=unit, ds_type = ds_types['vector'],
-                          comment=comment, folder=folder,**meta)
+                          comment=comment, folder=folder, dim = 2, **meta)
         return ds
 
-    def add_value_matrix(self, name, x = None , y = None, unit = "", comment = "",folder="data",**meta):
+    def add_value_matrix(self, name, x , y, unit = "", comment = "",folder="data",**meta):
         """Adds a 2dim dataset to the h5 file.
         
         This function is a wrapper to create a hdf_dataset object with some 
@@ -205,10 +205,10 @@ class Data(object):
             hdf_dataset object.
         """
         ds =  hdf_dataset(self.hf, name, x=x, y=y, unit=unit, ds_type = ds_types['matrix'],
-                          comment=comment, folder=folder,**meta)
+                          comment=comment, folder=folder, dim = 3, **meta)
         return ds
 
-    def add_value_box(self, name, x = None , y = None, z = None, unit = "", comment = "",folder="data",**meta):
+    def add_value_box(self, name, x , y, z, unit = "", comment = "",folder="data",**meta):
         """Adds a 3dim dataset to the h5 file.
         
         This function is a wrapper to create a hdf_dataset object with some 
@@ -247,6 +247,20 @@ class Data(object):
         ds =  dataset_view(self.hf,name, x=x, y=y, error=error, filter = filter, 
                            ds_type = ds_types['view'],view_params = view_params)
         return ds
+
+    def add_fid_param(self, param, value):
+        """Adds a parameter (and value) to be read out with the file info database class.
+        
+        This function adds an entry to the atrribute dict of the self.hf agrp-entry. By default
+        this is set to the attribute0 folder. The dict may be read out by the file info database
+        class and in the end the entries can be sorted by all params.
+
+        Args:
+            param: Parameter name
+            value: Parameter value
+        """
+    
+        self.hf.agrp.attrs[param] = value
 
     def get_dataset(self,ds_url):
         return hdf_dataset(self.hf,ds_url = ds_url)
