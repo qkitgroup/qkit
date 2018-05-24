@@ -1,6 +1,7 @@
 # sdi.py Sputter Deposition Investigator
 # module to monitor and control sputter deposition
-# YS@KIT 05/2018
+# derived from measure/spectroscopy.py by AS@KIT and others
+# YS,JNV,HR@KIT 05/2018 
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -209,7 +210,7 @@ class SPUTTER_Monitor(object):
             R_final (float): Estimated final resistance at target thickness.
             t_final (float): Estimated thickness at target resistance.
         """
-        popt, pcov = curve_fit(self._reciprocal, t_points, R_points, p0=self._p0)
+        popt, _ = curve_fit(self._reciprocal, t_points, R_points, p0=self._p0)
 
         R_final = 1. / (self._target_thickness * popt[0])
         t_final = 1. / (self._target_resistance * popt[0])
@@ -237,9 +238,9 @@ class SPUTTER_Monitor(object):
         At this point all measurement parameters are known and put in the output file.
         """
         self._data_file = hdf.Data(name=self._file_name, mode='a')
-        self._measurement_object.uuid = self._data_file._uuid
-        self._measurement_object.hdf_relpath = self._data_file._relpath
-        self._measurement_object.instruments = qkit.instruments.get_instrument_names()
+        #self._measurement_object.uuid = self._data_file._uuid
+        #self._measurement_object.hdf_relpath = self._data_file._relpath
+        #self._measurement_object.instruments = qkit.instruments.get_instrument_names()
 
         self._measurement_object.save()
         self._mo = self._data_file.add_textlist('measurement')
@@ -350,7 +351,7 @@ class SPUTTER_Monitor(object):
         if self.open_qviewkit:
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['resistance'])
 
-        qt.mstart()
+        
         # TODO: Implement threading
         try:
             """
@@ -359,13 +360,9 @@ class SPUTTER_Monitor(object):
 
             t0 = time.time()  # note: Windows has limitations on time precision (about 16ms)
 
-            for i, x in enumerate(self.x_vec):
+            for i, _ in enumerate(self.x_vec):
+                # calculate the time when the next itteration should take place
                 ti = t0 + float(i) * self._resolution
-
-                while time.time() < ti:
-                    time.sleep(0.05)
-                # FIXME: Use flow.sleep? Code there looks rather bulky and maybe not suited for high speed measurements
-
                 self._time_coord.append(time.time() - t0)
 
                 resistance = self.ohmmeter.get_resistance()
@@ -392,13 +389,19 @@ class SPUTTER_Monitor(object):
                 if self.progress_bar:
                     self._p.iterate()
 
-        except IOError as e:
+                # FIXME: Use flow.sleep? Code there looks rather bulky and maybe not suited for high speed measurements
+                # wait until the total dt(itteration) has elapsed
+                while time.time() < ti:
+                    time.sleep(0.05)
+                
+
+        except Exception as e:
+            print(e)
             print(e.__doc__)
             print(e.message)
 
         finally:
             self._end_measurement()
-            qt.mend()
 
     def _end_measurement(self):
         """
