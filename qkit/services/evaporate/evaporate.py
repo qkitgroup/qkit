@@ -142,10 +142,15 @@ class EVAP_Monitor(object):
                                                                      save_timestamp=True)
             # TODO: Add flow and pressure
 
-            self._resist_view = self._data_file.add_view('resistance/thickness', x=_data_thickness,
+            self._resist_view = self._data_file.add_view('resistance/thickness', x=self._data_thickness,
                                                          y=self._data_resistance)
-            self._resist_view.add(x=self.ideal_trend()[0],
-                                  y=self.ideal_trend()[1])
+
+            self._thickness_coord = self._data_file.add_coordinate('thickness_coord', unit='nm')
+            self._thickness_coord.add(self.ideal_trend()[0])
+            self._data_ideal = self._data_file.add_value_vector('ideal_resistance', x=self._thickness_coord,
+                                                                unit='Ohme', save_timestamp=True)
+            self._data_ideal.append(self.ideal_trend()[1])
+            self._resist_view.add(x=self._thickness_coord, y=self._data_ideal)
             # FIXME: Does view.add work like this? Why doesn't take it a name?
 
             if self.comment:
