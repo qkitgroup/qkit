@@ -59,7 +59,7 @@ class EVAP_Monitor(object):
         return self._duration
 
     def set_resolution(self, resolution=0.5):
-        self._resolution = _resolution
+        self._resolution = resolution
 
     def get_resolution(self):
         return self._resolution
