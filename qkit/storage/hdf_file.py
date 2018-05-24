@@ -45,46 +45,35 @@ class H5_file(object):
     def create_file(self,output_file, mode):
         self.hf = h5py.File(output_file, mode)
 
-    def set_base_attributes(self,nexus=True):
+    def set_base_attributes(self):
         "stores some attributes and creates the default data group"
         # store version of the file format
         self.hf.attrs.create("qkit", "1.0")  # qkit version
-        if nexus:
-            # make the structure compatible with the nexus format
-            # maybe some day the data can by analyzed by the software supporting nexus
-            # first the entry group
-            self.hf.attrs.create("NeXus_version","4.3.0")
-            
-            self.entry = self.hf.require_group("entry")
-            self.entry.attrs.create("NX_class","NXentry")
-            self.entry.attrs.create("data_latest",0)
-            self.entry.attrs.create("analysis_latest",0)
-            # create a nexus data group        
-            self.dgrp = self.entry.require_group("data0")
-            self.agrp = self.entry.require_group("analysis0")
-            self.vgrp = self.entry.require_group("views")
-            self.dgrp.attrs.create("NX_class","NXdata")
-            self.dgrp.attrs.create("NX_class","NXdata")
-        else:
-            self.dgrp = self.create_require_group("data0")
-            self.agrp = self.create_require_group("analysis0")
-            self.vgrp = self.create_require_group("views")
+        # make the structure compatible with the nexus format
+        # maybe some day the data can by analyzed by the software supporting nexus
+        # first the entry group
+        self.hf.attrs.create("NeXus_version","4.3.0")
+        
+        self.entry = self.hf.require_group("entry")
+        self.entry.attrs.create("NX_class","NXentry")
+        self.entry.attrs.create("data_latest",0)
+        self.entry.attrs.create("analysis_latest",0)
+        # create a nexus data group        
+        self.dgrp = self.entry.require_group("data0")
+        self.agrp = self.entry.require_group("analysis0")
+        self.vgrp = self.entry.require_group("views")
+        self.dgrp.attrs.create("NX_class","NXdata")
+        self.dgrp.attrs.create("NX_class","NXdata")
     
-    def setup_required_groups(self,nexus=True):
-        if nexus:
-            # make the structure compatible with the nexus format
-            # maybe some day the data can by analyzed by the software supporting nexus
-            # first the entry group
-            self.entry = self.hf.require_group("entry")
-            # create a nexus data group        
-            self.dgrp = self.entry.require_group("data0")
-            self.agrp = self.entry.require_group("analysis0")
-            self.vgrp = self.entry.require_group("views")
-
-        else:
-            self.dgrp = self.require_group("data0")
-            self.agrp = self.require_group("analysis0")
-            self.vgrp = self.require_group("views")
+    def setup_required_groups(self):
+        # make the structure compatible with the nexus format
+        # maybe some day the data can by analyzed by the software supporting nexus
+        # first the entry group
+        self.entry = self.hf.require_group("entry")
+        # create a nexus data group        
+        self.dgrp = self.entry.require_group("data0")
+        self.agrp = self.entry.require_group("analysis0")
+        self.vgrp = self.entry.require_group("views")
         
 
     def create_dataset(self,name, tracelength, ds_type = ds_types['vector'],
