@@ -315,7 +315,7 @@ class fid(file_system_service):
         else:
             return self.df
 
-    def filtered_uuids(self):
+    def get_filtered_uuids(self):
         """
         Thsi function gives you a list of UUIDs in your current view.
         If you have selected more than one line, only the selection is returned.
