@@ -443,7 +443,7 @@ def _display_2D_data(self,graphicsView):
         self.TraceYValue.setText(self._getYValueFromTraceNum(self.ds,self.TraceYNum))
         self.TraceZValue.setText(self._getZValueFromTraceNum(self.ds,self.TraceZNum))
     
-    data, units[2] = _do_data_manipulation(data, units[2], self.ds_type, self.manipulation, self.manipulations)
+    data, units[2] = _do_data_manipulation(data, units[2], self.ds_type, self.manipulation, self.manipulations, colorplot = True)
 
     graphicsView.clear()   
     graphicsView.view.setLabel('left', names[1], units=units[1])
@@ -705,7 +705,7 @@ def _get_all_ds_names_units_scales(ds,ds_urls= []):
 
 """ Unify the data manipulation to share code """
 
-def _do_data_manipulation(data, unit, ds_type, manipulation, manipulations):
+def _do_data_manipulation(data, unit, ds_type, manipulation, manipulations, colorplot = False):
     """Data manipulation for display gets done here.
     
     This function gathers all the needed metadata to correctly display the
@@ -740,9 +740,12 @@ def _do_data_manipulation(data, unit, ds_type, manipulation, manipulations):
             data = data - np.linspace(data[0],data[-1],len(data))  
         else:
             data = data - np.outer(data[:,-1]-data[:,0],np.linspace(0,1,data.shape[1]))
-     
-    if manipulation & manipulations['remove_zeros']:
-        data[np.where(data==0)] = np.NaN #replace all exact zeros in the hd5 data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
+	
+	if colorplot:
+		## This manipulation removes all zeros which would blow up the color scale.
+		## Only relevant for matrices and boxes in 2d 
+		if manipulation & manipulations['remove_zeros']:
+			data[np.where(data==0)] = np.NaN #replace all exact zeros in the hd5 data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
     
     if manipulation & manipulations['sub_offset_avg_y']:
         #ignore division by zero
