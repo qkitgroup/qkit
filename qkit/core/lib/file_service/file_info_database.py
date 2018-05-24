@@ -307,13 +307,13 @@ class fid(file_system_service):
             
             display(widgets.HBox([_openSelected,_batch_modifier.key_dd,_batch_modifier.value_tf,_batch_modifier]))
             
-            df = self.df.copy()
-            self.grid = qd.show_grid(self.df[rows], show_toolbar=False, grid_options={'enableColumnReorder': True})
+            df = self.df.copy()[self.df['rating']>0]
+            self.grid = qd.show_grid(df[rows], show_toolbar=False, grid_options={'enableColumnReorder': True})
             self.grid.observe(self._on_row_selected, names=['_selected_rows'])
             self.grid.observe(self._grid_observer, names=['_df'])
             return self.grid
         else:
-            return self.df
+            return self.df[self.df['rating']>0]
 
     def get_filtered_uuids(self):
         """

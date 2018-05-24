@@ -179,7 +179,7 @@ class file_system_service(UUID_base):
             h5_info_db = {'time': tm, 'datetime': dt, 'run': run, 'name': name, 'user': user}
             
             if qkit.cfg.get('fid_scan_hdf', False):
-                h5_info_db.update({'rating':-1})
+                h5_info_db.update({'rating':10})
                 try:
                     h5f=h5py.File(path,'r')
                     h5_info_db.update({'comment': h5f['/entry/data0'].attrs.get('comment', '')})
