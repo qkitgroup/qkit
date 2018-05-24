@@ -100,9 +100,9 @@ class Inficon(Instrument):
         #print "##"+value+"##"+value.strip()+"###"
         return value #value.strip()
     
-    def getHello(self):
+    def get_hello(self):
         return self.remote_cmd(self.cmds.get_hello)
-    def getRate(self, nm=False):
+    def get_rate(self, nm=False):
         rate = float(self.remote_cmd(self.cmds.get_rate))
         if nm:
             #return rate in nm
@@ -111,7 +111,7 @@ class Inficon(Instrument):
             # return rate in A (10^-10m)
             return rate
 
-    def getThickness(self, nm=False):
+    def get_thickness(self, nm=False):
         thickness = float(self.remote_cmd(self.cmds.get_thickness))
         if nm:
             # return thickness in nm
@@ -123,5 +123,5 @@ class Inficon(Instrument):
 if __name__ == "__main__":
     rd=Inficon("rd",address="COM5")
     #print rd.getHello()
-    print 'Rate:',rd.getRate()
-    print 'Thickness:',rd.getThickness()
+    print 'Rate:',rd.get_rate()
+    print 'Thickness:',rd.get_thickness()

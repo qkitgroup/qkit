@@ -75,7 +75,7 @@ class Keithley_2000(Instrument):
         # send command
         self.ser.write(cmd)
         # wait until data is processed
-        time.sleep(0.5)
+        time.sleep(1)
         # read back
         rem_char = self.ser.inWaiting()
         return self.ser.read(rem_char).strip('\r')
