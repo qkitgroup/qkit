@@ -7,6 +7,7 @@ import qkit.measure.write_additional_files as waf
 from qkit.storage import store as hdf
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 
+import sys
 import time
 
 import numpy as np
@@ -131,8 +132,8 @@ class EVAP_Monitor(object):
         self._log = waf.open_log_file(self._data_file.get_filepath())
 
         if self._scan_time:
-            self._time_coord = self._data_file.add_coordinate('time', unit='s')
-            self._time_coord.add(np.arange(0, self._duration, self._resolution))
+            self._time_coord = self._data_file.add_vector('time', unit='s')
+            #self._time_coord.add(np.arange(0, self._duration, self._resolution))
 
             self._data_rate = self._data_file.add_value_vector('rate', x=self._time_coord, unit='nm/s',
                                                                save_timestamp=True)
@@ -214,10 +215,10 @@ class EVAP_Monitor(object):
                 while time.time() < ti:
                     time.sleep(
                         0.05)  # FIXME: Use flow.sleep? Code there looks rather bulky and maybe not suited for high speed measurements
-
-                self._data_rate.append(self.quartz.get_rate())  # FIXME: Add function
-                self._data_thickness.append(self.quartz.get_thickness())  # FIXME: Add function
-                self._data_resistance.append(self.ohmmeter.get_resistance())  # FIXME: Add function
+                self._time_coord.append(time.time()-t0)
+                self._data_rate.append(self.quartz.get_rate(nm=True))
+                self._data_thickness.append(self.quartz.get_thickness(nm=True))
+                self._data_resistance.append(self.ohmmeter.get_resistance())
 
                 # self._resist_view.add() # FIXME: Is an add required or does it update automatically when new data is added to the data vectors?
 
@@ -245,23 +246,21 @@ class EVAP_Monitor(object):
 
         finally:
             self._end_measurement()
-        qt.mend()
+            qt.mend()
 
-
-def _end_measurement(self):
-    '''
-    the data file is closed and filepath is printed
-    '''
-    print
-    self._data_file.get_filepath()
-    # qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment) #old version where we have to wait for the plots
-    t = threading.Thread(target=qviewkit.save_plots,
-                         args=[self._data_file.get_filepath(), self._plot_comment])
-    t.start()
-    self._data_file.close_file()
-    # qkit.store_db.add(self._data_file.get_filepath()) # FIXME: New syntax?
-    waf.close_log_file(self._log)
-    self.dirname = None
+    def _end_measurement(self):
+        '''
+        the data file is closed and filepath is printed
+        '''
+        print(self._data_file.get_filepath())
+        # qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment) #old version where we have to wait for the plots
+        t = threading.Thread(target=qviewkit.save_plots,
+                             args=[self._data_file.get_filepath(), self._plot_comment])
+        t.start()
+        self._data_file.close_file()
+        # qkit.store_db.add(self._data_file.get_filepath()) # FIXME: New syntax?
+        waf.close_log_file(self._log)
+        self.dirname = None
 
 
 class EVAP_Control(object):
