@@ -100,16 +100,16 @@ class EVAP_Monitor(object):
         '''
         all the relevant settings from the quartz are updated and called
         '''
-
-        self.quartz.get_all()
+        #self.quartz.get_all()
         # self.quartz.get_frequency() # Store it somewhere
+        pass
 
     def _prepare_measurement_ohmmeter(self):
         '''
         all the relevant settings from the ohmmeter are updated and called
         '''
-
-        self.ohmmeter.get_all()
+        #self.ohmmeter.get_all()
+        pass
 
     def _prepare_measurement_file(self):
         '''
