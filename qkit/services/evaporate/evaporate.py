@@ -1,15 +1,20 @@
+from __future__ import print_function
+
 import qkit
+
 from qkit.measure.measurement_class import Measurement
 import qkit.measure.write_additional_files as waf
 from qkit.storage import store as hdf
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
+
 import time
+
 import numpy as np
-import scipy.optimize.curve_fit as curve_fit
+from scipy.optimize import curve_fit
 
 
 class EVAP_Monitor(object):
-    def __init__(self, quartz, ohmmeter, exp_name='', sample=None):
+    def __init__(self, quartz=None, ohmmeter=None, exp_name='', sample=None):
         self.quartz = quartz
         self.ohmmeter = ohmmeter
 
@@ -60,7 +65,7 @@ class EVAP_Monitor(object):
         return self._resolution
 
     def set_filmparameters(self, name=None, Rn=1000., d=20.):
-        self._film = name  # TODO: should be stored somewhere
+        self._film = name  # TODO: should be stored somewhere --> Sample object
         self._target_resistance = Rn
         self._target_thickness = d
 
@@ -68,10 +73,10 @@ class EVAP_Monitor(object):
         pass  # FIXME: How to format return?
 
     def ideal_resistance(self, thickness):
-        return t * (1 / self._target_resistance) / self._target_thickness
+        return 1. / (thickness * (1. / self._target_resistance) / self._target_thickness)
 
     def ideal_trend(self):
-        t = np.linspace(0, self._target_thickness, 300)
+        t = np.linspace(1, self._target_thickness, 300)
         return [t, self.ideal_resistance(t)]
 
     def set_fit(self, fit=False, fit_every=1, fit_points=5, p0=None):
@@ -140,8 +145,8 @@ class EVAP_Monitor(object):
             self._resist_view = self._data_file.add_view('resistance/thickness', x=_data_thickness,
                                                          y=self._data_resistance)
             self._resist_view.add(x=self.ideal_trend()[0],
-                                  y=self.ideal_trend()[
-                                      1])  # FIXME: Does view.add work like this? Why doesn't take it a name?
+                                  y=self.ideal_trend()[1])
+            # FIXME: Does view.add work like this? Why doesn't take it a name?
 
             if self.comment:
                 self._data_file.add_comment(self.comment)
@@ -187,7 +192,7 @@ class EVAP_Monitor(object):
                                                      'EVAP_timetrace ' + self.dirname,
                                                      self._resolution)  # FIXME: Doesn't make much sense...
 
-        print 'recording timetrace...'
+        print ('recording timetrace...')
         sys.stdout.flush()
 
         qt.mstart()
@@ -211,44 +216,45 @@ class EVAP_Monitor(object):
 
                 # self._resist_view.add() # FIXME: Is an add required or does it update automatically when new data is added to the data vectors?
 
-                print "Deviation from ideal:  dR = " + str(
-                    self._data_resistance[-1] - self.ideal_resistance(
-                        self._data_thickness[-1])) + "  dR/R_target = " + str(
-                    (self._data_resistance[-1] - self.ideal_resistance(
-                        self._data_thickness[-1]) / self._target_resistance / 100)) + " percent"
+                print("Deviation from ideal:  dR = " +
+                      str(self._data_resistance[-1] - self.ideal_resistance(self._data_thickness[-1])) +
+                      "  dR/R_target = " +
+                      str((self._data_resistance[-1] - self.ideal_resistance(self._data_thickness[-1])
+                     / self._target_resistance / 100)) +
+                    " percent")
                 # FIXME: How to print it all in one line that is updated each time?
 
                 if (self._fit_resistance and i % self._fit_every == 0 and len(
                         self._data_resistance[:]) >= self._fit_points):
                     estimation = self._fit_trend(self._data_thickness[-self._fit_points:None],
                                                  self._data_resistance[-self._fit_points:None])
-                    print "Estimated final resistance: " + str(estimation[0])
-                    print "Estimated ideal thickness: " + str(estimation[1])
-                # FIXME: How to print it all in one line that is updated each time?
+                    print ("Estimated final resistance: " + str(estimation[0]) +
+                           "Estimated ideal thickness: " + str(estimation[1]), end='\r')
 
                 if self.progress_bar:
                     self._p.iterate()
 
         except Exception as e:
-            print e.__doc__
-            print e.message
-        finally:
-            self._end_measurement()
-            qt.mend()
+            print (e.__doc__)
+        print (e.message)
 
-            def _end_measurement(self):
-                '''
-                the data file is closed and filepath is printed
-                '''
-                print self._data_file.get_filepath()
-                # qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment) #old version where we have to wait for the plots
-                t = threading.Thread(target=qviewkit.save_plots,
-                                     args=[self._data_file.get_filepath(), self._plot_comment])
-                t.start()
-                self._data_file.close_file()
-                # qkit.store_db.add(self._data_file.get_filepath()) # FIXME: New syntax?
-                waf.close_log_file(self._log)
-                self.dirname = None
+    finally:
+    self._end_measurement()
+    qt.mend()
 
-        class EVAP_Control(object):
-            pass
+    def _end_measurement(self):
+        '''
+        the data file is closed and filepath is printed
+        '''
+        print self._data_file.get_filepath()
+        # qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment) #old version where we have to wait for the plots
+        t = threading.Thread(target=qviewkit.save_plots,
+                             args=[self._data_file.get_filepath(), self._plot_comment])
+        t.start()
+        self._data_file.close_file()
+        # qkit.store_db.add(self._data_file.get_filepath()) # FIXME: New syntax?
+        waf.close_log_file(self._log)
+        self.dirname = None
+
+    class EVAP_Control(object):
+        pass
