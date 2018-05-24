@@ -285,7 +285,6 @@ class EVAP_Monitor(object):
                              args=[self._data_file.get_filepath(), self._plot_comment])
         t.start()
         self._data_file.close_file()
-        # qkit.store_db.add(self._data_file.get_filepath()) # FIXME: New syntax?
         waf.close_log_file(self._log)
         self.dirname = None
 

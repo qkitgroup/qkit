@@ -394,7 +394,6 @@ class Measure_td(object):
         t.start()
         self._hdf.close_file()
         waf.close_log_file(self._log)
-        qkit.store_db.add(self._hdf.get_filepath())
         
     def set_plot_comment(self, comment):
         '''
