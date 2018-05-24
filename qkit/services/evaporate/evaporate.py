@@ -192,7 +192,7 @@ class EVAP_Monitor(object):
                                                      'EVAP_timetrace ' + self.dirname,
                                                      self._resolution)  # FIXME: Doesn't make much sense...
 
-        print ('recording timetrace...')
+        print('recording timetrace...')
         sys.stdout.flush()
 
         qt.mstart()
@@ -220,41 +220,44 @@ class EVAP_Monitor(object):
                       str(self._data_resistance[-1] - self.ideal_resistance(self._data_thickness[-1])) +
                       "  dR/R_target = " +
                       str((self._data_resistance[-1] - self.ideal_resistance(self._data_thickness[-1])
-                     / self._target_resistance / 100)) +
-                    " percent")
+                           / self._target_resistance / 100)) +
+                      " percent")
                 # FIXME: How to print it all in one line that is updated each time?
 
                 if (self._fit_resistance and i % self._fit_every == 0 and len(
                         self._data_resistance[:]) >= self._fit_points):
                     estimation = self._fit_trend(self._data_thickness[-self._fit_points:None],
                                                  self._data_resistance[-self._fit_points:None])
-                    print ("Estimated final resistance: " + str(estimation[0]) +
-                           "Estimated ideal thickness: " + str(estimation[1]), end='\r')
+                    print("Estimated final resistance: " + str(estimation[0]) +
+                          "Estimated ideal thickness: " + str(estimation[1]), end='\r')
 
                 if self.progress_bar:
                     self._p.iterate()
 
         except Exception as e:
-            print (e.__doc__)
-        print (e.message)
+            print(e.__doc__)
+            print(e.message)
 
-    finally:
-    self._end_measurement()
-    qt.mend()
+        finally:
+            self._end_measurement()
+        qt.mend()
 
-    def _end_measurement(self):
-        '''
-        the data file is closed and filepath is printed
-        '''
-        print self._data_file.get_filepath()
-        # qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment) #old version where we have to wait for the plots
-        t = threading.Thread(target=qviewkit.save_plots,
-                             args=[self._data_file.get_filepath(), self._plot_comment])
-        t.start()
-        self._data_file.close_file()
-        # qkit.store_db.add(self._data_file.get_filepath()) # FIXME: New syntax?
-        waf.close_log_file(self._log)
-        self.dirname = None
 
-    class EVAP_Control(object):
-        pass
+def _end_measurement(self):
+    '''
+    the data file is closed and filepath is printed
+    '''
+    print
+    self._data_file.get_filepath()
+    # qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment) #old version where we have to wait for the plots
+    t = threading.Thread(target=qviewkit.save_plots,
+                         args=[self._data_file.get_filepath(), self._plot_comment])
+    t.start()
+    self._data_file.close_file()
+    # qkit.store_db.add(self._data_file.get_filepath()) # FIXME: New syntax?
+    waf.close_log_file(self._log)
+    self.dirname = None
+
+
+class EVAP_Control(object):
+    pass
