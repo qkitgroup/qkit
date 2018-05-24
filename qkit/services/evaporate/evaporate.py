@@ -9,6 +9,7 @@ from qkit.gui.notebook.Progress_Bar import Progress_Bar
 
 import sys
 import time
+import threading
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -101,7 +102,7 @@ class EVAP_Monitor(object):
         '''
         all the relevant settings from the quartz are updated and called
         '''
-        #self.quartz.get_all()
+        # self.quartz.get_all()
         # self.quartz.get_frequency() # Store it somewhere
         pass
 
@@ -109,7 +110,7 @@ class EVAP_Monitor(object):
         '''
         all the relevant settings from the ohmmeter are updated and called
         '''
-        #self.ohmmeter.get_all()
+        # self.ohmmeter.get_all()
         pass
 
     def _prepare_measurement_file(self):
@@ -132,27 +133,51 @@ class EVAP_Monitor(object):
         self._log = waf.open_log_file(self._data_file.get_filepath())
 
         if self._scan_time:
-            self._time_coord = self._data_file.add_vector('time', unit='s')
-            #self._time_coord.add(np.arange(0, self._duration, self._resolution))
+            self._time_coord = self._data_file.add_value_vector('time', x=None, unit='s')
 
-            self._data_rate = self._data_file.add_value_vector('rate', x=self._time_coord, unit='nm/s',
-                                                               save_timestamp=True)
-            self._data_thickness = self._data_file.add_value_vector('thickness', x=self._time_coord, unit='nm',
-                                                                    save_timestamp=True)
-            self._data_resistance = self._data_file.add_value_vector('resistance', x=self._time_coord, unit='Ohm',
-                                                                     save_timestamp=True)
+            self._data_rate = self._data_file.add_value_vector('rate',
+                                                               x=self._time_coord,
+                                                               unit='nm/s',
+                                                               save_timestamp=False)
+            self._data_thickness = self._data_file.add_value_vector('thickness',
+                                                                    x=self._time_coord,
+                                                                    unit='nm',
+                                                                    save_timestamp=False)
+            self._data_resistance = self._data_file.add_value_vector('resistance',
+                                                                     x=self._time_coord,
+                                                                     unit='Ohm',
+                                                                     save_timestamp=False)
+            self._data_deviation_abs = self._data_file.add_value_vector('deviation_absolute',
+                                                                        x=self._time_coord,
+                                                                        unit='Ohm',
+                                                                        save_timestamp=False)
+            self._data_deviation_rel = self._data_file.add_value_vector('deviation_relative',
+                                                                        x=self._time_coord,
+                                                                        unit='relative',
+                                                                        save_timestamp=False)
             # TODO: Add flow and pressure
 
-            self._resist_view = self._data_file.add_view('resistance/thickness', x=self._data_thickness,
+            self._resist_view = self._data_file.add_view('resistance_thickness',
+                                                         x=self._data_thickness,
                                                          y=self._data_resistance)
 
             self._thickness_coord = self._data_file.add_coordinate('thickness_coord', unit='nm')
             self._thickness_coord.add(self.ideal_trend()[0])
-            self._data_ideal = self._data_file.add_value_vector('ideal_resistance', x=self._thickness_coord,
-                                                                unit='Ohme', save_timestamp=True)
+
+            self._data_ideal = self._data_file.add_value_vector('ideal_resistance',
+                                                                x=self._thickness_coord,
+                                                                unit='Ohm',
+                                                                save_timestamp=False)
             self._data_ideal.append(self.ideal_trend()[1])
+
             self._resist_view.add(x=self._thickness_coord, y=self._data_ideal)
-            # FIXME: Does view.add work like this? Why doesn't take it a name?
+
+            self._deviation_abs_view = self._data_file.add_view('deviation_absolute',
+                                                                x=self._data_thickness,
+                                                                y=self._data_deviation_abs)
+            self._deviation_rel_view = self._data_file.add_view('deviation_relative',
+                                                                x=self._data_thickness,
+                                                                y=self._data_deviation_rel)
 
             if self.comment:
                 self._data_file.add_comment(self.comment)
@@ -213,34 +238,36 @@ class EVAP_Monitor(object):
                 ti = t0 + float(i) * self._resolution
 
                 while time.time() < ti:
-                    time.sleep(
-                        0.05)  # FIXME: Use flow.sleep? Code there looks rather bulky and maybe not suited for high speed measurements
-                self._time_coord.append(time.time()-t0)
-                self._data_rate.append(self.quartz.get_rate(nm=True))
-                self._data_thickness.append(self.quartz.get_thickness(nm=True))
-                self._data_resistance.append(self.ohmmeter.get_resistance())
+                    time.sleep(0.05)
+                # FIXME: Use flow.sleep? Code there looks rather bulky and maybe not suited for high speed measurements
 
-                # self._resist_view.add() # FIXME: Is an add required or does it update automatically when new data is added to the data vectors?
+                self._time_coord.append(time.time() - t0)
 
-                print("Deviation from ideal:  dR = " +
-                      str(self._data_resistance[-1] - self.ideal_resistance(self._data_thickness[-1])) +
-                      "  dR/R_target = " +
-                      str((self._data_resistance[-1] - self.ideal_resistance(self._data_thickness[-1])
-                           / self._target_resistance / 100)) +
-                      " percent")
-                # FIXME: How to print it all in one line that is updated each time?
+                resistance = self.ohmmeter.get_resistance()
+                rate = self.quartz.get_rate(nm=True)
+                thickness = self.quartz.get_thickness(nm=True)
 
-                if (self._fit_resistance and i % self._fit_every == 0 and len(
-                        self._data_resistance[:]) >= self._fit_points):
-                    estimation = self._fit_trend(self._data_thickness[-self._fit_points:None],
-                                                 self._data_resistance[-self._fit_points:None])
-                    print("Estimated final resistance: " + str(estimation[0]) +
-                          "Estimated ideal thickness: " + str(estimation[1]), end='\r')
+                self._data_rate.append(resistance)
+                self._data_resistance.append(rate)
+                self._data_thickness.append(thickness)
+
+                deviation_abs = resistance - self.ideal_resistance(thickness)
+                deviation_rel = deviation_abs / self._target_resistance
+
+                self._data_deviation_abs.append(deviation_abs)
+                self._data_deviation_rel.append(deviation_rel)
+
+                # if (self._fit_resistance and i % self._fit_every == 0 and len(
+                #        self._data_resistance[:]) >= self._fit_points):
+                #    estimation = self._fit_trend(self._data_thickness[-self._fit_points:None],
+                #                                 self._data_resistance[-self._fit_points:None])
+                #    print("Estimated final resistance: " + str(estimation[0]) +
+                #          "Estimated ideal thickness: " + str(estimation[1]), end='\r')
 
                 if self.progress_bar:
                     self._p.iterate()
 
-        except Exception as e:
+        except IOError as e:
             print(e.__doc__)
             print(e.message)
 
