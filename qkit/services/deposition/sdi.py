@@ -217,10 +217,10 @@ class SPUTTER_Monitor(object):
         """
         popt, _ = curve_fit(self._reciprocal, t_points, R_points, p0=self._p0)
 
-        R_final = 1. / (self._target_thickness * popt[0])
         t_final = 1. / (self._target_resistance * popt[0])
+        R_final = 1. / (self._target_thickness * popt[0])
 
-        return [R_final, t_final]
+        return [t_final, R_final]
 
     def _prepare_measurement_quartz(self):
         """
@@ -328,6 +328,19 @@ class SPUTTER_Monitor(object):
         self._data_ideal.append(self.ideal_trend()[1])
 
         '''
+        Estimation datasets
+        '''
+        if self._fit_resistance:
+            self._thickness_estimation = self._data_file.add_value_vector('thickness_estimation',
+                                                                          x=None,
+                                                                          unit='nm',
+                                                                          save_timestamp=False)
+            self._resistance_estimation = self._data_file.add_value_vector('resistance_estimation',
+                                                                           x=None,
+                                                                           unit='Ohm',
+                                                                           save_timestamp=False)
+
+        '''
         Create Views
         '''
         self._resist_view = self._data_file.add_view('resistance_thickness',
@@ -414,6 +427,9 @@ class SPUTTER_Monitor(object):
             loop: x_obj with parameters from x_vec
             """
 
+            resistance = []
+            thickness = []
+
             t0 = time.time()  # note: Windows has limitations on time precision (about 16ms)
 
             for i, _ in enumerate(self.x_vec):
@@ -421,34 +437,32 @@ class SPUTTER_Monitor(object):
                 ti = t0 + (float(i)+1) * self._resolution
                 self._data_time.append(time.time() - t0)
 
-                resistance = self.ohmmeter.get_resistance()
+                resistance.append(self.ohmmeter.get_resistance())
                 rate = self.quartz.get_rate(nm=True)
-                thickness = self.quartz.get_thickness(nm=True)
+                thickness.append(self.quartz.get_thickness(nm=True))
                 if self.mfc:
                     pressure = self.mfc.getActualPressure()
                     Ar_flow = self.mfc.getActualFlow(self.Ar_channel)
                     ArO_flow = self.mfc.getActualFlow(self.ArO_channel)
 
-                self._data_resistance.append(resistance)
+                self._data_resistance.append(resistance[-1])
                 self._data_rate.append(rate)
-                self._data_thickness.append(thickness)
+                self._data_thickness.append(thickness[-1])
                 if self.mfc:
                     self._data_pressure.append(pressure)
                     self._data_Ar_flow.append(Ar_flow)
                     self._data_Ar0_flow.append(ArO_flow)
 
-                deviation_abs = resistance - self.ideal_resistance(thickness)
+                deviation_abs = resistance[-1] - self.ideal_resistance(thickness[-1])
                 deviation_rel = deviation_abs / self._target_resistance
 
                 self._data_deviation_abs.append(deviation_abs)
                 self._data_deviation_rel.append(deviation_rel)
 
-                # if (self._fit_resistance and i % self._fit_every == 0 and len(
-                #        self._data_resistance[:]) >= self._fit_points):
-                #    estimation = self._fit_trend(self._data_thickness[-self._fit_points:None],
-                #                                 self._data_resistance[-self._fit_points:None])
-                #    print("Estimated final resistance: " + str(estimation[0]) +
-                #          "Estimated ideal thickness: " + str(estimation[1]), end='\r')
+                if ((self._fit_resistance) and (i % self._fit_every == 0) and (len(resistance) >= self._fit_points)):
+                    estimation = self._fit_trend(thickness[-self._fit_points:None], resistance[-self._fit_points:None])
+                    self._thickness_estimation.append(estimation[0])
+                    self._resistance_estimation.append(estimation[1])
 
                 if self.progress_bar:
                     self._p.iterate()
