@@ -215,27 +215,36 @@ class file_system_service(UUID_base):
                     logging.error("fid %s:%s"%(path,e))
 
             self.h5_info_db[uuid] = h5_info_db
-
-
-
-
-    def add(self, h5_filename):
-        uuid = h5_filename[:6]
-        basename = h5_filename[:-2]
+    
+    def add_h5_file(self, h5_filename):
+        if qkit.cfg['fid_scan_datadir']:
+            threading.Thread(name='adding_h5_file', target=self._add,kwargs={'h5_filename':h5_filename}).start()
+        
+    def _add(self, h5_filename):
+        """
+        Add a file to the database, where h5_filename should be the absolute filepath to the h5 file.
+        """
+        basename = os.path.basename(h5_filename)[:-2]
+        dirname = os.path.dirname(h5_filename)
+        uuid = basename[:6]
         if h5_filename[-3:] != '.h5':
-            raise ValueError("Your filename '{:s}' is not a .h5 filename.".format(h5_filename))
+            logging.error("Tried to add '{:s}' to the qkit.fid database: Not a .h5 filename.".format(h5_filename))
         with self.lock:
-            if os.path.isfile(basename + 'h5'):
-                self.h5_db[uuid] = basename + 'h5'
+            if os.path.isfile(h5_filename):
+                self.h5_db[uuid] = h5_filename
                 logging.debug("Store_db: Adding manually h5: " + basename + 'h5')
+                self._inspect_and_add_Leaf(basename + 'h5', dirname)
             else:
-                raise ValueError("File '{:s}' does not exist.".format(basename + 'h5'))
-            if os.path.isfile(basename + 'set'):
-                self.set_db[uuid] = basename + 'set'
+                logging.error("Tried to add '{:s}' to the qkit.fid database: File does not exist.".format(h5_filename))
+            if os.path.isfile(h5_filename[:-2] + 'set'):
+                self.set_db[uuid] = h5_filename[:-2] + 'set'
                 logging.debug("Store_db: Adding manually set: " + basename + 'set')
-            if os.path.isfile(basename + 'measurement'):
-                self.h5_db[uuid] = basename + 'measurement'
+                self._inspect_and_add_Leaf(basename + 'set', dirname)
+            if os.path.isfile(h5_filename[:-2] + 'measurement'):
+                self.h5_db[uuid] = h5_filename[:-2] + 'measurement'
                 logging.debug("Store_db: Adding manually measurement: " + basename + 'measurement')
+                self._inspect_and_add_Leaf(basename + 'measurement', dirname)
+        self.update_grid_db()
 
 
     def _set_hdf_attribute(self,UUID,attribute,value):
