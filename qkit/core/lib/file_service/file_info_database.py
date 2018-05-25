@@ -104,6 +104,7 @@ class fid(file_system_service):
         self.df = None
         # create initial database in the background. This can take a while...
         self.create_database()
+        self._selected_df = []
             
     def __getitem__(self, key):
         with self.lock:
