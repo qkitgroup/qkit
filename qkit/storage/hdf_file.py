@@ -210,14 +210,32 @@ class H5_file(object):
                         ds.resize((dim1+len(data),))
                         ds[dim1:] = data
 
-        if len(ds.shape) == 2:       # 2 dim dataset: matrix
+        if len(ds.shape) == 2:       
+            ## 2 dim dataset: matrix
+            ## multiple inputs: list/np.array with one or multiple entries
             fill = ds.attrs.get('fill')
-            dim1 = ds.shape[0]+1
-            ds.resize((dim1,len(data)))
-            fill[0] += 1
-            fill[1] = len(data)
+            dim1 = ds.shape[1]
+            if len(data) == 1:
+                dim0 = max(1, ds.shape[0])
+                ## single entry; sorting like in the 'len(ds.shape) == 3' case
+                if next_matrix:
+                    dim0 += 1
+                    fill[0] += 1
+                    fill[1] = 0
+                if dim0 == 1: # very first slice
+                    fill[0] = 1
+                    dim1 += 1
+                ds.resize((dim0,dim1))
+                fill[1] += 1
+                ds[fill[0]-1,fill[1]-1] = data
+            else: 
+                ## list of entries, sort the data 'slice by slice'
+                dim0 = ds.shape[0]
+                fill[0] += 1
+                fill[1] = len(data)
+                ds.resize((dim0+1,len(data)))
+                ds[dim0,:] = data
             ds.attrs.modify('fill', fill)
-            ds[fill[0]-1,:] = data
 
         if len(ds.shape) == 3:      
             ## 3 dim dataset: box
