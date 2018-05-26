@@ -40,8 +40,6 @@ class H5_file(object):
             for k in kw:
                 self.grp.attrs[k] = kw[k]
         
-
-        
     def create_file(self,output_file, mode):
         self.hf = h5py.File(output_file, mode)
 
@@ -75,7 +73,6 @@ class H5_file(object):
         self.agrp = self.entry.require_group("analysis0")
         self.vgrp = self.entry.require_group("views")
         
-
     def create_dataset(self,name, tracelength, ds_type = ds_types['vector'],
                        folder = "data", dim = 1,  **kwargs):
         """Dataset for one, two, and three dimensional data
@@ -119,7 +116,6 @@ class H5_file(object):
             self.grp = self.dgrp
         elif folder == "analysis":
             self.grp = self.agrp
-#           self.grp = self.grp.require_group(group)
         elif folder == "views":
             self.grp = self.vgrp
 
@@ -131,7 +127,6 @@ class H5_file(object):
             logging.info("Item '%s' already exists in data set." % (name))
             #return False        
             
-        
         # by default we create float datasets        
         dtype = kwargs.get('dtype','f')
         
@@ -139,7 +134,6 @@ class H5_file(object):
         if ds_type == ds_types['txt']:
             dtype = h5py.special_dtype(vlen=unicode)
         
-
         #create the dataset ...;  delete it first if it exists, unless it is data
         if name in self.grp.keys(): 
             if folder == "data":
@@ -152,7 +146,6 @@ class H5_file(object):
                 
         ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype)
         
-        
         ds.attrs.create("name",name)
         ds.attrs.create("fill", [0,0,0])
         # add attibutes
@@ -162,7 +155,7 @@ class H5_file(object):
         self.flush()
         return ds
         
-    def append(self,ds,data, next_matrix=False):
+    def append(self,ds,data, next_matrix=False, reset = False):
         """Method for appending hdf5 data. 
         
         A simple append method for data traces.
@@ -180,28 +173,42 @@ class H5_file(object):
         """
         # it gets a little ugly with all the different user-cases here ...
         
-        if len(ds.shape) == 1:      # 1 dim dataset: coordinate/vector/text
-            fill = ds.attrs.get('fill')
-            if self.ds_type == ds_types['txt']:     #text
+        if len(ds.shape) == 1:
+            ## 1dim dataset (text, coordinate, vector)
+            ## multiple inputs: text, scalar (not needed?), list/np.array with one or multiple entries
+            if self.ds_type == ds_types['txt']:
+                ## text
                 dim1 = ds.shape[0]+1
                 ds.resize((dim1,))
                 ds[dim1-1] = data
-            elif len(data.shape) == 0:              # scalar
+            """
+            ## This should not be needed anymore as there are non-user typecasts to np arrays before calling this fct.
+            elif len(data.shape) == 0:              
+                ## scalar input; this is more or less useless, all non-text data gets cast
+                ## into np.array prior to calling this function.
                 dim1 = ds.shape[0]+1
                 fill[0] += 1
                 ds.resize((dim1,))
                 ds[fill[0]-1] = data
-            elif len(data.shape) == 1:              # list or np array
-                if len(data) == 1:                  # single entry
+            """
+            if len(data.shape) == 1:
+                ## np array (or list)
+                if len(data) == 1:                  
+                    ## single entry
                     dim1 = ds.shape[0]+1
-                    fill[0] += 1
                     ds.resize((dim1,))
-                    ds[fill[0]-1] = data
-                else:                               # multiple entries                  
-                    ds.resize((len(data),))
-                    fill[0] += len(data)
-                    ds[:] = data
-            ds.attrs.modify("fill", fill)
+                    ds[dim1-1] = data
+                else:                               
+                    ## list of entries               
+                    if reset:
+                        ## here the data gets not appended but overwritten!   
+                        ds.resize((len(data),))
+                        ds[:] = data
+                    else:
+                        ## data append
+                        dim1 = ds.shape[0] 
+                        ds.resize((dim1+len(data),))
+                        ds[dim1:] = data
 
         if len(ds.shape) == 2:       # 2 dim dataset: matrix
             fill = ds.attrs.get('fill')
@@ -212,20 +219,20 @@ class H5_file(object):
             ds.attrs.modify('fill', fill)
             ds[fill[0]-1,:] = data
 
-
-        if len(ds.shape) == 3:      # 3 dim dataset: box
-            dim1 = max(1, ds.shape[0])
-            dim2 = ds.shape[1]
+        if len(ds.shape) == 3:      
+            ## 3 dim dataset: box
+            ## input: np.array with multiple entries
+            dim0 = max(1, ds.shape[0])
+            dim1 = ds.shape[1]
             fill = ds.attrs.get('fill')
             if next_matrix:
-                dim1 += 1
+                dim0 += 1
                 fill[0] += 1
                 fill[1] = 0
-                ds.resize((dim1,dim2,len(data)))
-            if dim1 == 1:
+            if dim0 == 1:
                 fill[0] = 1
-                dim2 += 1
-                ds.resize((dim1,dim2,len(data)))
+                dim1 += 1
+            ds.resize((dim0,dim1,len(data)))
             fill[1] += 1
             ds.attrs.modify("fill", fill)
             ds[fill[0]-1,fill[1]-1] = data

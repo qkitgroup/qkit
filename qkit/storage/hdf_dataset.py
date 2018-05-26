@@ -93,24 +93,30 @@ class hdf_dataset(object):
         self._next_matrix = True
         self._y_pos = 0
         
-    def append(self,data):
+    def append(self,data, reset = False):
         """Function to save a growing measurement dataset to the hdf file.
         
         Data is added one datapoint (vector) or one dataline (matrix, box) at a
         time. The data is cast to numpy arrays if possible and appended to the
         existing dataset. A timestamp-dataset is also recorded here.
+
+        Args:
+            data; any data to be appended to the dataset
+            reset (Boolean, optional); indicator for appending, or resetting the dataset
         """
+        if self.ds_type == ds_types['txt']:
+            data = unicode(data)
+        else:
+            ## we cast everything to a float numpy array
+            data = numpy.atleast_1d(numpy.array(data,dtype=self.dtype))
         # at this point the reference data should be around
         if self.first:
             self.first = False
-            
-            if type(data) == numpy.ndarray:
-                tracelength = len(data)
-            elif self.ds_type == ds_types['txt']:
+            if self.ds_type == ds_types['txt']:
                 tracelength = 0
             else:
-                tracelength = 0
-            # create the dataset
+                tracelength = len(data)
+            ## tracelength is used so far only for multi-dimensional datasets to chunk needed memory
             
             self.ds = self.hf.create_dataset(self.name,tracelength,
                                              folder=self.folder,
@@ -120,17 +126,12 @@ class hdf_dataset(object):
             self._setup_metadata()
             if self._save_timestamp:
                 self._create_timestamp_ds()
-            
-        # we cast everything to a float numpy array
-        if self.ds_type == ds_types['txt']:
-            data = unicode(data)
-        else:
-            data = numpy.array(data,dtype=self.dtype)
-        self.hf.append(self.ds,data, next_matrix=self._next_matrix)
+
+        self.hf.append(self.ds,data, next_matrix=self._next_matrix, reset = reset)
         if self._next_matrix:
             self._next_matrix = False
         if self._save_timestamp:
-            self.hf.append(self.ds_ts,numpy.array(time.time()))
+            self.hf.append(self.ds_ts,numpy.array(time.time(), reset = reset))
 
         self.hf.flush()
             
@@ -143,19 +144,7 @@ class hdf_dataset(object):
         """
 
         if self.ds_type == ds_types['coordinate'] or self.ds_type == ds_types['vector']:
-            if self.first:
-                self.first = False
-                tracelength = 0
-                # create the dataset
-                self.ds = self.hf.create_dataset(self.name,tracelength,
-                                                folder=self.folder,
-                                                dim = self.dim, 
-                                                dtype=self.dtype)
-                self._setup_metadata()
-            # we cast everything to a float numpy array
-            data = numpy.atleast_1d(numpy.array(data,dtype=self.dtype))
-            self.hf.append(self.ds,data)
-            self.hf.flush()
+            self.append(data, reset = True)
         else:
             logging.info("add is only for 1-Dim data. Please use append 2-Dim data.")
             return False
