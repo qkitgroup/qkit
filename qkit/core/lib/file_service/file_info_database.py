@@ -292,9 +292,7 @@ class fid(file_system_service):
         self._batch_update = True
         self.grid.df = tmp
         
-        
-
-    def show(self):
+    def show(self, show_raw=False):
         """
         used to show the data base as a qgrid object or if not installed pandas data frame
         :return: data frame as qgrid object or pandas object
@@ -316,11 +314,14 @@ class fid(file_system_service):
             
             display(widgets.HBox([_openSelected,_batch_modifier.key_dd,_batch_modifier.value_tf,_batch_modifier]))
             
-            df = self.df.copy()[self.df['rating']>0]
-            for key in df.keys():
-                if key not in ['datetime','time','rating','fit_time','fit_freq','comment']:
-                    df[key] = pd.to_numeric(df[key], errors="ignore")
-                    logging.debug("try to set key {} to numeric".format(key))
+            if show_raw:
+                df = self.df.copy()
+            else:
+                df = self.df.copy()[self.df['rating']>0]
+                for key in df.keys():
+                    if key not in ['datetime','time','rating','fit_time','fit_freq','comment']:
+                        df[key] = pd.to_numeric(df[key], errors="ignore")
+                        logging.debug("try to set key {} to numeric".format(key))
             self.grid = qd.show_grid(df[rows], show_toolbar=False, grid_options={'enableColumnReorder': True})
             self.grid.observe(self._on_row_selected, names=['_selected_rows'])
             self.grid.observe(self._grid_observer, names=['_df'])
