@@ -394,6 +394,17 @@ class fid(file_system_service):
         """
         pass
 
+    def add_column(self,colname,value=" "):
+        """
+        Add a new (empty) column to your dataframe. This will be displayed in the view after qkit.fid.show() and you can manipulate the individual values there.
+        :param colname: Name of your column. A ValueError is raised if this already exists.
+        :param value: Default value for all entries. Should not be empty string '' but space ' ' as changes can not be detected otherwise.
+        """
+        if colname in self.df:
+            raise ValueError("Column {} is already in your dataset. Can not be added twice".format(colname))
+        else:
+            self.df.loc[:,colname] = pd.Series(value,index = self.df.index)
+        
     def add_ratings_column(self, uid=None):
         """
         adds a column with your previously defined ratings in the h5-file to the data frame, so you can filter for them
