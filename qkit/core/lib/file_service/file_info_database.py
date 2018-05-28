@@ -223,7 +223,7 @@ class fid(file_system_service):
                 value = self._get_setting_from_set_file(self.h5_db[i].replace('.h5', '.set'),device,setting)
                 try:
                     value = float(value)
-                except(ValueError):
+                except(ValueError,TypeError):
                     pass
             except(IOError, IndexError):
                 value = None
@@ -318,10 +318,6 @@ class fid(file_system_service):
                 df = self.df.copy()
             else:
                 df = self.df.copy()[self.df['rating']>0]
-                for key in df.keys():
-                    if key not in ['datetime','time','rating','fit_time','fit_freq','comment']:
-                        df[key] = pd.to_numeric(df[key], errors="ignore")
-                        logging.debug("try to set key {} to numeric".format(key))
             self.grid = qd.show_grid(df[rows], show_toolbar=False, grid_options={'enableColumnReorder': True})
             self.grid.observe(self._on_row_selected, names=['_selected_rows'])
             self.grid.observe(self._grid_observer, names=['_df'])
