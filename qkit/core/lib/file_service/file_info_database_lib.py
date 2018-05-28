@@ -69,6 +69,14 @@ class file_system_service(UUID_base):
     _h5_info_cache_path = os.path.join(qkit.cfg['logdir'],"h5_info_cache.db")
 
     lock = threading.Lock()
+    
+    def _remove_cache_files(self):
+        """
+            remove cached files to recreate the database
+        """
+        for f in [self._h5_mtime_db_path,self._h5_info_cache_path]:
+            if os.path.isfile(f):
+                os.remove(f)
 
     def _load_cache_files(self):
         """ to speed up things, try to load the h5 
@@ -84,7 +92,7 @@ class file_system_service(UUID_base):
             with open(self._h5_info_cache_path,'rb') as f:
                 self._h5_info_cache_db = cPickle.load(f)
         except IOError as e:
-            logging.info("m_time_db not found. %s"%e)
+            logging.info("m_time_db not found. Not using cached files for now. %s"%e)
             self._new_cache = True
 
     def _store_cache_files(self):

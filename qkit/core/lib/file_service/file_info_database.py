@@ -156,6 +156,14 @@ class fid(file_system_service):
     def create_database(self):
         t1 = threading.Thread(name='creating_db', target=self.update_all)
         t1.start()
+    
+    def recreate_database(self):
+        '''
+            Deletes all cached database files and rescans the whole directory tree.
+            Use this if your database looks strange.
+        '''
+        self._remove_cache_files()
+        self.create_database()
 
     def update_all(self):
         """ updates file and grid database if activated
