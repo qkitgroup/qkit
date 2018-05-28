@@ -190,37 +190,40 @@ class file_system_service(UUID_base):
                 h5_info_db.update({'rating':10})
                 try:
                     h5f=h5py.File(path,'r')
-                    h5_info_db.update({'comment': h5f['/entry/data0'].attrs.get('comment', '')})
-                    try:
-                        # this is legacy and should be removed at some point
-                        # please use the entry/analysis0 attributes instead.
-                        fit_comment = h5f['/entry/analysis0/dr_values'].attrs.get('comment',"").split(', ')
-                        comm_begin = [i[0] for i in fit_comment]
+                    if "comment" in  h5f['/entry/data0'].attrs:
+                        h5_info_db.update({'comment': h5f['/entry/data0'].attrs['comment']})
+                    if "dr_values" in h5f['/entry/analysis0']:
                         try:
-                            h5_info_db.update({'fit_freq': float(h5f['/entry/analysis0/dr_values'][comm_begin.index('f')])})
-                        except (ValueError, IndexError):
+                            # this is legacy and should be removed at some point
+                            # please use the entry/analysis0 attributes instead.
+                            fit_comment = h5f['/entry/analysis0/dr_values'].attrs.get('comment',"").split(', ')
+                            comm_begin = [i[0] for i in fit_comment]
+                            try:
+                                h5_info_db.update({'fit_freq': float(h5f['/entry/analysis0/dr_values'][comm_begin.index('f')])})
+                            except (ValueError, IndexError):
+                                pass
+                            try:
+                                h5_info_db.update({'fit_time': float(h5f['/entry/analysis0/dr_values'][comm_begin.index('T')])})
+                            except (ValueError, IndexError):
+                                pass
+                        except (KeyError, AttributeError):
                             pass
-                        try:
-                            h5_info_db.update({'fit_time': float(h5f['/entry/analysis0/dr_values'][comm_begin.index('T')])})
-                        except (ValueError, IndexError):
-                            pass
-                    except (KeyError, AttributeError):
-                        pass
                     try:
                         h5_info_db.update(dict(h5f['/entry/analysis0'].attrs))
                     except(AttributeError, KeyError):
                         pass
-                    try:
-                        mmt = json.loads(h5f['/entry/data0/measurement'][0])
-                        h5_info_db.update(
-                                {arg: mmt[arg] for arg in ['run_id', 'user', 'rating', 'smt'] if mmt.has_key(arg)}
-                        )
-                    except(AttributeError, KeyError):
-                        pass
-                    finally:
-                        h5f.close()
+                    if "measurement" in h5f['/entry/data0']:
+                        try:
+                            mmt = json.loads(h5f['/entry/data0/measurement'][0])
+                            h5_info_db.update(
+                                    {arg: mmt[arg] for arg in ['run_id', 'user', 'rating', 'smt'] if mmt.has_key(arg)}
+                            )
+                        except(AttributeError, KeyError):
+                            pass
                 except IOError as e:
                     logging.error("fid %s:%s"%(path,e))
+                finally:
+                    h5f.close()
 
             self.h5_info_db[uuid] = h5_info_db
     
