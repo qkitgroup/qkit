@@ -82,6 +82,18 @@ def _display_1D_view(self,graphicsView):
                     y_data = dss[1][()]
                     if err_url:
                         err_data = dss[2][()]
+                    
+                    # prevent a crash when the two datasets have a different length
+                    # solution: truncate the longer dataset to the length of the shorter
+                    # Note: This can happen if the hdf.flush() is not in sync with the viewer
+                    
+                    x_data_len = len(x_data)
+                    y_data_len = len(y_data)
+                    if x_data_len != y_data_len:
+                        if x_data_len > y_data_len:
+                            x_data = x_data[:y_data_len]
+                        else:
+                            y_data = y_data[:x_data_len]
     
                 elif y_ds_type == ds_types['matrix']:
                     self.VTraceXSelector.setEnabled(True)
@@ -161,6 +173,7 @@ def _display_1D_view(self,graphicsView):
             except:
                 pass
             
+
             if self.plot_style==self.plot_styles['line']:
                 graphicsView.plot(y=y_data, x=x_data,pen=(i,3), name = names[1], connect='finite')
             elif self.plot_style==self.plot_styles['linepoint']:
