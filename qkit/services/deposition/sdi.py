@@ -79,8 +79,6 @@ class SPUTTER_Monitor(object):
 
         self._plot_comment = ""
 
-        # self.set_log_function()
-
         self.open_qviewkit = True
         self.qviewkit_singleInstance = False
 
@@ -162,7 +160,10 @@ class SPUTTER_Monitor(object):
         Returns:
             The ideal resistance as a float.
         """
-        return 1. / (thickness * (1. / self._target_resistance) / self._target_thickness)
+        try:
+            return 1. / (thickness * (1. / self._target_resistance) / self._target_thickness)
+        except:
+            return np.nan
 
     def ideal_trend(self):
         """
@@ -197,10 +198,10 @@ class SPUTTER_Monitor(object):
         Returns:
             The resistance for the given parameters as a float.
         """
-        if thickness == 0:
-            return np.nan
-        else:
+        try:
             return 1. / (thickness * cond_per_layer)
+        except:
+            return np.nan
 
     def _fit_trend(self, t_points, R_points):
         """
@@ -215,12 +216,20 @@ class SPUTTER_Monitor(object):
             R_final (float): Estimated final resistance at target thickness.
             t_final (float): Estimated thickness at target resistance.
         """
-        popt, _ = curve_fit(self._reciprocal, t_points, R_points, p0=self._p0)
+        for i in t_points:
+            if i==0:
+                return [np.nan, np.nan]
 
-        t_final = 1. / (self._target_resistance * popt[0])
-        R_final = 1. / (self._target_thickness * popt[0])
+        try:
+            popt, _ = curve_fit(self._reciprocal, t_points, R_points, p0=self._p0)
 
-        return [t_final, R_final]
+            t_final = 1. / (self._target_resistance * popt[0])
+            R_final = 1. / (self._target_thickness * popt[0])
+
+            return [t_final, R_final]
+
+        except:
+            return [np.nan, np.nan]
 
     def _prepare_measurement_quartz(self):
         """
@@ -253,9 +262,9 @@ class SPUTTER_Monitor(object):
         At this point all measurement parameters are known and put in the output file.
         """
         self._data_file = hdf.Data(name=self._file_name, mode='a')
-        #self._measurement_object.uuid = self._data_file._uuid
-        #self._measurement_object.hdf_relpath = self._data_file._relpath
-        #self._measurement_object.instruments = qkit.instruments.get_instrument_names()
+        self._measurement_object.uuid = self._data_file._uuid
+        self._measurement_object.hdf_relpath = self._data_file._relpath
+        self._measurement_object.instruments = qkit.instruments.get_instrument_names()
 
         self._measurement_object.save()
         self._mo = self._data_file.add_textlist('measurement')
@@ -311,7 +320,7 @@ class SPUTTER_Monitor(object):
                                                                   x=self._data_time,
                                                                   unit='sccm',
                                                                   save_timestamp=False)
-            self._data_Ar0_flow = self._data_file.add_value_vector('ArO_flow',
+            self._data_ArO_flow = self._data_file.add_value_vector('ArO_flow',
                                                                    x=self._data_time,
                                                                    unit='sccm',
                                                                    save_timestamp=False)
@@ -445,13 +454,15 @@ class SPUTTER_Monitor(object):
                     Ar_flow = self.mfc.getActualFlow(self.Ar_channel)
                     ArO_flow = self.mfc.getActualFlow(self.ArO_channel)
 
+                if resistance[-1] > 1.e9:
+                    resistance[-1] = np.nan
                 self._data_resistance.append(resistance[-1])
                 self._data_rate.append(rate)
                 self._data_thickness.append(thickness[-1])
                 if self.mfc:
                     self._data_pressure.append(pressure)
                     self._data_Ar_flow.append(Ar_flow)
-                    self._data_Ar0_flow.append(ArO_flow)
+                    self._data_ArO_flow.append(ArO_flow)
 
                 deviation_abs = resistance[-1] - self.ideal_resistance(thickness[-1])
                 deviation_rel = deviation_abs / self._target_resistance
@@ -460,6 +471,7 @@ class SPUTTER_Monitor(object):
                 self._data_deviation_rel.append(deviation_rel)
 
                 if ((self._fit_resistance) and (i % self._fit_every == 0) and (len(resistance) >= self._fit_points)):
+
                     estimation = self._fit_trend(thickness[-self._fit_points:None], resistance[-self._fit_points:None])
                     self._thickness_estimation.append(estimation[0])
                     self._resistance_estimation.append(estimation[1])
@@ -471,7 +483,9 @@ class SPUTTER_Monitor(object):
                 # wait until the total dt(itteration) has elapsed
                 while time.time() < ti:
                     time.sleep(0.05)
-                
+
+        except KeyboardInterrupt:
+            print('Monitoring interrupted by user.')
 
         except Exception as e:
             print(e)
