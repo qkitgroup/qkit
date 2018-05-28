@@ -395,26 +395,3 @@ class fid(file_system_service):
             raise ValueError("Column {} is already in your dataset. Can not be added twice".format(colname))
         else:
             self.df.loc[:,colname] = pd.Series(value,index = self.df.index)
-        
-    def add_ratings_column(self, uid=None):
-        """
-        adds a column with your previously defined ratings in the h5-file to the data frame, so you can filter for them
-        :param uid: List of uids. If None (default) all are used.
-        :return: None
-        """
-        #Fixme: not using qkit.store_db,etc.
-        """
-        if 'rating' in self.df.columns:  # avoiding more than one rating column after new ratings have been added
-            self.remove_column('rating')
-        dfrating = pd.DataFrame()
-        if uid is None:
-            uid = self.df.index
-        for i in uid:
-            h5tmp = st.Data(qkit.store_db.h5_db[i])
-            rating = h5tmp.hf.agrp.get('rating', None)
-            h5tmp.close()
-            dftemp = pd.DataFrame({'rating': rating}, index=[i])
-            dfrating = pd.concat([dfrating, dftemp])
-        self.df = pd.concat([self.df, dfrating], axis=1)
-        """
-        pass
