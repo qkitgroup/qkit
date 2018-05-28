@@ -379,20 +379,11 @@ class fid(file_system_service):
         folder of the h5 file
         :param uid: uid of the measurement file you wanna rate
         :type str
-        :param rating: a simple value to rate your measurement
+        :param rating: a simple value to rate your measurement. Default is 10, Rating <=0 is masked by default.
         :type int, float
         """
-        """
-        # Fixme: no qkit.store_db anymore
-        try:
-            h5tmp = st.Data(qkit.store_db.h5_db[uid])
-        except Exception as e:    
-            print(str(e)+': unable to open h5 file with uuid '+str(uid))
-        else:
-            h5tmp.hf.agrp.attrs['rating'] = rating
-            h5tmp.close()
-        """
-        pass
+        return self._set_hdf_attribute(uid, "rating", rating)
+        
 
     def add_column(self,colname,value=" "):
         """
