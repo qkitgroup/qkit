@@ -429,7 +429,6 @@ class SPUTTER_Monitor(object):
         if self.open_qviewkit:
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['resistance'])
 
-        
         # TODO: Implement threading
         try:
             """
@@ -494,6 +493,10 @@ class SPUTTER_Monitor(object):
 
         finally:
             self._end_measurement()
+
+#    def start_monitoring(self):
+#        mt = threading.Thread(target=self.monitor_depo())
+#        mt.start()
 
     def _end_measurement(self):
         """
