@@ -264,10 +264,17 @@ class file_system_service(UUID_base):
         try:
             if not 'analysis0' in h:
                 h.create_group('analysis0')
-            if value=="" or pd.isnull(value):
+            if value=="":
                 del h['analysis0'].attrs[attribute]
             else:
-                h['analysis0'].attrs[attribute] = value
+                try:
+                    import pandas as pd
+                    if pd.isnull(value):
+                        del h['analysis0'].attrs[attribute]
+                    else:
+                        h['analysis0'].attrs[attribute] = value
+                except ImportError:
+                    h['analysis0'].attrs[attribute] = value
         finally:
             h.file.close()
         self.h5_info_db[UUID].update({attribute:value})
