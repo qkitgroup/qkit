@@ -265,12 +265,14 @@ class file_system_service(UUID_base):
             if not 'analysis0' in h:
                 h.create_group('analysis0')
             if value=="":
-                del h['analysis0'].attrs[attribute]
+                if attribute in h['analysis0'].attrs:
+                    del h['analysis0'].attrs[attribute]
             else:
                 try:
                     import pandas as pd
                     if pd.isnull(value):
-                        del h['analysis0'].attrs[attribute]
+                        if attribute in h['analysis0'].attrs:
+                            del h['analysis0'].attrs[attribute]
                     else:
                         h['analysis0'].attrs[attribute] = value
                 except ImportError:
