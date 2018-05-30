@@ -144,7 +144,7 @@ class H5_file(object):
                 # comment: The above line does remove the reference to the dataset but does not free the space aquired
                 # fixme if possible ...
                 
-        ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype)
+        ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype, fillvalue = np.nan)
         
         ds.attrs.create("name",name)
         if ds_type == ds_types['matrix'] or ds_type == ds_types['box']:
