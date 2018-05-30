@@ -196,7 +196,7 @@ class PulseSequence(object):
         
         # build waveforms for each pulse
         # if iq-mixing is enabled 
-        wfms = [0] * num_pulses # list of waveforms for each pulse
+        wfms = [np.zeros(0)] * num_pulses # list of waveforms for each pulse
         timestep = 1.0 / self.samplerate # minimum time step
         length = 0 #length of current pulse
         readout_index = -1 # index of the readout in the waveform of the whole sequence
@@ -262,7 +262,10 @@ class PulseSequence(object):
             
         # generate full waveform from wfms
         waveform = np.sum(np.array(wfms), axis = 0) + self.dc_corr
-        return waveform, readout_index
+        # make sure first and last point of the waveform go to 0
+        waveform = np.append(0, waveform)
+        waveform = np.append(waveform, 0)
+        return waveform, readout_index + 1 # +1 due to leading 0
 
     def add(self, pulse, skip = False):
         """
