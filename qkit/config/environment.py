@@ -47,8 +47,12 @@ cfg['datafolder_structure'] = 1
 ##
 ## Create a database of all measurement-.h5 files with entries {uuid:abspath}
 ##
-#cfg['load_file_service'] = True
-#cfg['file_service_scan_hdf'] = False
+## load the file info database (fid):
+#fid_scan_datadir = True
+## check also the content of hdf files (slow) ?
+#fid_scan_hdf     = False
+## should the viewer object be created on startup (slow, needs pandas) ?
+#fid_init_viewer  = True
 
 ##
 ## Load (py) visa (Virtual Instrument Software Architecture) lib 
@@ -80,8 +84,13 @@ cfg['plot_engine'] = 'qkit.gui.qviewkit.main' # default: qviewkit
 ## the log file is located under cfg['logdir']
 ## stdout log is displayed in jupyter notebooks
 ## default log level is 'WARNING'
-cfg['file_log_level'] =  'DEBUG' # one of ['WARNING', 'DEBUG', 'INFO', 'ERROR', 'CRITICAL']
+cfg['file_log_level'] =  'INFO' # one of ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 cfg['stdout_log_level'] = 'WARNING'
+
+##
+## check via git if updates are available
+##
+#cfg['check_for_updates'] = False
 
 ##
 ## QT related options
@@ -93,6 +102,11 @@ cfg['qtlab'] = False
 ## Try to be compatible with QT lab 
 ## (by default we try to be compatible for now)
 #cfg['qt_compatible'] = True 
+
+##
+## To avoid huge log files, logfile maintainance is on per default.
+## This keeps only the latest 10 logfiles in your logdir.
+#cfg['maintain_logiles'] = True
 
 #-----------------------------------------------------------
 # below this line, there can be system wide constants like 

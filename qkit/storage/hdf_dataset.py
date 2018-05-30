@@ -13,14 +13,16 @@ import qkit
 from qkit.storage.hdf_constants import ds_types
 
 class hdf_dataset(object):
-    """
-    This class represents the dataset in python.        
+    """Dataset representation in qkit.        
     
-    this is also a helper class to postpone the creation of the datasets.
+    Wrapper class around the native h5py.crate_dataset().
+    This is also a helper class to postpone the creation of the datasets.
     The main issue here is that until the first data is aquired, 
     some dimensions and items are unknown.
     To keep the userinterface simple, we choose to postpone the creation 
     of the datasets and derive all the unknown values from the real data.
+    The working horse here is the 'append()' or the 'add()' function. Before, 
+    just an empty dataset is created and the metadata are set.
     """
     
     def __init__(self, hdf_file, name='', 
@@ -35,7 +37,7 @@ class hdf_dataset(object):
                  overwrite=False,
                  ds_type = ds_types['vector'],
                  **meta):
-
+        """Init the dataset object with case sensitive arguments"""
         name = name.lower()
         self.hf = hdf_file
         self.x_object = x
@@ -140,10 +142,11 @@ class hdf_dataset(object):
         self._y_pos = 0
         
     def append(self,data):
-        """
-        The append method is used to save a growing 2-Dim matrix to the hdf file, 
-        one line/vector at a time.
-        For example, data can be a frequency scan of a 1D scan.
+        """Function to save a growing measurement dataset to the hdf file.
+        
+        Data is added one datapoint (vector) or one dataline (matrix, box) at a
+        time. The data is cast to numpy arrays if possible and appended to the
+        existing dataset. A timestamp-dataset is also recorded here.
         """
         # at this point the reference data should be around
         if self.first:
@@ -186,13 +189,13 @@ class hdf_dataset(object):
             
             
     def add(self,data):
-        """
-        The add method is used to save a 1-Dim vector to the hdf file once.
-        For example, this can be a coordinate of a 1D scan.
-
+        """Function to save a 1dim dataset once.
+        
+        The add method is used to add data to a coordinate dataset. The data is
+        cast to a numpy array.
         """
         # we cast everything to a float numpy array
-        data = numpy.array(data,dtype=self.dtype)
+        data = numpy.atleast_1d(numpy.array(data,dtype=self.dtype))
         if self.y_object:
             logging.info("add is only for 1-Dim data. Please use append 2-Dim data.")
             return False
@@ -224,6 +227,11 @@ class hdf_dataset(object):
         self.hf.flush()
         
     def _create_timestamp_ds(self):
+        """Create datasets containing timestamps assocciated with a measurement dataset.
+        
+        A dataset with the same name (+ suffix '_ts') and dimension-1 is created
+        and unix timestamp added at each append() call.
+        """
         self.ds_ts = self.hf.create_dataset(self.name+'_ts', tracelength = 1,folder=self.folder,dim=max(self.dim-1, 1), dtype='float64')
         self.ds_ts.attrs.create('name', 'measurement_time')       
         self.ds_ts.attrs.create('unit', 's')

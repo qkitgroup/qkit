@@ -16,7 +16,12 @@ from qkit.storage.hdf_dataset import hdf_dataset
 from qkit.storage.hdf_constants import ds_types
 from qkit.storage.hdf_view import dataset_view
 from qkit.storage.hdf_DateTimeGenerator import DateTimeGenerator
-
+import warnings
+# this module shouldt be imported, please... don't use it...
+warnings.warn(
+   "This module is deprecated and will be removed in the near future. It was replaced by the module 'qkit.storage.store'.",
+    FutureWarning
+)
 
 
 class Data(object):

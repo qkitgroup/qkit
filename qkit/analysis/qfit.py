@@ -4,13 +4,18 @@
 # data reading and fitting
 
 # import and basic usage
-"""
-from qkit import qfit as qfit
-qf = qfit.QFIT()
-qf.load('data/file.h5', entries=['time', 'phase'])
-[qf.rotate_IQ_plane()]
-qf.fit_exp()
-"""
+'''
+usage:
+
+.. code-block:: python
+
+    from qkit import qfit as qfit
+    qf = qfit.QFIT()
+    qf.load('data/file.h5', entries=['time', 'phase'])
+    qf.rotate_IQ_plane()
+    qf.fit_exp()
+
+'''
 # a customized fit funcitoncan be set via directly writing in self.fit_function
 # and providing full initial parameters
 # for further information see doc strings
@@ -40,14 +45,16 @@ import time
 import logging
 
 try:
-    from qkit.storage import hdf_lib
+    from qkit.storage import store
 except ImportError: pass
 
 #\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=
 
 def _fill_p0(guesses,p0):
     '''
-    fill estimated guesses with specified initial values (in p0)
+    Fill estimated guesses with specified initial values (in p0). 
+    p0 can be a smaller list than len(guesses) and may contain 'None' entries 
+    e.g. guesses=[0,0,0,0,0] and p0 = [None,1,2] then the resulting guesses = [0,1,2,0,0]
     '''
     if guesses is None: return p0
     if p0 is not None:
@@ -55,7 +62,7 @@ def _fill_p0(guesses,p0):
             for i,p in enumerate(p0):
                 if p is not None:
                     guesses[i] = p
-        except Exception as m:
+        except Exception:
             logging.error('List of given initial parameters invalid. Aborting.')
             raise ValueError
     return guesses
@@ -94,11 +101,11 @@ class QFIT(object):
             self.cfg['data_dir'] = os.getcwd()
 
         try:
-            hdf_lib
-            self.cfg['hdf_lib'] = True
+            store
+            self.cfg['store'] = True
         except ImportError:
-            logging.warning('Package hdf_lib not found.')
-            self.cfg['hdf_lib'] = False
+            logging.warning('Package store not found.')
+            self.cfg['store'] = False
 
         print(self.cfg)
 
@@ -131,6 +138,9 @@ class QFIT(object):
         return a*np.exp(-t/Td)*0.5*(1+d*np.cos(2*np.pi*fs*t+ph))+offs
 
     def __get_parameters(self, fit_function):
+        '''
+        Parameters of known fit functions used for plotting purposes.
+        '''
         return {self.__f_Lorentzian_sqrt: ['f0','k','a','offs'],
             self.__f_Lorentzian: ['f0','k','a','offs'],
             self.__f_damped_sine: ['f','Td','a','offs','ph'],
@@ -143,13 +153,12 @@ class QFIT(object):
 
     def load(self, *args, **kwargs):
         '''
-        load data from either
-         + numpy array
-         + data file (h5 or text based file)
-         + recent data file in data_dir
+        Load data from either:
+         - numpy arrays: must specify keyword arguments 'coordinate' and 'data'
+         - data file (h5 or text based file): specify filename
+         - recent data file in data_dir: no arguments provided
 
-        entries need to be given with keyword 'entries'
-        coordinate and data need to be given with keywords 'coordinate' and 'data'
+        h5 entries need to be given with keyword 'entries'.
         '''
 
         if 'coordinate' in kwargs.keys() and 'data' in kwargs.keys():
@@ -164,9 +173,10 @@ class QFIT(object):
             self.data_label = ''
             return
         elif len(args) == 0:   #no file name provided
-            if self.cfg['hdf_lib']: ftype = 'h5'
+            if self.cfg['store']: ftype = 'h5'
             else: ftype = 'dat'
-            self.find_latest_file(ftype)
+            if self.find_latest_file(ftype) == 0:
+                return
         elif os.path.isfile(args[0]):   #test for file existence
             self.file_name = args[0]
         else:
@@ -198,11 +208,11 @@ class QFIT(object):
 
     def read_hdf_data(self, return_data = False):
         '''
-        read hdf data and set coordinate, data attributes
-        return data if requested
+        Read hdf data and set attributes self.coordinate, self.data. 
+        Return data as a numpy array if requested by 'return_data' argument.
         '''
         try:
-            self.hf = hdf_lib.Data(path = self.file_name)
+            self.hf = store.Data(self.file_name)
         except IOError,NameError:
             logging.error('Could not read h5 file.')
             return
@@ -232,7 +242,8 @@ class QFIT(object):
 
     def find_latest_file(self, ftype):
         '''
-        find latest file of type ftype in data directory
+        Find latest file of type 'ftype' in the data directory. 
+        The file name (including absolute path) is stored in self.file_name.
         '''
      
         if self.cfg['datafolder_structure'] == 'day_time':
@@ -250,9 +261,8 @@ class QFIT(object):
 
     def discover_hdf_data(self, entries=None):
         '''
-        - read hdf data file and return urls that match entries or seem reasonable
-        - Inputs:
-          - entries (optional): specify entries in h5 file whose urls to be returned
+        Read hdf data file and store urls that match entries or seem reasonable. 
+        - Inputs: entries (optional): specifies entries in h5 file whose urls to be returned
         
         - entries can be a list of string keywords (entries) in the form ['string1',string2',...,'stringn']
         - when no entries are specified, discover_hdf_data looks for a frequency axis or a pulse length axis
@@ -263,7 +273,7 @@ class QFIT(object):
         '''
         
         try:
-            self.hf = hdf_lib.Data(path = self.file_name)
+            self.hf = store.Data(self.file_name)
         except IOError,NameError:
             logging.error('Could not read h5 file.')
             return
@@ -350,13 +360,15 @@ class QFIT(object):
 
     def spline_smooth(self):
         '''
-        spline smooth the data set in self.data
+        Spline smooth the data set in self.data. The smoothing parameter is set via the 'spline_knots' entry in self.cfg.
         '''
         self.data = scipy.interpolate.UnivariateSpline(self.coordinate, self.data, s=self.cfg['spline_knots'])(self.coordinate)
 
     def phase_grad(self,spline = False):
         '''
-        prepare phase data: unwrap, spline, and return gradient
+        Unwrap, (optionally) spline smooth, and differentiate phase data. 
+        The freuqnecy derivative of transmission or reflection phase data that follows 
+        a arctan function yields a Lorentzian distribution.
         '''
         self.data = np.unwrap(self.data)
         if spline: self.spline_smooth()
@@ -366,19 +378,6 @@ class QFIT(object):
     #\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=
 
     def rotate_IQ_plane(self,entries=None):
-        '''
-        requires coordinate, amplitude, and phase data to be specified in entries
-        data can be a list of arrays in amplitude and phase or be averaged data
-        '''
-        if self.file_name[-2:] == 'h5':
-            self.discover_hdf_data(entries = entries)
-            if len(self.urls) != 3:
-                logging.error('Invalid entry specification. Aborting.')
-                return
-            self.coordinate, self.amplitude, self.phase = self.read_hdf_data(return_data = True)[0]
-        else:
-            logging.warning('Reading out amplitude and phase attributes.')
-        
         '''
         The data optimizer is fed with microwave data of both quadratures, typically amplitude and phase.
         It effectively performs a principle axis transformation in the complex plane of all data points
@@ -406,7 +405,20 @@ class QFIT(object):
 
         Errors are calculated projected on the axis complex data points are aligned along. Data is normalized
         prior to returning.
+
+        Requires coordinate, amplitude, and phase data to be specified via entries keyword. 
+        self.amplitude and self.phase can be lists of vectors or a single (averaged) data set.
         '''
+
+        if self.file_name[-2:] == 'h5':
+            self.discover_hdf_data(entries = entries)
+            if len(self.urls) != 3:
+                logging.error('Invalid entry specification. Aborting.')
+                return
+            self.coordinate, self.amplitude, self.phase = self.read_hdf_data(return_data = True)[0]
+        else:
+            logging.warning('Reading out amplitude and phase attributes.')
+
         #generate complex data array
         self.c_raw = np.array(self.amplitude) * np.exp(1j*np.array(self.phase))
 
@@ -481,7 +493,7 @@ class QFIT(object):
         '''
         Saves optimized data in the h5 file and a respective view.
         '''
-        self.hf = hdf_lib.Data(path=self.file_name)
+        self.hf = store.Data(self.file_name)
 
         hdf_data_opt = self.hf.add_value_vector(self.data_label+'_data_opt', folder=self.cfg['analysis_folder'], x = self.hf.get_dataset(self.urls[0]))
         hdf_data_opt.append(np.array(self.data))
@@ -518,7 +530,7 @@ class QFIT(object):
         '''
         
         try:
-            self.hf = hdf_lib.Data(path=self.file_name)
+            self.hf = store.Data(self.file_name)
             
             #create coordinate and fit data vector
             hdf_x = self.hf.add_coordinate(self.data_label+'_coordinate',folder=self.cfg['analysis_folder'])
@@ -675,26 +687,63 @@ class QFIT(object):
     #\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=
 
     def fit_Lorentzian(self, p0=None):
+        '''
+        Regular Lorentzian fit.
+        Optional Input: list of start parameters p0: Can be a smaller list than the actual number of parameters 
+        (addressing only the first n start parameters). p0 can also contain 'None' entries in order to select 
+        specific entries to set manually.
+        '''
         self.fit_function = self.__f_Lorentzian
         self.fit(p0=p0)
 
     def fit_Lorentzian_sqrt(self, p0=None):
+        '''
+        Square root of a Lorentzian fit e.g. for resonator magnitude data (since only the squared linear magnitude data 
+        typically results in a Lorentzian response).
+        Optional Input: list of start parameters p0: Can be a smaller list than the actual number of parameters 
+        (addressing only the first n start parameters). p0 can also contain 'None' entries in order to select 
+        specific entries to set manually.
+        '''
         self.fit_function = self.__f_Lorentzian_sqrt
         self.fit(p0=p0)
 
     def fit_damped_sine(self, p0=None):
+        '''
+        Damped sine fit to be used e.g. to fit Rabi/Ramsey oscillations.
+        Optional Input: list of start parameters p0: Can be a smaller list than the actual number of parameters 
+        (addressing only the first n start parameters). p0 can also contain 'None' entries in order to select 
+        specific entries to set manually.
+        '''
         self.fit_function = self.__f_damped_sine
         self.fit(p0=p0)
 
     def fit_sine(self, p0=None):
+        '''
+        Sine fit to be used to fit non-decaying harmonic oscillations.
+        Optional Input: list of start parameters p0: Can be a smaller list than the actual number of parameters 
+        (addressing only the first n start parameters). p0 can also contain 'None' entries in order to select 
+        specific entries to set manually.
+        '''
         self.fit_function = self.__f_sine
         self.fit(p0=p0)
 
     def fit_exp(self, p0=None):
+        '''
+        Simple exponential fit.
+        Optional Input: list of start parameters p0: Can be a smaller list than the actual number of parameters 
+        (addressing only the first n start parameters). p0 can also contain 'None' entries in order to select 
+        specific entries to set manually.
+        '''
         self.fit_function = self.__f_exp
         self.fit(p0=p0)
 
     def fit_exp_sine(self, p0=None):
+        '''
+        Asymmetric exponential sine fit to be used to fit e.g. Vacuum Rabi oscillations.
+        Optional Input: list of start parameters p0: Can be a smaller list than the actual number of parameters 
+        (addressing only the first n start parameters). p0 can also contain 'None' entries in order to select 
+        specific entries to set manually.
+        '''
         self.fit_function = self.__f_exp_sine
         self.fit(p0=p0)
 
@@ -702,8 +751,19 @@ class QFIT(object):
 
     def fit(self,p0=None):
         '''
-        perform fitting and plotting
+        Perform fitting and plotting based on the function stored in self.fit_function. 
+        self.fit_function may be set manually with an arbitrary function before executing fit(self):
+
+        .. code-block:: python
+        
+            def f_custom(coordinate, p1, p2, p3):
+                return (coordinate+p1)*p2+np.exp(p3)
+            self.fit_function = f_custom
+            self.p0 = [1,2,3]   #must be provided
+            self.fit()
+            
         '''
+
         #check for unit in frequency
         if np.mean(self.coordinate) > 1.e6:
             self.freq_conversion_factor = 1e-9
@@ -713,13 +773,13 @@ class QFIT(object):
     
         #start parameters
         if self.fit_function == self.__f_Lorentzian or self.fit_function == self.__f_Lorentzian_sqrt:
-            guesses = self._guess_lorentzian_parameters()
+            self.guesses = self._guess_lorentzian_parameters()
         elif self.fit_function == self.__f_sine:
-            guesses = self._guess_oscillating_parameters(damping=False,asymmetric_exp=False)
+            self.guesses = self._guess_oscillating_parameters(damping=False,asymmetric_exp=False)
         elif self.fit_function == self.__f_damped_sine:
-            guesses = self._guess_oscillating_parameters(damping=True,asymmetric_exp=False)
+            self.guesses = self._guess_oscillating_parameters(damping=True,asymmetric_exp=False)
         elif self.fit_function == self.__f_exp_sine:
-            guesses = self._guess_oscillating_parameters(damping=True,asymmetric_exp=True)
+            self.guesses = self._guess_oscillating_parameters(damping=True,asymmetric_exp=True)
             d_diff = np.gradient(self.data,self.coordinate[1]-self.coordinate[0])  #true gradient
             i = 0
             for i in range(len(self.coordinate)):
@@ -727,18 +787,20 @@ class QFIT(object):
                     break
                 i+=1
             if self.cfg['debug']: print 'first extremum detected at {:.4g}'.format(self.coordinate[i])
-            s_offs = guesses[-1]
+            s_offs = self.guesses[-1]
             s_d = 1 - np.abs(self.data[i] - s_offs)
-            guesses += [s_d]
+            self.guesses += [s_d]
         elif self.fit_function == self.__f_exp:
             s_offs = np.mean(self.data[int(0.9*len(self.data)):])   #average over the last 10% of entries
             s_a = self.data[0] - s_offs
             #calculate gradient at t=0 which is equal to (+-)a/T
             s_Td = np.abs(float(s_a)/np.mean(np.gradient(self.data,self.coordinate[1]-self.coordinate[0])[:5]))
-            guesses = [s_Td, s_a, s_offs]
+            self.guesses = [s_Td, s_a, s_offs]
         else:
-            logging.warning('Fit function unknown. No guesses available.')
-        p0 = _fill_p0(guesses,p0)
+            self.guesses = None
+            logging.warning('Fit function unknown. No guesses available but I will continue with the specified fit function.')
+        if self.guesses is not None:
+            self.p0 = _fill_p0(self.guesses,p0)
 
         try:
             popt, pcov = curve_fit(self.fit_function, self.coordinate*self.freq_conversion_factor, self.data, p0 = p0)
@@ -779,8 +841,9 @@ class QFIT(object):
 
                 self.ax.set_xlabel(self.coordinate_label, fontsize=13)
                 self.ax.set_ylabel(self.data_label, fontsize=13)
-                self.fig.suptitle(str(['{:s} = {:.4g}'.format(p, entry) for p, entry in zip(self.__get_parameters(self.fit_function), popt)]))
-                self.parameter_list = self.__get_parameters(self.fit_function)
+                if self.guesses:
+                    self.fig.suptitle(str(['{:s} = {:.4g}'.format(p, entry) for p, entry in zip(self.__get_parameters(self.fit_function), popt)]))
+                    self.parameter_list = self.__get_parameters(self.fit_function)
                 self.fig.tight_layout(rect=[0, 0, 1, 0.95])
         
         if self.cfg['save_png']: plt.savefig(self.file_name.strip('.h5')+'.png', dpi=200)

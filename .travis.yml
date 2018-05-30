@@ -1,0 +1,15 @@
+language: python
+python:
+  - 2.7
+install:
+  - pip install sphinx sphinx_rtd_theme
+  - pip install h5py scipy zmq zerorpc #PyQt4 serial  
+  - pip install ipython  ipywidgets matplotlib RPIO rpyc
+script:
+  - pwd
+  - export PYTHONPATH=$PYTHONPATH:/home/travis/build/qkitgroup/qkit
+  - cd qkit/doc; 
+  - make html; 
+  - cd ../../
+after_success:
+  - ./push.sh

@@ -1,8 +1,9 @@
-# Plasma 1 gui for pressure monitoring written by HR,AS,JB@KIT 2013, 2016 <jochen.braumueller@kit.edu>
+# qsurveilkit client written by HR,AS,JB@KIT 2013, 2016
 
-# file 'client_main.py' and may run on any machine in the local network
-#    that connects to the server script running on the Plasma 1 computer, pi-us56
-
+'''
+qsurveilkit client example, may run on any machine in the local network 
+of the machine running server_main.py
+'''
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -51,10 +52,16 @@ class AcquisitionThread(Thread,QObject):
         self.data = DATA   #client data object
         
     def setup_remote_connection(self):
+        '''
+        Setup rpyc server connection.
+        '''
         self.c = rpyc.connect(self.data.localhost.ip,self.data.localhost.port)
         print('Connection established to %s via port %s.'%(str(self.data.localhost.ip),str(self.data.localhost.port)))
         
-    def acquire_datapoint_from_remote(self,p):   #p is the parameter instance of the local client data object
+    def acquire_datapoint_from_remote(self,p):
+        '''
+        Acquire the most recent data point of parameter instance p of the local client data object.
+        '''
         return self.c.root.get_last_value(p.attribute_name)
 
     def acquire_history(self,p):
@@ -198,14 +205,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self._update_labels()
 
 class DATA(object):
+    '''
+    Client data class. The __init__ method accesses the same cfg file as the server.
+    '''
     class LOCALHOST(object):
         def __init__(self,config):
             self.name = config.get('LOCALHOST','name')
             self.ip   = config.get('LOCALHOST','ip')
             self.port = config.getint('LOCALHOST','port')
     class PARAMETER(object):
+        '''
+        Parameter class. Information is extracted from the cfg file.
+        '''
         def __init__(self,config,p_index,p_attr):
-            #print(p_attr)
             self.p_index = p_index
             self.attribute_name = str(p_attr)
             self.name = config.get(str(p_attr),'name')
@@ -221,7 +233,7 @@ class DATA(object):
         self.update_interval = config.getfloat('gui','update_interval')
         
         p_instances = config.get('parameters','p').split(",")   #parameter instance names
-        #print(p_instances)
+        #instanciate parameter objects
         self.parameters = [self.PARAMETER(config,i,p) for i,p in enumerate(p_instances)]   #instanciate parameter array
         for i,p_i in enumerate(p_instances):   #create human readable aliases, such that objects are accessible from clients according to the seetings.cfg entry in []
             setattr(self,str(p_i),self.parameters[i])

@@ -13,6 +13,10 @@ class Measurement(object):
     Measurement class to define general information about the specific measurement.
     '''
     def __init__(self):
+        try:
+            self.git_commit_id = qkit.git['commit_id']
+        except AttributeError:
+            pass
         self.uuid = None
         self.hdf_relpath = ''
         self.sample = None
@@ -84,7 +88,7 @@ class Measurement(object):
         '''
         return_dict = {}
         for ins_name in self.instruments:
-            ins = self.instruments[ins_name]
+            ins = qkit.instruments.get(ins_name)
             param_dict = {}
             for param_name in ins.get_parameter_names():
                 has_setter = 'set_func' in ins.get_parameter_options(param_name)

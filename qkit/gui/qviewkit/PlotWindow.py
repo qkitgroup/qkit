@@ -31,18 +31,33 @@ import qkit
 from qkit.gui.qviewkit.plot_view import Ui_Form
 from qkit.storage.hdf_constants import ds_types, view_types
 from qkit.gui.qviewkit.PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
-
+from qkit.gui.qviewkit.PlotWindow_lib import _get_ds, _get_ds_url, _get_name
 
 class PlotWindow(QWidget,Ui_Form):
+    """PlotWindow class organizes the correct display of data in a h5 file.
 
+    This class coordinates the display of the data between the UI with it's 
+    selector slots in Ui_Form and the plot functions in PlotWindow_lib. Here we
+    handle the trigger events; update, open, and close the plot windows.
+    Depending on the selector slot settings the associated plot function in the
+    lib is called.
+    We inherit from PyQt's QWidget class as well as the Ui_Form class.
+    
+    Heart and soul here is update_plots() which is connected to a timer trigger
+    and checks the settings of all user slots and calls the correct lib
+    function to display the data. The window starts with some default
+    configuration for the dataset types.
+    """
     def myquit(self):
         exit()
 
     def __init__(self,parent,data,dataset_url):
+        """Inits PlotWindow with a parent (QMainWindow.treeWidget), data
+        (qviewkit.main.DATA object), and a dataset_url to be opened.
+        """
         self.DATA = data
         self.dataset_url = dataset_url
         self.obj_parent = parent
-
 
         super(PlotWindow , self).__init__()
         Ui_Form.__init__(self)
@@ -50,8 +65,6 @@ class PlotWindow(QWidget,Ui_Form):
         self.setWindowState(Qt.WindowActive)
         self.activateWindow()
         self.raise_()
-
-
 
         "This variable controlles if a window is new, see update_plots()."
         self._windowJustCreated = True
@@ -66,13 +79,38 @@ class PlotWindow(QWidget,Ui_Form):
 
     @pyqtSlot()
     def update_plots(self):
-        """ This brings up everything and is therefore the main function.
-        Update Plots is either periodically called e.g. by the timer or once on startup. """
+        """Checks the signal slots and changes the plotting attributes to be 
+        evaluated by PlotWindow_lib.
+        
+        This function coordinates the changing input from the signal slots and
+        updates the attributes that are parsed to the plotting lib functions.
+        update_plots() is either periodically called e.g. by the timer or once 
+        on startup.
+        
+        Args:
+            self: Object of the PlotWindow class.
+        Returns:
+            No return variable. The function operates on the given object.
+        """
         #print "PWL update_plots:", self.obj_parent.h5file
 
         self.ds = self.obj_parent.h5file[self.dataset_url]
         self.ds_type = self.ds.attrs.get('ds_type', -1)
+        
+        # The axis names are parsed to plot_view's Ui_Form class to label the UI selectors 
+        x_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('x_ds_url', '')))
+        y_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('y_ds_url', '')))
+        z_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('z_ds_url', '')))
+        if self.ds.attrs.get('xy_0', ''):
+            x_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').split(':')[1]).attrs.get('x_ds_url', '')))
+            y_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').split(':')[1]).attrs.get('y_ds_url', '')))
+        else:
+            x_ds_name_view = '_none_'
+            y_ds_name_view = '_none_'
 
+        selector_label = [x_ds_name, y_ds_name, z_ds_name, x_ds_name_view, y_ds_name_view]    
+
+        ## At first window creation the attributes are set to state zero.
         if self._windowJustCreated:
             # A few state variables:
             self._onPlotTypeChanged = True
@@ -88,17 +126,18 @@ class PlotWindow(QWidget,Ui_Form):
             self.VTraceYValueChanged = False
 
             # the following calls rely on ds_type and setup the layout of the plot window.
-            self.setupUi(self,self.ds_type)
+            self.setupUi(self,self.ds_type, selector_label)
 
             window_title = str(self.dataset_url.split('/')[-1]) +" "+ str(self.DATA.filename)
             self.setWindowTitle(window_title)
 
-
             self._setDefaultView()
             self._setup_signal_slots()
-
-
-
+        
+        ## We check here for the view type given by either default setting or
+        ## user input. Creates the canvas and calls the associated plot 
+        ## function from the lib. For code constistence the variable names are
+        ## the same in all view types.
         try:
             if self.view_type == view_types['1D-V']:
                 if not self.graphicsView or self._onPlotTypeChanged:
@@ -122,10 +161,8 @@ class PlotWindow(QWidget,Ui_Form):
                 if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
                     self.graphicsView = ImageViewMplColorMaps(self.obj_parent, view = pg.PlotItem())
-                    #self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
                     self.graphicsView.setObjectName(self.dataset_url)
                     self.addQvkMenu(self.graphicsView.view.getMenu())
-                    #self.addQvkMenu(self..graphicsView.getImageItem().getMenu())
                     self.graphicsView.view.setAspectLocked(False)
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 _display_2D_data(self,self.graphicsView)
@@ -136,6 +173,7 @@ class PlotWindow(QWidget,Ui_Form):
                     self.graphicsView = pg.TableWidget(sortable=False)
                     self.graphicsView.setWindowTitle(self.dataset_url+'_table')
                     self.graphicsView.setObjectName(self.dataset_url)
+                    self.graphicsView.setFormat("%.6g")
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 _display_table(self,self.graphicsView)
 
@@ -144,8 +182,6 @@ class PlotWindow(QWidget,Ui_Form):
                     self._onPlotTypeChangeBox = False
                     self.graphicsView = QPlainTextEdit()
                     self.graphicsView.setObjectName(self.dataset_url)
-                    self.gridLayout.addWidget(self.graphicsView,0,0)
-                    #self.graphicsView.setObjectName(self.dataset_url)
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 self.graphicsView.clear()
                 _display_text(self,self.graphicsView)
@@ -157,13 +193,22 @@ class PlotWindow(QWidget,Ui_Form):
 
 
     def _setup_signal_slots(self):
+        """Depending on the dataset type the possible signal slots are created
+        
+        Args:
+            self: Object of the PlotWindow class.
+        Returns:
+            No return variable. The function operates on the given object.
+        """
         if self.ds_type == ds_types['vector'] or self.ds_type == ds_types['coordinate']:
             self.PlotTypeSelector.currentIndexChanged.connect(self._onPlotTypeChangeVector)
 
         elif self.ds_type == ds_types['matrix'] or self.ds_type == -1:
             self.PlotTypeSelector.currentIndexChanged.connect(self._onPlotTypeChangeMatrix)
-            self.TraceSelector.valueChanged.connect(self._setTraceNum)
-            self.TraceValue.returnPressed.connect(self._setTraceValue)
+            self.TraceXSelector.valueChanged.connect(self._setBTraceXNum)
+            self.TraceYSelector.valueChanged.connect(self._setBTraceYNum)
+            self.TraceXValue.returnPressed.connect(self._setBTraceXValue)            
+            self.TraceYValue.returnPressed.connect(self._setBTraceYValue) 
 
         elif self.ds_type == ds_types['box']:
             self.PlotTypeSelector.currentIndexChanged.connect(self._onPlotTypeChangeBox)
@@ -188,15 +233,23 @@ class PlotWindow(QWidget,Ui_Form):
             sys.stdout.flush()
 
     def _setDefaultView(self):
+        """Set the display attributes to a ds_type sensitive default case.
+        
+        The default attributs for the ds_types are:
+        coordinate -> 1d, data vs. x_coord
+        vector -> 1d, data vs. x_coord
+        matrix -> 2d, color coded data with y_coord and x_coord
+        box -> 2d, color coded data with y_coord and x_coord at the mid-point
+            of the z-coord.
+        The default settings for the user signal slots are set up in their 
+        respective functions.
+        Args:
+            self: Object of the PlotWindow class.
+        Returns:
+            No return variable. The function operates on the given object.
         """
-        Setup the view type: settle which type of window is displaying a dataset.
-        It is distinguished with what layout a dataset is displayed.
-        Co -> 1d
-        vec -> 1d
-        matrix -> 2d
-        box -> 3d
-        """
-
+        
+        ## Some look-up dicts for manipulation and plot styles.
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
         self.manipulations = {'dB':1, 'wrap':2, 'linear':4, 'remove_zeros':8,
                               'sub_offset_avg_y':16, 'norm_data_avg_x':32} #BITMASK for manipulation
@@ -239,10 +292,14 @@ class PlotWindow(QWidget,Ui_Form):
         self.PlotTypeSelector.setCurrentIndex(0)
 
     def _defaultMatrix(self):
-        self.TraceSelector.setEnabled(False)
-        shape = self.ds.shape[0]
-        self.TraceSelector.setRange(-1*shape,shape-1)
-        self.PlotTypeSelector.setCurrentIndex(0)
+        shape = self.ds.shape
+        self.TraceXSelector.setEnabled(False)
+        self.TraceXSelector.setRange(-1*shape[0],shape[0]-1)
+        self.TraceXNum = -1        
+
+        self.TraceYSelector.setEnabled(False)
+        self.TraceYSelector.setRange(-1*shape[1],shape[1]-1)
+        self.TraceYNum = -1
 
     def _defaultBox(self):
         shape = self.ds.shape
@@ -293,16 +350,6 @@ class PlotWindow(QWidget,Ui_Form):
         else:
             self.TraceSelector.setEnabled(True)
             self.PlotTypeSelector.setEnabled(False)
-
-    ####### this looks ugly
-    def _setTraceValue(self):
-        xval = str(self.TraceValue.displayText())
-        try:
-            self._trace_value = float(xval.split()[0])
-        except ValueError:
-            return
-        self.TraceValueChanged = True
-        self.obj_parent.pw_refresh_signal.emit()
 
 
     def _setTraceNum(self,num):
@@ -396,13 +443,20 @@ class PlotWindow(QWidget,Ui_Form):
         self._onPlotTypeChanged = True
         if index == 0:
             self.view_type = view_types['2D']
-            self.TraceSelector.setEnabled(False)
+            self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(False)
         if index == 1:
             self.view_type = view_types['1D']
-            self.TraceSelector.setEnabled(True)
+            self.TraceXSelector.setEnabled(True)
+            self.TraceYSelector.setEnabled(False)
         if index == 2:
+            self.view_type = view_types['1D']
+            self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(True)
+        if index == 3:
             self.view_type = view_types['table']
-            self.TraceSelector.setEnabled(False)
+            self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(False)
 
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
@@ -483,7 +537,20 @@ class PlotWindow(QWidget,Ui_Form):
             zval = z0+(max_len+num)*dz
         return str(zval)+" "+str(unit)
 
-    def addQvkMenu(self,menu):
+    def addQvkMenu(self,menu):        
+        """Add custom entry in the right-click menu.
+        
+        The data manipulation option are displayed in the menu. Each entry is
+        connected with a trigger event and the information about the clicked
+        entry is parsed to the plot lib via the plot_style or the manipulation
+        attribute.
+        Args:
+            self: Object of the PlotWindow class.
+            menu: Menu of the respective pyqtgraph plot class
+        Returns:
+            No return variable. The function operates on the given object.
+        """
+    
         self.qvkMenu = QMenu("Qviewkit")
 
         point = QAction('Point', self.qvkMenu)
@@ -573,16 +640,24 @@ class PlotWindow(QWidget,Ui_Form):
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
 
-"""
-The code below implements the matplotlib 2.0 colormaps 'viridis', 'inferno', 'plasma', and 'magma' to the available colors in our 2d plots.
-They are not (yet?) available in the standard pyqtgraph package. However there is a pull request #446, issued Feb 2017 by github user "WFrsh" to add them to the 
-standard available gradient dict.
-The code is a combination by his added rgb color maps and a monkey patch by user "honkomonk" posted in the comment section of pull request #561.
-"""
+
 
 from collections import OrderedDict
 
 class ImageViewMplColorMaps(pg.ImageView):
+    """Class to manually inclued the matplotlib 2.0 colormaps.
+    
+    The class implements the matplotlib 2.0 colormaps 'viridis', 'inferno', 
+    'plasma', and 'magma' to the available colors scales in our 2d plots.
+    They are not (yet?) available in the standard pyqtgraph package. However, 
+    there is a pull request #446, issued Feb 2017 by github user "WFrsh" to add
+    them to the standard available gradient dict.
+    The code is a combination by his added rgb color maps and a monkey patch by
+    user "honkomonk" posted in the comment section of pull request #561.
+    
+    The color gradients for the maps are hard coded here and added to the
+    available dict of colormaps. The 'viridis' map is set as default.
+    """
     def __init__(self, parent=None, name='ImageView', view=None, imageItem=None, *args):
         super(ImageViewMplColorMaps, self).__init__(parent=parent, name=name, view=view, imageItem=imageItem, *args)
 

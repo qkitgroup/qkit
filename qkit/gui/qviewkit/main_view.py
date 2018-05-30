@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-@author: hannes.rotzinger@kit.edu / 2015, 2016, 2017 
+@author: hannes.rotzinger@kit.edu / 2015, 2016, 2017
          marco.pfirrmann@kit.edu / 2016, 2017
 @license: GPL
 """
@@ -43,7 +43,21 @@ except AttributeError:
         return QtGui.QApplication.translate(context, text, disambig)
 
 class Ui_MainWindow(object):
+    """Ui_MainWindow class creates the frame of the  h5 file.
+
+    The main window features some general interface buttons for file selection
+    and live update as well as a interactive display to show and interact
+    with the datasets in the populated dataset tree.
+    """
     def setupUi(self, MainWindow):
+        """setupUi creates the main window based on QMainWindow.
+
+        Args:
+            self: Object of the PlotWindow class.
+            MainWindow: QMainWindow object.
+        Returns:
+            No return variable. The function operates on the given object.
+        """
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
         MainWindow.resize(271, 554)
         self.centralwidget = QtGui.QWidget(MainWindow)
@@ -104,4 +118,3 @@ class Ui_MainWindow(object):
         self.FileButton.setText(_translate("MainWindow", "File", None))
         self.liveCheckBox.setText(_translate("MainWindow", "live", None))
         self.updateButton.setText(_translate("MainWindow", "Update", None))
-

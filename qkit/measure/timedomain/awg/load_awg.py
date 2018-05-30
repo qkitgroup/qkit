@@ -147,4 +147,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
         awg.set_ch1_status(True)
         awg.set_ch2_status(True)
     qt.mend()
+    if sample.__dict__.has_key('mspec'):
+        sample.mspec.spec_stop()
+        sample.mspec.set_segments(len(ts))
     return np.all([awg.get('ch%i_status'%i) for i in [1,2]])

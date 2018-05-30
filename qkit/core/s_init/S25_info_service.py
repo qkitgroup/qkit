@@ -13,13 +13,8 @@ if qkit.cfg.get('load_info_service',True):
         # we handle this exception again in the module
     
     from qkit.core.lib.com.info_service import info_service
-    import qkit.core.qcorekit as qckit
-    
     qkit.info = info_service()
-    qckit.info = qkit.info
-    #qckit.info.info("hallo welt")
 else:
     # dummy info service
     def info_service(msg): pass
-    qkit.info = info_service()
-    qckit.info = qkit.info
+    qkit.info = info_service

@@ -227,10 +227,10 @@ class spectrum(object):
         at this point all measurement parameters are known and put in the output file
         '''
 
-        self._data_file = hdf.Data(name=self._file_name)
+        self._data_file = hdf.Data(name=self._file_name, mode='a')
         self._measurement_object.uuid = self._data_file._uuid
         self._measurement_object.hdf_relpath = self._data_file._relpath
-        self._measurement_object.instruments = qt.instruments.get_instruments()
+        self._measurement_object.instruments = qkit.instruments.get_instrument_names()
 
         self._measurement_object.save()
         self._mo = self._data_file.add_textlist('measurement')
@@ -657,7 +657,6 @@ class spectrum(object):
         t = threading.Thread(target=qviewkit.save_plots,args=[self._data_file.get_filepath(),self._plot_comment])
         t.start()
         self._data_file.close_file()
-        qkit.store_db.add(self._data_file.get_filepath())
         waf.close_log_file(self._log)
         self.dirname = None
         if self.averaging_start_ready: self.vna.post_measurement()

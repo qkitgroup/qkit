@@ -15,9 +15,15 @@ alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
 class DateTimeGenerator(object):
-    """
-    Class to generate filenames / directories based on the date and time.
-    Date (YYYYMMDD) -> Time (HHMMSS) -> data
+    """DateTimeGenerator class to provide a timestamp for each measurement file
+    upon creation.
+    
+    For sorting and unique identification across multiple measurement setups
+    we provide a timestamp for each h5 file created with qkit. We use the unix
+    timestamp to get time resolution of one second which should be enough for
+    our needs. The integer timestamp is then converted either into a HHMMSS
+    representation using day and month information to create a folder, or the
+    timestamp gets converted using the alphabet to create a 6 digit UUID.
     """
     
     def __init__(self):
@@ -29,11 +35,12 @@ class DateTimeGenerator(object):
         self.returndict['_datemark'] = time.strftime('%Y%m%d', self.returndict['_localtime'])
         self.returndict['_uuid'] = encode_uuid(self.returndict['_unix_timestamp'])
     
+    # call for h5 filename, qkit config gets checked for encoding procedure.
     def new_filename(self, name=None):
         if qkit.cfg.get('datafolder_structure',1) == 2:
-            self.new_filename_v2(name)
+            self.new_filename_v2(name) # 6 digit UUID
         else:
-            self.new_filename_v1(name)
+            self.new_filename_v1(name) # HHMMSS representation
         self.returndict['_folder'] = os.path.join(qkit.cfg['datadir'], self.returndict['_relfolder'])
         self.returndict['_relpath'] = os.path.join(self.returndict['_relfolder'],self.returndict['_filename'])
         self.returndict['_filepath'] = os.path.join(self.returndict['_folder'], self.returndict['_filename'])
@@ -66,6 +73,13 @@ class DateTimeGenerator(object):
 
 
 def encode_uuid(value):
+    """Encodes the integer unix timestamp into a 6 digit UUID using the alphabet.
+    
+    Args:
+        Integer-cast unix timestamp.
+    Return:
+        6 digit UUID string.
+    """
     # if not value: value = self._unix_timestamp
     output = ''
     la = len(alphabet)
@@ -76,6 +90,13 @@ def encode_uuid(value):
 
 
 def decode_uuid(string):
+    """Decodes the 6 digit UUID back into integer unix timestamp.
+    
+    Args:
+        6 digit UUID string.        
+    Return:
+        Integer-cast unix timestamp.
+    """
     # if not string: string = self._uuid
     output = 0
     multiplier = 1

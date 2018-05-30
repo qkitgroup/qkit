@@ -38,16 +38,32 @@ class QKIT_visible(object):
         "returns the qkit.cfg dict"
         return qkit.cfg
     def get_current(self):
-        return qkit.last[-1]
+        pass
+        #return qkit.last[-1]
     def get_last(self):
-        return qkit.last[-2]
+        pass
+        #return qkit.last[-2]
     def stop_measure(self):
-        return qkit.flow.stop()
+        pass
+        #return qkit.flow.stop()
     def ex(self,func):
         if qkit.cfg.get("ris_debug",False):
             return eval(func)
         else:
             return False
+    
+    def get_instruments(self):
+        return qkit.instruments.get_instrument_names()
+    def get_instrument_param(selfs,instrument,parameter):
+        return qkit.instruments.get(instrument).get(parameter)
+    def get_all_instrument_params(self):
+        return_dict = {}
+        for ins in qt.instruments.get_instruments().values():
+            param_dict = {}
+            for param in ins.get_parameter_names():
+                param_dict.update({param: [ins.get(param, query=False), ins.get_parameter_options(param).get('units', "")]})
+            return_dict.update({ins.get_name(): param_dict})
+        return return_dict
 
 
 class RISThread(object):
@@ -58,16 +74,29 @@ class RISThread(object):
         thread.daemon = True                            # Daemonize thread
         thread.start()                                  # Start the execution
     def run(self):
-        self.ris = zerorpc.Server(QKIT_visible())
+        
         host = qkit.cfg.get("ris_host","127.0.0.1")
-        port = str(qkit.cfg.get("ris_port",5700))
-        try:
-            self.ris.bind("tcp://"+host+":"+port)
-        except zmq.ZMQError as e:
-            logging.warning("RIS: address/port in use. ZMQError:%d \nMaybe another instance of QKIT is running?"%(e.errno))
+        port = int(qkit.cfg.get("ris_port",5700))
+        socket_bound = False
+        for newport in range(port,port+20):
+            try:
+                self.ris = zerorpc.Server(QKIT_visible())
+                self.ris.bind("tcp://%s:%d"%(host,newport))
+                host = qkit.cfg.get("ris_host","127.0.0.1")
+                qkit.cfg["ris_host"] = host
+                qkit.cfg["ris_port"] = newport
+                socket_bound = True
+                break
+            except zmq.ZMQError as e:
+                logging.debug(e)
+                socket_bound = False
+                self.ris.stop()
+                del self.ris
+        if not socket_bound:
+            logging.warning("RIS: address/port in use: ZMQError. \nMaybe another 20 instances of QKIT are running?")
             logging.warning("Not starting RIS.")
             return False
-
+        # run the thread
         self.ris.run()
     def stop(self):
             try:
