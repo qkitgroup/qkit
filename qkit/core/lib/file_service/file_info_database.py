@@ -201,34 +201,47 @@ class fid(file_system_service):
         self.df.fillna("", inplace=True) # Replace NAs with empty string to be able to detect changes
 
     def _get_setting_from_set_file(self, filename, instrument, value):
-        with open(filename, 'r') as f:
-            instrument_found = False
-            for line in f:
-                if line.startswith("Instrument: "):
-                    if instrument_found:
-                        return
-                    if line[12:].strip() == instrument:
-                        instrument_found = True
-                if instrument_found:
-                    i = line.strip().split(":")
-                    if i[0] == value:
-                        return i[1][1:]
+        try:
+            with open(filename, 'r') as f:
+                i_name = False
+                return_dict = {}
+                for line in f:
+                    if line.startswith("Instrument: "):
+                        if line[12:].strip() in instrument:
+                            i_name = line[12:].strip()
+                        else:
+                            i_name = False
+                    elif i_name:
+                        p = line.strip().split(":")
+                        if p[0] in value:
+                            for i in range(len(instrument)):
+                                if p[0] == value[i] and i_name == instrument[i]:
+                                    try:
+                                        return_dict.update({i_name+":"+p[0] : float(p[1][1:])})
+                                    except(ValueError,TypeError):
+                                        return_dict.update({i_name + ":" + p[0]: p[1][1:]})
+                return return_dict
+        except(IOError):
+            return {}
     
-    def _get_settings_column(self, device, setting, uid=None):
+    def _get_settings_column(self, device, setting, uid=None, update_hdf=False):
         dfsetting = pd.DataFrame()
+        if not isinstance(device, (tuple, list)):
+            device = [device]
+        if not isinstance(setting, (tuple, list)):
+            setting = [setting]
+        if len(device) != len(setting):
+            raise ValueError("Please specify 'device' and 'setting' as equally long lists, where teir individual entries correspond to each other.")
         if uid is None:
             uid = self.df.index
         for i in uid:
-            try:
-                value = self._get_setting_from_set_file(self.h5_db[i].replace('.h5', '.set'),device,setting)
-                try:
-                    value = float(value)
-                except(ValueError,TypeError):
-                    pass
-            except(IOError, IndexError):
-                value = None
-            dftemp = pd.DataFrame({device + ':' + setting: value}, index=[i])
-            dfsetting = pd.concat([dfsetting,dftemp])
+            values = self._get_setting_from_set_file(self.h5_db[i].replace('.h5', '.set'),device,setting)
+            if update_hdf:
+                for p,v in values.iteritems():
+                    self._set_hdf_attribute(i,p,v)
+            dfsetting = pd.concat([dfsetting,
+                pd.DataFrame(values, index=[i])
+            ],sort=False)
         return dfsetting
 
     def add_settings_column(self, device, setting, measurement_id=None):
@@ -242,8 +255,12 @@ class fid(file_system_service):
         :param uid: measurement_id (list). If None (default), all are used
         :type str
         """
-        settings_column=self._get_settings_column(device, setting, measurement_id)
-        self.df=pd.concat([self.df, settings_column],axis=1)
+        settings_column=self._get_settings_column(device, setting, measurement_id, update_hdf=qkit.cfg.get('fid_scan_hdf',False))
+        for key in settings_column.keys():
+            if key in self.df.keys():
+                self.df.update(settings_column.loc[:,key])
+            else:
+                self.df = pd.concat([self.df, settings_column.loc[:,key]],axis=1)
 
     def remove_column(self, column):
         """
