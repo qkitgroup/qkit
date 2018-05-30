@@ -147,7 +147,9 @@ class H5_file(object):
         ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype)
         
         ds.attrs.create("name",name)
-        ds.attrs.create("fill", [0,0,0])
+        if ds_type == ds_types['matrix'] or ds_type == ds_types['box']:
+            ## fill value only needed for >1D datasets
+            ds.attrs.create("fill", [0,0,0])
         # add attibutes
         for a in kwargs:
              ds.attrs.create(a,kwargs[a])
