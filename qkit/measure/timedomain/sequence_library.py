@@ -144,7 +144,7 @@ def spinecho(sample, n_pi = 1, pulse_shape = ps.ShapeLib.rect, amplitude = 1, iq
     return sequence
 
 
-def spinlocking(sample, pi2sign = 1, pi_pulse = True, wait_time = 5e-9, pulse_shape = ps.ShapeLib.rect, amplitude = 1, iq_frequency = None):
+def spinlocking(sample, pi2sign = 1, add_pi = True, wait_time = 5e-9, pulse_shape = ps.ShapeLib.rect, amplitude = 1, iq_frequency = None):
     """
     Generate sequence with two pi/2 pulses (around y-axis) at the ends and a drive in-between.
     The drive is phase shifted by 90 degrees in respect to the pi/2 pulses (rotates around x-axis).
@@ -154,7 +154,7 @@ def spinlocking(sample, pi2sign = 1, pi_pulse = True, wait_time = 5e-9, pulse_sh
     Args:
         sample:       sample object
         pi2sign:      sign of the first pi/2 pulse
-        pi_pulse:     if True an additional pi-pulse is added before and after the drive
+        add_pi:       if True an additional pi-pulse is added before and after the drive
         wait_time:    wait time between pi/2 or pi-pulse and the drive
         pulse_shape:  shape of the pi and pi/2 pulses (i.e. square, gauss, ...)
         amplitude:    relative ampitude of the sequence
@@ -186,11 +186,13 @@ def spinlocking(sample, pi2sign = 1, pi_pulse = True, wait_time = 5e-9, pulse_sh
     # add pulses to sequence
     sequence = ps.PulseSequence(sample)
     sequence.add(pi2_pulse1)
-    sequence.add(pi_pulse)
+    if add_pi:
+        sequence.add(pi_pulse)
     sequence.add_wait(wait_time)
     sequence.add(locking_tone)
     sequence.add_wait(wait_time)
-    sequence.add(pi_pulse)
+    if add_pi:
+        sequence.add(pi_pulse)
     sequence.add(pi2_pulse2)
     sequence.add_readout()
     return sequence
