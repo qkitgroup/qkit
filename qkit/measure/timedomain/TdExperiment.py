@@ -200,9 +200,12 @@ class TdChannel(object):
         bounds = [xmin, xmax, ymin, ymax]
         return bounds
 
-    def _get_sequences(self):
+    def _get_sequences(self, IQ_mixing = False):
         """
         Explicitly calculate the waveforms of all sequences at their input time.
+        
+        Args:
+            IQ_mixing: if true all waveforms are complex arrays where real and imaginary part encode I and Q
 
         Output:
             List of waveform arrays.
@@ -212,7 +215,7 @@ class TdChannel(object):
         ro_inds = []
         for i in range(len(self._sequences)):
             for time in self._times[i]:
-                seq, ro_ind = self._sequences[i](time)
+                seq, ro_ind = self._sequences[i](time, IQ_mixing = IQ_mixing)
                 seq_list.append(seq)
                 ro_inds.append(ro_ind)
         if self._interleave:
@@ -238,7 +241,6 @@ class TdExperiment(object):
         add_sequences:    add sequence(s) object (see pulse_sequence.py), maintaining currently stored sequences
         set_sequences:    add sequence(s) object (see pulse_sequence.py), deleting previously stored sequences
         delete_sequence:  delete previously stored sequences
-        get_sequences:    returns sequence stored sequences
         set_interleave:   for a specified channel turn interleaving of sequences on/off
 
         get_sequence_dicts: returns a dictionary containing all important channel attributes
@@ -254,11 +256,7 @@ class TdExperiment(object):
         Inits TdExperiment with sample and number of channels:
             sample:   sample object
             channels: number of channels for the experiment
-        """
-        if sample is None:
-            print("No sample object given.")
-            return False
-        
+        """        
         self._sample = sample
         self._num_chans = channels
 
@@ -415,14 +413,20 @@ class TdExperiment(object):
         plt.xlabel("time " + x_unit)
         return
 
-    def get_sequences(self):
+    def _get_sequences(self, IQ_mixing = False):
         """
-        Returns a list of sequences for each channel, as well as a list of indices for the readout timing.
+        Returns a list of waveforms for each channel, as well as a list of indices for the readout timing.
+
+        Args:
+            IQ_mixing: if true all waveforms are complex arrays where real and imaginary part encode I and Q
+
+        Returns:
+            list of lists (one for each channel) of numpy arrays
         """
         seqs = []
         ro_inds = []
         for chan in self.channels[1:]:
-            sequences, readout_indices = chan._get_sequences()
+            sequences, readout_indices = chan._get_sequences(IQ_mixing)
             seqs.append(sequences)
             ro_inds.append(readout_indices)
         return seqs, ro_inds
@@ -435,7 +439,7 @@ class TdExperiment(object):
             sequences:       list of synchronized sequences as arrays (one each channel)
             readout_indices: array of new readout indices
         """
-        seqs, ro_inds = self.get_sequences()
+        seqs, ro_inds = self._get_sequences(IQ_mixing=True)
         # find maximum readout indices
         lens = [len(ro_ind) for ro_ind in ro_inds]
         readout_indices = np.zeros(max(lens))
@@ -458,15 +462,13 @@ class TdExperiment(object):
             ind += 1
         return sequences, readout_indices
     
-    def load(self, device, channels = None):
+    def load(self, device):
         """
         !!! Currently dissabled !!!
         Load the sequences stored in channels to your physical device (awg, fpga).
 
         Args:
             device:   name of your physical device
-            channels: list of channels to be loaded
-                      if channels is None all sequences from all channels will be loaded.
         """
         # Case descrimination:
         # actual_load_awg/fpga(self._sequences)
