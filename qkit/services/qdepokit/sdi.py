@@ -30,6 +30,8 @@ from qkit.gui.plot import plot as qviewkit
 import sys
 import time
 import threading
+from threading import Thread
+from Queue import Queue
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -93,6 +95,8 @@ class SPUTTER_Monitor(object):
 
         self._target_resistance = 1000.
         self._target_thickness = 20.
+
+        self._depomon_queue =  Queue() # for communication with the depomon thread
 
     def set_duration(self, duration=60.):
         """
@@ -251,8 +255,8 @@ class SPUTTER_Monitor(object):
         All the relevant settings from the ohmmeter are updated and called.
         """
         # self.mfc.get_all()
-        self.Ar_channel = mfc.predef_channels['Ar']
-        self.ArO_channel = mfc.predef_channels('ArO')
+        self.Ar_channel = self.mfc.predef_channels['Ar']
+        self.ArO_channel = self.mfc.predef_channels('ArO')
         pass
 
 
@@ -494,9 +498,158 @@ class SPUTTER_Monitor(object):
         finally:
             self._end_measurement()
 
-#    def start_monitoring(self):
-#        mt = threading.Thread(target=self.monitor_depo())
-#        mt.start()
+
+
+    def _monitor_depo_bg(self):
+        """
+        Main sputter deposition monitoring function, threadded version
+        Records the film resistance, thickness and deposition rate live during the sputter process.
+        Stores everything into a h5 file.
+        Provides measures to estimate the resulting resistance of the final film and thereby
+        facilitates live adjustments to the sputter parameters.
+
+        Note:
+            set_duration and set_resolution should be called before to set the monitoring length and time resolution.
+            set_filmparameters should be called before to provide the actual target values.
+        """
+        self._measurement_object.measurement_func = 'sputter_monitoring'
+        self._measurement_object.x_axis = 'time'
+        self._measurement_object.y_axis = ''
+        self._measurement_object.z_axis = ''
+        self._measurement_object.web_visible = True
+
+        if not self.dirname:
+            self.dirname = 'SPUTTER_monitoring'
+        self._file_name = self.dirname.replace(' ', '').replace(',', '_')
+        if self.film_name:
+            self._file_name += '_' + self.film_name
+
+        self.x_vec = np.arange(0, self._duration, self._resolution)
+
+        self._prepare_measurement_quartz()
+        self._prepare_measurement_ohmmeter()
+        if self.mfc:
+            self._prepare_measurement_mfc()
+
+        self._prepare_monitoring_file()
+
+        
+
+        print('Monitoring deposition...')
+        sys.stdout.flush()
+        # ... this may have to be moved to start_depmon:
+        if self.open_qviewkit:
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['resistance'])
+
+        try:
+            resistance = []
+            thickness = []
+
+            """
+            A few boilerplate functions for the thread management:
+            continue, stop, status, etc...
+            """
+            def stop():raise StopIteration
+            def cont():pass
+            def status():self._depomon_queue.put(loop_status)
+            loop_status = 0
+            tasks = {}
+            tasks[0] = stop
+            tasks[1] = cont
+            tasks[2] = status
+
+
+            #for i, _ in enumerate(self.x_vec):
+            it = -1
+            t0 = time.time()  # note: Windows has limitations on time precision (about 16ms)?
+            while True:
+                it += 1
+                try:
+                    tasks.get(self._depomon_queue.get(),cont)()
+                    self._depomon_queue.task_done()
+                except StopIteration:
+                    break
+
+                # calculate the time when the next iteration should take place
+                ti = t0 + (float(it)+1) * self._resolution
+                loop_status = ti # for now we simpy return the runtime
+                self._data_time.append(time.time() - t0)
+
+                resistance.append(self.ohmmeter.get_resistance())
+                rate = self.quartz.get_rate(nm=True)
+                thickness.append(self.quartz.get_thickness(nm=True))
+                if self.mfc:
+                    pressure = self.mfc.getActualPressure()
+                    Ar_flow = self.mfc.getActualFlow(self.Ar_channel)
+                    ArO_flow = self.mfc.getActualFlow(self.ArO_channel)
+
+                if resistance[-1] > 1.e9:
+                    resistance[-1] = np.nan
+                self._data_resistance.append(resistance[-1])
+                self._data_rate.append(rate)
+                self._data_thickness.append(thickness[-1])
+                if self.mfc:
+                    self._data_pressure.append(pressure)
+                    self._data_Ar_flow.append(Ar_flow)
+                    self._data_ArO_flow.append(ArO_flow)
+
+                deviation_abs = resistance[-1] - self.ideal_resistance(thickness[-1])
+                deviation_rel = deviation_abs / self._target_resistance
+
+                self._data_deviation_abs.append(deviation_abs)
+                self._data_deviation_rel.append(deviation_rel)
+
+                if ((self._fit_resistance) and (it % self._fit_every == 0) and (len(resistance) >= self._fit_points)):
+
+                    estimation = self._fit_trend(thickness[-self._fit_points:None], resistance[-self._fit_points:None])
+                    self._thickness_estimation.append(estimation[0])
+                    self._resistance_estimation.append(estimation[1])
+                
+                # wait until the total dt(itteration) has elapsed
+                while time.time() < ti:
+                    time.sleep(0.05)
+
+        except Exception as e:
+            print(e)
+            print(e.__doc__)
+            print(e.message)
+
+        finally:
+            self._end_measurement()
+
+    def start_depmon(self):
+        """
+        This starts the depmon thread and puts him in the background
+        Hint: Check with 'list_depmon_threads()' 
+              Stop with 'stop_depomon()'
+
+        """
+        self._depomon = Thread(target=self._monitor_depo_bg,name="depomon-1")
+        self._depomon.daemon = True
+        self._depomon.start()
+
+    def stop_depomon(self):
+        """
+        Stop the deposition monitoring thread
+        Can be executed several times if more than one monitoring thread is running
+        Hint: Check with 'list_depmon_threads()' 
+        """
+        self._depomon_queue.put(0)
+    def status_depmon(self):
+        """
+        give a hartbeat of the depmon (in the moment just the runtime)
+        """
+        self._depomon_queue.put(2)
+        print(self._depomon_queue.get())
+        self._depomon_queue.task_done()
+
+    def list_depmon_threads(self):
+        """
+        list all bg threads to monitor deposition
+        """
+        for thread in threading.enumerate():
+            if thread.getName()[:3] == "dep":
+                print (thread)
 
     def _end_measurement(self):
         """
