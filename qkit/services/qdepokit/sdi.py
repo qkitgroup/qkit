@@ -31,7 +31,7 @@ import sys
 import time
 import threading
 from threading import Thread
-from Queue import Queue
+from Queue import Queue, Empty
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -541,81 +541,77 @@ class SPUTTER_Monitor(object):
         if self.open_qviewkit:
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['resistance'])
 
-        try:
-            resistance = []
-            thickness = []
+        
+        resistance = []
+        thickness = []
 
-            """
-            A few boilerplate functions for the thread management:
-            continue, stop, status, etc...
-            """
-            def stop():raise StopIteration
-            def cont():pass
-            def status():self._depomon_queue.put(loop_status)
-            loop_status = 0
-            tasks = {}
-            tasks[0] = stop
-            tasks[1] = cont
-            tasks[2] = status
+        """
+        A few boilerplate functions for the thread management:
+        continue, stop, status, etc...
+        """
+        def stop():raise StopIteration
+        def cont():pass
+        def status():self._depomon_queue.put(loop_status)
+        loop_status = 0
+        tasks = {}
+        tasks[0] = stop
+        tasks[1] = cont
+        tasks[2] = status
 
 
-            #for i, _ in enumerate(self.x_vec):
-            it = -1
-            t0 = time.time()  # note: Windows has limitations on time precision (about 16ms)?
-            while True:
-                it += 1
-                try:
-                    tasks.get(self._depomon_queue.get(),cont)()
-                    self._depomon_queue.task_done()
-                except StopIteration:
-                    break
+        it = -1
+        t0 = time.time()  # note: Windows has limitations on time precision (about 16ms)?
+        while True:
+            it += 1
+            # Handle external commands
+            try:
+                tasks.get(self._depomon_queue.get(False),cont)()
+                self._depomon_queue.task_done()
+            except Empty:
+                pass
+            except StopIteration:
+                break
 
-                # calculate the time when the next iteration should take place
-                ti = t0 + (float(it)+1) * self._resolution
-                loop_status = ti # for now we simpy return the runtime
-                self._data_time.append(time.time() - t0)
+            # calculate the time when the next iteration should take place
+            ti = t0 + (float(it)+1) * self._resolution
+            loop_status = ti # for now we simpy return the runtime
+            self._data_time.append(time.time() - t0)
 
-                resistance.append(self.ohmmeter.get_resistance())
-                rate = self.quartz.get_rate(nm=True)
-                thickness.append(self.quartz.get_thickness(nm=True))
-                if self.mfc:
-                    pressure = self.mfc.getActualPressure()
-                    Ar_flow = self.mfc.getActualFlow(self.Ar_channel)
-                    ArO_flow = self.mfc.getActualFlow(self.ArO_channel)
+            resistance.append(self.ohmmeter.get_resistance())
+            rate = self.quartz.get_rate(nm=True)
+            thickness.append(self.quartz.get_thickness(nm=True))
+            if self.mfc:
+                pressure = self.mfc.getActualPressure()
+                Ar_flow = self.mfc.getActualFlow(self.Ar_channel)
+                ArO_flow = self.mfc.getActualFlow(self.ArO_channel)
 
-                if resistance[-1] > 1.e9:
-                    resistance[-1] = np.nan
-                self._data_resistance.append(resistance[-1])
-                self._data_rate.append(rate)
-                self._data_thickness.append(thickness[-1])
-                if self.mfc:
-                    self._data_pressure.append(pressure)
-                    self._data_Ar_flow.append(Ar_flow)
-                    self._data_ArO_flow.append(ArO_flow)
+            if resistance[-1] > 1.e9:
+                resistance[-1] = np.nan
+            self._data_resistance.append(resistance[-1])
+            self._data_rate.append(rate)
+            self._data_thickness.append(thickness[-1])
+            if self.mfc:
+                self._data_pressure.append(pressure)
+                self._data_Ar_flow.append(Ar_flow)
+                self._data_ArO_flow.append(ArO_flow)
 
-                deviation_abs = resistance[-1] - self.ideal_resistance(thickness[-1])
-                deviation_rel = deviation_abs / self._target_resistance
+            deviation_abs = resistance[-1] - self.ideal_resistance(thickness[-1])
+            deviation_rel = deviation_abs / self._target_resistance
 
-                self._data_deviation_abs.append(deviation_abs)
-                self._data_deviation_rel.append(deviation_rel)
+            self._data_deviation_abs.append(deviation_abs)
+            self._data_deviation_rel.append(deviation_rel)
 
-                if ((self._fit_resistance) and (it % self._fit_every == 0) and (len(resistance) >= self._fit_points)):
+            if ((self._fit_resistance) and (it % self._fit_every == 0) and (len(resistance) >= self._fit_points)):
 
-                    estimation = self._fit_trend(thickness[-self._fit_points:None], resistance[-self._fit_points:None])
-                    self._thickness_estimation.append(estimation[0])
-                    self._resistance_estimation.append(estimation[1])
-                
-                # wait until the total dt(itteration) has elapsed
-                while time.time() < ti:
-                    time.sleep(0.05)
+                estimation = self._fit_trend(thickness[-self._fit_points:None], resistance[-self._fit_points:None])
+                self._thickness_estimation.append(estimation[0])
+                self._resistance_estimation.append(estimation[1])
+            
+            # wait until the total dt(itteration) has elapsed
+            while time.time() < ti:
+                time.sleep(0.05)
 
-        except Exception as e:
-            print(e)
-            print(e.__doc__)
-            print(e.message)
-
-        finally:
-            self._end_measurement()
+        self._end_measurement()
 
     def start_depmon(self):
         """
