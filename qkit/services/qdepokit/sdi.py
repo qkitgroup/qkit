@@ -30,12 +30,14 @@ from qkit.gui.plot import plot as qviewkit
 import sys
 import time
 import threading
+from threading import Thread
+from Queue import Queue, Empty
 
 import numpy as np
 from scipy.optimize import curve_fit
 
 
-class SPUTTER_Monitor(object):
+class SputterMonitor(object):
     """
     Sputter monitoring class, derived from spectroscopy.py
     monitors and stores sputter parameters live during deposition
@@ -83,7 +85,7 @@ class SPUTTER_Monitor(object):
         self.qviewkit_singleInstance = False
 
         self._measurement_object = Measurement()
-        self._measurement_object.measurement_type = 'evaporation'
+        self._measurement_object.measurement_type = 'sputter_deposition'
         self._measurement_object.sample = self._sample
 
         self._qvk_process = True
@@ -93,6 +95,8 @@ class SPUTTER_Monitor(object):
 
         self._target_resistance = 1000.
         self._target_thickness = 20.
+
+        self._depmon_queue = Queue()  # for communication with the depmon thread
 
     def set_duration(self, duration=60.):
         """
@@ -217,7 +221,7 @@ class SPUTTER_Monitor(object):
             t_final (float): Estimated thickness at target resistance.
         """
         for i in t_points:
-            if i==0:
+            if i == 0:
                 return [np.nan, np.nan]
 
         try:
@@ -251,10 +255,9 @@ class SPUTTER_Monitor(object):
         All the relevant settings from the ohmmeter are updated and called.
         """
         # self.mfc.get_all()
-        self.Ar_channel = mfc.predef_channels['Ar']
-        self.ArO_channel = mfc.predef_channels('ArO')
+        self.Ar_channel = self.mfc.predef_channels['Ar']
+        self.ArO_channel = self.mfc.predef_channels('ArO')
         pass
-
 
     def _prepare_monitoring_file(self):
         """
@@ -385,23 +388,16 @@ class SPUTTER_Monitor(object):
         settings = waf.get_instrument_settings(self._data_file.get_filepath())
         self._settings.append(settings)
 
-    def monitor_depo(self, web_visible=True):
+    def _init_depmon(self):
         """
-        Main sputter deposition monitoring function.
-        Records the film resistance, thickness and deposition rate live during the sputter process.
-        Stores everything into a h5 file.
-        Provides measures to estimate the resulting resistance of the final film and thereby
-        facilitates live adjustments to the sputter parameters.
-
-        Note:
-            set_duration and set_resolution should be called before to set the monitoring length and time resolution.
-            set_filmparameters should be called before to provide the actual target values.
+        Initializes the measurement, the required files and instruments.
+        Should only be called by the main functions monitor_depo or start_depmon.
         """
         self._measurement_object.measurement_func = 'sputter_monitoring'
         self._measurement_object.x_axis = 'time'
         self._measurement_object.y_axis = ''
         self._measurement_object.z_axis = ''
-        self._measurement_object.web_visible = web_visible
+        self._measurement_object.web_visible = True
 
         if not self.dirname:
             self.dirname = 'SPUTTER_monitoring'
@@ -418,6 +414,61 @@ class SPUTTER_Monitor(object):
 
         self._prepare_monitoring_file()
 
+    def _acquire(self, mon_data):
+        """
+        Acquires and stores current information from the instruments.
+        Should only be called by main functions monitor_depo or start_depmon.
+        """
+        self._data_time.append(time.time() - mon_data.t0)
+
+        mon_data.resistance.append(self.ohmmeter.get_resistance())
+        rate = self.quartz.get_rate(nm=True)
+        mon_data.thickness.append(self.quartz.get_thickness(nm=True))
+        if self.mfc:
+            pressure = self.mfc.getActualPressure()
+            Ar_flow = self.mfc.getActualFlow(self.Ar_channel)
+            ArO_flow = self.mfc.getActualFlow(self.ArO_channel)
+
+        if mon_data.resistance[-1] > 1.e9:
+            mon_data.resistance[-1] = np.nan
+        self._data_resistance.append(mon_data.resistance[-1])
+        self._data_rate.append(rate)
+        self._data_thickness.append(mon_data.thickness[-1])
+        if self.mfc:
+            self._data_pressure.append(pressure)
+            self._data_Ar_flow.append(Ar_flow)
+            self._data_ArO_flow.append(ArO_flow)
+
+        deviation_abs = mon_data.resistance[-1] - self.ideal_resistance(mon_data.thickness[-1])
+        deviation_rel = deviation_abs / self._target_resistance
+
+        self._data_deviation_abs.append(deviation_abs)
+        self._data_deviation_rel.append(deviation_rel)
+
+        if ((self._fit_resistance) and (mon_data.it % self._fit_every == 0) and (len(mon_data.resistance) >= self._fit_points)):
+            estimation = self._fit_trend(mon_data.thickness[-self._fit_points:None],
+                                         mon_data.resistance[-self._fit_points:None])
+            self._thickness_estimation.append(estimation[0])
+            self._resistance_estimation.append(estimation[1])
+
+    def monitor_depo(self):
+        """
+        Main sputter deposition monitoring function.
+
+        Consider using the threaded version by calling start_depmon().
+
+        Records the film resistance, thickness and deposition rate live during the sputter process.
+        Stores everything into a h5 file.
+        Provides measures to estimate the resulting resistance of the final film and thereby
+        facilitates live adjustments to the sputter parameters.
+
+        Note:
+            set_duration and set_resolution should be called before to set the monitoring length and time resolution.
+            set_filmparameters should be called before to provide the actual target values.
+        """
+
+        self._init_depmon()
+
         if self.progress_bar:
             self._p = Progress_Bar(self._duration / self._resolution,
                                    'EVAP_timetrace ' + self.dirname,
@@ -429,57 +480,28 @@ class SPUTTER_Monitor(object):
         if self.open_qviewkit:
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['resistance'])
 
-        # TODO: Implement threading
         try:
             """
-            loop: x_obj with parameters from x_vec
+            Initialize the data lists.
             """
+            class MonData(object):
+                resistance = []
+                thickness = []
+            mon_data = MonData()
 
-            resistance = []
-            thickness = []
-
-            t0 = time.time()  # note: Windows has limitations on time precision (about 16ms)
-
-            for i, _ in enumerate(self.x_vec):
-                # calculate the time when the next itteration should take place
-                ti = t0 + (float(i)+1) * self._resolution
-                self._data_time.append(time.time() - t0)
-
-                resistance.append(self.ohmmeter.get_resistance())
-                rate = self.quartz.get_rate(nm=True)
-                thickness.append(self.quartz.get_thickness(nm=True))
-                if self.mfc:
-                    pressure = self.mfc.getActualPressure()
-                    Ar_flow = self.mfc.getActualFlow(self.Ar_channel)
-                    ArO_flow = self.mfc.getActualFlow(self.ArO_channel)
-
-                if resistance[-1] > 1.e9:
-                    resistance[-1] = np.nan
-                self._data_resistance.append(resistance[-1])
-                self._data_rate.append(rate)
-                self._data_thickness.append(thickness[-1])
-                if self.mfc:
-                    self._data_pressure.append(pressure)
-                    self._data_Ar_flow.append(Ar_flow)
-                    self._data_ArO_flow.append(ArO_flow)
-
-                deviation_abs = resistance[-1] - self.ideal_resistance(thickness[-1])
-                deviation_rel = deviation_abs / self._target_resistance
-
-                self._data_deviation_abs.append(deviation_abs)
-                self._data_deviation_rel.append(deviation_rel)
-
-                if ((self._fit_resistance) and (i % self._fit_every == 0) and (len(resistance) >= self._fit_points)):
-
-                    estimation = self._fit_trend(thickness[-self._fit_points:None], resistance[-self._fit_points:None])
-                    self._thickness_estimation.append(estimation[0])
-                    self._resistance_estimation.append(estimation[1])
+            """
+            Main loop:
+            """
+            mon_data.t0 = time.time()  # note: Windows has limitations on time precision (about 16ms)
+            for mon_data.it, _ in enumerate(self.x_vec):
+                self._acquire(mon_data)
 
                 if self.progress_bar:
                     self._p.iterate()
 
-                # FIXME: Use flow.sleep? Code there looks rather bulky and maybe not suited for high speed measurements
-                # wait until the total dt(itteration) has elapsed
+                # calculate the time when the next iteration should take place
+                ti = mon_data.t0 + (float(mon_data.it)+1) * self._resolution
+                # wait until the total dt(iteration) has elapsed
                 while time.time() < ti:
                     time.sleep(0.05)
 
@@ -494,9 +516,124 @@ class SPUTTER_Monitor(object):
         finally:
             self._end_measurement()
 
-#    def start_monitoring(self):
-#        mt = threading.Thread(target=self.monitor_depo())
-#        mt.start()
+    def _monitor_depo_bg(self):
+        """
+        Main sputter deposition monitoring function, threaded version
+
+        Should only be called by main function start_depmon.
+
+        Records the film resistance, thickness and deposition rate live during the sputter process.
+        Stores everything into a h5 file.
+        Provides measures to estimate the resulting resistance of the final film and thereby
+        facilitates live adjustments to the sputter parameters.
+
+        Note:
+            set_duration and set_resolution should be called before to set the monitoring length and time resolution.
+            set_filmparameters should be called before to provide the actual target values.
+        """
+
+        """
+        A few boilerplate functions for the thread management:
+        continue, stop, status, etc...
+        """
+        def stop(): raise StopIteration
+        def cont(): pass
+        def status(): self._depmon_queue.put(loop_status)
+        loop_status = 0
+        tasks = {}
+        tasks[0] = stop
+        tasks[1] = cont
+        tasks[2] = status
+
+        """
+        Initialize the data lists.
+        """
+        class MonData(object):
+            resistance = []
+            thickness = []
+        mon_data = MonData()
+
+        """
+        Main loop:
+        """
+        mon_data.it = 0
+        mon_data.t0 = time.time()  # note: Windows has limitations on time precision (about 16ms)?
+        while True:
+            self._acquire(mon_data)
+
+            # Handle external commands
+            try:
+                tasks.get(self._depmon_queue.get(False), cont)()
+                self._depmon_queue.task_done()
+            except Empty:
+                pass
+            except StopIteration:
+                break
+
+            # calculate the time when the next iteration should take place
+            mon_data.it += 1
+            ti = mon_data.t0 + (float(mon_data.it)) * self._resolution
+            loop_status = ti  # for now we simply return the runtime
+            # wait until the total dt(iteration) has elapsed
+            while time.time() < ti:
+                time.sleep(0.05)
+
+        self._end_measurement()
+
+    def start_depmon(self):
+        """
+        Starts the main sputter deposition monitoring function background process (depmon).
+
+        Records the film resistance, thickness and deposition rate live during the sputter process.
+        Stores everything into a h5 file.
+        Provides measures to estimate the resulting resistance of the final film and thereby
+        facilitates live adjustments to the sputter parameters.
+
+        Note:
+            set_duration and set_resolution should be called before to set the monitoring length and time resolution.
+            set_filmparameters should be called before to provide the actual target values.
+
+        Hint:
+            Check with 'list_depmon_threads()'
+            Stop with 'stop_depmon()'
+        """
+        print('Monitoring deposition...')
+        sys.stdout.flush()
+
+        self._init_depmon()
+
+        if self.open_qviewkit:
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['resistance'])
+
+        self._depmon = Thread(target=self._monitor_depo_bg, name="depmon-1")
+        self._depmon.daemon = True
+        self._depmon.start()
+
+    def stop_depmon(self):
+        """
+        Stop the deposition monitoring thread.
+        Can be executed several times if more than one monitoring thread is running.
+
+        Hint:
+            Check with 'list_depmon_threads()'
+        """
+        self._depmon_queue.put(0)
+
+    def status_depmon(self):
+        """
+        Give a heartbeat of the deposition monitoring thread (in the moment just the runtime).
+        """
+        self._depmon_queue.put(2)
+        print(self._depmon_queue.get())
+        self._depmon_queue.task_done()
+
+    def list_depmon_threads(self):
+        """
+        List all bg deposition monitoring threads.
+        """
+        for thread in threading.enumerate():
+            if thread.getName()[:3] == "dep":
+                print (thread)
 
     def _end_measurement(self):
         """
@@ -512,6 +649,8 @@ class SPUTTER_Monitor(object):
         waf.close_log_file(self._log)
         self.dirname = None
 
+    # FIXME: Use flow.sleep? Code there looks rather bulky and maybe not suited for high speed measurements
 
-class SPUTTER_Control(object):
+
+class SputterControl(object):
     pass
