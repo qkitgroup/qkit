@@ -96,7 +96,7 @@ class SputterMonitor(object):
         self._target_resistance = 1000.
         self._target_thickness = 20.
 
-        self._depomon_queue = Queue()  # for communication with the depomon thread
+        self._depmon_queue = Queue()  # for communication with the depmon thread
 
     def set_duration(self, duration=60.):
         """
@@ -538,7 +538,7 @@ class SputterMonitor(object):
         """
         def stop(): raise StopIteration
         def cont(): pass
-        def status(): self._depomon_queue.put(loop_status)
+        def status(): self._depmon_queue.put(loop_status)
         loop_status = 0
         tasks = {}
         tasks[0] = stop
@@ -563,8 +563,8 @@ class SputterMonitor(object):
 
             # Handle external commands
             try:
-                tasks.get(self._depomon_queue.get(False), cont)()
-                self._depomon_queue.task_done()
+                tasks.get(self._depmon_queue.get(False), cont)()
+                self._depmon_queue.task_done()
             except Empty:
                 pass
             except StopIteration:
@@ -605,9 +605,9 @@ class SputterMonitor(object):
         if self.open_qviewkit:
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['resistance'])
 
-        self._depomon = Thread(target=self._monitor_depo_bg, name="depomon-1")
-        self._depomon.daemon = True
-        self._depomon.start()
+        self._depmon = Thread(target=self._monitor_depo_bg, name="depmon-1")
+        self._depmon.daemon = True
+        self._depmon.start()
 
     def stop_depmon(self):
         """
@@ -617,15 +617,15 @@ class SputterMonitor(object):
         Hint:
             Check with 'list_depmon_threads()'
         """
-        self._depomon_queue.put(0)
+        self._depmon_queue.put(0)
 
     def status_depmon(self):
         """
         Give a heartbeat of the deposition monitoring thread (in the moment just the runtime).
         """
-        self._depomon_queue.put(2)
-        print(self._depomon_queue.get())
-        self._depomon_queue.task_done()
+        self._depmon_queue.put(2)
+        print(self._depmon_queue.get())
+        self._depmon_queue.task_done()
 
     def list_depmon_threads(self):
         """
