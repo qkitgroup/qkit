@@ -261,7 +261,22 @@ class fid(file_system_service):
                 self.df.update(settings_column.loc[:,key])
             else:
                 self.df = pd.concat([self.df, settings_column.loc[:,key]],axis=1)
-
+    
+    def open_in_filemanager(self):
+        ids = self._selected_df.index
+        if len(ids)>10:
+            logging.error("You are trying to open more than 10 files, are you sure?")
+            return
+        from platform import system
+        _os = system()
+        if _os == "Windows":
+            from subprocess import Popen
+            for i in ids:
+                Popen(r'explorer /select,"{}"'.format(self.h5_db[i]))
+        else:
+            logging.error("File Manager currently only supported for Windows")
+            return
+        
     def remove_column(self, column):
         """
         If your data frame is getting too wide, you can remove single columns
