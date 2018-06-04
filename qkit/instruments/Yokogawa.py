@@ -846,8 +846,7 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:FETCh? [DUAL]
         try:
             logging.debug(__name__ + ' : Get sense value of channel {:d}'.format(channel))
-            # return float(self._ask(':chan{:d}:meas'.format(channel)))
-            return float(self._ask(':chan{:d}:fetc'.format(channel)))
+            return float(self._ask(':chan{:d}:meas'.format(channel)))
         except ValueError:
             logging.error(__name__ + ': Cannot get sense value of channel {:d}:'.format(channel))
 
