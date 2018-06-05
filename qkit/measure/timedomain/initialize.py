@@ -38,15 +38,11 @@ class InitializeTimeDomain(object):
             'spec_samplerate':      " samplerate for readout adc [S/s] (1.25e9)",
 
             'f01':                  " qubit transition frequency [Hz] (5.469e9)",
-            'fr':                   " resounator readout frequency [Hz] (9e9)",
+            'fr':                   " resonator readout frequency [Hz] (9e9)",
             'iq_frequency':         " IQ frequency for manipulation [Hz] (80e6)",
-            'readout_iq_frequency': " IQ frequency for readout [Hz] (30e6)",
 
             'mw_power':             " power for the qubit microwave source",
-
-            'acqu_window':          " position of the adc recording window as arra [start, end]. No longer needed to be divisible by 32. (samples) [96,545]",
-            'overlap':              " time in seconds where the manipulation pulse should lap into the readout pulse [s] (1e-6)",
-
+            
             'awg':                  " Instrument: qubit manipulation awg",
             'qubit_mw_src':         " Instrument: qubit manipulation microwave source",
             'readout_awg':          " Instrument: readout awg",
@@ -54,6 +50,8 @@ class InitializeTimeDomain(object):
             'mspec':                " Instrument virtual_measure_spec"
     }
     optional_params = {
+            'readout_iq_frequency': [" IQ frequency for readout [Hz]", 30e6],
+            'acqu_window':          [" position of the adc recording window as array [start, end]. No longer needed to be divisible by 32. (samples)", [96, 545]],
             'overlap':              [" Overlap between manipulation window and readout pulse.", 0],
             'readout_delay':        [" Time offset of the readout pulse to adjust the timing of the devices", 0],
             'readout_pha':          [" Phase of the readout tone", 0],
