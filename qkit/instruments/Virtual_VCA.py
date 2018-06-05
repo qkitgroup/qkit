@@ -89,7 +89,7 @@ class Virtual_VCA(Instrument):
         '''
         mv=IVVI.get_dac(self.dac_port)
         try:
-            return self.att_interpol(mv/1000)
+            return self.att_interpol(mv/1000*2)
         except IndexError as detail:
             logging.error('Electronics might be disconnected.')
             print detail
