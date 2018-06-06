@@ -4,6 +4,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from ipywidgets import interact, widgets, Layout
+import logging
 
 import qkit.measure.timedomain.pulse_sequence as ps
 #from qkit.measure.timedomain.awg.load import load_sequence as awgload
@@ -55,6 +56,7 @@ class TdChannel(object):
             return False
         len0 = 0
         for time in times:
+            time = np.atleast_1d(time)
             if len0 is 0:
                 len0 = len(time)
             elif len(time) is not len0:
@@ -106,7 +108,8 @@ class TdChannel(object):
         for i in range(len(self._sequences)):
             seq_dict["sequence_%i"%i] = self._sequences[i].get_pulses()
             seq_dict["time_%i"%i] = self._times[i]
-        seq_dict["interleave"] = self._interleave
+        if seq_dict:
+            seq_dict["interleave"] = self._interleave
         return seq_dict
 
     def set_interleave(self, value = True):
@@ -140,7 +143,6 @@ class TdChannel(object):
         """
         sequences, readout_indices = self._get_sequences()
         seq_max = len(readout_indices) - 1
-        
         bounds = self._get_boundaries(sequences, readout_indices, x_unit)
         
         interact(lambda sequence: self._plot_sequence(sequences[sequence], readout_indices[sequence], x_unit, bounds), 
@@ -227,6 +229,9 @@ class TdChannel(object):
                 ro_inds_temp += ro_inds[i::time_dim]
             seq_list = seqs_temp
             ro_inds = ro_inds_temp
+        if not seq_list:
+            logging.warning("No sequence stored in channel " + self.name)
+            seq_list, ro_inds = [np.zeros(1)], [0]
         return seq_list, ro_inds
 
 
