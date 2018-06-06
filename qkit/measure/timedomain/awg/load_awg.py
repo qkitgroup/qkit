@@ -29,7 +29,7 @@ def load_tabor(sequences, ro_index, sample, reset=True, show_progress_bar=True):
         inputs:
 
         ts: array of times, len(ts) = #sequenzes
-        wfm_func: waveform function usually generated via generate_waveform using ts[i]; this can be a touple of arrays (for channels 0,1, heterodyne mode) or a single array (homodyne mode)
+        wfm_func: waveform function usually generated via generate_waveform using ts[i]; this can be a tuple of arrays (for channels 0,1, heterodyne mode) or a single array (homodyne mode)
         sample: sample object
 
         iq: Reference to iq mixer instrument. If None (default), the wfm will not be changed. Otherwise, the wfm will be converted via iq.convert()
