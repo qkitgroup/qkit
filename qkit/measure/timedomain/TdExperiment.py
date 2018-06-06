@@ -123,6 +123,9 @@ class TdChannel(object):
         if value is False:
             self._interleave = False
             return True
+        if not self._times:
+            self._interleave = True
+            return True
         len0 = len(self._times[0])
         for time in self._times[1:]:
             if len(time) is not len0:
@@ -220,6 +223,9 @@ class TdChannel(object):
                 seq, ro_ind = self._sequences[i](time, IQ_mixing = IQ_mixing)
                 seq_list.append(seq)
                 ro_inds.append(ro_ind)
+        if not seq_list:
+            logging.warning("No sequence stored in channel " + self.name)
+            return [np.zeros(1)], [0]
         if self._interleave:
             seqs_temp = []
             ro_inds_temp = []
@@ -229,9 +235,6 @@ class TdChannel(object):
                 ro_inds_temp += ro_inds[i::time_dim]
             seq_list = seqs_temp
             ro_inds = ro_inds_temp
-        if not seq_list:
-            logging.warning("No sequence stored in channel " + self.name)
-            seq_list, ro_inds = [np.zeros(1)], [0]
         return seq_list, ro_inds
 
 
