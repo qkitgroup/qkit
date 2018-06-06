@@ -106,6 +106,8 @@ class fid(file_system_service):
             
     def __getitem__(self, key):
         with self.lock:
+            if key not in self.h5_db:
+                logging.error("Can not find your UUID '{}' in qkit.fid database.".format(key))
             return self.h5_db.get(key, None)
     
     def get(self, key, args=None):
