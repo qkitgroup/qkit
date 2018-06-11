@@ -153,9 +153,11 @@ class fid(file_system_service):
             if filepath:
                 plot(filepath, live=False)
 
-    def create_database(self):
+    def create_database(self,block=False):
         t1 = threading.Thread(name='creating_db', target=self.update_all)
         t1.start()
+        if block:
+            t1.join()
     
     def recreate_database(self):
         '''

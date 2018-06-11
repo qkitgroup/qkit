@@ -280,3 +280,10 @@ class file_system_service(UUID_base):
         finally:
             h.file.close()
         self.h5_info_db[UUID].update({attribute:value})
+        
+    def wait(self):
+        with self.lock:
+            pass
+        if self.lock.locked():
+            self.wait()
+        return True
