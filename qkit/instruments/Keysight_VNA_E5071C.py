@@ -292,9 +292,11 @@ class Keysight_VNA_E5071C(Instrument):
             dataamp = numpy.sqrt(datareal*datareal+dataimag*dataimag)
             datapha = numpy.arctan2(dataimag,datareal)
             if self.get_cw():
-                ## in cw mode the vna performs a power sweep with 2 power values. the driver sets them to the same level, but the returned data may
-                ## cause a dimension problem. therefore we only take one datapoint.
-                dataamp, datapha = numpy.array(dataamp[0]), numpy.array(datapha[0])
+                # in cw mode the vna performs a power sweep with 2 power values. the driver sets them to the same level,
+                # but the returned data may cause a dimension problem.
+                # therefore we only take one datapoint or average them.
+                # Spectroscopy requires a sized object, so there must be [] around the values
+                dataamp, datapha = numpy.array([numpy.mean(dataamp)]), numpy.array([numpy.mean(datapha)])
             return dataamp, datapha
         else:
           raise ValueError('get_tracedata(): Format must be AmpPha or RealImag') 
