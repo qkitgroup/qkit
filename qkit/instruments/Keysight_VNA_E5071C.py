@@ -146,7 +146,7 @@ class Keysight_VNA_E5071C(Instrument):
         self.add_parameter('sweep_type', type=types.StringType,
             flags=Instrument.FLAG_GETSET,tags=['sweep'])
 
-        self.add_parameter('active_trace', types=types.IntType,
+        self.add_parameter('active_trace', type=types.IntType,
             flags=Instrument.FLAG_GETSET)
                     
         #Triggering Stuff
