@@ -144,7 +144,10 @@ class Keysight_VNA_E5071C(Instrument):
             flags=Instrument.FLAG_GETSET,tags=['sweep']) 
                     
         self.add_parameter('sweep_type', type=types.StringType,
-            flags=Instrument.FLAG_GETSET,tags=['sweep']) 
+            flags=Instrument.FLAG_GETSET,tags=['sweep'])
+
+        self.add_parameter('active_trace', types=types.IntType,
+            flags=Instrument.FLAG_GETSET)
                     
         #Triggering Stuff
         self.add_parameter('trigger_source', type=types.StringType,
@@ -877,6 +880,23 @@ class Keysight_VNA_E5071C(Instrument):
         logging.debug(__name__ + ' : getting channel index')
         return self._ci
     
+    def do_set_active_trace(self, trace):
+        """
+        Sets the active trace, which can then be readout
+        :param trace: Number of the active trace
+        :return: None
+        """
+        # TODO: catch error
+        self._active_trace = trace
+        self._visainstrument.write('CALC{}:PAR{}:SEL'.format(self._ci, trace))
+
+    def do_get_active_trace(self):
+        """
+        :return: the active trace on the VNA
+        """
+        # TODO: ask device
+        return self._active_trace
+
     def do_get_sweep_type(self):
         '''
         Get the Sweep Type
