@@ -105,13 +105,18 @@ class fid(file_system_service):
         # create initial database in the background. This can take a while...
         self.create_database()
         self._selected_df = []
-            
+        
     def __getitem__(self, key):
         with self.lock:
-            return self.h5_db.get(key, None)
-    
+            try:
+                return self.h5_db[key]
+            except KeyError as e:
+                raise KeyError("Can not find your UUID '{}' in qkit.fid database.".format(key))
+
     def get(self, key, args=None):
         with self.lock:
+            if key not in self.h5_db:
+                logging.error("Can not find your UUID '{}' in qkit.fid database.".format(key))
             return self.h5_db.get(key, args)
 
     def view(self, file_id=None):
@@ -319,7 +324,7 @@ class fid(file_system_service):
         except(ValueError, KeyError):
             logging.info("Updating the measurment database failed.")
             self.debug = [self.df.copy(),changed_df,keys]
-                
+            
     def _batch_change_attribute(self,b):
         tmp = self.grid.get_changed_df()
         tmp.loc[self._selected_df.index, b.key_dd.value] = b.value_tf.value
