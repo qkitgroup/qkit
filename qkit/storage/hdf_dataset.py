@@ -79,6 +79,7 @@ class hdf_dataset(object):
         ds = self.ds
         ds.attrs.create('ds_type',self.ds_type)            
         ds.attrs.create("comment",self.comment)
+        ds.attrs.create('ds_url',self.ds_url)
         if self.ds_type != ds_types['txt']:
             ds.attrs.create('unit', self.unit)
             if self.x_object:
