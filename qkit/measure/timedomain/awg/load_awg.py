@@ -34,7 +34,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
         inputs:
         
         ts: array of times, len(ts) = #sequenzes
-        wfm_func: waveform function usually generated via generate_waveform using ts[i]; this can be a touple of arrays (for channels 0,1, heterodyne mode) or a single array (homodyne mode)
+        wfm_func: waveform function usually generated via generate_waveform using ts[i]; this can be a tuple of arrays (for channels 0,1, heterodyne mode) or a single array (homodyne mode)
         sample: sample object
         
         iq: Reference to iq mixer instrument. If None (default), the wfm will not be changed. Otherwise, the wfm will be converted via iq.convert()
@@ -147,4 +147,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
         awg.set_ch1_status(True)
         awg.set_ch2_status(True)
     qt.mend()
+    if sample.__dict__.has_key('mspec'):
+        sample.mspec.spec_stop()
+        sample.mspec.set_segments(len(ts))
     return np.all([awg.get('ch%i_status'%i) for i in [1,2]])
