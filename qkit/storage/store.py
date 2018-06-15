@@ -43,6 +43,7 @@ class Data(object):
             self._folder, self._filename = os.path.split(self._filepath)
         elif not os.path.isabs(self._name):
             self._generate_file_name()
+            qkit.fid.add_h5_file(self._filepath)
         else:
             self._filepath = os.path.abspath(self._name)
             self._folder,self._filename = os.path.split(self._filepath)

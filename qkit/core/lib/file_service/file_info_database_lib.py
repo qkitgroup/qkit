@@ -220,8 +220,10 @@ class file_system_service(UUID_base):
                             )
                         except(AttributeError, KeyError):
                             pass
+                except KeyError as e:
+                    logging.debug("fid could not index file {}, probably it is just new and empty. Original message: {}".format(path,e))
                 except IOError as e:
-                    logging.error("fid %s:%s"%(path,e))
+                    logging.error("fid {}:{}".format(path,e))
                 finally:
                     h5f.close()
 
