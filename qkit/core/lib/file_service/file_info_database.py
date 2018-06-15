@@ -105,6 +105,11 @@ class fid(file_system_service):
         # create initial database in the background. This can take a while...
         self.create_database()
         self._selected_df = []
+
+    history = property(lambda self: sorted(self.h5_db.keys()))
+    
+    def get_last(self):
+        return sorted(self.h5_db.keys())[-1]
         
     def __getitem__(self, key):
         with self.lock:
