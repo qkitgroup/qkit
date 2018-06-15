@@ -103,13 +103,18 @@ class fid(file_system_service):
         self.df = None
         # create initial database in the background. This can take a while...
         self.create_database()
-            
+    
     def __getitem__(self, key):
         with self.lock:
-            return self.h5_db.get(key, None)
-    
+            try:
+                return self.h5_db[key]
+            except KeyError as e:
+                raise KeyError("Can not find your UUID '{}' in qkit.fid database.".format(key))
+
     def get(self, key, args=None):
         with self.lock:
+            if key not in self.h5_db:
+                logging.error("Can not find your UUID '{}' in qkit.fid database.".format(key))
             return self.h5_db.get(key, args)
 
     def view(self, file_id=None):
