@@ -40,54 +40,39 @@ class H5_file(object):
             for k in kw:
                 self.grp.attrs[k] = kw[k]
         
-
-        
     def create_file(self,output_file, mode):
         self.hf = h5py.File(output_file, mode)
 
-    def set_base_attributes(self,nexus=True):
+    def set_base_attributes(self):
         "stores some attributes and creates the default data group"
         # store version of the file format
-        #self.hf.attrs.create("qt-file","1.0") # qtlab file version
-        self.hf.attrs.create("qkit", "1.0")  # qtlab version
-        if nexus:
-            # make the structure compatible with the nexus format
-            # maybe some day the data can by analyzed by the software supporting nexus
-            # first the entry group
-            self.hf.attrs.create("NeXus_version","4.3.0")
-            
-            self.entry = self.hf.require_group("entry")
-            self.entry.attrs.create("NX_class","NXentry")
-            self.entry.attrs.create("data_latest",0)
-            self.entry.attrs.create("analysis_latest",0)
-            # create a nexus data group        
-            self.dgrp = self.entry.require_group("data0")
-            self.agrp = self.entry.require_group("analysis0")
-            self.vgrp = self.entry.require_group("views")
-            self.dgrp.attrs.create("NX_class","NXdata")
-            self.dgrp.attrs.create("NX_class","NXdata")
-        else:
-            self.dgrp = self.create_require_group("data0")
-            self.agrp = self.create_require_group("analysis0")
-            self.vgrp = self.create_require_group("views")
-    
-    def setup_required_groups(self,nexus=True):
-        if nexus:
-            # make the structure compatible with the nexus format
-            # maybe some day the data can by analyzed by the software supporting nexus
-            # first the entry group
-            self.entry = self.hf.require_group("entry")
-            # create a nexus data group        
-            self.dgrp = self.entry.require_group("data0")
-            self.agrp = self.entry.require_group("analysis0")
-            self.vgrp = self.entry.require_group("views")
-
-        else:
-            self.dgrp = self.require_group("data0")
-            self.agrp = self.require_group("analysis0")
-            self.vgrp = self.require_group("views")
+        self.hf.attrs.create("qkit", "1.0")  # qkit version
+        # make the structure compatible with the nexus format
+        # maybe some day the data can by analyzed by the software supporting nexus
+        # first the entry group
+        self.hf.attrs.create("NeXus_version","4.3.0")
         
-
+        self.entry = self.hf.require_group("entry")
+        self.entry.attrs.create("NX_class","NXentry")
+        self.entry.attrs.create("data_latest",0)
+        self.entry.attrs.create("analysis_latest",0)
+        # create a nexus data group        
+        self.dgrp = self.entry.require_group("data0")
+        self.agrp = self.entry.require_group("analysis0")
+        self.vgrp = self.entry.require_group("views")
+        self.dgrp.attrs.create("NX_class","NXdata")
+        self.dgrp.attrs.create("NX_class","NXdata")
+    
+    def setup_required_groups(self):
+        # make the structure compatible with the nexus format
+        # maybe some day the data can by analyzed by the software supporting nexus
+        # first the entry group
+        self.entry = self.hf.require_group("entry")
+        # create a nexus data group        
+        self.dgrp = self.entry.require_group("data0")
+        self.agrp = self.entry.require_group("analysis0")
+        self.vgrp = self.entry.require_group("views")
+        
     def create_dataset(self,name, tracelength, ds_type = ds_types['vector'],
                        folder = "data", dim = 1,  **kwargs):
         """Dataset for one, two, and three dimensional data
@@ -124,27 +109,24 @@ class H5_file(object):
             chunks=(5, 5, tracelength)
             
         else:
-            logging.ERROR("Create datasets: wrong number of dims.")
-            
-
+            logging.error("Create datasets: '%s' is wrong number of dims." %(dim))
+            raise ValueError
 
         if folder == "data":
             self.grp = self.dgrp
         elif folder == "analysis":
             self.grp = self.agrp
-#           self.grp = self.grp.require_group(group)
         elif folder == "views":
             self.grp = self.vgrp
 
         else:
-            logging.error("please specify either no folder, folder = 'data' , folder = 'analysis' or folder ='view' ")
-            raise
+            logging.error("please specify either: folder = 'data' , folder = 'analysis' or folder ='view' ")
+            raise ValueError
             
         if name in self.grp.keys():
             logging.info("Item '%s' already exists in data set." % (name))
             #return False        
             
-        
         # by default we create float datasets        
         dtype = kwargs.get('dtype','f')
         
@@ -152,7 +134,6 @@ class H5_file(object):
         if ds_type == ds_types['txt']:
             dtype = h5py.special_dtype(vlen=unicode)
         
-
         #create the dataset ...;  delete it first if it exists, unless it is data
         if name in self.grp.keys(): 
             if folder == "data":
@@ -163,11 +144,12 @@ class H5_file(object):
                 # comment: The above line does remove the reference to the dataset but does not free the space aquired
                 # fixme if possible ...
                 
-        ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype)
-        
+        ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype, fillvalue = np.nan)
         
         ds.attrs.create("name",name)
-        ds.attrs.create("fill", [0,0,0])
+        if ds_type == ds_types['matrix'] or ds_type == ds_types['box']:
+            ## fill value only needed for >1D datasets
+            ds.attrs.create("fill", [0,0,0])
         # add attibutes
         for a in kwargs:
              ds.attrs.create(a,kwargs[a])
@@ -175,7 +157,7 @@ class H5_file(object):
         self.flush()
         return ds
         
-    def append(self,ds,data, next_matrix=False):
+    def append(self,ds,data, next_matrix=False, reset = False):
         """Method for appending hdf5 data. 
         
         A simple append method for data traces.
@@ -193,52 +175,84 @@ class H5_file(object):
         """
         # it gets a little ugly with all the different user-cases here ...
         
-        if len(ds.shape) == 1:      # 1 dim dataset: coordinate/vector/text
-            fill = ds.attrs.get('fill')
-            if self.ds_type == ds_types['txt']:     #text
+        if len(ds.shape) == 1:
+            ## 1dim dataset (text, coordinate, vector)
+            ## multiple inputs: text, scalar (not needed?), list/np.array with one or multiple entries
+            if self.ds_type == ds_types['txt']:
+                ## text
                 dim1 = ds.shape[0]+1
                 ds.resize((dim1,))
                 ds[dim1-1] = data
-            elif len(data.shape) == 0:              # scalar
+            """
+            ## This should not be needed anymore as there are non-user typecasts to np arrays before calling this fct.
+            elif len(data.shape) == 0:              
+                ## scalar input; this is more or less useless, all non-text data gets cast
+                ## into np.array prior to calling this function.
                 dim1 = ds.shape[0]+1
                 fill[0] += 1
                 ds.resize((dim1,))
                 ds[fill[0]-1] = data
-            elif len(data.shape) == 1:              # list or np array
-                if len(data) == 1:                  # single entry
+            """
+            if len(data.shape) == 1:
+                ## np array (or list)
+                if len(data) == 1:                  
+                    ## single entry
                     dim1 = ds.shape[0]+1
-                    fill[0] += 1
                     ds.resize((dim1,))
-                    ds[fill[0]-1] = data
-                else:                               # multiple entries                  
-                    ds.resize((len(data),))
-                    fill[0] += len(data)
-                    ds[:] = data
-            ds.attrs.modify("fill", fill)
+                    ds[dim1-1] = data
+                else:                               
+                    ## list of entries               
+                    if reset:
+                        ## here the data gets not appended but overwritten!   
+                        ds.resize((len(data),))
+                        ds[:] = data
+                    else:
+                        ## data append
+                        dim1 = ds.shape[0] 
+                        ds.resize((dim1+len(data),))
+                        ds[dim1:] = data
 
-        if len(ds.shape) == 2:       # 2 dim dataset: matrix
+        if len(ds.shape) == 2:       
+            ## 2 dim dataset: matrix
+            ## multiple inputs: list/np.array with one or multiple entries
             fill = ds.attrs.get('fill')
-            dim1 = ds.shape[0]+1
-            ds.resize((dim1,len(data)))
-            fill[0] += 1
-            fill[1] = len(data)
+            dim1 = ds.shape[1]
+            if len(data) == 1:
+                dim0 = max(1, ds.shape[0])
+                ## single entry; sorting like in the 'len(ds.shape) == 3' case
+                if next_matrix:
+                    dim0 += 1
+                    fill[0] += 1
+                    fill[1] = 0
+                if dim0 == 1: # very first slice
+                    fill[0] = 1
+                    dim1 += 1
+                ds.resize((dim0,dim1))
+                fill[1] += 1
+                ds[fill[0]-1,fill[1]-1] = data
+            else: 
+                ## list of entries, sort the data 'slice by slice'
+                dim0 = ds.shape[0]
+                fill[0] += 1
+                fill[1] = len(data)
+                ds.resize((dim0+1,len(data)))
+                ds[dim0,:] = data
             ds.attrs.modify('fill', fill)
-            ds[fill[0]-1,:] = data
 
-
-        if len(ds.shape) == 3:      # 3 dim dataset: box
-            dim1 = max(1, ds.shape[0])
-            dim2 = ds.shape[1]
+        if len(ds.shape) == 3:      
+            ## 3 dim dataset: box
+            ## input: np.array with multiple entries
+            dim0 = max(1, ds.shape[0])
+            dim1 = ds.shape[1]
             fill = ds.attrs.get('fill')
             if next_matrix:
-                dim1 += 1
+                dim0 += 1
                 fill[0] += 1
                 fill[1] = 0
-                ds.resize((dim1,dim2,len(data)))
-            if dim1 == 1:
+            if dim0 == 1:
                 fill[0] = 1
-                dim2 += 1
-                ds.resize((dim1,dim2,len(data)))
+                dim1 += 1
+            ds.resize((dim0,dim1,len(data)))
             fill[1] += 1
             ds.attrs.modify("fill", fill)
             ds[fill[0]-1,fill[1]-1] = data
