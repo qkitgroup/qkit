@@ -58,7 +58,7 @@ class QKIT_visible(object):
         return qkit.instruments.get(instrument).get(parameter)
     def get_all_instrument_params(self):
         return_dict = {}
-        for ins in qt.instruments.get_instruments().values():
+        for ins in qkit.instruments.get_instruments().values():
             param_dict = {}
             for param in ins.get_parameter_names():
                 param_dict.update({param: [ins.get(param, query=False), ins.get_parameter_options(param).get('units', "")]})

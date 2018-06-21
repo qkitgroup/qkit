@@ -24,7 +24,7 @@
 import types
 import logging
 try:
-    from instrument import Instrument
+    from qkit.core.instrument_base import Instrument
 except:
     # debug mode
     logging.getLogger().setLevel(logging.INFO)
