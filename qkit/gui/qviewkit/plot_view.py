@@ -71,16 +71,16 @@ class Ui_Form(object):
         self.gridLayout_Top.setObjectName(_fromUtf8("gridLayout_Top"))
         # we push for a tight layout
         self.gridLayout_Top.setContentsMargins(0,0,0,0)
-        self.gridLayout_Top.setContentsMargins(QtCore.QMargins(0,0,0,0));
-        self.gridLayout_Top.setSpacing(0);
+        self.gridLayout_Top.setContentsMargins(QtCore.QMargins(0,0,0,0))
+        self.gridLayout_Top.setSpacing(0)
         
         self.horizontalLayout = QtGui.QHBoxLayout()
         self.horizontalLayout.setSizeConstraint(QtGui.QLayout.SetMinimumSize)
         self.horizontalLayout.setObjectName(_fromUtf8("horizontalLayout"))
 
         self.horizontalLayout.setContentsMargins(0,0,0,0)
-        self.horizontalLayout.setContentsMargins(QtCore.QMargins(0,0,0,0));
-        self.horizontalLayout.setSpacing(0);
+        self.horizontalLayout.setContentsMargins(QtCore.QMargins(0,0,0,0))
+        self.horizontalLayout.setSpacing(0)
         
 
         self.gridLayout_Top.addLayout(self.horizontalLayout, 0, 0, 1, 1)
@@ -278,8 +278,8 @@ class Ui_Form(object):
         self.IndicatorLayout.setObjectName(_fromUtf8("horizontalLayout"))
 
         self.IndicatorLayout.setContentsMargins(0,0,0,0)
-        self.IndicatorLayout.setContentsMargins(QtCore.QMargins(0,0,0,0));
-        self.IndicatorLayout.setSpacing(3);
+        self.IndicatorLayout.setContentsMargins(QtCore.QMargins(0,0,0,0))
+        self.IndicatorLayout.setSpacing(3)
         
         for indicator in indicators:
             setattr(self,indicator,QtGui.QLabel(Form))
@@ -297,8 +297,8 @@ class Ui_Form(object):
         self.TraceSelIndLayout.setObjectName(_fromUtf8("TraceSelIndLayout"))
 
         self.TraceSelIndLayout.setContentsMargins(0,0,0,0)
-        self.TraceSelIndLayout.setContentsMargins(QtCore.QMargins(0,0,0,0));
-        self.TraceSelIndLayout.setSpacing(1);
+        self.TraceSelIndLayout.setContentsMargins(QtCore.QMargins(0,0,0,0))
+        self.TraceSelIndLayout.setSpacing(1)
 
 
         setattr(self,TraceSelector,QtGui.QSpinBox(Form))
