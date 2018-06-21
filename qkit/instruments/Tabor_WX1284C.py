@@ -1122,13 +1122,13 @@ class Tabor_WX1284C(Instrument):
         jump_flags (array of 0,1): if set to 1, the sequencer will wait at this sequence element until an event happens.
         '''
         channel +=self._choff
-        if segments==None:
+        if segments is None:
             print "Amount of segments not specified, try to get it from AWG"
             for i in range(1,32000):
                 if int(self.ask(":TRAC:DEF%i?"%i).split()[-1])==0:
                     segments = i-1
                     break
-            if segments==None:
+            if segments is None:
                 raise ValueError("Could not find number of segments...")
         if type(segments)==int:
             #the segement table needs at least 3 entries. So if it would be shorter, we just take it multiple times.
