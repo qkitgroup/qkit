@@ -69,6 +69,14 @@ class file_system_service(UUID_base):
     _h5_info_cache_path = os.path.join(qkit.cfg['logdir'],"h5_info_cache.db")
 
     lock = threading.Lock()
+    
+    def _remove_cache_files(self):
+        """
+            remove cached files to recreate the database
+        """
+        for f in [self._h5_mtime_db_path,self._h5_info_cache_path]:
+            if os.path.isfile(f):
+                os.remove(f)
 
     def _load_cache_files(self):
         """ to speed up things, try to load the h5 
@@ -84,7 +92,7 @@ class file_system_service(UUID_base):
             with open(self._h5_info_cache_path,'rb') as f:
                 self._h5_info_cache_db = cPickle.load(f)
         except IOError as e:
-            logging.info("m_time_db not found. %s"%e)
+            logging.info("m_time_db not found. Not using cached files for now. %s"%e)
             self._new_cache = True
 
     def _store_cache_files(self):
@@ -179,63 +187,77 @@ class file_system_service(UUID_base):
             h5_info_db = {'time': tm, 'datetime': dt, 'run': run, 'name': name, 'user': user}
             
             if qkit.cfg.get('fid_scan_hdf', False):
-                h5_info_db.update({'rating':-1})
+                h5_info_db.update({'rating':10})
                 try:
                     h5f=h5py.File(path,'r')
-                    h5_info_db.update({'comment': h5f['/entry/data0'].attrs.get('comment', '')})
-                    try:
-                        # this is legacy and should be removed at some point
-                        # please use the entry/analysis0 attributes instead.
-                        fit_comment = h5f['/entry/analysis0/dr_values'].attrs.get('comment',"").split(', ')
-                        comm_begin = [i[0] for i in fit_comment]
+                    if "comment" in  h5f['/entry/data0'].attrs:
+                        h5_info_db.update({'comment': h5f['/entry/data0'].attrs['comment']})
+                    if "dr_values" in h5f['/entry/analysis0']:
                         try:
-                            h5_info_db.update({'fit_freq': float(h5f['/entry/analysis0/dr_values'][comm_begin.index('f')])})
-                        except (ValueError, IndexError):
+                            # this is legacy and should be removed at some point
+                            # please use the entry/analysis0 attributes instead.
+                            fit_comment = h5f['/entry/analysis0/dr_values'].attrs.get('comment',"").split(', ')
+                            comm_begin = [i[0] for i in fit_comment]
+                            try:
+                                h5_info_db.update({'fit_freq': float(h5f['/entry/analysis0/dr_values'][comm_begin.index('f')])})
+                            except (ValueError, IndexError):
+                                pass
+                            try:
+                                h5_info_db.update({'fit_time': float(h5f['/entry/analysis0/dr_values'][comm_begin.index('T')])})
+                            except (ValueError, IndexError):
+                                pass
+                        except (KeyError, AttributeError):
                             pass
-                        try:
-                            h5_info_db.update({'fit_time': float(h5f['/entry/analysis0/dr_values'][comm_begin.index('T')])})
-                        except (ValueError, IndexError):
-                            pass
-                    except (KeyError, AttributeError):
-                        pass
                     try:
                         h5_info_db.update(dict(h5f['/entry/analysis0'].attrs))
                     except(AttributeError, KeyError):
                         pass
-                    try:
-                        mmt = json.loads(h5f['/entry/data0/measurement'][0])
-                        h5_info_db.update(
-                                {arg: mmt[arg] for arg in ['run_id', 'user', 'rating', 'smt'] if mmt.has_key(arg)}
-                        )
-                    except(AttributeError, KeyError):
-                        pass
-                    finally:
-                        h5f.close()
+                    if "measurement" in h5f['/entry/data0']:
+                        try:
+                            mmt = json.loads(h5f['/entry/data0/measurement'][0])
+                            h5_info_db.update(
+                                    {arg: mmt[arg] for arg in ['run_id', 'user', 'rating', 'smt'] if mmt.has_key(arg)}
+                            )
+                        except(AttributeError, KeyError):
+                            pass
+                except KeyError as e:
+                    logging.debug("fid could not index file {}, probably it is just new and empty. Original message: {}".format(path,e))
                 except IOError as e:
-                    logging.error("fid %s:%s"%(path,e))
+                    logging.error("fid {}:{}".format(path,e))
+                finally:
+                    h5f.close()
 
             self.h5_info_db[uuid] = h5_info_db
-
-
-
-
-    def add(self, h5_filename):
-        uuid = h5_filename[:6]
-        basename = h5_filename[:-2]
+    
+    def add_h5_file(self, h5_filename):
+        if qkit.cfg['fid_scan_datadir']:
+            threading.Thread(name='adding_h5_file', target=self._add,kwargs={'h5_filename':h5_filename}).start()
+        
+    def _add(self, h5_filename):
+        """
+        Add a file to the database, where h5_filename should be the absolute filepath to the h5 file.
+        """
+        basename = os.path.basename(h5_filename)[:-2]
+        dirname = os.path.dirname(h5_filename)
+        uuid = basename[:6]
         if h5_filename[-3:] != '.h5':
-            raise ValueError("Your filename '{:s}' is not a .h5 filename.".format(h5_filename))
+            logging.error("Tried to add '{:s}' to the qkit.fid database: Not a .h5 filename.".format(h5_filename))
         with self.lock:
-            if os.path.isfile(basename + 'h5'):
-                self.h5_db[uuid] = basename + 'h5'
+            if os.path.isfile(h5_filename):
+                self.h5_db[uuid] = h5_filename
                 logging.debug("Store_db: Adding manually h5: " + basename + 'h5')
+                self._inspect_and_add_Leaf(basename + 'h5', dirname)
             else:
-                raise ValueError("File '{:s}' does not exist.".format(basename + 'h5'))
-            if os.path.isfile(basename + 'set'):
-                self.set_db[uuid] = basename + 'set'
+                logging.error("Tried to add '{:s}' to the qkit.fid database: File does not exist.".format(h5_filename))
+            if os.path.isfile(h5_filename[:-2] + 'set'):
+                self.set_db[uuid] = h5_filename[:-2] + 'set'
                 logging.debug("Store_db: Adding manually set: " + basename + 'set')
-            if os.path.isfile(basename + 'measurement'):
-                self.h5_db[uuid] = basename + 'measurement'
+                self._inspect_and_add_Leaf(basename + 'set', dirname)
+            if os.path.isfile(h5_filename[:-2] + 'measurement'):
+                self.h5_db[uuid] = h5_filename[:-2] + 'measurement'
                 logging.debug("Store_db: Adding manually measurement: " + basename + 'measurement')
+                self._inspect_and_add_Leaf(basename + 'measurement', dirname)
+        self.update_grid_db()
 
 
     def _set_hdf_attribute(self,UUID,attribute,value):
@@ -244,7 +266,26 @@ class file_system_service(UUID_base):
         try:
             if not 'analysis0' in h:
                 h.create_group('analysis0')
-            h['analysis0'].attrs[attribute] = value
+            if value=="":
+                if attribute in h['analysis0'].attrs:
+                    del h['analysis0'].attrs[attribute]
+            else:
+                try:
+                    import pandas as pd
+                    if pd.isnull(value):
+                        if attribute in h['analysis0'].attrs:
+                            del h['analysis0'].attrs[attribute]
+                    else:
+                        h['analysis0'].attrs[attribute] = value
+                except ImportError:
+                    h['analysis0'].attrs[attribute] = value
         finally:
             h.file.close()
         self.h5_info_db[UUID].update({attribute:value})
+        
+    def wait(self):
+        with self.lock:
+            pass
+        if self.lock.locked():
+            self.wait()
+        return True
