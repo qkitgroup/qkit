@@ -48,7 +48,7 @@ class Data(object):
             self._filepath = os.path.abspath(self._filepath)
             self._folder,self._filename = os.path.split(self._filepath)
         "setup the  file"
-        self.hf = H5_file(self._filepath)
+        self.hf = H5_file(self._filepath,mode='r+')
         self.hf.flush()
 
 

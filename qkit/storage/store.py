@@ -43,6 +43,10 @@ class Data(object):
             self._folder, self._filename = os.path.split(self._filepath)
         elif not os.path.isabs(self._name):
             self._generate_file_name()
+            try:
+                qkit.fid.add_h5_file(self._filepath)
+            except Exception as e:
+                logging.debug("Could not add newly generated h5 File '{}' to qkit.fid database: {}".format(name,e))
         else:
             self._filepath = os.path.abspath(self._name)
             self._folder,self._filename = os.path.split(self._filepath)
