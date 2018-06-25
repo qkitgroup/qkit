@@ -445,7 +445,8 @@ class MKS_647C(Instrument):
             channel: Channel to be checked.
 
         Returns:
-            Pressure
+            Actual flow in 0.1 percent of full scale,
+            somehow converted, which has to be checked.
         """
         # TODO: Check unit of flow that is returned and add to docstring.
         cmd = "FL " + str(channel)
@@ -497,7 +498,7 @@ class MKS_647C(Instrument):
         cmd = "PU " + str(pu)
         return self.remote_cmd(cmd)
 
-    def getPressureUnit(self):
+    def get_pressure_unit(self):
         """
         Get the pressure unit.
         (old name: getPressureUnit)
