@@ -31,7 +31,7 @@ from threading import Lock
 
 class MKS_647C(Instrument):
     """
-    This is the driver for the Inficon Quarz Cristall Monitor
+    This is the driver for the MKS 647C four channel mass flow controller.
 
     Usage:
     Initialize with
@@ -40,12 +40,12 @@ class MKS_647C(Instrument):
 
     def __init__(self, name, address, reset=False):
         """
-        Initializes the Keithley, and communicates with the wrapper.
+        Initializes the MKS, and communicates with the wrapper.
         
-        Input:
-            name (string)    : name of the instrument
-            address (string) : serial address
-            reset (bool)     : resets to default values, default=False
+        Args:
+            name (string)    : Name of the instrument
+            address (string) : Serial address
+            reset (bool)     : Resets to default values, default=False
         """
         
         logging.info(__name__ + ': Initializing instrument MKS_647C')
@@ -53,78 +53,70 @@ class MKS_647C(Instrument):
 
         self.predef_pressure_unit = 13 # 100 ubar, depends on baratron
         self.predef_channels = {"Ar": 1, "N2": 2, "O2": 3, "ArO": 4}
-        self.predef_gasCorfact = {"Ar": 1.37, "N2": 1.0, "O2": 1.0, "ArO": 1.37}#{"Ar": "0137", "N2": "0100", "O2": "0100", "ArO": "0137"}
-        self.predef_flowRange = {"Ar": 6, "N2": 6, "O2": 6, "ArO": 3}  # 100,100,100,10
+        self.predef_gasCorfact = {"Ar": 1.37, "N2": 1.0, "O2": 1.0, "ArO": 1.37}  # Values as they are predefined in MKS
+        self.predef_flowRange = {"Ar": 6, "N2": 6, "O2": 6, "ArO": 3}  # 100sccm, 100sccm, 100sccm, 10sccm
 
         self.mutex = Lock()
         self.setup(address)
 
-        self.init_controller()
+        self.init_controller(reset=reset)
         
-    def setup(self,address = "COM5"):
-        #channel = channel
+    def setup(self,address = "COM10"):
         baudrate = 9600
         timeout = 1
-        # open serial port, 9600, 8,N,1, timeout 1s
-        # address="/dev/tty.usbserial"       
-        # Port A on the USB_to_serial converter, Port B ends with K
-        # address = "/dev/cu.usbserial-FTK3DEL5A"
-        # address = "/dev/ttyUSB3" 
 
-        self.SerialPort = self._std_open(address,baudrate,timeout)
-        atexit.register(self.SerialPort.close)
+        self.serial_port = self._std_open(address, baudrate, timeout)
+        atexit.register(self.serial_port.close)
         
     def _std_open(self,device,baudrate,timeout):
         return serial.Serial(device, baudrate, timeout=timeout)
 
-    def getSerialPort(self):
-        return self.SerialPort
+    def get_serial_port(self):
+        return self.serial_port
 
-    def getMutex(self):
+    def get_mutex(self):
         return self.mutex
 
     def remote_cmd(self,cmd):
         # the 647C requires carriage return termination
         cmd += '\r'
         with self.mutex:
-            self.SerialPort.write(cmd)
+            self.serial_port.write(cmd)
         
             time.sleep(0.2)   #increase from .1 to .2
             #value = self.ser.readline().strip("\x06")
-            rem_char = self.SerialPort.inWaiting()
+            rem_char = self.serial_port.inWaiting()
         
-            value = self.SerialPort.read(rem_char) # .strip("\x06")
+            value = self.serial_port.read(rem_char) # .strip("\x06")
             time.sleep(0.2)   #to avoid wrong communication
             return value.strip()
 
     """
     INSTRUMENT SETUP
     """
-    def setDefault(self):
+    def set_default(self):
         return self.remote_cmd("DF")
 
     def hardware_reset(self):
         return self.remote_cmd("RE")
 
-    def getVersion(self):
+    def get_version(self):
         return self.remote_cmd("ID")
 
-    """
-    # commands for setting values with the power supply
+    def init_controller(self, reset=False):
+        """
+        Initialize the MKS.
+        Units and ranges required for value conversion are loaded and stored in self variables.
 
-    def check_range(self,value,minval,maxval):
-        if value < minval or value > maxval:
-            print "value out of range error: " + str(value) + " " + str(minval) + " " + str(maxval)
-            raise ValueError
+        If reset=True, the default values as defined by predef_... in __init__ are set and all channels are turned off.
 
-    def setOn(self,ON = False):
-        if ON:
-            self.remote_cmd('A')        
-        else:
-            self.remote_cmd('B')            
-    """
+        Args:
+            reset: Reset the MKS to default values.
 
-    def init_controller(self, reset=True):
+        Returns:
+            Nothing but makes available:
+            self.pressure_range, self.pressure_unit and self.flow_settings used internally for unit conversion.
+        """
         print ("Initializing controller...")
 
         self.set_pressure_unit(self.predef_pressure_unit)
@@ -139,19 +131,31 @@ class MKS_647C(Instrument):
             channel = self.predef_channels[chan_name]
             self.flow_settings[channel] = {}
             if reset:
-                self.set_flow(channel, 0)
                 self.set_off(channel)
                 self.set_flow_range(channel, self.predef_flowRange[chan_name])
                 self.set_gas_correction_factor(channel, self.predef_gasCorfact[chan_name])
             flow_range, flow_unit = self.get_flow_range(channel)
             gas_corr_fact = self.get_gas_correction_factor(channel)
-            self.flow_settings[channel] = {"flow_range": float(flow_range), "flow_unit": str(flow_unit), "gas_corr_fact": float(gas_corr_fact)}
+            self.flow_settings[channel] = {"flow_range": float(flow_range),
+                                           "flow_unit": str(flow_unit),
+                                           "gas_corr_fact": float(gas_corr_fact)}
+            if reset:
+                self.set_flow(channel, 0)
         
-        print ("Controller initialized with predefined parameters.")
+        print ("Controller initialized.")
+        if reset:
+            print ("Values were resetted to predef values defined in __init__ and flow was turned off.")
+        else:
+            print ("No values were resetted.")
+        print ("Channel settings are available as flow_settings[channel]")
+        print ("Pressure settings: ")
         print (self.get_pressure_range())
         print ("Flow settings: ")
-        print self.flow_settings
-    
+        for chan in self.flow_settings:
+            print (chan, self.flow_settings[chan])
+
+        return
+
     """
     CHANNEL SETUP
     """
@@ -486,9 +490,9 @@ class MKS_647C(Instrument):
             channel: Channel for which the flow is set.
             value: Flow to be set in units defined by flow range.
         """
-        # TODO: Check unit of flow and add to docstring.
-        cmd = "FS " + str(channel) + str(int(round(value/self.flow_settings[channel]['flow_range']/self.flow_settings[channel]['gas_corr_fact']*1000.)))
-        print cmd
+        cmd = "FS " + str(channel) + str(int(round(value / self.flow_settings[channel]['flow_range'] /
+                                                   self.flow_settings[channel]['gas_corr_fact']*1000.)))
+        # print cmd
         return self.remote_cmd(cmd)
 
     def get_flow_setpoint(self, channel):
@@ -502,10 +506,9 @@ class MKS_647C(Instrument):
         Returns:
             Flow setpoint of a given channel in units defined by flow range.
         """
-        # TODO: Check unit of flow and add to docstring.
         cmd = "FS " + str(channel) +" R"
         ret = self.remote_cmd(cmd)
-        print ret
+        # print ret
         return float(ret)*self.flow_settings[channel]['flow_range']*self.flow_settings[channel]['gas_corr_fact']/1000.
 
     """
@@ -639,14 +642,14 @@ class MKS_647C(Instrument):
         cmd = "PC"
         return self.remote_cmd(cmd)
 
-if __name__ == "__main__":
+#if __name__ == "__main__":
 
-    MKS = MKS_647C("MKS", address="COM6")
-    # mutex = Ar.getMutex()
+    #MKS = MKS_647C("MKS", address="COM10")
+    # mutex = Ar.get_mutex()
     # N2 = MKS647C_Dev(2,mutex)
     # O2 = MKS647C_Dev(3,mutex)
     # ArO = MKS647C_Dev(4,mutex)
     
-    print("Setting off all",MKS.set_off_all())
+    #print("Setting off all",MKS.set_off_all())
 
-    MKS.init_controller()
+    #MKS.init_controller()
