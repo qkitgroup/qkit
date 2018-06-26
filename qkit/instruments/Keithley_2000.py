@@ -1,4 +1,4 @@
-# filename: keithley 2000.py
+# filename: Keithley_2000.py
 # version 0.1 written by JB,JNV, HR@KIT 2017-
 # QKIT driver for a Keithley Multimeter 2000 
 
@@ -28,7 +28,7 @@ import serial
 
 class Keithley_2000(Instrument):
     '''
-    This is the driver for the Keithley 2636A Source Meter
+    This is the driver for the Keithley 2000 Source Meter
 
     Usage:
     Initialize with
@@ -51,8 +51,7 @@ class Keithley_2000(Instrument):
         
         self.setup(address)
 
-    def setup(self,device="/dev/ttyUSB7"):
-
+    def setup(self, device="/dev/ttyUSB7"):
         baudrate = 9600
         timeout = 0.1
         
@@ -60,12 +59,11 @@ class Keithley_2000(Instrument):
         atexit.register(self.ser.close)
         
     def _std_open(self,device,baudrate,timeout):
-        
         # open serial port, 9600, 8,N,1, timeout 0.1
         return serial.Serial(device, baudrate, timeout=timeout)
         
-    def remote_cmd(self,cmd):
-        cmd+="\r"
+    def remote_cmd(self, cmd):
+        cmd += "\r"
 
         # clear queue first, old data,etc
         rem_char = self.ser.inWaiting()
@@ -88,12 +86,10 @@ class Keithley_2000(Instrument):
             print m
             return 0
 
-
     def get_resistance(self):
         return float(self.remote_cmd(":MEAS:RES?"))
 
 
-
 if __name__ == "__main__":
-    k = Keithley_2000(name = "rmes", address="COM3")
-    print "DC current: {:.4g}A".format(k.get_current_dc())
+    KEITH = Keithley_2000(name = "Keithley_2000", address="COM6")
+    print "DC current: {:.4g}A".format(KEITH.get_current_dc())

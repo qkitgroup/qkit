@@ -32,7 +32,7 @@ import atexit
 
 class Inficon(Instrument):
     '''
-    This is the driver for the Inficon Quarz Cristall Monitor
+    This is the driver for the Inficon XTM/2 Quartz Cristal Monitor
 
     Usage:
     Initialize with
@@ -41,7 +41,7 @@ class Inficon(Instrument):
 
     def __init__(self, name, address, reset=False):
         '''
-        Initializes the Keithley, and communicates with the wrapper.
+        Initializes the Inficon, and communicates with the wrapper.
         
         Input:
             name (string)    : name of the instrument
@@ -55,7 +55,6 @@ class Inficon(Instrument):
         
         self.setup(address)
 
-
     class inficon_cmds(object):
         ack="\x06"
         #ack=" \x06"
@@ -68,7 +67,7 @@ class Inficon(Instrument):
         set_thickness_zero = "R 4"+ack
         set_timer_zero = "R 5"+ack
         
-    def setup(self,device="/dev/ttyUSB6"):
+    def setup(self, device="/dev/ttyUSB6"):
         # open serial port, 9600, 8,N,1, timeout 1s
         #device="/dev/tty.usbserial"
         baudrate = 9600
@@ -80,16 +79,14 @@ class Inficon(Instrument):
         #device = "/dev/ttyUSB0" 
         self.ser = self._std_open(device,baudrate,timeout)
         atexit.register(self.ser.close)
-  
-        
+
         # load inficon comands
         self.cmds = self.inficon_cmds()
         
-    def _std_open(self,device,baudrate,timeout):
+    def _std_open(self, device, baudrate, timeout):
         return serial.Serial(device, baudrate, timeout=timeout)
-        
-        
-    def remote_cmd(self,cmd):
+
+    def remote_cmd(self, cmd):
         self.ser.write(cmd)
         
         time.sleep(0.1)
@@ -102,16 +99,35 @@ class Inficon(Instrument):
     
     def get_hello(self):
         return self.remote_cmd(self.cmds.get_hello)
+
     def get_rate(self, nm=False):
+        """
+        Check the current rate.
+
+        Args:
+            nm (bool): Return the rate in nm/s.
+
+        Returns:
+            The current rate in A/s (nm=False) or nm/s (nm=True).
+        """
         rate = float(self.remote_cmd(self.cmds.get_rate))
         if nm:
-            #return rate in nm
+            # return rate in nm/s
             return rate/10.
         else:
-            # return rate in A (10^-10m)
+            # return rate in A/s (10^-10m/s)
             return rate
 
     def get_thickness(self, nm=False):
+        """
+        Check the current thickness.
+
+        Args:
+            nm (bool): Return the thickness in nm.
+
+        Returns:
+            The current thickness in kA (nm=False) or nm (nm=True).
+        """
         thickness = float(self.remote_cmd(self.cmds.get_thickness))
         if nm:
             # return thickness in nm
@@ -119,9 +135,9 @@ class Inficon(Instrument):
         else:
             # return thickness in kA (10^-7m)
             return thickness
-        
+
+
 if __name__ == "__main__":
-    rd=Inficon("rd",address="COM5")
-    #print rd.getHello()
-    print 'Rate:',rd.get_rate()
-    print 'Thickness:',rd.get_thickness()
+    INFI=Inficon("Inficon", address="COM5")
+    print 'Rate:', INFI.get_rate()
+    print 'Thickness:', INFI.get_thickness()

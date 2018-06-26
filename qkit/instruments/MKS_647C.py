@@ -1,5 +1,5 @@
 # MKS MFC Controller 647C DEV version 1.0 written by HR/JB@KIT 10/2013
-# Rewritten for qkit/evaporate/deposition service HR,YS@KIT2018
+# Rewritten for qkit/evaporate/deposition service HR,YS@KIT 2018
 # Mass flow controller monitor/controller
 
 # This program is free software; you can redistribute it and/or modify
@@ -61,14 +61,14 @@ class MKS_647C(Instrument):
 
         self.init_controller(reset=reset)
         
-    def setup(self,address = "COM10"):
+    def setup(self, address="COM10"):
         baudrate = 9600
         timeout = 1
 
         self.serial_port = self._std_open(address, baudrate, timeout)
         atexit.register(self.serial_port.close)
         
-    def _std_open(self,device,baudrate,timeout):
+    def _std_open(self, device, baudrate, timeout):
         return serial.Serial(device, baudrate, timeout=timeout)
 
     def get_serial_port(self):
@@ -77,7 +77,7 @@ class MKS_647C(Instrument):
     def get_mutex(self):
         return self.mutex
 
-    def remote_cmd(self,cmd):
+    def remote_cmd(self, cmd):
         # the 647C requires carriage return termination
         cmd += '\r'
         with self.mutex:
@@ -147,7 +147,7 @@ class MKS_647C(Instrument):
             print ("Values were resetted to predef values defined in __init__ and flow was turned off.")
         else:
             print ("No values were resetted.")
-        print ("Channel settings are available as flow_settings[channel]")
+        print ("Channel settings are available as flow_settings[channel].")
         print ("Pressure settings: ")
         print (self.get_pressure_range())
         print ("Flow settings: ")
@@ -378,7 +378,7 @@ class MKS_647C(Instrument):
         cmd = "LL " + str(channel) + " " + str(limit)
         return self.remote_cmd(cmd)
         
-    def get_low_limit(self,channel):
+    def get_low_limit(self, channel):
         """
         Check for lower flow limit of a channel.
         (old name: getLowLimit)
@@ -606,7 +606,7 @@ class MKS_647C(Instrument):
         else:
             return False
 
-    def set_pressure(self,value):
+    def set_pressure(self, value):
         """
         Enter pressure setpoint.
         (old name: setPressureSetPoint)
@@ -642,14 +642,8 @@ class MKS_647C(Instrument):
         cmd = "PC"
         return self.remote_cmd(cmd)
 
-#if __name__ == "__main__":
+if __name__ == "__main__":
 
-    #MKS = MKS_647C("MKS", address="COM10")
-    # mutex = Ar.get_mutex()
-    # N2 = MKS647C_Dev(2,mutex)
-    # O2 = MKS647C_Dev(3,mutex)
-    # ArO = MKS647C_Dev(4,mutex)
-    
-    #print("Setting off all",MKS.set_off_all())
+    MKS = MKS_647C("MKS", address="COM10")
 
-    #MKS.init_controller()
+    MKS.init_controller()
