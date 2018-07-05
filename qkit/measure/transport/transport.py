@@ -735,9 +735,6 @@ class transport(object):
                             self._pb.iterate()
                         qkit.flow.sleep()
 
-        except Exception as e:
-            print e.__doc__
-            print e.message
         finally:
             self._end_measurement()
             # turn off IVD

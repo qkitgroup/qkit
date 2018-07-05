@@ -550,10 +550,6 @@ class spectrum(object):
                     print 'not implemented for this VNA, only works with Keysight ENA 5071C'
                     qkit.flow.end()
                     self._end_measurement()
-                    
-        except Exception as e:
-            print e.__doc__
-            print e.message        
         finally:
             self._end_measurement()
             qkit.flow.end()
@@ -640,9 +636,6 @@ class spectrum(object):
                     if self.progress_bar:
                         self._p.iterate()
                     qkit.flow.sleep()
-        except Exception as e:
-            print e.__doc__
-            print e.message        
         finally:
             self._end_measurement()
             qkit.flow.end()
