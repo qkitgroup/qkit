@@ -49,62 +49,21 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
 
         
         # Implement parameters
-        self.add_parameter('instrument_mode', type=types.StringType,
-            flags=Instrument.FLAG_GETSET)
-        
-        self.add_parameter('nop', type=types.IntType,
-            flags=Instrument.FLAG_GET,
-            minval=101, maxval=801)
-            
-        self.add_parameter('averages', type=types.IntType,
-            flags=Instrument.FLAG_GETSET,
-            minval=1, maxval=99999)                    
-
-        self.add_parameter('Average', type=types.BooleanType,
-            flags=Instrument.FLAG_GETSET)   
-
-        self.add_parameter('centerfreq', type=types.FloatType,
-            flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=51.2e3,
-            units='Hz', tags=['sweep'])
-
-        self.add_parameter('startfreq', type=types.FloatType,
-            flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=51.2e3,
-            units='Hz', tags=['sweep'])            
-
-        self.add_parameter('stopfreq', type=types.FloatType,
-            flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=51.2e3,
-            units='Hz', tags=['sweep'])                        
-
-        self.add_parameter('span', type=types.FloatType,
-            flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=51.2e3,
-            units='Hz')        
-                     
-        self.add_parameter('frequency_resolution', type=types.IntType,
-            flags=Instrument.FLAG_GETSET,
-            minval=100, maxval=800)
-        
-        self.add_parameter('sweeptime', type=types.FloatType,   #JB
-            flags=Instrument.FLAG_GET,
-            minval=0, maxval=10000,
-            units='s')
-            
-        self.add_parameter('sweeptime_averages', type=types.FloatType,   #JB
-            flags=Instrument.FLAG_GET,
-            minval=0, maxval=1e-3,
-            units='s')
-            
-        self.add_parameter('window_type', type=types.StringType,
-            flags=Instrument.FLAG_GETSET)
-        
-        self.add_parameter('active_channels', type=types.StringType,
-            flags=Instrument.FLAG_GETSET)
-            
-        self.add_parameter('repeat_averaging', type=types.BooleanType,
-            flags=Instrument.FLAG_GETSET)
+        # ToDO: insert all parameters and function from the script below, check how to deal with channels
+        self.add_parameter('instrument_mode', type=types.StringType, flags=Instrument.FLAG_GETSET)
+        self.add_parameter('nop', type=types.IntType, flags=Instrument.FLAG_GET,minval=101, maxval=801)
+        self.add_parameter('averages', type=types.IntType, flags=Instrument.FLAG_GETSET, minval=1, maxval=99999)
+        self.add_parameter('Average', type=types.BooleanType, flags=Instrument.FLAG_GETSET)
+        self.add_parameter('centerfreq', type=types.FloatType, flags=Instrument.FLAG_GETSET,minval=0, maxval=51.2e3, units='Hz', tags=['sweep'])
+        self.add_parameter('startfreq', type=types.FloatType, flags=Instrument.FLAG_GETSET, minval=0, maxval=51.2e3, units='Hz', tags=['sweep'])
+        self.add_parameter('stopfreq', type=types.FloatType, flags=Instrument.FLAG_GETSET, minval=0, maxval=51.2e3, units='Hz', tags=['sweep'])
+        self.add_parameter('span', type=types.FloatType, flags=Instrument.FLAG_GETSET, minval=0, maxval=51.2e3, units='Hz')
+        self.add_parameter('frequency_resolution', type=types.IntType, flags=Instrument.FLAG_GETSET, minval=100, maxval=800)
+        self.add_parameter('sweeptime', type=types.FloatType, flags=Instrument.FLAG_GET, minval=0, maxval=10000, units='s')
+        self.add_parameter('sweeptime_averages', type=types.FloatType, flags=Instrument.FLAG_GET, minval=0, maxval=1e-3, units='s')
+        self.add_parameter('window_type', type=types.StringType, flags=Instrument.FLAG_GETSET)
+        self.add_parameter('active_channels', type=types.StringType, flags=Instrument.FLAG_GETSET)
+        self.add_parameter('repeat_averaging', type=types.BooleanType, flags=Instrument.FLAG_GETSET)
         
         self.add_function('get_freqpoints')
         self.add_function('get_tracedata')
@@ -120,6 +79,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         self.add_function('fast_averaging')
         self.add_function('set_display_format')
         self.add_function('select_trace_format')
+        self.add_function('set_ac_coupling')
         #include math_function maybe
         
         if reset is True:
@@ -209,6 +169,26 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         state=['OFF', 'ON' ]
         for i in channels:
             self.write(':inp{} {}'.format(i, state[status]))
+
+    def set_ac_coupling(self, channels=[1,2], val=[True, True]):
+        """
+        sets input coupling to AC or DC for specified channels. 3dB point is at 1 Hz for AC coupling
+        :param channels: channels to change (list)
+        :param val: True for AC coupling False for DC coupling (List)
+        :return:
+        """
+        mode = ['DC', 'AC']
+        for i in channels:
+            self.write(':Input{}:Coup {}'.format(i, mode[val]))
+
+    def get_ac_coupling(self, channel):
+        """
+        gets input coupling either AC or DC for specified channels. 3dB point is at 1 Hz for AC coupling
+        :param channel: channels to ask
+        :return:
+        """
+        return self.ask(':Input{}:Coup?'.format(channel))
+
 
     #### Frequency options ####
 
@@ -342,14 +322,14 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         """turns autoscalle off and on. A trace has to be selected, option must be a string [AUTO, OFF, ON, ONCE] or 0 and 1"""
         self.write('disp:wind{}trac:y:auto '.format(trace)+option)
 
-    def set_input_shielding(mode, channel = [1,2]):
+    def set_input_shielding(self, mode, channel = [1,2]):
         """ determines the input shielding mode (expects string), either "ground" or "floating", for the chosen channels"""
         for i in channel:
             self.write('INP{}:LOW '.format(i)+mode)
 
-    def set_input_shielding(channel):
-        """ returns the input shielding mode of the chosen channel"""
-        return self.ask('INP{}:LOW?'.format(i))[:-1]
+    def get_input_shielding(self, channel):
+        """ returns the input shield of the chosen channel"""
+        return self.ask('INP{}:LOW?'.format(channel))[:-1]
 
     def set_range(self, channel, value):
         """sets a fixed autorange, expects channel as list and an input value in Volts and converts it to dBV"""
@@ -504,9 +484,10 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
 
     def set_y_unit(self, unit, channel):
         """sets the y-unit (string), can also be used for PSD calucalation"""
-        #unit = r"'"+unit+r"'"
+        if unit[0] != '"':
+            unit = '"' + unit + '"'
         if channel in [1,2,3,4]: # implement string for unit
-            self.write("calculate{}:unit:voltage ".format(channel)+ unit) 
+            self.write('calculate{}:unit:voltage '.format(channel) + unit)
 
     def get_y_unit(self, channel):
         """gets the y-unit"""
@@ -518,4 +499,4 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
 
     def measure_PSD(self, channel):
         """proxy funciton for set y-unit with unit = "V2/Hz" """
-        self.set_y_unit('V2/HZ', channel)
+        self.set_y_unit('"V2/HZ"', channel)
