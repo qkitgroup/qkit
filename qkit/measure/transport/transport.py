@@ -22,7 +22,6 @@ import logging
 #from scipy.optimize import curve_fit
 from time import sleep
 import sys
-import qt
 import threading
 
 import qkit
@@ -45,17 +44,19 @@ class transport(object):
         tr.measure_XD()
     '''
     
-    def __init__(self, IV_Device, exp_name = '', sample = None):
+    def __init__(self, IV_Device, exp_name = '', sample=None):
         '''
         Initializes the class for transport measurement such as IV characteristics.
         
         Input:
             IV_Device (str)
             exp_name (str): Experiment name used as suffix of <file_name>
-            sample (...): ... used for measurement object
+            sample (object): sample object of measurement_class used for measurement object
         Output:
             None
         '''
+        ### TODO: average trace
+        
         ## Input variables
         self.IVD = IV_Device
         self.exp_name = exp_name
@@ -329,10 +330,11 @@ class transport(object):
             None
         '''
         print ('filename '+self._file_name)
-        self._data_file                      = hdf.Data(name=self._file_name, mode='a')
-        self._measurement_object.uuid        = self._data_file._uuid
-        self._measurement_object.hdf_relpath = self._data_file._relpath
-        self._measurement_object.instruments = qkit.instruments.get_instrument_names()
+        self._data_file                        = hdf.Data(name=self._file_name, mode='a')
+        self._measurement_object.uuid          = self._data_file._uuid
+        self._measurement_object.hdf_relpath   = self._data_file._relpath
+        self._measurement_object.instruments   = qkit.instruments.get_instrument_names()
+        self._measurement_object.sample.sweeps = self.sweep.get_sweeps()
         self._measurement_object.save()
         self._mo = self._data_file.add_textlist('measurement')
         self._mo.append(self._measurement_object.get_JSON())
@@ -521,7 +523,7 @@ class transport(object):
 
         ## measurement
         sys.stdout.flush()
-        qt.mstart()
+        qkit.flow.start()
         
         # turn on IVD
         if self.IVD.get_sweep_mode() == 0:
@@ -543,14 +545,16 @@ class transport(object):
             # progress bar
             if self.progress_bar:
                 self._pb.iterate()
-            qt.msleep()
+            qkit.flow.sleep()
         # turn off IVD
+        '''
         if self.IVD.get_sweep_mode() == 0:
             self.IVD.set_stati(status=False)
         elif self.IVD.get_sweep_mode() in [1, 2]:
             self.IVD.set_status(status=False, channel=self._channel)
+        '''
         # end measurement
-        qt.mend()
+        qkit.flow.end()
         self._end_measurement()
     
     
@@ -597,11 +601,11 @@ class transport(object):
         self._measurement_object.y_axis = 'current' # or self._IV_modes[self._bias]
         self._measurement_object.z_axis = ''
         self._measurement_object.web_visible = self._web_visible
-
+        
         ## open qviewkit to plot measurement, sense values are opened by default
         if self.open_qviewkit:
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath())#, datasets=['{:s}_{:d}'.format(self._IV_modes[not self._bias].lower(), i) for i in range(self.sweep.get_nos())])
-
+        
         ## measurement
         self._measure(**kwargs)
         return
@@ -672,7 +676,7 @@ class transport(object):
                       iReadingBuffer (str): for Keithley 2636A only
                       vReadingBuffer (str): for Keithley 2636A only
         '''
-        qt.mstart()
+        qkit.flow.start()
         try:
             # turn on IVD
             if self.IVD.get_sweep_mode() == 0:
@@ -710,7 +714,7 @@ class transport(object):
                             # progress bar
                             if self.progress_bar:
                                 self._pb.iterate()
-                            qt.msleep()
+                            qkit.flow.sleep()
                     ## filling of value-box by storing data in the next 2d structure after every y-loop
                     for i in range(self.sweep.get_nos()):
                         self._data_I[i].next_matrix()
@@ -731,7 +735,7 @@ class transport(object):
                         # progress bar
                         if self.progress_bar:
                             self._pb.iterate()
-                        qt.msleep()
+                        qkit.flow.sleep()
 
         except Exception as e:
             print e.__doc__
@@ -743,7 +747,7 @@ class transport(object):
                 self.IVD.set_stati(status=False)
             elif self.IVD.get_sweep_mode() in [1, 2]:
                 self.IVD.set_status(status=False, channel=self._channel)
-            qt.mend()
+            qkit.flow.end()
         return
     
     
@@ -865,6 +869,18 @@ class transport(object):
             return (self._start_iter.next(),
                     self._stop_iter.next(),
                     self._step_iter.next())
+        
+        
+        def get_sweeps(self):
+            '''
+            Gets parameters of all sweep.
+            
+            Input:
+                None
+            Output:
+                sweep list(obj(float)) : [[start, stop, step]]
+            '''
+            return zip(*[self._starts, self._stops, self._steps])
             
             
         def get_nos(self):
