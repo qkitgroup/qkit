@@ -1,6 +1,5 @@
 # Keithley.py driver for Keithley 2636A multi channel source measure unit
 # Hannes Rotzinger, hannes.rotzinger@kit.edu 2010
-# Updated version by MMW@KIT 2018
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-from instrument import Instrument
+from qkit.core.instrument_base import Instrument
 from qkit import visa
 import time
 import logging
@@ -415,7 +414,41 @@ class Keithley(Instrument):
             return float(self._ask('smu{:s}.source.range{:s}'.format(chr(96+channel), self._smu_command[self.get_bias_mode(channel=channel)])))
         except ValueError as e:
             logging.error(__name__ + ': Bias range of channel {:s} not specified: {:s}'.format(chr(64+channel), e))
+    
+    def set_bias_limit(self, val, channel=1):
+        '''
+        Sets bias limit of channel <channel> to <val>.
+        Note that the 200V range requires the interlock to be enabled: pull high pin 24 (e.g. by shorting with pin 23) of the digital I/O port.
 
+        Input:
+            val (float)   : 0 < <val> < 200V | 0 < <val> < 1.5A
+            channel (int) : 1 | 2
+        Output:
+            None
+        '''
+        # Corresponding Command: smuX.source.limitY = limit
+        try:
+            logging.debug(__name__ + ': Set bias limit of channel {:s} to {:f}'.format(chr(64+channel), val))
+            self._write('smu{:s}.source.limit{:s} = {:f}'.format(chr(96+channel), self._smu_command[self.get_bias_mode(channel=channel)], val))
+        except AttributeError as e:
+            logging.error(__name__ + ': Invalid input: cannot set bias limit of channel {:s} to {:f}: {:s}'.format(chr(64+channel), val, e))
+    
+    def get_bias_limit(self, channel=1):
+        '''
+        Gets bias limit <output> of channel <channel>
+
+        Input:
+            channel (int) : 1 | 2
+        Output:
+            val (float)   : 0 < <val> < 200V | 0 < <val> < 1.5A
+        '''
+        # Corresponding Command: limit = smuX.source.limitY
+        try:
+            logging.debug(__name__ + ': Get bias limit of channel {:s}'.format(chr(64+channel)))
+            return float(self._ask('smu{:s}.source.limit{:s}'.format(chr(96+channel), self._smu_command[self.get_bias_mode(channel=channel)])))
+        except ValueError as e:
+            logging.error(__name__ + ': Bias limit of channel {:s} not specified: {:s}'.format(chr(64+channel), e))
+    
     def set_sense_range(self, val, channel=1):
         '''
         Sets sense range of channel <channel> to <val>
