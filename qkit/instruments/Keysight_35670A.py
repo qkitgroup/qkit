@@ -86,6 +86,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
             self._set_GPIB_dev_reset()
             time.sleep(5)
 
+        self.frequency_changed = True
         self.device_type='signal_analyzer'
         self.set_instrument_mode('FFT')
         self.set_return_format()
@@ -134,6 +135,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
     def start_measurement(self):
         """starts a new measurement"""
         self.write("INIT:IMM")
+        self.frequency_changed = False
 
     def set_measurement_continous(self, pause):
         """pauses(=0) or resumes(=1) the measurement"""
@@ -150,14 +152,14 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         """nothing to do here??"""
         pass
 
-    def do_set_active_channels(self, channel):
+    def do_set_active_traces(self, channel):
         """
         activates the chosen channel(s), not sure how it really works
         expects string 'A','B','AB' for channel 1, 2, 1+2
         """
         self.write("CALC:ACT "+channel)
 
-    def do_get_active_channels(self):
+    def do_get_active_traces(self):
         """gets the active channels A,B,AB for channel 1,2,1+2"""
         return self.ask('CALC:ACT?')[:-1]
 
@@ -195,6 +197,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
     def do_set_centerfreq(self, center_freq): # in Hz
         """sets the center frequency"""
         self.write("Freq:Cent {}".format(center_freq))
+        self.frequency_changed = True
 
     def do_get_centerfreq(self):
         """gets the center frequency"""
@@ -205,6 +208,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
     def do_set_startfreq(self, start_freq):
         """sets the start frequency"""
         self.write("Freq:Start {}".format(start_freq))
+        self.frequency_changed = True
 
     def do_get_startfreq(self):
         """gets the start frequency"""
@@ -214,6 +218,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
     def do_set_span(self, span):
         """sets the frequency span"""
         self.write("Freq:Span {}".format(span))
+        self.frequency_changed = True
 
     def do_get_span(self):
         """gets the frequency span"""
@@ -351,6 +356,24 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         """selects the display format for the specified trace, i.e., linear, phase, real, imag, NYQuist, UPHase, GDElay, POLAR"""
         self.write('calc{}:format {}'.format(trace, option))
 
+    def set_meas_data_type(self, channel, trace, option):
+        """
+        sets the datatype that is measured, i.e, lin spec or power spec
+        :param channel: channel to choose (1 or 2)
+        :param trace: trace to choose (1 to 4)
+        :param option: ' ' - power spectrum , ':lin' - linear spectrum TODO: implement coherence and cross coherence
+        :return:
+        """
+        reply = self.ask("CALC{]:FEED 'XFR:POW{} {}'".format(trace, option, channel))
+        return reply[5:7]
+
+    def get_meas_data_type(self, trace):
+        """
+        :param trace: trace to ask for meas_data_type (1 to 4)
+        :return: the type of measurement data i.e. lin spec or power spec
+        """
+        self.write("CALC{}:FEED?".format(trace))
+
     ########## AVERAGING ##############
 
     def do_set_Average(self, status):
@@ -429,17 +452,19 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
     def get_freqpoints(self):
         """returns the x_values of a trace as numpy-array"""
         if self.instrument_mode is 'FFT':
-            self.set_averages(1)
-            self.start_measurement() # device only sets new x-axis when new measurement has ended
-            while not self.ready(): # but spectroscopy asks for x-values before meausurment is started
-                pass
-            self.set_averages(self.averages)
+            if self.frequency_changed:
+                self.set_averages(1)
+                self.start_measurement() # device only sets new x-axis when new measurement has ended
+                while not self.ready(): # but spectroscopy asks for x-values before meausurment is started
+                    pass
+                self.set_averages(self.averages)
             self.x_values=np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float, sep=',')
             return self.x_values[0:self.get_nop()]
-        if self.instrument_mode is 'histogram':
-            self.start_measurement() # device only sets new x-axis when new measurement has ended
-            while not self.ready(): # but spectroscopy asks for x-values before meausurment is started
-                pass
+        elif self.instrument_mode is 'histogram':
+            if self.frequency_changed:
+                self.start_measurement() # device only sets new x-axis when new measurement has ended
+                while not self.ready(): # but spectroscopy asks for x-values before meausurment is started
+                    pass
             self.x_values = np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float, sep=',')
             return self.x_values
         else:
@@ -480,7 +505,6 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         I_imag=self.get_single_trace(3)
         Q_imag=self.get_single_trace(4)
         return I_real, I_imag, Q_real, Q_imag
-
 
     def set_y_unit(self, unit, channel):
         """sets the y-unit (string), can also be used for PSD calucalation"""
