@@ -62,7 +62,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         self.add_parameter('sweeptime', type=types.FloatType, flags=Instrument.FLAG_GET, minval=0, maxval=10000, units='s')
         self.add_parameter('sweeptime_averages', type=types.FloatType, flags=Instrument.FLAG_GET, minval=0, maxval=1e-3, units='s')
         self.add_parameter('window_type', type=types.StringType, flags=Instrument.FLAG_GETSET)
-        self.add_parameter('active_channels', type=types.StringType, flags=Instrument.FLAG_GETSET)
+        self.add_parameter('active_traces', type=types.IntType, flags=Instrument.FLAG_GETSET)
         self.add_parameter('repeat_averaging', type=types.BooleanType, flags=Instrument.FLAG_GETSET)
         
         self.add_function('get_freqpoints')
@@ -78,7 +78,6 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         self.add_function('measure_PSD')
         self.add_function('fast_averaging')
         self.add_function('set_display_format')
-        self.add_function('select_trace_format')
         self.add_function('set_ac_coupling')
         #include math_function maybe
         
@@ -104,7 +103,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         self.get_averages()
         self.get_sweeptime()
         self.get_sweeptime_averages()
-        self.get_active_channels()
+        self.get_active_traces()
         self.get_nop()
         self.y_unit_c1=self.get_y_unit(1)
         self.y_unit_c2=self.get_y_unit(2)
@@ -161,7 +160,17 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
 
     def do_get_active_traces(self):
         """gets the active channels A,B,AB for channel 1,2,1+2"""
-        return self.ask('CALC:ACT?')[:-1]
+        return len(self.ask('CALC:ACT?')[:-1])
+
+    def get_trace_name(self, trace):
+        """
+        function for signal spectroscopy script to automatically generate names for trace data
+        :param trace:
+        :return: (string) name of trace
+        """
+        meas_typ= self.get_meas_data_type(trace)
+        meas_format = self.get_trace_format(trace)
+        return meas_typ + '_' + meas_format
 
     def set_input_channels(self, channels, status):
         """ don't know if needed. expects channel as an array and status as 0 or 1"""
@@ -256,7 +265,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
 
     ### time trace options ###
 
-    def set_frequency_bins():
+    def set_frequency_bins(self):
         '''sets frequency bin in histogram mode'''
         self.write("")
 
@@ -352,9 +361,17 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         option={1: 'SINGLE', 2: 'ULOWER', 4:'QUAD'}
         self.write('DISPLAY:FORM ' + option[number])
 
-    def select_trace_format(self, trace, option):
+    def set_trace_format(self, trace, option):
         """selects the display format for the specified trace, i.e., linear, phase, real, imag, NYQuist, UPHase, GDElay, POLAR"""
         self.write('calc{}:format {}'.format(trace, option))
+
+    def get_trace_format(self, trace):
+        """
+        gets the trace format of the selected trace
+        :param trace: 1 to 4
+        :return: trace format (string)
+        """
+        return self.ask('calc{}:format?'.format(trace))[0:-1]
 
     def set_meas_data_type(self, channel, trace, option):
         """
@@ -362,17 +379,20 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         :param channel: channel to choose (1 or 2)
         :param trace: trace to choose (1 to 4)
         :param option: ' ' - power spectrum , ':lin' - linear spectrum TODO: implement coherence and cross coherence
-        :return:
+        :return: None
         """
-        reply = self.ask("CALC{]:FEED 'XFR:POW{} {}'".format(trace, option, channel))
-        return reply[5:7]
+        reply = self.write("CALC{}:FEED 'XFR:POW{} {}'".format(trace, option, channel))
 
     def get_meas_data_type(self, trace):
         """
         :param trace: trace to ask for meas_data_type (1 to 4)
         :return: the type of measurement data i.e. lin spec or power spec
         """
-        self.write("CALC{}:FEED?".format(trace))
+        reply = self.ask("CALC{}:FEED?".format(trace))
+        if 'LIN' in reply:
+            return 'lin_spec_ch_'+reply[-3]
+        else:
+            return 'power_spec_ch_'+reply[-3]
 
     ########## AVERAGING ##############
 
@@ -471,12 +491,14 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
             self.x_values=np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float, sep=',')
             return self.x_values
 
-    def get_single_trace(self, channel):
-        """returns the trace of channel 1 or 2"""
-        trace_values=np.fromstring(self.ask("CALC{}:DATA?".format(channel)), dtype=np.float, sep=',')
+    def get_single_trace(self, trace):
+        """returns the trace of trace 1,2,3,4"""
+        trace_values=np.fromstring(self.ask("CALC{}:DATA?".format(trace)), dtype=np.float, sep=',')
         return trace_values
 
-    def get_tracedata(self, type='AmpPha'):
+    def get_tracedata(self, trace, type='AmpPha'):
+        return self.get_single_trace(trace)
+        """
         I=self.get_single_trace(1)
         Q=self.get_single_trace(2)
         if self.instrument_mode is 'FFT':
@@ -498,7 +520,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
                 return [amp], [pha]
             elif type is 'both':
                 return [amp],[pha],[I_max],[Q_max]
-
+        """
     def get_tracedata_2d(self):
         I_real=self.get_single_trace(1)
         Q_real=self.get_single_trace(2)
