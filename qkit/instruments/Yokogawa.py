@@ -18,7 +18,7 @@
 from instrument import Instrument
 from qkit import visa
 import logging
-import numpy
+import numpy as np
 import time
 from distutils.version import LooseVersion
 
@@ -53,7 +53,7 @@ class Yokogawa(Instrument):
         else:  # pyvisa 1.5
             self._visainstrument.read_termination = ''
             self._visainstrument.write_termination = ''
-
+        
         # Global constants
         self._measurement_modes = {0: '2-wire', 1: '4-wire'}
         self._IV_modes = {0: 'curr', 1: 'volt'}
@@ -90,13 +90,54 @@ class Yokogawa(Instrument):
                                        ('OVR2', 'CH2 Over Range'),
                                        ('EOT', 'End of Trace'),
                                        ('TSE', 'Trigger Sampling Error')]
-
-        # external measurement setup
-        self._dAdV = 1  # for external current pseudo_bias_mode
-        self._dVdA = 1  # for external voltage pseudo_bias_mode
-        self._amp = 1  # amplification
-        self._sweep_mode = 0  # VV-mode
-        self._pseudo_bias_mode = 0  # current bias
+        self.err_msg = {-101: '''Invalid_character: Check whether invalid characters such as $ or & are used in the command header or parameters.''',
+                        -102: '''Syntax_error: Check that the syntax is correct.''',
+                        -103: '''Invalid separator: Check the use of the separator (comma).''',
+                        -106: '''Parameter not allowed: Check the command and the number of parameters.''',
+                        -107: '''Missing parameter: Check the command and the number of parameters.''',
+                        -112: '''Program mnemonic too long: Check the command mnemonic.''',
+                        -113: '''Undefined header: Check the command mnemonic.''',
+                        -121: '''Invalid character in number: Check that the notation of the numeric parameter is correct (for example, binary notation should not contain characters other than 0 and 1)''',
+                        -122: '''Header suffix out of range: Check whether the numeric suffix of the command header is correct.''',
+                        -123: '''Exponent too large: Check whether the exponent is within the range of -127 to 127.''',
+                        -124: '''Too many digits: Check that the number of digits in the value does not exceed 255.''',
+                        -128: '''Numeric data not allowed: Check the parameter format.''',
+                        -131: '''Invalid suffix: Check the unit that can be used for the parameter.''',
+                        -138: '''Suffix not allowed: Check the parameter format.''',
+                        -141: '''Invalid character data: Check the character data that can be used for the parameter.''',
+                        -148: '''Character data not allowed: Check the command and parameter format.''',
+                        -150: '''String data error: Check that the closing quotation mark (" or ') for a string is available.''',
+                        -151: '''Invalid string data: Check that the string parameter is in the correct format.''',
+                        -158: '''String data not allowed: Check the command and parameter format.''',
+                        -161: '''Invalid block data: Check that the block data is in the correct format.''',
+                        -168: '''Block data not allowed: Check the command and parameter format.''',
+                        -178: '''Expression data not allowed: Check the command and parameter format.''',
+                        -222: '''Data out of range: Check the selectable range of the parameter. If the command can use MINimum and MAXimum as its parameter, the range can also be queried.''',
+                        -256: '''Filename not found: Check that the file exists. You can also use the CATalog? command to query the list of files.''',
+                        -285: '''Program syntax error: Check that the sweep pattern file is in the correct format.''',
+                        -350: '''Queue overflow: Read the error using :SYSTem:ERRor? or clear the error queue using *CLS.''',
+                        -361: '''Parity error: Check that the communication settings on the GS820 and PC match. If the settings are correct, check the cable, and lower the baud rate.''',
+                        -362: '''Framing error: Check that the communication settings on the GS820 and PC match. If the settings are correct, check the cable, and lower the baud rate.''',
+                        -363: '''Input buffer overrun: Set the handshaking to a setting other than OFF. Lower the baud rate.''',
+                        -410: '''Query INTERRUPTED: Check transmission/reception procedure.''',
+                        -420: '''Query UNTERMINATED: Check transmission/reception procedure.''',
+                        -430: '''Query DEADLOCK: Keep the length of a program message less than or equal to 64 KB.''',
+                        +101: '''Too complex expression: Keep the total number of constants, variables, and operators in a MATH definition less than or equal to 256.''',
+                        +102: '''Math file syntax error: Check that the syntax of the MATH definition file is correct.''',
+                        +103: '''Too large file error: Keep MATH definition files less than 4 KB in size.''',
+                        +104: '''Illegal file error: Download the file for updating the system firmware again.''',
+                        +105: '''No slave SMU found: Check that the connection between the master and slave units is correct.''',
+                        +200: '''Sweep stopped because of the setting change: Stop the sweep operation before changing the settings.''',
+                        +202: '''Interlocking: Release the interlock, and then turn the output ON.''',
+                        +203: '''Cannot relay on in hardware abnormal: Check whether the temperature inside the case is okay.''',
+                        +204: '''Hardware input abnormal error: Connect a load within the specifications.''',
+                        +205: '''Analog busy: Change the settings after the calibration or self-test is completed.''',
+                        +206: '''Low battery: Request to have the battery replaced, because the time stamp when creating files will not be correct.''',
+                        +207: '''Power line frequency measure failure: Directly set the line frequency.''',
+                        +304: '''Cannot change setting in auto measure function: If you want to change the measurement function, select a measurement mode other than auto function.'''}
+        
+        # initial variables
+        self._sweep_mode = 1 # IV-mode
 
         # Reset
         if reset:
@@ -104,16 +145,18 @@ class Yokogawa(Instrument):
         else:
             self.get_all()
 
-    def _write(self, msg):
+    def _write(self, cmd):
         '''
-        Sends a visa command <msg>
+        Sends a visa command <cmd>
         
         Input:
             msg (str)
         Output:
             None
         '''
-        return self._visainstrument.write(msg)
+        self._visainstrument.write(cmd)
+        #self._wait_for_OPC()
+        return
 
     def _ask(self, msg):
         '''
@@ -128,155 +171,7 @@ class Yokogawa(Instrument):
             return self._visainstrument.query(msg).rstrip()
         else:
             return self._visainstrument.query('{:s}?'.format(msg)).rstrip()
-
-    def set_dAdV(self, val=1):
-        '''
-        Sets voltage-current conversion of external current source used for current bias to <val> (in A/V)
-        
-        Input:
-            val (float): 1 (default)
-        Output:
-            None
-        '''
-        self._dAdV = val
-
-    def get_dAdV(self):
-        '''
-        Gets voltage-current conversion of external current source used for current bias (in A/V)
-        
-        Input:
-            None
-        Output:
-            val (float)
-        '''
-        return self._dAdV
-
-    def set_amp(self, val=1):
-        '''
-        Sets amplification factor of external measurement setup to <val>
-        
-        Input:
-            val (float): 1 (default)
-        Output:
-            None
-        '''
-        self._amp = val
-
-    def get_amp(self):
-        '''
-        Gets amplification factor of external measurement setup
-        
-        Input:
-            None
-        Output:
-            val (float)
-        '''
-        return self._amp
-
-    def set_dVdA(self, val=1):
-        '''
-        Sets current-voltage conversion of external voltage source used for voltage bias to <val> (in V/A)
-        
-        Input:
-            val (float): 1 (default)
-        Output:
-            None
-        '''
-        self._dVdA = val
-
-    def get_dVdA(self):
-        '''
-        Gets current-voltage conversion of external voltage source used for voltage bias (in V/A)
-        
-        Input:
-            None
-        Output:
-            val (float)
-        '''
-        return self._dVdA
-    
-    def set_Vdiv(self, val=1):
-        '''
-        Sets voltage divider factor of external measurement setup to <val>
-        
-        Input:
-            val (float): 1 (default)
-        Output:
-            None
-        '''
-        self._Vdiv = val
-
-    def get_Vdiv(self):
-        '''
-        Gets voltage divider factor of external measurement setup
-        
-        Input:
-            None
-        Output:
-            val (float)
-        '''
-        return self._Vdiv
-
-    def set_sweep_mode(self, mode=0, **kwargs):
-        '''
-        Sets an internal variable to decide weather voltage is both applied and measured (default), current is applied and voltage is measured or voltage is applied and current is measured.
-        VV-mode needs two different channels (bias channel <channel_bias> and sense channel <channel_sense>), IV-mode and VI-mode only one (<channel>).
-
-        Input:
-            mode (int) : 0 (VV-mode) (default) | 1 (IV-mode) | 2 (VI-mode)
-            **kwargs   : channel_bias (int)  : 1 (default) | 2 for VV-mode
-                         channel_sense (int) : 1 | 2 (default) for VV-mode
-                         channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
-        Output:
-            None
-        '''
-        self._sweep_mode = mode
-        self.set_defaults(**kwargs)
-
-    def get_sweep_mode(self):
-        '''
-        Gets an internal variable to decide weather voltage is both applied and measured (default), current is applied and voltage is measured or voltage is applied and current is measured.
-        
-        Input:
-            None
-        Output:
-            mode (int) : 0 (VV mode) | 1 (IV mode)
-        '''
-        return self._sweep_mode
-
-    def set_pseudo_bias_mode(self, mode=0):
-        '''
-        Sets an internal variable to decide weather bias or sense values are converted to currents
-        
-        Input:
-            mode (int) : 0 (current bias) (default) | 1 (voltage bias)
-        Output:
-            None
-        '''
-        self._pseudo_bias_mode = mode
-
-    def get_pseudo_bias_mode(self):
-        '''
-        Gets an internal variable to decide weather bias or sense values are converted to currents
-        
-        Input:
-            None
-        Output:
-            mode (int) : 0 (current bias) | 1 (voltage bias)
-        '''
-        return self._pseudo_bias_mode
-
-    def get_bias(self):
-        '''
-        Gets the real bias mode as combination of <self._sweep_mode> and <self._pseudo_bias_mode>
-        
-        Input:
-            None
-        Output:
-            mode (int) : 0 (current bias) | 1 (voltage bias)
-        '''
-        self._bias = int(not bool(self._sweep_mode))*self._pseudo_bias_mode+int(bool(self._sweep_mode))*(self._sweep_mode-1)   # 0 (current bias) | 1 (voltage bias)
-        return self._bias
+        #self._wait_for_OPC()
 
     def set_measurement_mode(self, val, channel=1):
         '''
@@ -643,7 +538,7 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SENSe:AVERage:COUNt <integer>|MINimum|MAXimum
         try:
             logging.debug(__name__ + ': Set sense average of channel {:d} to {:d}'.format(channel, val))
-            status = not(.5*(1-numpy.sign(val-1)))  # equals Heaviside(1-<val>) --> turns on for <val> >= 2
+            status = not(.5*(1-np.sign(val-1)))  # equals Heaviside(1-<val>) --> turns on for <val> >= 2
             self._write(':chan{:d}:sens:aver:stat {:d}'.format(channel, status))
             if status:
                 self._write(':chan{:d}:sens:aver:coun {:d}'.format(channel, val))
@@ -738,6 +633,41 @@ class Yokogawa(Instrument):
         except ValueError:
             logging.error(__name__ + ': Number of PLC of channel {:d} not specified:'.format(channel))
 
+    def set_sense_autozero(self, val, channel=1):
+        '''
+        Sets autozero of channel <channel> to <val>.
+        
+        Input:
+            val (int): 0 (off) | 1 (on)
+        Output:
+            None
+        '''
+        # Corresponding Command: [:CHANnel<n>]:SENSe:ZERo:AUTO 1|0|ON|OFF
+        # Corresponding Command: [:CHANnel<n>]:SENSe:ZERo:EXECute
+        ### FIXME: Is execute necessary?
+        try:
+            logging.debug(__name__ + ': Set autozero of channel {:d} to {:d}'.format(channel, val))
+            self._write(':chan{:d}:sens:zero:auto {:d}'.format(channel, val))
+            #self._write(':chan{:d}:sens:zero:exec'.format(channel))
+        except ValueError as e:
+            logging.error(__name__ + ': Invalid input: cannot set autozero of channel {:d} to {:d}: {:s}'.format(channel, val, e))
+
+    def get_sense_autozero(self, channel=1):
+        '''
+        Gets autozero of channel <channel>
+        
+        Input:
+            channel (int) : 1 (default) | 2
+        Output:
+            val (int)
+        '''
+        # Corresponding Command: [:CHANnel<n>]:SENSe:ZERo:AUTO 1|0|ON|OFF
+        try:
+            logging.debug(__name__ + ': Get autozero of channel {:d}'.format(channel))
+            return bool(self._ask(':chan{:d}:sens:zero:auto'.format(channel)))
+        except ValueError as e:
+            logging.error(__name__ + ': Autozero of channel {:d} not specified: {:s}'.format(channel), e)
+
     def set_status(self, status, channel=1):
         '''
         Sets output status of channel <channel> to <status>
@@ -771,31 +701,31 @@ class Yokogawa(Instrument):
         except ValueError:
             logging.error(__name__ + ': Status of channel {:d} not specified:'.format(channel))
 
-    def set_stati(self, status):
-        '''
-        Sets output status of both channels to <status>
-        
-        Input:
-            status (int)  : 0 (off) | 1 (on) | 2 (high Z)
-        Output:
-            None
-        '''
-        for channel in range(1, 3):
-            self.set_status(status=status, channel=channel)
-
-    def get_stati(self):
-        '''
-        Gets output status of both channels
-        
-        Input:
-            None
-        Output:
-            status (int)  : 0 (off) | 1 (on) | 2 (high Z)
-        '''
-        stati = []
-        for channel in range(1, 3):
-            stati.append(self.get_status(channel=channel))
-        return stati
+#    def set_stati(self, status):
+#        '''
+#        Sets output status of both channels to <status>
+#        
+#        Input:
+#            status (int)  : 0 (off) | 1 (on) | 2 (high Z)
+#        Output:
+#            None
+#        '''
+#        for channel in range(1, 3):
+#            self.set_status(status=status, channel=channel)
+#
+#    def get_stati(self):
+#        '''
+#        Gets output status of both channels
+#        
+#        Input:
+#            None
+#        Output:
+#            status (int)  : 0 (off) | 1 (on) | 2 (high Z)
+#        '''
+#        stati = []
+#        for channel in range(1, 3):
+#            stati.append(self.get_status(channel=channel))
+#        return stati
 
     def set_bias_value(self, val, channel=1):
         '''
@@ -861,10 +791,9 @@ class Yokogawa(Instrument):
         Output:
             None
         '''
-        ### FIXME: consider sweep_mode and pseudo_bias_mode --> get_bias()
-        if self.get_bias_mode(channel) == 1:  # voltage bias
+        if not self.get_bias_mode(channel): # 0 (current bias)
             return self.set_bias_value(val, channel)
-        elif self.get_bias_mode(channel) == 0:  # current bias
+        elif self.get_bias_mode(channel):  # 1 (voltage bias)
             logging.error(__name__ + ': Cannot set voltage value of channel {:d}: in the current bias'.format(channel))
 
     def get_voltage(self, channel=1):
@@ -876,10 +805,9 @@ class Yokogawa(Instrument):
         Output:
             val (float)
         '''
-        ### FIXME: consider sweep_mode and pseudo_bias_mode --> get_bias()
-        if self.get_bias_mode(channel) == 1:  # voltage bias
+        if self.get_bias_mode(channel):  # 1 (voltage bias)
             return self.get_bias_value(channel)
-        elif self.get_sense_mode(channel) == 1:  # voltage sense
+        elif self.get_sense_mode(channel):  # 1 (voltage sense)
             return self.get_sense_value(channel)
         else:
             logging.error(__name__ + ': Cannot get voltage value of channel {:d}: neihter bias nor sense in voltage mode'.format(channel))
@@ -894,10 +822,9 @@ class Yokogawa(Instrument):
         Output:
             None
         '''
-        ### FIXME: consider sweep_mode and pseudo_bias_mode --> get_bias()
-        if self.get_bias_mode(channel) == 0:  # current bias
+        if not self.get_bias_mode(channel): # 0 (current bias)
             return self.set_bias_value(val, channel)
-        elif self.get_bias_mode(channel) == 1:  # voltage bias
+        elif self.get_bias_mode(channel): # 1 (voltage bias)
             logging.error(__name__ + ': Cannot set current value of channel {:d}: in the voltage bias'.format(channel))
 
     def get_current(self, channel=1):
@@ -909,10 +836,9 @@ class Yokogawa(Instrument):
         Output:
             val (float)
         '''
-        ### FIXME: consider sweep_mode and pseudo_bias_mode --> get_bias()
-        if self.get_bias_mode(channel) == 0:  # current bias
+        if not self.get_bias_mode(channel): # 0 (current bias)
             return self.get_bias_value(channel)
-        elif self.get_sense_mode(channel) == 0:  # current sense
+        elif not self.get_sense_mode(channel): # 0 (current sense)
             return self.get_sense_value(channel)
         else:
             logging.error(__name__ + ': Cannot get current value of channel {:d}: neihter bias nor sense in current mode'.format(channel))
@@ -932,9 +858,71 @@ class Yokogawa(Instrument):
         start = self.get_bias_value(channel=channel)
         if stop < start:
             step = -step
-        for val in numpy.arange(start, stop, step)+step:
+        for val in np.arange(start, stop, step)+step:
             self.set_bias_value(val, channel=channel)
             time.sleep(step_time)
+
+    def ramp_voltage(self, stop, step, step_time=0.1, channel=1):
+        '''
+        Ramps voltage of channel <channel> from recent value to <stop> according to bias_mode
+        
+        Input:
+            stop (float)
+            step (float)
+            step_time (float)
+            channel (int)     : 1 | 2 (default)
+        Output:
+            None
+        '''
+        if self.get_bias(channel=channel):  # 1 (voltage bias)
+            return self.ramp_bias(stop=stop, step=step, step_time=step_time, channel=channel)
+        elif not self.get_bias(channel=channel):  # 0 (current bias)
+            logging.error(__name__ + ': Cannot set voltage value of channel {:d}: in the current bias'.format(channel))
+            return
+
+    def ramp_current(self, stop, step, step_time=0.1, channel=1):
+        '''
+        Ramps current of channel <channel> from recent value to <stop> according to bias_mode
+        
+        Input:
+            stop (float)
+            step (float)
+            step_time (float)
+            channel (int)     : 1 | 2 (default)
+        Output:
+            None
+        '''
+        if not self.get_bias(channel=channel): # 0 (current bias)
+            return self.ramp_bias(stop=stop, step=step, step_time=step_time, channel=channel)
+        elif self.get_bias(channel=channel): # 1 (voltage bias)
+            logging.error(__name__ + ': Cannot ramp current value of channel {:d}: in the voltage bias'.format(channel))
+            return
+
+    def set_sweep_mode(self, mode=1, **kwargs):
+        '''
+        Sets an internal variable to decide weather voltage is both applied and measured, current is applied and voltage is measured (default) or voltage is applied and current is measured.
+        VV-mode needs two different channels (bias channel <channel_bias> and sense channel <channel_sense>), IV-mode and VI-mode only one (<channel>).
+
+        Input:
+            mode (int) : 0 (VV-mode) | 1 (IV-mode) (default) | 2 (VI-mode)
+            **kwargs   : channel_bias (int)  : 1 (default) | 2 for VV-mode
+                         channel_sense (int) : 1 | 2 (default) for VV-mode
+                         channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
+        Output:
+            None
+        '''
+        self._sweep_mode = mode
+
+    def get_sweep_mode(self):
+        '''
+        Gets an internal variable to decide weather voltage is both applied and measured, current is applied and voltage is measured or voltage is applied and current is measured.
+
+        Input:
+            None
+        Output:
+            mode (int) : 0 (VV mode) | 1 (IV mode) | 2 (VI-mode)
+        '''
+        return self._sweep_mode
 
     def _set_sweep_start(self, val, channel=1):
         '''
@@ -1056,16 +1044,17 @@ class Yokogawa(Instrument):
         except ValueError:
             logging.error(__name__ + ': Sweep nop of channel {:d} not specified:'.format(channel))
 
-    def set_sweep_parameters(self, sweep, **kwargs):
+    def set_sweep_parameters(self, sweep, sweep_mode=None, **kwargs):
         '''
-        Sets sweep parameters <sweep> and prepares instrument for VV-mode or IV-mode.
+        Sets sweep parameters <sweep> and prepares instrument for VV-mode, IV-mode (default) or VI-mode.
         VV-mode needs two different channels (bias channel <channel_bias> and sense channel <channel_sense>), IV-mode and VI-mode only one (<channel>).
         
         Input:
-            sweep obj(float) : start, stop, step
-            **kwargs         : channel_bias (int)  : 1 (default) | 2 for VV-mode
-                               channel_sense (int) : 1 | 2 (default) for VV-mode
-                               channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
+            sweep (list(float)) : start, stop, step
+            sweep_mode (int)    : None <self._sweep_mode> (default) | 0 (VV-mode) | 1 (IV-mode) | 2 (VI-mode)
+            **kwargs            : channel_bias (int)  : 1 (default) | 2 for VV-mode
+                                  channel_sense (int) : 1 | 2 (default) for VV-mode
+                                  channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
         Output:
             None
         '''
@@ -1075,130 +1064,92 @@ class Yokogawa(Instrument):
         # Corresponding Command: :TRACe:CHANnel<n>:DATA:FORMat ASCii|BINary
         # Corresponding Command: :TRACe:BINary:REPLy BINary|ASCii
         # Corresponding Command: :TRACe[:STATe] 1|0|ON|OFF
-        if self._sweep_mode == 0:  # VV-mode
-            self.channel_bias  = kwargs.get('channel_bias', 1)
-            self.channel_sense = kwargs.get('channel_sense', 2)
-            try:
-                if self._pseudo_bias_mode == 0:  # current bias
-                    self._set_sweep_start(val=float(sweep[0])/self._dAdV, channel=self.channel_bias)
-                    self._set_sweep_stop(val=float(sweep[1])/self._dAdV, channel=self.channel_bias)
-                    self._set_sweep_step(val=numpy.abs(float(sweep[2]))/self._dAdV, channel=self.channel_bias)
-                elif self._pseudo_bias_mode == 1:  # voltage bias
-                    self._set_sweep_start(val=float(sweep[0])/self._amp, channel=self.channel_bias)
-                    self._set_sweep_stop(val=float(sweep[1])/self._amp, channel=self.channel_bias)
-                    self._set_sweep_step(val=numpy.abs(float(sweep[2]))/self._amp, channel=self.channel_bias)
-                self.set_bias_trigger(mode='sens', channel=self.channel_bias)
-                self.set_sense_trigger(mode='sour', channel=self.channel_sense)
-                self.set_bias_value(val=self._get_sweep_start(channel=self.channel_bias), channel=self.channel_bias)
-                self._write(':chan{:d}:sour:mode swe'.format(self.channel_bias))
-                self._write(':chan{:d}:swe:trig ext'.format(self.channel_bias))
-                self._write(':trac:poin max')  # alternative: self._write(':trac:poin {:d}'.format(self._get_sweep_nop(channel=self.channel_bias)))
-                self._write(':trac:chan{:d}:data:form asc'.format(self.channel_sense))
-                self._write(':trac:bin:repl asc')
-                self.set_sync(True)
-            except:
-                logging.error(__name__ + ': Cannot set sweep parameters of channel {:d} and {:d}.'.format(self.channel_bias, self.channel_sense))
-        elif self._sweep_mode in [1, 2]:  # IV-mode or VI-mode
-            self.channel  = kwargs.get('channel', 1)
-            try:
-                self._set_sweep_start(val=float(sweep[0]), channel=self.channel)
-                self._set_sweep_stop(val=float(sweep[1]), channel=self.channel)
-                self._set_sweep_step(val=numpy.abs(float(sweep[2])), channel=self.channel)
-                self.set_bias_trigger(mode='sens', channel=self.channel)
-                self.set_sense_trigger(mode='sour', channel=self.channel)
-                self.set_bias_value(val=self._get_sweep_start(channel=self.channel), channel=self.channel)
-                self._write(':chan{:d}:sour:mode swe'.format(self.channel))
-                self._write(':chan{:d}:swe:trig ext'.format(self.channel))
-                self._write(':trac:poin max')  # alternative: self._write(':trac:poin {:d}'.format(self._get_sweep_nop(channel=self.channel)))
-                self._write(':trac:chan{:d}:data:form asc'.format(self.channel))
-                self._write(':trac:bin:repl asc')
-            except:
-                logging.error(__name__ + ': Cannot set sweep parameters of channel {:d}'.format(self.channel))
+        if sweep_mode is not None: self._sweep_mode = sweep_mode
+        if not self._sweep_mode: # 0 (VV-mode)
+            self._channel_bias  = kwargs.get('channel_bias', 1)
+            self._channel_sense = kwargs.get('channel_sense', 2)
+            self.set_sync(val=True)
+        elif self._sweep_mode in [1,2]: # 1 (IV-mode) | 2 (VI-mode)
+            self._channel = kwargs.get('channel', 1)
+            self._channel_bias  = kwargs.get('channel_bias', self._channel)
+            self._channel_sense = kwargs.get('channel_sense', self._channel)
+        try:
+            self._set_sweep_start(val=float(sweep[0]), channel=self._channel_bias)
+            self._set_sweep_stop(val=float(sweep[1]), channel=self._channel_bias)
+            self._set_sweep_step(val=np.abs(float(sweep[2])), channel=self._channel_bias)
+            self.set_bias_trigger(mode='sens', channel=self._channel_bias)
+            self.set_sense_trigger(mode='sour', channel=self._channel_sense)
+            self.set_bias_value(val=self._get_sweep_start(channel=self._channel_bias), channel=self._channel_bias)
+            self._write(':chan{:d}:sour:mode swe'.format(self._channel_bias))
+            self._write(':chan{:d}:swe:trig ext'.format(self._channel_bias))
+            self._write(':trac:poin max')  # alternative: self._write(':trac:poin {:d}'.format(self._get_sweep_nop(channel=self._channel_bias)))
+            self._write(':trac:chan{:d}:data:form asc'.format(self._channel_sense))
+            self._write(':trac:bin:repl asc')
+        except:
+            logging.error(__name__ + ': Cannot set sweep parameters of channel {:d} and {:d}.'.format(self._channel_bias, self._channel_sense))
         return
-    
 
-    def get_tracedata(self, **kwargs):
+    def get_tracedata(self, sweep_mode=None, **kwargs):
         '''
-        Starts bias sweep and gets trace data in the VV-mode or IV-mode.
+        Starts bias sweep and gets trace data in the VV-mode, IV-mode (default) or VI-mode.
         VV-mode needs two different channels (bias channel <channel_bias> and sense channel <channel_sense>), IV-mode and VI-mode only one (<channel>).
         
         Input:
-            **kwargs: channel_bias (int)  : 1 (default) | 2 for VV-mode
-                      channel_sense (int) : 1 | 2 (default) for VV-mode
-                      channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
+            sweep_mode (int) : None <self._sweep_mode> (default) | 0 (VV-mode) | 1 (IV-mode) | 2 (VI-mode)
+            **kwargs         : channel_bias (int)  : 1 (default) | 2 for VV-mode
+                               channel_sense (int) : 1 | 2 (default) for VV-mode
+                               channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
         Output:
-            I_values (numpy.array(float))
-            V_values (numpy.array(float))
+            bias_values (numpy.array(float))
+            sense_values (numpy.array(float))
         '''
         # Corresponding Command: [:CHANnel<n>]:INITiate [DUAL]
         # Corresponding Command: :STARt
         # Corresponding Command: :TRACe[:STATe] 1|0|ON|OFF
         # Corresponding Command: :TRACe:CHANnel<n>:DATA:READ? [TM|DO|DI|SF|SL|MF|ML|LC|HC|CP]
-        if self._sweep_mode == 0:  # VV-mode
-            self.channel_bias  = kwargs.get('channel_bias', 1)
-            self.channel_sense = kwargs.get('channel_sense', 2)
-            try:
-                self._write(':chan{:d}:init'.format(self.channel_bias))
-                self._wait_for_ready_for_sweep(channel=self.channel_bias)
-                self._write(':trac:stat 1')
-                self._wait_for_OPC()
-                time.sleep(100e-6)
-                self._write(':star')
-                self._wait_for_end_of_sweep(channel=self.channel_bias)
-                time.sleep(self.get_sense_delay(channel=self.channel_sense))
-                self._wait_for_end_of_measure(channel=self.channel_sense)
-                self._write(':trac:stat 0')
-                if self._pseudo_bias_mode == 0:  # current bias
-                    I_values = numpy.fromstring(string=self._ask('trac:chan{:d}:data:read? sl'.format(self.channel_bias)), dtype=float, sep=',')*self._dAdV
-                    V_values = numpy.fromstring(string=self._ask('trac:chan{:d}:data:read? ml'.format(self.channel_sense)), dtype=float, sep=',')/self._amp
-                elif self._pseudo_bias_mode == 1:  # voltage bias
-                    V_values = numpy.fromstring(string=self._ask('trac:chan{:d}:data:read? sl'.format(self.channel_bias)), dtype=float, sep=',')/self._Vdiv
-                    I_values = numpy.fromstring(string=self._ask('trac:chan{:d}:data:read? ml'.format(self.channel_sense)), dtype=float, sep=',')/self._dVdA
-                return I_values, V_values
-            except:
-                logging.error(__name__ + ': Cannot take sweep data of channel {:d} and {:d}.'.format(self.channel_bias, self.channel_sense))
-        elif self._sweep_mode in [1, 2]:  # IV-mode or VI-mode
-            self.channel  = kwargs.get('channel', 1)
-            try:
-                self._write(':chan{:d}:init'.format(self.channel))
-                self._wait_for_ready_for_sweep(channel=self.channel)
-                self._write(':trac:stat 1')
-                self._wait_for_OPC()
-                self._write(':star')
-                self._wait_for_end_of_sweep(channel=self.channel)
-                time.sleep(self.get_sense_delay(channel=self.channel))
-                self._wait_for_end_of_measure(channel=self.channel)
-                self._write(':trac:stat 0')
-                if self._sweep_mode == 1:  # IV-mode
-                    I_values = numpy.array([float(val) for val in self._ask('trac:chan{:d}:data:read? sl'.format(self.channel)).split(',')])
-                    V_values = numpy.array([float(val) for val in self._ask('trac:chan{:d}:data:read? ml'.format(self.channel)).split(',')])
-                elif self._sweep_mode == 2:  # VI-mode
-                    V_values = numpy.array([float(val) for val in self._ask('trac:chan{:d}:data:read? sl'.format(self.channel)).split(',')])
-                    I_values = numpy.array([float(val) for val in self._ask('trac:chan{:d}:data:read? ml'.format(self.channel)).split(',')])
-                return I_values, V_values
-            except:
-                logging.error(__name__ + ': Cannot take sweep of channel {:d}:'.format(self.channel))
-        return
-    
+        if sweep_mode is not None: self._sweep_mode = sweep_mode
+        if not self._sweep_mode: # 0 (VV-mode)
+            self._channel_bias  = kwargs.get('channel_bias', 1)
+            self._channel_sense = kwargs.get('channel_sense', 2)
+        elif self._sweep_mode in [1,2]: # 1 (IV-mode) | 2 (VI-mode)
+            self._channel = kwargs.get('channel', 1)
+            self._channel_bias  = kwargs.get('channel_bias', self._channel)
+            self._channel_sense = kwargs.get('channel_sense', self._channel)
+        try:
+            self._write(':chan{:d}:init'.format(self._channel_bias))
+            self._wait_for_ready_for_sweep(channel=self._channel_bias)
+            self._write(':trac:stat 1')
+            self._wait_for_OPC()
+            time.sleep(100e-6)
+            self._write(':star')
+            self._wait_for_end_of_sweep(channel=self._channel_bias)
+            time.sleep(self.get_sense_delay(channel=self._channel_sense))
+            self._wait_for_end_of_measure(channel=self._channel_sense)
+            self._write(':trac:stat 0')
+            bias_values = np.fromstring(string=self._ask('trac:chan{:d}:data:read? sl'.format(self._channel_bias)), dtype=float, sep=',')
+            sense_values = np.fromstring(string=self._ask('trac:chan{:d}:data:read? ml'.format(self._channel_bias)), dtype=float, sep=',')
+            return bias_values, sense_values
+        except:
+            logging.error(__name__ + ': Cannot take sweep data of channel {:d} and {:d}.'.format(self._channel_bias, self._channel_sense))
 
-    def take_IV(self, sweep, **kwargs):
+    def take_IV(self, sweep, sweep_mode=None, **kwargs):
         '''
         Takes IV curve with sweep parameters <sweep> in the VV-mode or IV-mode.
         VV-mode needs two different channels (bias channel <channel> and sense channel <channel2>), IV-mode and VI-mode only one (<channel>).
         
         Input:
-            sweep obj(float): start, stop, step
-            **kwargs: channel_bias (int)  : 1 (default) | 2 for VV-mode
-                      channel_sense (int) : 1 | 2 (default) for VV-mode
-                      channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
+            sweep (list(float)) : start, stop, step
+            sweep_mode (int)    : 0 (VV-mode) | 1 (IV-mode) | 2 (VI-mode)
+            **kwargs            : channel_bias (int)  : 1 (default) | 2 for VV-mode
+                                  channel_sense (int) : 1 | 2 (default) for VV-mode
+                                  channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
         Output:
             bias_values (numpy.array(float))
             sense_values (numpy.array(float))
         '''
-        self.set_sweep_parameters(sweep=sweep, **kwargs)
-        return self.get_tracedata(**kwargs)
-    
-    
+        self.set_sweep_parameters(sweep=sweep, sweep_mode=sweep_mode, **kwargs)
+        return self.get_tracedata(sweep_mode=sweep_mode, **kwargs)
+
     def get_bias_status_register(self):
         '''
         Gets the entire bias status register
@@ -1440,62 +1391,83 @@ class Yokogawa(Instrument):
         '''
         while not (self.is_OPC()):
             time.sleep(1e-3)
-    
-    def set_defaults(self, **kwargs):
+        return
+
+    def set_defaults(self, sweep_mode=None, **kwargs):
         '''
         Sets default settings for different sweep modes.
         VV-mode needs two different channels (bias channel <channel_bias> and sense channel <channel_sense>), IV-mode and VI-mode only one (<channel>).
         
         Input:
-            **kwargs: channel_bias (int)  : 1 (default) | 2 for VV-mode
-                      channel_sense (int) : 1 | 2 (default) for VV-mode
-                      channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
+            sweep_mode (int): None <self._sweep_mode> (default) | 0 (VV-mode) | 1 (IV-mode) | 2 (VI-mode)
+            **kwargs        : channel_bias (int)  : 1 (default) | 2 for VV-mode
+                              channel_sense (int) : 1 | 2 (default) for VV-mode
+                              channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
         Output:
             None
         '''
+        # dict of defaults values: defaults[<sweep_mode>][<channel>][<parameter>][<value>]
+        defaults = {0:{'channel_bias':{'measurement_mode':0,
+                                       'bias_mode':1,
+                                       'sense_mode':1,
+                                       'bias_range':-1,
+                                       'sense_range':-1,
+                                       'bias_delay':200e-6,
+                                       'sense_delay':15e-6,
+                                       'sense_nplc':1,
+                                       'sense_average':1,
+                                       'sense_autozero':0},
+                       'channel_sense':{'measurement_mode':0,
+                                       'bias_mode':0,
+                                       'sense_mode':1,
+                                       'bias_range':-1,
+                                       'sense_range':-1,
+                                       'bias_delay':200e-6,
+                                       'sense_delay':15e-6,
+                                       'sense_nplc':1,
+                                       'sense_average':1,
+                                       'sense_autozero':0}},
+                    1:{'channel':{'measurement_mode':1,
+                                  'bias_mode':0,
+                                  'sense_mode':1,
+                                  'bias_trigger':'''str('sens')''',
+                                  'sense_trigger':'''str('sour')''',
+                                  'bias_range':-1,
+                                  'sense_range':-1,
+                                  'bias_delay':200e-6,
+                                  'sense_delay':15e-6,
+                                  'sense_nplc':1,
+                                  'sense_average':1,
+                                  'sense_autozero':0}},
+                    2:{'channel':{'measurement_mode':1,
+                                  'bias_mode':1,
+                                  'sense_mode':0,
+                                  'bias_trigger':'''str('sens')''',
+                                  'sense_trigger':'''str('sour')''',
+                                  'bias_range':-1,
+                                  'sense_range':-1,
+                                  'bias_delay':200e-6,
+                                  'sense_delay':15e-6,
+                                  'sense_nplc':1,
+                                  'sense_average':1,
+                                  'sense_autozero':0}}}
+        self.reset()
+        # beeper off
         self._write(':syst:beep 0')
+        # distiguish different sweep modes
+        if sweep_mode is not None: self._sweep_mode = sweep_mode
         if self._sweep_mode == 0:  # VV-mode
             self._channel_bias  = kwargs.get('channel_bias', 1)
             self._channel_sense = kwargs.get('channel_sense', 2)
-            for channel in [self._channel_bias, self._channel_sense]: self.set_measurement_mode(val=0, channel=channel)
-            for channel in [(self._channel_bias, 1), (self._channel_sense, 0)]: self.set_bias_mode(mode=channel[1], channel=channel[0])
-            for channel in [self._channel_bias, self._channel_sense]: self.set_sense_mode(mode=1, channel=channel)
-            for channel in [self._channel_bias, self._channel_sense]: self.set_bias_range(val=-1, channel=channel)
-            for channel in [(self._channel_bias, -1), (self._channel_sense, 200)]: self.set_sense_range(val=channel[1], channel=channel[0])
-            for channel in [self._channel_bias, self._channel_sense]: self.set_bias_delay(val=200e-6, channel=channel)
-            for channel in [self._channel_bias, self._channel_sense]: self.set_sense_delay(val=15e-6, channel=channel)
-            for channel in [self._channel_bias, self._channel_sense]: self.set_sense_nplc(val=1, channel=channel)
-            for channel in [self._channel_bias, self._channel_sense]: self.set_sense_average(val=1, channel=channel)
-            ### FIXME: Autozero
-            for channel in [self._channel_bias, self._channel_sense]: self._write('chan{:d}:sens:zero:auto 0'.format(channel))
-        elif self._sweep_mode == 1:  # IV-mode
+            channels = {'channel_bias':self._channel_bias, 'channel_sense':self._channel_sense}
+        elif self._sweep_mode in [1,2]:  # IV-mode, VI-mode
             self._channel  = kwargs.get('channel', 1)
-            self.set_measurement_mode(val=1, channel=self._channel)
-            self.set_bias_mode(mode=0, channel=self._channel)
-            self.set_sense_mode(mode=1, channel=self._channel)
-            self.set_bias_trigger(mode='sens', channel=self._channel)
-            self.set_sense_trigger(mode='sour', channel=self._channel)
-            self.set_bias_range(val=200e-3, channel=self._channel)
-            self.set_sense_range(val=-1, channel=self._channel)
-            self.set_bias_delay(val=200e-6, channel=self._channel)
-            self.set_sense_delay(val=15e-6, channel=self._channel)
-            self.set_sense_nplc(1)
-            self.set_sense_average(1)
-            self._write('chan{:d}:sens:zero:auto 0'.format(self._channel))
-        elif self._sweep_mode == 2:  # VI-mode
-            self._channel  = kwargs.get('channel', 1)
-            self.set_measurement_mode(val=1, channel=self._channel)
-            self.set_bias_mode(mode=1, channel=self._channel)
-            self.set_sense_mode(mode=0, channel=self._channel)
-            self.set_bias_range(val=200e-3, channel=self._channel)
-            self.set_sense_range(val=-1, channel=self._channel)
-            self.set_bias_trigger(mode='sens', channel=self._channel)
-            self.set_sense_trigger(mode='sour', channel=self._channel)
-            self.set_bias_delay(val=200e-6, channel=self._channel)
-            self.set_sense_delay(val=15e-6, channel=self._channel)
-            self.set_sense_nplc(1)
-            self.set_sense_average(1)
-            self._write('chan{:d}:sens:zero:auto 0'.format(self._channel))
+            channels = {'channel':self._channel}
+        # set values
+        for key_channel, val_channel in channels.items():
+            for key_parameter, val_parameter in defaults[self._sweep_mode][key_channel].items():
+                #print('self.set_{:s}({!s}, channel={:d})'.format(key_parameter, val_parameter, val_channel))
+                eval('self.set_{:s}({!s}, channel={:d})'.format(key_parameter, val_parameter, val_channel))
 
     def get_all(self, channel=1):
         '''
@@ -1506,9 +1478,6 @@ class Yokogawa(Instrument):
         Output:
             None
         '''
-        print('dAdV               = {:1.0e}A/V'.format(self.get_dAdV()))
-        print('dVdA               = {:1.0e}eV/A'.format(self.get_dVdA()))
-        print('amplification      = {:1.0e}e'.format(self.get_amp()))
         print('synchronization    = {!r}'.format(self.get_sync()))
         print('measurement mode   = {:s}'.format(self._measurement_modes[self.get_measurement_mode(channel=channel)]))
         print('bias mode          = {:s}'.format(self._IV_modes[self.get_bias_mode(channel=channel)]))
@@ -1520,6 +1489,7 @@ class Yokogawa(Instrument):
         print('sense average      = {:d}'.format(self.get_sense_average(channel=channel)[1]))
         print('plc                = {:f}Hz'.format(self.get_plc()))
         print('sense nplc         = {:f}'.format(self.get_sense_nplc(channel=channel)))
+        print('sense autozero     = {!r}'.format(self.get_sense_autozero(channel=channel)))
         print('status             = {!r}'.format(self.get_status(channel=channel)))
         print('bias value         = {:f}{:s}'.format(self.get_bias_value(channel=channel), self._IV_units[self.get_bias_mode(channel=channel)]))
         print('sense value        = {:f}{:s}'.format(self.get_sense_value(channel=channel), self._IV_units[self.get_sense_mode(channel=channel)]))
@@ -1567,6 +1537,16 @@ class Yokogawa(Instrument):
             return err
         except ValueError:
             logging.error(__name__ + ': Error not specified:')
+    
+    def _raise_error(self):
+        errors = self.get_error()
+        if errors[0][0] is 0: # no error
+            msg = __name__ + ' raises the following errors:'
+            for err in errors:
+                msg += '\n' + self.err_msg[err]
+            raise ValueError(msg)
+        else:
+            return
 
     def clear_error(self):
         '''
@@ -1609,9 +1589,8 @@ class Yokogawa(Instrument):
         Output:
             parlist (dict): Parameter as key, corresponding channels as value
         '''
-        parlist = {'sweep_mode': [None],
-                   'pseudo_bias_mode': [None],
-                   'measurement_mode': [1, 2],
+        parlist = {'measurement_mode': [1, 2],
+                   'sync': [None],
                    'bias_mode': [1, 2],
                    'sense_mode': [1, 2],
                    'bias_range': [1, 2],
@@ -1623,17 +1602,10 @@ class Yokogawa(Instrument):
                    'sense_average': [1, 2],
                    'plc': [None],
                    'sense_nplc': [1, 2],
+                   'sense_autozero': [1,2],
                    'status': [1, 2]}
-        self.get_bias()
-        if self._bias == 0:  # current bias
-            parlist['dAdV'] = [None]
-            parlist['amp'] = [None]
-        elif self._bias == 1:  # voltage bias
-            parlist['dVdA'] = [None]
-            parlist['amp'] = [None]
         return parlist
-            
-            
+
     def get(self, param, **kwargs):
         '''
         Gets the current parameter <param> by evaluation 'get_'+<param> and corresponding channel if needed
