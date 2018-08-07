@@ -1,3 +1,20 @@
+# Keithley.py driver for Keithley 2636A multi channel source measure unit
+# Micha Wildermuth, micha.wildermuth@kit.edu 2017
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
 import qkit
 from qkit.core.instrument_base import Instrument
 import logging
@@ -5,14 +22,15 @@ import numpy as np
 
 class virtual_tunnel_electronic(Instrument):
     '''
-    This is the virtual driver for the home made tunnel electronic combined with a Multi Channel Source Measure Unit <SMU>.
+    This is the virtual driver for the home made tunnel electronic combined with a Multi Channel Source Measure Unit <SMU>. I.a. it allows the external usage of voltage controlled current sources or transimpedance amplifiers
     
     Usage:
     Initialize with
-    <name> = qkit.instruments.create('<name>', 'virtual_tunnel_electronic', SMU=SMU)
+    <name> = qkit.instruments.create('<name>', 'virtual_tunnel_electronic', SMU=<SMU>)
     '''
 
     def __init__(self, name, SMU):
+        self.__name__ = __name__
         # create instrument
         logging.info(__name__ + ' : Initializing instrument virtual tunnel electronic')
         Instrument.__init__(self, name, tags=['virtual'])
@@ -24,9 +42,8 @@ class virtual_tunnel_electronic(Instrument):
         self._amp = 1e3   # for external voltage amplifier
         self._dVdA = 1e8  # for external voltage bias
         self._Vdiv = 1e3  # for external voltage divider
-        
         ### FIXME: time constant of amplifier and bandwidth for get_all and setting file
-        
+        # internal variables
         self.set_sweep_mode(mode=0)  # VV-mode
         self._sweep_modes = {0: 'VV-mode', 1: 'IV-mode', 2: 'VI-mode'}
         self.set_pseudo_bias_mode(mode=0)  # current bias
@@ -194,7 +211,7 @@ class virtual_tunnel_electronic(Instrument):
         Sets bias range of channel <channel> to <val>
 
         Input:
-            val (float)   : -1 (auto) | ...
+            val (float)   : -1 (auto) | possible ranges of the used SMU
             channel (int) : 1 | 2
         Output:
             None
@@ -208,7 +225,7 @@ class virtual_tunnel_electronic(Instrument):
         Input:
             channel (int) : 1 | 2
         Output:
-            val (float)
+            val (float)   : -1 (auto) | possible ranges of the used SMU
         '''
         return self._SMU.get_bias_range(channel=channel)
     
@@ -217,7 +234,7 @@ class virtual_tunnel_electronic(Instrument):
         Sets sense range of channel <channel> to <val>
 
         Input:
-            val (float)   : -1 (auto) | 200mV | 2V | 20V | 200V | 100pA | 1nA | 10nA |100nA | 1uA | 10uA | 100uA | 1mA | 10mA | 100mA | 1 A | 1.5A
+            val (float)   : -1 (auto) | possible ranges of the used SMU
             channel (int) : 1 | 2
         Output:
             None
@@ -231,7 +248,7 @@ class virtual_tunnel_electronic(Instrument):
         Input:
             channel (int) : 1 | 2
         Output:
-            val (float)   : 200mV | 2V | 20V | 200V | 100pA | 1nA | 10nA |100nA | 1uA | 10uA | 100uA | 1mA | 10mA | 100mA | 1 A | 1.5A
+            val (float)   : -1 (auto) | possible ranges of the used SMU
         '''
         return self._SMU.get_sense_range(channel=channel)
 
@@ -286,7 +303,7 @@ class virtual_tunnel_electronic(Instrument):
         Sets sense average of channel <channel> to <val>
         
         Input:
-            val (int)     : [1, 100]
+            val (int)     : possible values of the used SMU
             mode (str)    : 0 (moving average) | 1 (repeat average) (default) | 2 (median)
             channel (int) : 1 (default) | 2
         Output:
@@ -335,7 +352,7 @@ class virtual_tunnel_electronic(Instrument):
         
         Input:
             channel (int) : 1 (default) | 2
-            val (float)   : [0.001, 25]
+            val (float)   : possible values of the used SMU
         Output:
             None
         '''
@@ -348,7 +365,7 @@ class virtual_tunnel_electronic(Instrument):
         Input:
             channel (int) : 1 (default) | 2
         Output:
-            val (int)
+            val (int)     : possible values of the used SMU
         '''
         return self._SMU.get_sense_nplc(channel=channel)
 
@@ -399,8 +416,8 @@ class virtual_tunnel_electronic(Instrument):
 
     def set_sweep_mode(self, mode=0, **kwargs):
         '''
-        Sets an internal variable to decide weather voltage is both applied and measured (default), current is applied and voltage is measured or voltage is applied and current is measured.
-        VV-mode needs two different channels (bias channel <channel_bias> and sense channel <channel_sense>), IV-mode and VI-mode only one (<channel>).
+        Sets an internal variable to decide weather voltage is both applied and measured (VV-mode), current is applied and voltage is measured (IV-mode) or voltage is applied and current is measured (VI-mode).
+        VV-mode uses two different channels (bias channel <channel_bias> and sense channel <channel_sense>), IV-mode and VI-mode only one (<channel>).
 
         Input:
             mode (int) : 0 (VV-mode) (default) | 1 (IV-mode) | 2 (VI-mode)
@@ -410,12 +427,17 @@ class virtual_tunnel_electronic(Instrument):
         Output:
             None
         '''
-        self._sweep_mode = mode
-        self._SMU.set_sweep_mode(mode=mode)
+        if mode in [0, 1, 2]:
+            logging.debug('{!s}: Set sweep mode to {:d}'.format(__name__, mode))
+            self._sweep_mode = mode
+            self._SMU.set_sweep_mode(mode=mode)
+        else:
+            logging.error('{!s}: Cannot set sweep mode to {!s}'.format(__name__, mode))
+            raise ValueError('{!s}: Cannot set sweep mode to {!s}'.format(__name__, mode))
 
     def get_sweep_mode(self):
         '''
-        Gets an internal variable to decide weather voltage is both applied and measured (default), current is applied and voltage is measured or voltage is applied and current is measured.
+        Gets an internal variable to decide weather voltage is both applied and measured (VV-mode), current is applied and voltage is measured (IV-mode) or voltage is applied and current is measured (VI-mode).
 
         Input:
             None
@@ -423,24 +445,30 @@ class virtual_tunnel_electronic(Instrument):
             mode (int) : 0 (VV mode) | 1 (IV mode) | 2 (VI-mode)
         '''
         if self._sweep_mode != self._SMU.get_sweep_mode():
-            raise ValueError(__name__ + ': sweep mode of {:s} and {:s} coincide: {:s} and {:s}'.format(__name__, self._SMU.__name__, self._sweep_modes[self._sweep_mode], self._sweep_modes[self._SMU.get_sweep_mode()]))
+            logging.error('{!s}: sweep mode of {:s} and {:s} do not coincide: {:s} and {:s}'.format(__name__, self.__name__, self._SMU.__name__, self._sweep_modes[self._sweep_mode], self._sweep_modes[self._SMU.get_sweep_mode()]))
+            raise ValueError('{!s}: sweep mode of {:s} and {:s} do not coincide: {:s} and {:s}'.format(__name__, self.__name__, self._SMU.__name__, self._sweep_modes[self._sweep_mode], self._sweep_modes[self._SMU.get_sweep_mode()]))
         else:
             return self._sweep_mode
 
     def set_pseudo_bias_mode(self, mode):
         '''
-        Sets an internal variable to decide weather bias or sense values are converted to currents
-
+        Sets an internal variable according to the external measurement setup that proviedes an effective bias <mode>
+        
         Input:
             mode (int) : 0 (current bias) | 1 (voltage bias)
         Output:
             None
         '''
-        self._pseudo_bias_mode = mode
+        if mode in [0, 1, 2]:
+            logging.debug('{!s}: Set pseudo bias mode to {:d}'.format(__name__, mode))
+            self._pseudo_bias_mode = mode
+        else:
+            logging.error('{!s}: Cannot set pseudo bias mode to {!s}'.format(__name__, mode))
+            raise ValueError('{!s}: Cannot set pseudo bias mode to {!s}'.format(__name__, mode))
 
     def get_pseudo_bias_mode(self):
         '''
-        Gets an internal variable to decide weather bias or sense values are converted to currents
+        Gets an internal variable according to the external measurement setup that proviedes an effective bias <mode>
 
         Input:
             None
@@ -449,7 +477,7 @@ class virtual_tunnel_electronic(Instrument):
         '''
         return self._pseudo_bias_mode
 
-    def get_bias(self):
+    def get_bias(self, **kwargs):
         '''
         Gets the real bias mode as combination of <self._sweep_mode> and <self._pseudo_bias_mode>
         
@@ -473,13 +501,13 @@ class virtual_tunnel_electronic(Instrument):
         '''
         if self._sweep_mode == 0: # 0 (VV mode)
             if not self._pseudo_bias_mode: # 0 (current bias)
-                logging.error(__name__ + ': Cannot set voltage of channel {:d} in the current bias.'.format(channel))
-                raise AttributeError(__name__ + ': Cannot set voltage of channel {:d} in the current bias.'.format(channel))
+                logging.error('{!s}: Cannot set voltage value of channel {!s} in the current bias'.format(__name__, channel))
+                raise SystemError('{!s}: Cannot set voltage value of channel {!s} in the current bias'.format(__name__ , channel))
             elif self._pseudo_bias_mode: # 1 (voltage bias)
                 return self._SMU.set_bias_value(val=val*self._Vdiv, channel=channel)
         elif self._sweep_mode == 1: # 1 (IV mode)
-            logging.error(__name__ + ': Cannot set voltage of channel {:d} in the current bias.'.format(channel))
-            raise AttributeError(__name__ + ': Cannot set voltage of channel {:d} in the current bias.'.format(channel))
+            logging.error('{!s}: Cannot set voltage value of channel {!s} in the current bias'.format(__name__, channel))
+            raise SystemError('{!s}: Cannot set voltage value of channel {!s} in the current bias'.format(__name__ , channel))
         elif self._sweep_mode == 2: # 2 (VI-mode)
             return self._SMU.set_bias_value(val=val, channel=channel)
 
@@ -517,13 +545,13 @@ class virtual_tunnel_electronic(Instrument):
             if not self._pseudo_bias_mode: # 0 (current bias)
                 return self._SMU.set_bias_value(val=val/self._dAdV, channel=channel)
             elif self._pseudo_bias_mode: # 1 (voltage bias)
-                logging.error(__name__ + ': Cannot set current of channel {:d} in the voltage bias.'.format(channel))
-                raise AttributeError(__name__ + ': Cannot set current of channel {:d} in the voltage bias.'.format(channel))
+                logging.error('{!s}: Cannot set current value of channel {!s} in the voltage bias'.format(__name__, channel))
+                raise SystemError('{!s}: Cannot set current value of channel {!s} in the voltage bias'.format(__name__ , channel))
         elif self._sweep_mode == 1: # 1 (IV mode)
             return self._SMU.set_bias_value(val=val, channel=channel)
         elif self._sweep_mode == 2: # 2 (VI-mode)
-            logging.error(__name__ + ': Cannot set current of channel {:d} in the voltage bias.'.format(channel))
-            raise AttributeError(__name__ + ': Cannot set current of channel {:d} in the voltage bias.'.format(channel))
+            logging.error('{!s}: Cannot set current value of channel {!s} in the voltage bias'.format(__name__, channel))
+            raise SystemError('{!s}: Cannot set current value of channel {!s} in the voltage bias'.format(__name__ , channel))
 
     def get_current(self, channel=1, **readingBuffer):
         '''
