@@ -1,5 +1,6 @@
 # Yokogawa.py driver for Yokogawa GS820 multi channel source measure unit
 # Hannes Rotzinger, hannes.rotzinger@kit.edu 2010
+# Micha Wildermuth, micha.wildermuth@kit.edu 2017
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -41,20 +42,20 @@ class Yokogawa(Instrument):
             address (string) : GPIB address
             reset (bool)     : resets to default values, default=False
         '''
+        self.__name__ = __name__
         # Start VISA communication
         logging.info(__name__ + ' : Initializing instrument Yokogawa_GS820')
         Instrument.__init__(self, name, tags=['physical'])
         self._address = address
         self._visainstrument = visa.instrument(self._address)
-
         # Set termination characters (necessary for Ethernet communication)
         if LooseVersion(visa.__version__) < LooseVersion("1.5.0"):  # pyvisa 1.4
             self._visainstrument.term_chars = ''
         else:  # pyvisa 1.5
             self._visainstrument.read_termination = ''
             self._visainstrument.write_termination = ''
-        
-        # Global constants
+        # initial variables
+        self._sweep_mode = 1 # IV-mode
         self._measurement_modes = {0: '2-wire', 1: '4-wire'}
         self._IV_modes = {0: 'curr', 1: 'volt'}
         self._IV_units = {0: 'A', 1: 'V'}
@@ -135,10 +136,6 @@ class Yokogawa(Instrument):
                         +206: '''Low battery: Request to have the battery replaced, because the time stamp when creating files will not be correct.''',
                         +207: '''Power line frequency measure failure: Directly set the line frequency.''',
                         +304: '''Cannot change setting in auto measure function: If you want to change the measurement function, select a measurement mode other than auto function.'''}
-        
-        # initial variables
-        self._sweep_mode = 1 # IV-mode
-
         # Reset
         if reset:
             self.reset()
@@ -155,7 +152,8 @@ class Yokogawa(Instrument):
             None
         '''
         self._visainstrument.write(cmd)
-        #self._wait_for_OPC()
+        self._wait_for_OPC()
+        self._raise_error()
         return
 
     def _ask(self, msg):
@@ -168,10 +166,13 @@ class Yokogawa(Instrument):
             ans (str)
         '''
         if '?' in msg:
-            return self._visainstrument.query(msg).rstrip()
+            ans = self._visainstrument.query(msg).rstrip()
         else:
-            return self._visainstrument.query('{:s}?'.format(msg)).rstrip()
-        #self._wait_for_OPC()
+            ans = self._visainstrument.query('{:s}?'.format(msg)).rstrip()
+        while not bool(int(self._visainstrument.query('*OPC?'))):
+            time.sleep(1e-6)
+        self._raise_error()
+        return ans
 
     def set_measurement_mode(self, val, channel=1):
         '''
@@ -185,10 +186,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SENSe:REMote 1|0|ON|OFF
         try:
-            logging.debug(__name__ + ' : set measurement mode of channel {:d} to {:d}'.format(channel, val))
+            logging.debug('{!s}: Set measurement mode of channel {:d} to {:d}'.format(__name__, channel, val))
             self._write(':chan{:d}:sens:rem {:d}'.format(channel, val))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set measurement mode of channel {:d} to {:f}'.format(channel, val))
+        except Exception as e:
+            logging.error('{!s}: Cannot set measurement mode of channel {!s} to {!s}'.format(__name__, channel, val))
+            raise type(e)('{!s}: Cannot set measurement mode of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, val, e))
 
     def get_measurement_mode(self, channel=1):
         '''
@@ -201,10 +203,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SENSe:REMote 1|0|ON|OFF
         try:
-            logging.debug(__name__ + ': get measurement mode of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get measurement mode of channel {:d}'.format(__name__, channel))
             return int(self._ask(':chan{:d}:sens:rem'.format(channel)))
-        except ValueError:
-            logging.error(__name__ + ': Measurement mode of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get measurement mode of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get measurement mode of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def set_sync(self, val):
         '''
@@ -218,10 +221,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: :SYNChronize:CHANnel 1|0|ON|OFF
         try:
-            logging.debug(__name__ + ': Set the channels in synchronized mode to {:d}'.format(val))
+            logging.debug('{!s}: Set interchannel synchronization to {!r}'.format(__name__, val))
             self._write(':sync:chan {:d}'.format(val))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set the interchannel synchronization to {:f}'.format(val))
+        except Exception as e:
+            logging.error('{!s}: Cannot set interchannel synchronization to {!s}'.format(__name__, val))
+            raise type(e)('{!s}: Cannot set interchannel synchronization to {!s}\n{!s}'.format(__name__ , val, e))
 
     def get_sync(self):
         '''
@@ -234,10 +238,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: :SYNChronize:CHANnel 1|0|ON|OFF
         try:
-            logging.debug(__name__ + ': Get the channels in synchronized mode')
+            logging.debug('{!s}: Get interchannel synchronization'.format(__name__))
             return bool(int(self._ask(':sync:chan')))
-        except ValueError:
-            logging.error(__name__ + ': Interchannel synchronization not specified:')
+        except Exception as e:
+            logging.error('{!s}: Cannot get interchannel synchronization'.format(__name__))
+            raise type(e)('{!s}: Cannot get interchannel synchronization\n{!s}'.format(__name__ , e))
 
     def set_bias_mode(self, mode, channel=1):
         '''
@@ -251,10 +256,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce:FUNCtion VOLTage|CURRent
         try:
-            logging.debug(__name__ + ': Set bias mode of channel {:d} to {:d}'.format(channel, mode))
+            logging.debug('{!s}: Set bias mode of channel {:d} to {:d}'.format(__name__, channel, mode))
             self._write(':chan{:d}:sour:func {:s}'.format(channel, self._IV_modes[mode]))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set bias mode of channel {:d} to {:d}'.format(channel, mode))
+        except Exception as e:
+            logging.error('{!s}: Cannot set bias mode of channel {!s} to {!s}'.format(__name__, channel, mode))
+            raise type(e)('{!s}: Cannot set bias mode of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, mode, e))
 
     def get_bias_mode(self, channel=1):
         '''
@@ -267,10 +273,23 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce:FUNCtion VOLTage|CURRent
         try:
-            logging.debug(__name__ + ': get bias mode of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get bias mode of channel {:d}'.format(__name__, channel))
             return int(self._IV_modes.keys()[self._IV_modes.values().index(self._ask(':chan{:d}:sour:func'.format(channel)).lower())])
-        except ValueError:
-            logging.error(__name__ + ': Bias mode of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get bias mode of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get bias mode of channel {!s}\n{!s}'.format(__name__ , channel, e))
+    
+    def get_bias(self, **channel):
+        '''
+        Calls get_bias_mode of channel <channel>
+        
+        Input:
+            **channel (int) : 1 | 2
+        Output:
+            mode (int)      : 0 (current) | 1 (voltage)
+        '''
+        ## This method is needed for transport.py in case of no tunnel electronic
+        return self.get_bias_mode(**channel)
 
     def set_sense_mode(self, mode, channel=1):
         '''
@@ -284,10 +303,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SENSe:FUNCtion VOLTage|CURRent
         try:
-            logging.debug(__name__ + ': Set sense mode of channel {:d} to {:d}'.format(channel, mode))
+            logging.debug('{!s}: Set sense mode of channel {:d} to {:d}'.format(__name__, channel, mode))
             self._write(':chan{:d}:sens:func {:s}'.format(channel, self._IV_modes[mode]))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set sense mode of channel {:d} to {:d}'.format(channel, mode))
+        except Exception as e:
+            logging.error('{!s}: Cannot set sense mode of channel {!s} to {!s}'.format(__name__, channel, mode))
+            raise type(e)('{!s}: Cannot set sense mode of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, mode, e))
 
     def get_sense_mode(self, channel=1):
         '''
@@ -300,10 +320,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SENSe:FUNCtion VOLTage|CURRent
         try:
-            logging.debug(__name__ + ': Get sense mode of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get sense mode of channel {:d}'.format(__name__, channel))
             return int(self._IV_modes.keys()[self._IV_modes.values().index(self._ask(':chan{:d}:sens:func'.format(channel)).lower())])
-        except ValueError:
-            logging.error(__name__ + ': Sense mode of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get sense mode of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get sense mode of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def set_bias_range(self, val, channel=1):
         '''
@@ -318,13 +339,14 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:RANGe <voltage>|MINimum|MAXimum|UP|DOWN 
         # Corresponding Command: [:CHANnel<n>]:SOURce[:CURRent]:RANGe <current>|MINimum|MAXimum|UP|DOWN 
         try:
-            logging.debug(__name__ + ': Set bias voltage range of channel {:d} to {:f}'.format(channel, val))
+            logging.debug('{!s}: Set bias voltage range of channel {:d} to {:f}'.format(__name__, channel, val))
             if val == -1:
                 self._write(':chan{:d}:sour:rang:auto 1'.format(channel))
             else:
                 self._write(':chan{:d}:sour:rang {:f}'.format(channel, val))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set bias range of channel {:d} to {:f}'.format(channel, val))
+        except Exception as e:
+            logging.error('{!s}: Cannot set bias range of channel {!s} to {!s}'.format(__name__, channel, val))
+            raise type(e)('{!s}: Cannot set bias range of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, val, e))
 
     def get_bias_range(self, channel=1):
         '''
@@ -338,10 +360,11 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:RANGe <voltage>|MINimum|MAXimum|UP|DOWN 
         # Corresponding Command: [:CHANnel<n>]:SOURce[:CURRent]:RANGe <current>|MINimum|MAXimum|UP|DOWN 
         try:
-            logging.debug(__name__ + ': Get bias voltage range of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get bias range of channel {:d}'.format(__name__, channel))
             return float(self._ask(':chan{:d}:sour:rang'.format(channel)))
-        except ValueError:
-            logging.error(__name__ + ': Bias range of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get bias range of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get bias range of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def set_sense_range(self, val, channel=1):
         '''
@@ -356,13 +379,14 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SENSe[:VOLTage]:RANGe <voltage>|MINimum|MAXimum|UP|DOWN
         # Corresponding Command: [:CHANnel<n>]:SENSe[:CURRent]:RANGe <current>|MINimum|MAXimum|UP|DOWN
         try:
-            logging.debug(__name__ + ': Set sense range of channel {:d} to {:f}'.format(channel, val))
+            logging.debug('{!s}: Set sense range of channel {:d} to {:f}'.format(__name__, channel, val))
             if val == -1:
                 self._write(':chan{:d}:sens:rang:auto 1'.format(channel))
             else:
                 self._write(':chan{:d}:sens:rang {:f}'.format(channel, val))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set sense range of channel {:d} to {:f}'.format(channel, val))
+        except Exception as e:
+            logging.error('{!s}: Cannot set sense range of channel {!s} to {!s}'.format(__name__, channel, val))
+            raise type(e)('{!s}: Cannot set sense range of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, val, e))
 
     def get_sense_range(self, channel=1):
         '''
@@ -376,10 +400,11 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SENSe[:VOLTage]:RANGe <voltage>|MINimum|MAXimum|UP|DOWN
         # Corresponding Command: [:CHANnel<n>]:SENSe[:CURRent]:RANGe <current>|MINimum|MAXimum|UP|DOWN
         try:
-            logging.debug(__name__ + ': Get sense range of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get sense range of channel {:d}'.format(__name__, channel))
             return float(self._ask(':chan{:d}:sens:rang'.format(channel)))
-        except ValueError:
-            logging.error(__name__ + ': Sense range of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get sense range of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get sense range of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def set_bias_trigger(self, mode, channel=1, **val):
         '''
@@ -396,12 +421,13 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SOURce:TRIGger EXTernal|AUXiliary|TIMer1|TIMer2|SENSe
         # Corresponding Command: :TRIGger:TIMer1 <time>|MINimum|MAXimum
         try:
-            logging.debug(__name__ + ': Set bias trigger of channel {:d} to {:s}'.format(channel, mode))
+            logging.debug('{!s}: Set bias trigger of channel {:d} to {:s}'.format(__name__, channel, mode))
             self._write(':chan{:d}:sour:trig {:s}'.format(channel, mode))
             if 'time' in val:
                 self._write(':trig:{:s} {:f}'.format(mode, val.get('time', 50e-3)))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set bias trigger of channel {:d} to {:s}'.format(channel, mode))
+        except Exception as e:
+            logging.error('{!s}: Cannot set bias trigger of channel {!s} to {!s}{!s}'.format(__name__, channel, mode, val))
+            raise type(e)('{!s}: Cannot set bias trigger of channel {!s} to {!s}{!s}\n{!s}'.format(__name__, channel, mode, val, e))
 
     def get_bias_trigger(self, channel=1):
         '''
@@ -414,10 +440,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce:TRIGger EXTernal|AUXiliary|TIMer1|TIMer2|SENSe
         try:
-            logging.debug(__name__ + ': Get bias trigger of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get bias trigger of channel {:d}'.format(__name__, channel))
             return str(self._ask(':chan{:d}:sour:trig'.format(channel)).lower())
-        except ValueError:
-            logging.error(__name__ + ': Bias trigger of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get bias trigger of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get bias trigger of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def set_sense_trigger(self, mode, channel=1, **val):
         '''
@@ -434,12 +461,13 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SENSe:TRIGger EXTernal|AUXiliary|TIMer1|TIMer2|SENSe
         # Corresponding Command: :TRIGger:TIMer1 <time>|MINimum|MAXimum
         try:
-            logging.debug(__name__ + ': Set sense trigger of channel {:d} to {:s}'.format(channel, mode))
+            logging.debug('{!s}: Set sense trigger of channel {:d} to {:s}'.format(__name__, channel, mode))
             self._write(':chan{:d}:sens:trig {:s}'.format(channel, mode))
             if 'time' in val:
                 self._write(':trig:{:s} {:f}'.format(mode, val.get('time', 50e-3)))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set sense trigger of channel {:d} to {:s}'.format(channel, mode))
+        except Exception as e:
+            logging.error('{!s}: Cannot set sense trigger of channel {!s} to {!s}{!s}'.format(__name__, channel, mode, val))
+            raise type(e)('{!s}: Cannot set sense trigger of channel {!s} to {!s}{!s}\n{!s}'.format(__name__ , channel, mode, val, e))
 
     def get_sense_trigger(self, channel=1):
         '''
@@ -452,10 +480,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SENSe:TRIGger EXTernal|AUXiliary|TIMer1|TIMer2|SENSe
         try:
-            logging.debug(__name__ + ': Get sense trigger of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get sense trigger of channel {:d}'.format(__name__, channel))
             return str(self._ask(':chan{:d}:sens:trig'.format(channel)).lower())
-        except ValueError:
-            logging.error(__name__ + ': Sense trigger of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get sense trigger of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get sense trigger of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def set_bias_delay(self, val, channel=1):
         '''
@@ -469,10 +498,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce:DELay <time>|MINimum|MAXimum
         try:
-            logging.debug(__name__ + ': Set bias delay of channel {:d} to {:f}'.format(channel, val))
+            logging.debug('{!s}: Set bias delay of channel {:d} to {:f}'.format(__name__, channel, val))
             self._write(':chan{:d}:sour:del {:f}'.format(channel, val))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set bias delay of channel {:d} to {:f}'.format(channel, val))
+        except Exception as e:
+            logging.error('{!s}: Cannot set bias delay of channel {!s} to {!s}'.format(__name__, channel, val))
+            raise type(e)('{!s}: Cannot set bias delay of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, val, e))
 
     def get_bias_delay(self, channel=1):
         '''
@@ -485,10 +515,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce:DELay <time>|MINimum|MAXimum
         try:
-            logging.debug(__name__ + ': Get bias delay of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get bias delay of channel {:d}'.format(__name__, channel))
             return float(self._ask(':chan{:d}:sour:del'.format(channel)))
-        except ValueError:
-            logging.error(__name__ + ': Bias delay of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get bias delay of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get bias delay of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def set_sense_delay(self, val, channel=1):
         '''
@@ -502,10 +533,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce:DELay <time>|MINimum|MAXimum
         try:
-            logging.debug(__name__ + ': Set sense delay of channel {:d} to {:f}'.format(channel, val))
+            logging.debug('{!s}: Set sense delay of channel {:d} to {:f}'.format(__name__, channel, val))
             self._write(':chan{:d}:sens:del {:f}'.format(channel, val))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set sense delay of channel {:d} to {:f}'.format(channel, val))
+        except Exception as e:
+            logging.error('{!s}: Cannot set sense delay of channel {!s} to {!s}'.format(__name__, channel, val))
+            raise type(e)('{!s}: Cannot set sense delay of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, val, e))
 
     def get_sense_delay(self, channel=1):
         '''
@@ -518,10 +550,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SENSe:DELay <time>|MINimum|MAXimum
         try:
-            logging.debug(__name__ + ': Get sense delay of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get sense delay of channel {:d}'.format(__name__, channel))
             return float(self._ask(':chan{:d}:sens:del'.format(channel)))
-        except ValueError:
-            logging.error(__name__ + ': Sense delay of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get sense delay of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get sense delay of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def set_sense_average(self, val, channel=1):
         '''
@@ -537,13 +570,14 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SENSe:AVERage[:STATe] 1|0|ON|OFF
         # Corresponding Command: [:CHANnel<n>]:SENSe:AVERage:COUNt <integer>|MINimum|MAXimum
         try:
-            logging.debug(__name__ + ': Set sense average of channel {:d} to {:d}'.format(channel, val))
+            logging.debug('{!s}: Set sense average of channel {:d} to {:d}'.format(__name__, channel, val))
             status = not(.5*(1-np.sign(val-1)))  # equals Heaviside(1-<val>) --> turns on for <val> >= 2
             self._write(':chan{:d}:sens:aver:stat {:d}'.format(channel, status))
             if status:
                 self._write(':chan{:d}:sens:aver:coun {:d}'.format(channel, val))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set sense average of channel {:d} to {:d}'.format(channel, val))
+        except Exception as e:
+            logging.error('{!s}: Cannot set sense average of channel {!s} to {!s}'.format(__name__, channel, val))
+            raise type(e)('{!s}: Cannot set sense average of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, val, e))
 
     def get_sense_average(self, channel=1):
         '''
@@ -558,12 +592,13 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SENSe:AVERage[:STATe] 1|0|ON|OFF
         # Corresponding Command: [:CHANnel<n>]:SENSe:AVERage:COUNt <integer>|MINimum|MAXimum
         try:
-            logging.debug(__name__ + ': Get sense average of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get sense average of channel {:d}'.format(__name__, channel))
             status = bool(int(self._ask(':chan{:d}:sens:aver:stat'.format(channel))))
             val = int(self._ask(':chan{:d}:sens:aver:coun'.format(channel)))
             return status, val
-        except ValueError:
-            logging.error(__name__ + ': Sense average of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get sense average of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get sense average of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def set_plc(self, plc):
         '''
@@ -577,11 +612,12 @@ class Yokogawa(Instrument):
         # Corresponding Command: :SYSTem:LFRequency 50|60
         # Corresponding Command: :SYSTem:LFRequency:AUTO 1|0|ON|OFF
         try:
-            logging.debug(__name__ + ': Set PLC to {:s}'.format(str(plc)))
+            logging.debug('{!s}: Set PLC to {!s}'.format(__name__, plc))
             cmd = {-1: ':auto 1', 50: ' 50', 60: ' 60'}
             self._write('syst:lfr{:s}'.format(cmd.get(int(plc), cmd[-1])))
-        except ValueError:
-            logging.error(__name__ + ': PLC not specified:')
+        except Exception as e:
+            logging.error('{!s}: Cannot set PLC to {!s}'.format(__name__))
+            raise type(e)('{!s}: Cannot set PLC to {!s}\n{!s}'.format(__name__ , e))
 
     def get_plc(self):
         '''
@@ -595,10 +631,11 @@ class Yokogawa(Instrument):
         # Corresponding Command: :SYSTem:LFRequency 50|60
         # Corresponding Command: :SYSTem:LFRequency:AUTO 1|0|ON|OFF
         try:
-            logging.debug(__name__ + ': Get PLC')
+            logging.debug('{!s}: Get PLC'.format(__name__))
             return int(self._ask('syst:lfr'))
-        except ValueError:
-            logging.error(__name__ + ': PLC not specified:')
+        except Exception as e:
+            logging.error('{!s}: Cannot get PLC'.format(__name__))
+            raise type(e)('{!s}: Cannot get PLC\n{!s}'.format(__name__ , e))
 
     def set_sense_nplc(self, val, channel=1):
         '''
@@ -612,10 +649,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SENSe:NPLC <real number>|MINimum|MAXimum
         try:
-            logging.debug(__name__ + ': Set sense nplc of channel {:d} to {:2.0f} PLC'.format(channel, val))
+            logging.debug('{!s}: Set sense nplc of channel {:d} to {:2.0f} PLC'.format(__name__, channel, val))
             self._write(':chan{:d}:sens:nplc {:2.0f}'.format(channel, val))
-        except ValueError:
-            logging.error(__name__ + ': Invalid input: cannot set sense nplc of channel {:d} to {:2.0f}'.format(channel, val))
+        except Exception as e:
+            logging.error('{!s}: Cannot set sense nplc of channel {!s} to {!s}'.format(__name__, channel, val))
+            raise type(e)('{!s}: Cannot set sense nplc of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, val, e))
 
     def get_sense_nplc(self, channel=1):
         '''
@@ -628,10 +666,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SENSe:NPLC <real number>|MINimum|MAXimum
         try:
-            logging.debug(__name__ + ': Get sense nplc of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get sense nplc of channel {:d}'.format(__name__, channel))
             return float(self._ask(':chan{:d}:sens:nplc'.format(channel)))
-        except ValueError:
-            logging.error(__name__ + ': Number of PLC of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get sense nplc of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get sense nplc of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def set_sense_autozero(self, val, channel=1):
         '''
@@ -646,11 +685,12 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SENSe:ZERo:EXECute
         ### FIXME: Is execute necessary?
         try:
-            logging.debug(__name__ + ': Set autozero of channel {:d} to {:d}'.format(channel, val))
+            logging.debug('{!s}: Set sense autozero of channel {:d} to {:d}'.format(__name__, channel, val))
             self._write(':chan{:d}:sens:zero:auto {:d}'.format(channel, val))
             #self._write(':chan{:d}:sens:zero:exec'.format(channel))
-        except ValueError as e:
-            logging.error(__name__ + ': Invalid input: cannot set autozero of channel {:d} to {:d}: {:s}'.format(channel, val, e))
+        except Exception as e:
+            logging.error('{!s}: Cannot set sense autozero of channel {!s} to {!s}'.format(__name__, channel, val))
+            raise type(e)('{!s}: Cannot set sense autozero of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, val, e))
 
     def get_sense_autozero(self, channel=1):
         '''
@@ -663,10 +703,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SENSe:ZERo:AUTO 1|0|ON|OFF
         try:
-            logging.debug(__name__ + ': Get autozero of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get sense autozero of channel {:d}'.format(__name__, channel))
             return bool(self._ask(':chan{:d}:sens:zero:auto'.format(channel)))
-        except ValueError as e:
-            logging.error(__name__ + ': Autozero of channel {:d} not specified: {:s}'.format(channel), e)
+        except Exception as e:
+            logging.error('{!s}: Cannot get sense autozero of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get sense autozero of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def set_status(self, status, channel=1):
         '''
@@ -680,10 +721,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:OUTput:STATus 1|0|ON|OFF
         try:
-            logging.debug(__name__ + ': Set output status of channel {:d} to {!r}'.format(channel, status))
+            logging.debug('{!s}: Set output status of channel {:d} to {!r}'.format(__name__, channel, status))
             self._write(':chan{:d}:outp:stat {:d}'.format(channel, status))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set output status of channel {:d} to {!r}'.format(channel, status))
+        except Exception as e:
+            logging.error('{!s}: Cannot set output status of channel {!s} to {!s}'.format(__name__, channel, status))
+            raise type(e)('{!s}: Cannot set output status of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, status, e))
 
     def get_status(self, channel=1):
         '''
@@ -696,36 +738,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:OUTput:STATus 1|0|ON|OFF
         try:
-            logging.debug(__name__ + ': Get output status of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get output status of channel {:d}'.format(__name__, channel))
             return bool(int(self._ask(':chan{:d}:outp:stat'.format(channel))))
-        except ValueError:
-            logging.error(__name__ + ': Status of channel {:d} not specified:'.format(channel))
-
-#    def set_stati(self, status):
-#        '''
-#        Sets output status of both channels to <status>
-#        
-#        Input:
-#            status (int)  : 0 (off) | 1 (on) | 2 (high Z)
-#        Output:
-#            None
-#        '''
-#        for channel in range(1, 3):
-#            self.set_status(status=status, channel=channel)
-#
-#    def get_stati(self):
-#        '''
-#        Gets output status of both channels
-#        
-#        Input:
-#            None
-#        Output:
-#            status (int)  : 0 (off) | 1 (on) | 2 (high Z)
-#        '''
-#        stati = []
-#        for channel in range(1, 3):
-#            stati.append(self.get_status(channel=channel))
-#        return stati
+        except Exception as e:
+            logging.error('{!s}: Cannot get output status of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get output status of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def set_bias_value(self, val, channel=1):
         '''
@@ -740,11 +757,11 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:LEVel <voltage>|MINimum|MAXimum
         # Corresponding Command: [:CHANnel<n>]:SOURce[:CURRent]:LEVel <current>|MINimum|MAXimum
         try:
-            logging.debug(__name__ + ' : Set bias value of channel {:d} to {:f}'.format(channel, val))
-            ### FIXME: digits
-            self._write(':chan{:d}:sour:lev {:11.9f}'.format(channel, val))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set bias value of channel {:d} to {:f}'.format(channel, val))
+            logging.debug('{!s}: Set bias value of channel {:d} to {:f}'.format(__name__, channel, val))
+            self._write(':chan{:d}:sour:lev {:g}'.format(channel, val)) # necessary to cast as scientific float! (otherwise only >= 1e-6 possible)
+        except Exception as e:
+            logging.error('{!s}: Cannot set bias value of channel {!s} to {!s}'.format(__name__, channel, val))
+            raise type(e)('{!s}: Cannot set bias value of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, val, e))
 
     def get_bias_value(self, channel=1):
         '''
@@ -758,10 +775,11 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:LEVel <voltage>|MINimum|MAXimum
         # Corresponding Command: [:CHANnel<n>]:SOURce[:CURRent]:LEVel <current>|MINimum|MAXimum
         try:
-            logging.debug(__name__ + ' : Get bias value of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get bias value of channel {:d}'.format(__name__, channel))
             return float(self._ask(':chan{:d}:sour:lev'.format(channel)))
-        except ValueError:
-            logging.error(__name__ + ': Cannot get bias value of channel {:d}:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get bias value of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get bias value of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def get_sense_value(self, channel=1):
         '''
@@ -773,13 +791,12 @@ class Yokogawa(Instrument):
             val (float)
         '''
         # Corresponding Command: [:CHANnel<n>]:MEASure?
-        # Corresponding Command: [:CHANnel<n>]:FETCh? [DUAL]
         try:
-            logging.debug(__name__ + ' : Get sense value of channel {:d}'.format(channel))
-            # return float(self._ask(':chan{:d}:meas'.format(channel)))
-            return float(self._ask(':chan{:d}:fetc'.format(channel)))
-        except ValueError:
-            logging.error(__name__ + ': Cannot get sense value of channel {:d}:'.format(channel))
+            logging.debug('{!s}: Get sense value of channel {:d}'.format(__name__, channel))
+            return float(self._ask(':chan{:d}:meas'.format(channel)))
+        except Exception as e:
+            logging.error('{!s}: Cannot get sense value of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get sense value of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def set_voltage(self, val, channel=1):
         '''
@@ -794,7 +811,8 @@ class Yokogawa(Instrument):
         if not self.get_bias_mode(channel): # 0 (current bias)
             return self.set_bias_value(val, channel)
         elif self.get_bias_mode(channel):  # 1 (voltage bias)
-            logging.error(__name__ + ': Cannot set voltage value of channel {:d}: in the current bias'.format(channel))
+            logging.error('{!s}: Cannot set voltage value of channel {!s} in the current bias'.format(__name__, channel))
+            raise SystemError('{!s}: Cannot set voltage value of channel {!s} in the current bias'.format(__name__ , channel))
 
     def get_voltage(self, channel=1):
         '''
@@ -810,7 +828,8 @@ class Yokogawa(Instrument):
         elif self.get_sense_mode(channel):  # 1 (voltage sense)
             return self.get_sense_value(channel)
         else:
-            logging.error(__name__ + ': Cannot get voltage value of channel {:d}: neihter bias nor sense in voltage mode'.format(channel))
+            logging.error('{!s}: Cannot get voltage value of channel {!s}: neihter bias nor sense in voltage mode'.format(__name__, channel))
+            raise SystemError('{!s}: Cannot get voltage value of channel {!s}: neihter bias nor sense in voltage mode'.format(__name__ , channel))
 
     def set_current(self, val, channel=1):
         '''
@@ -825,7 +844,8 @@ class Yokogawa(Instrument):
         if not self.get_bias_mode(channel): # 0 (current bias)
             return self.set_bias_value(val, channel)
         elif self.get_bias_mode(channel): # 1 (voltage bias)
-            logging.error(__name__ + ': Cannot set current value of channel {:d}: in the voltage bias'.format(channel))
+            logging.error('{!s}: Cannot set current value of channel {!s} in the voltage bias'.format(__name__, channel))
+            raise SystemError('{!s}: Cannot set current value of channel {!s} in the voltage bias'.format(__name__ , channel))
 
     def get_current(self, channel=1):
         '''
@@ -841,7 +861,8 @@ class Yokogawa(Instrument):
         elif not self.get_sense_mode(channel): # 0 (current sense)
             return self.get_sense_value(channel)
         else:
-            logging.error(__name__ + ': Cannot get current value of channel {:d}: neihter bias nor sense in current mode'.format(channel))
+            logging.error('{!s}: Cannot get current value of channel {!s}: neihter bias nor sense in current mode'.format(__name__, channel))
+            raise SystemError('{!s}: Cannot get current value of channel {!s}: neihter bias nor sense in current mode'.format(__name__ , channel))
 
     def ramp_bias(self, stop, step, step_time=0.1, channel=1):
         '''
@@ -877,7 +898,7 @@ class Yokogawa(Instrument):
         if self.get_bias(channel=channel):  # 1 (voltage bias)
             return self.ramp_bias(stop=stop, step=step, step_time=step_time, channel=channel)
         elif not self.get_bias(channel=channel):  # 0 (current bias)
-            logging.error(__name__ + ': Cannot set voltage value of channel {:d}: in the current bias'.format(channel))
+            logging.error(__name__ + ': Cannot set voltage value of channel {!s}: in the current bias'.format(channel))
             return
 
     def ramp_current(self, stop, step, step_time=0.1, channel=1):
@@ -895,13 +916,13 @@ class Yokogawa(Instrument):
         if not self.get_bias(channel=channel): # 0 (current bias)
             return self.ramp_bias(stop=stop, step=step, step_time=step_time, channel=channel)
         elif self.get_bias(channel=channel): # 1 (voltage bias)
-            logging.error(__name__ + ': Cannot ramp current value of channel {:d}: in the voltage bias'.format(channel))
+            logging.error(__name__ + ': Cannot ramp current value of channel {!s}: in the voltage bias'.format(channel))
             return
 
     def set_sweep_mode(self, mode=1, **kwargs):
         '''
-        Sets an internal variable to decide weather voltage is both applied and measured, current is applied and voltage is measured (default) or voltage is applied and current is measured.
-        VV-mode needs two different channels (bias channel <channel_bias> and sense channel <channel_sense>), IV-mode and VI-mode only one (<channel>).
+        Sets an internal variable to decide weather voltage is both applied and measured (VV-mode), current is applied and voltage is measured (IV-mode) or voltage is applied and current is measured (VI-mode).
+        VV-mode uses two different channels (bias channel <channel_bias> and sense channel <channel_sense>), IV-mode and VI-mode only one (<channel>).
 
         Input:
             mode (int) : 0 (VV-mode) | 1 (IV-mode) (default) | 2 (VI-mode)
@@ -911,11 +932,16 @@ class Yokogawa(Instrument):
         Output:
             None
         '''
-        self._sweep_mode = mode
+        if mode in [0, 1, 2]:
+            logging.debug('{!s}: Set sweep mode to {:d}'.format(__name__, mode))
+            self._sweep_mode = mode
+        else:
+            logging.error('{!s}: Cannot set sweep mode to {!s}'.format(__name__, mode))
+            raise ValueError('{!s}: Cannot set sweep mode to {!s}'.format(__name__, mode))
 
     def get_sweep_mode(self):
         '''
-        Gets an internal variable to decide weather voltage is both applied and measured, current is applied and voltage is measured or voltage is applied and current is measured.
+        Gets an internal variable to decide weather voltage is both applied and measured (VV-mode), current is applied and voltage is measured (IV-mode) or voltage is applied and current is measured (VI-mode).
 
         Input:
             None
@@ -936,11 +962,12 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
         try:
-            logging.debug(__name__ + ': Set sweep start of channel {:d} to {:f}'.format(channel, val))
+            logging.debug('{!s}: Set sweep start of channel {:d} to {:f}'.format(__name__, channel, val))
             # self._write(':chan{:d}:sour:swe:star {:f}'.format(channel, val))
             self._write(':chan{:d}:sour:{:s}:swe:star {:f}'.format(channel, self._IV_modes[self.get_bias_mode(channel)], val))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set sweep start of channel {:d} to {:f}'.format(channel, val))
+        except Exception as e:
+            logging.error('{!s}: Cannot set sweep start of channel {!s} to {!s}'.format(__name__, channel, val))
+            raise type(e)('{!s}: Cannot set sweep start of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, val, e))
 
     def _get_sweep_start(self, channel=1):
         '''
@@ -953,11 +980,12 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
         try:
-            logging.debug(__name__ + ': Get sweep start of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get sweep start of channel {:d}'.format(__name__, channel))
             # return float(self._ask(':chan{:d}:sour:swe:star'.format(channel)))
             return float(self._ask(':chan{:d}:sour:{:s}:swe:star'.format(channel, self._IV_modes[self.get_bias_mode(channel)])))
-        except ValueError:
-            logging.error(__name__ + ': Sweep start of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get sweep start of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get sweep start of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def _set_sweep_stop(self, val, channel=1):
         '''
@@ -971,11 +999,12 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
         try:
-            logging.debug(__name__ + ': Set sweep stop of channel {:d} to {:f}'.format(channel, val))
+            logging.debug('{!s}: Set sweep stop of channel {:d} to {:f}'.format(__name__, channel, val))
             # self._write(':chan{:d}:sour:swe:stop {:f}'.format(channel, val))
             self._write(':chan{:d}:sour:{:s}:swe:stop {:f}'.format(channel, self._IV_modes[self.get_bias_mode(channel)], val))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set sweep stop of channel {:d} to {:f}'.format(channel, val))
+        except Exception as e:
+            logging.error('{!s}: Cannot set sweep stop of channel {!s} to {!s}'.format(__name__, channel, val))
+            raise type(e)('{!s}: Cannot set sweep stop of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, val, e))
 
     def _get_sweep_stop(self, channel=1):
         '''
@@ -988,11 +1017,12 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
         try:
-            logging.debug(__name__ + ': Get sweep stop of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get sweep stop of channel {:d}'.format(__name__, channel))
             # return float(self._ask(':chan{:d}:sour:swe:stop'.format(channel)))
             return float(self._ask(':chan{:d}:sour:{:s}:swe:stop'.format(channel, self._IV_modes[self.get_bias_mode(channel)])))
-        except ValueError:
-            logging.error(__name__ + ': Sweep stop of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get sweep stop of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get sweep stop of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def _set_sweep_step(self, val, channel=1):
         '''
@@ -1006,11 +1036,12 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
         try:
-            logging.debug(__name__ + ': Set sweep step of channel {:d} to {:f}'.format(channel, val))
+            logging.debug('{!s}: Set sweep step of channel {:d} to {:f}'.format(__name__, channel, val))
             self._write(':chan{:d}:sour:{:s}:swe:step {:f}'.format(channel, self._IV_modes[self.get_bias_mode(channel)], val))
             # self._write(':chan{:d}:sour:swe:step {:f}'.format(channel, val))
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot set sweep step of channel {:d} to {:f}'.format(channel, val))
+        except Exception as e:
+            logging.error('{!s}: Cannot set sweep step of channel {!s} to {!s}'.format(__name__, channel, val))
+            raise type(e)('{!s}: Cannot set sweep step of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, val, e))
 
     def _get_sweep_step(self, channel=1):
         '''
@@ -1023,11 +1054,12 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:SWEep:STARt <voltage>|MINiumum|MAXimum
         try:
-            logging.debug(__name__ + ': Get sweep step of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get sweep step of channel {:d}'.format(__name__, channel))
             return float(self._ask(':chan{:d}:sour:{:s}:swe:step'.format(channel, self._IV_modes[self.get_bias_mode(channel)])))
             # return float(self._ask(':chan{:d}:sour:swe:step'.format(channel)))
-        except ValueError:
-            logging.error(__name__ + ': Sweep step of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get sweep step of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get sweep step of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def _get_sweep_nop(self, channel=1):
         '''
@@ -1039,10 +1071,11 @@ class Yokogawa(Instrument):
             val (int)
         '''
         try:
-            logging.debug(__name__ + ': Get sweep nop of channel {:d}'.format(channel))
+            logging.debug('{!s}: Get sweep nop of channel {:d}'.format(__name__, channel))
             return int((self._get_sweep_stop(channel=channel) - self._get_sweep_start(channel=channel)) / self._get_sweep_step(channel=channel) + 1)
-        except ValueError:
-            logging.error(__name__ + ': Sweep nop of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get sweep nop of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get sweep nop of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def set_sweep_parameters(self, sweep, sweep_mode=None, **kwargs):
         '''
@@ -1074,6 +1107,7 @@ class Yokogawa(Instrument):
             self._channel_bias  = kwargs.get('channel_bias', self._channel)
             self._channel_sense = kwargs.get('channel_sense', self._channel)
         try:
+            logging.debug('{!s}: Set sweep parameters of channel {:d} and {:d} to {!s}'.format(__name__, self._channel_bias, self._channel_sense, sweep))
             self._set_sweep_start(val=float(sweep[0]), channel=self._channel_bias)
             self._set_sweep_stop(val=float(sweep[1]), channel=self._channel_bias)
             self._set_sweep_step(val=np.abs(float(sweep[2])), channel=self._channel_bias)
@@ -1085,8 +1119,9 @@ class Yokogawa(Instrument):
             self._write(':trac:poin max')  # alternative: self._write(':trac:poin {:d}'.format(self._get_sweep_nop(channel=self._channel_bias)))
             self._write(':trac:chan{:d}:data:form asc'.format(self._channel_sense))
             self._write(':trac:bin:repl asc')
-        except:
-            logging.error(__name__ + ': Cannot set sweep parameters of channel {:d} and {:d}.'.format(self._channel_bias, self._channel_sense))
+        except Exception as e:
+            logging.error('{!s}: Cannot set sweep parameters of channel {:d} and {:d} to {!s}'.format(__name__, self._channel_bias, self._channel_sense, sweep))
+            raise type(e)('{!s}: Cannot set sweep parameters of channel {:d} and {:d} to {!s}\n{!s}'.format(__name__ , self._channel_bias, self._channel_sense, sweep, e))
         return
 
     def get_tracedata(self, sweep_mode=None, **kwargs):
@@ -1116,6 +1151,7 @@ class Yokogawa(Instrument):
             self._channel_bias  = kwargs.get('channel_bias', self._channel)
             self._channel_sense = kwargs.get('channel_sense', self._channel)
         try:
+            logging.debug('{!s}: Take sweep data of channel {:d} and {:d}'.format(__name__, self._channel_bias, self._channel_sense))
             self._write(':chan{:d}:init'.format(self._channel_bias))
             self._wait_for_ready_for_sweep(channel=self._channel_bias)
             self._write(':trac:stat 1')
@@ -1129,8 +1165,9 @@ class Yokogawa(Instrument):
             bias_values = np.fromstring(string=self._ask('trac:chan{:d}:data:read? sl'.format(self._channel_bias)), dtype=float, sep=',')
             sense_values = np.fromstring(string=self._ask('trac:chan{:d}:data:read? ml'.format(self._channel_bias)), dtype=float, sep=',')
             return bias_values, sense_values
-        except:
-            logging.error(__name__ + ': Cannot take sweep data of channel {:d} and {:d}.'.format(self._channel_bias, self._channel_sense))
+        except Exception as e:
+            logging.error('{!s}: Cannot take sweep data of channel {!s} and {!s}'.format(__name__, self._channel_bias, self._channel_sense))
+            raise type(e)('{!s}: Cannot take sweep data of channel {!s} and {!s}\n{!s}'.format(__name__ , self._channel_bias, self._channel_sense, e))
 
     def take_IV(self, sweep, sweep_mode=None, **kwargs):
         '''
@@ -1177,15 +1214,16 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: :STATus:SOURce:CONDition?
         try:
-            logging.debug(__name__ + ': Get bias status register')
+            logging.debug('{!s}: Get bias status register'.format(__name__))
             BSR = int(self._ask(':stat:sour:cond'))
             ans = []
             for i in range(16):
                 # ans.append(2**i == (BSR) & 2**i)
                 ans.append(bool((BSR >> i) % 2))
             return ans
-        except ValueError:
-            logging.error(__name__ + ': Bias status register not specified:')
+        except Exception as e:
+            logging.error('{!s}: Cannot get bias status register'.format(__name__))
+            raise type(e)('{!s}: Cannot get bias status register\n{!s}'.format(__name__ , e))
 
     def print_bias_status_register(self):
         '''
@@ -1228,15 +1266,16 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: :STATus:SENSe:CONDition?
         try:
-            logging.debug(__name__ + ': Get sense status register')
+            logging.debug('{!s}: Get sense status register'.format(__name__))
             SSR = int(self._ask(':stat:sens:cond'))
             ans = []
             for i in range(16):
                 # ans.append(2**i == (SSR) & 2**i)
                 ans.append(bool((SSR >> i) % 2))
             return ans
-        except ValueError:
-            logging.error(__name__ + ': Sense status register not specified:')
+        except Exception as e:
+            logging.error('{!s}: Cannot get sense status register'.format(__name__))
+            raise type(e)('{!s}: Cannot get sense status register\n{!s}'.format(__name__ , e))
 
     def print_sense_status_register(self):
         '''
@@ -1252,7 +1291,7 @@ class Yokogawa(Instrument):
                enumerate(self._sense_status_register) if sb != ('', '')]
         print 'Sense status register:' + ''.join(msg)
 
-    def is_end_of_sweep(self, channel=1):
+    def get_end_of_sweep(self, channel=1):
         '''
         Gets event of bias status register entry "End for Sweep" of channel <channel>
         
@@ -1263,10 +1302,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: :STATus:SOURce:EVENt?
         try:
-            logging.debug(__name__ + ': Get bias status register event "End of Sweep" of channel {:d}'.format(channel))
+            logging.debug('''{!s}: Get bias status register event "End of Sweep" of channel {:d}'''.format(__name__, channel))
             return bool((int(self._ask(':stat:sour:even')) >> (0+8*(channel-1)))%2)
-        except ValueError:
-            logging.error(__name__ + ': Status register event "End of Sweep" of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get status register event "End of Sweep" of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get status register event "End of Sweep" of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def _wait_for_end_of_sweep(self, channel=1):
         '''
@@ -1277,10 +1317,10 @@ class Yokogawa(Instrument):
         Output:
             None
         '''
-        while not (self.is_end_of_sweep(channel=channel)):
+        while not (self.get_end_of_sweep(channel=channel)):
             time.sleep(100e-3)
 
-    def is_ready_for_sweep(self, channel=1):
+    def get_ready_for_sweep(self, channel=1):
         '''
         Gets condition of bias status register entry "Ready for Sweep" of channel <channel>
         
@@ -1291,10 +1331,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: :STATus:SOURce:CONDition?
         try:
-            logging.debug(__name__ + ': Get bias status register event "Ready of Sweep" of channel {:d}'.format(channel))
+            logging.debug('''{!s}: Get bias status register event "Ready of Sweep" of channel {:d}'''.format(__name__, channel))
             return bool((int(self._ask(':stat:sour:cond')) >> (1+8*(channel-1)))%2)
-        except ValueError:
-            logging.error(__name__ + ': Status register condition "Ready for Sweep" of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get status register condition "Ready for Sweep" of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get status register condition "Ready for Sweep" of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def _wait_for_ready_for_sweep(self, channel=1):
         '''
@@ -1305,10 +1346,10 @@ class Yokogawa(Instrument):
         Output:
             None
         '''
-        while not (self.is_ready_for_sweep(channel=channel)):
+        while not (self.get_ready_for_sweep(channel=channel)):
             time.sleep(100e-3)
 
-    def is_end_of_measure(self, channel=1):
+    def get_end_of_measure(self, channel=1):
         '''
         Gets condition of sense status register entry "End of Measure" of channel <channel>
         
@@ -1319,10 +1360,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: :STATus:SENSe:CONDition?
         try:
-            logging.debug(__name__ + ': Get sense status register event "End of Measure" of channel {:d}'.format(channel))
+            logging.debug('''{!s}: Get bias status register event "End of Measure" of channel {:d}'''.format(__name__, channel))
             return bool((int(self._ask(':stat:sens:cond')) >> (0+8*(channel-1)))%2)
-        except ValueError:
-            logging.error(__name__ + ': Status register event "End of Measure" of channel {:d} not specified:'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get status register event "End of Measure" of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get status register event "End of Measure" of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def _wait_for_end_of_measure(self, channel=1):
         '''
@@ -1333,10 +1375,10 @@ class Yokogawa(Instrument):
         Output:
             None
         '''
-        while not (self.is_end_of_measure(channel=channel)):
+        while not (self.get_end_of_measure(channel=channel)):
             time.sleep(100e-3)
 
-    def is_end_of_trace(self, channel=1):
+    def get_end_of_trace(self, channel=1):
         '''
         Gets condition of sense status register entry "End of Trace" of channel <channel>
         
@@ -1347,10 +1389,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: :STATus:SENSe:CONDition?
         try:
-            logging.debug(__name__ + ': Get sense status register event "End of Trace" of channel {:d}'.format(channel))
-            return bool((int(self._ask(':stat:sens:cond'))>>14)%2)
-        except ValueError:
-            logging.error(__name__ + ': Status register event "End of Trace" of channel {:d} not specified:'.format(channel))
+            logging.debug('''{!s}: Get bias status register event "End of Trace" of channel {:d}'''.format(__name__, channel))
+            return bool((int(self._ask(':stat:sens:cond')) >> 14)%2)
+        except Exception as e:
+            logging.error('{!s}: Cannot get status register event "End of Trace"  of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get status register event "End of Trace"  of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def _wait_for_end_of_trace(self, channel=1):
         '''
@@ -1361,10 +1404,10 @@ class Yokogawa(Instrument):
         Output:
             None
         '''
-        while not (self.is_end_of_trace(channel=channel)):
+        while not (self.get_end_of_trace(channel=channel)):
             time.sleep(100e-3)
 
-    def is_OPC(self):
+    def get_OPC(self):
         '''
         Gets condition of status register entry "Operation complete"
         
@@ -1375,10 +1418,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: *OPC
         try:
-            logging.debug(__name__ + ': Get status register condition "Operation complete"')
+            logging.debug('''{!s}: Get bias status register event "Operation complete"'''.format(__name__))
             return bool(int(self._ask('*OPC')))
-        except ValueError:
-            logging.error(__name__ + ': Status register condition "Operation complete" not specified:')
+        except Exception as e:
+            logging.error('{!s}: Cannot get status register condition "Operation complete"'.format(__name__))
+            raise type(e)('{!s}: Cannot get status register condition "Operation complete"\n{!s}'.format(__name__ , e))
 
     def _wait_for_OPC(self):
         '''
@@ -1389,7 +1433,7 @@ class Yokogawa(Instrument):
         Output:
             None
         '''
-        while not (self.is_OPC()):
+        while not (self.get_OPC()):
             time.sleep(1e-3)
         return
 
@@ -1464,10 +1508,13 @@ class Yokogawa(Instrument):
             self._channel  = kwargs.get('channel', 1)
             channels = {'channel':self._channel}
         # set values
-        for key_channel, val_channel in channels.items():
-            for key_parameter, val_parameter in defaults[self._sweep_mode][key_channel].items():
-                #print('self.set_{:s}({!s}, channel={:d})'.format(key_parameter, val_parameter, val_channel))
-                eval('self.set_{:s}({!s}, channel={:d})'.format(key_parameter, val_parameter, val_channel))
+        try:
+            for key_channel, val_channel in channels.items():
+                for key_parameter, val_parameter in defaults[self._sweep_mode][key_channel].items():
+                    eval('self.set_{:s}({!s}, channel={:d})'.format(key_parameter, val_parameter, val_channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot set defaults values of channel {!s} and {!s}'.format(__name__, self._channel_bias, self._channel_sense))
+            raise type(e)('{!s}: Cannot set defaults values of channel {!s} and {!s}\n{!s}'.format(__name__ , self._channel_bias, self._channel_sense, e))
 
     def get_all(self, channel=1):
         '''
@@ -1497,7 +1544,8 @@ class Yokogawa(Instrument):
         print('sweep stop         = {:f}{:s}'.format(self._get_sweep_stop(channel=channel), self._IV_units[self.get_bias_mode(channel=channel)]))
         print('sweep step         = {:f}{:s}'.format(self._get_sweep_step(channel=channel), self._IV_units[self.get_bias_mode(channel=channel)]))
         print('sweep nop          = {:d}'.format(self._get_sweep_nop(channel=channel)))
-        for err in self.get_error(): print('error              = {:d}\t{:s}'.format(err[0], err[1]))
+        for err in self.get_error():
+            print('error              = {:d}\t{:s}'.format(err[0], err[1]))
         self.print_bias_status_register()
         self.print_sense_status_register()
 
@@ -1512,10 +1560,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: *RST
         try:
-            logging.debug(__name__ + ': resetting instrument')
+            logging.debug('{!s}: Reset instrument to factory settings'.format(__name__))
             self._write('*RST')
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot reset')
+        except Exception as e:
+            logging.error('{!s}: Cannot reset instrument to factory settings'.format(__name__))
+            raise type(e)('{!s}: Cannot reset instrument to factory settings\n{!s}'.format(__name__ , e))
 
     def get_error(self):
         '''
@@ -1528,25 +1577,26 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: :SYSTem:ERRor?
         try:
-            logging.debug(__name__ + ': Get errors')
-            err = [self._ask(':syst:err').split(',', 1)]
+            logging.debug('{!s}: Get errors of instrument'.format(__name__))
+            err = [self._visainstrument.query(':syst:err?').rstrip().split(',', 1)]
             while err[-1] != ['0', '"No error"']:
-                err.append(self._ask(':syst:err').split(',', 1))
+                err.append(self._visainstrument.query(':syst:err?').rstrip().split(',', 1))
             if len(err) > 1: err = err[:-1]
             err = [[int(e[0]), str(e[1][1:-1])] for e in err]
             return err
-        except ValueError:
-            logging.error(__name__ + ': Error not specified:')
+        except Exception as e:
+            logging.error('{!s}: Cannot get errors of instrument'.format(__name__))
+            raise type(e)('{!s}: Cannot get errors of instrument\n{!s}'.format(__name__ , e))
     
     def _raise_error(self):
         errors = self.get_error()
-        if errors[0][0] is 0: # no error
+        if len(errors)==1 and errors[0][0] is 0: # no error
+            return
+        else:
             msg = __name__ + ' raises the following errors:'
             for err in errors:
-                msg += '\n' + self.err_msg[err]
+                msg += '\n{:s} ({:s})'.format(self.err_msg[err[0]], err[1])
             raise ValueError(msg)
-        else:
-            return
 
     def clear_error(self):
         '''
@@ -1559,10 +1609,11 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: *CLS
         try:
-            logging.debug(__name__ + ': Clear error')
+            logging.debug('{!s}: Clears error of instrument'.format(__name__))
             self._write('*CLS')
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot clear error')
+        except Exception as e:
+            logging.error('{!s}: Cannot clears error of instrument'.format(__name__))
+            raise type(e)('{!s}: Cannot clears error of instrument\n{!s}'.format(__name__ , e))
 
     def close(self):
         '''
@@ -1574,10 +1625,11 @@ class Yokogawa(Instrument):
             None
         '''
         try:
-            logging.debug(__name__ + ': Close VISA-instrument')
+            logging.debug('{!s}: Close VISA-instrument'.format(__name__))
             self._visainstrument.close()
-        except AttributeError:
-            logging.error(__name__ + ': Invalid input: cannot close VISA-instrument')
+        except Exception as e:
+            logging.error('{!s}: Cannot close VISA-instrument'.format(__name__))
+            raise type(e)('{!s}: Cannot close VISA-instrument\n{!s}'.format(__name__ , e))
 
     def get_parameters(self):
         '''
