@@ -1,4 +1,4 @@
-# Agilent_VNA_E5071C driver, P. Macha, modified by M. Weides July 2013, J. Braumueller 2015
+# Keysight_357670A driver, TW 2017
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -41,13 +41,11 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
             address (string) : GPIB address
         """
 
-        print 'Initializing while take some seconds... Do not worry'
+        print 'Initialization will take some seconds... Do not worry'
         self.ip = kwargs.get("ip", "10.22.197.155")
         super(Keysight_35670A, self).__init__(address, timeout=10, chunk_size=4096, delay=0.05, ip=self.ip)
         Instrument.__init__(self, name, tags=['physical'])
-        #self.calibration()
 
-        
         # Implement parameters
         # ToDO: insert all parameters and function from the script below, check how to deal with channels
         self.add_parameter('instrument_mode', type=types.StringType, flags=Instrument.FLAG_GETSET)
@@ -79,7 +77,6 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         self.add_function('fast_averaging')
         self.add_function('set_display_format')
         self.add_function('set_ac_coupling')
-        #include math_function maybe
         
         if reset is True:
             self._set_GPIB_dev_reset()
@@ -116,7 +113,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         else:
             return False
 
-    def set_return_format(self, s_digits=3):
+    def set_return_format(self, s_digits=6):
         '''specifies the number of significant digits'''
         self.write('FORMAT:DATA ASCii, {}'.format(s_digits))
     
@@ -151,15 +148,15 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         """nothing to do here??"""
         pass
 
-    def do_set_active_traces(self, channel):
+    def do_set_active_traces(self, num_of_traces):
         """
-        activates the chosen channel(s), not sure how it really works
-        expects string 'A','B','AB' for channel 1, 2, 1+2
+        sets the number of active traces
         """
-        self.write("CALC:ACT "+channel)
+        trace_names='ABCD'
+        self.write("CALC:ACT "+trace_names[:num_of_traces])
 
     def do_get_active_traces(self):
-        """gets the active channels A,B,AB for channel 1,2,1+2"""
+        """gets the active traces"""
         return len(self.ask('CALC:ACT?')[:-1])
 
     def get_trace_name(self, trace):
@@ -172,14 +169,19 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         meas_format = self.get_trace_format(trace)
         return meas_typ + '_' + meas_format
 
-    def set_input_channels(self, channels, status):
-        """ don't know if needed. expects channel as an array and status as 0 or 1"""
-        if status is 0 and 1 in channels:
+    def set_input_channels(self, channel, status):
+        """
+        Sets the active input channels. Especially useful if you only have one channel and want to go to the highest
+        possible frequency, i.e., 102.4kHz
+        :param channel: 1 or 2 (int)
+        :param status: True or False (bool)
+        :return: None
+        """
+        if status == 0 and channel == 1 :
             print "channel 1 must always be on"
             return
-        state=['OFF', 'ON' ]
-        for i in channels:
-            self.write(':inp{} {}'.format(i, state[status]))
+        state=['OFF', 'ON']
+        self.write(':inp{} {}'.format(channel, state[status]))
 
     def set_ac_coupling(self, channels=[1,2], val=[True, True]):
         """
@@ -189,8 +191,8 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         :return:
         """
         mode = ['DC', 'AC']
-        for i in channels:
-            self.write(':Input{}:Coup {}'.format(i, mode[val]))
+        for num, i in enumerate(channels):
+            self.write(':Input{}:Coup {}'.format(i, mode[val[num]]))
 
     def get_ac_coupling(self, channel):
         """
@@ -248,15 +250,16 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
 
     def do_get_nop(self):
         """proxy function for spectroscopy script"""
-        if self.instrument_mode is 'FFT':
+        if self.instrument_mode == 'FFT':
             self._nop= self.get_frequency_resolution()+1
-        if self.instrument_mode is 'histogram':
+        if self.instrument_mode == 'histogram':
             self._nop = 1 # for pseudo_vna_scan with spectroscopy scrpit
         return self._nop
 
     def do_set_stopfreq(self, stop):
         """sets the stop frequency"""
         self.write("Freq:Stop {}".format(stop))
+        self.frequency_changed = True
 
     def do_get_stopfreq(self):
         """gets the stop frequeny"""
@@ -269,17 +272,15 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         '''sets frequency bin in histogram mode'''
         self.write("")
 
-
     '''def set_measurement_time'''
-
 
     def do_set_instrument_mode(self, mode):
         """sets the instrument mode, expects string: 'FFT', 'histogram', 'correlation' """
-        if mode is 'FFT':
+        if mode == 'FFT':
             mode_number = 0
-        elif mode is 'histogram':
+        elif mode == 'histogram':
             mode_number = 4
-        elif mode is 'correlation':
+        elif mode == 'correlation':
             mode_number = 5
         else:
             print 'wrong input'
@@ -291,14 +292,13 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
     def do_get_instrument_mode(self):
         """returns the instrument mode"""
         mode_number=int(self.ask('INST:NSEL?')[1:-1])
-        if mode_number is 0:
+        if mode_number == 0:
             self.instrument_mode = 'FFT'
-        elif mode_number is 4:
+        elif mode_number == 4:
             self.instrument_mode = 'histogram'
-        elif mode_number is 5:
+        elif mode_number == 5:
             self.instrument_mode = 'correlation'
         return self.instrument_mode
-
 
     def do_set_sweep_mode(self, mode):
         """sets sweepmode to mode='AUTO' or 'MAN' """
@@ -308,7 +308,8 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
             self.write('swe:mode '+mode)
 
     def do_set_sweeptime(self, time):
-        """sets the sweep time (recording time) in sec  sweeptime=freqspan/freqresolution. Chaning either will change the other"""
+        """sets the sweep time (recording time) in sec  sweeptime=freqspan/freqresolution.
+        Chaning either will change the other"""
         self.write('swe:TIME {}'.format(time))
 
     def do_get_sweeptime(self):
@@ -321,7 +322,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         return self.sweeptime_averages
 
     def do_set_window_type(self, type):
-        """sets the window type, expects string either 'HANN', 'FLAT' or 'UNIF' """
+        """sets the window type, expects string either 'HANN', 'FLAT' or 'UNIF'"""
         if type not in ['HANN', 'FLAT', 'UNIF']:
             print "wrong input only HANN, FLAT, UNIF are allowed"
         else:
@@ -333,11 +334,13 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         return self.window_type
 
     def set_autoscale(self, trace, option):
-        """turns autoscalle off and on. A trace has to be selected, option must be a string [AUTO, OFF, ON, ONCE] or 0 and 1"""
+        """turns autoscalle off and on. A trace has to be selected,
+        option must be a string [AUTO, OFF, ON, ONCE] or 0 and 1"""
         self.write('disp:wind{}trac:y:auto '.format(trace)+option)
 
     def set_input_shielding(self, mode, channel = [1,2]):
-        """ determines the input shielding mode (expects string), either "ground" or "floating", for the chosen channels"""
+        """ determines the input shielding mode (expects string), either "ground" or "floating",
+        for the chosen channels"""
         for i in channel:
             self.write('INP{}:LOW '.format(i)+mode)
 
@@ -362,7 +365,8 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         self.write('DISPLAY:FORM ' + option[number])
 
     def set_trace_format(self, trace, option):
-        """selects the display format for the specified trace, i.e., linear, phase, real, imag, NYQuist, UPHase, GDElay, POLAR"""
+        """selects the display format for the specified trace, i.e.,
+         linear, phase, real, imag, NYQuist, UPHase, GDElay, POLAR"""
         self.write('calc{}:format {}'.format(trace, option))
 
     def get_trace_format(self, trace):
@@ -425,9 +429,9 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
     def do_get_averages(self):
         """gets the numbers of averages"""
         if self.instrument_mode is 'histogram':
-            self.averages=1
+            self.averages = 1
         else:
-            self.averages=int(float(self.ask('AVER:COUN?')[:-1]))
+            self.averages = int(float(self.ask('AVER:COUN?')[:-1]))
         return self.averages
 
     def do_set_repeat_averaging(self, status):
@@ -498,41 +502,29 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
 
     def get_tracedata(self, trace, type='AmpPha'):
         return self.get_single_trace(trace)
-        """
-        I=self.get_single_trace(1)
-        Q=self.get_single_trace(2)
-        if self.instrument_mode is 'FFT':
-            if type is 'RealImag':
-                return I,Q
-            else:
-                amp = np.absolute(I + 1j * Q)
-                pha = np.angle(I + 1j * Q)
-                return amp, pha
 
-        else: # in histogram mode for pseudo vna scan, return only max value
-            I_max=(self.x_values[np.argmax(I)])
-            Q_max=(self.x_values[np.argmax(Q)])
-            amp = np.absolute(I_max + 1j * Q_max)
-            pha = np.angle(I_max + 1j * Q_max)
-            if type is 'RealImag':
-                return [I_max], [Q_max]
-            elif type is 'AmpPha':
-                return [amp], [pha]
-            elif type is 'both':
-                return [amp],[pha],[I_max],[Q_max]
+
+    def get_tracedata_pseudo_vna_scan(self):
         """
-    def get_tracedata_2d(self):
-        I_real=self.get_single_trace(1)
-        Q_real=self.get_single_trace(2)
-        I_imag=self.get_single_trace(3)
-        Q_imag=self.get_single_trace(4)
-        return I_real, I_imag, Q_real, Q_imag
+        This is a function to perform a pseudo vna scan with the spectrums analyzer using the timetrace (histogram)
+        mode.
+        :return: amplitude, phase, I and Q data (one single point)
+
+        if self.instrument_mode != 'histogram':
+            raise TypeError('Signal analyzer must be in histogram mode!')
+        I_max=(self.x_values[np.argmax(I)])
+        Q_max=(self.x_values[np.argmax(Q)])
+        amp = np.absolute(I_max + 1j * Q_max)
+        pha = np.angle(I_max + 1j * Q_max)
+        return [amp],[pha],[I_max],[Q_max]
+        """
+
 
     def set_y_unit(self, unit, channel):
         """sets the y-unit (string), can also be used for PSD calucalation"""
         if unit[0] != '"':
             unit = '"' + unit + '"'
-        if channel in [1,2,3,4]: # implement string for unit
+        if channel in [1, 2, 3, 4]:  # implement string for unit
             self.write('calculate{}:unit:voltage '.format(channel) + unit)
 
     def get_y_unit(self, channel):
