@@ -7,13 +7,13 @@ from ipywidgets import interact, widgets, Layout
 import logging
 
 import qkit.measure.timedomain.pulse_sequence as ps
-#from qkit.measure.timedomain.awg.load import load_sequence as awgload
+import qkit.measure.timedomain.awg.load_awg as load_tawg
 
 
 
 class TdChannel(object):
     """
-    Class managing the channels for TdExperiment.
+    Class managing the channels for the VirtualAWG class.
     These channels are similar to the channel of an awg.
 
     Attributes:
@@ -238,9 +238,9 @@ class TdChannel(object):
         return seq_list, ro_inds
 
 
-class TdExperiment(object):
+class VirtualAWG(object):
     """
-    Class managing multiple manipulation channels for a timedomain experiment.
+    Class managing multiple manipulation channels for a timedomain experiment (virtual AWG).
     Each channel stores pulse sequences which can be loaded onto your device.
     The readout pulse of each sequences is used to align sequences of multiple channles.
 
@@ -256,19 +256,19 @@ class TdExperiment(object):
         load: load sequences of specified channel(s) on your physical device
 
     TODO:
-        Write .load fct to directly load the pulse sequences on a device, i.e. TdExperiment.load(device).
+        Write .load fct to directly load the pulse sequences on a device, i.e. VirtualAWG.load(device).
     """
 
     def __init__(self, sample, channels = 1):
         """
-        Inits TdExperiment with sample and number of channels:
+        Inits VirtualAWG with sample and number of channels:
             sample:   sample object
-            channels: number of channels for the experiment
+            channels: number of channels of the virtual AWG
         """        
         self._sample = sample
         self._num_chans = channels
 
-        self.channels = [None]  # type: List[TdExperimentChannel]
+        self.channels = [None]  # type: List[TdChannel]
         self.channels.extend(TdChannel(self._sample, "channel_%i"%(i + 1)) for i in range(channels))
 
         # Dictionary for x-axis scaling
@@ -470,14 +470,15 @@ class TdExperiment(object):
             ind += 1
         return sequences, readout_indices
     
-    def load(self, device):
+    def load(self):
         """
-        !!! Currently dissabled !!!
-        Load the sequences stored in channels to your physical device (awg, fpga).
-
-        Args:
-            device:   name of your physical device
+        Load the sequences stored in the channels of the virtual AWG to your physical device (awg, fpga).
+        Currently only enabled for the tabor awg.
         """
         # Case descrimination:
-        # actual_load_awg/fpga(self._sequences)
-        return False
+        if self._sample.awg.get_name() is "tawg":
+            sequences, readout_inds = self._sync()
+            load_tawg.load_tabor(sequences, readout_inds, self._sample)
+        else:
+            print("Unknown device type! Unable to load sequences.")
+        return True
