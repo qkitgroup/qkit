@@ -76,7 +76,9 @@ class transport(object):
         self._dVdI = False  # adds dV/dI data series, views, ...
         self._average = None
         self.set_log_function()
-        # 2D & 3D scan variables
+        # xy, 2D & 3D scan variables
+        self._x_name = ''
+        self._y_name = ''
         self._scan_dim = None
         self._x_dt = 2e-3  # in s
         self._x_vec = [None]
@@ -175,6 +177,7 @@ class transport(object):
             for val in x_vec:
                 if not str(val).isdigit():
                     raise TypeError('{:s}: Cannot set {!s} as x-vector: {!s} is no number'.format(__name__, x_vec, val))
+            self._x_vec = x_vec
         else:
             raise TypeError('{:s}: Cannot set {!s} as x-vector: iterable object needed'.format(__name__, x_vec))
         # x-coordname
@@ -237,6 +240,7 @@ class transport(object):
             for val in y_vec:
                 if not str(val).isdigit():
                     raise TypeError('{:s}: Cannot set {!s} as y-vector: {!s} is no number'.format(__name__, y_vec, val))
+            self._y_vec = y_vec
         else:
             raise TypeError('{:s}: Cannot set {!s} as y-vector: iterable object needed'.format(__name__, y_vec))
         # y-coordname
@@ -260,7 +264,7 @@ class transport(object):
 
     def set_xy_parameters(self, x_name, x_func, x_vec, x_unit, y_name, y_func, y_unit, x_dt=1e-3):
         '''
-        Set x- and y-parameters for measure_xy(). y-parameters can be a list in order to record various quantities.
+        Set x- and y-parameters for measure_xy(), where y-parameters can be a list in order to record various quantities.
         
         Input:
             x_name (str): name of x-parameter
@@ -605,6 +609,7 @@ class transport(object):
         Output:
             None
         '''
+        ### TODO: add landscape scan
         if self._x_set_obj is None or self._y_set_obj is None:
             logging.error('{:s}: axes parameters not properly set'.format(__name__))
             raise TypeError('{:s}: axes parameters not properly set'.format(__name__))
@@ -658,7 +663,7 @@ class transport(object):
                        2: len(self._x_vec)*self.sweeps.get_nos(),
                        3: len(self._x_vec)*len(self._y_vec)*self.sweeps.get_nos()}
             self._pb = Progress_Bar(max_it=num_its[self._scan_dim]*average, 
-                                    name='{:d}D IVD sweep: {:s}'.format(self._scan_dim, self._filename))
+                                    name='{:d}D IV-curve: {:s}'.format(self._scan_dim, self._filename))
         else:
             print('recording trace...')
         ''' measurement '''
@@ -666,7 +671,7 @@ class transport(object):
         qt.mstart()
         #qkit.flow.start()
         try:
-            if self._scan_dim == 0:
+            if self._scan_dim == 0:  # single data points
                 x_vec = list(self._x_vec)
                 # add +/-inf as last element to x_vec
                 if all(x<y for x, y in zip(x_vec, x_vec[1:])):  # x_vec is increasing
@@ -686,35 +691,23 @@ class transport(object):
                             self._pb.iterate()
                         i += 1
                     sleep(self._x_dt)
-            elif self._scan_dim == 1:
-                ''' 1D scan '''
-                # iterate sweeps and take data
-                self._get_sweepdata(**kwargs)
-            else:
-                for ix, x in enumerate(self._x_vec):  # loop: x_obj with parameters from x_vec
-                    self._x_set_obj(x)
+            elif self._scan_dim in [1, 2, 3]:  # IV curve
+                for x, x_func in [(None, self._pass)] if self._scan_dim < 2 else [(x, self._x_set_obj) for x in self._x_vec]:  # loop: x_obj with parameters from x_vec if 2D or 3D else pass(None)
+                    x_func(x)
                     sleep(self._x_dt)
                     # log function
-                    if self.log_function is not None:
+                    if self.log_function != [None]:
                         for i, f in enumerate(self.log_function):
                             self._log_values[i].append(float(f()))
-                    ''' 2D scan '''
-                    if self._scan_dim == 2:
+                    for y, y_func in [(None, self._pass)] if self._scan_dim < 3 else [(y, self._y_set_obj) for y in self._y_vec]:  # loop: y_obj with parameters from y_vec if 3D else pass(None)
+                        y_func(y)
+                        sleep(self._tdy)
                         # iterate sweeps and take data
                         self._get_sweepdata(**kwargs)
-                    ''' 3D scan '''
-                    if self._scan_dim == 3:
-                        for y in self._y_vec:  # loop: y_obj with parameters from y_vec (only 3D measurement)
-                            self._y_set_obj(y)
-                            sleep(self._tdy)
-                            # iterate sweeps and take data
-                            self._get_sweepdata(**kwargs)
-                        # filling of value-box by storing data in the next 2d structure after every y-loop
-                        for i in range(self.sweeps.get_nos()):
-                            self._data_I[i].next_matrix()
-                            self._data_V[i].next_matrix()
-                            if self._dVdI:
-                                self._data_dVdI[i].next_matrix()
+                    # filling of value-box by storing data in the next 2d structure after every y-loop
+                    if self._scan_dim is 3:
+                        for val, lst in zip(range(self.sweeps.get_nos()), [val for k, val in enumerate([self._data_I, self._data_V, self._data_dVdI]) if k < 2+int(self._dVdI)]):
+                            lst[val].next_matrix()
         finally:
             ''' end measurement '''
             qt.mend()
@@ -817,9 +810,10 @@ class transport(object):
         self._data_dVdI = []
         if self._scan_dim == 0:
             ''' xy '''
+            # add data variables
             self._data_x = self._data_file.add_coordinate(self._x_name, unit=self._x_unit)
             self._data_y = [self._data_file.add_value_vector(self._y_name[i], x=self._data_x, unit=self._y_unit[i], save_timestamp=False) for i in range(len(self._y_func))]
-            ### TODO: view yy with selectable parameters
+            # add views
             views = kwargs.get('view', False)
             if views:
                 if views is True:
@@ -841,7 +835,7 @@ class transport(object):
             self._add_views()
         elif self._scan_dim == 2:
             ''' 2D scan '''
-            self._data_x = self._data_file.add_coordinate(self._x_coordname, unit=self.x_unit)
+            self._data_x = self._data_file.add_coordinate(self._x_coordname, unit=self._x_unit)
             self._data_x.add(self._x_vec)
             # add data variables
             self.sweeps.create_iterator()
@@ -858,7 +852,7 @@ class transport(object):
             self._add_views()
         elif self._scan_dim == 3:
             ''' 3D scan '''
-            self._data_x = self._data_file.add_coordinate(self._x_coordname, unit=self.x_unit)
+            self._data_x = self._data_file.add_coordinate(self._x_coordname, unit=self._x_unit)
             self._data_x.add(self._x_vec)
             self._data_y = self._data_file.add_coordinate(self._y_coordname, unit=self._y_unit)
             self._data_y.add(self._y_vec)
@@ -978,8 +972,8 @@ class transport(object):
             for j in range(self.sweeps.get_nos()):
                 I_values, V_values = self._IVD.take_IV(sweep=self.sweeps.get_sweep(), **kwargs)
                 for val, lst in zip([I_values, V_values, np.gradient(V_values)/np.gradient(I_values) if self._dVdI else None],
-                                    [self._data_I, self._data_V, self._data_dVdI if self._dVdI else [None]]):
-                    lst[j].append(val)
+                                    [self._data_I[j], self._data_V[j], self._data_dVdI[j] if self._dVdI else [None]]):
+                    lst.append(val)
                 # iterate progress bar
                 if self.progress_bar:
                     self._pb.iterate()
@@ -996,6 +990,9 @@ class transport(object):
             None
         '''
         self._plot_comment = comment
+    
+    def _pass(self, arg):
+        pass
 
     class sweep(object):
         '''
