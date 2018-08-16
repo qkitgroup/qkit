@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # Keithley.py driver for Keithley 2636A multi channel source measure unit
 # Micha Wildermuth, micha.wildermuth@kit.edu 2017
 #
@@ -32,26 +34,49 @@ class virtual_tunnel_electronic(Instrument):
     def __init__(self, name, SMU):
         self.__name__ = __name__
         # create instrument
-        logging.info(__name__ + ' : Initializing instrument virtual tunnel electronic')
+        logging.info(__name__ + ': Initializing instrument virtual tunnel electronic')
         Instrument.__init__(self, name, tags=['virtual'])
         self._instruments = qkit.instruments.get_instruments()
         # Source Measure Unit (SMU)
         self._SMU = SMU
         # external measurement setup
+        self._BW = None # bandwidth of prefilter (only for get_all and setting file)
         self._dAdV = 2e-6 # for external current bias
         self._amp = 1e3   # for external voltage amplifier
+        self._tau_amp = 100e-3 # time constant of amplifier (only for get_all and setting file)
         self._dVdA = 1e8  # for external voltage bias
         self._Vdiv = 1e3  # for external voltage divider
-        ### FIXME: time constant of amplifier and bandwidth for get_all and setting file
         # internal variables
         self.set_sweep_mode(mode=0)  # VV-mode
         self._sweep_modes = {0: 'VV-mode', 1: 'IV-mode', 2: 'VI-mode'}
         self.set_pseudo_bias_mode(mode=0)  # current bias
         self._pseudo_bias_modes = {0: 'current bias', 1: 'voltage bias'}
 
+    def set_BW(self, val=None):
+        '''
+        Sets the internal variable for the bandwidth of an external filter to <val> (in Hz)
+        
+        Input:
+            val (float): None (default)
+        Output:
+            None
+        '''
+        self._BW = val
+
+    def get_BW(self):
+        '''
+        Gets the internal variable for the bandwidth of an external filter (in Hz)
+        
+        Input:
+            None
+        Output:
+            val (float)
+        '''
+        return self._BW
+
     def set_dAdV(self, val=1):
         '''
-        Sets voltage-current conversion of external current source used for current bias to <val> (in A/V)
+        Sets the internal variable for the voltage-current conversion factor of an external voltage controlled current source used for the current bias to <val> (in A/V)
         
         Input:
             val (float): 1 (default)
@@ -62,7 +87,7 @@ class virtual_tunnel_electronic(Instrument):
 
     def get_dAdV(self):
         '''
-        Gets voltage-current conversion of external current source used for current bias (in A/V)
+        Gets the internal variable for the voltage-current conversion factor of an external voltage controlled current source used for the current bias (in A/V)
         
         Input:
             None
@@ -73,7 +98,7 @@ class virtual_tunnel_electronic(Instrument):
 
     def set_amp(self, val=1):
         '''
-        Sets amplification factor of external measurement setup to <val>
+        Sets the internal variable for the amplification factor of an external amplifier to <val>
         
         Input:
             val (float): 1 (default)
@@ -84,7 +109,7 @@ class virtual_tunnel_electronic(Instrument):
 
     def get_amp(self):
         '''
-        Gets amplification factor of external measurement setup
+        Gets the internal variable for the amplification factor of an external amplifier
         
         Input:
             None
@@ -93,9 +118,31 @@ class virtual_tunnel_electronic(Instrument):
         '''
         return self._amp
 
+    def set_tau_amp(self, val=100e-3):
+        '''
+        Sets the internal variable for the time constant of an external amplifier to <val> (τ=2πRC in s)
+        
+        Input:
+            val (float): 100e-3 (default)
+        Output:
+            None
+        '''
+        self._tau_amp = val
+
+    def get_tau_amp(self):
+        '''
+        Gets the internal variable for the time constant of an external amplifier (τ=2πRC in s)
+        
+        Input:
+            None
+        Output:
+            val (float)
+        '''
+        return self._tau_amp
+
     def set_dVdA(self, val=1):
         '''
-        Sets current-voltage conversion of external voltage source used for voltage bias to <val> (in V/A)
+        Sets the internal variable for the current-voltage conversion of an external transimpedance amplifier used for the voltage bias to <val> (in V/A)
         
         Input:
             val (float): 1 (default)
@@ -106,7 +153,7 @@ class virtual_tunnel_electronic(Instrument):
 
     def get_dVdA(self):
         '''
-        Gets current-voltage conversion of external voltage source used for voltage bias (in V/A)
+        Gets the internal variable for the current-voltage conversion of an external transimpedance amplifier used for the voltage bias (in V/A)
         
         Input:
             None
@@ -117,7 +164,7 @@ class virtual_tunnel_electronic(Instrument):
 
     def set_Vdiv(self, val=1):
         '''
-        Sets voltage divider factor of external measurement setup to <val>
+        Sets the internal variable for the voltage divider factor of an external voltage divider to <val>
         
         Input:
             val (float): 1 (default)
@@ -128,7 +175,7 @@ class virtual_tunnel_electronic(Instrument):
 
     def get_Vdiv(self):
         '''
-        Gets voltage divider factor of external measurement setup
+        Gets the internal variable for the voltage divider factor of an external voltage divider
         
         Input:
             None
@@ -142,8 +189,8 @@ class virtual_tunnel_electronic(Instrument):
         Sets measurement mode (wiring system) of channel <channel> to <val>
 
         Input:
-            channel (int) : 1 (default) | 2
-            val (int)     : 0 (2-wire) | 1 (4-wire)
+            channel (int): 1 (default) | 2
+            val (int): 0 (2-wire) | 1 (4-wire)
         Output:
             None
         '''
@@ -154,9 +201,9 @@ class virtual_tunnel_electronic(Instrument):
         Gets measurement mode (wiring system) of channel <channel>
 
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
-            val (int)     : 0 (2-wire) | 1 (4-wire)
+            val (int): 0 (2-wire) | 1 (4-wire)
         '''
         return self._SMU.get_measurement_mode(channel=channel)
 
@@ -165,8 +212,8 @@ class virtual_tunnel_electronic(Instrument):
         Sets bias mode of channel <channel> to <mode> regime.
 
         Input:
-            mode (int)    : 0 (current) | 1 (voltage)
-            channel (int) : 1 | 2
+            mode (int): 0 (current) | 1 (voltage)
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -177,9 +224,9 @@ class virtual_tunnel_electronic(Instrument):
         Gets bias mode <output> of channel <channel>
 
         Input:
-            channel (int) : 1 | 2
+            channel (int): 1 (default) | 2
         Output:
-            mode (int)    : 0 (current) | 1 (voltage)
+            mode (int): 0 (current) | 1 (voltage)
         '''
         return self._SMU.get_bias_mode(channel=channel)
 
@@ -188,8 +235,8 @@ class virtual_tunnel_electronic(Instrument):
         Sets sense mode of channel <channel> to <mode> regime.
 
         Input:
-            mode (str)    : 0 (current) | 1 (voltage)
-            channel (int) : 1 | 2
+            mode (str): 0 (current) | 1 (voltage)
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -200,9 +247,9 @@ class virtual_tunnel_electronic(Instrument):
         Gets sense mode <output> of channel <channel>
 
         Input:
-            channel (int) : 1 | 2
+            channel (int): 1 (default) | 2
         Output:
-            mode (str)    : 0 (current) | 1 (voltage)
+            mode (str): 0 (current) | 1 (voltage)
         '''
         return self._SMU.get_sense_mode(channel=channel)
 
@@ -211,8 +258,8 @@ class virtual_tunnel_electronic(Instrument):
         Sets bias range of channel <channel> to <val>
 
         Input:
-            val (float)   : -1 (auto) | possible ranges of the used SMU
-            channel (int) : 1 | 2
+            val (float): -1 (auto) | possible ranges of the used SMU
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -223,9 +270,9 @@ class virtual_tunnel_electronic(Instrument):
         Gets bias mode <output> of channel <channel>
 
         Input:
-            channel (int) : 1 | 2
+            channel (int): 1 (default) | 2
         Output:
-            val (float)   : -1 (auto) | possible ranges of the used SMU
+            val (float): -1 (auto) | possible ranges of the used SMU
         '''
         return self._SMU.get_bias_range(channel=channel)
     
@@ -234,8 +281,8 @@ class virtual_tunnel_electronic(Instrument):
         Sets sense range of channel <channel> to <val>
 
         Input:
-            val (float)   : -1 (auto) | possible ranges of the used SMU
-            channel (int) : 1 | 2
+            val (float): -1 (auto) | possible ranges of the used SMU
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -246,9 +293,9 @@ class virtual_tunnel_electronic(Instrument):
         Gets sense mode <output> of channel <channel>
         
         Input:
-            channel (int) : 1 | 2
+            channel (int): 1 (default) | 2
         Output:
-            val (float)   : -1 (auto) | possible ranges of the used SMU
+            val (float): -1 (auto) | possible ranges of the used SMU
         '''
         return self._SMU.get_sense_range(channel=channel)
 
@@ -257,8 +304,8 @@ class virtual_tunnel_electronic(Instrument):
         Sets bias delay of channel <channel> to <val>
         
         Input:
-            val (float)   : -1 (auto) | 0 (off) | positive number
-            channel (int) : 1 (default) | 2
+            val (float): -1 (auto) | 0 (off) | positive number
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -269,7 +316,7 @@ class virtual_tunnel_electronic(Instrument):
         Gets bias delay of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             val (float)
         '''
@@ -280,8 +327,8 @@ class virtual_tunnel_electronic(Instrument):
         Sets sense delay of channel <channel> to <val>
         
         Input:
-            val (float)   : -1 (auto) | 0 (off) | positive number
-            channel (int) : 1 (default) | 2
+            val (float): -1 (auto) | 0 (off) | positive number
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -292,7 +339,7 @@ class virtual_tunnel_electronic(Instrument):
         Gets sense delay of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             val (float)
         '''
@@ -303,9 +350,9 @@ class virtual_tunnel_electronic(Instrument):
         Sets sense average of channel <channel> to <val>
         
         Input:
-            val (int)     : possible values of the used SMU
-            mode (str)    : 0 (moving average) | 1 (repeat average) (default) | 2 (median)
-            channel (int) : 1 (default) | 2
+            val (int): possible values of the used SMU
+            mode (str): 0 (moving average) | 1 (repeat average) (default) | 2 (median)
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -316,7 +363,7 @@ class virtual_tunnel_electronic(Instrument):
         Gets sense average of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             status (bool)
             val (int)
@@ -329,7 +376,7 @@ class virtual_tunnel_electronic(Instrument):
         Sets power line cycle (PLC) to <val>
         
         Input:
-            plc (int) : -1 (auto) | 50 | 60
+            plc (int): -1 (auto) | 50 | 60
         Output:
             None
         '''
@@ -342,7 +389,7 @@ class virtual_tunnel_electronic(Instrument):
         Input:
             None
         Output:
-            val (float) : 50 | 60
+            val (float): 50 | 60
         '''
         return self._SMU.get_plc()
 
@@ -351,8 +398,8 @@ class virtual_tunnel_electronic(Instrument):
         Sets sense nplc (number of power line cycle) of channel <channel> with the <val>-fold of one power line cycle
         
         Input:
-            channel (int) : 1 (default) | 2
-            val (float)   : possible values of the used SMU
+            channel (int): 1 (default) | 2
+            val (float): possible values of the used SMU
         Output:
             None
         '''
@@ -363,9 +410,9 @@ class virtual_tunnel_electronic(Instrument):
         Gets sense nplc (number of power line cycle) of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
-            val (int)     : possible values of the used SMU
+            val (int): possible values of the used SMU
         '''
         return self._SMU.get_sense_nplc(channel=channel)
 
@@ -385,7 +432,7 @@ class virtual_tunnel_electronic(Instrument):
         Gets autozero of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             val (int)
         '''
@@ -396,8 +443,8 @@ class virtual_tunnel_electronic(Instrument):
         Sets output status of channel <channel> to <status>
         
         Input:
-            status (int)  : 0 (off) | 1 (on)
-            channel (int) : 1 | 2
+            status (int): 0 (off) | 1 (on)
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -408,9 +455,9 @@ class virtual_tunnel_electronic(Instrument):
         Gets output status of channel <channel>
         
         Input:
-            channel (int) : 1 | 2
+            channel (int): 1 (default) | 2
         Output:
-            status (int)  : 0 (off) | 1 (on)
+            status (int): 0 (off) | 1 (on)
         '''
         return self._SMU.get_status(channel=channel)
 
@@ -420,10 +467,10 @@ class virtual_tunnel_electronic(Instrument):
         VV-mode uses two different channels (bias channel <channel_bias> and sense channel <channel_sense>), IV-mode and VI-mode only one (<channel>).
 
         Input:
-            mode (int) : 0 (VV-mode) (default) | 1 (IV-mode) | 2 (VI-mode)
-            **kwargs   : channel_bias (int)  : 1 (default) | 2 for VV-mode
-                         channel_sense (int) : 1 | 2 (default) for VV-mode
-                         channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
+            mode (int): 0 (VV-mode) (default) | 1 (IV-mode) | 2 (VI-mode)
+            **kwargs: channel_bias (int): 1 (default) | 2 for VV-mode
+                      channel_sense (int): 1 | 2 (default) for VV-mode
+                      channel (int): 1 (default) | 2 for IV-mode or VI-mode
         Output:
             None
         '''
@@ -442,7 +489,7 @@ class virtual_tunnel_electronic(Instrument):
         Input:
             None
         Output:
-            mode (int) : 0 (VV mode) | 1 (IV mode) | 2 (VI-mode)
+            mode (int): 0 (VV mode) | 1 (IV mode) | 2 (VI-mode)
         '''
         if self._sweep_mode != self._SMU.get_sweep_mode():
             logging.error('{!s}: sweep mode of {:s} and {:s} do not coincide: {:s} and {:s}'.format(__name__, self.__name__, self._SMU.__name__, self._sweep_modes[self._sweep_mode], self._sweep_modes[self._SMU.get_sweep_mode()]))
@@ -455,7 +502,7 @@ class virtual_tunnel_electronic(Instrument):
         Sets an internal variable according to the external measurement setup that proviedes an effective bias <mode>
         
         Input:
-            mode (int) : 0 (current bias) | 1 (voltage bias)
+            mode (int): 0 (current bias) | 1 (voltage bias)
         Output:
             None
         '''
@@ -473,7 +520,7 @@ class virtual_tunnel_electronic(Instrument):
         Input:
             None
         Output:
-            mode (int) : 0 (current bias) | 1 (voltage bias)
+            mode (int): 0 (current bias) | 1 (voltage bias)
         '''
         return self._pseudo_bias_mode
 
@@ -484,10 +531,14 @@ class virtual_tunnel_electronic(Instrument):
         Input:
             None
         Output:
-            mode (int) : 0 (current bias) | 1 (voltage bias)
+            mode (int): 0 (current bias) | 1 (voltage bias)
         '''
-        self._bias = int(not bool(self._sweep_mode))*self._pseudo_bias_mode+int(bool(self._sweep_mode))*(self._sweep_mode-1)   # 0 (current bias) | 1 (voltage bias)
-        return self._bias
+        # attribute **kwargs needed for identical call as in SMUs (which need channels)
+        if self._sweep_mode != self._SMU.get_sweep_mode():
+            logging.error('{!s}: sweep mode of {:s} and {:s} do not coincide: {:s} and {:s}'.format(__name__, self.__name__, self._SMU.__name__, self._sweep_modes[self._sweep_mode], self._sweep_modes[self._SMU.get_sweep_mode()]))
+            raise ValueError('{!s}: sweep mode of {:s} and {:s} do not coincide: {:s} and {:s}'.format(__name__, self.__name__, self._SMU.__name__, self._sweep_modes[self._sweep_mode], self._sweep_modes[self._SMU.get_sweep_mode()]))
+        else:
+            return int(not bool(self._sweep_mode))*self._pseudo_bias_mode+int(bool(self._sweep_mode))*(self._sweep_mode-1)   # 0 (current bias) | 1 (voltage bias)
 
     def set_voltage(self, val, channel=1):
         '''
@@ -495,7 +546,7 @@ class virtual_tunnel_electronic(Instrument):
         
         Input:
             val (float)
-            channel (int) : 1 | 2
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -516,8 +567,8 @@ class virtual_tunnel_electronic(Instrument):
         Gets voltage value of channel <channel> taking tunnel settings of the electronic into accout (<sweep_mode>, <pseudo_bias_mode>)
         
         Input:
-            channel (int)   : 1 | 2
-            **readingBuffer : readingBuffer (str)
+            channel (int): 1 (default) | 2
+            **readingBuffer: readingBuffer (str)
         Output:
             val (float)
         '''
@@ -537,7 +588,7 @@ class virtual_tunnel_electronic(Instrument):
         
         Input:
             val (float): arb.
-            channel (int): 1 | 2
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -558,8 +609,8 @@ class virtual_tunnel_electronic(Instrument):
         Gets current value of channel <channel> taking tunnel settings of the electronic into accout (<sweep_mode>, <pseudo_bias_mode>)
         
         Input:
-            channel (int)   : 1 | 2
-            **readingBuffer : readingBuffer (str)
+            channel (int): 1 (default) | 2
+            **readingBuffer: readingBuffer (str)
         Output:
             val (float)
         '''
@@ -579,14 +630,14 @@ class virtual_tunnel_electronic(Instrument):
         VV-mode needs two different channels (bias channel <channel_bias> and sense channel <channel_sense>), IV-mode and VI-mode only one (<channel>).
         
         Input:
-            sweep (list(float)) : start, stop, step
-            **kwargs            : sweep_mode (int)       : 0 (VV-mode) | 1 (IV-mode) (default) | 2 (VI-mode)
-                                  pseudo_bias_mode (int) : 0 (current bias) (default) | 1 (voltage bias)
-                                  channel_bias (int)     : 1 (default) | 2 for VV-mode
-                                  channel_sense (int)    : 1 | 2 (default) for VV-mode
-                                  channel (int)          : 1 (default) | 2 for IV-mode or VI-mode
-                                  iReadingBuffer (str)
-                                  vReadingBuffer (str)
+            sweep (list(float)): start, stop, step
+            **kwargs: sweep_mode (int): 0 (VV-mode) | 1 (IV-mode) (default) | 2 (VI-mode)
+                      pseudo_bias_mode (int): 0 (current bias) (default) | 1 (voltage bias)
+                      channel_bias (int): 1 (default) | 2 for VV-mode
+                      channel_sense (int): 1 | 2 (default) for VV-mode
+                      channel (int): 1 (default) | 2 for IV-mode or VI-mode
+                      iReadingBuffer (str)
+                      vReadingBuffer (str)
         Output:
             None
         '''
@@ -608,14 +659,14 @@ class virtual_tunnel_electronic(Instrument):
         VV-mode needs two different channels (bias channel <channel_bias> and sense channel <channel_sense>), IV-mode and VI-mode only one (<channel>).
         
         Input:
-            sweep (list(float)) : start, stop, step
-            **kwargs            : sweep_mode (int)       : 0 (VV-mode) | 1 (IV-mode) (default) | 2 (VI-mode)
-                                  pseudo_bias_mode (int) : 0 (current bias) (default) | 1 (voltage bias)
-                                  channel_bias (int)     : 1 (default) | 2 for VV-mode
-                                  channel_sense (int)    : 1 | 2 (default) for VV-mode
-                                  channel (int)          : 1 (default) | 2 for IV-mode or VI-mode
-                                  iReadingBuffer (str)
-                                  vReadingBuffer (str)
+            sweep (list(float)): start, stop, step
+            **kwargs: sweep_mode (int): 0 (VV-mode) | 1 (IV-mode) (default) | 2 (VI-mode)
+                      pseudo_bias_mode (int): 0 (current bias) (default) | 1 (voltage bias)
+                      channel_bias (int): 1 (default) | 2 for VV-mode
+                      channel_sense (int): 1 | 2 (default) for VV-mode
+                      channel (int): 1 (default) | 2 for IV-mode or VI-mode
+                      iReadingBuffer (str)
+                      vReadingBuffer (str)
         Output:
             bias_values (numpy.array(float))
             sense_values (numpy.array(float))
@@ -644,14 +695,14 @@ class virtual_tunnel_electronic(Instrument):
         VV-mode needs two different channels (bias channel <channel> and sense channel <channel2>), IV-mode and VI-mode only one (<channel>).
         
         Input:
-            sweep (list(float)) : start, stop, step
-            **kwargs            : sweep_mode (int)       : 0 (VV-mode) | 1 (IV-mode) (default) | 2 (VI-mode)
-                                  pseudo_bias_mode (int) : 0 (current bias) (default) | 1 (voltage bias)
-                                  channel_bias (int)     : 1 (default) | 2 for VV-mode
-                                  channel_sense (int)    : 1 | 2 (default) for VV-mode
-                                  channel (int)          : 1 (default) | 2 for IV-mode or VI-mode
-                                  iReadingBuffer (str)
-                                  vReadingBuffer (str)
+            sweep (list(float)): start, stop, step
+            **kwargs: sweep_mode (int): 0 (VV-mode) | 1 (IV-mode) (default) | 2 (VI-mode)
+                      pseudo_bias_mode (int): 0 (current bias) (default) | 1 (voltage bias)
+                      channel_bias (int): 1 (default) | 2 for VV-mode
+                      channel_sense (int): 1 | 2 (default) for VV-mode
+                      channel (int): 1 (default) | 2 for IV-mode or VI-mode
+                      iReadingBuffer (str): only, if IVD supports (Keithley 2636A)
+                      vReadingBuffer (str): only, if IVD supports (Keithley 2636A)
         Output:
             bias_values (numpy.array(float))
             sense_values (numpy.array(float))
@@ -666,11 +717,11 @@ class virtual_tunnel_electronic(Instrument):
         
         Input:
             pseudo_bias_modes (int): None <self._sweep_mode> (default) | 0 (VV-mode) | 1 (IV-mode) | 2 (VI-mode)
-            SMU (bool)             : False | True
-            **kwargs               : sweep_mode (int)    : None <self._sweep_mode> (default) | 0 (VV-mode) | 1 (IV-mode) | 2 (VI-mode)
-                                     channel_bias (int)  : 1 (default) | 2 for VV-mode
-                                     channel_sense (int) : 1 | 2 (default) for VV-mode
-                                     channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
+            SMU (bool): False | True
+            **kwargs: sweep_mode (int): None <self._sweep_mode> (default) | 0 (VV-mode) | 1 (IV-mode) | 2 (VI-mode)
+                      channel_bias (int): 1 (default) | 2 for VV-mode
+                      channel_sense (int): 1 | 2 (default) for VV-mode
+                      channel (int): 1 (default) | 2 for IV-mode or VI-mode
         Output:
             None
         '''
@@ -692,14 +743,17 @@ class virtual_tunnel_electronic(Instrument):
         Prints all settings and optional of the used source measure unit <SMU> of channel <channel>, too.
         
         Input:
-            SMU (bool)   : True | False
-            channel (int): 1 | 2
+            SMU (bool): True | False
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
         logging.info(__name__ + ': Get all')
+        if self.get_BW() is not None:
+            print('bandwidth          = {:1.0e}Hz'.format(self.get_BW()))
         print('dAdV               = {:1.0e}A/V'.format(self.get_dAdV()))
-        print('amplification      = {:1.0e}'.format(self.get_amp()))
+        print('amp factor         = {:1.0e}'.format(self.get_amp()))
+        print('amp time constant  = {:1.0e}s'.format(self.get_tau_amp()))
         print('dVdA               = {:1.0e}V/A'.format(self.get_dVdA()))
         print('voltage divider    = {:1.0e}'.format(self.get_Vdiv()))
         print('sweep mode         = {:d} ({:s})'.format(self._sweep_mode, self._sweep_modes[self._sweep_mode]))
@@ -716,11 +770,16 @@ class virtual_tunnel_electronic(Instrument):
         Output:
             None
         '''
+        self.set_BW()
         self.set_dAdV()
         self.set_amp()
+        self.set_tau_amp()
         self.set_dVdA()
         self.set_Vdiv()
         if SMU: self._SMU.reset()
+        
+    def get_IDN(self):
+        return self.__name__
 
     def get_parameters(self):
         '''
@@ -732,7 +791,8 @@ class virtual_tunnel_electronic(Instrument):
         Output:
             parlist (dict): Parameter as key, corresponding channels as value
         '''
-        parlist = {'measurement_mode': [1, 2],
+        parlist = {'IDN': [None],
+                   'measurement_mode': [1, 2],
                    'bias_mode': [1, 2],
                    'sense_mode': [1, 2],
                    'bias_range': [1, 2],
@@ -743,7 +803,8 @@ class virtual_tunnel_electronic(Instrument):
                    'plc': [None],
                    'sense_nplc': [1, 2],
                    'sweep_mode': [None],
-                   'pseudo_bias_mode': [None]}
+                   'pseudo_bias_mode': [None],
+                   'BW': [None]}
         if not self._pseudo_bias_mode: # 0 (current bias)
             parlist['dAdV'] = [None]
             parlist['amp']  = [None]
@@ -759,7 +820,7 @@ class virtual_tunnel_electronic(Instrument):
         
         Input:
             param (str): parameter to be got
-            **kwargs   : channels (list[int]): certain channel {1, 2} for channel specific parameter or None if no channel (global parameter)
+            **kwargs: channels (list[int]): certain channel {1, 2} for channel specific parameter or None if no channel (global parameter)
         Output:
             parlist (dict): Parameter as key, corresponding channels as value
         '''
