@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # Yokogawa.py driver for Yokogawa GS820 multi channel source measure unit
 # Hannes Rotzinger, hannes.rotzinger@kit.edu 2010
 # Micha Wildermuth, micha.wildermuth@kit.edu 2017
@@ -38,13 +40,13 @@ class Yokogawa(Instrument):
         Initializes the Yokogawa_GS820, and communicates with the wrapper.
         
         Input:
-            name (string)    : name of the instrument
-            address (string) : GPIB address
-            reset (bool)     : resets to default values, default=False
+            name (string): name of the instrument
+            address (string): GPIB address
+            reset (bool): resets to default values, default=False
         '''
         self.__name__ = __name__
         # Start VISA communication
-        logging.info(__name__ + ' : Initializing instrument Yokogawa_GS820')
+        logging.info(__name__ + ': Initializing instrument Yokogawa_GS820')
         Instrument.__init__(self, name, tags=['physical'])
         self._address = address
         self._visainstrument = visa.instrument(self._address)
@@ -59,38 +61,40 @@ class Yokogawa(Instrument):
         self._measurement_modes = {0: '2-wire', 1: '4-wire'}
         self._IV_modes = {0: 'curr', 1: 'volt'}
         self._IV_units = {0: 'A', 1: 'V'}
-        self._bias_status_register = [('EOS1', 'CH1 End of Sweep'),
-                                      ('RDY1', 'CH1 Ready for Sweep'),
-                                      ('LL01', 'CH1 Low Limiting'),
-                                      ('LHI1', 'CH1 High Limiting'),
-                                      ('TRP1', 'CH1 Tripped'),
-                                      ('EMR1', 'CH1 Emergency (Temperature/Current over)'),
-                                      ('', ''),
-                                      ('', ''),
-                                      ('EOS2', 'CH2 End of Sweep'),
-                                      ('RDY2', 'CH2 Ready for Sweep'),
-                                      ('LL02', 'CH2 Low Limiting'),
-                                      ('LHI2', 'CH2 High Limiting'),
-                                      ('TRP2', 'CH2 Tripped'),
-                                      ('EMR2', 'CH2 Emergency (Temperature/Current over)'),
-                                      ('ILC', 'Inter Locking'),
-                                      ('SSB', 'Start Sampling Error')]
-        self._sense_status_register = [('EOM1', 'CH1 End of Measure'),
-                                       ('', ''),
-                                       ('CLO1', 'CH1 Compare result is Low'),
-                                       ('CHI1', 'CH1 Compare result is High'),
-                                       ('', ''),
-                                       ('OVR1', 'CH1 Over Range'),
-                                       ('', ''),
-                                       ('', ''),
-                                       ('EOM2', 'CH2 End of Measure'),
-                                       ('', ''),
-                                       ('CLO2', 'CH2 Compare result is Low'),
-                                       ('CHI2', 'CH1 Compare result is High'),
-                                       ('', ''),
-                                       ('OVR2', 'CH2 Over Range'),
-                                       ('EOT', 'End of Trace'),
-                                       ('TSE', 'Trigger Sampling Error')]
+        # condition code registers
+        self.bias_ccr = [('EOS1', 'CH1 End of Sweep'),
+                         ('RDY1', 'CH1 Ready for Sweep'),
+                         ('LL01', 'CH1 Low Limiting'),
+                         ('LHI1', 'CH1 High Limiting'),
+                         ('TRP1', 'CH1 Tripped'),
+                         ('EMR1', 'CH1 Emergency (Temperature/Current over)'),
+                         ('', ''),
+                         ('', ''),
+                         ('EOS2', 'CH2 End of Sweep'),
+                         ('RDY2', 'CH2 Ready for Sweep'),
+                         ('LL02', 'CH2 Low Limiting'),
+                         ('LHI2', 'CH2 High Limiting'),
+                         ('TRP2', 'CH2 Tripped'),
+                         ('EMR2', 'CH2 Emergency (Temperature/Current over)'),
+                         ('ILC', 'Inter Locking'),
+                         ('SSB', 'Start Sampling Error')]
+        self.sense_ccr = [('EOM1', 'CH1 End of Measure'),
+                          ('', ''),
+                          ('CLO1', 'CH1 Compare result is Low'),
+                          ('CHI1', 'CH1 Compare result is High'),
+                          ('', ''),
+                          ('OVR1', 'CH1 Over Range'),
+                          ('', ''),
+                          ('', ''),
+                          ('EOM2', 'CH2 End of Measure'),
+                          ('', ''),
+                          ('CLO2', 'CH2 Compare result is Low'),
+                          ('CHI2', 'CH1 Compare result is High'),
+                          ('', ''),
+                          ('OVR2', 'CH2 Over Range'),
+                          ('EOT', 'End of Trace'),
+                          ('TSE', 'Trigger Sampling Error')]
+        # error messages
         self.err_msg = {-101: '''Invalid_character: Check whether invalid characters such as $ or & are used in the command header or parameters.''',
                         -102: '''Syntax_error: Check that the syntax is correct.''',
                         -103: '''Invalid separator: Check the use of the separator (comma).''',
@@ -136,7 +140,7 @@ class Yokogawa(Instrument):
                         +206: '''Low battery: Request to have the battery replaced, because the time stamp when creating files will not be correct.''',
                         +207: '''Power line frequency measure failure: Directly set the line frequency.''',
                         +304: '''Cannot change setting in auto measure function: If you want to change the measurement function, select a measurement mode other than auto function.'''}
-        # Reset
+        # reset
         if reset:
             self.reset()
         else:
@@ -144,31 +148,32 @@ class Yokogawa(Instrument):
 
     def _write(self, cmd):
         '''
-        Sends a visa command <cmd>
+        Sends a visa command <cmd>, waits until "operation complete" and raises eventaul errors of the Device
         
         Input:
-            msg (str)
+            cmd (str)
         Output:
             None
         '''
         self._visainstrument.write(cmd)
-        self._wait_for_OPC()
+        while not bool(int(self._visainstrument.query('*OPC?'))):
+            time.sleep(1e-6)
         self._raise_error()
         return
 
-    def _ask(self, msg):
+    def _ask(self, cmd):
         '''
-        Sends a visa command <msg> and returns the read answer <ans>
+        Sends a visa command <cmd>, waits until "operation complete", raises eventaul errors of the Device and returns the read answer <ans>
         
         Input:
-            msg (str)
+            cmd (str)
         Output:
             ans (str)
         '''
-        if '?' in msg:
-            ans = self._visainstrument.query(msg).rstrip()
+        if '?' in cmd:
+            ans = self._visainstrument.query(cmd).rstrip()
         else:
-            ans = self._visainstrument.query('{:s}?'.format(msg)).rstrip()
+            ans = self._visainstrument.query('{:s}?'.format(cmd)).rstrip()
         while not bool(int(self._visainstrument.query('*OPC?'))):
             time.sleep(1e-6)
         self._raise_error()
@@ -179,8 +184,8 @@ class Yokogawa(Instrument):
         Sets measurement mode (wiring system) of channel <channel> to <val>
         
         Input:
-            channel (int) : 1 (default) | 2
-            val (int)     : 0 (2-wire) | 1 (4-wire)
+            channel (int): 1 (default) | 2
+            val (int): 0 (2-wire) | 1 (4-wire)
         Output:
             None
         '''
@@ -197,9 +202,9 @@ class Yokogawa(Instrument):
         Gets measurement mode (wiring system) of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
-            val (int)     : 0 (2-wire) | 1 (4-wire)
+            val (int): 0 (2-wire) | 1 (4-wire)
         '''
         # Corresponding Command: [:CHANnel<n>]:SENSe:REMote 1|0|ON|OFF
         try:
@@ -215,7 +220,7 @@ class Yokogawa(Instrument):
         (The first channel is always the "master", the second the "slave")
         
         Input:
-            val (bool) : 0 (off) | 1 (on)
+            val (bool): 0 (off) | 1 (on)
         Output:
             None
         '''
@@ -234,7 +239,7 @@ class Yokogawa(Instrument):
         Input:
             None
         Output:
-            val (bool) : 0 (off) | 1 (on)
+            val (bool): 0 (off) | 1 (on)
         '''
         # Corresponding Command: :SYNChronize:CHANnel 1|0|ON|OFF
         try:
@@ -246,11 +251,11 @@ class Yokogawa(Instrument):
 
     def set_bias_mode(self, mode, channel=1):
         '''
-        Sets bias mode of channel <channel> to <mode> regime
+        Sets bias mode of channel <channel> to mode <mode>
         
         Input:
-            mode (int)    : 0 (current) | 1 (voltage)
-            channel (int) : 1 (default) | 2
+            mode (int): 0 (current) | 1 (voltage)
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -267,9 +272,9 @@ class Yokogawa(Instrument):
         Gets bias mode of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
-            mode (int)    : 0 (current) | 1 (voltage)
+            mode (int): 0 (current) | 1 (voltage)
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce:FUNCtion VOLTage|CURRent
         try:
@@ -284,20 +289,21 @@ class Yokogawa(Instrument):
         Calls get_bias_mode of channel <channel>
         
         Input:
-            **channel (int) : 1 | 2
+            **channel (int): channel: 1 (default) | 2
         Output:
-            mode (int)      : 0 (current) | 1 (voltage)
+            mode (int): 0 (current) | 1 (voltage)
         '''
         ## This method is needed for transport.py in case of no tunnel electronic
-        return self.get_bias_mode(**channel)
+        channel = channel.get('channel', 1)
+        return self.get_bias_mode(channel)
 
     def set_sense_mode(self, mode, channel=1):
         '''
-        Sets sense mode of channel <channel> to <mode> regime
+        Sets sense mode of channel <channel> to mode <mode>
         
         Input:
-            mode (int)    : 0 (current) | 1 (voltage)
-            channel (int) : 1 (default) | 2
+            mode (int): 0 (current) | 1 (voltage)
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -314,9 +320,9 @@ class Yokogawa(Instrument):
         Gets sense mode <mode> of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
-            mode (str)    : 'volt' | 'curr'
+            mode (str): 'volt' | 'curr'
         '''
         # Corresponding Command: [:CHANnel<n>]:SENSe:FUNCtion VOLTage|CURRent
         try:
@@ -331,15 +337,15 @@ class Yokogawa(Instrument):
         Sets bias range of channel <channel> to <val>
         
         Input:
-            val (float)   : -1 (auto) | 200mV | 2V | 7V | 18V | 200nA | 2uA | 20uA | 200uA | 2mA | 20mA | 200mA | 1 A | 3A
-            channel (int) : 1 (default) | 2
+            val (float): -1 (auto) | 200mV | 2V | 7V | 18V | 200nA | 2uA | 20uA | 200uA | 2mA | 20mA | 200mA | 1 A | 3A
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:RANGe <voltage>|MINimum|MAXimum|UP|DOWN 
         # Corresponding Command: [:CHANnel<n>]:SOURce[:CURRent]:RANGe <current>|MINimum|MAXimum|UP|DOWN 
         try:
-            logging.debug('{!s}: Set bias voltage range of channel {:d} to {:f}'.format(__name__, channel, val))
+            logging.debug('{!s}: Set bias range of channel {:d} to {:f}'.format(__name__, channel, val))
             if val == -1:
                 self._write(':chan{:d}:sour:rang:auto 1'.format(channel))
             else:
@@ -353,9 +359,9 @@ class Yokogawa(Instrument):
         Gets bias range for the current mode.
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
-            val (float)   : 200mV | 2V | 7V | 18V | 200nA | 2uA | 20uA | 200uA | 2mA | 20mA | 200mA | 1 A | 3A
+            val (float): 200mV | 2V | 7V | 18V | 200nA | 2uA | 20uA | 200uA | 2mA | 20mA | 200mA | 1 A | 3A
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce[:VOLTage]:RANGe <voltage>|MINimum|MAXimum|UP|DOWN 
         # Corresponding Command: [:CHANnel<n>]:SOURce[:CURRent]:RANGe <current>|MINimum|MAXimum|UP|DOWN 
@@ -371,8 +377,8 @@ class Yokogawa(Instrument):
         Sets sense range of channel <channel> to <val>
         
         Input:
-            val (float)   : -1 (auto) | 200mV | 2V | 7V | 18V | 200nA | 2uA | 20uA | 200uA | 2mA | 20mA | 200mA | 1 A | 3A
-            channel (int) : 1 (default) | 2
+            val (float): -1 (auto) | 200mV | 2V | 7V | 18V | 200nA | 2uA | 20uA | 200uA | 2mA | 20mA | 200mA | 1 A | 3A
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -393,9 +399,9 @@ class Yokogawa(Instrument):
         Gets sense range for the current mode.
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
-            val (float)   : 200mV | 2V | 7V | 18V | 200nA | 2uA | 20uA | 200uA | 2mA | 20mA | 200mA | 1 A | 3A
+            val (float): 200mV | 2V | 7V | 18V | 200nA | 2uA | 20uA | 200uA | 2mA | 20mA | 200mA | 1 A | 3A
         '''
         # Corresponding Command: [:CHANnel<n>]:SENSe[:VOLTage]:RANGe <voltage>|MINimum|MAXimum|UP|DOWN
         # Corresponding Command: [:CHANnel<n>]:SENSe[:CURRent]:RANGe <current>|MINimum|MAXimum|UP|DOWN
@@ -412,9 +418,9 @@ class Yokogawa(Instrument):
         If <mode> is 'timer' it can be set to <time>
         
         Input:
-            mode (str)    : ext (external) | aux (auxiliary) | tim1 (timer1) | tim2 (timer2) | sens (sense)
-            channel (int) : 1 (default) | 2
-            **val         : 100us <= time (float) <= 3600.000000s
+            mode (str): ext (external) | aux (auxiliary) | tim1 (timer1) | tim2 (timer2) | sens (sense)
+            channel (int): 1 (default) | 2
+            **val:  time (float): 100µs <= t <= 3600s
         Output:
             None
         '''
@@ -434,14 +440,19 @@ class Yokogawa(Instrument):
         Gets bias trigger of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
-            trigger (str) : ext (external) | aux (auxiliary) | tim1 (timer1) | tim2 (timer2) | sens (sense)
+            mode (str): ext (external) | aux (auxiliary) | tim1 (timer1) | tim2 (timer2) | sens (sense)
         '''
         # Corresponding Command: [:CHANnel<n>]:SOURce:TRIGger EXTernal|AUXiliary|TIMer1|TIMer2|SENSe
         try:
             logging.debug('{!s}: Get bias trigger of channel {:d}'.format(__name__, channel))
-            return str(self._ask(':chan{:d}:sour:trig'.format(channel)).lower())
+            mode = str(self._ask(':chan{:d}:sour:trig'.format(channel)).lower())
+            if mode[:3] == 'tim':
+                val = float(self._ask(':trig:{:s}'.format(mode)))
+                return mode, val
+            else:
+                return mode
         except Exception as e:
             logging.error('{!s}: Cannot get bias trigger of channel {!s}'.format(__name__, channel))
             raise type(e)('{!s}: Cannot get bias trigger of channel {!s}\n{!s}'.format(__name__ , channel, e))
@@ -452,9 +463,9 @@ class Yokogawa(Instrument):
         If <mode> is 'timer' it can be set to <time>
         
         Input:
-            mode (str)    : ext (external) | aux (auxiliary) | tim1 (timer1) | tim2 (timer2) | sens (sense)
-            channel (int) : 1 (default) | 2
-            **val         : 100us <= time (float) <= 3600.000000s
+            mode (str): ext (external) | aux (auxiliary) | tim1 (timer1) | tim2 (timer2) | sens (sense)
+            channel (int): 1 (default) | 2
+            **val:  time (float): 100µs <= t <= 3600s
         Output:
             None
         '''
@@ -474,14 +485,19 @@ class Yokogawa(Instrument):
         Gets sense trigger of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
-            trigger (str) : ext (external) | aux (auxiliary) | tim1 (timer1) | tim2 (timer2) | sens (sense)
+            trigger (str): ext (external) | aux (auxiliary) | tim1 (timer1) | tim2 (timer2) | sens (sense)
         '''
         # Corresponding Command: [:CHANnel<n>]:SENSe:TRIGger EXTernal|AUXiliary|TIMer1|TIMer2|SENSe
         try:
             logging.debug('{!s}: Get sense trigger of channel {:d}'.format(__name__, channel))
-            return str(self._ask(':chan{:d}:sens:trig'.format(channel)).lower())
+            mode = str(self._ask(':chan{:d}:sens:trig'.format(channel)).lower())
+            if mode[:3] == 'tim':
+                val = float(self._ask(':trig:{:s}'.format(mode)))
+                return mode, val
+            else:
+                return mode
         except Exception as e:
             logging.error('{!s}: Cannot get sense trigger of channel {!s}'.format(__name__, channel))
             raise type(e)('{!s}: Cannot get sense trigger of channel {!s}\n{!s}'.format(__name__ , channel, e))
@@ -491,8 +507,8 @@ class Yokogawa(Instrument):
         Sets bias delay of channel <channel> to <val>
         
         Input:
-            val (float)   : 15us <= delay <= 3600s
-            channel (int) : 1 (default) | 2
+            val (float): 15µs <= delay <= 3600s
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -509,7 +525,7 @@ class Yokogawa(Instrument):
         Gets bias delay of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             val (float)
         '''
@@ -526,8 +542,8 @@ class Yokogawa(Instrument):
         Sets sense delay of channel <channel> to <val>
         
         Input:
-            val (float)   : 15us <= delay <= 3600s
-            channel (int) : 1 (default) | 2
+            val (float): 15µs <= delay <= 3600s
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -544,7 +560,7 @@ class Yokogawa(Instrument):
         Gets sense delay of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             val (float)
         '''
@@ -563,7 +579,7 @@ class Yokogawa(Instrument):
         
         Input:
             val (int)
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -584,7 +600,7 @@ class Yokogawa(Instrument):
         Gets sense average of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             status (bool)
             val (int)
@@ -605,7 +621,7 @@ class Yokogawa(Instrument):
         Sets power line cycle (PLC) to <plc>
         
         Input:
-            plc (int) : -1 (auto) | 50 | 60
+            plc (int): -1 (auto) | 50 | 60
         Output:
             None
         '''
@@ -626,7 +642,7 @@ class Yokogawa(Instrument):
         Input:
             None
         Output:
-            plc (int) : 50 | 60
+            plc (int): 50 | 60
         '''
         # Corresponding Command: :SYSTem:LFRequency 50|60
         # Corresponding Command: :SYSTem:LFRequency:AUTO 1|0|ON|OFF
@@ -642,8 +658,8 @@ class Yokogawa(Instrument):
         Sets sense nplc (number of power line cycle) of channel <channel> with the <val>-fold of one power line cycle
         
         Input:
-            channel (int) : 1 (default) | 2
-            val (int)     : [1, 25]
+            channel (int): 1 (default) | 2
+            val (int): [1, 25]
         Output:
             None
         '''
@@ -660,7 +676,7 @@ class Yokogawa(Instrument):
         Gets sense nplc (number of power line cycle) of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             val (int)
         '''
@@ -674,20 +690,24 @@ class Yokogawa(Instrument):
 
     def set_sense_autozero(self, val, channel=1):
         '''
-        Sets autozero of channel <channel> to <val>.
+        Sets autozero of channel <channel> to <val>. Note that "on" means that the internal zero point is measured for each measurement, wherefore the measurement takes approximately twice as long as when the auto zero function is "off"
         
         Input:
-            val (int): 0 (off) | 1 (on)
+            val (int): 0 (off) | 1 (on) | 2 (once)
         Output:
             None
         '''
-        # Corresponding Command: [:CHANnel<n>]:SENSe:ZERo:AUTO 1|0|ON|OFF
-        # Corresponding Command: [:CHANnel<n>]:SENSe:ZERo:EXECute
-        ### FIXME: Is execute necessary?
+        # Corresponding Command: [:CHANnel<n>]:SENSe:ZERo:AUTO 1|0|ON|OFF (at each measurement)
+        # Corresponding Command: [:CHANnel<n>]:SENSe:ZERo:EXECute (once)
         try:
             logging.debug('{!s}: Set sense autozero of channel {:d} to {:d}'.format(__name__, channel, val))
-            self._write(':chan{:d}:sens:zero:auto {:d}'.format(channel, val))
-            #self._write(':chan{:d}:sens:zero:exec'.format(channel))
+            if val == 2:
+                self._visainstrument.write(':chan{:d}:sens:zero:exec'.format(channel))
+                time.sleep(2.) # tests yield random value t > 1.65 to be necessary
+                self._wait_for_OPC()
+                self._raise_error()
+            else:
+                self._write(':chan{:d}:sens:zero:auto {:d}'.format(channel, val))
         except Exception as e:
             logging.error('{!s}: Cannot set sense autozero of channel {!s} to {!s}'.format(__name__, channel, val))
             raise type(e)('{!s}: Cannot set sense autozero of channel {!s} to {!s}\n{!s}'.format(__name__ , channel, val, e))
@@ -697,9 +717,9 @@ class Yokogawa(Instrument):
         Gets autozero of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
-            val (int)
+            val (int): 0 (off) | 1 (on)
         '''
         # Corresponding Command: [:CHANnel<n>]:SENSe:ZERo:AUTO 1|0|ON|OFF
         try:
@@ -714,8 +734,8 @@ class Yokogawa(Instrument):
         Sets output status of channel <channel> to <status>
         
         Input:
-            status (bool) : False (off) | True (on)
-            channel (int) : 1 (default) | 2
+            status (bool): False (off) | True (on)
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -732,9 +752,9 @@ class Yokogawa(Instrument):
         Gets output status of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
-            status (bool) : False (off) | True (on)
+            status (bool): False (off) | True (on)
         '''
         # Corresponding Command: [:CHANnel<n>]:OUTput:STATus 1|0|ON|OFF
         try:
@@ -750,7 +770,7 @@ class Yokogawa(Instrument):
         
         Input:
             val (float)
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -768,7 +788,7 @@ class Yokogawa(Instrument):
         Gets bias value of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             val (float)
         '''
@@ -786,7 +806,7 @@ class Yokogawa(Instrument):
         Gets sense value of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             val (float)
         '''
@@ -804,7 +824,7 @@ class Yokogawa(Instrument):
         
         Input:
             val (float)
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -819,7 +839,7 @@ class Yokogawa(Instrument):
         Gets voltage value of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             val (float)
         '''
@@ -837,7 +857,7 @@ class Yokogawa(Instrument):
         
         Input:
             val (float)
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -852,7 +872,7 @@ class Yokogawa(Instrument):
         Gets current value of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             val (float)
         '''
@@ -864,15 +884,27 @@ class Yokogawa(Instrument):
             logging.error('{!s}: Cannot get current value of channel {!s}: neihter bias nor sense in current mode'.format(__name__, channel))
             raise SystemError('{!s}: Cannot get current value of channel {!s}: neihter bias nor sense in current mode'.format(__name__ , channel))
 
+    def get_IV(self, channel=1):
+        '''
+        Gets both current and voltage value of channel <channel>
+        
+        Input:
+            channel (int): 1 | 2
+        Output:
+            I_val (float)
+            V_val (float)
+        '''
+        return self.get_current(channel=channel), self.get_voltage(channel=channel)
+
     def ramp_bias(self, stop, step, step_time=0.1, channel=1):
         '''
-        Ramps bias value of channel <channel> from recent value to <stop>
+        Ramps bias value of channel <channel> from recent value to stop value <stop> with step size <step> and step time <step_time>
         
         Input:
             stop (float)
             step (float)
             step_time (float)
-            channel (int)     : 1 | 2 (default)
+            channel (int): 1 | 2 (default)
         Output:
             None
         '''
@@ -885,31 +917,31 @@ class Yokogawa(Instrument):
 
     def ramp_voltage(self, stop, step, step_time=0.1, channel=1):
         '''
-        Ramps voltage of channel <channel> from recent value to <stop> according to bias_mode
+        Ramps voltage of channel <channel> from recent value to stop value <stop> with step size <step> and step time <step_time> according to bias_mode
         
         Input:
             stop (float)
             step (float)
             step_time (float)
-            channel (int)     : 1 | 2 (default)
+            channel (int): 1 | 2 (default)
         Output:
             None
         '''
-        if self.get_bias(channel=channel):  # 1 (voltage bias)
+        if self.get_bias(channel=channel): # 1 (voltage bias)
             return self.ramp_bias(stop=stop, step=step, step_time=step_time, channel=channel)
-        elif not self.get_bias(channel=channel):  # 0 (current bias)
+        elif not self.get_bias(channel=channel): # 0 (current bias)
             logging.error(__name__ + ': Cannot set voltage value of channel {!s}: in the current bias'.format(channel))
             return
 
     def ramp_current(self, stop, step, step_time=0.1, channel=1):
         '''
-        Ramps current of channel <channel> from recent value to <stop> according to bias_mode
+        Ramps current of channel <channel> from recent value to stop value <stop> with step size <step> and step time <step_time> according to bias_mode
         
         Input:
             stop (float)
             step (float)
             step_time (float)
-            channel (int)     : 1 | 2 (default)
+            channel (int): 1 | 2 (default)
         Output:
             None
         '''
@@ -925,10 +957,10 @@ class Yokogawa(Instrument):
         VV-mode uses two different channels (bias channel <channel_bias> and sense channel <channel_sense>), IV-mode and VI-mode only one (<channel>).
 
         Input:
-            mode (int) : 0 (VV-mode) | 1 (IV-mode) (default) | 2 (VI-mode)
-            **kwargs   : channel_bias (int)  : 1 (default) | 2 for VV-mode
-                         channel_sense (int) : 1 | 2 (default) for VV-mode
-                         channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
+            mode (int): 0 (VV-mode) | 1 (IV-mode) (default) | 2 (VI-mode)
+            **kwargs: channel_bias (int): 1 (default) | 2 for VV-mode
+                         channel_sense (int): 1 | 2 (default) for VV-mode
+                         channel (int): 1 (default) | 2 for IV-mode or VI-mode
         Output:
             None
         '''
@@ -946,7 +978,7 @@ class Yokogawa(Instrument):
         Input:
             None
         Output:
-            mode (int) : 0 (VV mode) | 1 (IV mode) | 2 (VI-mode)
+            mode (int): 0 (VV mode) | 1 (IV mode) | 2 (VI-mode)
         '''
         return self._sweep_mode
 
@@ -956,7 +988,7 @@ class Yokogawa(Instrument):
         
         Input:
             val (float)
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -993,7 +1025,7 @@ class Yokogawa(Instrument):
         
         Input:
             val (float)
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -1011,7 +1043,7 @@ class Yokogawa(Instrument):
         Gets sweep stop value of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             val (float)
         '''
@@ -1030,7 +1062,7 @@ class Yokogawa(Instrument):
         
         Input:
             val (float)
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -1048,7 +1080,7 @@ class Yokogawa(Instrument):
         Gets sweep step value of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             val (float)
         '''
@@ -1066,7 +1098,7 @@ class Yokogawa(Instrument):
         Gets sweep nop of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             val (int)
         '''
@@ -1083,11 +1115,11 @@ class Yokogawa(Instrument):
         VV-mode needs two different channels (bias channel <channel_bias> and sense channel <channel_sense>), IV-mode and VI-mode only one (<channel>).
         
         Input:
-            sweep (list(float)) : start, stop, step
-            sweep_mode (int)    : None <self._sweep_mode> (default) | 0 (VV-mode) | 1 (IV-mode) | 2 (VI-mode)
-            **kwargs            : channel_bias (int)  : 1 (default) | 2 for VV-mode
-                                  channel_sense (int) : 1 | 2 (default) for VV-mode
-                                  channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
+            sweep (list(float)): start, stop, step
+            sweep_mode (int): None <self._sweep_mode> (default) | 0 (VV-mode) | 1 (IV-mode) | 2 (VI-mode)
+            **kwargs: channel_bias (int): 1 (default) | 2 for VV-mode
+                                  channel_sense (int): 1 | 2 (default) for VV-mode
+                                  channel (int): 1 (default) | 2 for IV-mode or VI-mode
         Output:
             None
         '''
@@ -1099,12 +1131,12 @@ class Yokogawa(Instrument):
         # Corresponding Command: :TRACe[:STATe] 1|0|ON|OFF
         if sweep_mode is not None: self._sweep_mode = sweep_mode
         if not self._sweep_mode: # 0 (VV-mode)
-            self._channel_bias  = kwargs.get('channel_bias', 1)
+            self._channel_bias = kwargs.get('channel_bias', 1)
             self._channel_sense = kwargs.get('channel_sense', 2)
             self.set_sync(val=True)
         elif self._sweep_mode in [1,2]: # 1 (IV-mode) | 2 (VI-mode)
             self._channel = kwargs.get('channel', 1)
-            self._channel_bias  = kwargs.get('channel_bias', self._channel)
+            self._channel_bias = kwargs.get('channel_bias', self._channel)
             self._channel_sense = kwargs.get('channel_sense', self._channel)
         try:
             logging.debug('{!s}: Set sweep parameters of channel {:d} and {:d} to {!s}'.format(__name__, self._channel_bias, self._channel_sense, sweep))
@@ -1130,10 +1162,10 @@ class Yokogawa(Instrument):
         VV-mode needs two different channels (bias channel <channel_bias> and sense channel <channel_sense>), IV-mode and VI-mode only one (<channel>).
         
         Input:
-            sweep_mode (int) : None <self._sweep_mode> (default) | 0 (VV-mode) | 1 (IV-mode) | 2 (VI-mode)
-            **kwargs         : channel_bias (int)  : 1 (default) | 2 for VV-mode
-                               channel_sense (int) : 1 | 2 (default) for VV-mode
-                               channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
+            sweep_mode (int): None <self._sweep_mode> (default) | 0 (VV-mode) | 1 (IV-mode) | 2 (VI-mode)
+            **kwargs: channel_bias (int): 1 (default) | 2 for VV-mode
+                               channel_sense (int): 1 | 2 (default) for VV-mode
+                               channel (int): 1 (default) | 2 for IV-mode or VI-mode
         Output:
             bias_values (numpy.array(float))
             sense_values (numpy.array(float))
@@ -1144,11 +1176,11 @@ class Yokogawa(Instrument):
         # Corresponding Command: :TRACe:CHANnel<n>:DATA:READ? [TM|DO|DI|SF|SL|MF|ML|LC|HC|CP]
         if sweep_mode is not None: self._sweep_mode = sweep_mode
         if not self._sweep_mode: # 0 (VV-mode)
-            self._channel_bias  = kwargs.get('channel_bias', 1)
+            self._channel_bias = kwargs.get('channel_bias', 1)
             self._channel_sense = kwargs.get('channel_sense', 2)
         elif self._sweep_mode in [1,2]: # 1 (IV-mode) | 2 (VI-mode)
             self._channel = kwargs.get('channel', 1)
-            self._channel_bias  = kwargs.get('channel_bias', self._channel)
+            self._channel_bias = kwargs.get('channel_bias', self._channel)
             self._channel_sense = kwargs.get('channel_sense', self._channel)
         try:
             logging.debug('{!s}: Take sweep data of channel {:d} and {:d}'.format(__name__, self._channel_bias, self._channel_sense))
@@ -1175,11 +1207,11 @@ class Yokogawa(Instrument):
         VV-mode needs two different channels (bias channel <channel> and sense channel <channel2>), IV-mode and VI-mode only one (<channel>).
         
         Input:
-            sweep (list(float)) : start, stop, step
-            sweep_mode (int)    : 0 (VV-mode) | 1 (IV-mode) | 2 (VI-mode)
-            **kwargs            : channel_bias (int)  : 1 (default) | 2 for VV-mode
-                                  channel_sense (int) : 1 | 2 (default) for VV-mode
-                                  channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
+            sweep (list(float)): start, stop, step
+            sweep_mode (int): 0 (VV-mode) | 1 (IV-mode) | 2 (VI-mode)
+            **kwargs: channel_bias (int): 1 (default) | 2 for VV-mode
+                                  channel_sense (int): 1 | 2 (default) for VV-mode
+                                  channel (int): 1 (default) | 2 for IV-mode or VI-mode
         Output:
             bias_values (numpy.array(float))
             sense_values (numpy.array(float))
@@ -1187,14 +1219,14 @@ class Yokogawa(Instrument):
         self.set_sweep_parameters(sweep=sweep, sweep_mode=sweep_mode, **kwargs)
         return self.get_tracedata(sweep_mode=sweep_mode, **kwargs)
 
-    def get_bias_status_register(self):
+    def get_bias_ccr(self):
         '''
-        Gets the entire bias status register
+        Gets the entire bias condiction code register (ccr)
         
         Input:
             None
         Output:
-            status_register (bool):
+            ccr (list(bool)):
                 0:  CH1 End of Sweep
                 1:  CH1 Ready for Sweep
                 2:  CH1 Low Limiting
@@ -1214,34 +1246,32 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: :STATus:SOURce:CONDition?
         try:
-            logging.debug('{!s}: Get bias status register'.format(__name__))
-            BSR = int(self._ask(':stat:sour:cond'))
+            logging.debug('{!s}: Get bias ccr'.format(__name__))
+            ccr = int(self._ask(':stat:sour:cond'))
             ans = []
             for i in range(16):
-                # ans.append(2**i == (BSR) & 2**i)
-                ans.append(bool((BSR >> i) % 2))
+                ans.append(bool((ccr >> i) % 2))
             return ans
         except Exception as e:
-            logging.error('{!s}: Cannot get bias status register'.format(__name__))
-            raise type(e)('{!s}: Cannot get bias status register\n{!s}'.format(__name__ , e))
+            logging.error('{!s}: Cannot get bias ccr'.format(__name__))
+            raise type(e)('{!s}: Cannot get bias ccr\n{!s}'.format(__name__ , e))
 
-    def print_bias_status_register(self):
+    def print_bias_ccr(self):
         '''
-        Prints the entire bias status register including explanation
+        Prints the entire bias condiction code register (ccr) including explanation
         
         Input:
             None
         Output
             None
         '''
-        bsr = self.get_bias_status_register()
-        msg = [('\n\t{:s}:\t{!r}\t({:s})'.format(sb[0], bsr[i], sb[1])) for i, sb in
-               enumerate(self._bias_status_register) if sb != ('', '')]
-        print 'Bias status register:' + ''.join(msg)
+        ccr = self.get_bias_ccr()
+        msg = [('\n\t{:s}:\t{!r}\t({:s})'.format(sb[0], ccr[i], sb[1])) for i, sb in enumerate(self.bias_ccr) if sb != ('', '')]
+        print 'Bias ccr :{:s}'.format(''.join(msg))
 
-    def get_sense_status_register(self):
+    def get_sense_ccr(self):
         '''
-        Gets the entire sense status register
+        Gets the entire sense condiction code register (ccr)
         
         Input:
             None
@@ -1266,54 +1296,53 @@ class Yokogawa(Instrument):
         '''
         # Corresponding Command: :STATus:SENSe:CONDition?
         try:
-            logging.debug('{!s}: Get sense status register'.format(__name__))
-            SSR = int(self._ask(':stat:sens:cond'))
+            logging.debug('{!s}: Get sense ccr'.format(__name__))
+            ccr = int(self._ask(':stat:sens:cond'))
             ans = []
             for i in range(16):
-                # ans.append(2**i == (SSR) & 2**i)
-                ans.append(bool((SSR >> i) % 2))
+                ans.append(bool((ccr >> i) % 2))
             return ans
         except Exception as e:
-            logging.error('{!s}: Cannot get sense status register'.format(__name__))
-            raise type(e)('{!s}: Cannot get sense status register\n{!s}'.format(__name__ , e))
+            logging.error('{!s}: Cannot get sense ccr'.format(__name__))
+            raise type(e)('{!s}: Cannot get sense ccr\n{!s}'.format(__name__ , e))
 
-    def print_sense_status_register(self):
+    def print_sense_ccr(self):
         '''
-        Prints the entire sense status register including explanation
+        Prints the entire sense condiction code register (ccr) including explanation
         
         Input:
             None
         Output
             None
         '''
-        ssr = self.get_sense_status_register()
-        msg = [('\n\t{:s}:\t{!r}\t({:s})'.format(sb[0], ssr[i], sb[1])) for i, sb in
-               enumerate(self._sense_status_register) if sb != ('', '')]
-        print 'Sense status register:' + ''.join(msg)
+        ssr = self.get_sense_ccr()
+        msg = [('\n\t{:s}:\t{!r}\t({:s})'.format(sb[0], ssr[i], sb[1])) for i, sb in  enumerate(self.sense_ccr) if sb != ('', '')]
+        print 'Sense ccr:{:s}'.format(''.join(msg))
+
 
     def get_end_of_sweep(self, channel=1):
         '''
-        Gets event of bias status register entry "End for Sweep" of channel <channel>
+        Gets event of bias condiction code register (ccr) entry "End for Sweep" of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
-            val (bool)    : True | False
+            val (bool): True | False
         '''
         # Corresponding Command: :STATus:SOURce:EVENt?
         try:
-            logging.debug('''{!s}: Get bias status register event "End of Sweep" of channel {:d}'''.format(__name__, channel))
+            logging.debug('''{!s}: Get bias ccr event "End of Sweep" of channel {:d}'''.format(__name__, channel))
             return bool((int(self._ask(':stat:sour:even')) >> (0+8*(channel-1)))%2)
         except Exception as e:
-            logging.error('{!s}: Cannot get status register event "End of Sweep" of channel {!s}'.format(__name__, channel))
-            raise type(e)('{!s}: Cannot get status register event "End of Sweep" of channel {!s}\n{!s}'.format(__name__ , channel, e))
+            logging.error('{!s}: Cannot get bias ccr event "End of Sweep" of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get bias ccr event "End of Sweep" of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def _wait_for_end_of_sweep(self, channel=1):
         '''
-        Waits until the event of status register entry "End for Sweep" of channel <channel> occurs
+        Waits until the event of bias condiction code register (ccr) entry "End for Sweep" of channel <channel> occurs
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -1322,27 +1351,27 @@ class Yokogawa(Instrument):
 
     def get_ready_for_sweep(self, channel=1):
         '''
-        Gets condition of bias status register entry "Ready for Sweep" of channel <channel>
+        Gets condition of bias condiction code register (ccr) entry "Ready for Sweep" of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
-            val (bool)    : True | False
+            val (bool): True | False
         '''
         # Corresponding Command: :STATus:SOURce:CONDition?
         try:
-            logging.debug('''{!s}: Get bias status register event "Ready of Sweep" of channel {:d}'''.format(__name__, channel))
+            logging.debug('''{!s}: Get bias ccr event "Ready of Sweep" of channel {:d}'''.format(__name__, channel))
             return bool((int(self._ask(':stat:sour:cond')) >> (1+8*(channel-1)))%2)
         except Exception as e:
-            logging.error('{!s}: Cannot get status register condition "Ready for Sweep" of channel {!s}'.format(__name__, channel))
-            raise type(e)('{!s}: Cannot get status register condition "Ready for Sweep" of channel {!s}\n{!s}'.format(__name__ , channel, e))
+            logging.error('{!s}: Cannot get bias ccr condition "Ready for Sweep" of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get bias ccr condition "Ready for Sweep" of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def _wait_for_ready_for_sweep(self, channel=1):
         '''
-        Waits until the condition of status register entry "Ready for Sweep" of channel <channel> occurs
+        Waits until the condition of condiction code register (ccr) entry "Ready for Sweep" of channel <channel> occurs
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -1351,27 +1380,27 @@ class Yokogawa(Instrument):
 
     def get_end_of_measure(self, channel=1):
         '''
-        Gets condition of sense status register entry "End of Measure" of channel <channel>
+        Gets condition of sense condiction code register (ccr) entry "End of Measure" of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
-            val (bool)    : True | False
+            val (bool): True | False
         '''
         # Corresponding Command: :STATus:SENSe:CONDition?
         try:
-            logging.debug('''{!s}: Get bias status register event "End of Measure" of channel {:d}'''.format(__name__, channel))
+            logging.debug('''{!s}: Get sense ccr event "End of Measure" of channel {:d}'''.format(__name__, channel))
             return bool((int(self._ask(':stat:sens:cond')) >> (0+8*(channel-1)))%2)
         except Exception as e:
-            logging.error('{!s}: Cannot get status register event "End of Measure" of channel {!s}'.format(__name__, channel))
-            raise type(e)('{!s}: Cannot get status register event "End of Measure" of channel {!s}\n{!s}'.format(__name__ , channel, e))
+            logging.error('{!s}: Cannot get sense ccr event "End of Measure" of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get sense ccr event "End of Measure" of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def _wait_for_end_of_measure(self, channel=1):
         '''
         Waits until the condition of sense register entry "End for Measure" of channel <channel> occurs
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -1380,27 +1409,27 @@ class Yokogawa(Instrument):
 
     def get_end_of_trace(self, channel=1):
         '''
-        Gets condition of sense status register entry "End of Trace" of channel <channel>
+        Gets condition of sense condiction code register (ccr) entry "End of Trace" of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
-            val (bool)    : True | False
+            val (bool): True | False
         '''
         # Corresponding Command: :STATus:SENSe:CONDition?
         try:
-            logging.debug('''{!s}: Get bias status register event "End of Trace" of channel {:d}'''.format(__name__, channel))
+            logging.debug('''{!s}: Get sense ccr event "End of Trace" of channel {:d}'''.format(__name__, channel))
             return bool((int(self._ask(':stat:sens:cond')) >> 14)%2)
         except Exception as e:
-            logging.error('{!s}: Cannot get status register event "End of Trace"  of channel {!s}'.format(__name__, channel))
-            raise type(e)('{!s}: Cannot get status register event "End of Trace"  of channel {!s}\n{!s}'.format(__name__ , channel, e))
+            logging.error('{!s}: Cannot get sense ccr event "End of Trace"  of channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get sense ccr event "End of Trace"  of channel {!s}\n{!s}'.format(__name__ , channel, e))
 
     def _wait_for_end_of_trace(self, channel=1):
         '''
         Waits until the condition of sense register entry "End for Trace" of channel <channel> occurs
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
@@ -1409,24 +1438,24 @@ class Yokogawa(Instrument):
 
     def get_OPC(self):
         '''
-        Gets condition of status register entry "Operation complete"
+        Gets condition of condiction code register (ccr) entry "Operation complete"
         
         Input:
             None
         Output:
-            val (bool) : True | False
+            val (bool): True | False
         '''
         # Corresponding Command: *OPC
         try:
-            logging.debug('''{!s}: Get bias status register event "Operation complete"'''.format(__name__))
+            logging.debug('''{!s}: Get ccr event "Operation complete"'''.format(__name__))
             return bool(int(self._ask('*OPC')))
         except Exception as e:
-            logging.error('{!s}: Cannot get status register condition "Operation complete"'.format(__name__))
-            raise type(e)('{!s}: Cannot get status register condition "Operation complete"\n{!s}'.format(__name__ , e))
+            logging.error('{!s}: Cannot get ccr condition "Operation complete"'.format(__name__))
+            raise type(e)('{!s}: Cannot get ccr condition "Operation complete"\n{!s}'.format(__name__ , e))
 
     def _wait_for_OPC(self):
         '''
-        Waits until the event of register entry "Operatiom Complete" of occurs
+        Waits until the condition of register entry "Operatiom Complete" is fulfilled
         
         Input:
             None
@@ -1444,9 +1473,9 @@ class Yokogawa(Instrument):
         
         Input:
             sweep_mode (int): None <self._sweep_mode> (default) | 0 (VV-mode) | 1 (IV-mode) | 2 (VI-mode)
-            **kwargs        : channel_bias (int)  : 1 (default) | 2 for VV-mode
-                              channel_sense (int) : 1 | 2 (default) for VV-mode
-                              channel (int)       : 1 (default) | 2 for IV-mode or VI-mode
+            **kwargs: channel_bias (int): 1 (default) | 2 for VV-mode
+                              channel_sense (int): 1 | 2 (default) for VV-mode
+                              channel (int): 1 (default) | 2 for IV-mode or VI-mode
         Output:
             None
         '''
@@ -1501,11 +1530,11 @@ class Yokogawa(Instrument):
         # distiguish different sweep modes
         if sweep_mode is not None: self._sweep_mode = sweep_mode
         if self._sweep_mode == 0:  # VV-mode
-            self._channel_bias  = kwargs.get('channel_bias', 1)
+            self._channel_bias = kwargs.get('channel_bias', 1)
             self._channel_sense = kwargs.get('channel_sense', 2)
             channels = {'channel_bias':self._channel_bias, 'channel_sense':self._channel_sense}
         elif self._sweep_mode in [1,2]:  # IV-mode, VI-mode
-            self._channel  = kwargs.get('channel', 1)
+            self._channel = kwargs.get('channel', 1)
             channels = {'channel':self._channel}
         # set values
         try:
@@ -1521,10 +1550,11 @@ class Yokogawa(Instrument):
         Prints all settings of channel <channel>
         
         Input:
-            channel (int) : 1 (default) | 2
+            channel (int): 1 (default) | 2
         Output:
             None
         '''
+        logging.debug('{:s}: Get all'.format(__name__))
         print('synchronization    = {!r}'.format(self.get_sync()))
         print('measurement mode   = {:s}'.format(self._measurement_modes[self.get_measurement_mode(channel=channel)]))
         print('bias mode          = {:s}'.format(self._IV_modes[self.get_bias_mode(channel=channel)]))
@@ -1538,16 +1568,17 @@ class Yokogawa(Instrument):
         print('sense nplc         = {:f}'.format(self.get_sense_nplc(channel=channel)))
         print('sense autozero     = {!r}'.format(self.get_sense_autozero(channel=channel)))
         print('status             = {!r}'.format(self.get_status(channel=channel)))
-        print('bias value         = {:f}{:s}'.format(self.get_bias_value(channel=channel), self._IV_units[self.get_bias_mode(channel=channel)]))
-        print('sense value        = {:f}{:s}'.format(self.get_sense_value(channel=channel), self._IV_units[self.get_sense_mode(channel=channel)]))
+        if self.get_status(channel=channel):
+            print('bias value         = {:f}{:s}'.format(self.get_bias_value(channel=channel), self._IV_units[self.get_bias_mode(channel=channel)]))
+            print('sense value        = {:f}{:s}'.format(self.get_sense_value(channel=channel), self._IV_units[self.get_sense_mode(channel=channel)]))
         print('sweep start        = {:f}{:s}'.format(self._get_sweep_start(channel=channel), self._IV_units[self.get_bias_mode(channel=channel)]))
         print('sweep stop         = {:f}{:s}'.format(self._get_sweep_stop(channel=channel), self._IV_units[self.get_bias_mode(channel=channel)]))
         print('sweep step         = {:f}{:s}'.format(self._get_sweep_step(channel=channel), self._IV_units[self.get_bias_mode(channel=channel)]))
         print('sweep nop          = {:d}'.format(self._get_sweep_nop(channel=channel)))
         for err in self.get_error():
             print('error              = {:d}\t{:s}'.format(err[0], err[1]))
-        self.print_bias_status_register()
-        self.print_sense_status_register()
+        self.print_bias_ccr()
+        self.print_sense_ccr()
 
     def reset(self):
         '''
@@ -1568,7 +1599,7 @@ class Yokogawa(Instrument):
 
     def get_error(self):
         '''
-        Gets error of instrument
+        Gets errors of instrument
         
         Input:
             None
@@ -1589,6 +1620,14 @@ class Yokogawa(Instrument):
             raise type(e)('{!s}: Cannot get errors of instrument\n{!s}'.format(__name__ , e))
     
     def _raise_error(self):
+        '''
+        Gets errors of instrument and as the case may be raises a python error
+        
+        Input:
+            None
+        Output:
+            None
+        '''
         errors = self.get_error()
         if len(errors)==1 and errors[0][0] is 0: # no error
             return
@@ -1614,6 +1653,24 @@ class Yokogawa(Instrument):
         except Exception as e:
             logging.error('{!s}: Cannot clears error of instrument'.format(__name__))
             raise type(e)('{!s}: Cannot clears error of instrument\n{!s}'.format(__name__ , e))
+    
+    def get_IDN(self):
+        '''
+        Gets instrument IDN (identification name)
+        
+        Input:
+            None
+        Output:
+            IDN (str): manufacturer, model number, serial number, firmware revision level
+        '''
+        # Corresponding Command: *IDN?
+        try:
+            logging.debug('{!s}: Get instrument IDN')
+            return str(self._ask('*IDN'))
+        except Exception as e:
+            logging.error('{!s}: Cannot get instrument IDN')
+            raise type(e)('{!s}: Cannot get instrument IDN\n{!s}'.format(e))
+        return 
 
     def close(self):
         '''
@@ -1641,7 +1698,8 @@ class Yokogawa(Instrument):
         Output:
             parlist (dict): Parameter as key, corresponding channels as value
         '''
-        parlist = {'measurement_mode': [1, 2],
+        parlist = {'IDN': [None],
+                   'measurement_mode': [1, 2],
                    'sync': [None],
                    'bias_mode': [1, 2],
                    'sense_mode': [1, 2],
@@ -1665,7 +1723,7 @@ class Yokogawa(Instrument):
         
         Input:
             param (str): parameter to be got
-            **kwargs   : channels (list[int]): certain channel {1, 2} for channel specific parameter or None if no channel (global parameter)
+            **kwargs: channels (list[int]): certain channel {1, 2} for channel specific parameter or None if no channel (global parameter)
         Output:
             parlist (dict): Parameter as key, corresponding channels as value
         '''
