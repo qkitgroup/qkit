@@ -310,7 +310,7 @@ class Measure_td(object):
         
         self._log = waf.open_log_file(self._hdf.get_filepath())
 
-        self._hdf_readout_frequencies = self._hdf.add_value_vector(self.multiplex_attribute, unit = self.multiplex_unit)
+        self._hdf_readout_frequencies = self._hdf.add_value_vector(self.multiplex_attribute, x=self._hdf_x, unit = self.multiplex_unit)
         self._hdf_readout_frequencies.append(self.readout.get_tone_freq())
         
         if self.ReadoutTrace:
