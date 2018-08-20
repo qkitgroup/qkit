@@ -144,7 +144,10 @@ class H5_file(object):
                 # comment: The above line does remove the reference to the dataset but does not free the space aquired
                 # fixme if possible ...
                 
-        ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype, fillvalue = np.nan)
+        if ds_type == ds_types['txt']:
+            ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype)
+        else:
+            ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype, fillvalue = np.nan)
         
         ds.attrs.create("name",name)
         if ds_type == ds_types['matrix'] or ds_type == ds_types['box']:
@@ -183,17 +186,17 @@ class H5_file(object):
                 dim1 = ds.shape[0]+1
                 ds.resize((dim1,))
                 ds[dim1-1] = data
-            """
-            ## This should not be needed anymore as there are non-user typecasts to np arrays before calling this fct.
-            elif len(data.shape) == 0:              
-                ## scalar input; this is more or less useless, all non-text data gets cast
-                ## into np.array prior to calling this function.
-                dim1 = ds.shape[0]+1
-                fill[0] += 1
-                ds.resize((dim1,))
-                ds[fill[0]-1] = data
-            """
-            if len(data.shape) == 1:
+                """
+                ## This should not be needed anymore as there are non-user typecasts to np arrays before calling this fct.
+                elif len(data.shape) == 0:              
+                    ## scalar input; this is more or less useless, all non-text data gets cast
+                    ## into np.array prior to calling this function.
+                    dim1 = ds.shape[0]+1
+                    fill[0] += 1
+                    ds.resize((dim1,))
+                    ds[fill[0]-1] = data
+                """
+            elif len(data.shape) == 1:
                 ## np array (or list)
                 if len(data) == 1:                  
                     ## single entry
