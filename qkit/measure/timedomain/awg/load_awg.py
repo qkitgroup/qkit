@@ -1,6 +1,6 @@
 # load_awg.py
-# adapted from the old load_awg, started by M. Jerger and adapted by AS, JB
-# and now adjusted for the virutal_awg by TW
+# started by M. Jerger and adapted by AS, JB
+
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,143 +16,138 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-import qkit
+import qt
 import numpy as np
+import os.path
+import time
 import logging
+import numpy
+import sys
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 import gc
 
 
-def _adjust_wfs_for_tabor(wf1, wf2, ro_index, chpair, segment, sample):
-    """
-    This function simply adjust the waveforms, coming from the virtual awg, to fit the requirements of the
-    Tabor awg"
-    """
-    divisor = 16
-    marker1 = np.zeros_like(wf1)
-    readout_ind = ro_index[segment] - int(sample.clock * sample.readout_delay)  # TODO: check if the sign is correct
-    marker1[readout_ind:readout_ind + 10] = 1
-    begin_zeros = len(wf1) % divisor
-    # minimum waveform is 192 points, handled by the Tabor driver
-    if begin_zeros != 0:
-        wf1 = np.append(np.zeros(divisor - begin_zeros), wf1)
-        wf2 = np.append(np.zeros(divisor - begin_zeros), wf2)
-        marker1 = np.append(np.zeros(divisor - begin_zeros), marker1)
-    sample.awg.wfm_send2(wf1, wf2, marker1, marker1, chpair * 2 - 1, segment + 1)
-
-
-def load_tabor(channel_sequences, ro_index, sample, reset=True, show_progress_bar=True):
-    """
-    This function takes the data, coming from virtual awg, and loads them into the awg
-    :param channel_sequences: This must be a list of list, i.e., a list of channels each containing the sequences
-    :param ro_index: coming from virtual awg, for each sequence there is a ro_index letting the awg know, when to
-                     send the trigger.
-    :param sample: you should know this
-    :param reset: simply sets the awg_channel active, probably not needed
-    :param show_progress_bar: enables the progress bar
-    :return:
-    """
-    awg = sample.awg
-    number_of_channels = 0
-    complex_channel = []
-    for chan in channel_sequences:
-        if True in (s.dtype == np.complex128 for s in chan):
-            number_of_channels += 2
-            complex_channel.append(True)
-        else:
-            number_of_channels += 1
-            complex_channel.append(False)
-    if number_of_channels > awg.numchannels:
-        raise ValueError('more sequences than channels')
-    # reordering channels if necessary
-    if number_of_channels > 2:
-        if complex_channel[:2] == [False, True]:
-            logging.warning('Channels reordered! Please do not split complex channels on two different channelpairs.'
-                            'Complex channel is on chpair 1')
-            channel_sequences[:2] = [channel_sequences[1], channel_sequences[0]]
-            complex_channel[:2] = [True, False]
-    qkit.flow.start()
-
+def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:', path = '\\waveforms', reset = True, marker=None, markerfunc=None, ch2_amp = 2,chpair=1,awg= None, show_progress_bar = True):
+    '''
+        set awg to sequence mode and push a number of waveforms into the sequencer
+        
+        inputs:
+        
+        ts: array of times, len(ts) = #sequenzes
+        wfm_func: waveform function usually generated via generate_waveform using ts[i]; this can be a tuple of arrays (for channels 0,1, heterodyne mode) or a single array (homodyne mode)
+        sample: sample object
+        
+        iq: Reference to iq mixer instrument. If None (default), the wfm will not be changed. Otherwise, the wfm will be converted via iq.convert()
+        
+        marker: marker array in the form [[ch1m1,ch1m2],[ch2m1,ch2m2]] and all entries arrays of sample length
+        markerfunc: analog to wfm_func, set marker to None when used
+        
+        for the 6GS/s AWG, the waveform length must be divisible by 64
+        for the 1.2GS/s AWG, it must be divisible by 4
+        
+        chpair: if you use the 4ch Tabor AWG as a single 2ch instrument, you can chose to take the second channel pair here (this can be either 1 or 2).
+    '''
+    qt.mstart()
+    if awg==None:
+        awg = sample.awg
+    clock = sample.clock
+    wfm_func2 = wfm_func
+    if iq != None:
+        wfm_func2 = lambda t, sample: iq.convert(wfm_func(t,sample))
+    
+    # create new sequence
     if reset:
-        awg.set('p%i_runmode' % 1, 'SEQ')
-        awg.define_sequence(1, len(ro_index))
-        if number_of_channels > 2:
-            awg.set('p%i_runmode' % 2, 'SEQ')
-            awg.define_sequence(2, len(ro_index))
-        # amplitude settings of analog output
+        if "Tektronix" in awg.get_type():
+            awg.set_runmode('SEQ')
+            awg.set_seq_length(0)   #clear sequence, necessary?
+            awg.set_seq_length(len(ts))
+        elif "Tabor" in awg.get_type():
+            awg.set('p%i_runmode'%chpair,'SEQ')
+            awg.define_sequence(chpair*2-1,len(ts))
+        
+        #amplitude settings of analog output
         awg.set_ch1_offset(0)
         awg.set_ch2_offset(0)
         awg.set_ch1_amplitude(2)
-        awg.set_ch2_amplitude(2)
+        awg.set_ch2_amplitude(ch2_amp)
 
-    # Loading the waveforms into the AWG, differentiating between all cases
-    if show_progress_bar:
-        p = Progress_Bar(len(ro_index), 'Load AWG')
+    #generate empty tuples
+    wfm_samples_prev = [None,None]
+    wfm_fn = [None,None]
+    wfm_pn = [None,None]
+    if show_progress_bar: p = Progress_Bar(len(ts)*(2 if "Tektronix" in awg.get_type() else 1),'Load AWG')   #init progress bar
+    
+    #update all channels and times
+    for ti, t in enumerate(ts):   #run through all sequences
+        qt.msleep()
+        wfm_samples = wfm_func2(t,sample)   #generate waveform
+        if not isinstance(wfm_samples[0],(list, tuple, np.ndarray)):   #homodyne
+            wfm_samples = [wfm_samples,np.zeros_like(wfm_samples, dtype=np.int8)]
+        
+        for chan in [0,1]:
+            if markerfunc != None:   #use markerfunc
+                try:
+                    if markerfunc[chan][0] == None:
+                        marker1 = np.zeros_like(wfm_samples, dtype=np.int8)[0]
+                    else:
+                        marker1 = markerfunc[chan][0](t,sample)
+                    
+                    if markerfunc[chan][1] == None:
+                        marker2 = np.zeros_like(wfm_samples, dtype=np.int8)[0]
+                    else:
+                        marker2 = markerfunc[chan][1](t,sample)
+                
+                except TypeError:   #only one markerfunc given
+                    marker1, marker2 = np.zeros_like(wfm_samples, dtype=np.int8)
+                    if chan == 0:
+                        marker1 = markerfunc(t,sample)
+                    
+            elif marker == None:   #fill up with zeros
+                marker1, marker2 = np.zeros_like(wfm_samples, dtype=np.int8)
+            else: #or set your own markers
+                c_marker1, c_marker2 = marker[chan]
+                marker1 = c_marker1[ti]
+                marker2 = c_marker2[ti]
+            
+            if "Tektronix" in awg.get_type():
+                wfm_fn[chan] = 'ch%d_t%05d'%(chan+1, ti) # filename is kept until changed
+                if len(wfm_samples) == 1 and chan == 1:
+                    wfm_pn[chan] = '%s%s\\%s'%(drive, path, np.zeros_like(wfm_fn[0]))   #create empty array
+                else:
+                    wfm_pn[chan] = '%s%s\\%s'%(drive, path, wfm_fn[chan])
+                awg.wfm_send(wfm_samples[chan], marker1, marker2, wfm_pn[chan], clock)
+                
+                awg.wfm_import(wfm_fn[chan], wfm_pn[chan], 'WFM')
+                
+                # assign waveform to channel/time slot
+                awg.wfm_assign(chan+1, ti+1, wfm_fn[chan])
+                
+                if loop:
+                    awg.set_seq_loop(ti+1, np.infty)
+            elif "Tabor" in awg.get_type():
+                if chan == 1:   #write out both together
+                    awg.wfm_send2(wfm_samples[0],wfm_samples[1],marker1,marker2,chpair*2-1,ti+1)
+                else: continue
+            else:
+                raise ValueError("AWG type not known")
+            if show_progress_bar: p.iterate()
 
-    if number_of_channels == 1:
-        for j, seq in enumerate(channel_sequences):
-            _adjust_wfs_for_tabor(seq, [0], ro_index, 1, j, sample)
-            if show_progress_bar:
-                p.iterate()
+        gc.collect()
 
-    elif number_of_channels == 2:
-        if complex_channel[0]:
-            for j, seq in enumerate(channel_sequences):
-                _adjust_wfs_for_tabor(seq.real, seq.imag, ro_index, 1, j, sample)
-                if show_progress_bar:
-                    p.iterate()
-        else:
-            for j, seq in enumerate(zip(channel_sequences)):
-                _adjust_wfs_for_tabor(seq[0], seq[1], ro_index, 1, j, sample)
-                if show_progress_bar:
-                    p.iterate()
-
-    elif number_of_channels == 3:
-        if complex_channel[0]:
-            for j, seq in enumerate(zip(channel_sequences)):
-                _adjust_wfs_for_tabor(seq[0].real, seq[0].imag, ro_index, 1, j, sample)
-                _adjust_wfs_for_tabor(seq[3], [0], ro_index, 2, j, sample)
-                if show_progress_bar:
-                    p.iterate()
-        elif not complex_channel[0]:
-            for j, seq in enumerate(zip(channel_sequences)):
-                _adjust_wfs_for_tabor(seq[0], seq[1], ro_index, 1, j, sample)
-                _adjust_wfs_for_tabor(seq[3], [0], ro_index, 2, j, sample)
-                if show_progress_bar:
-                    p.iterate()
-
-    else:  # 4 channels
-        if complex_channel == [True, True]:
-            for j, seq in enumerate(zip(channel_sequences)):
-                _adjust_wfs_for_tabor(seq[0].real, seq[0].imag, ro_index, 1, j, sample)
-                _adjust_wfs_for_tabor(seq[1].real, seq[1].imag, ro_index, 2, j, sample)
-                if show_progress_bar:
-                    p.iterate()
-        elif complex_channel == [True, False, False]:
-            for j, seq in enumerate(zip(channel_sequences)):
-                _adjust_wfs_for_tabor(seq[0].real, seq[0].imag, ro_index, 1, j, sample)
-                _adjust_wfs_for_tabor(seq[1], seq[2], ro_index, 2, j, sample)
-                if show_progress_bar:
-                    p.iterate()
-        elif complex_channel == [False, False, True]:
-            for j, seq in enumerate(zip(channel_sequences)):
-                _adjust_wfs_for_tabor(seq[0], seq[1], ro_index, 1, j, sample)
-                _adjust_wfs_for_tabor(seq[2].real, seq[2].imag, ro_index, 2, j, sample)
-                if show_progress_bar:
-                    p.iterate()
-        else:
-            for j, seq in enumerate(zip(channel_sequences)):
-                _adjust_wfs_for_tabor(seq[0], seq[1], ro_index, 1, j, sample)
-                _adjust_wfs_for_tabor(seq[2], seq[3], ro_index, 2, j, sample)
-                if show_progress_bar:
-                    p.iterate()
-
-    gc.collect()
-
-    if reset:
+    if reset and "Tektronix" in awg.get_type():
         # enable channels
-        # awg.preset()
         awg.set_ch1_status(True)
         awg.set_ch2_status(True)
-    qkit.flow.end()
-    return np.all([awg.get('ch%i_status' % i) for i in [1, 2]])
+        awg.set_seq_goto(len(ts), 1)
+        awg.run()
+        awg.wait(10,False)
+    elif reset and "Tabor" in awg.get_type():
+        # enable channels
+        #awg.preset()
+        awg.set_ch1_status(True)
+        awg.set_ch2_status(True)
+    qt.mend()
+    if sample.__dict__.has_key('mspec'):
+        sample.mspec.spec_stop()
+        sample.mspec.set_segments(len(ts))
+    return np.all([awg.get('ch%i_status'%i) for i in [1,2]])
