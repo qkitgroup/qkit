@@ -1,5 +1,20 @@
-# Created by A.Stehli@KIT 04/2018
-# time domain experiment class
+# Started by A.Stehli@KIT 04/2018
+# time domain virtual AWG class
+
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,7 +22,7 @@ from ipywidgets import interact, widgets, Layout
 import logging
 
 import qkit.measure.timedomain.pulse_sequence as ps
-import qkit.measure.timedomain.awg.load_awg as load_tawg
+import qkit.measure.timedomain.awg.load_tawg as load_tawg
 
 
 
