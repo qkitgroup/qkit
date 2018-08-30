@@ -231,7 +231,7 @@ class file_system_service(UUID_base):
     
     def add_h5_file(self, h5_filename):
         if qkit.cfg['fid_scan_datadir']:
-            threading.Thread(name='adding_h5_file', target=self._add,kwargs={'h5_filename':h5_filename}).start()
+            threading.Timer(20, function=self._add, kwargs={'h5_filename':h5_filename}).start()
         
     def _add(self, h5_filename):
         """

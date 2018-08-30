@@ -1,5 +1,5 @@
 # MKS MFC Controller 647C DEV version 1.0 written by HR/JB@KIT 10/2013
-# Rewritten for qkit/evaporate/deposition service HR,YS@KIT2018
+# Rewritten for qkit/evaporate/deposition service HR,YS@KIT 2018
 # Mass flow controller monitor/controller
 
 # This program is free software; you can redistribute it and/or modify
@@ -31,7 +31,7 @@ from threading import Lock
 
 class MKS_647C(Instrument):
     """
-    This is the driver for the Inficon Quarz Cristall Monitor
+    This is the driver for the MKS 647C four channel mass flow controller.
 
     Usage:
     Initialize with
@@ -40,117 +40,121 @@ class MKS_647C(Instrument):
 
     def __init__(self, name, address, reset=False):
         """
-        Initializes the Keithley, and communicates with the wrapper.
+        Initializes the MKS, and communicates with the wrapper.
         
-        Input:
-            name (string)    : name of the instrument
-            address (string) : serial address
-            reset (bool)     : resets to default values, default=False
+        Args:
+            name (string)    : Name of the instrument
+            address (string) : Serial address
+            reset (bool)     : Resets to default values, default=False
         """
         
         logging.info(__name__ + ': Initializing instrument MKS_647C')
         Instrument.__init__(self, name, tags=['physical'])
-    
-        self.predef_channels   = {"Ar":1, "N2":2, "O2":3, "ArO":4}
-        self.predef_gasCorfact = {"Ar":"0137", "N2":"0100", "O2":"0100", "ArO":"0137"}
-        self.predef_flowRange  = {"Ar":6, "N2":6, "O2":6, "ArO":3} # 100,100,100,10
+
+        self.predef_pressure_unit = 13 # 100 ubar, depends on baratron
+        self.predef_channels = {"Ar": 1, "N2": 2, "O2": 3, "ArO": 4}
+        self.predef_gasCorfact = {"Ar": 1.37, "N2": 1.0, "O2": 1.0, "ArO": 1.37}  # Values as they are predefined in MKS
+        self.predef_flowRange = {"Ar": 6, "N2": 6, "O2": 6, "ArO": 3}  # 100sccm, 100sccm, 100sccm, 10sccm
 
         self.mutex = Lock()
         self.setup(address)
+
+        self.init_controller(reset=reset)
         
-    def setup(self,address = "COM5"):
-        #channel = channel
+    def setup(self, address="COM10"):
         baudrate = 9600
         timeout = 1
-        # open serial port, 9600, 8,N,1, timeout 1s
-        # address="/dev/tty.usbserial"       
-        # Port A on the USB_to_serial converter, Port B ends with K
-        # address = "/dev/cu.usbserial-FTK3DEL5A"
-        # address = "/dev/ttyUSB3" 
 
-        self.SerialPort = self._std_open(address,baudrate,timeout)
-        atexit.register(self.SerialPort.close)
+        self.serial_port = self._std_open(address, baudrate, timeout)
+        atexit.register(self.serial_port.close)
         
-    def _std_open(self,device,baudrate,timeout):
+    def _std_open(self, device, baudrate, timeout):
         return serial.Serial(device, baudrate, timeout=timeout)
 
-    def getSerialPort(self):
-        return self.SerialPort
+    def get_serial_port(self):
+        return self.serial_port
 
-    def getMutex(self):
+    def get_mutex(self):
         return self.mutex
 
-    def remote_cmd(self,cmd):
+    def remote_cmd(self, cmd):
         # the 647C requires carriage return termination
         cmd += '\r'
         with self.mutex:
-            self.SerialPort.write(cmd)
+            self.serial_port.write(cmd)
         
             time.sleep(0.2)   #increase from .1 to .2
             #value = self.ser.readline().strip("\x06")
-            rem_char = self.SerialPort.inWaiting()
+            rem_char = self.serial_port.inWaiting()
         
-            value = self.SerialPort.read(rem_char) # .strip("\x06")
+            value = self.serial_port.read(rem_char) # .strip("\x06")
             time.sleep(0.2)   #to avoid wrong communication
             return value.strip()
 
     """
     INSTRUMENT SETUP
     """
-    def setDefault(self):
+    def set_default(self):
         return self.remote_cmd("DF")
 
     def hardware_reset(self):
         return self.remote_cmd("RE")
 
-    def getVersion(self):
+    def get_version(self):
         return self.remote_cmd("ID")
 
-    """
-    # commands for setting values with the power supply
-
-    def check_range(self,value,minval,maxval):
-        if value < minval or value > maxval:
-            print "value out of range error: " + str(value) + " " + str(minval) + " " + str(maxval)
-            raise ValueError
-
-    def setOn(self,ON = False):
-        if ON:
-            self.remote_cmd('A')        
-        else:
-            self.remote_cmd('B')            
-    """
-
-    def init_controller(self):
+    def init_controller(self, reset=False):
         """
-        channel = 1	#Argon
-        self.setFlowSetPoint(channel,0)
-        self.setFlowRange100sccm(channel)
-        self.setGasCorrectionFactor(channel,"0137")
+        Initialize the MKS.
+        Units and ranges required for value conversion are loaded and stored in self variables.
 
-        channel = 2	#N2
-        self.setFlowSetPoint(channel,0)
-        self.setFlowRange100sccm(channel)
-        self.setGasCorrectionFactor(channel,"0100")
+        If reset=True, the default values as defined by predef_... in __init__ are set and all channels are turned off.
 
-        channel = 3	#O2
-        self.setFlowSetPoint(channel,0)
-        self.setFlowRange100sccm(channel)
-        self.setGasCorrectionFactor(channel,"0100")
+        Args:
+            reset: Reset the MKS to default values.
 
-        channel = 4	#ArO2
-        self.setFlowSetPoint(channel,0)
-        self.setFlowRange10sccm(channel)
-        self.setGasCorrectionFactor(channel,"0137") #1.12
-        print("Done.")
+        Returns:
+            Nothing but makes available:
+            self.pressure_range, self.pressure_unit and self.flow_settings used internally for unit conversion.
         """
         print ("Initializing controller...")
-        self.setPressureUnit()
+
+        self.set_pressure_unit(self.predef_pressure_unit)
+        self.pressure_range, self.pressure_unit = self.get_pressure_range()
+
+        self.flow_settings = {}
+
+        if reset:
+            self.set_off_all()
+
         for chan_name in self.predef_channels.keys():
             channel = self.predef_channels[chan_name]
-            self.setFlowSetPoint(channel, 0)
-            self.setFlowRange(channel, self.predef_flowRange[chan_name])
-            self.setGasCorrectionFactor(channel, self.predef_gasCorfact[chan_name])
+            self.flow_settings[channel] = {}
+            if reset:
+                self.set_off(channel)
+                self.set_flow_range(channel, self.predef_flowRange[chan_name])
+                self.set_gas_correction_factor(channel, self.predef_gasCorfact[chan_name])
+            flow_range, flow_unit = self.get_flow_range(channel)
+            gas_corr_fact = self.get_gas_correction_factor(channel)
+            self.flow_settings[channel] = {"flow_range": float(flow_range),
+                                           "flow_unit": str(flow_unit),
+                                           "gas_corr_fact": float(gas_corr_fact)}
+            if reset:
+                self.set_flow(channel, 0)
+        
+        print ("Controller initialized.")
+        if reset:
+            print ("Values were resetted to predef values defined in __init__ and flow was turned off.")
+        else:
+            print ("No values were resetted.")
+        print ("Channel settings are available as flow_settings[channel].")
+        print ("Pressure settings: ")
+        print (self.get_pressure_range())
+        print ("Flow settings: ")
+        for chan in self.flow_settings:
+            print (chan, self.flow_settings[chan])
+
+        return
 
     """
     CHANNEL SETUP
@@ -198,17 +202,39 @@ class MKS_647C(Instrument):
         mode, master_channel = (self.remote_cmd(cmd)).split()
         return int(mode), int(master_channel)
 
-    def setGasCorrectionFactor(self, channel, factor):
-        # TODO: Check the correct values for the used gasses and set automatically. (see init_controller)
-        # ffactor = "00" + str(factor).strip(".")
-        cmd = "GC " + str(channel) + str(factor)
-        return self.remote_cmd(cmd)
+    def set_gas_correction_factor(self, channel, factor):
+        """
+        Set the gas correction factor for a given channel.
 
-    def getGasCorrectionFactor(self, channel):
+        Args:
+            channel: Channel for which the gas correction factor is to be set.
+            factor: The gas correction factor to be set.
+        
+        Note:
+            This changes the gas settings to "USER, since the driver has no option to choose the gas directly.
+            Chosing Argon directly from the menu on the controller gives a correction factor of 1.37.
+            Nitrogen and Oxygen both are set to 1 by the device.
+            This is programmed here in the predef vales of __init__.
+        """
+        cmd = "GC " + str(channel) + " " + str(int(factor*100))# '{fact:04d}'.format(fact=int(factor*100))
+        ret = self.remote_cmd(cmd)
+        gas_corr_fact = self.get_gas_correction_factor(channel)
+        self.flow_settings[channel]["gas_corr_fact"] = float(gas_corr_fact)
+        return ret
+
+    def get_gas_correction_factor(self, channel):
+        """
+        Check gas correction factor of a channel.
+
+        Args:
+            channel: Channel to be checked.
+        
+        Returns:
+            Gas correction factor.
+        """
         cmd = "GC " + str(channel) + " R"
         res = self.remote_cmd(cmd)
-        # TODO: Check unit, why /100?
-        return float(res) / 100
+        return float(res)/100.
 
     def set_flow_range(self, channel, value):
         """
@@ -263,7 +289,11 @@ class MKS_647C(Instrument):
                 39 = 300.0 SLM
         """
         cmd = "RA " + str(channel) + " " + str(value)
-        return self.remote_cmd(cmd)
+        ret = self.remote_cmd(cmd)
+        flow_range, flow_unit = self.get_flow_range(channel)
+        self.flow_settings[channel]["flow_range"] = float(flow_range)
+        self.flow_settings[channel]["flow_unit"] = str(flow_unit)
+        return ret
 
     def set_flow_range_10sccm(self, channel):
         """
@@ -301,10 +331,10 @@ class MKS_647C(Instrument):
                  1.0, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0,
                  1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 30.0, 300.0]
         units = ['SCCM', 'SCCM', 'SCCM', 'SCCM', 'SCCM', 'SCCM', 'SCCM', 'SCCM', 'SCCM',
-                 'SLM', 'SLM ', 'SLM ', 'SLM ', 'SLM ', 'SLM ', 'SLM ', 'SLM ', 'SLM ', 'SLM ',
+                 'SLM', 'SLM', 'SLM', 'SLM', 'SLM', 'SLM', 'SLM', 'SLM', 'SLM', 'SLM',
                  'SCMM', 'SCFH', 'SCFH', 'SCFH', 'SCFH', 'SCFH', 'SCFH', 'SCFH', 'SCFH',
                  'SCFH', 'SCFM', 'SCFM', 'SCFM', 'SCFM', 'SCFM', 'SCFM', 'SCFM', 'SCFM',
-                 'SCFM', 'SLM', 'SLM ']
+                 'SCFM', 'SLM', 'SLM']
 
         cmd = "RA " + str(channel) + " R"
         flownum = int(self.remote_cmd(cmd))
@@ -348,7 +378,7 @@ class MKS_647C(Instrument):
         cmd = "LL " + str(channel) + " " + str(limit)
         return self.remote_cmd(cmd)
         
-    def get_low_limit(self,channel):
+    def get_low_limit(self, channel):
         """
         Check for lower flow limit of a channel.
         (old name: getLowLimit)
@@ -445,12 +475,11 @@ class MKS_647C(Instrument):
             channel: Channel to be checked.
 
         Returns:
-            Pressure
+            Actual flow of a given channel in units defined by flow range.
         """
-        # TODO: Check unit of flow that is returned and add to docstring.
         cmd = "FL " + str(channel)
-        flow = self.remote_cmd(cmd)   #gives N2 flow
-        return float(flow)/10*self.getGasCorrectionFactor(channel)
+        flow = self.remote_cmd(cmd)
+        return float(flow)*self.flow_settings[channel]['flow_range']*self.flow_settings[channel]['gas_corr_fact']/1000.
 
     def set_flow(self, channel, value):
         """
@@ -459,10 +488,11 @@ class MKS_647C(Instrument):
 
         Args:
             channel: Channel for which the flow is set.
-            value: Flow to be set.
+            value: Flow to be set in units defined by flow range.
         """
-        # TODO: Check unit of flow and add to docstring.
-        cmd = "FS " + str(channel) + str(int(float(value)/self.getGasCorrectionFactor(channel)*10))
+        cmd = "FS " + str(channel) + str(int(round(value / self.flow_settings[channel]['flow_range'] /
+                                                   self.flow_settings[channel]['gas_corr_fact']*1000.)))
+        # print cmd
         return self.remote_cmd(cmd)
 
     def get_flow_setpoint(self, channel):
@@ -472,11 +502,14 @@ class MKS_647C(Instrument):
 
         Args:
             channel: Channel for which the flow is set.
+        
+        Returns:
+            Flow setpoint of a given channel in units defined by flow range.
         """
-        # TODO: Check unit of flow and add to docstring.
         cmd = "FS " + str(channel) +" R"
-        flow = self.remote_cmd(cmd)   #gives N2 flow #indent error?
-        return float(flow)/10*self.getGasCorrectionFactor(channel)
+        ret = self.remote_cmd(cmd)
+        # print ret
+        return float(ret)*self.flow_settings[channel]['flow_range']*self.flow_settings[channel]['gas_corr_fact']/1000.
 
     """
     PRESSURE
@@ -484,6 +517,7 @@ class MKS_647C(Instrument):
     def set_pressure_unit(self, pu=13):
         """
         Set the pressure unit.
+
         (old name: setPressureUnit)
 
         Args:
@@ -495,9 +529,11 @@ class MKS_647C(Instrument):
                 11: 1 ubar
         """
         cmd = "PU " + str(pu)
-        return self.remote_cmd(cmd)
+        ret = self.remote_cmd(cmd)
+        self.pressure_range, self.pressure_unit = self.get_pressure_range()
+        return ret
 
-    def getPressureUnit(self):
+    def get_pressure_unit(self):
         """
         Get the pressure unit.
         (old name: getPressureUnit)
@@ -512,6 +548,22 @@ class MKS_647C(Instrument):
         """
         cmd = "PU R"
         return self.remote_cmd(cmd)
+    
+    def get_pressure_range(self):
+        pressures = [1., 10., 100., 1000., 1., 10., 100., 1000., 1., 10., 100., 1., 10., 100., 1000., 1., 10., 100.,
+                     1000., 1., 10., 100., 1., 10., 100., 1., 10., 100., 1000., 2., 5., 20., 50., 200., 500., 2000.,
+                     5000., 2., 5., 20., 50., 200., 500., 2000., 5000., 2., 5., 20., 50., 2., 5., 20., 50., 200., 500.,
+                     2000., 5000., 2., 5., 20., 50., 200., 500., 2000., 5000., 2., 5., 20., 50., 2., 5., 20., 50., 200.,
+                     500., 2., 5., 20., 50., 200., 500., 2000., 5000., 1., 2., 5., 10]
+        units = ['mTorr', 'mTorr', 'mTorr', 'mTorr', 'Torr', 'Torr', 'Torr', 'Torr', 'kTorr', 'kTorr', 'kTorr', 'uBar',
+                 'uBar', 'uBar', 'uBar', 'mBar', 'mBar', 'mBar', 'mBar', 'Bar', 'Bar', 'Bar', 'Pa', 'Pa', 'Pa', 'kPa',
+                 'kPa', 'kPa', 'kPa', 'mTorr', 'mTorr', 'mTorr', 'mTorr', 'mTorr', 'mTorr', 'mTorr', 'mTorr', 'Torr',
+                 'Torr', 'Torr', 'Torr', 'Torr', 'Torr', 'Torr', 'Torr', 'kTorr', 'kTorr', 'kTorr', 'kTorr', 'ubar',
+                 'ubar', 'ubar', 'ubar', 'ubar', 'ubar', 'ubar', 'ubar', 'mbar', 'mbar', 'mbar', 'mbar', 'mbar', 'mbar',
+                 'mbar', 'mbar', 'bar', 'bar', 'bar', 'bar', 'Pa', 'Pa', 'Pa', 'Pa', 'Pa', 'Pa', 'kPa', 'kPa', 'kPa',
+                 'kPa', 'kPa', 'kPa', 'kPa', 'kPa', 'Mpa', 'Mpa', 'Mpa', 'Mpa']
+        pnum = int(self.get_pressure_unit())
+        return pressures[pnum], units[pnum]
 
     def get_pressure(self):
         """
@@ -519,10 +571,11 @@ class MKS_647C(Instrument):
         (old name: getActualPressure)
 
         Returns:
-            Actual pressure in 0.1 percent of full scale.
+            Actual pressure.
+            Converted from 0.1 percent of full scale.
         """
         cmd = "PR"
-        return self.remote_cmd(cmd)
+        return float(self.remote_cmd(cmd))*self.pressure_range/1000
 
     def set_pressure_mode(self, On=True):
         """
@@ -553,7 +606,7 @@ class MKS_647C(Instrument):
         else:
             return False
 
-    def set_pressure(self,value):
+    def set_pressure(self, value):
         """
         Enter pressure setpoint.
         (old name: setPressureSetPoint)
@@ -591,62 +644,6 @@ class MKS_647C(Instrument):
 
 if __name__ == "__main__":
 
-    MKS = MKS_647C("MKS",address= "COM6")
-    # mutex = Ar.getMutex()
-    # N2 = MKS647C_Dev(2,mutex)
-    # O2 = MKS647C_Dev(3,mutex)
-    # ArO = MKS647C_Dev(4,mutex)
-    
-    print("Setting off all",MKS.setOffAll())
+    MKS = MKS_647C("MKS", address="COM10")
 
     MKS.init_controller()
-    """
-    print "Version: ",Ar.getVersion()
-    print Ar.getFlowSetPoint()
-    print N2.getFlowSetPoint()
-    print O2.getFlowSetPoint()
-    print ArO.getFlowSetPoint()
-
-    print Ar.getGasCorrectionFactor()
-    print N2.getGasCorrectionFactor()
-    
-    print Ar.getActualFlow()
-    print N2.getActualFlow()
-    print O2.getActualFlow()
-    print ArO.getActualFlow()
-    
-    print Ar.setFlowSetPoint(19)
-    print N2.setFlowSetPoint(15)
-    print O2.setFlowSetPoint(16)
-    print ArO.setFlowSetPoint(7)
-    
-    time.sleep(1)
-    
-    print Ar.getFlowSetPoint()
-    print N2.getFlowSetPoint()
-    print O2.getFlowSetPoint()
-    print ArO.getFlowSetPoint()
-    
-    print Ar.getFlowRange()
-    print N2.getFlowRange()
-    print O2.getFlowRange()
-    print ArO.getFlowRange()
-    
-    print Ar.getActualPressure()
-    
-    print Ar.setFlowRange100sccm()
-    print N2.setFlowRange10sccm()
-    print O2.setFlowRange100sccm()
-    print ArO.setFlowRange10sccm()
-    
-    print Ar.getFlowSetPoint()
-    print N2.getFlowSetPoint()
-    print O2.getFlowSetPoint()
-    print ArO.getFlowSetPoint()
-    
-    print Ar.getGasCorrectionFactor()
-    print Ar.setGasCorrectionFactor("0120")
-    print Ar.getGasCorrectionFactor()
-    
-    print Ar.getPressureUnit()
-    """
