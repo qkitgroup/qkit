@@ -1,5 +1,4 @@
 # modified and adapted by JB@KIT 04/2015, 09/2015
-# modified by MK@KIT 09/2018
 # time domain measurement class
 
 import qt
@@ -202,13 +201,8 @@ class Measure_td(object):
         qt.mstart()
         qt.msleep()   # if stop button was pressed by now, abort without creating data files
         
-        self.mode = 3  #1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
-        self._prepare_measurement_file()
         
-        if self.show_progress_bar: 
-            p = Progress_Bar(len(self.y_vec),name=self.dirname)
         if iterations > 1:
-            if self.ndev > 1: raise ValueError('Multiplexed readout is currently not supported for 2D measurements')
             self.z_vec = range(iterations)
             self.z_coordname = 'iteration'
             self.z_set_obj = lambda z: True
@@ -227,14 +221,21 @@ class Measure_td(object):
                 amp_avg = sum(amp[i] for i in range(iterations))/iterations
                 pha_avg = sum(pha[i] for i in range(iterations))/iterations
 
-                self._hdf_amp_avg = []
-                self._hdf_pha_avg = []
-                self._hdf_amp_avg.append(self._hdf.add_value_matrix('amplitude_avg_0', x = self._hdf_y, y = self._hdf_x, unit = 'a.u.'))
-                self._hdf_pha_avg.append(self._hdf.add_value_matrix('phase_avg_0', x = self._hdf_y, y = self._hdf_x, unit='rad'))
-                self._hdf_amp_avg[0].append(np.atleast_1d(amp_avg))
-                self._hdf_pha_avg[0].append(np.atleast_1d(pha_avg))
-                hdf_file.close_file()    
-        else: 
+                hdf_amp_avg = []
+                hdf_pha_avg = []
+                hdf_amp_avg.append(hdf_file.add_value_matrix('amplitude_avg_0', x = self._hdf_y, y = self._hdf_x, unit = 'a.u.'))
+                hdf_pha_avg.append(hdf_file.add_value_matrix('phase_avg_0', x = self._hdf_y, y = self._hdf_x, unit='rad'))
+                
+                for j in range(len(self.y_vec)):
+                    hdf_amp_avg[0].append(amp_avg[j])
+                    hdf_pha_avg[0].append(pha_avg[j])
+                hdf_file.close_file()  
+        else:
+            self.mode = 3  #1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
+            self._prepare_measurement_file()
+            if self.ndev > 1: raise ValueError('Multiplexed readout is currently not supported for 2D measurements')
+            if self.show_progress_bar: 
+                p = Progress_Bar(len(self.y_vec),name=self.dirname)
             try:
                 # measurement loop
                 for it in range(len(self.y_vec)):
