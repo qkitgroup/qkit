@@ -4,6 +4,7 @@
 # data reading and fitting
 
 # import and basic usage
+
 '''
 usage:
 
@@ -75,7 +76,7 @@ class QFIT(object):
         self.cfg = {'show_plot' : True,
                     'show_output' : True,
                     'save_png' : True,
-                    'save_pdf' : True,                      
+                    'save_pdf' : False,
                     'show_complex_plot' : True,             #show complex plot during optimize
                     'data_column' : 2,                      #data column entry if entry list is longer than 2
                     'spline_knots' : 1.e-3,                 #spacing between knots used during spline fitting, smaller number = more accurate
@@ -96,7 +97,7 @@ class QFIT(object):
                     logging.error('No run_id and user entry found in qkit.cfg. Falling back to old style data folder structure.')
             else:
                 self.cfg['datafolder_structure'] = 'day_time'
-        except ImportError, AttributeError:
+        except (ImportError, AttributeError):
             logging.warning('Running outside of qkit environment.')
             self.cfg['data_dir'] = os.getcwd()
 
@@ -213,7 +214,7 @@ class QFIT(object):
         '''
         try:
             self.hf = store.Data(self.file_name)
-        except IOError,NameError:
+        except (IOError,NameError):
             logging.error('Could not read h5 file.')
             return
 
@@ -274,7 +275,7 @@ class QFIT(object):
         
         try:
             self.hf = store.Data(self.file_name)
-        except IOError,NameError:
+        except (IOError,NameError):
             logging.error('Could not read h5 file.')
             return
         
@@ -799,23 +800,22 @@ class QFIT(object):
         else:
             self.guesses = None
             logging.warning('Fit function unknown. No guesses available but I will continue with the specified fit function.')
-        if self.guesses is not None:
-            self.p0 = _fill_p0(self.guesses,p0)
+        self.p0 = _fill_p0(self.guesses,p0)
 
         try:
-            popt, pcov = curve_fit(self.fit_function, self.coordinate*self.freq_conversion_factor, self.data, p0 = p0)
+            self.popt, self.pcov = curve_fit(self.fit_function, self.coordinate*self.freq_conversion_factor, self.data, p0 = self.p0,maxfev=10000)
             if self.cfg['show_output'] and (self.fit_function == self.__f_Lorentzian or self.fit_function == self.__f_Lorentzian_sqrt):
-                print 'QL = {:.4g}'.format(np.abs(np.round(float(popt[0])/popt[1])))
+                print('QL = {:.4g}'.format(np.abs(np.round(float(self.popt[0]) / self.popt[1]))))
         except:
             logging.warning('Fit not successful.')
-            popt = p0
-            pcov = None
+            self.popt = self.p0
+            self.pcov = None
         finally:
             self.x_vec = np.linspace(self.coordinate[0],self.coordinate[-1],500)
 
+            self.fvalues = self.fit_function(self.x_vec * self.freq_conversion_factor, *self.popt)
             #plot
             if self.cfg['show_plot'] or self.cfg['save_png'] or self.cfg['save_pdf']:
-                self.fvalues = self.fit_function(self.x_vec*self.freq_conversion_factor, *popt)
                 if self.fit_function == self.__f_exp:
                     #create pair of regular and logarithmic plot
                     self.fig, self.axes = plt.subplots(1, 2, figsize=(15,4))
@@ -825,8 +825,8 @@ class QFIT(object):
                     self.ax = self.axes[0]
                     
                     # log plot
-                    self.axes[1].plot(self.coordinate,np.abs(self.data-popt[2]),'o')   #subtract offset for log plot
-                    self.axes[1].plot(self.x_vec, np.abs(self.__f_exp(self.x_vec, *popt)-popt[2]))
+                    self.axes[1].plot(self.coordinate,np.abs(self.data-self.popt[2]),'o')   #subtract offset for log plot
+                    self.axes[1].plot(self.x_vec, np.abs(self.__f_exp(self.x_vec, *self.popt)-self.popt[2]))
                     self.axes[1].set_yscale('log')
                     self.axes[1].set_xlabel(self.coordinate_label, fontsize=13)
                     self.axes[1].set_ylabel('log('+self.data_label+')', fontsize=13)
@@ -842,19 +842,18 @@ class QFIT(object):
                 self.ax.set_xlabel(self.coordinate_label, fontsize=13)
                 self.ax.set_ylabel(self.data_label, fontsize=13)
                 if self.guesses:
-                    self.fig.suptitle(str(['{:s} = {:.4g}'.format(p, entry) for p, entry in zip(self.__get_parameters(self.fit_function), popt)]))
+                    self.fig.suptitle(str(['{:s} = {:.4g}'.format(p, entry) for p, entry in zip(self.__get_parameters(self.fit_function), self.popt)]))
                     self.parameter_list = self.__get_parameters(self.fit_function)
                 self.fig.tight_layout(rect=[0, 0, 1, 0.95])
         
-        if self.cfg['save_png']: plt.savefig(self.file_name.strip('.h5')+'.png', dpi=200)
-        if self.cfg['save_pdf']: plt.savefig(self.file_name.strip('.h5')+'.pdf', dpi=200)
+        if self.cfg['save_png']: plt.savefig(self.file_name.strip('.h5')+'.png', dpi=self.cfg.get('dpi',200))
+        if self.cfg['save_pdf']: plt.savefig(self.file_name.strip('.h5')+'.pdf', dpi=self.cfg.get('dpi',200))
         if self.cfg['show_plot']: plt.show()
         if self.cfg['show_plot'] or self.cfg['save_png'] or self.cfg['save_pdf']: plt.close(self.fig)
 
-        if pcov is not None and self.urls is not None: #if fit successful and data based on h5 file
-            self._store_fit_data(fit_params=popt, fit_covariance=np.sqrt(np.diag(pcov)))
-        self.popt = popt
-        if pcov is None:
-            self.std = float('inf')*np.ones(len(popt)) #fill up errors with 'inf' in case fit did not converge
+        if self.pcov is not None and self.urls is not None: #if fit successful and data based on h5 file
+            self._store_fit_data(fit_params=self.popt, fit_covariance=np.sqrt(np.diag(self.pcov)))
+        if self.pcov is None:
+            self.std = float('inf')*np.ones(len(self.popt)) #fill up errors with 'inf' in case fit did not converge
         else:
-            self.std = np.sqrt(np.diag(pcov))
+            self.std = np.sqrt(np.diag(self.pcov))

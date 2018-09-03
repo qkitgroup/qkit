@@ -68,6 +68,7 @@ class tip_client(Instrument):
         self.add_function('set_interval_base')
         self.add_function('set_interval_off')
         self.add_function('measure')
+        self.add_function('get_all')
 
         self.add_parameter('T',
                            flags=Instrument.FLAG_GETSET,
@@ -97,6 +98,9 @@ class tip_client(Instrument):
                            channels=(1, 5), channel_prefix='T%d_')
         self.add_parameter('excitation', type=types.IntType,
                            flags=Instrument.FLAG_GETSET,
+                           channels=(1, 5), channel_prefix='T%d_')
+        self.add_parameter('temperature', type=types.FloatType,
+                           flags=Instrument.FLAG_GET, units="K",
                            channels=(1, 5), channel_prefix='T%d_')
 
         self.T = 0.0
@@ -181,7 +185,7 @@ class tip_client(Instrument):
 
     def do_get_T(self):
         try:
-            self.T = self.r_get_T()
+            self.T = self.get_T4_temperature()
         except ValueError:
             logging.warning('TIP connection probably lost. Returning temperature 0 K.')
             self.T = 0
@@ -261,6 +265,10 @@ class tip_client(Instrument):
         self.send("SET/T/%i/EX/%i" % (channel, excitation))
         return bool(self.recv())
 
+    def do_get_temperature(self,channel):
+        self.send("get/T/%i/T"%channel)
+        return float(self.recv())
+
     def autorange(self):
         '''
         Does one single autorange cycle by looking at all resistance values. THIS IS NOT A PERMANENT SETTING!
@@ -309,3 +317,10 @@ class tip_client(Instrument):
         for c in channels:
             self.send("set/therm/%i/schedule" % c)
             self.recv()
+
+    def get_all(self):
+        for ch in range(1,6):
+            for value in ['range','interval','excitation','temperature']:
+                self.get("T%i_%s"%(ch,value))
+        for value in ['P','I','D','T']:
+            self.get(value)
