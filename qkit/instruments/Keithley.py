@@ -1,5 +1,6 @@
 # Keithley.py driver for Keithley 2636A multi channel source measure unit
 # Hannes Rotzinger, hannes.rotzinger@kit.edu 2010
+# Updated version by MMW@KIT 2018
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

@@ -341,6 +341,7 @@ class fid(file_system_service):
         used to show the data base as a qgrid object or if not installed pandas data frame
         :return: data frame as qgrid object or pandas object
         """
+        self.wait()
         if found_qgrid:
             from IPython.display import display
             import ipywidgets as widgets
@@ -358,7 +359,7 @@ class fid(file_system_service):
             
             display(widgets.HBox([_openSelected,_batch_modifier.key_dd,_batch_modifier.value_tf,_batch_modifier]))
             
-            if show_raw:
+            if show_raw or "rating" not in self.df.keys():
                 df = self.df.copy()
             else:
                 df = self.df.copy()[self.df['rating']>0]

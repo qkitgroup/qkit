@@ -4,7 +4,6 @@
 # data reading and fitting
 
 # import and basic usage
-from __future__ import print_function
 
 '''
 usage:

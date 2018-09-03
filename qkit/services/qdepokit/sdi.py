@@ -257,6 +257,7 @@ class SputterMonitor(object):
         # self.mfc.get_all()
         self.Ar_channel = self.mfc.predef_channels['Ar']
         self.ArO_channel = self.mfc.predef_channels('ArO')
+
         pass
 
     def _prepare_monitoring_file(self):
@@ -425,9 +426,9 @@ class SputterMonitor(object):
         rate = self.quartz.get_rate(nm=True)
         mon_data.thickness.append(self.quartz.get_thickness(nm=True))
         if self.mfc:
-            pressure = self.mfc.getActualPressure()
-            Ar_flow = self.mfc.getActualFlow(self.Ar_channel)
-            ArO_flow = self.mfc.getActualFlow(self.ArO_channel)
+            pressure = self.mfc.get_pressure()
+            Ar_flow = self.mfc.get_flow(self.Ar_channel)
+            ArO_flow = self.mfc.get_flow(self.ArO_channel)
 
         if mon_data.resistance[-1] > 1.e9:
             mon_data.resistance[-1] = np.nan
