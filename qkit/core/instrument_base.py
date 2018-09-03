@@ -30,12 +30,6 @@ from qkit.core.lib import calltimer
 import numpy as np
 import logging
 
-from qkit.core.qtflow_qkit import get_flowcontrol
-flow = get_flowcontrol()
-msleep = flow.measurement_idle # YS: instead of importing qt, import the required tools from qtflow directly
-
-#from qkit.core.lib.config import get_config
-#_config = get_config()
 
 class Instrument(object):
     """
@@ -767,8 +761,7 @@ class Instrument(object):
 
         if len(changed) > 0 and query:
             self._queue_changed(changed)
-        #qt.msleep()
-        msleep() # YS: instead of importing qt, import the required tools from qtflow directly
+        qkit.flow.sleep()
         return result
 
     def get_threaded(self, *args, **kwargs):
@@ -789,8 +782,7 @@ class Instrument(object):
             isalive = thread.isAlive
 
         while isalive():
-            #qt.flow.run_mainloop(0.005)
-            flow.run_mainloop(0.005) # YS: instead of importing qt, import the required tools from qtflow directly
+            qkit.flow.run_mainloop(0.005)
 
         return thread.get_return_value()
 
@@ -1025,8 +1017,7 @@ class Instrument(object):
 
         if not fast and len(changed) > 0:
             self._queue_changed(changed)
-        #qt.msleep()
-        msleep() # YS: instead of importing qt, import the required tools from qtflow directly
+        qkit.flow.sleep()
         return result
 
     def update_value(self, name, value):

@@ -2,7 +2,7 @@
 # Markus Jerger <markus.jerger@kit.edu>, 2011
 # modified by Sebastian Probst <Sebastian.Probst@kit.edu>, 2012
 
-from instrument import Instrument
+from qkit.core.instrument_base import Instrument
 from qkit import visa
 import types
 import logging

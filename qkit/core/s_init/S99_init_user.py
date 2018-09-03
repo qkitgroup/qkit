@@ -26,7 +26,7 @@ if qkit.cfg.get('exitscript',False):
         _scripts = [_scripts, ]
     for _s in _scripts:
         if os.path.isfile(_s):
-            qt.flow.register_exit_script(_s)
+            qkit.flow.register_exit_script(_s)
         else:
             logging.warning('Did not find exitscript "%s", will not be executed', _s)
 

@@ -22,7 +22,7 @@
 from ctypes import *
 from _Spectrum_M4i2211.errors import errors as _spcm_errors
 from _Spectrum_M4i2211.regs import regs as _spcm_regs
-from instrument import Instrument
+from qkit.core.instrument_base import Instrument
 import pickle
 from time import sleep, time
 import types

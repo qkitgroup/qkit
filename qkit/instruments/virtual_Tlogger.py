@@ -1,52 +1,51 @@
-from instrument import Instrument
-import instruments
+import qkit
+from qkit.core.instrument_base import Instrument
 import types
 import logging
 import numpy
-from plot_engines.qtgnuplot import get_gnuplot
-from plot import plot
+# from plot_engines.qtgnuplot import get_gnuplot
+# from plot import plot
 import time
 import os
-import qt
 
 from lib.scheduler import Scheduler
+
 
 class virtual_Tlogger(Instrument):
 
     def __init__(self, name, igh=None):
         Instrument.__init__(self, name, tags=['virtual'])
 
-        self._instruments = instruments.get_instruments()
-        self._igh = self._instruments.get(igh)
+        self._igh = qkit.instruments.get(igh)
 
         self.add_parameter('timeout',
-                type=types.FloatType,
-                flags=Instrument.FLAG_GETSET,
-                units='sec')
+                           type=types.FloatType,
+                           flags=Instrument.FLAG_GETSET,
+                           units='sec')
         self.add_parameter('idle_mintime',
-                type=types.FloatType,
-                flags=Instrument.FLAG_GETSET,
-                units='sec')
+                           type=types.FloatType,
+                           flags=Instrument.FLAG_GETSET,
+                           units='sec')
         self.add_parameter('slow_mintime',
-                type=types.FloatType,
-                flags=Instrument.FLAG_GETSET,
-                units='sec')
+                           type=types.FloatType,
+                           flags=Instrument.FLAG_GETSET,
+                           units='sec')
         self.add_parameter('disk_mintime',
-                type=types.FloatType,
-                flags=Instrument.FLAG_GETSET,
-                units='sec')
+                           type=types.FloatType,
+                           flags=Instrument.FLAG_GETSET,
+                           units='sec')
         self.add_parameter('timeout_mode',
-                type=types.BooleanType,
-                flags=Instrument.FLAG_GET)
+                           type=types.BooleanType,
+                           flags=Instrument.FLAG_GET)
         self.add_parameter('idle_mode',
-                type=types.BooleanType,
-                flags=Instrument.FLAG_GET)
+                           type=types.BooleanType,
+                           flags=Instrument.FLAG_GET)
         self.add_parameter('plot_enable',
-                type=types.BooleanType,
-                flags=Instrument.FLAG_GET)
+                           type=types.BooleanType,
+                           flags=Instrument.FLAG_GET)
         self.add_parameter('status',
-                type=types.StringType,
-                flags=Instrument.FLAG_GET)
+                           type=types.StringType,
+                           flags=Instrument.FLAG_GET)
 
         self.add_function('start')
         self.add_function('stop')
@@ -67,15 +66,15 @@ class virtual_Tlogger(Instrument):
 
         self.plot_stop()
 
-        self._dir = os.path.join(qt.config.get('datadir'), 'Tlog')
+        self._dir = os.path.join(qkit.cfg.get('datadir'), 'Tlog')
         self._filebasename = 'temperature_log'
         self._this_month = None
 
         if not os.path.isdir(self._dir):
             os.makedirs(self._dir)
 
-        self._last_hour = TimeBuffer(60*60, self._dir, 'last_hour.dat')
-        self._last_12hour = TimeBuffer(60*60*12, self._dir, 'last_12hour.dat')
+        self._last_hour = TimeBuffer(60 * 60, self._dir, 'last_hour.dat')
+        self._last_12hour = TimeBuffer(60 * 60 * 12, self._dir, 'last_12hour.dat')
 
         self._task = Scheduler(self._run_all, self._timeout, self._idle_mintime, timeout_mode=True, idle_mode=True)
         self._status = 'running'
@@ -175,7 +174,7 @@ class virtual_Tlogger(Instrument):
             logging.error(__name__ + ': failed to retrieve temperature.')
 
     def _get_all_sensors_dummy(self):
-        self._temperature = numpy.sin(time.time()/60/10*2*numpy.pi)
+        self._temperature = numpy.sin(time.time() / 60 / 10 * 2 * numpy.pi)
 
     def _run_all(self):
 
@@ -184,17 +183,17 @@ class virtual_Tlogger(Instrument):
         now = time.time()
 
         # get temperature
-        #self._get_all_sensors_dummy()
+        # self._get_all_sensors_dummy()
         self._get_all_sensors()
 
         # add last points to 'fast' buffer (last hour).
         # self.fast_time, turn off fast?
-        self._last_hour.add([ now, self._temperature])
+        self._last_hour.add([now, self._temperature])
 
         # add points to 'slow' buffer (last 24 hour) if last point was written more then self.slow_time ago.
         if (now - self._slow_lasttime) > self._slow_mintime:
             self._slow_lasttime = now
-            self._last_12hour.add([ now, self._temperature])
+            self._last_12hour.add([now, self._temperature])
 
         # add points to diskfile if last write was more then self.disk_time ago
         if (now - self._disk_lasttime) > self._disk_mintime:
@@ -226,22 +225,21 @@ class virtual_Tlogger(Instrument):
         this_month = now_tuple[0:1]
         if self._this_month is None:
             self._this_month = this_month
-            file_prefix = time.strftime('%Y_%m',now_tuple)
+            file_prefix = time.strftime('%Y_%m', now_tuple)
             self.filename = '%s_%s.txt' % (file_prefix, self._filebasename)
             self.filepath = os.path.join(self._dir, self.filename)
             self.file = file(self.filepath, 'a')
         elif self._this_month is not this_month:
             self.file.close()
             self._this_month = this_month
-            file_prefix = time.strftime('%Y_%m',now_tuple)
+            file_prefix = time.strftime('%Y_%m', now_tuple)
             self.filename = '%s_%s.txt' % (file_prefix, self._filebasename)
             self.filepath = os.path.join(self._dir, self.filename)
             self.file = file(self.filepath, 'a')
 
-        self.file.write('%f\t%s\t%f\n' % ( now, time.asctime(now_tuple), self._temperature ))
+        self.file.write('%f\t%s\t%f\n' % (now, time.asctime(now_tuple), self._temperature))
 
         self.file.flush()
-
 
 
 #    def plot_init(self):
@@ -367,10 +365,10 @@ class TimeBuffer():
         self.flush()
 
     def flush(self):
-        i=0
+        i = 0
         now = time.time()
         while (now - self.buffer[i][0]) > self.maxtime:
-            i+=1
+            i += 1
         self.buffer = self.buffer[i:]
 
     def get(self):
@@ -384,26 +382,25 @@ class TimeBuffer():
         return self.fp
 
     def get_xrange(self):
-        xmin = min([ self.buffer[i][0] for i in range(len(self.buffer))])
-        xmax = max([ self.buffer[i][0] for i in range(len(self.buffer))])
+        xmin = min([self.buffer[i][0] for i in range(len(self.buffer))])
+        xmax = max([self.buffer[i][0] for i in range(len(self.buffer))])
         xspan = xmax - xmin
         if xspan == 0:
-            xmin = xmin -1
-            xmax = xmax +1
+            xmin = xmin - 1
+            xmax = xmax + 1
         else:
-            xmin = xmin - 0.1*xspan
-            xmax = xmax + 0.1*xspan
+            xmin = xmin - 0.1 * xspan
+            xmax = xmax + 0.1 * xspan
         return (xmin, xmax)
 
     def get_yrange(self):
-        ymin = min([ self.buffer[i][1] for i in range(len(self.buffer))])
-        ymax = max([ self.buffer[i][1] for i in range(len(self.buffer))])
+        ymin = min([self.buffer[i][1] for i in range(len(self.buffer))])
+        ymax = max([self.buffer[i][1] for i in range(len(self.buffer))])
         yspan = ymax - ymin
         if yspan == 0:
-            ymin = ymin -0.01
-            ymax = ymax +0.01
+            ymin = ymin - 0.01
+            ymax = ymax + 0.01
         else:
-            ymin = ymin - 0.1*yspan
-            ymax = ymax + 0.1*yspan
+            ymin = ymin - 0.1 * yspan
+            ymax = ymax + 0.1 * yspan
         return (ymin, ymax)
-

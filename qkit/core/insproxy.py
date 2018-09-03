@@ -16,10 +16,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+import qkit
+from qkit.core import instrument_base
 import inspect
 import types
-import qt
-import instrument
 
 class Proxy():
 
@@ -31,23 +31,23 @@ class Proxy():
         self._prem_hid = None
 
         if include_do is None:
-            self._include_do = qt.config.get('proxy_include_do', False)
+            self._include_do = qkit.cfg.get('proxy_include_do', False)
         else:
             self._include_do = include_do
 
         self._setup_proxy()
-        qt.instruments.connect('instrument-added', self._ins_added_cb)
-        qt.instruments.connect('instrument-removed', self._ins_removed_cb)
+        qkit.instruments.connect('instrument-added', self._ins_added_cb)
+        qkit.instruments.connect('instrument-removed', self._ins_removed_cb)
 
     def _setup_proxy(self):
         if self._setup_done:
             return
         self._setup_done = True
 
-        self._ins = qt.instruments.get(self._name, proxy=False)
+        self._ins = qkit.instruments.get(self._name, proxy=False)
         members = inspect.getmembers(self._ins)
 
-        toadd = instrument.Instrument.__dict__.keys()
+        toadd = instrument_base.Instrument.__dict__.keys()
         toadd += ['connect', 'disconnect']
         toadd += self._ins.__class__.__dict__.keys()
         toadd += self._ins._added_methods
