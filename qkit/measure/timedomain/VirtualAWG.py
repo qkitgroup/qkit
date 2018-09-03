@@ -101,15 +101,20 @@ class TdChannel(object):
         self.add_sequence(sequence, *times)
         return True
 
-    def delete_sequence(self, seq_nr):
+    def delete_sequence(self, seq_nr = None):
         """
         Delete sequence number seq_nr (counting from 0).
+        If seq_nr is None, all sequences are deleted.
 
         Args:
             seq_nr: Number of the sequence to be deleted.
         """
-        temp = self._sequences.pop(seq_nr)
-        temp = self._times.pop(seq_nr)
+        if seq_nr is None:
+            self._sequences = []
+            self._times = []
+        else:       
+            temp = self._sequences.pop(seq_nr)
+            temp = self._times.pop(seq_nr)
         return True
 
     def get_sequence_dict(self):
@@ -485,7 +490,7 @@ class VirtualAWG(object):
             ind += 1
         return sequences, readout_indices
     
-    def load(self):
+    def load(self, show_progress_bar=True):
         """
         Load the sequences stored in the channels of the virtual AWG to your physical device (awg, fpga).
         Currently only enabled for the tabor awg.
@@ -493,7 +498,7 @@ class VirtualAWG(object):
         # Case descrimination:
         if self._sample.awg.get_name() is "tawg":
             sequences, readout_inds = self._sync()
-            load_tawg.load_tabor(sequences, readout_inds, self._sample)
+            load_tawg.load_tabor(sequences, readout_inds, self._sample, show_progress_bar=show_progress_bar)
         else:
             print("Unknown device type! Unable to load sequences.")
         return True

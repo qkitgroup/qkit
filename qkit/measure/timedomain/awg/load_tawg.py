@@ -29,9 +29,24 @@ def _adjust_wfs_for_tabor(wf1, wf2, ro_index, chpair, segment, sample):
     Tabor awg"
     """
     divisor = 16
-    marker1 = np.zeros_like(wf1)
-    readout_ind = ro_index[segment] - int(sample.clock * sample.readout_delay)  # TODO: check if the sign is correct
-    marker1[readout_ind:readout_ind + 10] = 1
+    readout_ind = int(ro_index[segment] + int(sample.clock * sample.readout_delay))  # TODO: check if the sign is correct
+    # Adjust length to fit marker at arbitrary positions
+    if readout_ind + 10 > len(wf1):
+        marker1 = np.zeros(readout_ind + 10)
+        marker1[readout_ind:readout_ind + 10] = 1
+        wf1 = np.append(wf1, np.zeros(readout_ind + 10 - len(wf1)))
+        wf2 = np.append(wf2, np.zeros(readout_ind + 10 - len(wf2)))
+    elif readout_ind < 0:
+        marker1 = np.append(np.zeros(np.abs(readout_ind)), np.zeros_like(wf1))
+        marker1[0:10] = 1
+        wf1 = np.append(np.zeros(np.abs(readout_ind)), wf1)
+        wf2 = np.append(np.zeros(np.abs(readout_ind)), wf2)
+    else:
+        marker1 = np.zeros_like(wf1)
+        marker1[readout_ind:readout_ind + 10] = 1
+    #for single channel pulses
+    if len(wf1)>len(wf2):
+        wf2 = np.append(wf2, np.zeros(len(wf1)-len(wf2)))
     begin_zeros = len(wf1) % divisor
     # minimum waveform is 192 points, handled by the Tabor driver
     if begin_zeros != 0:
@@ -53,6 +68,7 @@ def load_tabor(channel_sequences, ro_index, sample, reset=True, show_progress_ba
     :return:
     """
     awg = sample.awg
+    awg.clear_waveforms()
     number_of_channels = 0
     complex_channel = []
     for chan in channel_sequences:
@@ -62,7 +78,7 @@ def load_tabor(channel_sequences, ro_index, sample, reset=True, show_progress_ba
         else:
             number_of_channels += 1
             complex_channel.append(False)
-    if number_of_channels > awg.numchannels:
+    if number_of_channels > awg._numchannels:
         raise ValueError('more sequences than channels')
     # reordering channels if necessary
     if number_of_channels > 2:
@@ -71,7 +87,7 @@ def load_tabor(channel_sequences, ro_index, sample, reset=True, show_progress_ba
                             'Complex channel is on chpair 1')
             channel_sequences[:2] = [channel_sequences[1], channel_sequences[0]]
             complex_channel[:2] = [True, False]
-    qkit.flow.start()
+    #qkit.flow.start()
 
     if reset:
         awg.set('p%i_runmode' % 1, 'SEQ')
@@ -90,14 +106,14 @@ def load_tabor(channel_sequences, ro_index, sample, reset=True, show_progress_ba
         p = Progress_Bar(len(ro_index), 'Load AWG')
 
     if number_of_channels == 1:
-        for j, seq in enumerate(channel_sequences):
+        for j, seq in enumerate(channel_sequences[0]):
             _adjust_wfs_for_tabor(seq, [0], ro_index, 1, j, sample)
             if show_progress_bar:
                 p.iterate()
 
     elif number_of_channels == 2:
         if complex_channel[0]:
-            for j, seq in enumerate(channel_sequences):
+            for j, seq in enumerate(channel_sequences[0]):
                 _adjust_wfs_for_tabor(seq.real, seq.imag, ro_index, 1, j, sample)
                 if show_progress_bar:
                     p.iterate()
@@ -154,5 +170,5 @@ def load_tabor(channel_sequences, ro_index, sample, reset=True, show_progress_ba
         # awg.preset()
         awg.set_ch1_status(True)
         awg.set_ch2_status(True)
-    qkit.flow.end()
+    #qkit.flow.end()
     return np.all([awg.get('ch%i_status' % i) for i in [1, 2]])

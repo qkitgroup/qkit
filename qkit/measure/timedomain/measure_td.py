@@ -3,7 +3,7 @@
 
 import qt
 import numpy as np
-import os.path
+import os.path, glob
 import time
 import logging
 import threading
@@ -51,6 +51,7 @@ class Measure_td(object):
         self.z_set_obj = None
         
         self.dirname = None
+        self.data_dir = None
         self.plotSuffix = ''
         self.hold = False
         
@@ -68,24 +69,55 @@ class Measure_td(object):
         self.multiplex_unit = "Hz"
         self.init = iniTD(sample)
 
-    def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit):
+
+    def find_latest_file(self):
+        '''
+        Returns filename of latest h5-file. 
+        '''
+
+        self.data_dir = os.path.join(qkit.cfg.get('datadir'), qkit.cfg.get('run_id'), qkit.cfg.get('user'))
+        try:
+            filename = max(glob.iglob(str(self.data_dir)+'/*/*.h5'), key=os.path.getctime)   #find newest file in directory
+        except ValueError:
+            logging.error('No .{:s} file located in directory {:s}.'.format('h5', str(self.data_dir)))
+            return
+        
+        return filename
+        
+
+    def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit = None):
         self.x_vec = x_vec
         self.x_coordname = x_coordname
         self.x_set_obj = x_set_obj
-        self.x_unit = x_unit
+        if x_unit == None:
+            logging.warning(__name__ + ': Unit of the x-axis is not set.')
+            self.x_unit = ''
+        else:
+            self.x_unit = x_unit
+        
 
-    def set_y_parameters(self, y_vec, y_coordname, y_set_obj, y_unit):
+    def set_y_parameters(self, y_vec, y_coordname, y_set_obj, y_unit = ''):
         self.y_vec = y_vec
         self.y_coordname = y_coordname
         self.y_set_obj = y_set_obj
-        self.y_unit = y_unit
+        if y_unit == None:
+            logging.warning(__name__ + ': Unit of the y-axis is not set.')
+            self.y_unit = ''
+        else:
+            self.y_unit = y_unit
 
-    def set_z_parameters(self, z_vec, z_coordname, z_set_obj, z_unit):
+
+    def set_z_parameters(self, z_vec, z_coordname, z_set_obj, z_unit = ''):
         self.z_vec = z_vec
         self.z_coordname = z_coordname
         self.z_set_obj = z_set_obj
-        self.z_unit = z_unit
+        if z_unit == None:
+            logging.warning(__name__ + ': Unit of the z-axis is not set.')
+            self.z_unit = ''
+        else:
+            self.z_unit = z_unit
         
+
     def measure_1D(self):
     
         if self.x_set_obj == None:
@@ -93,7 +125,7 @@ class Measure_td(object):
             return
 
         qt.mstart()
-        self.mode = 1  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
+        self.mode = 1 #1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
         self._prepare_measurement_file()
         
         if self.show_progress_bar: p = Progress_Bar(len(self.x_vec),name=self.dirname)
@@ -119,7 +151,7 @@ class Measure_td(object):
             raise ValueError('ReadoutTrace is currently not supported for 2D measurements')
         
         qt.mstart()
-        self.mode = 2  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
+        self.mode = 2 #1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
         self._prepare_measurement_file()
 
         if self.show_progress_bar: p = Progress_Bar(len(self.x_vec)*len(self.y_vec),name=self.dirname)
@@ -152,12 +184,12 @@ class Measure_td(object):
         self.create_averaged_data = True
         self.avg_complex_sum = np.zeros_like(self.x_vec)
         try:
-            return self.measure_2D_AWG()
+            return self.measure_2D_AWG(iterations=1)
         finally:
             self.create_averaged_data = False #This is ALWAYS done after the return! Looks strange and it really is, but it works.
 
 
-    def measure_2D_AWG(self):
+    def measure_2D_AWG(self, iterations=1):
         '''
         x_vec is sequence in AWG
         '''
@@ -169,50 +201,74 @@ class Measure_td(object):
         qt.mstart()
         qt.msleep()   # if stop button was pressed by now, abort without creating data files
         
-        self.mode = 3  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
+        self.mode = 3  #1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
         self._prepare_measurement_file()
         
-        if self.show_progress_bar:
+        if self.show_progress_bar: 
             p = Progress_Bar(len(self.y_vec),name=self.dirname)
-        try:
-            # measurement loop
-            for it in range(len(self.y_vec)):
-                qt.msleep() # better done during measurement (waiting for trigger)
-                self.y_set_obj(self.y_vec[it])
-                self._append_data(iteration=it)
-                if self.show_progress_bar: p.iterate()
-        finally:
-            self._end_measurement()
-        
-            qt.mend()
+        if iterations > 1:
+            if self.ndev > 1: raise ValueError('Multiplexed readout is currently not supported for 2D measurements')
+            self.z_vec = range(iterations)
+            self.z_coordname = 'iteration'
+            self.z_set_obj = lambda z: True
+            self.z_unit = ''
+
+            self.measure_3D_AWG()
+
+            if self.ndev > 1: 
+                print "Averaging is currently not supported for multiplexed readout"
+                return
+            else:
+                filename = self.find_latest_file()
+                hdf_file = hdf.Data(filename)
+                amp = np.array(hdf_file["/entry/data0/amplitude_0"])
+                pha = np.array(hdf_file["/entry/data0/phase_0"])
+                amp_avg = sum(amp[i] for i in range(iterations))/iterations
+                pha_avg = sum(pha[i] for i in range(iterations))/iterations
+
+                self._hdf_amp_avg = []
+                self._hdf_pha_avg = []
+                self._hdf_amp_avg.append(self._hdf.add_value_matrix('amplitude_avg_0', x = self._hdf_y, y = self._hdf_x, unit = 'a.u.'))
+                self._hdf_pha_avg.append(self._hdf.add_value_matrix('phase_avg_0', x = self._hdf_y, y = self._hdf_x, unit='rad'))
+                self._hdf_amp_avg[0].append(np.atleast_1d(amp_avg))
+                self._hdf_pha_avg[0].append(np.atleast_1d(pha_avg))
+                hdf_file.close_file()    
+        else: 
+            try:
+                # measurement loop
+                for it in range(len(self.y_vec)):
+                    qt.msleep() # better done during measurement (waiting for trigger)
+                    self.y_set_obj(self.y_vec[it])
+                    self._append_data(iteration=it)
+                    if self.show_progress_bar: p.iterate()
+            finally:
+                self._end_measurement()
+                qt.mend()
 
     def measure_3D_AWG(self):
-        '''
+        '''x
         x_vec is sequence in AWG
         '''
-    
-        if not self.y_set_obj or not self.z_set_obj:
-            logging.error('axes parameters not properly set...aborting')
+
+        if self.z_set_obj is None or self.y_set_obj is None:
+            print 'axes parameters not properly set...aborting'
             return
         if self.ReadoutTrace:
             raise ValueError('ReadoutTrace is currently not supported for 3D_AWG measurements')
-    
+        
         qt.mstart()
-        qt.msleep()  # if stop button was pressed by now, abort without creating data files
-    
-        self.mode = 4  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
+        self.mode = 4 #1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
         self._prepare_measurement_file()
-    
-        if self.show_progress_bar:
-            p = Progress_Bar(len(self.y_vec) * len(self.z_vec), name=self.dirname)
+
+        if self.show_progress_bar: p = Progress_Bar(len(self.y_vec)*len(self.z_vec),name=self.dirname)
         try:
             # measurement loop
             for z in self.z_vec:
                 self.z_set_obj(z)
                 for y in self.y_vec:
-                    qt.msleep()
+                    qt.msleep() 
                     self.y_set_obj(y)
-                    qt.msleep()
+                    qt.msleep() 
                     self._append_data()
                     if self.show_progress_bar: p.iterate()
                 for i in range(self.ndev):
@@ -220,6 +276,7 @@ class Measure_td(object):
                     self._hdf_pha[i].next_matrix()
         finally:
             self._end_measurement()
+
             qt.mend()
 
     def measure_1D_ddc_time_trace(self):
@@ -361,25 +418,29 @@ class Measure_td(object):
                 self._hdf_Q = self._hdf.add_value_box('Q_TimeTrace', x = self._hdf_y, y = self._hdf_x,
                                                       z = self._hdf_TimeTraceAxis, unit = 'V', save_timestamp = False)
 
-        elif self.mode == 4:  # 3D_AWG
-            self._hdf_y = self._hdf.add_coordinate(self.y_coordname, unit=self.y_unit)
+
+        elif self.mode == 4: #3D_AWG
+            self._hdf_y = self._hdf.add_coordinate(self.y_coordname, unit = self.y_unit)
             self._hdf_y.add(self.y_vec)
-            self._hdf_z = self._hdf.add_coordinate(self.z_coordname, unit=self.z_unit)
+            self._hdf_z = self._hdf.add_coordinate(self.z_coordname, unit = self.z_unit)
             self._hdf_z.add(self.z_vec)
             self._hdf_amp = []
             self._hdf_pha = []
             for i in range(self.ndev):
-                self._hdf_amp.append(self._hdf.add_value_box('amplitude_%i' % i,
-                                                             x=self._hdf_z, y=self._hdf_y, z=self._hdf_x, unit='a.u.'))
-                self._hdf_pha.append(self._hdf.add_value_box('phase_%i' % i,
-                                                             x=self._hdf_z, y=self._hdf_y, z=self._hdf_x, unit='rad'))
-      
+                self._hdf_amp.append(self._hdf.add_value_box('amplitude_%i'%i,
+                                                                x = self._hdf_z, y = self._hdf_y, z=self._hdf_x, unit = 'a.u.'))
+                self._hdf_pha.append(self._hdf.add_value_box('phase_%i'%i,
+                                                                x = self._hdf_z, y = self._hdf_y, z=self._hdf_x, unit='rad'))
+        
         if self.create_averaged_data:
             self._hdf_amp_avg = []
             self._hdf_pha_avg = []
             for i in range(self.ndev):
                 self._hdf_amp_avg.append(self._hdf.add_value_vector('amplitude_avg_%i'%i, x = self._hdf_x, unit = 'a.u.'))
                 self._hdf_pha_avg.append(self._hdf.add_value_vector('phase_avg_%i'%i, x = self._hdf_x, unit='rad'))
+ 
+
+
 
         if self.comment:
             self._hdf.add_comment(self.comment)

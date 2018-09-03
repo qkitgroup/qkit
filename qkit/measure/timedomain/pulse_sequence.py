@@ -172,7 +172,8 @@ class PulseSequence(object):
             logging.error("Insufficient number of arguments.")
             return
         elif len(args) > self._varnum:
-            logging.warning("To many arguments given. Omitting excess arguments.")
+            if self._varnum > 0:
+                logging.warning("To many arguments given. Omitting excess arguments.")
             args = args[:self._varnum]
         
         if not self.samplerate:
