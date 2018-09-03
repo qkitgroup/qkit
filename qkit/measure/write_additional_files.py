@@ -35,7 +35,7 @@ def get_instrument_settings(path):
         settings += 'Instrument: %s\n' % iname
         parlist = _dict_to_ordered_tuples(ins.get_parameters())
         for (param, popts) in parlist:
-            settings += '\t%s: %s\n' % (param, ins.get(param, query=False))
+            settings += '\t%s: %s\n' % (param, ins.get(param, query=False, channels=popts))
 
     f.write(settings)
     f.close()

@@ -4,7 +4,8 @@
 import numpy as np
 import logging
 
-from qkit.storage import hdf_lib
+import qkit
+from qkit.storage import store
 from qkit.analysis.circle_fit import circuit
 from qkit.storage.hdf_constants import ds_types
 from scipy.optimize import leastsq
@@ -16,7 +17,7 @@ class Resonator(object):
     Resonator class for fitting (live or after measurement) amplitude and phase data at multiple functions. The data is stored in .h5-files, having a NeXus compatible organization.
     Required are datasets frequency (/entry/data0/frequency), amplitude (/entry/data0/amplitude), and phase (/entry/data0/phase).
     input:
-    hf_path (HDF5-filepath, optional): Path to file containing datasets to be fitted
+    hf_path (HDF5-filepath): Path to file containing datasets to be fitted
 
     Possible fits are 'lorentzian', 'skewed lorentzian', 'circle', and 'fano' with each fit taking arguments
     fit_all (boolean, optional): True or False, default: False, fit all entries in the amplitude dataset or only last one
@@ -24,14 +25,14 @@ class Resonator(object):
     f_max (float, optional): Upper boundary for fit function
 
     usage:
-        res=Resonator(path=filepath)
+        res=Resonator(filepath)
         res.fit_lorentzian(fit_all=True,f_min=5.667e9,f_max=5.668e9)
         res.fit_fano(fit_all=True)
         res.fit_circle(fit_all=True,f_max=5.668e9)
     '''
 
-    def __init__(self, hf_path=None):
-        self._hf = hdf_lib.Data(path=hf_path)
+    def __init__(self, hf_path):
+        self._hf = store.Data(hf_path)
 
         self._first_circle = True
         self._first_lorentzian = True
@@ -154,13 +155,8 @@ class Resonator(object):
         self._ds_type = self._ds_amp.ds_type
 
         self._amplitude = np.array(self._hf[ds_url_amp],dtype=np.float64)
-        self._phase = np.array(self._hf[ds_url_pha],dtype=np.float64)
-        
-        self._frequency = self._hf[ds_url_freq]
-        freq_x0 = self._frequency.attrs.get('x0',0)
-        freq_dx = self._frequency.attrs.get('dx',1)
-        # we create a new frequency array from x0 and dx in 64bit floats to avoid 32bit limitations
-        self._frequency = np.array([float(freq_x0)+float(freq_dx)*i for i in xrange(self._frequency.shape[0])],dtype=np.float64)
+        self._phase = np.array(self._hf[ds_url_pha],dtype=np.float64)        
+        self._frequency = np.array(self._hf[ds_url_freq],dtype=np.float64)
 
         try:
             self._x_co = self._hf.get_dataset(self._ds_amp.x_ds_url)

@@ -19,7 +19,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 from instrument import Instrument
-import visa
+from qkit import visa
 import types
 import logging
 import numpy
@@ -764,9 +764,6 @@ class Tektronix_AWG7062(Instrument):
             clock = float(data[i+1+len3+len4+5:len(data)])
 
             self._values['files'][name]={}
-            self._values['files'][name]['w']=w
-            self._values['files'][name]['m1']=m1
-            self._values['files'][name]['m2']=m2
             self._values['files'][name]['clock']=clock
             self._values['files'][name]['numpoints']=len(w)
 
@@ -1051,15 +1048,12 @@ class Tektronix_AWG7062(Instrument):
         # Check for errors
         dim = len(w)
 
-        if(m1 == None): m1 = numpy.zeros_like(w)
-        if(m2 == None): m1 = numpy.zeros_like(w)
+        if m1 is None: m1 = numpy.zeros_like(w)
+        if m2 is None: m2 = numpy.zeros_like(w)
         if (not((len(w)==len(m1)) and ((len(m1)==len(m2))))):
             return 'error'
 
         self._values['files'][filename]={}
-        self._values['files'][filename]['w']=w
-        self._values['files'][filename]['m1']=m1
-        self._values['files'][filename]['m2']=m2
         self._values['files'][filename]['clock']=clock
         self._values['files'][filename]['numpoints']=len(w)
 
@@ -1080,44 +1074,11 @@ class Tektronix_AWG7062(Instrument):
 
         mes = s1 + s2 + s3 + s4 + s5 + s6
 
-        self._visainstrument.write(mes)
+        if visa.qkit_visa_version == 1:
+            self._visainstrument.write(mes)
+        else:
+            self._visainstrument.write_raw(mes)
         #print "%s sent to AWG"%filename
-
-    def wfm_resend(self, channel, w=[], m1=[], m2=[], clock=[]):
-        '''
-        Resends the last sent waveform for the designated channel
-        Overwrites only the parameters specified
-
-        Input: (mandatory)
-            channel (int) : 1, 2, 3 or 4, the number of the designated channel
-
-        Input: (optional)
-            w (float[numpoints]) : waveform
-            m1 (int[numpoints])  : marker1
-            m2 (int[numpoints])  : marker2
-            clock (int) : frequency
-
-        Output:
-            None
-        '''
-        filename = self._values['recent_channel_%s' % channel]['filename']
-        logging.debug(__name__ + ' : Resending %s to channel %s' % (filename, channel))
-
-
-        if (w==[]):
-            w = self._values['recent_channel_%s' % channel]['w']
-        if (m1==[]):
-            m1 = self._values['recent_channel_%s' % channel]['m1']
-        if (m2==[]):
-            m2 = self._values['recent_channel_%s' % channel]['m2']
-        if (clock==[]):
-            clock = self._values['recent_channel_%s' % channel]['clock']
-
-        if not ( (len(w) == self._numpoints) and (len(m1) == self._numpoints) and (len(m2) == self._numpoints)):
-            logging.error(__name__ + ' : one (or more) lengths of waveforms do not match with numpoints')
-
-        self.send_waveform(w,m1,m2,filename,clock)
-        self.do_set_filename(filename, channel)
 
     def wfm_import(self, file, path, format = 'WFM'):
         '''

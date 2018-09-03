@@ -1,6 +1,6 @@
 # virtual_MultiplexingReadout.py
 # initiated and written by M. Jerger 2011/2012
-# updated by A. Schneider <andre.schneider@kit.edu> and J. Braumueller <jochen.braumueller@kit.edu>, 05/2016, 08/2016
+# updated by A. Schneider <andre.schneider@kit.edu> and J. Braumueller <jochen.braumueller@kit.edu>, 05/2016, 08/2016, 04/2018
 
 # This script may be regarded as a wrapper, handling data acquisition with the ADC (commonly known here as mspec)
 # and readout pulse generation by the DAC (which is the AWG used for generating readout pulses).
@@ -12,8 +12,10 @@
 '''
 usage:
 
-readout = qt.instruments.create('readout','virtual_MultiplexingReadout',awg=qubit.readout_awg,mixer_up_src=qubit.readout_mw_source,
-            mixer_down_src=qubit.readout_mw_source,mspec=mspec,sample=qubit)
+readout = qt.instruments.create('readout','virtual_MultiplexingReadout',sample=qubit)
+            
+Mandatory sample attributes:
+    readout_awg, readout_mw_src, mspec
 '''
 
 # This program is free software; you can redistribute it and/or modify
@@ -37,13 +39,16 @@ import types
 import logging
 import numpy as np
 import scipy.special
+from scipy import signal
 from time import sleep
 from qkit.measure.timedomain.awg import load_awg as lawg
 
 
 class virtual_MultiplexingReadout(Instrument):
 
-    def __init__(self, name, awg, mixer_up_src, mixer_down_src, mspec, sample = None, LO_up_power=12, LO_down_power=12):
+    def __init__(self, name, sample = None):
+        # ToDo: object should not set params previously set by the user
+
         Instrument.__init__(self, name, tags=['virtual'])
 
         #self._instruments = instruments.get_instruments()
@@ -68,14 +73,14 @@ class virtual_MultiplexingReadout(Instrument):
 
         self.add_function('update')
         self.add_function('readout')
-        self._awg = awg
+        self._awg = sample.readout_awg
         #JB obsolete self._awg_drive = awg_drive
         #JB obsolete self._awg_path = awg_path
-        self._mixer_up_src = mixer_up_src
-        self._mixer_down_src = mixer_down_src
-        self._mspec = mspec
+        self._mixer_up_src = sample.readout_mw_src
+        self._mixer_down_src = sample.readout_mw_src
+        self._mspec = sample.mspec
         
-        if sample == None:
+        if sample is None:
             logging.warning('Sample object was not given for virtual_MultiplexingReadout.')# This is only needed if you need a readout wfm that is as long as the manipulation.')
         self._sample = sample
         
@@ -91,7 +96,6 @@ class virtual_MultiplexingReadout(Instrument):
             #self._dac_duration = 10e-9
             
         elif "Tabor_WX1284C" == self._awg.get_type():   #Tabor AWG
-            #self._awg.preset() #this sets various things like trigger level, modes etc. Remember to execute this each time you restart the AWG
             self._awg.set_trigger_impedance(50)   #50 Ohms
             self._awg.preset_readout()   #sets runmode = 'AUTO', trigger_mode='TRIG', starts with the end of the manipulation signal
             self.do_set_dac_delay(-1)
@@ -108,23 +112,8 @@ class virtual_MultiplexingReadout(Instrument):
         ''' default settings '''
         try:
             
-            self._mixer_up_src.set_power(LO_up_power)
-            self._mixer_down_src.set_power(LO_down_power)
             self._awg.set_clock(self._sample.readout_clock)
             self._dac_clock = self._awg.get_clock()
-            
-            #self._mspec.set_trigger_rate(1/float(qubit.T_rep))
-            self._mspec.spec_stop()
-            self._mspec.set_segments(1)
-            self._mspec.set_blocks(1)
-            self._mspec.set_spec_trigger_delay(0)
-            self._mspec.set_samples(1024)
-            mspec.spec_stop()
-            mspec.set_samplerate(500e6)   #adc samplerate in Hz, 500MHz is maximum
-            
-            
-            self._mspec.spec_stop()   #stop card before modifying a setting
-            self._mspec.set_samplerate(500e6)   #adc samplerate in Hz, 500MHz is maximum
             
             self._dac_channel_I = 0
             self._dac_channel_Q = 1
@@ -163,6 +152,7 @@ class virtual_MultiplexingReadout(Instrument):
             this defines the readout pulse length and maximum repetition rate
         '''
         self._dac_duration = duration
+
     def do_get_dac_duration(self):
         return self._dac_duration
         
@@ -207,31 +197,37 @@ class virtual_MultiplexingReadout(Instrument):
         self._mixer_up_src.set_frequency(frequency)
         self._mixer_down_src.set_frequency(frequency)
         self._LO = frequency
+
     def do_get_LO(self):
         return self._LO
 
     def do_set_tone_amp(self, amp):
         self._tone_amp = amp
+
     def do_get_tone_amp(self):
         return self._tone_amp
 
     def do_set_tone_freq(self, freqs):
         self._tone_freq = np.array(freqs)
+
     def do_get_tone_freq(self):
         return self._tone_freq
 
     def do_set_tone_relamp(self, amps):
         self._tone_relamp = np.array(amps)
+
     def do_get_tone_relamp(self):
         return self._tone_relamp
 
     def do_set_tone_pha(self, phases):
         self._tone_pha = np.array(phases)
+
     def do_get_tone_pha(self):
         return self._tone_pha
 
     def do_set_global_pha(self, phase):
         self._phase = float(phase)
+
     def do_get_global_pha(self):
         return self._phase
         
@@ -264,24 +260,33 @@ class virtual_MultiplexingReadout(Instrument):
         return I, Q
 
 
-    def readout(self, timeTrace = False):
-        '''
-            measure transmission of the tones set
-            --> return amplitude and phase data at the given IQ frequency and also the full I and Q time trace if set to true
-                using IQ_decode
-            
-            inputs:
-                timeTrace - also output raw trace for further processing
-        '''
+    def readout(self, timeTrace=False, ddc=None):
+        """
+        measure transmission of the tones set
+            --> return amplitude and phase data at the given IQ frequency and also the full I and Q time trace
+            if set to true using IQ_decode
+        :param timeTrace: also output raw trace for further processing
+        :param ddc: performs a digital down conversion of your readout tone, (especially for magnon cavity experiments)
+        :return:
+        """
         Is, Qs = self._acquire_IQ()
-        if(len(Is.shape) == 2):
-            sig_amp = np.zeros((Is.shape[1], len(self._tone_freq)))
-            sig_pha = np.zeros((Is.shape[1], len(self._tone_freq)))
-            for idx in range(Is.shape[1]):
-                sig_amp[idx, :], sig_pha[idx, :] = self.IQ_decode(Is[:, idx], Qs[:, idx])
+        if ddc is None:
+            if len(Is.shape) == 2:
+                sig_amp = np.zeros((Is.shape[1], len(self._tone_freq)))
+                sig_pha = np.zeros((Is.shape[1], len(self._tone_freq)))
+                for idx in range(Is.shape[1]):
+                    sig_amp[idx, :], sig_pha[idx, :] = self.IQ_decode(Is[:, idx], Qs[:, idx])
+            else:
+                sig_amp, sig_pha = self.IQ_decode(Is, Qs)
         else:
-            sig_amp, sig_pha = self.IQ_decode(Is, Qs)
-            
+            if len(Is.shape) == 2:
+                sig_amp = np.zeros((Is.shape[1],Is.shape[0], len(self._tone_freq)))
+                sig_pha = np.zeros((Is.shape[1],Is.shape[0], len(self._tone_freq)))
+                for idx in range(Is.shape[1]):
+                    sig_amp[idx,:, :], sig_pha[idx,:, :] = self.digital_down_conversion(Is[:, idx], Qs[:, idx])
+            else:
+                sig_amp, sig_pha = self.digital_down_conversion(Is, Qs)
+
         if(timeTrace):
             return sig_amp, sig_pha, Is, Qs
         else:
@@ -308,7 +313,7 @@ class virtual_MultiplexingReadout(Instrument):
                 I, Q       - signal acquired at rate samplerate
                 samplerate - rate at which I and Q were sampled
         '''
-        if(samplerate == None): samplerate = self.get_adc_clock()
+        if(samplerate is None): samplerate = self.get_adc_clock()
 
         sig_t = np.array(I) + 1j*np.array(Q)
         sig_f = np.fft.fftshift(np.fft.fft(sig_t))
@@ -331,9 +336,9 @@ class virtual_MultiplexingReadout(Instrument):
             Output:
                 currently three vectors: frequency, amplitude, phase of each fft point
         '''
-        if(samplerate == None): samplerate = self.get_adc_clock()
-        if(freqs == None): freqs = self._tone_freq
-        if(phase == None): phase = self._phase
+        if(samplerate is None): samplerate = self.get_adc_clock()
+        if(freqs is None): freqs = self._tone_freq
+        if(phase is None): phase = self._phase
         freqs = np.array(freqs)-self._LO
 
         sig_t = (np.array(I) + 1j*np.array(Q))*np.exp(1j*phase)
@@ -341,7 +346,7 @@ class virtual_MultiplexingReadout(Instrument):
         #sig_x = np.fft.fftshift(np.fft.fftfreq(sig_t.size, 1./samplerate))
         sig_x_fact = 1.*samplerate/sig_t.size
 
-        # linear interpolation of two fft points
+        # linear interpolation of two fft points ToDO: linear interpolation is not good, use maybe only fourieranalysis
         idxs = 1./sig_x_fact*np.array(freqs) + I.size/2
         idxsH = np.array(np.ceil(idxs), dtype = np.integer)
         idxsL = np.array(np.floor(idxs), dtype = np.integer)
@@ -349,11 +354,52 @@ class virtual_MultiplexingReadout(Instrument):
         idxsHw = np.ones_like(idxsLw)-idxsLw
         sig_amp = idxsHw*np.abs(sig_f[idxsH]) + np.abs(idxsLw*sig_f[idxsL])
         sig_pha = np.angle(sig_f[idxsH]) # usually averages out between two points
-
         return sig_amp, sig_pha
 
-        
-    # +++++ DAC (AWG) settings ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    def fourieranalysis(self, signal_t, freqs, samplerate):
+        """
+        useful for only a few samples and freqs because no interpolation is needed
+        :param freqs:
+        :param signal_t:
+        :param samplerate:
+        :return:
+        """
+        # ToDo: might be useful to implement that in readout
+        w = np.exp(-2 * np.pi * 1j * freqs * np.arange(len(signal_t)) / samplerate)
+        f_signal = np.sum(w * signal_t)
+        sig_amp = np.abs(f_signal)
+        sig_pha = np.abs(f_signal)
+        return sig_amp, sig_pha
+
+    def digital_down_conversion(self, I, Q, freqs=None):
+        """
+        performs a digital down conversion to get rid of the carrier frequency.
+        Useful for timetrace readout, when only envelope is needed.
+        :param I:
+        :param Q:
+        :param freqs:
+        :return:
+        """
+        if freqs is None:
+            freqs = np.array(self._tone_freq) - self._LO
+        samplerate = self.get_adc_clock()
+        lowpass_order = 8
+        cut_off_freq = 0.4  # in units of fs/2
+        #lowpass_delay = (lowpass_order / 2) / freqs  # a lowpass of order N delays the signal by N/2 samples (see plot)
+        lowpass = signal.firwin(lowpass_order, cut_off_freq)  # design the filter
+        sig_amp = np.zeros((len(freqs), len(I)))
+        sig_pha = np.zeros((len(freqs), len(I)))
+        for i, f in enumerate(freqs):
+            t = np.linspace(0, float(len(I)) / samplerate, len(I))
+            idown = np.cos(freqs * 2 * np.pi * t) * I
+            qdown = -np.sin(freqs * 2 * np.pi * t) * Q
+            idown_lp = scipy.signal.lfilter(lowpass, 1, idown)
+            qdown_lp = scipy.signal.lfilter(lowpass, 1, qdown)
+            sig_amp[i, :] = np.abs(idown_lp+1j*qdown_lp)
+            sig_pha[i, :] = np.angle(idown_lp+1j*qdown_lp)
+        return sig_amp.T, sig_pha.T  # transform because readout expects the data this way
+
+    # +++++ DAC (AWG) settings ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         
     def update(self):
         '''
@@ -376,14 +422,23 @@ class virtual_MultiplexingReadout(Instrument):
             logging.warning(__name__ + ' : maximum IF frequency of %fMHz is above the limit of the ADC.'%(IFMax/1e6))
 
         # build I and Q waveforms and send them to the DAC
-        if(self._tone_relamp == None):
+        if(self._tone_relamp is None):
             amplitudes = 1./ntones*np.ones(ntones)
-        else:
+        elif len(self._tone_relamp) == 1:
+            amplitudes = 1./ntones*self._tone_relamp * np.ones(ntones)
+        elif len(self._tone_relamp) == ntones:
             amplitudes = 1./ntones*self._tone_relamp
-        if(self._tone_pha == None):
-            phases = np.zeros(ntones)
         else:
+            print "tone_relamp shape does not fit number of multiplexed frequencies. Setting tone_relamp to 1"
+            amplitudes = 1./ntones*np.ones(ntones)
+        if(self._tone_pha is None):
+            phases = np.zeros(ntones)
+        elif len(self._tone_pha) == 1:
+            phases = self._tone_pha * np.ones(ntones)
+        elif len(self._tone_pha) == ntones:
             phases = self._tone_pha
+        else:
+            phases = np.zeros(ntones)
         I, Q,m1 = self.IQ_encode(self._dac_duration, IFtones, [amplitudes, amplitudes], [phases, phases], self._dac_clock, self._dac_attack, self._dac_decay)
         self._update_dac([self._dac_channel_I, self._dac_channel_Q], [I, Q],marker1 = [m1,m1],marker2 = [m1,m1])
         
@@ -397,10 +452,10 @@ class virtual_MultiplexingReadout(Instrument):
                 channels - channels to install them on
         '''
         samples = np.array(samples)
-        if(marker1 == None):
+        if(marker1 is None):
             marker1 = np.zeros(samples.shape)
             marker1[:,1:10]=1
-        if(marker2 == None):
+        if(marker2 is None):
             marker2 = np.zeros(samples.shape)
             marker2[:,1:10]=1
 
@@ -437,7 +492,7 @@ class virtual_MultiplexingReadout(Instrument):
             except:
                 logging.warning('Clock and amplitude settings not written.')
             if self._sample:
-                lawg.update_sequence([1],lambda t, sample: [samples[0],samples[1]], self._sample, awg = self._awg)
+                lawg.update_sequence([1],lambda t, sample: [samples[channels[0]],samples[channels[1]]], self._sample, awg = self._awg, marker = [[marker1,marker2],[marker1,marker2]], show_progress_bar=False)
             else:
                 logging.error('Please provide sample object in instantiating readout when using Tektronix AWG for readout.')
 
@@ -457,26 +512,26 @@ class virtual_MultiplexingReadout(Instrument):
                 two vectors containing samples for I and Q
         '''
 
-        if(samplerate == None): samplerate = self._dac_clock
+        if(samplerate is None): samplerate = self._dac_clock
         nSamples = int(samplerate*duration)
         indices = np.arange(0, nSamples)
         frequencies = np.array(frequencies)
         omegas = 2.*np.pi*frequencies/samplerate
 
-        if(amplitudes == None):
+        if(amplitudes is None):
             amplitudes = np.ones((2, frequencies.size))
         else:
             amplitudes = np.array(amplitudes)
             if (amplitudes.ndim == 1): amplitudes = np.array([amplitudes, amplitudes])
-        if(phases == None):
-            phases = np.zeros(2, frequencies.size)
+        if(phases is None):
+            phases = np.zeros((2, frequencies.size))
         else:
             phases = np.array(phases)
             if (phases.ndim == 1): phases = np.array([phases, phases])
             
         # generate multitone waveform
-        I = np.zeros(np.ceil((nSamples+1)/16.)*16)
-        Q = np.zeros(np.ceil((nSamples+1)/16.)*16)
+        I = np.zeros(int(np.ceil((nSamples+1)/16.)*16))
+        Q = np.zeros(int(np.ceil((nSamples+1)/16.)*16))
         for idx in range(0, frequencies.size):
             I[1:nSamples+1] += amplitudes[0, idx]*np.sin(omegas[idx]*indices+phases[0, idx])
             Q[1:nSamples+1] += amplitudes[1, idx]*np.cos(omegas[idx]*indices+phases[1, idx])
@@ -494,12 +549,10 @@ class virtual_MultiplexingReadout(Instrument):
         m1[1:len(I)-1] = 1
         if self.dac_delay != 0:
             if self.dac_delay <= -1:
-                dac_delay = self._sample.exc_T
+                dac_delay = self._sample.exc_T - self._sample.overlap + self._sample.readout_delay
             else:
                 dac_delay = self.dac_delay
-            
             I = np.append(np.zeros(int(dac_delay*samplerate/16)*16),I)
             Q = np.append(np.zeros(int(dac_delay*samplerate/16)*16),Q)
             m1 = np.append(np.zeros(int(dac_delay*samplerate/16)*16),m1)
         return I, Q,m1
-        

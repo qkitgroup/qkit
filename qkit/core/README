@@ -1,0 +1,145 @@
+In the future, this folder will contain the new qkit core derived from qtlab.
+The goal of this is to make qkit standalone.
+
+Work in progress by AS, YS, and HR in the dedicated branch.
+
+ToDo:
+    + get the core starting with the qtlab init routine without pygtk
+    + get rid of hardcoded locations in config.py and init/02_qtlab_start.py
+    + remove gui and other unused code
+    + test measurement
+    - revise what has to be removed from .cfg on startup (user_insdir?)
+    - move source/plot_engines/qtgnuplot somewhere into qkit (used by qkit/measure/timedomain)
+      or switch timedomain to qviewkit
+    - include installation requirements into the qkit README (see old readme_012015.txt in comment to github issue)
+    - rewrite the communication part
+    - cleanup of unused code
+    - check for global variables and move into qckit container (done for _config, what about _instruments?)
+    - create userconfig_local.py
+    + reorganize folder structure
+    - qtlab -> qkit_core (qt. -> qc.)
+    - implement new basic gui showing the (measurement)status and settings
+      based on qviewkit?
+    - include start script/notebook into qkit
+
+08.05.2017
+    YS: started with contents of working qtlab folder from pi-us61 "qtlab-15a460b_notebook"
+    YS: removed obvious rubbish like misplaced measurements and tmp files
+    
+09.05.2017
+    YS: installed Python and qkit on dedicated test notebook
+    YS: removed .pyc files, 3rd_party and instrument_plugins
+
+10.05.2017
+    YS: try to start the environment with the 000_qtlab_start notebook
+        fail because of missing gobject from pygtk, which is 32bit
+    YS: remove gobject references in source/lib/config.py
+    YS: hardcoded working directory in source/lib/config.py adapted to new setup
+    YS: remove gobject references in source/instrument.py
+    YS: remove gobject references in source/lib/calltimer.py
+        class ThreadSafeGObject and GObjectThread not available anymore
+        
+11.05.2017
+    YS: source/instrument.py: lib.network.object_sharer no longer imported
+        class instrument previously inherited SharedGObject (from object_sharer)
+        check which features were used besides emit!
+    YS: remove gobject references in source/qtflow.py
+        as with instrument.py: what else was used from SharedGObect?
+        remove GTK references in source/qtflow.py
+        mainloop commented since no events expected, seems to only wait for unused GTK gui
+    YS: remove gobject references in source/instruments.py
+        as with instrument.py: what else was used from SharedGObect?
+    YS: source/qt.py: removed source/data.py and source/plot.py reference
+        both are no longer used or replaced by qkit methods
+    YS: init/02_qtlab_start.py: hardcoded config location adapted to new qtlab_core
+        this should not be hardcoded!
+    YS: remove gobject references in init/02_qtlab_start.py
+        mainly object_sharer initialization
+    YS: init/02_qtlab_start.py: removed source/data.py and source/plot.py reference 
+    YS: deactivated gui in init/02_qtlab_start.py
+    YS: remove gobject references in 98_started.py
+        only object_sharer exit handler
+    YS: source/lib/config.py: hardcoded directory adapted
+        this should not be hardcoded!
+    YS: init/00_lockfile.py: hardcoded directory adapted
+        this should not be hardcoded!
+    YS: userconfig.py: hardcoded directory adapted
+        this should not be hardcoded!
+    AS: 02_qtlab_start.py: Commented unnecessary qt.msleep in line 72
+    AS: userconfig.py: Commented all references to qtlab_addons, which is overhauled
+    AS: first successful run of start script
+
+12.05.2017
+    HR: shifted init scripts to make room before lock
+    HR: removed orphaned file T1s.dat
+    YS: source/instruments.py: removed references to hid
+    YS: source/instruments.py: deactivated 'proxy'
+    AS&YS: first successful tests:
+        mw_src and fsup can be controlled
+        tawg hangs while instruments.create, unclear where or why
+    YS: remove example folder
+    YS: .gitignore
+    YS: removed deprecated startscripts qtlab, qtlab.bat and ipython.bat
+        we use ipython notebooks
+    YS: VERSION (beta 0.2 since first successful test, derived from qtlab pre v0.3.1)
+    YS: removed deprecated AUTHORS (included in VERSION), MANUAL, INSTALL and CHANGELOG
+    YS: removed GUI (source/gui folder, qtlabgui.bat, qtlabgui.cfg, qtlabgui, source/lib/gui dolder)
+    YS: integrated unused options from userconfig_old.py into userconfig.py as comments
+        and removed userconfig_old.py
+    YS: removed readme_012015.txt with installation notes by JB and S1 and moved to git issue
+    YS: removed source/data.py and source/plot.py
+        both are deprecated and replaced by newer qkit methods
+        and both were deactivated in source/qt.py
+    YS: removed source/plot_engines folder
+        used only by timedomain? and should be replaced by qviewkit
+        
+15.05.2017
+    HR: removed addons folder
+
+02.06.2017
+    HR: zmq based info_service
+    
+09.06.2017
+    HR: closing gui via qkit info system now possible
+
+13.06.2017
+    YS: refurbished folder hierarchy (core.source and core.source.lib now directly in core and core.lib)
+    YS: core.qkit renamed to core.qcorekit to prevent name collision
+	YS: removed unused qtrun.py
+	YS: removed lib/math folder containing unused fit and peakfind scripts
+	YS: removed unused scripts.py and references to it in qt.py
+	YS: removed lib/com_support,dll_support, and file_support folders providing unused scripts for device communication
+	
+14.06.2017
+	YS: core.lib.config.py and core.init.14_qtlab_start.py: remove hardcoded paths
+    
+16.06.2017
+    YS: core.userconfig: removed scriptdirs key
+    YS: init.99_init_user: removed scripts imported
+    YS: changed some startup prints
+    YS: NOTE: %cd C:\qkit\qkit\core required before running qtlab_shell!
+    
+19.06.2017
+    YS: write path to core directory into core.qcorekit
+    YS, AS: new runinit script getting rid of the deprecated shell references in qtlab_shell
+    
+20.06.2017
+    YS: fixing bug with global _config variable: only available in the storage it was first created in!
+    YS: therefore necessary to have very consistent import statements (i.e. no mixing of qkit.core.lib.... and lib....)
+
+21.06.2017
+    YS: move config into qckit.config
+    YS: import problems when importing qkit.core.qt as qt in instrument
+    YS: therefore in instrument still import qt (is found as in same dir as script)
+    YS: related to import loop problem? reproducible externally with test1.py and test2.py importing eachother "as"
+    YS: remove chdir in 99_init_user
+    YS: add coredir to sys.path as otherwise drivers don't find their import "from instrument import Instrument"
+    YS: imports have to be refurbished! workaround for this import loop? somehow possible to hand over qt from global storage into instrument?
+    
+22.06.2017
+    YS: implemented local userconfig file userconfig_local.py, which is not synced
+    YS: replace import qt in instruments by directly imported get_flowcontrol from qtflow
+    YS: remove deprecated instrument_plugins path from instruments and sys.path
+	MP: remove fixed IPs in userconfig.py
+    YS: added reference to qkit rootdir into config
+    YS: set user_insdir as default insdir in instruments and deactivate user_insdir in userconfig.py

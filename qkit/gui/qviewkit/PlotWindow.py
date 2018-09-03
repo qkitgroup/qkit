@@ -1,30 +1,63 @@
 # -*- coding: utf-8 -*-
 """
-@author: hannes.rotzinger@kit.edu @ 2015,2016
+@author: hannes.rotzinger@kit.edu / 2015,2016,2017 
+         marco.pfirrmann@kit.edu / 2016, 2017
+Qlicense: GPL
 """
-
-
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
-
-from plot_view import Ui_Form
-import pyqtgraph as pg
-from qkit.storage.hdf_constants import ds_types, view_types
-from PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
+# support both PyQt4 and 5
+in_pyqt5 = False
 import sys
+try:
+    from PyQt5 import QtCore
+    from PyQt5.QtCore import Qt,QObject,pyqtSlot
+    from PyQt5.QtWidgets import QWidget,QPlainTextEdit,QMenu,QAction, QWidgetAction, QLabel
+    from PyQt5.QtGui import QBrush, QPainter, QPixmap
+    #from PyQt5 import Qt
+    in_pyqt5 = True
+except ImportError as e:
+    pass
+if not in_pyqt5:
+    try:
+        from PyQt4 import QtCore
+        from PyQt4.QtCore import Qt,QObject,pyqtSlot
+        from PyQt4.QtGui import QWidget,QPlainTextEdit,QMenu,QAction, QWidgetAction, QLabel, QBrush, QPainter, QPixmap
+    except ImportError:
+        print("import of PyQt5 and PyQt4 failed. Install one of those.")
+        sys.exit(-1)
 
+import pyqtgraph as pg
 
-#class PlotWindow(QMainWindow, Ui_MainWindow):
+import qkit
+from qkit.gui.qviewkit.plot_view import Ui_Form
+from qkit.storage.hdf_constants import ds_types, view_types
+from qkit.gui.qviewkit.PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
+from qkit.gui.qviewkit.PlotWindow_lib import _get_ds, _get_ds_url, _get_name
+
 class PlotWindow(QWidget,Ui_Form):
+    """PlotWindow class organizes the correct display of data in a h5 file.
 
+    This class coordinates the display of the data between the UI with it's 
+    selector slots in Ui_Form and the plot functions in PlotWindow_lib. Here we
+    handle the trigger events; update, open, and close the plot windows.
+    Depending on the selector slot settings the associated plot function in the
+    lib is called.
+    We inherit from PyQt's QWidget class as well as the Ui_Form class.
+    
+    Heart and soul here is update_plots() which is connected to a timer trigger
+    and checks the settings of all user slots and calls the correct lib
+    function to display the data. The window starts with some default
+    configuration for the dataset types.
+    """
     def myquit(self):
         exit()
 
     def __init__(self,parent,data,dataset_url):
+        """Inits PlotWindow with a parent (QMainWindow.treeWidget), data
+        (qviewkit.main.DATA object), and a dataset_url to be opened.
+        """
         self.DATA = data
         self.dataset_url = dataset_url
         self.obj_parent = parent
-
 
         super(PlotWindow , self).__init__()
         Ui_Form.__init__(self)
@@ -33,8 +66,6 @@ class PlotWindow(QWidget,Ui_Form):
         self.activateWindow()
         self.raise_()
 
-
-
         "This variable controlles if a window is new, see update_plots()."
         self._windowJustCreated = True
         "connect update_plots to the DatasetWindow"
@@ -42,21 +73,44 @@ class PlotWindow(QWidget,Ui_Form):
 
     def closeEvent(self, event):
         "overwrite the closeEvent handler"
-        #print "closeEvent called"
-        #self.deleteLater()
         self.DATA._toBe_deleted(self.dataset_url)
         self.DATA._remove_plot_widgets()
         event.accept()
 
     @pyqtSlot()
     def update_plots(self):
-        """ This brings up everything and is therefore the main function.
-        Update Plots is either periodically called e.g. by the timer or once on startup. """
+        """Checks the signal slots and changes the plotting attributes to be 
+        evaluated by PlotWindow_lib.
+        
+        This function coordinates the changing input from the signal slots and
+        updates the attributes that are parsed to the plotting lib functions.
+        update_plots() is either periodically called e.g. by the timer or once 
+        on startup.
+        
+        Args:
+            self: Object of the PlotWindow class.
+        Returns:
+            No return variable. The function operates on the given object.
+        """
         #print "PWL update_plots:", self.obj_parent.h5file
 
         self.ds = self.obj_parent.h5file[self.dataset_url]
         self.ds_type = self.ds.attrs.get('ds_type', -1)
+        
+        # The axis names are parsed to plot_view's Ui_Form class to label the UI selectors 
+        x_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('x_ds_url', '')))
+        y_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('y_ds_url', '')))
+        z_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('z_ds_url', '')))
+        if self.ds.attrs.get('xy_0', ''):
+            x_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').split(':')[1]).attrs.get('x_ds_url', '')))
+            y_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').split(':')[1]).attrs.get('y_ds_url', '')))
+        else:
+            x_ds_name_view = '_none_'
+            y_ds_name_view = '_none_'
 
+        selector_label = [x_ds_name, y_ds_name, z_ds_name, x_ds_name_view, y_ds_name_view]    
+
+        ## At first window creation the attributes are set to state zero.
         if self._windowJustCreated:
             # A few state variables:
             self._onPlotTypeChanged = True
@@ -72,17 +126,18 @@ class PlotWindow(QWidget,Ui_Form):
             self.VTraceYValueChanged = False
 
             # the following calls rely on ds_type and setup the layout of the plot window.
-            self.setupUi(self,self.ds_type)
+            self.setupUi(self,self.ds_type, selector_label)
 
             window_title = str(self.dataset_url.split('/')[-1]) +" "+ str(self.DATA.filename)
             self.setWindowTitle(window_title)
 
-
             self._setDefaultView()
             self._setup_signal_slots()
-
-
-
+        
+        ## We check here for the view type given by either default setting or
+        ## user input. Creates the canvas and calls the associated plot 
+        ## function from the lib. For code constistence the variable names are
+        ## the same in all view types.
         try:
             if self.view_type == view_types['1D-V']:
                 if not self.graphicsView or self._onPlotTypeChanged:
@@ -105,10 +160,9 @@ class PlotWindow(QWidget,Ui_Form):
             elif self.view_type == view_types['2D']:
                 if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
-                    self.graphicsView = pg.ImageView(self.obj_parent,view=pg.PlotItem())
+                    self.graphicsView = ImageViewMplColorMaps(self.obj_parent, view = pg.PlotItem())
                     self.graphicsView.setObjectName(self.dataset_url)
                     self.addQvkMenu(self.graphicsView.view.getMenu())
-                    #self.addQvkMenu(self..graphicsView.getImageItem().getMenu())
                     self.graphicsView.view.setAspectLocked(False)
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 _display_2D_data(self,self.graphicsView)
@@ -119,6 +173,7 @@ class PlotWindow(QWidget,Ui_Form):
                     self.graphicsView = pg.TableWidget(sortable=False)
                     self.graphicsView.setWindowTitle(self.dataset_url+'_table')
                     self.graphicsView.setObjectName(self.dataset_url)
+                    self.graphicsView.setFormat("%.6g")
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 _display_table(self,self.graphicsView)
 
@@ -128,62 +183,76 @@ class PlotWindow(QWidget,Ui_Form):
                     self.graphicsView = QPlainTextEdit()
                     self.graphicsView.setObjectName(self.dataset_url)
                     self.gridLayout.addWidget(self.graphicsView,0,0)
-                    #self.graphicsView.setObjectName(self.dataset_url)
-                    self.gridLayout.addWidget(self.graphicsView,0,0)
                 self.graphicsView.clear()
                 _display_text(self,self.graphicsView)
             else:
-                print "This should not be here: View Type:"+str(self.view_type)
-        #except NameError:#IOError:
-        #  pass
-        except ValueError,e:
-            print "PlotWindow: Value Error; Dataset not yet available", self.dataset_url
-            print e
+                print("This should not be here: View Type:"+str(self.view_type))
+        except ValueError as e:
+            print("PlotWindow: Value Error; Dataset not yet available", self.dataset_url)
+            print(e)
 
 
     def _setup_signal_slots(self):
-
+        """Depending on the dataset type the possible signal slots are created
+        
+        Args:
+            self: Object of the PlotWindow class.
+        Returns:
+            No return variable. The function operates on the given object.
+        """
         if self.ds_type == ds_types['vector'] or self.ds_type == ds_types['coordinate']:
-            QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeVector)
+            self.PlotTypeSelector.currentIndexChanged.connect(self._onPlotTypeChangeVector)
 
         elif self.ds_type == ds_types['matrix'] or self.ds_type == -1:
-            QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeMatrix)
-            QObject.connect(self.TraceSelector,   SIGNAL("valueChanged(int)"),       self._setTraceNum)
-            QObject.connect(self.TraceValue,      SIGNAL("returnPressed()"),         self._setTraceValue)
+            self.PlotTypeSelector.currentIndexChanged.connect(self._onPlotTypeChangeMatrix)
+            self.TraceXSelector.valueChanged.connect(self._setBTraceXNum)
+            self.TraceYSelector.valueChanged.connect(self._setBTraceYNum)
+            self.TraceXValue.returnPressed.connect(self._setBTraceXValue)            
+            self.TraceYValue.returnPressed.connect(self._setBTraceYValue) 
 
         elif self.ds_type == ds_types['box']:
-            QObject.connect(self.PlotTypeSelector,SIGNAL("currentIndexChanged(int)"),self._onPlotTypeChangeBox)
-            QObject.connect(self.TraceXSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceXNum)
-            QObject.connect(self.TraceXValue,     SIGNAL("returnPressed()"),         self._setBTraceXValue)
-            QObject.connect(self.TraceYSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceYNum)
-            QObject.connect(self.TraceYValue,     SIGNAL("returnPressed()"),         self._setBTraceYValue)
-            QObject.connect(self.TraceZSelector,  SIGNAL("valueChanged(int)"),       self._setBTraceZNum)
-            QObject.connect(self.TraceZValue,     SIGNAL("returnPressed()"),         self._setBTraceZValue)
+            self.PlotTypeSelector.currentIndexChanged.connect(self._onPlotTypeChangeBox)
+            self.TraceXSelector.valueChanged.connect(self._setBTraceXNum)
+            self.TraceYSelector.valueChanged.connect(self._setBTraceYNum)
+            self.TraceZSelector.valueChanged.connect(self._setBTraceZNum)
+            self.TraceXValue.returnPressed.connect(self._setBTraceXValue)            
+            self.TraceYValue.returnPressed.connect(self._setBTraceYValue)            
+            self.TraceZValue.returnPressed.connect(self._setBTraceZValue)
 
         elif self.ds_type == ds_types['view']:
-            QObject.connect(self.VTraceXSelector,   SIGNAL("valueChanged(int)"),       self._setVTraceXNum)
-            QObject.connect(self.VTraceXValue,      SIGNAL("returnPressed()"),         self._setVTraceXValue)
-            QObject.connect(self.VTraceYSelector,   SIGNAL("valueChanged(int)"),       self._setVTraceYNum)
-            QObject.connect(self.VTraceYValue,      SIGNAL("returnPressed()"),         self._setVTraceYValue)
+            self.VTraceXSelector.valueChanged.connect(self._setVTraceXNum)
+            self.VTraceYSelector.valueChanged.connect(self._setVTraceYNum)
+            self.VTraceXValue.returnPressed.connect(self._setVTraceXValue)           
+            self.VTraceYValue.returnPressed.connect(self._setVTraceYValue)
 
     def keyPressEvent(self, ev):
-        #print "Received Key Press Event!! You Pressed: "+ event.text()
+        #print("Received Key Press Event!! You Pressed: "+ event.text())
         if ev.key() == Qt.Key_S:
             #print '# ',ev.key()
-            print self.data_coord
+            print(self.data_coord)
             sys.stdout.flush()
 
     def _setDefaultView(self):
-        """Setup the view type: settle which type of window is displaying a dataset.
-            It is distinguished with what layout a dataset is displayed.
-            Co -> 1d
-            vec - 1d
-            matrix -> 2d
-            (...)
+        """Set the display attributes to a ds_type sensitive default case.
+        
+        The default attributs for the ds_types are:
+        coordinate -> 1d, data vs. x_coord
+        vector -> 1d, data vs. x_coord
+        matrix -> 2d, color coded data with y_coord and x_coord
+        box -> 2d, color coded data with y_coord and x_coord at the mid-point
+            of the z-coord.
+        The default settings for the user signal slots are set up in their 
+        respective functions.
+        Args:
+            self: Object of the PlotWindow class.
+        Returns:
+            No return variable. The function operates on the given object.
         """
-
+        
+        ## Some look-up dicts for manipulation and plot styles.
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
-        self.manipulations = {'dB':1, 'wrap':2, 'linear':4, 'remove_zeros':8, 'offset':16} #BITMASK for manipulation
+        self.manipulations = {'dB':1, 'wrap':2, 'linear':4, 'remove_zeros':8,
+                              'sub_offset_avg_y':16, 'norm_data_avg_x':32} #BITMASK for manipulation
 
         self.plot_style = 0
         self.manipulation = 8
@@ -223,10 +292,14 @@ class PlotWindow(QWidget,Ui_Form):
         self.PlotTypeSelector.setCurrentIndex(0)
 
     def _defaultMatrix(self):
-        self.TraceSelector.setEnabled(False)
-        shape = self.ds.shape[0]
-        self.TraceSelector.setRange(-1*shape,shape-1)
-        self.PlotTypeSelector.setCurrentIndex(0)
+        shape = self.ds.shape
+        self.TraceXSelector.setEnabled(False)
+        self.TraceXSelector.setRange(-1*shape[0],shape[0]-1)
+        self.TraceXNum = -1        
+
+        self.TraceYSelector.setEnabled(False)
+        self.TraceYSelector.setRange(-1*shape[1],shape[1]-1)
+        self.TraceYNum = -1
 
     def _defaultBox(self):
         shape = self.ds.shape
@@ -277,16 +350,6 @@ class PlotWindow(QWidget,Ui_Form):
         else:
             self.TraceSelector.setEnabled(True)
             self.PlotTypeSelector.setEnabled(False)
-
-    ####### this looks ugly
-    def _setTraceValue(self):
-        xval = str(self.TraceValue.displayText())
-        try:
-            self._trace_value = float(xval.split()[0])
-        except ValueError:
-            return
-        self.TraceValueChanged = True
-        self.obj_parent.pw_refresh_signal.emit()
 
 
     def _setTraceNum(self,num):
@@ -380,13 +443,20 @@ class PlotWindow(QWidget,Ui_Form):
         self._onPlotTypeChanged = True
         if index == 0:
             self.view_type = view_types['2D']
-            self.TraceSelector.setEnabled(False)
+            self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(False)
         if index == 1:
             self.view_type = view_types['1D']
-            self.TraceSelector.setEnabled(True)
+            self.TraceXSelector.setEnabled(True)
+            self.TraceYSelector.setEnabled(False)
         if index == 2:
+            self.view_type = view_types['1D']
+            self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(True)
+        if index == 3:
             self.view_type = view_types['table']
-            self.TraceSelector.setEnabled(False)
+            self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(False)
 
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
@@ -423,7 +493,7 @@ class PlotWindow(QWidget,Ui_Form):
         pass
 
     def _init_XY_add(self):
-        for i,key in enumerate(self.DATA.ds_tree_items.iterkeys()):
+        for i,key in enumerate(self.DATA.ds_tree_items.keys()):
             keys = key.split("/")[-2:]
             key = "/".join(key for key in keys)
             self.addXPlotSelector.addItem("")
@@ -443,7 +513,7 @@ class PlotWindow(QWidget,Ui_Form):
             xval = x0+num*dx
         else:
             xval = x0+(max_len+num)*dx
-        return str(xval)+" "+unit
+        return str(xval)+" "+str(unit)
 
     def _getYValueFromTraceNum(self,ds,num):
         y0 = ds.attrs.get("y0",0)
@@ -454,7 +524,7 @@ class PlotWindow(QWidget,Ui_Form):
             yval = y0+num*dy
         else:
             yval = y0+(max_len+num)*dy
-        return str(yval)+" "+unit
+        return str(yval)+" "+str(unit)
 
     def _getZValueFromTraceNum(self,ds,num):
         z0 = ds.attrs.get("z0",0)
@@ -465,39 +535,55 @@ class PlotWindow(QWidget,Ui_Form):
             zval = z0+num*dz
         else:
             zval = z0+(max_len+num)*dz
-        return str(zval)+" "+unit
+        return str(zval)+" "+str(unit)
 
-    def addQvkMenu(self,menu):
+    def addQvkMenu(self,menu):        
+        """Add custom entry in the right-click menu.
+        
+        The data manipulation option are displayed in the menu. Each entry is
+        connected with a trigger event and the information about the clicked
+        entry is parsed to the plot lib via the plot_style or the manipulation
+        attribute.
+        Args:
+            self: Object of the PlotWindow class.
+            menu: Menu of the respective pyqtgraph plot class
+        Returns:
+            No return variable. The function operates on the given object.
+        """
+    
         self.qvkMenu = QMenu("Qviewkit")
 
-        point = QAction(u'Point', self.qvkMenu)
+        point = QAction('Point', self.qvkMenu)
         self.qvkMenu.addAction(point)
         point.triggered.connect(self.setPointMode)
 
-        line = QAction(u'Line', self.qvkMenu)
+        line = QAction('Line', self.qvkMenu)
         self.qvkMenu.addAction(line)
         line.triggered.connect(self.setLineMode)
 
-        pointLine = QAction(u'Point+Line', self.qvkMenu)
+        pointLine = QAction('Point+Line', self.qvkMenu)
         self.qvkMenu.addAction(pointLine)
         pointLine.triggered.connect(self.setPointLineMode)
 
-        dB_scale = QAction(u'dB / linear', self.qvkMenu)
+        dB_scale = QAction('dB / linear', self.qvkMenu)
         self.qvkMenu.addAction(dB_scale)
         dB_scale.triggered.connect(self.setdBScale)
         
-        phase_wrap = QAction(u'(un)wrap phase data', self.qvkMenu)
+        phase_wrap = QAction('(un)wrap phase data', self.qvkMenu)
         self.qvkMenu.addAction(phase_wrap)
         phase_wrap.triggered.connect(self.setPhaseWrap)
         
-        linear_correction = QAction(u'linearly correct data', self.qvkMenu)
+        linear_correction = QAction('linearly correct data', self.qvkMenu)
         self.qvkMenu.addAction(linear_correction)
         linear_correction.triggered.connect(self.setLinearCorrection)
         
-        offset_correction = QAction(u'subtract offset', self.qvkMenu)
+        offset_correction = QAction('data-<data:y>', self.qvkMenu)
         self.qvkMenu.addAction(offset_correction)
         offset_correction.triggered.connect(self.setOffsetCorrection)
         
+        norm_correction = QAction('data/<data:x>', self.qvkMenu)
+        self.qvkMenu.addAction(norm_correction)
+        norm_correction.triggered.connect(self.setNormDataCorrection)
 
         menu.addMenu(self.qvkMenu)
 
@@ -542,7 +628,79 @@ class PlotWindow(QWidget,Ui_Form):
             
     @pyqtSlot()
     def setOffsetCorrection(self):
-        self.manipulation = self.manipulation ^ self.manipulations['offset']
+        self.manipulation = self.manipulation ^ self.manipulations['sub_offset_avg_y']
         #print "{:08b}".format(self.manipulation)
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
+
+    @pyqtSlot()
+    def setNormDataCorrection(self):
+        self.manipulation = self.manipulation ^ self.manipulations['norm_data_avg_x']
+        #print "{:08b}".format(self.manipulation)
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+
+
+
+from collections import OrderedDict
+
+class ImageViewMplColorMaps(pg.ImageView):
+    """Class to manually inclued the matplotlib 2.0 colormaps.
+    
+    The class implements the matplotlib 2.0 colormaps 'viridis', 'inferno', 
+    'plasma', and 'magma' to the available colors scales in our 2d plots.
+    They are not (yet?) available in the standard pyqtgraph package. However, 
+    there is a pull request #446, issued Feb 2017 by github user "WFrsh" to add
+    them to the standard available gradient dict.
+    The code is a combination by his added rgb color maps and a monkey patch by
+    user "honkomonk" posted in the comment section of pull request #561.
+    
+    The color gradients for the maps are hard coded here and added to the
+    available dict of colormaps. The 'viridis' map is set as default.
+    """
+    def __init__(self, parent=None, name='ImageView', view=None, imageItem=None, *args):
+        super(ImageViewMplColorMaps, self).__init__(parent=parent, name=name, view=view, imageItem=imageItem, *args)
+
+        self.gradientEditorItem = self.ui.histogram.item.gradient
+
+        self.activeCm = "viridis"
+        self.mplColorMaps = OrderedDict([
+                    ('inferno', {'ticks': [(0.0, (0, 0, 3, 255)), (0.25, (87, 15, 109, 255)), (0.5, (187, 55, 84, 255)), (0.75, (249, 142, 8, 255)), (1.0, (252, 254, 164, 255))], 'mode': 'rgb'}),
+                    ('plasma', {'ticks': [(0.0, (12, 7, 134, 255)), (0.25, (126, 3, 167, 255)), (0.5, (203, 71, 119, 255)), (0.75, (248, 149, 64, 255)), (1.0, (239, 248, 33, 255))], 'mode': 'rgb'}),
+                    ('magma', {'ticks': [(0.0, (0, 0, 3, 255)), (0.25, (80, 18, 123, 255)), (0.5, (182, 54, 121, 255)), (0.75, (251, 136, 97, 255)), (1.0, (251, 252, 191, 255))], 'mode': 'rgb'}),
+                    ('viridis', {'ticks': [(0.0, (68, 1, 84, 255)), (0.25, (58, 82, 139, 255)), (0.5, (32, 144, 140, 255)), (0.75, (94, 201, 97, 255)), (1.0, (253, 231, 36, 255))], 'mode': 'rgb'}),
+                    ])
+
+        self.registerCmap()
+
+    def registerCmap(self):
+        """ Add matplotlib cmaps to the GradientEditors context menu"""
+        self.gradientEditorItem.menu.addSeparator()
+        savedLength = self.gradientEditorItem.length
+        self.gradientEditorItem.length = 100
+        
+        
+        for name in self.mplColorMaps:
+            px = QPixmap(100, 15)
+            p = QPainter(px)
+            self.gradientEditorItem.restoreState(self.mplColorMaps[name])
+            grad = self.gradientEditorItem.getGradient()
+            brush = QBrush(grad)
+            p.fillRect(QtCore.QRect(0, 0, 100, 15), brush)
+            p.end()
+            label = QLabel()
+            label.setPixmap(px)
+            label.setContentsMargins(1, 1, 1, 1)
+            act =QWidgetAction(self.gradientEditorItem)
+            act.setDefaultWidget(label)
+            act.triggered.connect(self.cmapClicked)
+            act.name = name
+            self.gradientEditorItem.menu.addAction(act)
+        self.gradientEditorItem.length = savedLength
+
+
+    def cmapClicked(self):
+        """onclick handler for our custom entries in the GradientEditorItem's context menu"""
+        act = self.sender()
+        self.gradientEditorItem.restoreState(self.mplColorMaps[act.name])
+        self.activeCm = act.name

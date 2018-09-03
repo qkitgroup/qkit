@@ -49,7 +49,8 @@ class virtual_measure_spec(Instrument):
                 segments - number of different measurements in a row
                 averages - number of acquisitions per block
                 blocks - number of blocks to aquire
-                channels - bit map of channels to use (B"01" = ch0, B"10" = ch1, B"11" = ch0 and ch1
+                channels - bit map of channels to use:
+                        B"01" = ch0, B"10" = ch1, B"11" = ch0 and ch1, B here denotes binary
                 multimode - use multiple recording mode?
                 gate_func - called at the start/end of each block with parameter True/False
                 trigger_rate - expected rate of triggers for calculation of proper timeouts
@@ -153,6 +154,10 @@ class virtual_measure_spec(Instrument):
 
     def spec_stop(self):
         self._dacq.stop()
+        
+    def set_input_amp(self, level):
+        self._dacq.set_input_amp_ch0(level)
+        self._dacq.set_input_amp_ch1(level)
 
     #make spec.timeout settable by mspec via remote
     def do_set_spec_timeout(self, timeout):
@@ -266,9 +271,6 @@ class virtual_measure_spec(Instrument):
     def set_gate_func(self, gate_func):
         ''' function called at start of new block '''
         if isinstance(gate_func,str):
-            global mm
-            import multimeasure as mm
-            print gate_func
             self._gate_func = eval(gate_func)
         else:
             self._gate_func = gate_func
@@ -282,12 +284,12 @@ class virtual_measure_spec(Instrument):
 
     def get_clock(self):
         return self._dacq.get_spc_samplerate()
-
-
+        
     def acquire(self):
         '''
         wrapper to the acquire function corresponding to the current mode setting
         '''
+        
         # acquire data
         if(self._multimode):
             result = self._acquire_multimode()
@@ -319,7 +321,7 @@ class virtual_measure_spec(Instrument):
         for i in range(self._blocks):
             # retrieve current block
             dat_block = self._acquire_multimode_extract(blocking = True, averaged = False)
-            if dat_block == None:
+            if dat_block is None:
                 raise ValueError("dat_block is empty")
             # background-measure next block
             if(i < self._blocks-1): self._acquire_multimode_prepare()

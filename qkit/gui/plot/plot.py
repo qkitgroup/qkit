@@ -1,10 +1,11 @@
 from subprocess import Popen, PIPE
-from qkit.storage import hdf_lib
 import os
 import numpy as np
 import logging
 logging.basicConfig(level=logging.INFO)
-from qkit.config.environment import cfg
+
+import qkit
+from qkit.storage import store
 from qkit.storage.hdf_constants import ds_types
 
 import matplotlib.pyplot as plt
@@ -13,53 +14,86 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 # this is for live-plots
 def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
-    """
-    opens a .h5-file with qviewkit in a python subprocess to be independent from other processes i.e. measurement.
+    """Opens a .h5-file with qviewkit in a python subprocess.
+    
+    This is the outermost function to open a h5 file with qviewkit.
+    To be independent from other processes i.e. running measurement the viewer
+    is opend in a python subprocess. The function opens a shell and executes
+    the qviewkit main routine with the given arguments.
 
-    input:
-    h5_filepath (string)
-    datasets (array, optional): dataset urls to be opened at start of qviewkit, default: []
-    refresh (int, optional): refreshing time in seconds for live view, default: 2
-    live (bool, optional): checks constantly the file for changes, default: True
-    echo (bool, optional): echo settings for debugging, default: False
+    Args:
+        h5_filepath: String, absolute filepath.
+        datasets: Optional arrays of dataset urls to be opened at start of 
+            qviewkit, default: []
+        refresh: Optional integer refreshing time in seconds for live view, 
+            default: 2
+        live: Boolean, optional for constant checks for updates. 
+            default: True
+        echo: Boolean, optional. Echo settings for debugging, default: False
+    Return:
+        Popen call with the correct commend that opens a shell and executes
+        the main qviewkit routine with a given filename. If given, some
+        datasets open automaticall.
     """
     # the plot engine for live plots is set in the environement
-    plot_viewer = cfg['plot_engine']
-    ds = ""
-    for s in datasets: ds+=s+","
-    ds = ds.strip(",")
-
-    cmd = "python"
-    cmd += " -m "+ plot_viewer #load qviewkit/main.py as module, so we do not need to know its folder
-    options =  " -f " + h5_filepath.encode("string-escape") #raw string encoding
-    if ds:
-        options += " -ds "+ str(ds)
-    options += " -rt "+ str(refresh)
+    plot_viewer = qkit.cfg.get('plot_engine', None)
+    
+    # the final return call should look sth. like this:
+    # python -m qkit.gui.qviewkit.main -f [h5_filepath] -ds amplitude,phase -rt 2 -live
+    
+    cmd = ['python']
+    cmd.append('-m')
+    cmd.append(plot_viewer)
+    
+    cmd.append('-f')
+    cmd.append(h5_filepath)
+    
+    if datasets:
+        cmd.append('-ds')
+        ds = ""
+        for s in datasets:
+            ds += s+','
+        cmd.append(ds[:-1])
+    cmd.append('-rt')
+    cmd.append(str(refresh))
     if live:
-        options += " -live "
-
+        cmd.append('-live')
+    
     if echo:
-        print "Qviewkit open cmd: "+ cmd + options
-        P = Popen(cmd+options, shell=False, stdout=PIPE)
-        print P.stdout.read()
+        print("Qviewkit open cmd: "+ str(cmd))
+        P = Popen(cmd, shell=False, stdout=PIPE)
+        print(P.stdout.read())
         return P
     else:
-        return Popen(cmd+options, shell=False)
+        return Popen(cmd, shell=False)
 
 
 # this is for saving plots
 def save_plots(h5_filepath, comment='', save_pdf=False):
-    """
-    Save plots is a helper function to extract and save image plots from hdf-files
-
+    """Saves plots of all datasets with default settings. 
+    
+    Args:
+        h5_filepath: String, absolute filepath.
+        comment: Optional comment for the plots to be added to the filenames.
+            default : ''
+        save_pdf: Optional boolean setting for the output file type.
+            default: False
     """
     h5plot(h5_filepath, comment=comment, save_pdf=save_pdf)
 
 
 class h5plot(object):
+    """h5plot class plots and saves all dataset in the h5 file.
+
+    We recursively walk through the entry tree of datasets, check for their
+    ds_type and plot the data in a default setting with matplotlib. The plots 
+    are then saved in an 'image' folder beside the h5 file. 
+    """
 
     def __init__(self,h5_filepath, comment='', save_pdf=False):
-
+        """Inits h5plot with a h5_filepath (string, absolute path), optional 
+        comment string, and optional save_pdf boolean.
+        """
         self.comment = comment
         self.save_pdf = save_pdf
         self.path = h5_filepath
@@ -68,7 +102,6 @@ class h5plot(object):
         self.filedir  = os.path.dirname(filepath)   #return directory component of the given pathname, here filepath
 
         self.image_dir = os.path.join(self.filedir,'images')
-        print self.image_dir
         try:
             os.mkdir(self.image_dir)
         except OSError:
@@ -76,22 +109,34 @@ class h5plot(object):
             pass
 
         # open the h5 file and get the hdf_lib object
-        self.hf = hdf_lib.Data(path=self.path)
+        self.hf = store.Data(self.path)
 
         # check for datasets
         for i, pentry in enumerate(self.hf['/entry'].keys()):
             key='/entry/'+pentry
             for j, centry in enumerate(self.hf[key].keys()):
-                self.key='/entry/'+pentry+"/"+centry
-                self.ds = self.hf[self.key]
-                if self.ds.attrs.get('save_plot', True):
-                    self.plt()
-
+                try:
+                    self.key='/entry/'+pentry+"/"+centry
+                    self.ds = self.hf[self.key]
+                    if self.ds.attrs.get('save_plot', True):
+                        self.plt() # this is the plot function
+                except Exception as e:
+                    print("Exception in qkit/gui/plot/plot.py while plotting")
+                    print(self.key)
+                    print(e)
         #close hf file
         self.hf.close()
-        print 'Plots saved in', self.image_dir
+        print('Plots saved in ' + self.image_dir)
 
     def plt(self):
+        """Creates the matplotlib figure, checks for some metadata and calls 
+        the plotting with respect to the ds_type of the dataset.
+        
+        Args:
+            self: Object of the h5plot class.
+        Returns:
+            No return variable. The function operates on the given object.
+        """
         logging.info(" -> plotting dataset: "+str(self.ds.attrs.get('name')))
 
         self.ds_type = self.ds.attrs.get('ds_type', '')
@@ -116,11 +161,12 @@ class h5plot(object):
             #self.plt_txt()
             return
         elif self.ds_type == ds_types['view']:
-            #self.plt_view()
-            return
+            self.plt_view()
         else:
             return
 
+        ## Some labeling depending on the ds_type. The label variables are set
+        ## in the respective plt_xxx() fcts.
         self.ax.set_xlabel(self.x_label)
         self.ax.set_ylabel(self.y_label)
         self.ax.xaxis.label.set_fontsize(20)
@@ -147,20 +193,24 @@ class h5plot(object):
         """
 
     def plt_vector(self):
-        """
-        dataset is only one-dimensional
-        print data vs. x-coordinate
-        """
+        """Plot one-dimensional dataset. Print data vs. x-coordinate.
+        
+        Args:
+            self: Object of the h5plot class.
+        Returns:
+            No return variable. The function operates on the self- matplotlib 
+            objects.
+        """        
+        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_'))
+        self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
+        self.data_y = np.array(self.ds)
+        self.y_label = self.ds_label
         try:
             self.x_ds = self.hf[self.x_ds_url]
             self.x_label = self.x_ds.attrs.get('name','_xname_')+' / '+self.x_ds.attrs.get('unit','_xunit_')
         except Exception:
-            self.x_ds = None
+            self.x_ds = np.arange(len(self.data_y))
             self.x_label = '_none_ / _none_'
-        
-        self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
-        self.data_y = np.array(self.ds)
-        self.y_label = self.ds_label
         if len(self.data_y) == 1: #only one entry, print as cross
             plt_style = 'x'
         else:
@@ -171,10 +221,15 @@ class h5plot(object):
             self.ax.plot(0,self.data_y, plt_style)
 
     def plt_matrix(self):
-        """
-        dataset is two-dimensional
-        print data color-coded y-coordinate vs. x-coordinate
-        """
+        """Plot two-dimensional dataset. print data color-coded y-coordinate 
+        vs. x-coordinate.
+        
+        Args:
+            self: Object of the h5plot class.
+        Returns:
+            No return variable. The function operates on the self- matplotlib 
+            objects.
+        """  
 
         self.x_ds = self.hf[self.x_ds_url]
         self.y_ds = self.hf[self.y_ds_url]
@@ -182,7 +237,7 @@ class h5plot(object):
         self.x_label = self.x_ds.attrs.get('name','_xname_')+' / '+self.x_ds.attrs.get('unit','_xunit_')
         self.y_label = self.y_ds.attrs.get('name','_yname_')+' / '+self.y_ds.attrs.get('unit','_yunit_')
         self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
-
+        self.ax.set_title(self.hf._filename[:-3]+" "+self.y_ds.attrs.get('name','_name_'))
         self.data = np.array(self.ds).T #transpose matrix to get x/y axis correct
 
         self.xmin = self.x_ds.attrs.get('x0',0)
@@ -210,10 +265,15 @@ class h5plot(object):
             i.set_fontsize(16)
 
     def plt_box(self):
-        """
-        dataset is two-dimensional
-        print data color-coded y-coordinate vs. x-coordinate
-        """
+        """Plot two-dimensional dataset. print data color-coded y-coordinate 
+        vs. x-coordinate.
+        
+        Args:
+            self: Object of the h5plot class.
+        Returns:
+            No return variable. The function operates on the self- matplotlib 
+            objects.
+        """  
 
         self.x_ds = self.hf[self.x_ds_url]
         self.y_ds = self.hf[self.y_ds_url]
@@ -222,7 +282,7 @@ class h5plot(object):
         self.x_label = self.x_ds.attrs.get('name','_xname_')+' / '+self.x_ds.attrs.get('unit','_xunit_')
         self.y_label = self.y_ds.attrs.get('name','_yname_')+' / '+self.y_ds.attrs.get('unit','_yunit_')
         self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
-
+        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds_label)
         self.nop = self.ds.shape[2] #S1 this was ->self.z_ds.shape[0]<- before, but causes problems for some data
         self.data = np.array(self.ds)[:,:,self.nop/2].T #transpose matrix to get x/y axis correct
 
@@ -257,10 +317,125 @@ class h5plot(object):
         # not (yet?) implemented. we'll see ...
         pass
     def plt_view(self):
-        # not (yet?) implemented. we'll see ...
-        pass
+        """Plot views with possible multi-level overlays.
+        
+        First shot at (automatically) plotting views.
+        Since this structure is rather flexible, there is no universal approach
+        for meaningful plots. First demand was IV curves from the transport 
+        measurements.
+        The code is a recycled version of the _display_1D_view() fct of 
+        qkit.gui.qviewkit.PlotWindow_lib
+        
+        Args:
+            self: Object of the h5plot class.
+        Returns:
+            No return variable. The function operates on the self- matplotlib 
+            objects.
+        """  
+        # views are organized in overlays, the number of x vs y plot in one figure (i.e. data and fit)
+        overlay_num = self.ds.attrs.get("overlays",0)
+        overlay_urls = []
+        err_urls = []
+        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_'))
+        
+        # the overlay_urls (urls of the x and y datasets that ar plotted) are extracted from the metadata
+        for i in range(overlay_num+1):
+            ov = self.ds.attrs.get("xy_"+str(i),"")
+            if ov:
+                overlay_urls.append(ov.split(":"))
+            err_urls.append(self.ds.attrs.get("xy_"+str(i)+"_error",""))
+                
+        self.ds_xs = []
+        self.ds_ys = []
+        self.ds_errs = []
+        for xy in overlay_urls:
+            self.ds_xs.append(self.hf[xy[0]])
+            self.ds_ys.append(self.hf[xy[1]])
+            
+        for err_url in err_urls:
+            try:
+                self.ds_errs.append(self.hf[err_url])
+            except:
+                self.ds_errs.append(0)
+        
+        """
+        the ds_type are detected. this determines which dataset is displayed as a 1D plot.
+        since the initial demand for the plotting comes from IV measurements and for easy handling,
+        the default display in qviewkit is saved.
+        """
+        self.ds_label = self.ds.attrs.get('name','_name_')
+        
+        # iteratring over all x- (and y-)datasets and checking for dimensions gives the data to be plotted
+        for i, x_ds in enumerate(self.ds_xs):
+            y_ds = self.ds_ys[i]
+            err_ds = self.ds_errs[i]
+            
+            #1D data is easy, for matrix and box the very last recorded 1D data is plotted
+            if x_ds.attrs.get('ds_type',0) == ds_types['coordinate'] or x_ds.attrs.get('ds_type',0) == ds_types['vector']:
+                if y_ds.attrs.get('ds_type',0) == ds_types['vector'] or y_ds.attrs.get('ds_type',0) == ds_types['coordinate']:
+                    x_data = np.array(x_ds)
+                    y_data = np.array(y_ds)
+                    if err_ds:
+                        err_data = np.array(err_ds)
+    
+                elif y_ds.attrs.get('ds_type',0) == ds_types['matrix']:
+                    x_data = np.array(x_ds)
+                    y_data = np.array(y_ds[-1])
+                    if err_ds:
+                        err_data = np.array(err_ds[-1])
+    
+                elif y_ds.attrs.get('ds_type',0) == ds_types['box']:
+                    x_data = np.array(x_ds)
+                    y_data = np.array(y_ds[-1,-1,:])
+                    if err_ds:
+                        err_data = np.array(err_ds[-1,-1,:])
+    
+            ## This is in our case used so far only for IQ plots. The functionality derives from this application.
+            elif x_ds.attrs.get('ds_type',0) == ds_types['matrix']:
+                x_data = np.array(x_ds[-1])
+                y_data = np.array(y_ds[-1])
+            
+            elif x_ds.attrs.get('ds_type',0) == ds_types['box']:
+                x_data = np.array(x_ds[-1,-1,:])
+                y_data = np.array(y_ds[-1,-1:])
+            
+            # x- and y-name come from the last added entry in the overlay
+            self.x_name = x_ds.attrs.get("name","_none_")
+            self.y_name = y_ds.attrs.get("name","_none_")
+            
+            self.x_unit = x_ds.attrs.get("unit","_none_")
+            self.y_unit = y_ds.attrs.get("unit","_none_")
+            
+            """
+            view_params = json.loads(ds.attrs.get("view_params",{}))
+            
+            # this allows to set a couple of plot related settings
+            if view_params:
+                aspect = view_params.pop('aspect',False)
+                if aspect:
+                    graphicsView.setAspectLocked(lock=True,ratio=aspect)
+                #bgcolor = view_params.pop('bgcolor',False)
+                #if bgcolor:
+                #    print tuple(bgcolor)
+                #    graphicsView.setBackgroundColor(tuple(bgcolor))
+            """
+            
+            if len(y_data) == 1: #only one entry, print as cross
+                plt_style = 'x'
+            else:
+                plt_style = '-'
+            if err_ds:
+                self.ax.errorbar(x_data, y_data[0:len(x_data)], yerr=err_data[0:len(x_data)], label=self.y_name)
+            else:
+                try:
+                    self.ax.plot(x_data,y_data[0:len(x_data)], plt_style, label=self.y_name)
+                except TypeError:
+                    self.ax.plot(0,y_data, plt_style)
+            self.ax.legend()
+            
 
     def _get_vrange(self,data,percent):
+        
         '''
         This function calculates ranges for the colorbar to get rid of spikes in the data.
         If the data is evenly distributed, this should not change anything in your colorbar.

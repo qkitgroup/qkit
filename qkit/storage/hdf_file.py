@@ -7,22 +7,27 @@ Created 2015
 import logging
 import h5py
 import numpy as np
-from hdf_constants import ds_types
+import qkit
+from qkit.storage.hdf_constants import ds_types
 
 class H5_file(object):
-    """ This base hdf5 class ist intended for QTlab as a base class for a 
+    """Base hdf5 class intended for qkit.
+    
     hdf5 based Data class as compatible as possible to the standard data class. 
     It is in many respects more restricted to the hdf5_data.py class, 
     it e.g. does only create one group in the HDF5 file, etc.
     
     The class itself contans only the interface to the hdf5 file and 
     can be used also standalone.
-    
+    Here we again wrap the create_dataset() fctn and the append() fct does the
+    trick of placing added data in the correct position in the dataset.
     """    
     
-    def __init__(self,output_file,**kw):
-        
-        self.create_file(output_file)
+    def __init__(self,output_file, mode,**kw):
+        """Inits the H5_file at the path 'output_file' with the access mode
+        'mode'
+        """
+        self.create_file(output_file, mode)
         
         if self.hf.attrs.get("qt-file",None) or self.hf.attrs.get("qkit",None):
             "File existed before and was created by qkit."
@@ -37,9 +42,9 @@ class H5_file(object):
         
 
         
-    def create_file(self,output_file):
-        self.hf = h5py.File(output_file,'a')
-        
+    def create_file(self,output_file, mode):
+        self.hf = h5py.File(output_file, mode)
+
     def set_base_attributes(self,nexus=True):
         "stores some attributes and creates the default data group"
         # store version of the file format
@@ -85,19 +90,21 @@ class H5_file(object):
 
     def create_dataset(self,name, tracelength, ds_type = ds_types['vector'],
                        folder = "data", dim = 1,  **kwargs):
-        """ handles one, two and three dimensional data
+        """Dataset for one, two, and three dimensional data
         
-            tracelength:
+            Args:
+                
+                'tracelength'
             
-            dim:
-                is 1 for a single data point in a 1D scan (array of scalars)
-                is the length of the first trace in 2D scan (array of vectors)
-            For 2D scans the traces have to have the same tracelength
-            and are simply appended to the trace array
+                'dim'
+                    is 1 for a single data point in a 1D scan (array of scalars)
+                    is the length of the first trace in 2D scan (array of vectors)
+                    For 2D scans the traces have to have the same tracelength
+                    and are simply appended to the trace array
             
-            'folder' is a optional group relative to the default group
+                'folder' is a optional group relative to the default group
             
-            kwargs are appended as attributes to the dataset
+                'kwargs' are appended as attributes to the dataset
         """
         self.ds_type = ds_type
         
@@ -169,10 +176,20 @@ class H5_file(object):
         return ds
         
     def append(self,ds,data, next_matrix=False):
-        """ 
-        Append method for hdf5 data. 
-        A simple append method for data traces
-        reshapes the array and updates the attributes
+        """Method for appending hdf5 data. 
+        
+        A simple append method for data traces.
+        Reshapes the array and updates the attributes.
+        The optional 'next_matrix' atrribute arranges the incoming data in a 
+        value_box correctly.
+        
+        Args:
+            hdf_dataset 'ds'
+            numpy array 'data'
+            boolean 'next_matrix'
+            
+        Returns:
+            The function operates on the given variables.
         """
         # it gets a little ugly with all the different user-cases here ...
         

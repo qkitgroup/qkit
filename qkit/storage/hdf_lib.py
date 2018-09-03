@@ -10,12 +10,19 @@ import logging
 import os
 import time
 
-from hdf_file import H5_file
-from hdf_dataset import hdf_dataset
-from hdf_constants import ds_types
-from hdf_view import dataset_view
-from hdf_DateTimeGenerator import DateTimeGenerator
-from qkit.config.environment import *
+import qkit
+from qkit.storage.hdf_file import H5_file
+from qkit.storage.hdf_dataset import hdf_dataset
+from qkit.storage.hdf_constants import ds_types
+from qkit.storage.hdf_view import dataset_view
+from qkit.storage.hdf_DateTimeGenerator import DateTimeGenerator
+import warnings
+# this module shouldt be imported, please... don't use it...
+warnings.warn(
+   "This module is deprecated and will be removed in the near future. It was replaced by the module 'qkit.storage.store'.",
+    FutureWarning
+)
+
 
 class Data(object):
     "this is a basic hdf5 class adopted to our needs"
@@ -26,39 +33,42 @@ class Data(object):
         set file name generator is used.
 
         kwargs:
-            name (string) : default is 'data'
+            name (string):  default is 'data', will result in a file at datadir/uuid_name.h5
+            path (string): to open an existing file or specify the exact path. If None, the file will be created.
         """
 
-        name = kwargs.pop('name', 'data')
+        self._name = kwargs.pop('name', 'data')
 
-        "if path was omitted, a new filepath will be created"
-        path = kwargs.pop('path',None)
-        self._filename_generator = DateTimeGenerator()
-        self.generate_file_name(name, filepath = path, **kwargs)
-
+        #if path was omitted, a new filepath will be created
+        self._filepath = kwargs.pop('path',None)
+        
+        if self._filepath is None:
+            self.generate_file_name()
+        else:
+            self._filepath = os.path.abspath(self._filepath)
+            self._folder,self._filename = os.path.split(self._filepath)
         "setup the  file"
-        self.hf = H5_file(self._filepath)
-
+        self.hf = H5_file(self._filepath,mode='r+')
         self.hf.flush()
 
 
-    def generate_file_name(self, name, **kwargs):
-        # for now just a copy from the origial file
-
-
-        self._name = name
-
-        filepath = kwargs.get('filepath', None)
-        if filepath:
-            self._filepath = filepath
-        else:
-            self._localtime = time.localtime()
-            self._timestamp = time.asctime(self._localtime)
-            self._timemark = time.strftime('%H%M%S', self._localtime)
-            self._datemark = time.strftime('%Y%m%d', self._localtime)
-            self._filepath =  self._filename_generator.new_filename(self)
-
-        self._folder, self._filename = os.path.split(self._filepath)
+    def generate_file_name(self):
+        dtg = DateTimeGenerator()
+        self.__dict__.update(dtg.new_filename(self._name))
+        '''
+        this sets:
+            _unix_timestamp
+            _localtime    
+            _timestamp
+            _timemark
+            _datemark
+            _uuid
+            _filename
+            _folder
+            _relpath
+            _filepath        
+        '''
+        
         if self._folder and not os.path.isdir(self._folder):
             os.makedirs(self._folder)
 

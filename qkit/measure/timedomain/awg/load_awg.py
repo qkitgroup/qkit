@@ -1,3 +1,21 @@
+# load_awg.py
+# started by M. Jerger and adapted by AS, JB
+
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
 import qt
 import numpy as np
 import os.path
@@ -16,7 +34,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
         inputs:
         
         ts: array of times, len(ts) = #sequenzes
-        wfm_func: waveform function usually generated via generate_waveform using ts[i]; this can be a touple of arrays (for channels 0,1, heterodyne mode) or a single array (homodyne mode)
+        wfm_func: waveform function usually generated via generate_waveform using ts[i]; this can be a tuple of arrays (for channels 0,1, heterodyne mode) or a single array (homodyne mode)
         sample: sample object
         
         iq: Reference to iq mixer instrument. If None (default), the wfm will not be changed. Otherwise, the wfm will be converted via iq.convert()
@@ -27,12 +45,12 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
         for the 6GS/s AWG, the waveform length must be divisible by 64
         for the 1.2GS/s AWG, it must be divisible by 4
         
-        chpair: if you use the 4ch Tabor AWG as a single 5ch instrument, you can chose to take the second channel pair here (this can be either 1 or 2).
+        chpair: if you use the 4ch Tabor AWG as a single 2ch instrument, you can chose to take the second channel pair here (this can be either 1 or 2).
     '''
     qt.mstart()
     if awg==None:
-        awg = sample.get_awg()
-    clock = sample.get_clock()
+        awg = sample.awg
+    clock = sample.clock
     wfm_func2 = wfm_func
     if iq != None:
         wfm_func2 = lambda t, sample: iq.convert(wfm_func(t,sample))
@@ -46,8 +64,6 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
         elif "Tabor" in awg.get_type():
             awg.set('p%i_runmode'%chpair,'SEQ')
             awg.define_sequence(chpair*2-1,len(ts))
-        
-        
         
         #amplitude settings of analog output
         awg.set_ch1_offset(0)
@@ -110,7 +126,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
                     awg.set_seq_loop(ti+1, np.infty)
             elif "Tabor" in awg.get_type():
                 if chan == 1:   #write out both together
-                    awg.wfm_send2(wfm_samples[0],wfm_samples[1],marker1,marker2,chpair,ti+1)
+                    awg.wfm_send2(wfm_samples[0],wfm_samples[1],marker1,marker2,chpair*2-1,ti+1)
                 else: continue
             else:
                 raise ValueError("AWG type not known")
@@ -131,4 +147,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
         awg.set_ch1_status(True)
         awg.set_ch2_status(True)
     qt.mend()
+    if sample.__dict__.has_key('mspec'):
+        sample.mspec.spec_stop()
+        sample.mspec.set_segments(len(ts))
     return np.all([awg.get('ch%i_status'%i) for i in [1,2]])

@@ -28,6 +28,7 @@ from time import sleep, time
 import types
 import logging
 import numpy
+import platform
 
 class Spectrum_M4i2211(Instrument):
     '''
@@ -161,21 +162,45 @@ class Spectrum_M4i2211(Instrument):
         Output:
             None
         '''
-        logging.debug(__name__ + ' : Loading spcm_win32.dll')
-        self._spcm_win32 = windll.LoadLibrary('C:\\WINDOWS\\System32\\spcm_win32')
+        if platform.architecture()[0] == '64bit':
+            pf_64Bit = True
+        else:
+            pf_64Bit = False
 
-        self._spcm_win32.open           = self._spcm_win32["_spcm_hOpen@4"]
-        self._spcm_win32.close          = self._spcm_win32["_spcm_vClose@4"]
-        self._spcm_win32.SetParam32     = self._spcm_win32["_spcm_dwSetParam_i32@12"]
-        self._spcm_win32.SetParam64m    = self._spcm_win32["_spcm_dwSetParam_i64m@16"]
-        self._spcm_win32.SetParam64     = self._spcm_win32["_spcm_dwSetParam_i64@16"]
-        self._spcm_win32.GetParam32     = self._spcm_win32["_spcm_dwGetParam_i32@12"]
-        self._spcm_win32.GetParam64m    = self._spcm_win32["_spcm_dwGetParam_i64m@16"]
-        self._spcm_win32.GetParam64     = self._spcm_win32["_spcm_dwGetParam_i64@12"]
-        self._spcm_win32.DefTransfer64m = self._spcm_win32["_spcm_dwDefTransfer_i64m@36"]
-        self._spcm_win32.DefTransfer64  = self._spcm_win32["_spcm_dwDefTransfer_i64@36"]
-        self._spcm_win32.InValidateBuf  = self._spcm_win32["_spcm_dwInvalidateBuf@8"]
-        self._spcm_win32.GetErrorInfo   = self._spcm_win32["_spcm_dwGetErrorInfo_i32@16"]
+        if pf_64Bit:
+            logging.debug(__name__ + ' : Loading spcm_win64.dll')
+            self._spcm_win32 = windll.LoadLibrary('C:\\WINDOWS\\System32\\spcm_win64.dll')
+
+            #function names are not decorated in the 64 bit version
+            self._spcm_win32.open           = self._spcm_win32["spcm_hOpen"]
+            self._spcm_win32.close          = self._spcm_win32["spcm_vClose"]
+            self._spcm_win32.SetParam32     = self._spcm_win32["spcm_dwSetParam_i32"]
+            self._spcm_win32.SetParam64m    = self._spcm_win32["spcm_dwSetParam_i64m"]
+            self._spcm_win32.SetParam64     = self._spcm_win32["spcm_dwSetParam_i64"]
+            self._spcm_win32.GetParam32     = self._spcm_win32["spcm_dwGetParam_i32"]
+            self._spcm_win32.GetParam64m    = self._spcm_win32["spcm_dwGetParam_i64m"]
+            self._spcm_win32.GetParam64     = self._spcm_win32["spcm_dwGetParam_i64"]
+            self._spcm_win32.DefTransfer64m = self._spcm_win32["spcm_dwDefTransfer_i64m"]
+            self._spcm_win32.DefTransfer64  = self._spcm_win32["spcm_dwDefTransfer_i64"]
+            self._spcm_win32.InValidateBuf  = self._spcm_win32["spcm_dwInvalidateBuf"]
+            self._spcm_win32.GetErrorInfo   = self._spcm_win32["spcm_dwGetErrorInfo_i32"]
+
+        else:
+            logging.debug(__name__ + ' : Loading spcm_win32.dll')
+            self._spcm_win32 = windll.LoadLibrary('C:\\WINDOWS\\System32\\spcm_win32')
+
+            self._spcm_win32.open           = self._spcm_win32["_spcm_hOpen@4"]
+            self._spcm_win32.close          = self._spcm_win32["_spcm_vClose@4"]
+            self._spcm_win32.SetParam32     = self._spcm_win32["_spcm_dwSetParam_i32@12"]
+            self._spcm_win32.SetParam64m    = self._spcm_win32["_spcm_dwSetParam_i64m@16"]
+            self._spcm_win32.SetParam64     = self._spcm_win32["_spcm_dwSetParam_i64@16"]
+            self._spcm_win32.GetParam32     = self._spcm_win32["_spcm_dwGetParam_i32@12"]
+            self._spcm_win32.GetParam64m    = self._spcm_win32["_spcm_dwGetParam_i64m@16"]
+            self._spcm_win32.GetParam64     = self._spcm_win32["_spcm_dwGetParam_i64@12"]
+            self._spcm_win32.DefTransfer64m = self._spcm_win32["_spcm_dwDefTransfer_i64m@36"]
+            self._spcm_win32.DefTransfer64  = self._spcm_win32["_spcm_dwDefTransfer_i64@36"]
+            self._spcm_win32.InValidateBuf  = self._spcm_win32["_spcm_dwInvalidateBuf@8"]
+            self._spcm_win32.GetErrorInfo   = self._spcm_win32["_spcm_dwGetErrorInfo_i32@16"]
 
     def _open(self):
         '''
@@ -326,7 +351,7 @@ class Spectrum_M4i2211(Instrument):
             logging.error(__name__ + ' : Error %s while setting reg %s to %s' % (err, regnum, regval))
             self._get_error()
             raise ValueError('Error communicating with device')
-		# invalidate buffer
+        # invalidate buffer
         err = self._spcm_win32.InValidateBuf(self._spcm_win32.handel, buffertype)
         if (err==0):
             return 0
@@ -335,7 +360,7 @@ class Spectrum_M4i2211(Instrument):
             self._get_error()
             raise ValueError('Error communicating with device')
 
-    	del self._pbuffer
+        del self._pbuffer
 
     def _get_error(self):
         '''
@@ -434,7 +459,7 @@ class Spectrum_M4i2211(Instrument):
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CHENABLE, _spcm_regs.CHANNEL0)
         #self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_STD_SINGLE)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_FIFO_SINGLE)
-    	#self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_LOOPS, 1)
+        #self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_LOOPS, 1)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_MEMSIZE, memsize)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_POSTTRIGGER, posttrigger)
         self._spcm_win32.SetParam32(self._spcm_win32_handel, _spcm_regs.SPC_PATH0, 0) # zofo
@@ -518,7 +543,7 @@ class Spectrum_M4i2211(Instrument):
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CHENABLE, _spcm_regs.CHANNEL0)
         #self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_STD_MULTI)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_FIFO_MULTI)
-    	#self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_LOOPS, 1)
+        #self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_LOOPS, 1)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_SEGMENTSIZE, segsize)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_MEMSIZE, memsize)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_POSTTRIGGER, posttrigger)
@@ -576,7 +601,7 @@ class Spectrum_M4i2211(Instrument):
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CHENABLE, _spcm_regs.CHANNEL0 | _spcm_regs.CHANNEL1)
         #self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_STD_MULTI)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_FIFO_MULTI)
-    	#self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_LOOPS, 1)
+        #self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_LOOPS, 1)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_SEGMENTSIZE, segsize)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_MEMSIZE, memsize)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_POSTTRIGGER, posttrigger)
@@ -992,8 +1017,8 @@ class Spectrum_M4i2211(Instrument):
             None
         '''
         logging.debug(__name__ + ' : Set the card in single mode readout status')
-       	self._set_param(_spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_FIFO_SINGLE)
-       	#self._set_param(_spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_STD_SINGLE)
+        self._set_param(_spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_FIFO_SINGLE)
+        #self._set_param(_spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_STD_SINGLE)
 
     def set_multi_mode(self):
         '''
@@ -1236,10 +1261,10 @@ class Spectrum_M4i2211(Instrument):
 #######################
 
     def _buffer_setup(self):
-    	'''
-    	create a new data buffer
-    	(assuming the old one is now owned by another part of the program)
-    	'''
+        '''
+        create a new data buffer
+        (assuming the old one is now owned by another part of the program)
+        '''
         self.invalidate_buffer()
         logging.debug(__name__ + ' : _buffer_setup')
         lMemsize = self.get_memsize()
@@ -1248,31 +1273,31 @@ class Spectrum_M4i2211(Instrument):
         # setup buffer
         #if hasattr(self, '_pbuffer') and (len(self._pbuffer.contents) == lBufsize):
         #	pass
-        	# tell the card that the buffer is now available again
-        	#err = self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_DATA_AVAIL_CARD_LEN,
-        	#	lBufsize)
-        	#if (err!=0):
-        	#	self._get_error()
-        	#	raise ValueError('Error communicating with device')
+            # tell the card that the buffer is now available again
+            #err = self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_DATA_AVAIL_CARD_LEN,
+            #	lBufsize)
+            #if (err!=0):
+            #	self._get_error()
+            #	raise ValueError('Error communicating with device')
         #else:
         a = (c_int8 * lBufsize)()
         p_data = pointer(a)
 
-		# tell card to use buffer
+        # tell card to use buffer
         err = self._spcm_win32.DefTransfer64(self._spcm_win32.handel, _spcm_regs.SPCM_BUF_DATA, 1,
-        	0, p_data, c_int64(0), c_int64(lBufsize))
+            0, p_data, c_int64(0), c_int64(lBufsize))
         if (err!=0):
-        	logging.error(__name__ + ' : Error setting up buffer')
-        	self._get_error()
-        	raise ValueError('Error communicating with device')
+            logging.error(__name__ + ' : Error setting up buffer')
+            self._get_error()
+            raise ValueError('Error communicating with device')
 
         # start DMA transfers
         err = self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_M2CMD,
-        	_spcm_regs.M2CMD_DATA_STARTDMA)
+            _spcm_regs.M2CMD_DATA_STARTDMA)
         if (err!=0):
-        	logging.error(__name__ + ' : Error starting DMA transfer, error nr: %i' % err)
-        	self._get_error()
-        	raise ValueError('Error communicating with device')
+            logging.error(__name__ + ' : Error starting DMA transfer, error nr: %i' % err)
+            self._get_error()
+            raise ValueError('Error communicating with device')
 
         # save new buffer possibly freeing old one, will break if DMA is in progress
         self._pbuffer = p_data

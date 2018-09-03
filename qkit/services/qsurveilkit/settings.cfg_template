@@ -1,0 +1,34 @@
+# qsurveilkit configuration
+# local host port and IP
+# name, ip and port have to be adapted to the local settings
+
+[LOCALHOST] 
+name   = xx-xxXX
+ip     = 127.0.0.1
+port   = XXXX
+
+[parameters]
+p = pLL,pMC
+
+[pLL]
+name = pressure LL
+interval = 5 ; update interval in seconds
+logging = 1
+log_path = /home/user/log
+
+[pMC]
+name = pressure MC
+interval = 5 ; update interval in seconds
+logging = 1
+log_path = /home/user/log
+
+[worker]
+cycle_time = 0.05 ; worker repetition rate
+
+[gui]
+update_interval = 1
+
+[debug]
+dummymode = 0
+
+

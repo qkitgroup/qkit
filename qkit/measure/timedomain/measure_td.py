@@ -6,15 +6,14 @@ import numpy as np
 import os.path
 import time
 import logging
-import sys
+import threading
 
+import qkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
-from qkit.storage import hdf_lib as hdf
-from qkit.analysis import resonator
+from qkit.storage import store as hdf
 from qkit.gui.plot import plot as qviewkit
-
-readout = qt.instruments.get('readout')
-mspec = qt.instruments.get('mspec')
+import qkit.measure.write_additional_files as waf
+from qkit.measure.timedomain.initialize import InitializeTimeDomain as iniTD
 
 class Measure_td(object):
     
@@ -27,15 +26,29 @@ class Measure_td(object):
     m.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency (Hz)',mw_src1.set_frequency)
     
     m.measure_XX()
+    Generally, we want to use
+    ReadoutTrace = True -> if we want to record the readout pulse or
+    AWGTrace = True -> if we have a N different time steps in the AWG (Not used, this is done via the mode variable now.)
+    
+    ToDO (S1, 09/2017):
+        - Include LogFunctions
+        - Include 2D_AWG with pre-averaging
+        - Check multi-tone readout
     '''
     
-    def __init__(self):
-    
+    def __init__(self, sample,readout = None):
+        self.sample = sample
+        if readout is None:
+            self.readout = sample.readout
+        else:
+            self.readout = readout
+        self.mspec = sample.mspec
+
         self.comment = None
-        self.time_data = False
-        
+        self.mode = None
         self.x_set_obj = None
         self.y_set_obj = None
+        self.z_set_obj = None
         
         self.dirname = None
         self.plotSuffix = ''
@@ -43,22 +56,35 @@ class Measure_td(object):
         
         self.show_progress_bar = True
         
-        self.save_dat = True
-        self.save_hdf = True
+        self.ReadoutTrace = False
         
-        self.open_qviewkit = False
+        self.open_qviewkit = True
+        self.create_averaged_data = False
         
-    def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit = ''):
+        self.qviewkit_singleInstance = True
+        self._qvk_process = False
+        self._plot_comment = ''
+        self.multiplex_attribute = "readout pulse frequency"
+        self.multiplex_unit = "Hz"
+        self.init = iniTD(sample)
+
+    def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit):
         self.x_vec = x_vec
         self.x_coordname = x_coordname
         self.x_set_obj = x_set_obj
         self.x_unit = x_unit
-        
-    def set_y_parameters(self, y_vec, y_coordname, y_set_obj, y_unit = ''):
+
+    def set_y_parameters(self, y_vec, y_coordname, y_set_obj, y_unit):
         self.y_vec = y_vec
         self.y_coordname = y_coordname
         self.y_set_obj = y_set_obj
         self.y_unit = y_unit
+
+    def set_z_parameters(self, z_vec, z_coordname, z_set_obj, z_unit):
+        self.z_vec = z_vec
+        self.z_coordname = z_coordname
+        self.z_set_obj = z_set_obj
+        self.z_unit = z_unit
         
     def measure_1D(self):
     
@@ -66,53 +92,52 @@ class Measure_td(object):
             print 'axes parameters not properly set...aborting'
             return
 
-        #self.time_data = False
         qt.mstart()
-        self._prepare_measurement_dat_file(mode='1d')
-        self._create_dat_plots(mode='1d')
-
+        self.mode = 1  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
+        self._prepare_measurement_file()
+        
         if self.show_progress_bar: p = Progress_Bar(len(self.x_vec),name=self.dirname)
         try:
             # measurement loop
             for x in self.x_vec:
                 self.x_set_obj(x)
                 qt.msleep() # better done during measurement (waiting for trigger)
-                self._append_data([x],trace=self.time_data)
-                self._update_plots()
+                self._append_data()
                 if self.show_progress_bar: p.iterate()
         finally:
-            self._safe_plots()
-            self._close_files()
+            #self._safe_plots()
+            self._end_measurement()
             qt.mend()
 
 
     def measure_2D(self):
 
-        if self.x_set_obj == None or self.y_set_obj == None:
+        if self.x_set_obj is None or self.y_set_obj is None:
             print 'axes parameters not properly set...aborting'
             return
+        if self.ReadoutTrace:
+            raise ValueError('ReadoutTrace is currently not supported for 2D measurements')
         
         qt.mstart()
-        self._prepare_measurement_dat_file(mode='2d')
-        self._create_dat_plots(mode='2d')
+        self.mode = 2  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
+        self._prepare_measurement_file()
 
         if self.show_progress_bar: p = Progress_Bar(len(self.x_vec)*len(self.y_vec),name=self.dirname)
         try:
             # measurement loop
             for x in self.x_vec:
                 self.x_set_obj(x)
-                if self.save_dat: self.data_raw.new_block()
                 for y in self.y_vec:
-                    qt.msleep() # better done during measurement (waiting for trigge
+                    qt.msleep() 
                     self.y_set_obj(y)
-                    #sleep(self.tdy)
-                    qt.msleep() # better done during measurement (waiting for trigger)
-                    self._append_data([x,y],trace=False)
-                    self._update_plots()
+                    qt.msleep() 
+                    self._append_data()
                     if self.show_progress_bar: p.iterate()
+                for i in range(self.ndev):
+                    self._hdf_amp[i].next_matrix()
+                    self._hdf_pha[i].next_matrix()
         finally:
-            self._safe_plots()
-            self._close_files()
+            self._end_measurement()
             qt.mend()
 
 
@@ -121,10 +146,15 @@ class Measure_td(object):
         use AWG sequence for x_vec, averaging over iterations
         '''
         self.y_vec = range(iterations)
-        self.y_coordname = '#iteration'
+        self.y_coordname = 'iteration'
         self.y_set_obj = lambda y: True
         self.y_unit = ''
-        return self.measure_2D_AWG()
+        self.create_averaged_data = True
+        self.avg_complex_sum = np.zeros_like(self.x_vec)
+        try:
+            return self.measure_2D_AWG()
+        finally:
+            self.create_averaged_data = False #This is ALWAYS done after the return! Looks strange and it really is, but it works.
 
 
     def measure_2D_AWG(self):
@@ -137,234 +167,283 @@ class Measure_td(object):
             return
     
         qt.mstart()
-        qt.msleep()   #if stop button was pressed by now, abort without creating data files
+        qt.msleep()   # if stop button was pressed by now, abort without creating data files
         
-        self._prepare_measurement_dat_file(mode='2dAWG')
-        self._create_dat_plots(mode='2dAWG')
-
-        if self.show_progress_bar: p = Progress_Bar(len(self.y_vec),name=self.dirname)
+        self.mode = 3  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
+        self._prepare_measurement_file()
+        
+        if self.show_progress_bar:
+            p = Progress_Bar(len(self.y_vec),name=self.dirname)
         try:
             # measurement loop
             for it in range(len(self.y_vec)):
                 qt.msleep() # better done during measurement (waiting for trigger)
                 self.y_set_obj(self.y_vec[it])
-                self._append_data([self.y_vec[it]],trace=True,it=it)
-                self._update_plots()
+                self._append_data(iteration=it)
                 if self.show_progress_bar: p.iterate()
-        #except Exception as e:
-        #   print e
-        
         finally:
-            self._safe_plots()
-            self._generate_avg_data(final=True)
-            self._close_files()
+            self._end_measurement()
         
             qt.mend()
 
-
-    def _prepare_measurement_dat_file(self,mode):
+    def measure_3D_AWG(self):
+        '''
+        x_vec is sequence in AWG
+        '''
     
+        if not self.y_set_obj or not self.z_set_obj:
+            logging.error('axes parameters not properly set...aborting')
+            return
+        if self.ReadoutTrace:
+            raise ValueError('ReadoutTrace is currently not supported for 3D_AWG measurements')
+    
+        qt.mstart()
+        qt.msleep()  # if stop button was pressed by now, abort without creating data files
+    
+        self.mode = 4  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
+        self._prepare_measurement_file()
+    
+        if self.show_progress_bar:
+            p = Progress_Bar(len(self.y_vec) * len(self.z_vec), name=self.dirname)
+        try:
+            # measurement loop
+            for z in self.z_vec:
+                self.z_set_obj(z)
+                for y in self.y_vec:
+                    qt.msleep()
+                    self.y_set_obj(y)
+                    qt.msleep()
+                    self._append_data()
+                    if self.show_progress_bar: p.iterate()
+                for i in range(self.ndev):
+                    self._hdf_amp[i].next_matrix()
+                    self._hdf_pha[i].next_matrix()
+        finally:
+            self._end_measurement()
+            qt.mend()
+
+    def measure_1D_ddc_time_trace(self):
+        """
+        measures the time evolution of your transmission / reflection
+        in your network by performing a digital down conversion
+        :return: None
+        """
+        time_end = float(self.mspec.get_samples())/self.mspec.get_samplerate()
+        time_array = np.linspace(0, time_end, self.mspec.get_samples())
+        self.set_x_parameters(time_array, 'time', True, 'sec')
+        self.mode = 1  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG
+        self._prepare_measurement_file()
+        try:
+            qt.msleep()
+            self._append_data(ddc=True)
+        finally:
+            self._end_measurement()
+            qt.mend()
+
+    def measure_2D_ddc_time_trace(self):
+        """
+        Performs a digital down conversion for exactly one value in your awg sequence. But you can sweep other
+        parameters, such as mw-power or so.
+        :return:
+        """
+        if self.y_set_obj is None:
+            print 'axes parameters not properly set...aborting'
+            return
+        time_end = float(self.mspec.get_samples())/self.mspec.get_samplerate()
+        time_array = np.linspace(0, time_end, self.mspec.get_samples())
+        self.set_x_parameters(time_array, 'time', True, 'sec')
+
+        self.mode = 2  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG
+        self._prepare_measurement_file()
+
+        if self.show_progress_bar:
+            p = Progress_Bar(len(self.y_vec),name=self.dirname)
+        try:
+            for y in self.y_vec:
+                qt.msleep()
+                self.y_set_obj(y)
+                qt.msleep()
+                self._append_data(ddc=True)
+                if self.show_progress_bar: p.iterate()
+        finally:
+            self._end_measurement()
+            qt.mend()
+
+    def measure_1D_awg_ddc_timetrace(self):
+        """
+        Performs a digital down conversion of your readout trace for every value in your y-vector,
+        whereas y_vec should be awg sequence. This function is useful for magnon cavity experiments.
+        x-vec is automatically set by acquisition window.
+        (Also, all data are there at once as iteration is not yet implemented)
+        :return:
+        """
+        if self.y_vec is None:
+            print 'axes parameters not properly set...aborting'
+            return
+        time_end = float(self.mspec.get_samples())/self.mspec.get_samplerate()
+        time_array = np.linspace(0, time_end, self.mspec.get_samples())
+        self.set_x_parameters(time_array, 'time', True, 'sec')
+
+        self.mode = 2  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG (2D, since iterations is not yet implemented)
+        self._prepare_measurement_file()
+
+        try:
+            qt.msleep()
+            self._append_data(ddc=True)
+        finally:
+            self._end_measurement()
+            qt.mend()
+
+
+    def _prepare_measurement_file(self):
         if self.dirname == None:
             self.dirname = self.x_coordname
-            
-        if self.save_dat:
-            self.data_raw = qt.Data(name='%s_%s'%(mode,self.dirname))
-            
-            if mode == '2dAWG':
-                self.data_raw.add_coordinate(self.y_coordname)
-            
-            if self.comment:
-                self.data_raw.add_comment(self.comment)
-                
-            self.data_raw.add_coordinate(self.x_coordname)
-            self.ndev = len(readout.get_tone_freq())   #returns array of readout frequencies (=1 for non-multiplexed readout)
-            for i in range(self.ndev):
-                self.data_raw.add_value('amp_%d'%i)
-            for i in range(self.ndev):
-                self.data_raw.add_value('pha_%d'%i)
-            self.data_raw.add_value('timestamp')
-            self.data_raw.create_file()
-            
-            self.data_fn, self.data_fext = os.path.splitext(self.data_raw.get_filepath())
-            if mode == '2dAWG':
-                self.data_avg = qt.Data(name='avga_%s'%self.dirname)
-                if self.comment:
-                    self.data_avg.add_comment(self.comment)
-                self.data_avg.add_coordinate(self.x_coordname)
-                for i in range(self.ndev):
-                    self.data_avg.add_value('amp_%d'%i)
-                for i in range(self.ndev):
-                    self.data_avg.add_value('pha_%d'%i)
-                #self.data_avg.create_file(None, '%s_avg.dat'%self.data_fn, False)
-            
-            if self.time_data:
-                self.data_time = qt.Data(name='avgt_%s'%self.dirname)
-                # data_time columns: [iteration, coordinate, Is[nSamples], Qs[nSamples], timestamp]
-                if self.comment:
-                    self.data_time.add_comment(self.comment)
-                self.data_time.add_coordinate(self.x_coordname)
-                if mode == '2d' or mode == '2dAWG': self.data_time.add_coordinate(self.y_coordname)
-                for i in range(mspec.get_samples()):
-                    self.data_time.add_coordinate('I%3d'%i)
-                for i in range(mspec.get_samples()):
-                    self.data_time.add_coordinate('Q%3d'%i)
-                self.data_time.add_value('timestamp')
-                if self.save_dat: self.data_time.create_file(None, '%s_time.dat'%self.data_fn, False)
-                
-        if self.save_hdf:
-            if self.save_dat:
-                filename = str(self.data_raw.get_filepath()).replace('.dat','.h5')   #get same filename as in dat file
-            else:
-                filename = str(self.dirname) + '.h5'
-            self._data_hdf = hdf.Data(name=self.dirname, path=filename)
-            self._hdf_x = self._data_hdf.add_coordinate(self.x_coordname, unit = self.x_unit)
-            self._hdf_x.add(self.x_vec)
-            if mode == '2d' or mode == '2dAWG':
-                self._hdf_y = self._data_hdf.add_coordinate(self.y_coordname, unit = self.y_unit)
-                self._hdf_y.add(self.y_vec)
-                self._hdf_amp = self._data_hdf.add_value_matrix('amplitude', x = self._hdf_y, y = self._hdf_x, unit = 'V')
-                self._hdf_pha = self._data_hdf.add_value_matrix('phase', x = self._hdf_y, y = self._hdf_x, unit='rad')
-            else:   #1d
-                self._hdf_amp = self._data_hdf.add_value_vector('amplitude', x = self._hdf_x, unit = 'V')
-                self._hdf_pha = self._data_hdf.add_value_vector('phase', x = self._hdf_x, unit='rad')
-            if self.comment:
-                self._data_hdf.add_comment(self.comment)
-            #qviewkit.close('all') #as20160202
-            if self.open_qviewkit:
-                qviewkit.plot(self._data_hdf.get_filepath(), datasets=['amplitude', 'phase'])
-            
-    def _create_dat_plots(self,mode):
-        
-        self.plots = []
-        if mode == '1d':
-            for i in range(self.ndev):
-                plot_amp = qt.plots.get('amplitude_%d%s'%(i, self.plotSuffix))
-                plot_pha = qt.plots.get('phase_%d%s'%(i, self.plotSuffix))
-                if not plot_amp or not plot_pha:
-                    plot_amp = qt.Plot2D(name='amplitude_%d%s'%(i, self.plotSuffix))
-                    plot_pha = qt.Plot2D(name='phase_%d%s'%(i, self.plotSuffix))
-                elif not self.hold:
-                    plot_amp.clear()
-                    plot_pha.clear()
-                plot_amp.add(self.data_raw, name='amplitude_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+i)
-                plot_pha.add(self.data_raw, name='phase_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+self.ndev+i)
-                self.plots.append(plot_amp)
-                self.plots.append(plot_pha)
-        elif mode == '2d' or mode == '2dAWG':
-            for i in range(self.ndev):
-                #3d plot
-                plot_amp = qt.Plot3D(self.data_raw, name='amplitude_%d_3d%s'%(i, self.plotSuffix), coorddims=(0,1), valdim=2+i)
-                plot_amp.set_palette('bluewhitered')
-                self.plots.append(plot_amp)
-                plot_pha = qt.Plot3D(self.data_raw, name='phase_%d_3d%s'%(i, self.plotSuffix), coorddims=(0,1), valdim=2+self.ndev+i)
-                plot_pha.set_palette('bluewhitered')
-                self.plots.append(plot_pha)
-                
-                if mode == '2dAWG':
-                    #averaged plot
-                    plot_amp = qt.Plot2D(self.data_avg, name='amplitude_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+i, maxtraces = 2)
-                    plot_pha = qt.Plot2D(self.data_avg, name='phase_%d%s'%(i, self.plotSuffix), coorddim=0, valdim=1+self.ndev+i, maxtraces = 2)
-                    self.plots.append(plot_amp)
-                    self.plots.append(plot_pha)
 
-            if mode == '2dAWG':
-                # buffer successive sum for averaged plot
-                self.dat_cmpls = np.zeros((len(self.x_vec), self.ndev), np.complex128)
-                self.dat_ampa = np.zeros_like((len(self.x_vec), self.ndev))
-                self.dat_phaa = np.zeros_like(self.dat_ampa)
+        self.ndev = len(self.readout.get_tone_freq())  # returns array of readout freqs (=1 for non-multiplexed readout)
         
-    def _append_data(self,it_v,trace=True,it=None):
+        self._hdf = hdf.Data(name=self.dirname, mode='a')
+        self._hdf_x = self._hdf.add_coordinate(self.x_coordname, unit = self.x_unit)
+        self._hdf_x.add(self.x_vec)
+        
+        self._settings = self._hdf.add_textlist('settings')
+        settings = waf.get_instrument_settings(self._hdf.get_filepath())
+        self._settings.append(settings)
+        
+        self._log = waf.open_log_file(self._hdf.get_filepath())
 
-        if trace:
-            dat_amp, dat_pha, Is, Qs = readout.readout(timeTrace = trace)
+        self._hdf_readout_frequencies = self._hdf.add_value_vector(self.multiplex_attribute, unit = self.multiplex_unit)
+        self._hdf_readout_frequencies.append(self.readout.get_tone_freq())
+        
+        if self.ReadoutTrace:
+            self._hdf_TimeTraceAxis = self._hdf.add_coordinate('recorded timepoint', unit = 's')
+            self._hdf_TimeTraceAxis.add(np.arange(self.mspec.get_samples())/self.readout.get_adc_clock())
+        
+        if self.mode == 1: #1D
+            self._hdf_amp = []
+            self._hdf_pha = []
+            for i in range(self.ndev):
+                self._hdf_amp.append(self._hdf.add_value_vector('amplitude_%i'%i, x = self._hdf_x, unit = 'a.u.'))
+                self._hdf_pha.append(self._hdf.add_value_vector('phase_%i'%i, x = self._hdf_x, unit='rad'))
+            if self.ReadoutTrace:
+                self._hdf_I = self._hdf.add_value_matrix('I_TimeTrace', x = self._hdf_x, y = self._hdf_TimeTraceAxis,
+                                                         unit = 'V', save_timestamp = False)
+                self._hdf_Q = self._hdf.add_value_matrix('Q_TimeTrace', x = self._hdf_x, y = self._hdf_TimeTraceAxis,
+                                                         unit = 'V', save_timestamp = False)
+        
+        elif self.mode == 2: #2D
+            self._hdf_y = self._hdf.add_coordinate(self.y_coordname, unit = self.y_unit)
+            self._hdf_y.add(self.y_vec)
+            self._hdf_amp = []
+            self._hdf_pha = []
+            for i in range(self.ndev):
+                self._hdf_amp.append(self._hdf.add_value_matrix('amplitude_%i'%i, x = self._hdf_y, y = self._hdf_x, unit = 'a.u.'))
+                self._hdf_pha.append(self._hdf.add_value_matrix('phase_%i'%i, x = self._hdf_y, y = self._hdf_x, unit = 'rad'))
+            if self.ReadoutTrace:
+                self._hdf_I = self._hdf.add_value_matrix('I_TimeTrace', x = self._hdf_y, y = self._hdf_TimeTraceAxis,
+                                                         unit = 'V', save_timestamp = False)
+                self._hdf_Q = self._hdf.add_value_matrix('Q_TimeTrace', x = self._hdf_y, y = self._hdf_TimeTraceAxis,
+                                                         unit = 'V', save_timestamp = False)
+                
+                
+        elif self.mode == 3: #1D_AWG/2D_AWG
+            self._hdf_y = self._hdf.add_coordinate(self.y_coordname, unit = self.y_unit)
+            self._hdf_y.add(self.y_vec)
+            self._hdf_amp = []
+            self._hdf_pha = []
+            for i in range(self.ndev):
+                self._hdf_amp.append(self._hdf.add_value_matrix('amplitude_%i'%i,
+                                                                x = self._hdf_y, y = self._hdf_x, unit = 'a.u.'))
+                self._hdf_pha.append(self._hdf.add_value_matrix('phase_%i'%i,
+                                                                x = self._hdf_y, y = self._hdf_x, unit='rad'))
+            if self.ReadoutTrace:
+                self._hdf_I = self._hdf.add_value_box('I_TimeTrace', x = self._hdf_y, y = self._hdf_x,
+                                                      z = self._hdf_TimeTraceAxis, unit = 'V', save_timestamp = False)
+                self._hdf_Q = self._hdf.add_value_box('Q_TimeTrace', x = self._hdf_y, y = self._hdf_x,
+                                                      z = self._hdf_TimeTraceAxis, unit = 'V', save_timestamp = False)
+
+        elif self.mode == 4:  # 3D_AWG
+            self._hdf_y = self._hdf.add_coordinate(self.y_coordname, unit=self.y_unit)
+            self._hdf_y.add(self.y_vec)
+            self._hdf_z = self._hdf.add_coordinate(self.z_coordname, unit=self.z_unit)
+            self._hdf_z.add(self.z_vec)
+            self._hdf_amp = []
+            self._hdf_pha = []
+            for i in range(self.ndev):
+                self._hdf_amp.append(self._hdf.add_value_box('amplitude_%i' % i,
+                                                             x=self._hdf_z, y=self._hdf_y, z=self._hdf_x, unit='a.u.'))
+                self._hdf_pha.append(self._hdf.add_value_box('phase_%i' % i,
+                                                             x=self._hdf_z, y=self._hdf_y, z=self._hdf_x, unit='rad'))
+      
+        if self.create_averaged_data:
+            self._hdf_amp_avg = []
+            self._hdf_pha_avg = []
+            for i in range(self.ndev):
+                self._hdf_amp_avg.append(self._hdf.add_value_vector('amplitude_avg_%i'%i, x = self._hdf_x, unit = 'a.u.'))
+                self._hdf_pha_avg.append(self._hdf.add_value_vector('phase_avg_%i'%i, x = self._hdf_x, unit='rad'))
+
+        if self.comment:
+            self._hdf.add_comment(self.comment)
+        if self.qviewkit_singleInstance and self.open_qviewkit and self._qvk_process:
+            self._qvk_process.terminate() #terminate an old qviewkit instance
+        if self.open_qviewkit:
+            self._qvk_process = qviewkit.plot(self._hdf.get_filepath(), datasets=['amplitude', 'phase'])
+        
+    def _append_data(self, iteration=0, ddc=None):
+        if self.ReadoutTrace:
+            ampliData, phaseData, Is, Qs = self.readout.readout(timeTrace=True, ddc=ddc)
         else:
-            dat_amp, dat_pha = readout.readout(timeTrace = trace)
-        timestamp = time.time()
+            ampliData, phaseData = self.readout.readout(timeTrace=False, ddc=ddc)
+            
+        if len(ampliData.shape) < 3:  # "normal" measurements
+            for i in range(self.ndev):
+                self._hdf_amp[i].append(np.atleast_1d(ampliData.T[i]))
+                self._hdf_pha[i].append(np.atleast_1d(phaseData.T[i]))
+            if self.ReadoutTrace:
+                if self.mode < 3:  # mode 2 not yet fully supported but working for DDC timetrace experiments
+                    self._hdf_I.append(Is)
+                    self._hdf_Q.append(Qs)
+                if self.mode == 3:
+                    for ix in range(len(self.x_vec)):
+                        self._hdf_I.append(Is[:, ix])
+                        self._hdf_Q.append(Qs[:, ix])
+                    self._hdf_I.next_matrix()
+                    self._hdf_Q.next_matrix()
         
-        if self.save_hdf:
-            #print np.array(dat_amp).flatten()
-            if len(np.array(dat_amp).flatten()) == 1:
-                self._hdf_amp.append(float(np.array(dat_amp).flatten()))
-                self._hdf_pha.append(float(np.array(dat_pha).flatten()))
+        else:  # for AWG DDC ReadoutTrace, all data are there at once
+            for i in range(self.ndev):
+                for j in range(ampliData.T.shape[2]):
+                    self._hdf_amp[i].append(np.atleast_1d(ampliData.T[i,:,j]))
+                    self._hdf_pha[i].append(np.atleast_1d(phaseData.T[i,:,j]))
+                    if self.ReadoutTrace:
+                        self._hdf_I.append(Is[:,j])
+                        self._hdf_Q.append(Qs[:,j])
+                        
+        if self.create_averaged_data:
+            if iteration == 0:
+                self.avg_complex_sum = ampliData * np.exp(1j*phaseData)
+                for i in range(self.ndev):
+                    self._hdf_amp_avg[i].append(np.atleast_1d(ampliData.T[i]))
+                    self._hdf_pha_avg[i].append(np.atleast_1d(phaseData.T[i]))
             else:
-                self._hdf_amp.append(np.array(dat_amp).flatten())
-                self._hdf_pha.append(np.array(dat_pha).flatten())
-        
-        if not trace:
-            if isinstance(it_v, (list, tuple, np.ndarray)):   #2d
-                dat = np.array(it_v)
-            else:   #1d
-                dat = np.array([it_v[0]])
-            dat = np.append(dat, dat_amp)
-            dat = np.append(dat, dat_pha)
-            dat = np.append(dat, time.time())   #add time stamp
-            self.data_raw.add_data_point(*dat)
-            
-            #time domain data
-            if self.time_data and isinstance(it_v, (list, tuple, np.ndarray)):
-                dat = np.array(it_v)
-                dat = np.append(dat, Is[:])
-                dat = np.append(dat, Qs[:])
-                dat = np.append(dat, timestamp)
-                self.data_time.add_data_point(*dat)
-            
-        else:   #2dAWG
-            #raw data
-            self.data_raw.new_block()
-            for xi in range(len(self.x_vec)):
-                dat = np.array([it_v[0], self.x_vec[xi]])
-                dat = np.append(dat, dat_amp[xi, :])
-                dat = np.append(dat, dat_pha[xi, :])
-                dat = np.append(dat, timestamp)
-                self.data_raw.add_data_point(*dat)
-            
-            #averaged data
-            self.dat_cmpls += dat_amp * np.exp(1j*dat_pha)
-            self.dat_ampa = np.abs(self.dat_cmpls/(it+1))
-            self.dat_phaa = np.angle(self.dat_cmpls/(it+1))
-            self._generate_avg_data()
-            
-            #time domain data
-            if self.time_data:
-                self.data_time.new_block()
-                for xi in range(len(self.x_vec)):
-                    dat = np.array([it_v[0], self.x_vec[xi]])
-                    dat = np.append(dat, Is[:, xi])
-                    dat = np.append(dat, Qs[:, xi])
-                    dat = np.append(dat, timestamp)
-                    self.data_time.add_data_point(*dat)
-        
-    def _update_plots(self):
-        #print len(self.plots)
-        for plot in self.plots:
-            plot.update()
-                
-    def _safe_plots(self):
-        for plot in self.plots:
-            plot.update()
-            plot.save_gp()
-            plot.save_png()
-            
-    def _generate_avg_data(self,final=False):
-        # save averaged data in a separate file
-        self.data_avg.create_file(None, '%s_avg.dat'%self.data_fn, False)
-        dat = np.concatenate((np.atleast_2d(self.x_vec).transpose(), self.dat_ampa, self.dat_phaa), 1)
-        for xi in range(dat.shape[0]):
-            self.data_avg.add_data_point(*dat[xi, :])
-        self.data_avg.close_file()
-        
-        if final and self.save_hdf:
-            self._hdf_amp_avg = self._data_hdf.add_value_vector('amplitude_avg', x = self._hdf_x, unit = 'V')
-            self._hdf_pha_avg = self._data_hdf.add_value_vector('phase_avg', x = self._hdf_x, unit='rad')
-            self._hdf_amp_avg.append(np.array(dat[:,1]))
-            self._hdf_pha_avg.append(np.array(dat[:,2]))
+                self.avg_complex_sum += ampliData * np.exp(1j*phaseData)
+                amp_avg = np.abs(self.avg_complex_sum/(iteration+1))
+                pha_avg = np.angle(self.avg_complex_sum/(iteration+1))
+                for i in range(self.ndev):
+                    self._hdf_amp_avg[i].ds.write_direct(np.ascontiguousarray(np.atleast_1d(amp_avg.T[i])))
+                    self._hdf_pha_avg[i].ds.write_direct(np.ascontiguousarray(np.atleast_1d(pha_avg.T[i])))
+                    self._hdf_pha_avg[i].ds.attrs['iteration'] = iteration+1
+                    self._hdf_amp_avg[i].ds.attrs['iteration'] = iteration+1
+                self._hdf.flush()
+    
 
-    def _close_files(self):
-        if self.time_data: self.data_time.close_file()
-        try:
-            self.data_avg.close_file()
-        except AttributeError:
-            pass
-        finally:
-            self.data_raw.close_file()
-            if self.save_hdf: self._data_hdf.close_file()
+    def _end_measurement(self):
+        t = threading.Thread(target=qviewkit.save_plots,args=[self._hdf.get_filepath(),self._plot_comment])
+        t.start()
+        self._hdf.close_file()
+        waf.close_log_file(self._log)
+        
+    def set_plot_comment(self, comment):
+        '''
+        Small comment to add at the end of plot pics for more information i.e. good for wiki entries.
+        '''
+        self._plot_comment=comment

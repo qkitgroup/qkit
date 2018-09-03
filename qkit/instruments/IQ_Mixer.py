@@ -6,6 +6,8 @@ import time
 import types
 import logging
 import qt
+import qkit
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import sys, gc
@@ -414,7 +416,7 @@ class IQ_Mixer(Instrument):
         [self._sample.awg.set({'ch%i_amplitude'%i:2,'ch%i_offset'%i:0}) for i in (1,2)]
         
         try: 
-            storedvalues=np.loadtxt(qt.config.get('datadir')+"\\IQMixer\\%s.cal"%self.mixer_name)
+            storedvalues=np.loadtxt(os.path.join(qkit.cfg.getget('datadir'),"IQMixer\\%s.cal"%self.mixer_name))
             if np.size(storedvalues)<30: #Only one dataset
                 storedvalues=[storedvalues]
             # If there was a calibration with the same parameters, remove it
@@ -433,7 +435,7 @@ class IQ_Mixer(Instrument):
         except IOError:
             pass
         data=data.reshape((data.size/18,18))
-        np.savetxt(qt.config.get('datadir')+"\\IQMixer\%s.cal"%(self.mixer_name),data,("%.2f","%.2f","%.2f","%i","%.3f","%.3f","%.3f","%.3f","%.6f","%.3f","%.3f","%.4f","%.4f","%.4f","%.4f","%.4f","%.4f","%.4f"))
+        np.savetxt(os.path.join(qkit.cfg.getget('datadir'),"IQMixer\\%s.cal"%self.mixer_name),data,("%.2f","%.2f","%.2f","%i","%.3f","%.3f","%.3f","%.3f","%.6f","%.3f","%.3f","%.4f","%.4f","%.4f","%.4f","%.4f","%.4f","%.4f"))
         return currentdata[0]
 
     def initial_calibrate(self):
@@ -497,7 +499,7 @@ class IQ_Mixer(Instrument):
         samples_per_1_iqfreq = float(self._sample.clock) / self._sample.iq_frequency
         if samples_per_1_iqfreq % 2 != 0:   #if number not integer and even
             self._sample.iq_frequency = self._sample.clock / (2*np.floor(samples_per_1_iqfreq / 2))
-            if samples_per_1_iqfreq < 4:
+            if np.abs(samples_per_1_iqfreq) < 4:
                     raise ValueError('samples per iq frequency too small')
             while round(self._sample.iq_frequency,-4) != self._sample.iq_frequency:
                 print self._sample.iq_frequency
@@ -531,12 +533,11 @@ class IQ_Mixer(Instrument):
         self.do_set_iq_frequency(iq_frequency)
         
         self._sample.iq_frequency = self._validate_iq_setting()
-        self._sample.update_instruments()
         
         self._f_rounded = np.round(self._sideband_frequency,-3) #The FSUP can only resolve 7 digits in frequency, so for Frequencies <10GHz, you can not set frequencies finer than kHz. But as the MW source can, there will be a missmatch if we do not round here.
 
         try: 
-            storedvalues=np.loadtxt(qt.config.get('datadir')+"\\IQMixer\\%s.cal"%self.mixer_name)
+            storedvalues=np.loadtxt(os.path.join(qkit.cfg.get('datadir'),"IQMixer\\%s.cal"%self.mixer_name))
             NeedForInterpolation=False
             left_border=-np.inf
             right_border=np.inf

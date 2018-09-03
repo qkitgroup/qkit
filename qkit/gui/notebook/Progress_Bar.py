@@ -12,6 +12,13 @@ import time,sys
 debug = False
 try_legacy = False
 
+try:
+    pb_list
+    if debug:
+        print "List of progressbars with %i items found"%(len(pb_list))
+except NameError:
+    pb_list = []
+
 def hourformat(time):
     time = int(time)
     return "%i:%02i:%02i"%(time/60/60,time/60%60,time%60)
@@ -31,12 +38,19 @@ try:
             self.max_it = max_it
             self.name = name
             self.progr = 0
+            
+            #check for old (finished) progressbar with the same name
+            for p in pb_list:
+                if p[0] == self.name:
+                    p[1].close()
+                    p[2].close()
 
             self.pb = IntProgress(
                 value=0,
                 min=0,
                 max=self.max_it,
                 description=self.name,
+                layout={"width": "95%"},
                 )     
             
             self.pi = HTML(
@@ -73,6 +87,8 @@ try:
                             
             if self.progr == self.max_it: #last iteration
                 self.pb.color = "green"
+                self.pb.bar_style = "success"
+                pb_list.append([self.name,self.pb,self.pi]) #append to the list of done PBs
                 #progr_info = "%s (%i/%i) &#9992; %s    &#10010;  %s  "%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
                 #    self.progr,
                 #    self.max_it,

@@ -1,13 +1,32 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'main_view.ui'
-#
-# Created: Thu Jul 23 13:50:35 2015
-#      by: PyQt4 UI code generator 4.11.3
-#
-# WARNING! All changes made in this file will be lost!
+"""
+@author: hannes.rotzinger@kit.edu / 2015, 2016, 2017
+         marco.pfirrmann@kit.edu / 2016, 2017
+@license: GPL
+"""
 
-from PyQt4 import QtCore, QtGui
+
+import sys
+import qkit
+
+# support both PyQt4 and 5
+in_pyqt5 = False
+in_pyqt4 = False
+try:
+    from PyQt5 import QtCore, QtGui
+    in_pyqt5 = True
+except ImportError as e:
+    pass
+
+if not in_pyqt5:
+    try:
+        from PyQt4 import QtCore, QtGui
+        in_pyqt4 = True
+    except ImportError:
+        print("import of PyQt5 and PyQt4 failed. Install one of those.")
+        sys.exit(-1)
+
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -24,7 +43,21 @@ except AttributeError:
         return QtGui.QApplication.translate(context, text, disambig)
 
 class Ui_MainWindow(object):
+    """Ui_MainWindow class creates the frame of the  h5 file.
+
+    The main window features some general interface buttons for file selection
+    and live update as well as a interactive display to show and interact
+    with the datasets in the populated dataset tree.
+    """
     def setupUi(self, MainWindow):
+        """setupUi creates the main window based on QMainWindow.
+
+        Args:
+            self: Object of the PlotWindow class.
+            MainWindow: QMainWindow object.
+        Returns:
+            No return variable. The function operates on the given object.
+        """
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
         MainWindow.resize(271, 554)
         self.centralwidget = QtGui.QWidget(MainWindow)
@@ -85,4 +118,3 @@ class Ui_MainWindow(object):
         self.FileButton.setText(_translate("MainWindow", "File", None))
         self.liveCheckBox.setText(_translate("MainWindow", "live", None))
         self.updateButton.setText(_translate("MainWindow", "Update", None))
-

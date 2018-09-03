@@ -18,7 +18,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 from instrument import Instrument
-import visa
+from qkit import visa
 import types
 import logging
 from time import sleep
@@ -290,7 +290,7 @@ class Agilent_PNAX(Instrument):
         '''
         self._visainstrument.write(':FORMAT REAL,32; FORMat:BORDer SWAP;')
         self._visainstrument.write('CALC:FORM POL')
-        data = self._visainstrument.ask_for_values( "CALCulate:DATA? FDATA",format = visa.single)
+        data = self._visainstrument.ask_for_values( "CALCulate:DATA? FDATA",fmt = visa.single)
         data_size = numpy.size(data)
         datareal = numpy.array(data[0:data_size:2])
         dataimag = numpy.array(data[1:data_size:2])

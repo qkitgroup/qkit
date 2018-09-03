@@ -48,7 +48,7 @@ class Gate_Func(object):
         outputs:
          -
         """
-        self.awg = qt.instruments.get(awg)
+        self.awg = awg
         self._sample = sample
         if pulser:
             self.pulser = qt.instruments.get(pulser)
@@ -67,8 +67,8 @@ class Gate_Func(object):
         self.selftriggered = (self.pulser == None and self.ni_daq == None)
         
         if self.selftriggered:
-            self._gate_low  =  lambda: self.awg.set_trigger_time(20)
-            self._gate_high = lambda: self.awg.set_trigger_time(self._sample.T_rep)
+            self._gate_low  =  lambda: self.awg.set({'trigger_time':2, 'p1_trigger_time':2})
+            self._gate_high = lambda: self.awg.set({'trigger_time':sample.T_rep, 'p1_trigger_time':sample.T_rep})
         
         if self.selftriggered and not ('Tabor' in self.awg.get_type()):
             raise ValueError("selftriggered mode (without pulser and nidaq) is currently only available for Tabor AWGs.")
