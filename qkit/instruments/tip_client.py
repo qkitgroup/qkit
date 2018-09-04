@@ -13,14 +13,12 @@ try:
 except:
     import pickle
 
-
 class Error(Exception):
     def __init__(self, value):
         self.value = value
 
     def __str__(self):
         return repr(self.value)
-
 
 # zero.1 version of a remote tip command
 
@@ -69,7 +67,7 @@ class tip_client(Instrument):
         self.add_function('set_interval_off')
         self.add_function('measure')
         self.add_function('get_all')
-
+        
         self.add_parameter('T',
                            flags=Instrument.FLAG_GETSET,
                            type=types.FloatType,
@@ -104,7 +102,7 @@ class tip_client(Instrument):
                            channels=(1, 5), channel_prefix='T%d_')
 
         self.T = 0.0
-
+    
     def reconnect(self, HOST=None, PORT=None):
         try:
             self.sock.close()
@@ -112,7 +110,7 @@ class tip_client(Instrument):
             pass
         if HOST is None: HOST = self._address
         if PORT is None: PORT = self._port
-
+        
         try:
             # Create a socket (SOCK_STREAM means a TCP socket)
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -264,11 +262,11 @@ class tip_client(Instrument):
         '''
         self.send("SET/T/%i/EX/%i" % (channel, excitation))
         return bool(self.recv())
-
+    
     def do_get_temperature(self,channel):
         self.send("get/T/%i/T"%channel)
         return float(self.recv())
-
+    
     def autorange(self):
         '''
         Does one single autorange cycle by looking at all resistance values. THIS IS NOT A PERMANENT SETTING!
@@ -317,7 +315,7 @@ class tip_client(Instrument):
         for c in channels:
             self.send("set/therm/%i/schedule" % c)
             self.recv()
-
+    
     def get_all(self):
         for ch in range(1,6):
             for value in ['range','interval','excitation','temperature']:

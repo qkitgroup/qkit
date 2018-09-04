@@ -4,7 +4,6 @@
 # use: connect mixer output line to 'C', switchable connectors 1,2 to the inlet of the cryostat and the spectrum analyzer
 
 from qkit.core.instrument_base import Instrument
-import instruments
 import types
 import logging
 #import numpy as np
