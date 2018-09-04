@@ -30,16 +30,17 @@ class StepMotor(Instrument):
     mathematical sense if you look onto the screw from the motor's perspective. (Between motor and phase shifter is
     a 27:1 gearbox. This means rotations are rather slow.)
     """
+
     def __init__(self, name, address="tcp://10.22.197.112:4242", initial_position=0):
 
         self.c = zerorpc.Client()
         self.c.connect(address)
-        
+
         if self.c.get_connection():
             print 'connected to Raspberry Pi'
         else:
             logging.error('No connection to Raspberry Pi')
-        
+
         if initial_position == 0:
             logging.warning("You didn't provide an inital position. Please make sure that the phase shifter "
                             "is in its lowest position, since the rotation is tracked to prevent the damage of "
@@ -47,17 +48,17 @@ class StepMotor(Instrument):
                             "Please also think of that when manually changing the phase shifter")
         logging.info(__name__ + ' : Initializing instrument')
         Instrument.__init__(self, name, tags=['physical'])
-        
+
         self.angle = initial_position * 360
         self.min_angle = 0
-        self.max_angle = 17.5*360
+        self.max_angle = 17.5 * 360
         self.rotations = initial_position
         self.show_progress_bar = True
 
-        self.add_parameter('angle', type=types.IntType, flags=Instrument.FLAG_GETSET, minval=0, maxval=17.5*360)
+        self.add_parameter('angle', type=types.IntType, flags=Instrument.FLAG_GETSET, minval=0, maxval=17.5 * 360)
         self.add_parameter('waiting_time', type=types.FloatType, flags=Instrument.FLAG_GETSET,
                            minval=0.0001, maxval=0.01)
-        self.add_parameter('rotations', type=types.FloatType, flags=Instrument.FLAG_GETSET, minval=0, maxval=17.5*360)
+        self.add_parameter('rotations', type=types.FloatType, flags=Instrument.FLAG_GETSET, minval=0, maxval=17.5 * 360)
         self.add_function('turn')
 
     def do_get_angle(self):
@@ -88,14 +89,20 @@ class StepMotor(Instrument):
             self.angle -= angle
         else:
             self.c.turn(angle)
+            max_steps = self.c.get_max_steps()
             if self.show_progress_bar:
-                pb = Progress_Bar(self.c.get_max_steps()-2)
-            while self.c.get_steps() < self.c.get_max_steps()-1:
-                if self.show_progress_bar:
-                    for i in range(self.c.get_steps() - pb.progr):
-                        pb.iterate()
-                else:
-                    pass
+                pb = Progress_Bar(max_steps - 2)
+            try:
+                while self.c.get_steps() < max_steps - 1:
+                    if self.show_progress_bar:
+                        for i in range(self.c.get_steps() - pb.progr):
+                            pb.iterate()
+                    else:
+                        pass
+            except KeyboardInterrupt:
+                logging.warning("KeyboardInterrupt: Rotation stopped!")
+                self.c.stop_rotation()
+                self.angle -= int(angle * (float(max_steps - self.c.get_steps())) / max_steps)
 
     def do_set_waiting_time(self, waiting_time):
         """
@@ -116,6 +123,7 @@ class StepMotor(Instrument):
         """
         :return: the current position of the phase shifter if correctly initialized
         """
+        self.rotations = float(self.angle) / 360
         return self.rotations
 
     def do_set_rotations(self, position):
