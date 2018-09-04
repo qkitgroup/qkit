@@ -122,7 +122,7 @@ class Measure_td(object):
     def measure_1D(self):
     
         if self.x_set_obj == None:
-            print 'axes parameters not properly set...aborting'
+            print('Axes parameters not properly set...aborting')
             return
 
         qt.mstart()
@@ -146,7 +146,7 @@ class Measure_td(object):
     def measure_2D(self):
 
         if self.x_set_obj is None or self.y_set_obj is None:
-            print 'axes parameters not properly set...aborting'
+            print('Axes parameters not properly set...aborting')
             return
         if self.ReadoutTrace:
             raise ValueError('ReadoutTrace is currently not supported for 2D measurements')
@@ -196,7 +196,7 @@ class Measure_td(object):
         '''
         
         if self.y_set_obj == None:
-            print 'axes parameters not properly set...aborting'
+            print('Axes parameters not properly set...aborting')
             return
     
         qt.mstart()
@@ -212,7 +212,7 @@ class Measure_td(object):
             self.measure_3D_AWG()
 
             if self.ndev > 1: 
-                print "Averaging is currently not supported for multiplexed readout"
+                print('Averaging is currently not supported for multiplexed readout')
                 return
             else:
                 filename = self.find_latest_file()
@@ -254,7 +254,7 @@ class Measure_td(object):
         '''
 
         if self.z_set_obj is None or self.y_set_obj is None:
-            print 'axes parameters not properly set...aborting'
+            print('Axes parameters not properly set...aborting')
             return
         if self.ReadoutTrace:
             raise ValueError('ReadoutTrace is currently not supported for 3D_AWG measurements')
@@ -307,7 +307,7 @@ class Measure_td(object):
         :return:
         """
         if self.y_set_obj is None:
-            print 'axes parameters not properly set...aborting'
+            print('Axes parameters not properly set...aborting')
             return
         time_end = float(self.mspec.get_samples())/self.mspec.get_samplerate()
         time_array = np.linspace(0, time_end, self.mspec.get_samples())
@@ -338,7 +338,7 @@ class Measure_td(object):
         :return:
         """
         if self.y_vec is None:
-            print 'axes parameters not properly set...aborting'
+            print('Axes parameters not properly set...aborting')
             return
         time_end = float(self.mspec.get_samples())/self.mspec.get_samplerate()
         time_array = np.linspace(0, time_end, self.mspec.get_samples())
