@@ -2,7 +2,7 @@
 # pressure readout device @ UFO: G1, G2
 # model: D39591000 (enhanced)
 
-from instrument import Instrument
+from qkit.core.instrument_base import Instrument
 import instruments
 import types
 import logging

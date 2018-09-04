@@ -17,7 +17,7 @@ import types
 import logging
 import re
 from bitstring import BitArray # http://packages.python.org/bitstring/
-from instrument import Instrument
+from qkit.core.instrument_base import Instrument
 try: from pyftdi.ftdi import Ftdi
 except: from pyftdi.pyftdi.ftdi import Ftdi
 try: from pyftdi.usbtools import UsbTools 

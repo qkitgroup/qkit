@@ -18,9 +18,10 @@
 
 import logging
 from lib.network import tcpserver, tcpclient
-import qt
+import qkit
 
 PORT = 12000
+
 
 class PythonServer(tcpserver.GlibTCPHandler):
     """
@@ -40,6 +41,7 @@ class PythonServer(tcpserver.GlibTCPHandler):
             retval = str(e)
 
         self.socket.send(str(retval))
+
 
 class PythonClient(tcpclient.TCPClient):
     """
@@ -65,9 +67,10 @@ class PythonClient(tcpclient.TCPClient):
             reply = self.cmd(input)
             print reply
 
+
 def start_server(port=PORT):
     try:
-        qt.server_python = tcpserver.GlibTCPServer(('', port), \
-                PythonServer)
+        qkit.server_python = tcpserver.GlibTCPServer(('', port), \
+                                                     PythonServer)
     except Exception, e:
         logging.warning('Failed to start python server: %s', str(e))

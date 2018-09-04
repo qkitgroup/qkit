@@ -16,13 +16,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-import qt
+import qkit
 import numpy as np
-import os.path
-import time
 import logging
-import numpy
-import sys
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 import gc
 
@@ -47,7 +43,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
         
         chpair: if you use the 4ch Tabor AWG as a single 2ch instrument, you can chose to take the second channel pair here (this can be either 1 or 2).
     '''
-    qt.mstart()
+    qkit.flow.start()
     if awg==None:
         awg = sample.awg
     clock = sample.clock
@@ -79,7 +75,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
     
     #update all channels and times
     for ti, t in enumerate(ts):   #run through all sequences
-        qt.msleep()
+        qkit.flow.sleep()
         wfm_samples = wfm_func2(t,sample)   #generate waveform
         if not isinstance(wfm_samples[0],(list, tuple, np.ndarray)):   #homodyne
             wfm_samples = [wfm_samples,np.zeros_like(wfm_samples, dtype=np.int8)]
@@ -146,7 +142,7 @@ def update_sequence(ts, wfm_func, sample, iq = None, loop = False, drive = 'c:',
         #awg.preset()
         awg.set_ch1_status(True)
         awg.set_ch2_status(True)
-    qt.mend()
+    qkit.flow.end()
     if sample.__dict__.has_key('mspec'):
         sample.mspec.spec_stop()
         sample.mspec.set_segments(len(ts))

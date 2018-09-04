@@ -1,9 +1,8 @@
-import qt
+import qkit
 import numpy as np
 import os.path
 import time
 import logging,warnings
-import numpy
 import sys, gc
 #from gui.notebook.Progress_Bar import Progress_Bar
 import qkit.measure.timedomain.awg.load_awg as load_awg
@@ -11,7 +10,7 @@ import qkit.measure.timedomain.awg.generate_waveform as gwf
 import matplotlib.pyplot as plt
 
 
-iq = qt.instruments.get('iq')
+iq = qkit.instruments.get('iq')
 gc.collect()
 
 def concatenate_pulses(pulse_durations,phases, positions,sample):
@@ -63,9 +62,9 @@ def radial(thetas, phis, wfm, sample, marker = None, delay = 0, markerfunc = Non
 	for i,th in enumerate(thetas):
 		angles=np.append(angles,np.array([np.ones(phis[i])*th,np.linspace(0,2*np.pi,phis[i],endpoint=False)]).T,axis=0)
 	angles=angles[1:]
-	if not os.path.exists(qt.config.get('datadir')+time.strftime("\\%Y%m%d")):
-		os.makedirs(qt.config.get('datadir')+time.strftime("\\%Y%m%d"))
-	np.savetxt(qt.config.get('datadir')+time.strftime("\\%Y%m%d\\Tomography_%H%M%S.set"),angles)
+	if not os.path.exists(qkit.cfg.get('datadir')+time.strftime("\\%Y%m%d")):
+		os.makedirs(qkit.cfg.get('datadir')+time.strftime("\\%Y%m%d"))
+	np.savetxt(qkit.cfg.get('datadir')+time.strftime("\\%Y%m%d\\Tomography_%H%M%S.set"),angles)
 	sample.update_instruments()
 	if marker == None:
 		new_marker = None

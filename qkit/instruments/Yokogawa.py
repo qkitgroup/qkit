@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-from instrument import Instrument
+from qkit.core.instrument_base import Instrument
 from qkit import visa
 import logging
 import numpy
@@ -846,8 +846,7 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:FETCh? [DUAL]
         try:
             logging.debug(__name__ + ' : Get sense value of channel {:d}'.format(channel))
-            # return float(self._ask(':chan{:d}:meas'.format(channel)))
-            return float(self._ask(':chan{:d}:fetc'.format(channel)))
+            return float(self._ask(':chan{:d}:meas'.format(channel)))
         except ValueError:
             logging.error(__name__ + ': Cannot get sense value of channel {:d}:'.format(channel))
 

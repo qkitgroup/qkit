@@ -1,6 +1,6 @@
 #AS 2016 @ KIT
 #Use to control selfmade StepAttenuator which is controlled by a RaspberryPi.
-from instrument import Instrument
+from qkit.core.instrument_base import Instrument
 import types
 #import numpy as np
 import socket
