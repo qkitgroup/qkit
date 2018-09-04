@@ -20,13 +20,15 @@ import matplotlib.pyplot as plt
 import logging
 import numpy as np
 from qkit.measure.timedomain import gate_func
-import qkit.measure.timedomain.awg.load_awg as load_awg
-import qkit.measure.timedomain.awg.generate_waveform as gwf
+from qkit.measure.timedomain import sequence_library as sl
+from qkit.measure.timedomain import VirtualAWG as virtual_awg
 import ipywidgets as widgets
 
 class InitializeTimeDomain(object):
     def __init__(self,sample):
         self._sample = sample
+        
+        self._vawg = virtual_awg.VirtualAWG(self._sample)
         
     params = { #typical values are given in (brackets)
             'T_rep':                " repetition rate [s] (200e-6)",
@@ -112,7 +114,7 @@ class InitializeTimeDomain(object):
             self._sample.awg.set_common_clock(True)
             self._sample.awg.set_clock(self._sample.clock)
             self._sample.readout_awg.set_clock(self._sample.readout_clock)
-            load_awg.update_sequence([100e-9],gwf.square,self._sample,show_progress_bar=False)
+            self._load_awg_square([100e-9])
 
             self._sample.awg.set_p1_trigger_time(self._sample.T_rep)
             self._sample.awg.set_p1_sync_output(True)
@@ -155,8 +157,7 @@ class InitializeTimeDomain(object):
         self._sample.mspec.set_trigger_rate(1/float(self._sample.T_rep))
         self._sample.readout.set_dac_duration(self._sample.readout_tone_length) #length of the readout tone
         self._sample.readout.set_dac_clock(self._sample.clock)
-        if zero_dac_delay: self._sample.readout.set_dac_delay(self._sample.exc_T*0.9)
-        else: self._sample.readout.set_dac_delay(-1)
+        self._sample.readout.set_dac_delay(0)
         self._sample.readout.update()
 
     def set_spec_input_level(self,level):
@@ -235,7 +236,7 @@ class InitializeTimeDomain(object):
         sr = self._sample.mspec.get_samplerate()/1e9
         pwr = self._sample.qubit_mw_src.get_power()
         self._sample.qubit_mw_src.set_power(5)
-        load_awg.update_sequence([0,50e-9], gwf.square, self._sample, show_progress_bar=False) # 50ns = 25 Samples, 20 MHz
+        self._load_awg_square([0,50e-9])
         self._sample.qubit_mw_src.set_status(1)
         msp = self._sample.mspec.acquire()
         self._sample.qubit_mw_src.set_status(0)
@@ -311,3 +312,8 @@ class InitializeTimeDomain(object):
     def update_qubit_mw_src(self):
         self._sample.qubit_mw_src.set_power(self._sample.mw_power)
         self._sample.qubit_mw_src.set_frequency(self._sample.f01 - self._sample.iq_frequency)
+        
+    def _load_awg_square(self, times):
+        self._vawg.set_sequence(sl.rabi(self._sample, iq_frequency=0), times)
+        self._vawg.load(show_progress_bar=False)
+        
