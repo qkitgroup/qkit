@@ -4,7 +4,6 @@
 # data reading and fitting
 
 # import and basic usage
-from __future__ import print_function
 
 '''
 usage:
@@ -259,7 +258,7 @@ class QFIT(object):
             return
         
         self.file_name = str(nfile).replace('\\','/')
-        if self.cfg['show_output']: print 'Latest file: {:s}'.format(self.file_name)
+        if self.cfg['show_output']: print('Latest file: {:s}'.format(self.file_name))
 
     def discover_hdf_data(self, entries=None):
         '''
@@ -281,7 +280,7 @@ class QFIT(object):
             return
         
         keys = self.hf['/entry/data0'].keys()
-        if self.cfg['show_output']: print 'Available data entries:', keys
+        if self.cfg['show_output']: print('Available data entries:', keys)
         # only show the available data entries, but analysis entries can still be accessed
         
         url_tree = '/entry/data0/'
@@ -356,7 +355,7 @@ class QFIT(object):
         self.hf.close()                
         #cast to real strings in case the urls ended up to be unicode
         self.urls = [str(u) for u in urls]
-        if self.cfg['show_output']: print 'Entries identified:', self.urls
+        if self.cfg['show_output']: print('Entries identified:', self.urls)
 
     #\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=
 
@@ -580,22 +579,22 @@ class QFIT(object):
             s_a = np.abs((np.max(self.data)-np.mean(self.data)))
             s_f0 = self.coordinate[np.where(self.data == max(self.data))[0][0]]*self.freq_conversion_factor
             if self.cfg['debug']:
-                print 'expecting peak'
-                print s_f0
-                print s_a
-                print s_offs
+                print('expecting peak')
+                print(s_f0)
+                print(s_a)
+                print(s_offs)
         else:
             s_a = -np.abs((np.min(self.data)-np.mean(self.data)))
             s_f0 = self.coordinate[np.where(self.data == min(self.data))[0][0]]*self.freq_conversion_factor
             if self.cfg['debug']:
-                print 'expecting dip'
-                print s_f0
-                print s_a
-                print s_offs
+                print('expecting dip')
+                print(s_f0)
+                print(s_a)
+                print(s_offs)
         
         #estimate peak/dip width
         mid = s_offs + 0.5*s_a   #estimated mid region between base line and peak/dip
-        if self.cfg['debug']: print mid
+        if self.cfg['debug']: print(mid)
         m = []   #mid points
         for dat_p in range(len(self.data)-1):
             if np.sign(self.data[dat_p] - mid) != np.sign(self.data[dat_p+1] - mid):   #mid level crossing
@@ -603,7 +602,7 @@ class QFIT(object):
 
         if len(m) > 1:
             s_k = (self.coordinate[m[-1]]-self.coordinate[m[0]])*self.freq_conversion_factor
-            if self.cfg['show_output']: print 'assume k = {:.3g}'.format(s_k)
+            if self.cfg['show_output']: print('assume k = {:.3g}'.format(s_k))
         else:
             s_k = 0.15*(self.coordinate[-1]-self.coordinate[0])*self.freq_conversion_factor   #try 15% of window
 
@@ -651,7 +650,7 @@ class QFIT(object):
             if np.abs(s_Td) == float('inf') and not asymmetric_exp:
                 s_Td = float('inf')
                 if self.cfg['show_output']: logging.warning('Consider using the sine fit routine for non-decaying sines.')
-            if self.cfg['debug']: print 'assume T = {:s}'.format(round(s_Td,4))
+            if self.cfg['debug']: print('assume T = {:s}'.format(round(s_Td,4)))
         
         else:
             s_offs = np.mean(self.data)
@@ -679,7 +678,7 @@ class QFIT(object):
                 s_ph = 0
             else: #negative slope -> -sin
                 s_ph = np.pi
-        if self.cfg['debug']: print 'assume phase = {:.3g}'.format(s_ph)
+        if self.cfg['debug']: print('assume phase = {:.3g}'.format(s_ph))
         
         if damping:
             return [s_fs, s_Td, s_a, s_offs, s_ph]
@@ -788,7 +787,7 @@ class QFIT(object):
                 if np.sign(d_diff[i]) != np.sign(d_diff[i+1]):   #go to first sign change -> extremum
                     break
                 i+=1
-            if self.cfg['debug']: print 'first extremum detected at {:.4g}'.format(self.coordinate[i])
+            if self.cfg['debug']: print('first extremum detected at {:.4g}'.format(self.coordinate[i]))
             s_offs = self.guesses[-1]
             s_d = 1 - np.abs(self.data[i] - s_offs)
             self.guesses += [s_d]

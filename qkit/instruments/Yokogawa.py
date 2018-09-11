@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-from instrument import Instrument
+from qkit.core.instrument_base import Instrument
 from qkit import visa
 import logging
 import numpy as np
@@ -283,11 +283,11 @@ class Yokogawa(Instrument):
         except Exception as e:
             logging.error('{!s}: Cannot get bias mode of channel {!s}'.format(__name__, channel))
             raise type(e)('{!s}: Cannot get bias mode of channel {!s}\n{!s}'.format(__name__ , channel, e))
-    
+
     def get_bias(self, **channel):
         '''
         Calls get_bias_mode of channel <channel>
-        
+
         Input:
             **channel (int): channel: 1 (default) | 2
         Output:
@@ -691,7 +691,7 @@ class Yokogawa(Instrument):
     def set_sense_autozero(self, val, channel=1):
         '''
         Sets autozero of channel <channel> to <val>. Note that "on" means that the internal zero point is measured for each measurement, wherefore the measurement takes approximately twice as long as when the auto zero function is "off"
-        
+
         Input:
             val (int): 0 (off) | 1 (on) | 2 (once)
         Output:
@@ -715,7 +715,7 @@ class Yokogawa(Instrument):
     def get_sense_autozero(self, channel=1):
         '''
         Gets autozero of channel <channel>
-        
+
         Input:
             channel (int): 1 (default) | 2
         Output:
@@ -887,7 +887,7 @@ class Yokogawa(Instrument):
     def get_IV(self, channel=1):
         '''
         Gets both current and voltage value of channel <channel>
-        
+
         Input:
             channel (int): 1 | 2
         Output:
@@ -918,7 +918,7 @@ class Yokogawa(Instrument):
     def ramp_voltage(self, stop, step, step_time=0.1, channel=1):
         '''
         Ramps voltage of channel <channel> from recent value to stop value <stop> with step size <step> and step time <step_time> according to bias_mode
-        
+
         Input:
             stop (float)
             step (float)
@@ -936,7 +936,7 @@ class Yokogawa(Instrument):
     def ramp_current(self, stop, step, step_time=0.1, channel=1):
         '''
         Ramps current of channel <channel> from recent value to stop value <stop> with step size <step> and step time <step_time> according to bias_mode
-        
+
         Input:
             stop (float)
             step (float)
@@ -1319,7 +1319,6 @@ class Yokogawa(Instrument):
         msg = [('\n\t{:s}:\t{!r}\t({:s})'.format(sb[0], ssr[i], sb[1])) for i, sb in  enumerate(self.sense_ccr) if sb != ('', '')]
         print 'Sense ccr:{:s}'.format(''.join(msg))
 
-
     def get_end_of_sweep(self, channel=1):
         '''
         Gets event of bias condiction code register (ccr) entry "End for Sweep" of channel <channel>
@@ -1618,11 +1617,11 @@ class Yokogawa(Instrument):
         except Exception as e:
             logging.error('{!s}: Cannot get errors of instrument'.format(__name__))
             raise type(e)('{!s}: Cannot get errors of instrument\n{!s}'.format(__name__ , e))
-    
+
     def _raise_error(self):
         '''
         Gets errors of instrument and as the case may be raises a python error
-        
+
         Input:
             None
         Output:
@@ -1653,24 +1652,6 @@ class Yokogawa(Instrument):
         except Exception as e:
             logging.error('{!s}: Cannot clears error of instrument'.format(__name__))
             raise type(e)('{!s}: Cannot clears error of instrument\n{!s}'.format(__name__ , e))
-    
-    def get_IDN(self):
-        '''
-        Gets instrument IDN (identification name)
-        
-        Input:
-            None
-        Output:
-            IDN (str): manufacturer, model number, serial number, firmware revision level
-        '''
-        # Corresponding Command: *IDN?
-        try:
-            logging.debug('{!s}: Get instrument IDN')
-            return str(self._ask('*IDN'))
-        except Exception as e:
-            logging.error('{!s}: Cannot get instrument IDN')
-            raise type(e)('{!s}: Cannot get instrument IDN\n{!s}'.format(e))
-        return 
 
     def close(self):
         '''
@@ -1698,8 +1679,7 @@ class Yokogawa(Instrument):
         Output:
             parlist (dict): Parameter as key, corresponding channels as value
         '''
-        parlist = {'IDN': [None],
-                   'measurement_mode': [1, 2],
+        parlist = {'measurement_mode': [1, 2],
                    'sync': [None],
                    'bias_mode': [1, 2],
                    'sense_mode': [1, 2],

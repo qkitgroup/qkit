@@ -1,13 +1,13 @@
-from instrument import Instrument
-import instruments
+import qkit
+from qkit.core.instrument_base import Instrument
 import types
 import logging
 import numpy as np
 import time
-import qt
 
 global conversion_factor
-conversion_factor = 52.02477434 # mT/A, solenoid in white fridge
+conversion_factor = 52.02477434  # mT/A, solenoid in white fridge
+
 
 class virtual_pwsMagnet(Instrument):
     '''
@@ -18,7 +18,6 @@ class virtual_pwsMagnet(Instrument):
     <name> = instruments.create('<name>', 'Tektronix_PWS4205', address='<USB address>, reset=<bool>')
     USB address e.g. USB0::0x0699::0x0390::C010427::INSTR
     '''
-
 
     def __init__(self, name, PWS1='PWS1', PWS2='PWS2'):
         '''
@@ -34,26 +33,25 @@ class virtual_pwsMagnet(Instrument):
         '''
         logging.info(__name__ + ' : Initializing instrument virtual power source')
         Instrument.__init__(self, name, tags=['virtual'])
-        self._instruments = instruments.get_instruments()
         try:
-            self._PWS1= self._instruments.get(PWS1)
+            self._PWS1 = qkit.instruments.get(PWS1)
         except:
             logging.error('no PWS1 found ... aborting')
             return
         try:
-            self._PWS2= self._instruments.get(PWS2)
+            self._PWS2 = qkit.instruments.get(PWS2)
         except:
             logging.error('no PWS2 found ... aborting')
             return
 
         self.add_parameter('current', type=types.FloatType,
-            flags=Instrument.FLAG_GETSET, units='A')
+                           flags=Instrument.FLAG_GETSET, units='A')
         self.add_parameter('voltage', type=types.FloatType,
-            flags=Instrument.FLAG_GET, units='V')        
+                           flags=Instrument.FLAG_GET, units='V')
         self.add_parameter('status', type=types.BooleanType,
-            flags=Instrument.FLAG_GETSET)
-        self.add_parameter('magneticField', type=types.FloatType, 
-        flags=Instrument.FLAG_GET, units='mT')
+                           flags=Instrument.FLAG_GETSET)
+        self.add_parameter('magneticField', type=types.FloatType,
+                           flags=Instrument.FLAG_GET, units='mT')
 
         self.add_function('get_all')
         self.add_function('ramp_current')
@@ -62,7 +60,6 @@ class virtual_pwsMagnet(Instrument):
         self.add_function('on')
         self.add_function('off')
         self.get_all()
-
 
     def get_all(self):
         '''
@@ -75,7 +72,7 @@ class virtual_pwsMagnet(Instrument):
         Output:
             None
         '''
-        logging.debug(__name__+'get_all()')
+        logging.debug(__name__ + 'get_all()')
         self.get('current')
         self.get('voltage')
         self.get('status')
@@ -91,11 +88,11 @@ class virtual_pwsMagnet(Instrument):
         Output:
             current (float) : current in amps
         '''
-        logging.debug(__name__+'do_get_current()')
-        self._current = getattr(self._PWS1, 'get_current')()+getattr(self._PWS2, 'get_current')()
+        logging.debug(__name__ + 'do_get_current()')
+        self._current = getattr(self._PWS1, 'get_current')() + getattr(self._PWS2, 'get_current')()
         return self._current
-        
-    def do_set_current(self, curr, wait = 0.2):
+
+    def do_set_current(self, curr, wait=0.2):
         '''
         Sets the Amplitude of the signal
 
@@ -109,14 +106,14 @@ class virtual_pwsMagnet(Instrument):
         if curr < 0:
             logging.error('Negative currents now allowed!')
             return
-        logging.debug(__name__+'do_set_current()')
-        getattr(self._PWS1, 'set_current')(curr/2.)
+        logging.debug(__name__ + 'do_set_current()')
+        getattr(self._PWS1, 'set_current')(curr / 2.)
         time.sleep(wait)
-        getattr(self._PWS2, 'set_current')(curr/2.)
+        getattr(self._PWS2, 'set_current')(curr / 2.)
         time.sleep(wait)
         self._current = self.do_get_current()
         self.get_all()
-        
+
     def do_get_voltage(self):
         '''
         Reads the voltage signal from the instrument
@@ -127,10 +124,10 @@ class virtual_pwsMagnet(Instrument):
         Output:
             volt (float) : Voltage in Volts
         '''
-        logging.debug(__name__+'do_get_voltage()')
-        self._voltage = (getattr(self._PWS1, 'get_voltage')()+getattr(self._PWS2, 'get_voltage')())/2.
+        logging.debug(__name__ + 'do_get_voltage()')
+        self._voltage = (getattr(self._PWS1, 'get_voltage')() + getattr(self._PWS2, 'get_voltage')()) / 2.
         return self._voltage
-        
+
     def do_get_status(self):
         '''
         Reads the output status from the instrument
@@ -141,7 +138,7 @@ class virtual_pwsMagnet(Instrument):
         Output:
             status (boolean)
         '''
-        logging.debug(__name__+'do_get_status()')
+        logging.debug(__name__ + 'do_get_status()')
         status1 = bool(getattr(self._PWS1, 'get_status')())
         status2 = bool(getattr(self._PWS2, 'get_status')())
         if status1 and status2:
@@ -163,17 +160,18 @@ class virtual_pwsMagnet(Instrument):
         Output:
             None
         '''
-        logging.debug(__name__+'do_set_status()')
+        logging.debug(__name__ + 'do_set_status()')
         getattr(self._PWS1, 'set_status')(status)
         getattr(self._PWS2, 'set_status')(status)
         self._status = self._do_get_statur()
 
     def do_get_magneticField(self):
-        logging.debug(__name__+'do_get_magneticField()')
-        self._magneticField = (getattr(self._PWS1, 'get_current')()+getattr(self._PWS2, 'get_current')())*conversion_factor
+        logging.debug(__name__ + 'do_get_magneticField()')
+        self._magneticField = (getattr(self._PWS1, 'get_current')() + getattr(self._PWS2,
+                                                                              'get_current')()) * conversion_factor
         return self._magneticField
 
-    def ramp_magenticField(self, target, step = conversion_factor*1e-2, wait = 0.2, showvalue = True):
+    def ramp_magenticField(self, target, step=conversion_factor * 1e-2, wait=0.2, showvalue=True):
         '''
         Ramps the Amplitude of the signal
         Calls ramp_current with the input values convrted to current units
@@ -187,10 +185,11 @@ class virtual_pwsMagnet(Instrument):
         Output:
             None
         '''
-        logging.debug(__name__+'ramp_magneticField()')
-        target_current = target/conversion_factor
-        step_current = step/conversion_factor
-        self.ramp_current(self, target = target_current, step = step_current, wait = wait, showvalue = showvalue, print_mag = True)
+        logging.debug(__name__ + 'ramp_magneticField()')
+        target_current = target / conversion_factor
+        step_current = step / conversion_factor
+        self.ramp_current(self, target=target_current, step=step_current, wait=wait, showvalue=showvalue,
+                          print_mag=True)
 
     def ramp_current(self, target, step=1e-2, wait=0.2, showvalue=True, print_mag=False):
         '''
@@ -206,16 +205,16 @@ class virtual_pwsMagnet(Instrument):
         Output:
             None
         '''
-        logging.debug(__name__+'ramp_current()')
+        logging.debug(__name__ + 'ramp_current()')
         voltage = self.do_get_voltage()
-        current=self.do_get_current()
-        if voltage>0.95:
+        current = self.do_get_current()
+        if voltage > 0.95:
             print "WARNING! Magnet quench!! ramping down the coil..."
             self.ramp_current(0., 2e-3, wait=wait, showvalue=showvalue)
             return
         else:
             if target < current: step = -step
-            Is=np.arange(current, target+step, step)
+            Is = np.arange(current, target + step, step)
             for I in Is:
                 self.do_set_current(I, wait)
                 """
@@ -228,8 +227,10 @@ class virtual_pwsMagnet(Instrument):
                     """
         voltage = self.do_get_voltage()
         current = self.do_get_current()
-        if target!=0: res = int(np.trunc(voltage/current*1000))
-        else: res=0
+        if target != 0:
+            res = int(np.trunc(voltage / current * 1000))
+        else:
+            res = 0
         """
         if print_mag:
             value_print = 'B= '+str(current*conversion_factor) + 'mT'
@@ -237,7 +238,8 @@ class virtual_pwsMagnet(Instrument):
             value_print = 'I= '+str(current) + 'A'
         print "Target value reached: " + value_print+", Voltage is " + str(voltage) + " V, resistance = " + str(res) + " mOhm"
         """
-    def check_for_quench(self, wait=5,threshold=0.95,repetitions=1000):
+
+    def check_for_quench(self, wait=5, threshold=0.95, repetitions=1000):
         '''
         Checks the magent for quench
 
@@ -249,17 +251,18 @@ class virtual_pwsMagnet(Instrument):
         Output:
             None
         '''
-        logging.debug(__name__+'check_for_quench()')
+        logging.debug(__name__ + 'check_for_quench()')
         for i in range(repetitions):
             time.sleep(wait)
             voltage = self.do_get_voltage()
             current = self.do_get_current()
-            print "V=" + str(np.trunc(voltage*1000)/1000.) + "V, I=" + str(np.trunc(current*1000)/1000.) +"A, R=" + str(int(np.trunc(voltage/current*1000))) + "mOhm"
-            if voltage>threshold:
+            print "V=" + str(np.trunc(voltage * 1000) / 1000.) + "V, I=" + str(
+                np.trunc(current * 1000) / 1000.) + "A, R=" + str(int(np.trunc(voltage / current * 1000))) + "mOhm"
+            if voltage > threshold:
                 print "WARNING! Magnet quench!! ramping down the coil..."
                 self.ramp_current(0., 2e-3, wait=0.2, showvalue=True)
                 return
-                
+
     def off(self):
         '''
         Sets status to False

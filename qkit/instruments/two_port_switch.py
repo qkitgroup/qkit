@@ -3,8 +3,7 @@
 # model: Raspberry Pi running Raspian, Radiall Switch R572.432.000 (latching, no 50Ohms termination at open port) integrated in rack slot
 # use: connect mixer output line to 'C', switchable connectors 1,2 to the inlet of the cryostat and the spectrum analyzer
 
-from instrument import Instrument
-import instruments
+from qkit.core.instrument_base import Instrument
 import types
 import logging
 #import numpy as np

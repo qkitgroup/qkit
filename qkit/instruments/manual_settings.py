@@ -1,4 +1,4 @@
-from instrument import Instrument
+from qkit.core.instrument_base import Instrument
 import types
 
 class manual_settings(Instrument):

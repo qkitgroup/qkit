@@ -225,7 +225,7 @@ def _display_1D_data(self,graphicsView):
         No return variable. The function operates on an object of the 
         PlotWindow class.
     """
-    if self.ds_type == ds_types['vector'] or self.ds_type == ds_types['coordinate'] or (self.ds_type == -1 and len(self.ds.shape) == 1): #last expresson is for old hdf-files
+    if self.ds_type == ds_types['vector'] or (self.ds_type == -1 and len(self.ds.shape) == 1): #last expresson is for old hdf-files
         dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url'])
         
         # timestamps do (not?) have a x_ds_url in the 1d case. This is more a bug to be fixed in the
@@ -236,6 +236,19 @@ def _display_1D_data(self,graphicsView):
             x_data = [i for i in range(dss[1].shape[-1])]
         y_data = dss[1][()]
 
+    elif self.ds_type == ds_types['coordinate']:
+        ## a coordinate does not have any coordinate. it gets plotted against the entry index.
+        ## this does not quite work with the unified readout.
+        names, units, scales = ['index'], ['#'], [(0,1)]
+        dss, n, u, s = _get_all_ds_names_units_scales(self.ds)
+        names.append(n[0])
+        units.append(u[0])
+        scales.append(s[0])
+        # timestamps do (not?) have a x_ds_url in the 1d case. This is more a bug to be fixed in the
+        # timstamp_ds part of qkit the resulting error is fixed here for now.
+        x_data = [i for i in range(dss[0].shape[-1])]
+        y_data = dss[0][()]
+    
     elif self.ds_type == ds_types['matrix'] or (self.ds_type == -1 and len(self.ds.shape) == 2): #last expresson is for old hdf-files
         """
         For a matrix type the data to be displayed on the x-axis depends on the selected plot_type
@@ -443,7 +456,7 @@ def _display_2D_data(self,graphicsView):
         self.TraceYValue.setText(self._getYValueFromTraceNum(self.ds,self.TraceYNum))
         self.TraceZValue.setText(self._getZValueFromTraceNum(self.ds,self.TraceZNum))
     
-    data, units[2] = _do_data_manipulation(data, units[2], self.ds_type, self.manipulation, self.manipulations)
+    data, units[2] = _do_data_manipulation(data, units[2], self.ds_type, self.manipulation, self.manipulations, colorplot = True)
 
     graphicsView.clear()   
     graphicsView.view.setLabel('left', names[1], units=units[1])
@@ -705,7 +718,7 @@ def _get_all_ds_names_units_scales(ds,ds_urls= []):
 
 """ Unify the data manipulation to share code """
 
-def _do_data_manipulation(data, unit, ds_type, manipulation, manipulations):
+def _do_data_manipulation(data, unit, ds_type, manipulation, manipulations, colorplot = False):
     """Data manipulation for display gets done here.
     
     This function gathers all the needed metadata to correctly display the
@@ -740,9 +753,12 @@ def _do_data_manipulation(data, unit, ds_type, manipulation, manipulations):
             data = data - np.linspace(data[0],data[-1],len(data))  
         else:
             data = data - np.outer(data[:,-1]-data[:,0],np.linspace(0,1,data.shape[1]))
-     
-    if manipulation & manipulations['remove_zeros']:
-        data[np.where(data==0)] = np.NaN #replace all exact zeros in the hd5 data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
+	
+	if colorplot:
+		## This manipulation removes all zeros which would blow up the color scale.
+		## Only relevant for matrices and boxes in 2d 
+		if manipulation & manipulations['remove_zeros']:
+			data[np.where(data==0)] = np.NaN #replace all exact zeros in the hd5 data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
     
     if manipulation & manipulations['sub_offset_avg_y']:
         #ignore division by zero

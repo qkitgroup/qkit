@@ -16,6 +16,7 @@ from __future__ import absolute_import
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+import qkit
 import logging
 #import gobject # YS: try to get rid of 32bit gobject from pygtk
 #gobject.threads_init()
@@ -189,7 +190,6 @@ class CallTimer:
         self._kwargs = kwargs
 
     def start(self):
-        import qt
         tstart = exact_time()
 
         i = 0
@@ -204,7 +204,7 @@ class CallTimer:
             tn = exact_time()
             req_delay = tstart + float(i) * self._delay / 1000.0 - tn
             if req_delay > 0:
-                qt.msleep(req_delay)
+                qkit.flow.sleep(req_delay)
 
 class ThreadCall(threading.Thread):
     '''

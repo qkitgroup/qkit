@@ -22,7 +22,6 @@ import matplotlib.pylab as plt
 from scipy.optimize import curve_fit
 from time import sleep,time
 import sys
-import qt
 import threading
 
 import qkit
@@ -337,18 +336,18 @@ class spectrum(object):
         print 'recording trace...'
         sys.stdout.flush()
 
-        qt.mstart()
+        qkit.flow.start()
         if rescan:
             if self.averaging_start_ready:
                 self.vna.start_measurement()
                 ti = time()
                 if self.progress_bar: self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime())
-                qt.msleep(.2)
+                qkit.flow.sleep(.2)
                 while not self.vna.ready():
                     if time()-ti > self.vna.get_sweeptime(query=False):
                         if self.progress_bar: self._p.iterate()
                         ti = time()
-                    qt.msleep(.2)
+                    qkit.flow.sleep(.2)
                 if self.progress_bar:
                     while self._p.progr < self._p.max_it:
                         self._p.iterate()
@@ -356,18 +355,18 @@ class spectrum(object):
                 self.vna.avg_clear()
                 if self.vna.get_averages() == 1 or self.vna.get_Average() == False:   #no averaging
                     if self.progress_bar:self._p = Progress_Bar(1,self.dirname,self.vna.get_sweeptime())
-                    qt.msleep(self.vna.get_sweeptime())      #wait single sweep
+                    qkit.flow.sleep(self.vna.get_sweeptime())      #wait single sweep
                     if self.progress_bar: self._p.iterate()
                 else:   #with averaging
                     if self.progress_bar: self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime())
                     if "avg_status" in self.vna.get_function_names():
                         for a in range(self.vna.get_averages()):
                             while self.vna.avg_status() <= a:
-                                qt.msleep(.2) #maybe one would like to adjust this at a later point
+                                qkit.flow.sleep(.2) #maybe one would like to adjust this at a later point
                             if self.progress_bar: self._p.iterate()
                     else: #old style
                         for a in range(self.vna.get_averages()):
-                            qt.msleep(self.vna.get_sweeptime())      #wait single sweep time
+                            qkit.flow.sleep(self.vna.get_sweeptime())      #wait single sweep time
                             if self.progress_bar: self._p.iterate()
 
         data_amp, data_pha = self.vna.get_tracedata()
@@ -380,7 +379,7 @@ class spectrum(object):
         if self._fit_resonator:
             self._do_fit_resonator()
 
-        qt.mend()
+        qkit.flow.end()
         self._end_measurement()
 
     def measure_2D(self, web_visible = True):
@@ -509,7 +508,7 @@ class spectrum(object):
         print 'recording timetrace(s)...'
         sys.stdout.flush()
 
-        qt.mstart()
+        qkit.flow.start()
         try:
             """
             loop: x_obj with parameters from x_vec
@@ -530,41 +529,37 @@ class spectrum(object):
                     ''' This is to prevent the vna.ready() function from timing out. LG NOV/16 '''
                     if self.vna.get_Average():
                         print 'this function only makes sense without averaging'
-                        qt.mend()
+                        qkit.flow.end()
                         self._end_measuremt()
                     else:
                         #self._p = Progress_Bar(1,self.dirname,self.vna.get_sweeptime())
-                        qt.msleep(self.vna.get_sweeptime())
+                        qkit.flow.sleep(self.vna.get_sweeptime())
                         #self._p.iterate()
                         
-                        while not self.vna.ready(): qt.msleep(.2) #this is just to check if the measurement has finished
+                        while not self.vna.ready(): qkit.flow.sleep(.2) #this is just to check if the measurement has finished
                         
                         data_amp, data_pha = self.vna.get_tracedata()
                         self._data_amp.append(data_amp)
                         self._data_pha.append(data_pha)
-                qt.msleep()       
+                qkit.flow.sleep()
                 if self.progress_bar:
                     self._p.iterate()
                 
                         
                 else: 
                     print 'not implemented for this VNA, only works with Keysight ENA 5071C'
-                    qt.mend()
+                    qkit.flow.end()
                     self._end_measurement()
-                    
-        except Exception as e:
-            print e.__doc__
-            print e.message        
         finally:
             self._end_measurement()
-            qt.mend()
+            qkit.flow.end()
 
     def _measure(self):
         '''
         measures and plots the data depending on the measurement type.
         the measurement loops feature the setting of the objects and saving the data in the .h5 file.
         '''
-        qt.mstart()
+        qkit.flow.start()
         try:
             """
             loop: x_obj with parameters from x_vec
@@ -590,16 +585,16 @@ class spectrum(object):
                             sleep(self.tdy)
                             if self.averaging_start_ready:
                                 self.vna.start_measurement()
-                                qt.msleep(.2) #just to make sure, the ready command does not *still* show ready
+                                qkit.flow.sleep(.2) #just to make sure, the ready command does not *still* show ready
                                 while not self.vna.ready():
-                                    qt.msleep(.2)
+                                    qkit.flow.sleep(.2)
                             else:
                                 self.vna.avg_clear()
-                                qt.msleep(self._sweeptime_averages)
+                                qkit.flow.sleep(self._sweeptime_averages)
                                 
                             #if "avg_status" in self.vna.get_function_names():
                             #       while self.vna.avg_status() < self.vna.get_averages():
-                            #            qt.msleep(.2) #maybe one would like to adjust this at a later point
+                            #            qkit.flow.sleep(.2) #maybe one would like to adjust this at a later point
                             
                             """ measurement """
                             data_amp, data_pha = self.vna.get_tracedata()
@@ -610,7 +605,7 @@ class spectrum(object):
                             self._do_fit_resonator()
                         if self.progress_bar:
                             self._p.iterate()
-                        qt.msleep()
+                        qkit.flow.sleep()
                     """
                     filling of value-box is done here.
                     after every y-loop the data is stored the next 2d structure
@@ -621,12 +616,12 @@ class spectrum(object):
                 if self._scan_2D:
                     if self.averaging_start_ready:
                         self.vna.start_measurement()
-                        qt.msleep(.2) #just to make sure, the ready command does not *still* show ready
+                        qkit.flow.sleep(.2) #just to make sure, the ready command does not *still* show ready
                         while not self.vna.ready():
-                            qt.msleep(.2)
+                            qkit.flow.sleep(.2)
                     else:
                         self.vna.avg_clear()
-                        qt.msleep(self._sweeptime_averages)
+                        qkit.flow.sleep(self._sweeptime_averages)
                     """ measurement """
                     data_amp, data_pha = self.vna.get_tracedata()
                     self._data_amp.append(data_amp)
@@ -640,13 +635,10 @@ class spectrum(object):
                         self._do_fit_resonator()
                     if self.progress_bar:
                         self._p.iterate()
-                    qt.msleep()
-        except Exception as e:
-            print e.__doc__
-            print e.message        
+                    qkit.flow.sleep()
         finally:
             self._end_measurement()
-            qt.mend()
+            qkit.flow.end()
 
     def _end_measurement(self):
         '''

@@ -19,7 +19,7 @@ qkit instrument driver for DC DAC LTC2666 (client)
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 
-from instrument import Instrument
+from qkit.core.instrument_base import Instrument
 import types
 import logging
 import zerorpc

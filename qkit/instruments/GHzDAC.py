@@ -20,7 +20,7 @@
 #
 #
 
-from instrument import Instrument
+from qkit.core.instrument_base import Instrument
 import types
 import logging
 # comms and byte packing

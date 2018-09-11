@@ -1,5 +1,5 @@
 import logging
-import qt
+import qkit
 import os
 
 def open_log_file(path,log_level=logging.INFO):
@@ -30,9 +30,9 @@ def get_instrument_settings(path):
     f.write('Filename: %s\n' % fn)
     settings = ''
 
-    inslist = _dict_to_ordered_tuples(qt.instruments.get_instruments())
+    inslist = _dict_to_ordered_tuples(qkit.instruments.get_instruments())
     for (iname, ins) in inslist:
-        settings += 'Instrument: %s\n' % iname
+        settings += 'Instrument: %s (%s)\n' % (iname, ins.get_type())
         parlist = _dict_to_ordered_tuples(ins.get_parameters())
         for (param, popts) in parlist:
             settings += '\t%s: %s\n' % (param, ins.get(param, query=False, channels=popts))

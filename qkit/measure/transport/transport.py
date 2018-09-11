@@ -21,7 +21,6 @@ import numpy as np
 import logging
 from time import sleep
 import sys
-import qt
 import threading
 
 import qkit
@@ -93,7 +92,7 @@ class transport(object):
 
     def add_sweep_4quadrants(self, start, stop, step, offset=0):
         '''
-        Adds a four quadrants sweep series with the pattern 
+        Adds a four quadrants sweep series with the pattern
             0th: (+start -> +stop,  step)+offset
             1st: (+stop  -> +start, step)+offset
             2nd: (+start -> -stop,  step)+offset
@@ -138,7 +137,7 @@ class transport(object):
     def set_x_dt(self, val):
         '''
         Sets sleep time between x-iterations in 2D and 3D scans.
-        
+
         Input:
             val (float): sleep time between x-iterations
         Output:
@@ -150,7 +149,7 @@ class transport(object):
     def get_x_dt(self):
         '''
         Gets sleep time between x-iterations in 2D and 3D scans.
-        
+
         Input:
             None
         Output:
@@ -442,7 +441,7 @@ class transport(object):
     def set_filename(self, filename):
         '''
         Sets filename of current measurement to <filename>
-        
+
         Input:
             filename (str): file name used as suffix of uuid
         Output:
@@ -454,7 +453,7 @@ class transport(object):
     def get_filename(self):
         '''
         Gets filename of current measurement
-        
+
         Input:
             None
         Output:
@@ -465,7 +464,7 @@ class transport(object):
     def set_expname(self, expname):
         '''
         Sets experiment name of current measurement to <expname>
-        
+
         Input:
             expname (str): experiment name used as suffix of uuid and <filename>
         Output:
@@ -477,7 +476,7 @@ class transport(object):
     def get_expname(self):
         '''
         Gets experiment name of current measurement
-        
+
         Input:
             None
         Output:
@@ -488,7 +487,7 @@ class transport(object):
     def set_comment(self, comment):
         '''
         Sets comment that is added to the .h5 file to <comment>
-        
+
         Input:
             comment (str): comment added to data in .h5 file
         Output:
@@ -500,7 +499,7 @@ class transport(object):
     def get_comment(self):
         '''
         Gets comment that is added to the .h5 file
-        
+
         Input:
             None
         Output:
@@ -517,18 +516,18 @@ class transport(object):
             None
         '''
         self._scan_dim = 0
-        
+
         ''' measurement object '''
         self._measurement_object.measurement_func = sys._getframe().f_code.co_name
         self._measurement_object.web_visible = web_visible
-        
+
         ''' measurement '''
         self._measure(**kwargs)
         return
-    
+
     def measure_1D(self, web_visible=True, average=None, **kwargs):
         '''
-        Measures a 1 dimensional set of IV curves while sweeping the bias according to the set sweep parameters. 
+        Measures a 1 dimensional set of IV curves while sweeping the bias according to the set sweep parameters.
         Every single data point is taken with the current IV Device settings.
         
         Input:
@@ -547,20 +546,20 @@ class transport(object):
         '''
         self._scan_dim = 1
         self._average = average
-        
+
         ''' measurement object '''
         self._measurement_object.measurement_func = sys._getframe().f_code.co_name
         self._measurement_object.web_visible = web_visible
-        
+
         ''' measurement '''
         self._measure(**kwargs)
         return
 
     def measure_2D(self, web_visible=True, average=None, **kwargs):
         '''
-        Measures a 2 dimensional set of IV curves while sweeping the bias according to the set sweep parameters and iterating all parameters x_vec in x_obj. 
+        Measures a 2 dimensional set of IV curves while sweeping the bias according to the set sweep parameters and iterating all parameters x_vec in x_obj.
         Every single data point is taken with the current IV Device settings.
-        
+
         Input:
             web_visible (bool): variable used for data base
             average (int): averages whole traces: natural number | None (default)
@@ -578,14 +577,14 @@ class transport(object):
         if self._x_set_obj is None:
             logging.error('{:s}: axes parameters not properly set'.format(__name__))
             raise TypeError('{:s}: axes parameters not properly set'.format(__name__))
-        
+
         self._scan_dim = 2
         self._average = average
-        
+
         ''' measurement object '''
         self._measurement_object.measurement_func = sys._getframe().f_code.co_name
         self._measurement_object.web_visible = web_visible
-        
+
         ''' measurement '''
         self._measure(**kwargs)
         return
@@ -594,7 +593,7 @@ class transport(object):
         '''
         Measures a 3 dimensional set of IV curves while sweeping the bias according to the set sweep parameters and iterating all parameters x_vec in x_obj and all parameters y_vec in y_obj. The sweep over y_obj is the inner loop, for every value x_vec[i] all values y_vec are measured.
         Every single data point is taken with the current IV Device settings.
-        
+
         Input:
             web_visible (bool): variable used for data base
             average (int): averages whole traces: natural number | None (default)
@@ -613,14 +612,14 @@ class transport(object):
         if self._x_set_obj is None or self._y_set_obj is None:
             logging.error('{:s}: axes parameters not properly set'.format(__name__))
             raise TypeError('{:s}: axes parameters not properly set'.format(__name__))
-        
+
         self._scan_dim = 3
         self._average = average
-        
+
         ''' measurement object '''
         self._measurement_object.measurement_func = sys._getframe().f_code.co_name
         self._measurement_object.web_visible = web_visible
-        
+
         ''' measurement '''
         self._measure(**kwargs)
         return
@@ -628,7 +627,7 @@ class transport(object):
     def _measure(self, **kwargs):
         '''
         Creates output files, measures according to IVD and sweep settings, stores data and shows them in the qviewkit
-        
+
         Input:
             **kwargs: filename (str): file name used as suffix of uuid
                       expname (str): experiment name used as suffix of uuid and <filename>
@@ -662,7 +661,7 @@ class transport(object):
                        1: self.sweeps.get_nos(),
                        2: len(self._x_vec)*self.sweeps.get_nos(),
                        3: len(self._x_vec)*len(self._y_vec)*self.sweeps.get_nos()}
-            self._pb = Progress_Bar(max_it=num_its[self._scan_dim]*average, 
+            self._pb = Progress_Bar(max_it=num_its[self._scan_dim]*average,
                                     name='{:d}D IV-curve: {:s}'.format(self._scan_dim, self._filename))
         else:
             print('recording trace...')
@@ -723,7 +722,7 @@ class transport(object):
     def _prepare_measurement_IVD(self, **kwargs):
         '''
         All the relevant settings from the IVD are updated and called
-        
+
         Input:
             **kwargs: channel_bias (int): 1 (default) | 2 for VV-mode
                       channel_sense (int): 1 | 2 (default) for VV-mode
@@ -762,7 +761,7 @@ class transport(object):
         '''
         Creates one file each for data (.h5) with distinct dataset structures for each measurement dimentsion, settings (.set), logging (.log) and measurement (.measurement)
         At this point all measurement parameters are known and put in the output files
-        
+
         Input:
             **kwargs: filename (str): file name used as suffix of uuid
                       expname (str): experiment name used as suffix of uuid and <filename>
@@ -794,7 +793,7 @@ class transport(object):
         ''' measurement object, sample object '''
         self._measurement_object.uuid = self._data_file._uuid
         self._measurement_object.hdf_relpath = self._data_file._relpath
-        self._measurement_object.instruments = qkit.instruments.get_instrument_names() # qkit.instruments.get_instruments() # 
+        self._measurement_object.instruments = qkit.instruments.get_instrument_names() # qkit.instruments.get_instruments() #
         if self._measurement_object.sample is not None:
             self._measurement_object.sample.sweeps = self.sweeps.get_sweeps()
             self._measurement_object.sample.average = self._average

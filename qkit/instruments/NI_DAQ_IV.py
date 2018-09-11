@@ -15,12 +15,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 # DAQ=qt.instruments.create('DAQ', 'NI_DAQ_IV',id='Dev1')
+import qkit
+from qkit.core.instrument_base import Instrument
 import types
-import nidaq_syncIV as nidaq
-from instrument import Instrument
-import qt
+import qkit.instruments.nidaq_syncIV as nidaq
 import numpy
 import time
+
 
 def _get_channel(devchan):
     if not '/' in devchan:
@@ -29,6 +30,7 @@ def _get_channel(devchan):
     if len(parts) != 2:
         return devchan
     return parts[1]
+
 
 class NI_DAQ_IV(Instrument):
 
@@ -40,47 +42,47 @@ class NI_DAQ_IV(Instrument):
         for ch_in in self._get_input_channels():
             ch_in = _get_channel(ch_in)
             self.add_parameter(ch_in,
-                flags=Instrument.FLAG_GET,
-                type=types.FloatType,
-                units='V',
-                tags=['measure'],
-                get_func=self.do_get_input,
-                channel=ch_in)
+                               flags=Instrument.FLAG_GET,
+                               type=types.FloatType,
+                               units='V',
+                               tags=['measure'],
+                               get_func=self.do_get_input,
+                               channel=ch_in)
 
         for ch_out in self._get_output_channels():
             ch_out = _get_channel(ch_out)
             self.add_parameter(ch_out,
-                flags=Instrument.FLAG_SET,
-                type=types.FloatType,
-                units='V',
-                tags=['sweep'],
-                set_func=self.do_set_output,
-                channel=ch_out)
+                               flags=Instrument.FLAG_SET,
+                               type=types.FloatType,
+                               units='V',
+                               tags=['sweep'],
+                               set_func=self.do_set_output,
+                               channel=ch_out)
 
         for ch_ctr in self._get_counter_channels():
             ch_ctr = _get_channel(ch_ctr)
             self.add_parameter(ch_ctr,
-                flags=Instrument.FLAG_GET,
-                type=types.IntType,
-                units='#',
-                tags=['measure'],
-                get_func=self.do_get_counter,
-                channel=ch_ctr)
+                               flags=Instrument.FLAG_GET,
+                               type=types.IntType,
+                               units='#',
+                               tags=['measure'],
+                               get_func=self.do_get_counter,
+                               channel=ch_ctr)
             self.add_parameter(ch_ctr + "_src",
-                flags=Instrument.FLAG_SET | Instrument.FLAG_SOFTGET,
-                type=types.StringType,
-                set_func=self.do_set_counter_src,
-                channel=ch_ctr)
+                               flags=Instrument.FLAG_SET | Instrument.FLAG_SOFTGET,
+                               type=types.StringType,
+                               set_func=self.do_set_counter_src,
+                               channel=ch_ctr)
 
         self.add_parameter('chan_config',
-            flags=Instrument.FLAG_SET|Instrument.FLAG_SOFTGET,
-            type=types.StringType,
-            option_list=('Default', 'RSE', 'NRSE', 'Diff', 'PseudoDiff'))
+                           flags=Instrument.FLAG_SET | Instrument.FLAG_SOFTGET,
+                           type=types.StringType,
+                           option_list=('Default', 'RSE', 'NRSE', 'Diff', 'PseudoDiff'))
 
         self.add_parameter('count_time',
-            flags=Instrument.FLAG_SET|Instrument.FLAG_SOFTGET,
-            type=types.FloatType,
-            units='s')
+                           flags=Instrument.FLAG_SET | Instrument.FLAG_SOFTGET,
+                           type=types.FloatType,
+                           units='s')
 
         self.add_function('reset')
         self.add_function('read')
@@ -91,27 +93,26 @@ class NI_DAQ_IV(Instrument):
         self.set_chan_config('RSE')
         self.set_count_time(0.1)
         self.get_all()
-        
-        
+
         self._dAdV = 1
         self._dAdV_B = 1
         self._dVdA = 1
         self._amp = 1
-        
-    def set_dAdV(self,dAdV = 1):
-        self._dAdV =  dAdV
-        
-    def set_dAdV_B(self,dAdV_B = 1):
-        self._dAdV_B =  dAdV_B
-    
+
+    def set_dAdV(self, dAdV=1):
+        self._dAdV = dAdV
+
+    def set_dAdV_B(self, dAdV_B=1):
+        self._dAdV_B = dAdV_B
+
     def get_dAdV_B(self):
         return self._dAdV_B
-        
-    def set_amplification(self,amp = 1):
-        self._amp =  amp
-        
-    def set_dVdA(self,dVdA = 1):
-        self._dVdA =  dVdA
+
+    def set_amplification(self, amp=1):
+        self._amp = amp
+
+    def set_dVdA(self, dVdA=1):
+        self._dVdA = dVdA
 
     def get_all(self):
         ch_in = [_get_channel(ch) for ch in self._get_input_channels()]
@@ -149,38 +150,38 @@ class NI_DAQ_IV(Instrument):
         src = self.get(channel + "_src")
         if src is not None and src != '':
             src = '/%s/%s' % (self._id, src)
-        return nidaq.read_counter(devchan, src=src, freq=1/self._count_time)
+        return nidaq.read_counter(devchan, src=src, freq=1 / self._count_time)
 
     def do_set_counter_src(self, val, channel):
         return True
 
-    def sync_output_input(self,O_devchan,I_devchan,waveform,rate=1000,**kwargs):
-        return nidaq.sync_write_read(O_devchan,I_devchan,waveform,rate=rate)
-        
+    def sync_output_input(self, O_devchan, I_devchan, waveform, rate=1000, **kwargs):
+        return nidaq.sync_write_read(O_devchan, I_devchan, waveform, rate=rate)
+
     def get_bias_mode(self, channel=1):
         return 'curr'
-        
+
     def set_status(self, status, channel=1):
         return True
-        
-    def set_devchan(self, O_devchan = 'Dev1/ao0', I_devchan='Dev1/ai0'):
+
+    def set_devchan(self, O_devchan='Dev1/ao0', I_devchan='Dev1/ai0'):
         self.O_devchan = O_devchan
         self.I_devchan = I_devchan
-        
+
     def set_step_time(self, step_time):
         self._step_time = step_time
-    
+
     def set_sweep_parameters(self, sweep, channel=1):
         self._step = sweep[2]
         self.waveform = numpy.arange(sweep[0], sweep[1], sweep[2])
-        self.rate = 1./self._step_time
-        self.set_ao0(sweep[0]/self._dAdV)
-        
+        self.rate = 1. / self._step_time
+        self.set_ao0(sweep[0] / self._dAdV)
+
     def take_IV(self, channel=1):
-        in_data = self.waveform/self._dAdV
-        out_data = nidaq.sync_write_read(self.O_devchan, self.I_devchan, in_data, rate=self.rate)/self._amp
+        in_data = self.waveform / self._dAdV
+        out_data = nidaq.sync_write_read(self.O_devchan, self.I_devchan, in_data, rate=self.rate) / self._amp
         return self.waveform, out_data
-    
+
     """
     def ramp_current(self, target, step, wait=0.1, channel=1):
         '''
@@ -199,17 +200,17 @@ class NI_DAQ_IV(Instrument):
             self.set_ao1(i/self._dAdV_B)
             time.sleep(wait)
     """
-    
-    def write(self,devchan, data, freq=10000.0, minv=-10.0, maxv=10.0,timeout=10.0):
-        return nidaq.write(devchan, data, freq=freq, minv=minv, maxv=maxv,timeout=timeout)
 
-    def read(self,devchan, samples=1, freq=10000.0, minv=-10.0, maxv=10.0, timeout=10.0):
-        return nidaq.read(devchan, samples=samples, freq=freq, minv=minv, maxv=maxv, timeout=timeout,config=self._chan_config)
-    
+    def write(self, devchan, data, freq=10000.0, minv=-10.0, maxv=10.0, timeout=10.0):
+        return nidaq.write(devchan, data, freq=freq, minv=minv, maxv=maxv, timeout=timeout)
+
+    def read(self, devchan, samples=1, freq=10000.0, minv=-10.0, maxv=10.0, timeout=10.0):
+        return nidaq.read(devchan, samples=samples, freq=freq, minv=minv, maxv=maxv, timeout=timeout,
+                          config=self._chan_config)
+
 
 def detect_instruments():
     '''Refresh NI DAQ instrument list.'''
 
     for name in nidaq.get_device_names():
-        qt.instruments.create('NI%s' % name, 'NI_DAQ', id=name)
-
+        qkit.instruments.create('NI%s' % name, 'NI_DAQ', id=name)

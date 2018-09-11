@@ -17,8 +17,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 
-from instrument import Instrument
-import instruments
+from qkit.core.instrument_base import Instrument
 import types
 import logging
 #import numpy as np
