@@ -20,9 +20,9 @@
 
 from qkit.core.instrument_base import Instrument
 from qkit import visa
-import logging
 import numpy as np
 import time
+import logging
 from distutils.version import LooseVersion
 
 
@@ -927,9 +927,9 @@ class Yokogawa(Instrument):
         Output:
             None
         '''
-        if self.get_bias(channel=channel): # 1 (voltage bias)
+        if self.get_bias_mode(channel=channel): # 1 (voltage bias)
             return self.ramp_bias(stop=stop, step=step, step_time=step_time, channel=channel)
-        elif not self.get_bias(channel=channel): # 0 (current bias)
+        elif not self.get_bias_mode(channel=channel): # 0 (current bias)
             logging.error(__name__ + ': Cannot set voltage value of channel {!s}: in the current bias'.format(channel))
             return
 
@@ -945,9 +945,9 @@ class Yokogawa(Instrument):
         Output:
             None
         '''
-        if not self.get_bias(channel=channel): # 0 (current bias)
+        if not self.get_bias_mode(channel=channel): # 0 (current bias)
             return self.ramp_bias(stop=stop, step=step, step_time=step_time, channel=channel)
-        elif self.get_bias(channel=channel): # 1 (voltage bias)
+        elif self.get_bias_mode(channel=channel): # 1 (voltage bias)
             logging.error(__name__ + ': Cannot ramp current value of channel {!s}: in the voltage bias'.format(channel))
             return
 
