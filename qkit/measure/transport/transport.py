@@ -89,10 +89,11 @@ class transport(object):
         self._y_coordname = None
         self._y_set_obj = None
         self._y_unit = None
+        self._landscape = False
 
     def add_sweep_4quadrants(self, start, stop, step, offset=0):
         '''
-        Adds a four quadrants sweep series with the pattern
+        Adds a four quadrants sweep series with the pattern 
             0th: (+start -> +stop,  step)+offset
             1st: (+stop  -> +start, step)+offset
             2nd: (+start -> -stop,  step)+offset
@@ -137,7 +138,7 @@ class transport(object):
     def set_x_dt(self, val):
         '''
         Sets sleep time between x-iterations in 2D and 3D scans.
-
+        
         Input:
             val (float): sleep time between x-iterations
         Output:
@@ -149,7 +150,7 @@ class transport(object):
     def get_x_dt(self):
         '''
         Gets sleep time between x-iterations in 2D and 3D scans.
-
+        
         Input:
             None
         Output:
@@ -172,7 +173,7 @@ class transport(object):
             None
         '''
         # x-vec
-        if hasattr(x_vec, '__len__'):
+        if np.iterable(x_vec):
             for val in x_vec:
                 if not str(val).isdigit():
                     raise TypeError('{:s}: Cannot set {!s} as x-vector: {!s} is no number'.format(__name__, x_vec, val))
@@ -235,7 +236,7 @@ class transport(object):
             None
         '''
         # y-vec
-        if hasattr(y_vec, '__len__'):
+        if np.iterable(y_vec):
             for val in y_vec:
                 if not str(val).isdigit():
                     raise TypeError('{:s}: Cannot set {!s} as y-vector: {!s} is no number'.format(__name__, y_vec, val))
@@ -260,6 +261,24 @@ class transport(object):
         # y dt
         if y_dt is not None: self._y_dt = y_dt
         return
+
+
+    def set_landscape(self, func, *args, **kwargs):
+        '''
+        envelop function for landscape option in case of 2D and 3D scans
+        fasten up 
+        
+        Input:
+            func (function): envelop function that limits bias values
+            *args: parameters for the envelop function
+            **kwargs: mirror_y (bool): mirror envelop function at x-axis
+        '''
+        self._landscape = True
+        #self._lsc_func = func
+        self._lsc_mirror_y = kwargs.get('mirror_y', True)
+        #self._lsc_args = args
+        self._lsc_vec = func(np.array(self._x_vec), *args)
+        return 
 
     def set_xy_parameters(self, x_name, x_func, x_vec, x_unit, y_name, y_func, y_unit, x_dt=1e-3):
         '''
@@ -288,7 +307,7 @@ class transport(object):
         else:
             raise ValueError('{:s}: Cannot set {!s} as x-function: callable object needed'.format(__name__, x_func))
         # x-vec
-        if hasattr(x_vec, '__len__'):
+        if np.iterable(x_vec):
             self._x_vec = x_vec
         else:
             raise ValueError('{:s}: Cannot set {!s} as x-vector: iterable object needed'.format(__name__, x_vec))
@@ -300,7 +319,7 @@ class transport(object):
         # y-name
         if type(y_name) is str:
             self._y_name = [y_name]
-        elif hasattr(y_name, '__len__'):
+        elif np.iterable(y_name):
             for name in y_name:
                 if type(name) is not str:
                     raise ValueError('{:s}: Cannot set {!s} as y-name: string needed'.format(__name__, name))
@@ -310,7 +329,7 @@ class transport(object):
         # y-func
         if callable(y_func):
             self._y_func = [y_func]
-        elif hasattr(y_func, '__len__'):
+        elif np.iterable(y_func):
             for func in y_func:
                 if not callable(func):
                     raise ValueError('{:s}: Cannot set {!s} as y-function: callable object needed'.format(__name__, func))
@@ -320,7 +339,7 @@ class transport(object):
         # y-unit
         if type(y_unit) is str:
             self._y_unit = [y_unit]
-        elif hasattr(y_unit, '__len__'):
+        elif np.iterable(y_unit):
             for unit in y_unit:
                 if type(unit) is not str:
                     raise ValueError('{:s}: Cannot set {!s} as y-unit: string needed'.format(__name__, unit))
@@ -352,7 +371,7 @@ class transport(object):
             func = [func]
         elif func is None:
             func = [None]
-        elif hasattr(func, '__len__'):
+        elif np.iterable(func):
             for fun in func:
                 if not callable(fun):
                     raise ValueError('{:s}: Cannot set {!s} as y-function: callable object needed'.format(__name__, fun))
@@ -367,7 +386,7 @@ class transport(object):
                 name = [None]
         elif type(name) is str:
             name = [name]*len(func)
-        elif hasattr(name, '__len__'):
+        elif np.iterable(name):
             for name in name:
                 if type(name) is not str:
                     raise ValueError('{:s}: Cannot set {!s} as log-name: string needed'.format(__name__, name))
@@ -382,7 +401,7 @@ class transport(object):
                 unit = [None]
         elif type(unit) is str:
             unit = [unit]*len(func)
-        elif hasattr(unit, '__len__'):
+        elif np.iterable(unit):
             for unit in unit:
                 if type(unit) is not str:
                     raise ValueError('{:s}: Cannot set {!s} as log-unit: string needed'.format(__name__, unit))
@@ -397,7 +416,7 @@ class transport(object):
                 dtype = [None]
         elif type(dtype) is type:
             dtype = [dtype]*len(func)
-        elif hasattr(dtype, '__len__'):
+        elif np.iterable(dtype):
             for _dtype in dtype:
                 if type(_dtype) is not type:
                     raise ValueError('{:s}: Cannot set {!s} as log-dtype: string needed'.format(__name__, _dtype))
@@ -441,7 +460,7 @@ class transport(object):
     def set_filename(self, filename):
         '''
         Sets filename of current measurement to <filename>
-
+        
         Input:
             filename (str): file name used as suffix of uuid
         Output:
@@ -453,7 +472,7 @@ class transport(object):
     def get_filename(self):
         '''
         Gets filename of current measurement
-
+        
         Input:
             None
         Output:
@@ -464,7 +483,7 @@ class transport(object):
     def set_expname(self, expname):
         '''
         Sets experiment name of current measurement to <expname>
-
+        
         Input:
             expname (str): experiment name used as suffix of uuid and <filename>
         Output:
@@ -476,7 +495,7 @@ class transport(object):
     def get_expname(self):
         '''
         Gets experiment name of current measurement
-
+        
         Input:
             None
         Output:
@@ -487,7 +506,7 @@ class transport(object):
     def set_comment(self, comment):
         '''
         Sets comment that is added to the .h5 file to <comment>
-
+        
         Input:
             comment (str): comment added to data in .h5 file
         Output:
@@ -499,7 +518,7 @@ class transport(object):
     def get_comment(self):
         '''
         Gets comment that is added to the .h5 file
-
+        
         Input:
             None
         Output:
@@ -516,18 +535,18 @@ class transport(object):
             None
         '''
         self._scan_dim = 0
-
+        
         ''' measurement object '''
         self._measurement_object.measurement_func = sys._getframe().f_code.co_name
         self._measurement_object.web_visible = web_visible
-
+        
         ''' measurement '''
         self._measure(**kwargs)
         return
-
+    
     def measure_1D(self, web_visible=True, average=None, **kwargs):
         '''
-        Measures a 1 dimensional set of IV curves while sweeping the bias according to the set sweep parameters.
+        Measures a 1 dimensional set of IV curves while sweeping the bias according to the set sweep parameters. 
         Every single data point is taken with the current IV Device settings.
         
         Input:
@@ -546,20 +565,20 @@ class transport(object):
         '''
         self._scan_dim = 1
         self._average = average
-
+        
         ''' measurement object '''
         self._measurement_object.measurement_func = sys._getframe().f_code.co_name
         self._measurement_object.web_visible = web_visible
-
+        
         ''' measurement '''
         self._measure(**kwargs)
         return
 
     def measure_2D(self, web_visible=True, average=None, **kwargs):
         '''
-        Measures a 2 dimensional set of IV curves while sweeping the bias according to the set sweep parameters and iterating all parameters x_vec in x_obj.
+        Measures a 2 dimensional set of IV curves while sweeping the bias according to the set sweep parameters and iterating all parameters x_vec in x_obj. 
         Every single data point is taken with the current IV Device settings.
-
+        
         Input:
             web_visible (bool): variable used for data base
             average (int): averages whole traces: natural number | None (default)
@@ -577,14 +596,14 @@ class transport(object):
         if self._x_set_obj is None:
             logging.error('{:s}: axes parameters not properly set'.format(__name__))
             raise TypeError('{:s}: axes parameters not properly set'.format(__name__))
-
+        
         self._scan_dim = 2
         self._average = average
-
+        
         ''' measurement object '''
         self._measurement_object.measurement_func = sys._getframe().f_code.co_name
         self._measurement_object.web_visible = web_visible
-
+        
         ''' measurement '''
         self._measure(**kwargs)
         return
@@ -593,7 +612,7 @@ class transport(object):
         '''
         Measures a 3 dimensional set of IV curves while sweeping the bias according to the set sweep parameters and iterating all parameters x_vec in x_obj and all parameters y_vec in y_obj. The sweep over y_obj is the inner loop, for every value x_vec[i] all values y_vec are measured.
         Every single data point is taken with the current IV Device settings.
-
+        
         Input:
             web_visible (bool): variable used for data base
             average (int): averages whole traces: natural number | None (default)
@@ -608,18 +627,17 @@ class transport(object):
         Output:
             None
         '''
-        ### TODO: add landscape scan
         if self._x_set_obj is None or self._y_set_obj is None:
             logging.error('{:s}: axes parameters not properly set'.format(__name__))
             raise TypeError('{:s}: axes parameters not properly set'.format(__name__))
-
+        
         self._scan_dim = 3
         self._average = average
-
+        
         ''' measurement object '''
         self._measurement_object.measurement_func = sys._getframe().f_code.co_name
         self._measurement_object.web_visible = web_visible
-
+        
         ''' measurement '''
         self._measure(**kwargs)
         return
@@ -627,7 +645,7 @@ class transport(object):
     def _measure(self, **kwargs):
         '''
         Creates output files, measures according to IVD and sweep settings, stores data and shows them in the qviewkit
-
+        
         Input:
             **kwargs: filename (str): file name used as suffix of uuid
                       expname (str): experiment name used as suffix of uuid and <filename>
@@ -638,6 +656,10 @@ class transport(object):
                       iReadingBuffer (str): only, if IVD supports (Keithley 2636A)
                       vReadingBuffer (str): only, if IVD supports (Keithley 2636A)
         '''
+        def _pass(arg):
+            ''' dummy function that just passes, used for x, y iteration in case of 1D and 2D scan '''
+            pass
+        
         ''' axis labels '''
         _axis = {0: (self._x_name, '', ''),
                  1: ('voltage', '', ''),
@@ -652,23 +674,18 @@ class transport(object):
         if self.open_qviewkit:
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath())  # , datasets=['{:s}_{:d}'.format(self._IV_modes[not(self._bias)].lower(), i) for i in range(self.sweeps.get_nos())])
         ''' progress bar '''
-        if self._average is None:
-            average=1
-        else:
-            average = self._average
         if self.progress_bar:
             num_its = {0: len(self._x_vec),
-                       1: self.sweeps.get_nos(),
-                       2: len(self._x_vec)*self.sweeps.get_nos(),
-                       3: len(self._x_vec)*len(self._y_vec)*self.sweeps.get_nos()}
-            self._pb = Progress_Bar(max_it=num_its[self._scan_dim]*average,
+                       1: self.sweeps.get_nos()*[self._average if self._average is not None else 1][0],
+                       2: len(self._x_vec)*self.sweeps.get_nos()*[self._average if self._average is not None else 1][0],
+                       3: len(self._x_vec)*len(self._y_vec)*self.sweeps.get_nos()*[self._average if self._average is not None else 1][0]}
+            self._pb = Progress_Bar(max_it=num_its[self._scan_dim], 
                                     name='{:d}D IV-curve: {:s}'.format(self._scan_dim, self._filename))
         else:
             print('recording trace...')
         ''' measurement '''
         sys.stdout.flush()
-        qt.mstart()
-        #qkit.flow.start()
+        qkit.flow.start()
         try:
             if self._scan_dim == 0:  # single data points
                 x_vec = list(self._x_vec)
@@ -691,38 +708,39 @@ class transport(object):
                         i += 1
                     sleep(self._x_dt)
             elif self._scan_dim in [1, 2, 3]:  # IV curve
-                for x, x_func in [(None, self._pass)] if self._scan_dim < 2 else [(x, self._x_set_obj) for x in self._x_vec]:  # loop: x_obj with parameters from x_vec if 2D or 3D else pass(None)
+                for self.ix, (x, x_func) in enumerate([(None, _pass)] if self._scan_dim < 2 else [(x, self._x_set_obj) for x in self._x_vec]):  # loop: x_obj with parameters from x_vec if 2D or 3D else pass(None)
                     x_func(x)
                     sleep(self._x_dt)
                     # log function
                     if self.log_function != [None]:
-                        for i, f in enumerate(self.log_function):
-                            self._log_values[i].append(float(f()))
-                    for y, y_func in [(None, self._pass)] if self._scan_dim < 3 else [(y, self._y_set_obj) for y in self._y_vec]:  # loop: y_obj with parameters from y_vec if 3D else pass(None)
+                        for j, f in enumerate(self.log_function):
+                            self._log_values[j].append(float(f()))
+                    for y, y_func in [(None, _pass)] if self._scan_dim < 3 else [(y, self._y_set_obj) for y in self._y_vec]:  # loop: y_obj with parameters from y_vec if 3D else pass(None)
                         y_func(y)
                         sleep(self._tdy)
                         # iterate sweeps and take data
                         self._get_sweepdata(**kwargs)
                     # filling of value-box by storing data in the next 2d structure after every y-loop
                     if self._scan_dim is 3:
-                        for val, lst in zip(range(self.sweeps.get_nos()), [val for k, val in enumerate([self._data_I, self._data_V, self._data_dVdI]) if k < 2+int(self._dVdI)]):
-                            lst[val].next_matrix()
+                        for lst in [val for k, val in enumerate([self._data_I, self._data_V, self._data_dVdI]) if k < 2+int(self._dVdI)]:
+                            for val in range(self.sweeps.get_nos()):
+                                lst[val].next_matrix()
         finally:
             ''' end measurement '''
-            qt.mend()
-            #qkit.flow.end()
+            qkit.flow.end()
             t = threading.Thread(target=qviewkit.save_plots, args=[self._data_file.get_filepath(), self._plot_comment])
             t.start()
             self._data_file.close_file()
             waf.close_log_file(self._log)
             self._set_IVD_status(False)
+            self._filename = None
             print('Measurement complete: {:s}'.format(self._data_file.get_filepath()))
         return
 
     def _prepare_measurement_IVD(self, **kwargs):
         '''
         All the relevant settings from the IVD are updated and called
-
+        
         Input:
             **kwargs: channel_bias (int): 1 (default) | 2 for VV-mode
                       channel_sense (int): 1 | 2 (default) for VV-mode
@@ -761,7 +779,7 @@ class transport(object):
         '''
         Creates one file each for data (.h5) with distinct dataset structures for each measurement dimentsion, settings (.set), logging (.log) and measurement (.measurement)
         At this point all measurement parameters are known and put in the output files
-
+        
         Input:
             **kwargs: filename (str): file name used as suffix of uuid
                       expname (str): experiment name used as suffix of uuid and <filename>
@@ -781,7 +799,7 @@ class transport(object):
             self._expname = kwargs.get('expname', None)
         else:
             self._filename = '{:s}_{:s}'.format(self._filename, self._expname)
-        self._filename = '{:d}D_{:s}'.format(self._scan_dim, self._filename)
+        self._filename = '{:s}_{:s}'.format('xy' if self._scan_dim is 0 else '{:d}D'.format(self._scan_dim), self._filename)
         self._comment = kwargs.get('comment', None)
         # data.h5 file
         self._data_file = hdf.Data(name=self._filename, mode='a')
@@ -793,7 +811,7 @@ class transport(object):
         ''' measurement object, sample object '''
         self._measurement_object.uuid = self._data_file._uuid
         self._measurement_object.hdf_relpath = self._data_file._relpath
-        self._measurement_object.instruments = qkit.instruments.get_instrument_names() # qkit.instruments.get_instruments() #
+        self._measurement_object.instruments = qkit.instruments.get_instrument_names() # qkit.instruments.get_instruments() # 
         if self._measurement_object.sample is not None:
             self._measurement_object.sample.sweeps = self.sweeps.get_sweeps()
             self._measurement_object.sample.average = self._average
@@ -831,7 +849,7 @@ class transport(object):
                 if self._dVdI:
                     self._data_dVdI.append(self._data_file.add_value_vector('dVdI_{!s}'.format(i), x=self._data_bias[i], unit='V/A', save_timestamp=False))
             # add views
-            self._add_views()
+            self._add_IV_view()
         elif self._scan_dim == 2:
             ''' 2D scan '''
             self._data_x = self._data_file.add_coordinate(self._x_coordname, unit=self._x_unit)
@@ -848,7 +866,7 @@ class transport(object):
             # log-function
             self._add_log_value_vector()
             # add views
-            self._add_views()
+            self._add_IV_view()
         elif self._scan_dim == 3:
             ''' 3D scan '''
             self._data_x = self._data_file.add_coordinate(self._x_coordname, unit=self._x_unit)
@@ -867,7 +885,7 @@ class transport(object):
             # log-function
             self._add_log_value_vector()
             # add views
-            self._add_views()
+            self._add_IV_view()
         ''' add comment '''
         if self._comment:
             self._data_file.add_comment(self._comment)
@@ -885,8 +903,9 @@ class transport(object):
         start = float(sweep[0])
         stop = float(sweep[1])
         step = float(sweep[2])
-        step_signed = np.sign(stop-start)*np.abs(step)
-        return np.arange(start, stop+step_signed/2., step_signed)
+        nop = np.abs(start-stop)/step+1
+        arr = np.linspace(start, stop, nop)
+        return np.array([np.sign(val)*round(np.abs(val), -int(np.floor(np.log10(np.abs(step))))+1) for val in arr])  # round to overcome missing precision of numpy linspace
 
     def _add_log_value_vector(self):
         '''
@@ -903,7 +922,7 @@ class transport(object):
                 self._log_values.append(self._data_file.add_value_vector(self.log_name[i], x=self._data_x, unit=self.log_unit[i], dtype=self.log_dtype[i]))
         return
 
-    def _add_views(self):
+    def _add_IV_view(self):
         '''
         Adds views to the .h5-file. The view "IV" plots I(V) and contains the whole set of sweeps that are set.
         If <dVdI> is true, the view "dVdI" plots the differential gradient dV/dI(V) and contains the whole set of sweeps that are set.
@@ -934,8 +953,7 @@ class transport(object):
                       iReadingBuffer (str): only, if IVD supports (Keithley 2636A)
                       vReadingBuffer (str): only, if IVD supports (Keithley 2636A)
         Output:
-            bias_values (numpy.array(float))
-            sense_values (numpy.array(float))
+            None
         '''
         if self._average is not None:
             I_values, V_values = [], []
@@ -945,16 +963,14 @@ class transport(object):
                 self.sweeps.create_iterator()
                 for j in range(self.sweeps.get_nos()):
                     # take data
-                    for val, lst in zip(self._IVD.take_IV(sweep=self.sweeps.get_sweep(), **kwargs), [I_values, V_values]):
-                        lst[i].append(list(val))  # append as list in order to use zip
+                    for val, lst in zip(self.take_IV(sweep=self.sweeps.get_sweep(), **kwargs), [I_values, V_values]):
+                        lst[i].append(list(val))  # append as list in order to later use zip
                     I_values_avg, V_values_avg = np.mean(zip(*I_values)[j], axis=0), np.mean(zip(*V_values)[j], axis=0)  # use zip since np.mean cannot handle different shapes
                     # save data
                     for val, lst in zip([I_values_avg, V_values_avg, np.gradient(V_values_avg)/np.gradient(I_values_avg)],
-                                        [val for k, val in enumerate([self._data_I, self._data_V, self._data_dVdI]) if k < 2+int(self._dVdI)]):
-                        if i == 0:
-                            lst[j].append(val)  # append data series
-                        else:
-                            lst[j].ds.write_direct(val)  # overwrite last iteration by new averaged data
+                                        [data for k, data in enumerate([self._data_I, self._data_V, self._data_dVdI]) if k < 2+int(self._dVdI)]):
+                        ### FIXME: method to overwrite data in matrices needed, this version just appends
+                        lst[j].append(val, reset=bool(i))  # append data series or overwrite last iteration by new averaged data
                         lst[j].ds.attrs['average'] = '({:d}/{:d})'.format(i+1, self._average)  # add (iteration/average) as attribute
                         self._data_file.flush()
                     # iterate progress bar
@@ -965,19 +981,54 @@ class transport(object):
                 for lst in [val for k, val in enumerate([self._data_I, self._data_V, self._data_dVdI]) if k < 2+int(self._dVdI)]:
                     lst[j].ds.attrs['average'] = self._average
             self._data_file.flush()
-            #qkit.flow.sleep()
+            qkit.flow.sleep()
         else:
             self.sweeps.create_iterator()
             for j in range(self.sweeps.get_nos()):
-                I_values, V_values = self._IVD.take_IV(sweep=self.sweeps.get_sweep(), **kwargs)
+                # take data
+                I_values, V_values = self.take_IV(sweep=self.sweeps.get_sweep(), **kwargs)
+                # save data      
                 for val, lst in zip([I_values, V_values, np.gradient(V_values)/np.gradient(I_values) if self._dVdI else None],
                                     [self._data_I[j], self._data_V[j], self._data_dVdI[j] if self._dVdI else [None]]):
                     lst.append(val)
                 # iterate progress bar
                 if self.progress_bar:
                     self._pb.iterate()
-                #qkit.flow.sleep()
+                qkit.flow.sleep()
         return
+
+    def take_IV(self, sweep, **kwargs):
+        '''
+        Takes IV and considers if landscape is set
+        
+        Input:
+            sweep (list(float)): start, stop, step
+            **kwargs: channel_bias (int): 1 (default) | 2 for VV-mode
+                      channel_sense (int): 1 | 2 (default) for VV-mode
+                      channel (int): 1 (default) | 2 for IV-mode or VI-mode
+                      iReadingBuffer (str): only, if IVD supports (Keithley 2636A)
+                      vReadingBuffer (str): only, if IVD supports (Keithley 2636A)
+        Output:
+            None
+        '''
+        # take data
+        if self._landscape:
+            # modify sweep by envelop of landscape function
+            x_lim = self._lsc_vec[self.ix]
+            if self._lsc_mirror_y:
+                sweep_lsc = np.nanmin([np.abs(sweep), [x_lim, x_lim, np.nan]], axis=0)*np.sign(sweep)
+            else:
+                sweep_lsc = np.nanmin([sweep, [x_lim, x_lim, np.nan]], axis=0)
+            # take data
+            data = self._IVD.take_IV(sweep=sweep_lsc, **kwargs)
+            # fill skiped bias values with np.nan to keep shape constant
+            mask = [val in self._get_bias_values(sweep_lsc) for val in self._get_bias_values(sweep)] # better replace self._get_bias_values(sweep) by i_b_0
+            I_values, V_values = np.array([np.nan]*len(mask)), np.array([np.nan]*len(mask))
+            np.place(arr=I_values, mask=mask, vals=data[0])
+            np.place(arr=V_values, mask=mask, vals=data[1])
+        else:
+            I_values, V_values = self._IVD.take_IV(sweep=sweep, **kwargs)
+        return I_values, V_values
 
     def set_plot_comment(self, comment):
         '''
@@ -989,9 +1040,6 @@ class transport(object):
             None
         '''
         self._plot_comment = comment
-    
-    def _pass(self, arg):
-        pass
 
     class sweep(object):
         '''
