@@ -16,7 +16,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-import qkit
+# import qkit  # ToDO: flow comments?
 import numpy as np
 import logging
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
@@ -26,10 +26,10 @@ import gc
 def _adjust_wfs_for_tabor(wf1, wf2, ro_index, chpair, segment, sample):
     """
     This function simply adjust the waveforms, coming from the virtual awg, to fit the requirements of the
-    Tabor awg"
+    Tabor awg
     """
     divisor = 16
-    readout_ind = int(ro_index[segment] + int(sample.clock * sample.readout_delay))  # TODO: check if the sign is correct
+    readout_ind = int(ro_index[segment] + int(sample.clock * sample.readout_delay))  # TODO:check if the sign is correct
     # Adjust length to fit marker at arbitrary positions
     if readout_ind + 10 > len(wf1):
         marker1 = np.zeros(readout_ind + 10)
@@ -44,8 +44,8 @@ def _adjust_wfs_for_tabor(wf1, wf2, ro_index, chpair, segment, sample):
     else:
         marker1 = np.zeros_like(wf1)
         marker1[readout_ind:readout_ind + 10] = 1
-    #for single channel pulses
-    if len(wf1)>len(wf2):
+    # for single channel pulses
+    if len(wf1) > len(wf2):
         wf2 = np.append(wf2, np.zeros(len(wf1)-len(wf2)))
     begin_zeros = len(wf1) % divisor
     # minimum waveform is 192 points, handled by the Tabor driver
@@ -94,7 +94,7 @@ def load_tabor(channel_sequences, ro_index, sample, reset=True, show_progress_ba
         awg.define_sequence(1, len(ro_index))
         if number_of_channels > 2:
             awg.set('p%i_runmode' % 2, 'SEQ')
-            awg.define_sequence(2, len(ro_index))
+            awg.define_sequence(3, len(ro_index))
         # amplitude settings of analog output
         awg.set_ch1_offset(0)
         awg.set_ch2_offset(0)
@@ -118,46 +118,47 @@ def load_tabor(channel_sequences, ro_index, sample, reset=True, show_progress_ba
                 if show_progress_bar:
                     p.iterate()
         else:
-            for j, seq in enumerate(zip(channel_sequences)):
+            for j, seq in enumerate(zip(channel_sequences[0], channel_sequences[1])):
                 _adjust_wfs_for_tabor(seq[0], seq[1], ro_index, 1, j, sample)
                 if show_progress_bar:
                     p.iterate()
 
     elif number_of_channels == 3:
         if complex_channel[0]:
-            for j, seq in enumerate(zip(channel_sequences)):
+            for j, seq in enumerate(zip(channel_sequences[0], channel_sequences[1])):
                 _adjust_wfs_for_tabor(seq[0].real, seq[0].imag, ro_index, 1, j, sample)
-                _adjust_wfs_for_tabor(seq[3], [0], ro_index, 2, j, sample)
+                _adjust_wfs_for_tabor(seq[1], [0], ro_index, 2, j, sample)
                 if show_progress_bar:
                     p.iterate()
-        elif not complex_channel[0]:
-            for j, seq in enumerate(zip(channel_sequences)):
+        else:
+            for j, seq in enumerate(zip(channel_sequences[0], channel_sequences[1], channel_sequences[2])):
                 _adjust_wfs_for_tabor(seq[0], seq[1], ro_index, 1, j, sample)
-                _adjust_wfs_for_tabor(seq[3], [0], ro_index, 2, j, sample)
+                _adjust_wfs_for_tabor(seq[2], [0], ro_index, 2, j, sample)
                 if show_progress_bar:
                     p.iterate()
 
     else:  # 4 channels
         if complex_channel == [True, True]:
-            for j, seq in enumerate(zip(channel_sequences)):
+            for j, seq in enumerate(zip(channel_sequences[0], channel_sequences[1])):
                 _adjust_wfs_for_tabor(seq[0].real, seq[0].imag, ro_index, 1, j, sample)
                 _adjust_wfs_for_tabor(seq[1].real, seq[1].imag, ro_index, 2, j, sample)
                 if show_progress_bar:
                     p.iterate()
         elif complex_channel == [True, False, False]:
-            for j, seq in enumerate(zip(channel_sequences)):
+            for j, seq in enumerate(zip(channel_sequences[0], channel_sequences[1], channel_sequences[2])):
                 _adjust_wfs_for_tabor(seq[0].real, seq[0].imag, ro_index, 1, j, sample)
                 _adjust_wfs_for_tabor(seq[1], seq[2], ro_index, 2, j, sample)
                 if show_progress_bar:
                     p.iterate()
         elif complex_channel == [False, False, True]:
-            for j, seq in enumerate(zip(channel_sequences)):
+            for j, seq in enumerate(zip(channel_sequences[0], channel_sequences[1], channel_sequences[2])):
                 _adjust_wfs_for_tabor(seq[0], seq[1], ro_index, 1, j, sample)
                 _adjust_wfs_for_tabor(seq[2].real, seq[2].imag, ro_index, 2, j, sample)
                 if show_progress_bar:
                     p.iterate()
         else:
-            for j, seq in enumerate(zip(channel_sequences)):
+            for j, seq in enumerate(zip(channel_sequences[0], channel_sequences[1],
+                                        channel_sequences[2], channel_sequences[3])):
                 _adjust_wfs_for_tabor(seq[0], seq[1], ro_index, 1, j, sample)
                 _adjust_wfs_for_tabor(seq[2], seq[3], ro_index, 2, j, sample)
                 if show_progress_bar:
