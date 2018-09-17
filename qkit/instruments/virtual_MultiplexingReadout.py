@@ -9,14 +9,14 @@
 # due to a limitation in memory.
 # The script is updated to also be usable with other AWGs (Tabor, Tektronix).
 
-'''
+"""
 usage:
 
 readout = qt.instruments.create('readout','virtual_MultiplexingReadout',sample=qubit)
             
 Mandatory sample attributes:
     readout_awg, readout_mw_src, mspec
-'''
+"""
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -34,7 +34,6 @@ Mandatory sample attributes:
 
 
 from qkit.core.instrument_base import Instrument
-#import instruments
 import types
 import logging
 import numpy as np
@@ -46,7 +45,7 @@ from qkit.measure.timedomain.awg import load_awg as lawg
 
 class virtual_MultiplexingReadout(Instrument):
 
-    def __init__(self, name, sample = None):
+    def __init__(self, name, sample):
         # ToDo: object should not set params previously set by the user
 
         Instrument.__init__(self, name, tags=['virtual'])
@@ -73,129 +72,126 @@ class virtual_MultiplexingReadout(Instrument):
 
         self.add_function('update')
         self.add_function('readout')
-        self._awg = sample.readout_awg
-        #JB obsolete self._awg_drive = awg_drive
-        #JB obsolete self._awg_path = awg_path
-        self._mixer_up_src = sample.readout_mw_src
-        self._mixer_down_src = sample.readout_mw_src
+
+        self.sample = sample
         self._mspec = sample.mspec
-        
-        if sample is None:
-            logging.warning('Sample object was not given for virtual_MultiplexingReadout.')# This is only needed if you need a readout wfm that is as long as the manipulation.')
-        self._sample = sample
-        
-        #check that awg name exists
         try:
-            self._awg.get_type()
-        except NameError:
-            logging.error('Cannot resolve awg name. Provide name attribute in awg instrument driver.')
-            raise NameError
-            
-        if "GHzDAC" == self._awg.get_type():   #Martinis board
-            self.do_set_dac_delay(0)
-            #self._dac_duration = 10e-9
-            
-        elif "Tabor_WX1284C" == self._awg.get_type():   #Tabor AWG
-            self._awg.set_trigger_impedance(50)   #50 Ohms
-            self._awg.preset_readout()   #sets runmode = 'AUTO', trigger_mode='TRIG', starts with the end of the manipulation signal
-            self.do_set_dac_delay(-1)
-        elif "Tektronix" in self._awg.get_type():
-            self.do_set_dac_delay(0)
-            self._awg.set_ch1_status(True)
-            self._awg.set_ch2_status(True)
-            self._awg.run()
-            self._awg.wait(10,False)
-        else:
-            logging.error('Specified AWG unknown. Aborting.')
-            raise ImportError
-            
-        ''' default settings '''
-        try:
-            
-            self._awg.set_clock(self._sample.readout_clock)
-            self._dac_clock = self._awg.get_clock()
-            
-            self._dac_channel_I = 0
-            self._dac_channel_Q = 1
-            self._adc_channel_I = 1
-            self._adc_channel_Q = 0
-            
-            self._dac_attack = 0#5e-9
-            self._dac_decay = 0#5e-9
-            self._phase = 0
-            
-            self._tone_freq = [30e6]
-            self._dac_duration = 400e-9
-            
-            self.dac_delay = 0
-            
-        except Exception as m:
-            logging.error('Defaults not set properly: '+str(m))
-            raise ImportError
+            self._awg = sample.readout_awg
+        except AttributeError:
+            self._awg = None
+            logging.warning("You haven't provided a readout_awg. I can't set the readout pulse for you."
+                            "Please also think of specifying the readout if-frequency.")
+        # check that awg name exists
+        if self._awg:
+            try:
+                self._awg.get_type()
+            except AttributeError:
+                logging.error('Cannot resolve awg name. Provide name attribute in awg instrument driver.')
+            if "GHzDAC" == self._awg.get_type():   #Martinis board
+                self.do_set_dac_delay(0)
+                #self._dac_duration = 10e-9
+            elif "Tabor_WX1284C" == self._awg.get_type():   #Tabor AWG
+                self._awg.set_trigger_impedance(50)   #50 Ohms
+                self._awg.preset_readout()   #sets runmode = 'AUTO', trigger_mode='TRIG', starts with the end of the manipulation signal
+                self.do_set_dac_delay(-1)
+            elif "Tektronix" in self._awg.get_type():
+                self.do_set_dac_delay(0)
+                self._awg.set_ch1_status(True)
+                self._awg.set_ch2_status(True)
+                self._awg.run()
+                self._awg.wait(10,False)
+            else:
+                logging.error('Specified AWG unknown. Aborting.')
+                raise ImportError
+            #default settings
+            try:
+                self._awg.set_clock(self.sample.readout_clock)
+                self._dac_clock = self._awg.get_clock()
+                self._dac_channel_I = 0
+                self._dac_channel_Q = 1
+                self._adc_channel_I = 1
+                self._adc_channel_Q = 0
+                self._dac_attack = 0#5e-9
+                self._dac_decay = 0#5e-9
+                self._phase = 0
+                self._tone_freq = [30e6]
+                self._dac_duration = 400e-9
+                self.dac_delay = 0
+            except Exception as m:
+                logging.error('Defaults not set properly: '+str(m))
+                raise ImportError
 
     def get_all(self):
         self.get_LO()
 
     def do_get_adc_clock(self):
-        '''
+        """
             sample rate of the analog to digital converter
-        '''
+        """
         return self._mspec.get_clock()
+
     def do_set_dac_clock(self, clock):
-        '''
+        """
             sample rate of the digital to analog converter
-        '''
+        """
         self._dac_clock = clock
+
     def do_set_dac_duration(self, duration):
-        '''
+        """
             defines the time duration of the signal output on the dac
             this defines the readout pulse length and maximum repetition rate
-        '''
+        """
         self._dac_duration = duration
 
     def do_get_dac_duration(self):
         return self._dac_duration
         
     def do_set_dac_channel_I(self, channel):
-        '''
+        """
             set dac channel that outputs the I signal, -1=None
-        '''
+        """
         self._dac_channel_I = channel
         if(self._dac_channel_I == -1) and (self._dac_channel_Q == -1):
             logging.warning(__name__ + 'no output signal is produced if both dac_channel_I and dac_channel_Q are none')
+    
     def do_set_dac_channel_Q(self, channel):
-        '''
+        """
             set dac channel that outputs the Q signal, -1=None
-        '''
+        """
         self._dac_channel_Q = channel
         if(self._dac_channel_I == -1) and (self._dac_channel_Q == -1):
             logging.warning(__name__ + 'no output signal is produced if both dac_channel_I and dac_channel_Q are none')
+    
     def do_set_adc_channel_I(self, channel):
-        '''
+        """
             set adc channel that acquires the I signal, -1=None
-        '''
+        """
         self._adc_channel_I = channel
         if(self._adc_channel_I == -1) and (self._adc_channel_Q == -1):
             logging.warning(__name__ + 'no signal is acquired if both dac_channel_I and dac_channel_Q are none')
     def do_set_adc_channel_Q(self, channel):
-        '''
+        """
             set adc channel that acquires the Q signal, -1=None
-        '''
+        """
         self._adc_channel_Q = channel
         if(self._adc_channel_I == -1) and (self._adc_channel_Q == -1):
             logging.warning(__name__ + 'no signal is acquired if -1dac_channel_I and dac_channel_Q are none')
 
     def do_set_dac_attack(self, attack):
-        ''' set attack time of the readout pulse '''
+        """ set attack time of the readout pulse """
         self._dac_attack = attack
 
     def do_set_dac_decay(self, decay):
-        ''' set decay time of the readout pulse '''
+        """ set decay time of the readout pulse """
         self._dac_decay = decay
 
     def do_set_LO(self, frequency):
-        self._mixer_up_src.set_frequency(frequency)
-        self._mixer_down_src.set_frequency(frequency)
+        """
+        Sets the readout microwave source to a given frequency and stores this value for future evalution
+        :param frequency: frequency of the readout microwave source
+        :return: 
+        """
+        self.sample.readout_mw_src.set_frequency(frequency)
         self._LO = frequency
 
     def do_get_LO(self):
@@ -232,10 +228,10 @@ class virtual_MultiplexingReadout(Instrument):
         return self._phase
         
     def do_set_dac_delay(self,delay):
-        '''
+        """
         sets the pause time before the dac pulse in s
         a value <= -1 will take sample.exc_T
-        '''
+        """
         self.dac_delay = delay
     def do_get_dac_delay(self):
         return self.dac_delay
@@ -245,20 +241,19 @@ class virtual_MultiplexingReadout(Instrument):
     # +++++ ADC acquisition ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     def _acquire_IQ(self):
-        '''
+        """
         essentially do a mspec.acquire and return I and Q
-        '''
+        """
         data = self._mspec.acquire().swapaxes(0, 1)
-        if(self._adc_channel_I == -1):
+        if self._adc_channel_I == -1:
             I = np.zeros(data.shape[1:])
         else:
             I = data[self._adc_channel_I]
-        if(self._adc_channel_Q == -1):
+        if self._adc_channel_Q == -1:
             Q = np.zeros(data.shape[1:])
         else:
             Q = data[self._adc_channel_Q]
         return I, Q
-
 
     def readout(self, timeTrace=False, ddc=None):
         """
@@ -286,17 +281,16 @@ class virtual_MultiplexingReadout(Instrument):
                     sig_amp[idx,:, :], sig_pha[idx,:, :] = self.digital_down_conversion(Is[:, idx], Qs[:, idx])
             else:
                 sig_amp, sig_pha = self.digital_down_conversion(Is, Qs)
-
-        if(timeTrace):
+        if timeTrace:
             return sig_amp, sig_pha, Is, Qs
         else:
             return sig_amp, sig_pha
 
 
     def spectrum(self, segment = 0):
-        '''
+        """
             measure transmission of the tones set
-        '''
+        """
         I, Q = self._acquire_IQ()
         if(len(I.shape) == 2):
             # in segmented mode, take only one segment
@@ -306,13 +300,13 @@ class virtual_MultiplexingReadout(Instrument):
 
 
     def IQ_fft(self, I, Q, samplerate = None):
-        '''
+        """
             calculate fourier transform of the acquired waveform
 
             Input:
                 I, Q       - signal acquired at rate samplerate
                 samplerate - rate at which I and Q were sampled
-        '''
+        """
         if(samplerate is None): samplerate = self.get_adc_clock()
 
         sig_t = np.array(I) + 1j*np.array(Q)
@@ -323,7 +317,7 @@ class virtual_MultiplexingReadout(Instrument):
 
 
     def IQ_decode(self, I, Q, freqs = None, samplerate = None, phase = None):
-        '''
+        """
             calculate fourier transform of the acquired waveform and
             extract amplitude and phase of requested frequency components
 
@@ -335,10 +329,10 @@ class virtual_MultiplexingReadout(Instrument):
 
             Output:
                 currently three vectors: frequency, amplitude, phase of each fft point
-        '''
-        if(samplerate is None): samplerate = self.get_adc_clock()
-        if(freqs is None): freqs = self._tone_freq
-        if(phase is None): phase = self._phase
+        """
+        if samplerate is None: samplerate = self.get_adc_clock()
+        if freqs is None: freqs = self._tone_freq
+        if phase is None: phase = self._phase
         freqs = np.array(freqs)-self._LO
 
         sig_t = (np.array(I) + 1j*np.array(Q))*np.exp(1j*phase)
@@ -385,7 +379,8 @@ class virtual_MultiplexingReadout(Instrument):
         samplerate = self.get_adc_clock()
         lowpass_order = 8
         cut_off_freq = 0.4  # in units of fs/2
-        #lowpass_delay = (lowpass_order / 2) / freqs  # a lowpass of order N delays the signal by N/2 samples (see plot)
+        # lowpass_delay = (lowpass_order / 2) / freqs
+        # a lowpass of order N delays the signal by N/2 samples (see plot)
         lowpass = signal.firwin(lowpass_order, cut_off_freq)  # design the filter
         sig_amp = np.zeros((len(freqs), len(I)))
         sig_pha = np.zeros((len(freqs), len(I)))
@@ -402,12 +397,12 @@ class virtual_MultiplexingReadout(Instrument):
     # +++++ DAC (AWG) settings ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         
     def update(self):
-        '''
+        """
         General method to update all (DAC) settings
         
         create DAC waveforms and update DAC, set DAC (AWG) to run mode (and switch outputs on)
         using IQ.encode and the hidden method self._update_dac()
-        '''
+        """
         # calculate required IF frequencies
         tones = np.array(self._tone_freq)
         ntones = len(tones)
@@ -415,14 +410,15 @@ class virtual_MultiplexingReadout(Instrument):
 
         # perform sanity check
         IFMax = max(abs(IFtones))
-        #print 'IF tones are ', (IFtones/1e6), 'MHz'
-        if(IFMax > self._awg.get_clock()/2):
+        # print 'IF tones are ', (IFtones/1e6), 'MHz'
+        # this is only a quick check as the maximum bandwidth of an ADC card is lower than half of the sampling rate
+        if IFMax > self._awg.get_clock()/2:
             logging.warning(__name__ + ' : maximum IF frequency of %fMHz is above the limit of the DAC.'%(IFMax/1e6))
-        if(IFMax > self._mspec.get_clock()/2):
+        if IFMax > self._mspec.get_clock()/2:
             logging.warning(__name__ + ' : maximum IF frequency of %fMHz is above the limit of the ADC.'%(IFMax/1e6))
 
         # build I and Q waveforms and send them to the DAC
-        if(self._tone_relamp is None):
+        if self._tone_relamp is None:
             amplitudes = 1./ntones*np.ones(ntones)
         elif len(self._tone_relamp) == 1:
             amplitudes = 1./ntones*self._tone_relamp * np.ones(ntones)
@@ -431,7 +427,7 @@ class virtual_MultiplexingReadout(Instrument):
         else:
             print "tone_relamp shape does not fit number of multiplexed frequencies. Setting tone_relamp to 1"
             amplitudes = 1./ntones*np.ones(ntones)
-        if(self._tone_pha is None):
+        if self._tone_pha is None:
             phases = np.zeros(ntones)
         elif len(self._tone_pha) == 1:
             phases = self._tone_pha * np.ones(ntones)
@@ -441,25 +437,27 @@ class virtual_MultiplexingReadout(Instrument):
             phases = np.zeros(ntones)
         I, Q,m1 = self.IQ_encode(self._dac_duration, IFtones, [amplitudes, amplitudes], [phases, phases], self._dac_clock, self._dac_attack, self._dac_decay)
         self._update_dac([self._dac_channel_I, self._dac_channel_Q], [I, Q],marker1 = [m1,m1],marker2 = [m1,m1])
-        
-        
+      
     def _update_dac(self, channels, samples, marker1 = None, marker2 = None, drive = None, path = None):
-        '''
+        """
             update waveform data on the awg
 
             Input:
                 samples - matrix of samples to put on awg channels
                 channels - channels to install them on
-        '''
+        """
+        if self._awg is None:
+            logging.warning("You haven't provided a readout awg so I can't load a pulse in. "
+                            "You have to do it manually!")
+            return
         samples = np.array(samples)
-        if(marker1 is None):
+        if marker1 is None:
             marker1 = np.zeros(samples.shape)
             marker1[:,1:10]=1
-        if(marker2 is None):
+        if marker2 is None:
             marker2 = np.zeros(samples.shape)
             marker2[:,1:10]=1
 
-            
         if "GHzDAC" == self._awg.get_type():   #Martinis board
             drive = 'c:'
             path = '\\waveforms'
@@ -479,25 +477,25 @@ class virtual_MultiplexingReadout(Instrument):
         elif "Tabor_WX1284C" == self._awg.get_type():   #Tabor AWG
             #self._awg.preset_readout()
             try:
-                self._awg.set_clock(self._sample.readout_clock)
+                self._awg.set_clock(self.sample.readout_clock)
             except:
                 logging.warning('Clock and amplitude settings not written.')
             self._awg.wfm_send2(samples[0],samples[1],m1 = marker1[0],m2 = marker2[0],seg=1)
             self._awg.define_sequence(1,1)
         elif "Tektronix" in self._awg.get_type():   #Tektronix AWG
             try:
-                self._awg.set_clock(self._sample.readout_clock)
+                self._awg.set_clock(self.sample.readout_clock)
                 self._awg.set_ch1_amplitude(self._tone_amp)
                 self._awg.set_ch2_amplitude(self._tone_amp)
             except:
                 logging.warning('Clock and amplitude settings not written.')
-            if self._sample:
-                lawg.update_sequence([1],lambda t, sample: [samples[channels[0]],samples[channels[1]]], self._sample, awg = self._awg, marker = [[marker1,marker2],[marker1,marker2]], show_progress_bar=False)
+            if self.sample:
+                lawg.update_sequence([1],lambda t, sample: [samples[channels[0]],samples[channels[1]]], self.sample, awg = self._awg, marker = [[marker1,marker2],[marker1,marker2]], show_progress_bar=False)
             else:
                 logging.error('Please provide sample object in instantiating readout when using Tektronix AWG for readout.')
 
     def IQ_encode(self, duration, frequencies, amplitudes = None, phases = None, samplerate = None, attack = 2e-9, decay = 2e-9):
-        '''
+        """
             provide I and Q data that will create a single side band multitone signal
             --> generate sin and cos waveforms for I and Q with IF frequency
 
@@ -510,7 +508,7 @@ class virtual_MultiplexingReadout(Instrument):
 
             Output:
                 two vectors containing samples for I and Q
-        '''
+        """
 
         if(samplerate is None): samplerate = self._dac_clock
         nSamples = int(samplerate*duration)
@@ -549,7 +547,7 @@ class virtual_MultiplexingReadout(Instrument):
         m1[1:len(I)-1] = 1
         if self.dac_delay != 0:
             if self.dac_delay <= -1:
-                dac_delay = self._sample.exc_T - self._sample.overlap + self._sample.readout_delay
+                dac_delay = self.sample.exc_T - self.sample.overlap + self.sample.readout_delay
             else:
                 dac_delay = self.dac_delay
             I = np.append(np.zeros(int(dac_delay*samplerate/16)*16),I)
