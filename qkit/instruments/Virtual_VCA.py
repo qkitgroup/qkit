@@ -1,17 +1,8 @@
 # filename: Virtual_VCA.py
-# Tim Wolz <tim.wolz@student.kit.edu>, 5/2017
+# Tim Wolz <tim.wolz@.kit.edu>, 5/2017 updated 09/2018
 
-# virtual VCA instrument to be used as a wrapper for the DELFT tunnel electronics driver IVVI
-# use: 
-#  - set current range of downstream current source
-#  - current unit is mA, independent of the specified and set range
-
-# import and usage
-"""
-IVVI = qkit.instruments.create('IVVI', 'IVVIDIG_main', address='COM6') #COM6 corresponds to adapter D in the UFO setup
-vca = qkit.instruments.create('vca', 'Virtual_VCA', dac_port = 2, freqrange= '0408')   #chosen dac output port of IVVI (use only positive voltage range, 0-4V), freqrange either '0408' or '0812'
-vca.set_attenuation(15) # in dB
-"""
+# virtual VCA instrument to be used as a wrapper for several DACs
+# so far the IVVI and DC_DAC are implemented
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,70 +18,82 @@ vca.set_attenuation(15) # in dB
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-import qkit
 from qkit.core.instrument_base import Instrument
 import types
-import logging
 import numpy as np
 from scipy import interpolate
-
-if 'IVVI' not in qkit.instruments.get_instrument_names():
-    logging.error('Instrument IVVI not found.')
-    raise ImportError
-else:
-    IVVI = qkit.instruments.get('IVVI')
 
 volts = np.linspace(0, 8, 17)
 attenuation0408 = [0, 1.11278882e+00, 3.73766693e+00, 7.14756693e+00,
                    1.00470419e+01, 1.30124250e+01, 1.53641026e+01, 1.76756578e+01,
                    2.00411519e+01, 2.22864997e+01, 2.45740138e+01, 2.65537780e+01,
                    2.84989597e+01, 3.03834811e+01, 3.21356836e+01, 3.40573527e+01,
-                   3.57549752e+01]  # These are measurement values.
-# ToDo include measurment values of 0812 vca for interpolation    
+                   3.57549752e+01]  # These are measurement values, insertion loss not considered
+# ToDo include measurment values of 0812 vca for interpolation
 attenuation0812 = []
 
 
 class Virtual_VCA(Instrument):
-
-    def __init__(self, name, dac_port, freqrange):
+    """
+    Wrapper for the VCA that allows to set the attenuation without knowing the underlying DAC mechanisms.
+    """
+    def __init__(self, name, dac_device, dac_port, freqrange):
         """
-        init virtual instrument object
-        Inputs:
-            - name: qkit instrument name
-            - dac_port: chosen dac output
-            - freqange: frequency range of the vca as string either '0408' or '0812'
+        inits the VCA (virtual instrument)
+        :param name: qkit instrument name
+        :param dac_device: either IVVI (must be set to positive values) or DC_DAC
+        :param dac_port: chosen output port / channel of your DAC-device
+        :param freqrange: frequency range of the vca as string either '0408' or '0812'
         """
         Instrument.__init__(self, name, tags=['virtual'])
         if freqrange is '0408':
             self.volts_interpol = interpolate.interp1d(attenuation0408, volts)
             self.att_interpol = interpolate.interp1d(volts, attenuation0408)
-        '''
-        ToDo:
-        elif freqrange is '0812':
-            self.volts_interpol=interpolate.interp1d(attenuation0812, volts)
-            self.att_interpol=interpolate.interp1d(volts, attenuation0812)
-        '''
-        self.dac_port = dac_port
+
+        # ToDo:
+        # elif freqrange is '0812':
+        #    self.volts_interpol=interpolate.interp1d(attenuation0812, volts)
+        #    self.att_interpol=interpolate.interp1d(volts, attenuation0812)
+
         self.add_parameter('attenuation', type=types.FloatType, flags=Instrument.FLAG_GETSET, units='dB', minval=0,
                            maxval=30)
+        self._dac = _Dac(dac_device, dac_port)
 
     def do_set_attenuation(self, att):
-        '''
+        """
         sets the attenuation of the vca
-        Input: att in dB
-        '''
-        mV = self.volts_interpol(att) * 1000 / 2  # 2 bc of amplifier
-        IVVI.set_dac(self.dac_port, mV, dacrange=(0, 4000))
+        :param att in dB (float)
+        """
+        voltage = self.volts_interpol(att) / 2  # 2 bc of amplifier
+        self._dac.set_dac_voltage(voltage)
 
     def do_get_attenuation(self):
-        '''
+        """
         returns the attenuation of the vca
-        '''
-        mv = IVVI.get_dac(self.dac_port)
-        try:
-            return self.att_interpol(mv/1000*2)
-        except IndexError as detail:
-            logging.error('Electronics might be disconnected.')
-            print detail
-        except Exception as detail:
-            logging.error(detail)
+        """
+        voltage = self._dac.get_dac_voltage()
+        return self.att_interpol(voltage*2)
+
+
+class _Dac:
+    """
+    wrapper class so that Virtual_VCA works with several different Dacs.
+    Please just append other devices here.
+    """
+    def __init__(self, dac_device, dac_port):
+        self.dac_device = dac_device
+        self.dac_port = dac_port
+
+    def set_dac_voltage(self, voltage):
+        if self.dac_device.get_type()[0:4] == 'IVVI':
+            mv = voltage * 1000 / 2
+            self.dac_device.set_dac(self.dac_port, mv, dacrange=(0, 4000))
+        elif self.dac_device.get_type()[0:6] == 'DC_DAC':
+            self.dac_device.set_voltage(voltage/2, self.dac_port)
+
+    def get_dac_voltage(self):
+        if self.dac_device.get_type()[0:4] == 'IVVI':
+            voltage = self.dac_device(self.dac_port) / 1000
+        elif self.dac_device.get_type()[0:6] == 'DC_DAC':
+            voltage = self.dac_device.set_voltage(self.dac_port)
+        return voltage
