@@ -1,3 +1,21 @@
+# load_awg.py
+# adapted from the old load_awg, started by M. Jerger and adapted by AS, JB
+# and now adjusted for the virutal_awg by TW
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
+# import qkit  # ToDO: flow comments?
 import numpy as np
 import logging
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
@@ -34,8 +52,6 @@ def _adjust_wfs_for_tabor(wf1, wf2, ro_index, chpair, segment, sample):
         wf1 = np.append(wf1, np.zeros(divisor - end_zeros))
         wf2 = np.append(wf2, np.zeros(divisor - end_zeros))
         marker1 = np.append(marker1, np.zeros(divisor - end_zeros))
-    sample.awg.wfm_send2(wf1, wf2, marker1, marker1, chpair * 2 - 1, segment + 1)
-    print wf1
     sample.awg.wfm_send2(wf1, wf2, marker1, marker1, chpair * 2 - 1, segment + 1)
 
 
