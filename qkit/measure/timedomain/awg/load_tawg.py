@@ -1,22 +1,3 @@
-# load_awg.py
-# adapted from the old load_awg, started by M. Jerger and adapted by AS, JB
-# and now adjusted for the virutal_awg by TW
-
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-# import qkit  # ToDO: flow comments?
 import numpy as np
 import logging
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
@@ -29,7 +10,7 @@ def _adjust_wfs_for_tabor(wf1, wf2, ro_index, chpair, segment, sample):
     Tabor awg
     """
     divisor = 16
-    readout_ind = int(ro_index[segment] + int(sample.clock * sample.readout_delay))  # TODO:check if the sign is correct
+    readout_ind = int(ro_index[segment] + int(sample.clock * sample.readout_delay))
     # Adjust length to fit marker at arbitrary positions
     if readout_ind + 10 > len(wf1):
         marker1 = np.zeros(readout_ind + 10)
@@ -47,12 +28,14 @@ def _adjust_wfs_for_tabor(wf1, wf2, ro_index, chpair, segment, sample):
     # for single channel pulses
     if len(wf1) > len(wf2):
         wf2 = np.append(wf2, np.zeros(len(wf1)-len(wf2)))
-    begin_zeros = len(wf1) % divisor
+    end_zeros = len(wf1) % divisor
     # minimum waveform is 192 points, handled by the Tabor driver
-    if begin_zeros != 0:
-        wf1 = np.append(np.zeros(divisor - begin_zeros), wf1)
-        wf2 = np.append(np.zeros(divisor - begin_zeros), wf2)
-        marker1 = np.append(np.zeros(divisor - begin_zeros), marker1)
+    if end_zeros != 0:
+        wf1 = np.append(wf1, np.zeros(divisor - end_zeros))
+        wf2 = np.append(wf2, np.zeros(divisor - end_zeros))
+        marker1 = np.append(marker1, np.zeros(divisor - end_zeros))
+    sample.awg.wfm_send2(wf1, wf2, marker1, marker1, chpair * 2 - 1, segment + 1)
+    print wf1
     sample.awg.wfm_send2(wf1, wf2, marker1, marker1, chpair * 2 - 1, segment + 1)
 
 
@@ -90,17 +73,7 @@ def load_tabor(channel_sequences, ro_index, sample, reset=True, show_progress_ba
     #qkit.flow.start()
 
     if reset:
-        awg.set('p%i_runmode' % 1, 'SEQ')
-        awg.define_sequence(1, len(ro_index))
-        if number_of_channels > 2:
-            awg.set('p%i_runmode' % 2, 'SEQ')
-            awg.define_sequence(3, len(ro_index))
-        # amplitude settings of analog output
-        awg.set_ch1_offset(0)
-        awg.set_ch2_offset(0)
-        awg.set_ch1_amplitude(2)
-        awg.set_ch2_amplitude(2)
-
+        reset(awg, number_of_channels, ro_index)
     # Loading the waveforms into the AWG, differentiating between all cases
     if show_progress_bar:
         p = Progress_Bar(len(ro_index), 'Load AWG')
@@ -166,10 +139,36 @@ def load_tabor(channel_sequences, ro_index, sample, reset=True, show_progress_ba
 
     gc.collect()
 
-    if reset:
-        # enable channels
-        # awg.preset()
-        awg.set_ch1_status(True)
-        awg.set_ch2_status(True)
-    #qkit.flow.end()
-    return np.all([awg.get('ch%i_status' % i) for i in [1, 2]])
+    if number_of_channels <= 2:
+        num_channels = [1, 2]
+    else:
+        num_channels = [1, 2, 3, 4]
+    return np.all([awg.get('ch%i_status' % i) for i in num_channels])
+
+
+def reset(awg, num_channels, ro_index):
+    awg.set('p%i_runmode' % 1, 'SEQ')
+    awg.define_sequence(1, len(ro_index))
+    awg.set_ch1_status(True)
+    awg.set_ch2_status(True)
+    awg.set_ch1_offset(0)
+    awg.set_ch2_offset(0)
+    awg.set_ch1_amplitude(2)
+    awg.set_ch2_amplitude(2)
+    awg.set_ch1_marker_output(True)
+    awg.set_ch1_marker_high(1)
+    awg.set_ch2_marker_output(True)
+    awg.set_ch2_marker_high(1)
+    if num_channels > 2:
+        awg.set('p%i_runmode' % 2, 'SEQ')
+        awg.define_sequence(3, len(ro_index))
+        awg.set_ch3_status(True)
+        awg.set_ch4_status(True)
+        awg.set_ch3_offset(0)
+        awg.set_ch4_offset(0)
+        awg.set_ch3_amplitude(2)
+        awg.set_ch4_amplitude(2)
+        awg.set_ch3_marker_output(True)
+        awg.set_ch3_marker_high(1)
+        awg.set_ch4_marker_output(True)
+        awg.set_ch4_marker_high(1)
