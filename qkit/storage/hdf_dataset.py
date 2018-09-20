@@ -132,7 +132,7 @@ class hdf_dataset(object):
         if self._next_matrix:
             self._next_matrix = False
         if self._save_timestamp:
-            self.hf.append(self.ds_ts,numpy.array(time.time(), reset = reset))
+            self.hf.append(self.ds_ts, numpy.array(time.time()), reset=reset)
 
         self.hf.flush()
             
