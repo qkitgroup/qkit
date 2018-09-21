@@ -284,45 +284,62 @@ class Resonator(object):
         '''
         creates the datasets for the circle fit in the hdf-file
         '''
-        self._result_keys_notch = {"Qi_dia_corr":'', "Qi_no_corr":'', "absQc":'', "Qc_dia_corr":'', "Ql":'', "fr":'', "theta0":'', "phi0":'', "phi0_err":'', "Ql_err":'', "absQc_err":'', "fr_err":'', "chi_square":'', "Qi_no_corr_err":'', "Qi_dia_corr_err":''}
-        self._result_keys_reflection = {"Qi":'',"Qc":'',"Ql":'',"fr":'',"theta0":'',"Ql_err":'', "Qc_err":'', "fr_err":'',"chi_square":'',"Qi_err":''}
+        self._result_keys_notch = {"Qi_dia_corr": '', "Qi_no_corr": '', "absQc": '', "Qc_dia_corr": '', "Ql": '',
+                                   "fr": '', "theta0": '', "phi0": '', "phi0_err": '', "Ql_err": '', "absQc_err": '',
+                                   "fr_err": '', "chi_square": '', "Qi_no_corr_err": '', "Qi_dia_corr_err": ''}
+        self._result_keys_reflection = {"Qi": '', "Qc": '', "Ql": '', "fr": '', "theta0": '', "Ql_err": '',
+                                        "Qc_err": '', "fr_err": '', "chi_square": '', "Qi_err": ''}
         self._results = {}
-        
+
         if self._circle_notch:
             self._result_keys = self._result_keys_notch
 
         if self._circle_reflection:
             self._result_keys = self._result_keys_reflection
-        
-        if self._ds_type == ds_types['vector']: # data from measure_1d
-            self._data_real_gen = self._hf.add_value_vector('data_real_gen', folder = 'analysis', x = self._frequency_co, unit='')
-            self._data_imag_gen = self._hf.add_value_vector('data_imag_gen', folder = 'analysis', x = self._frequency_co, unit='')
-    
-            self._circ_amp_gen = self._hf.add_value_vector('circ_amp_gen', folder = 'analysis', x = self._frequency_co, unit = 'arb. unit')
-            self._circ_pha_gen = self._hf.add_value_vector('circ_pha_gen', folder = 'analysis', x = self._frequency_co, unit='rad')
-            self._circ_real_gen = self._hf.add_value_vector('circ_real_gen', folder = 'analysis', x = self._frequency_co, unit='')
-            self._circ_imag_gen = self._hf.add_value_vector('circ_imag_gen', folder = 'analysis', x = self._frequency_co, unit='')
-            
-            for key in self._result_keys.iterkeys():
-               self._results[str(key)] = self._hf.add_value_vector('circ_'+str(key), folder = 'analysis', unit ='')
-        
-        if self._ds_type == ds_types['matrix']: # data from measure_2d
-            self._data_real_gen = self._hf.add_value_matrix('data_real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
-            self._data_imag_gen = self._hf.add_value_matrix('data_imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
-    
-            self._circ_amp_gen = self._hf.add_value_matrix('circ_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'arb. unit')
-            self._circ_pha_gen = self._hf.add_value_matrix('circ_pha_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='rad')
-            self._circ_real_gen = self._hf.add_value_matrix('circ_real_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
-            self._circ_imag_gen = self._hf.add_value_matrix('circ_imag_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit='')
+
+        if self._ds_type == ds_types['vector']:  # data from measure_1d
+            self._data_real_gen = self._hf.add_value_vector('data_real_gen', self._frequency_co, folder='analysis',
+                                                            unit='')
+            self._data_imag_gen = self._hf.add_value_vector('data_imag_gen', self._frequency_co, folder='analysis',
+                                                            unit='')
+
+            self._circ_amp_gen = self._hf.add_value_vector('circ_amp_gen', self._frequency_co, folder='analysis',
+                                                           unit='arb. unit')
+            self._circ_pha_gen = self._hf.add_value_vector('circ_pha_gen', self._frequency_co, folder='analysis',
+                                                           unit='rad')
+            self._circ_real_gen = self._hf.add_value_vector('circ_real_gen', self._frequency_co, folder='analysis',
+                                                            unit='')
+            self._circ_imag_gen = self._hf.add_value_vector('circ_imag_gen', self._frequency_co, folder='analysis',
+                                                            unit='')
 
             for key in self._result_keys.iterkeys():
-               self._results[str(key)] = self._hf.add_value_vector('circ_'+str(key), folder = 'analysis', x = self._x_co, unit ='')
+                self._results[str(key)] = self._hf.add_coordinate('circ_' + str(key), folder='analysis', unit='')
 
-        circ_view_amp = self._hf.add_view('circ_amp', x = self._y_co, y = self._ds_amp)
+        if self._ds_type == ds_types['matrix']:  # data from measure_2d
+            self._data_real_gen = self._hf.add_value_matrix('data_real_gen', self._x_co, self._frequency_co,
+                                                            folder='analysis', unit='')
+            self._data_imag_gen = self._hf.add_value_matrix('data_imag_gen', self._x_co, self._frequency_co,
+                                                            folder='analysis', unit='')
+
+            self._circ_amp_gen = self._hf.add_value_matrix('circ_amp_gen', self._x_co, self._frequency_co,
+                                                           folder='analysis', unit='arb. unit')
+            self._circ_pha_gen = self._hf.add_value_matrix('circ_pha_gen', self._x_co, self._frequency_co,
+                                                           folder='analysis', unit='rad')
+            self._circ_real_gen = self._hf.add_value_matrix('circ_real_gen', self._x_co, self._frequency_co,
+                                                            folder='analysis', unit='')
+            self._circ_imag_gen = self._hf.add_value_matrix('circ_imag_gen', self._x_co, self._frequency_co,
+                                                            folder='analysis', unit='')
+
+            for key in self._result_keys.iterkeys():
+                self._results[str(key)] = self._hf.add_value_vector('circ_' + str(key), folder='analysis', x=self._x_co,
+                                                                    unit='')
+
+        circ_view_amp = self._hf.add_view('circ_amp', x=self._y_co, y=self._ds_amp)
         circ_view_amp.add(x=self._frequency_co, y=self._circ_amp_gen)
-        circ_view_pha = self._hf.add_view('circ_pha', x = self._y_co, y = self._ds_pha)
+        circ_view_pha = self._hf.add_view('circ_pha', x=self._y_co, y=self._ds_pha)
         circ_view_pha.add(x=self._frequency_co, y=self._circ_pha_gen)
-        circ_view_iq = self._hf.add_view('circ_IQ', x = self._circ_real_gen, y = self._circ_imag_gen,view_params={'aspect':1.0})
+        circ_view_iq = self._hf.add_view('circ_IQ', x=self._circ_real_gen, y=self._circ_imag_gen,
+                                         view_params={'aspect': 1.0})
         circ_view_iq.add(x=self._data_real_gen, y=self._data_imag_gen)
 
     def _get_data_circle(self):
