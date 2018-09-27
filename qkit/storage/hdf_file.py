@@ -2,7 +2,9 @@
 """
 Created 2015
 
-@author: hrotzing
+@author: H. Rotzinger, MP Pfirrmann, M Wildermuth
+
+
 """
 import logging
 import h5py
@@ -206,7 +208,7 @@ class H5_file(object):
                 else:                               
                     ## list of entries               
                     if reset:
-                        ## here the data gets not appended but overwritten!   
+                        ## here the data gets not appended but overwritten!
                         ds.resize((len(data),))
                         ds[:] = data
                     else:
@@ -236,10 +238,13 @@ class H5_file(object):
             else: 
                 ## list of entries, sort the data 'slice by slice'
                 dim0 = ds.shape[0]
-                fill[0] += 1
                 fill[1] = len(data)
-                ds.resize((dim0+1,len(data)))
-                ds[dim0,:] = data
+                if reset:
+                    ds[dim0-1,:] = data  # reset overwrites last data series (last row matrix)
+                else:  # standard reset = False
+                    fill[0] += 1
+                    ds.resize((dim0+1,len(data)))
+                    ds[dim0,:] = data
             ds.attrs.modify('fill', fill)
 
         if len(ds.shape) == 3:      
@@ -255,10 +260,13 @@ class H5_file(object):
             if dim0 == 1:
                 fill[0] = 1
                 dim1 += 1
-            ds.resize((dim0,dim1,len(data)))
-            fill[1] += 1
+            if reset:
+                ds[fill[0]-1,fill[1]-2] = data  # reset overwrites last data series
+            else:  # standard reset = False
+                ds.resize((dim0,dim1,len(data)))
+                fill[1] += 1
+                ds[fill[0]-1,fill[1]-1] = data
             ds.attrs.modify("fill", fill)
-            ds[fill[0]-1,fill[1]-1] = data
 
         self.flush()
         
