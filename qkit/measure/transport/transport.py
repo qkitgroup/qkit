@@ -55,6 +55,7 @@ class transport(object):
         self._measurement_object = Measurement()
         self._measurement_object.measurement_type = 'transport'
         self._web_visible = True
+        self._expname = None
         self._comment = None
         # measurement services
         self.progress_bar = True
@@ -178,10 +179,10 @@ class transport(object):
         """
         # x-vec
         if np.iterable(x_vec):
-            for val in x_vec:
-                if not str(val).isdigit():
-                    raise TypeError('{:s}: Cannot set {!s} as x-vector: {!s} is no number'.format(__name__, x_vec, val))
-            self._x_vec = x_vec
+            try:
+                self._x_vec = np.array(x_vec, dtype=float)
+            except Exception as e:
+                raise type(e)('{!s}: Cannot set {!s} as x-vector'.format(__name__, x_vec, e))
         else:
             raise TypeError('{:s}: Cannot set {!s} as x-vector: iterable object needed'.format(__name__, x_vec))
         # x-coordname
@@ -683,7 +684,7 @@ class transport(object):
         self._prepare_measurement_file()
         ''' opens qviewkit to plot measurement '''
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath())  # , datasets=['{:s}_{:d}'.format(self._IV_modes[not(self._bias)].lower(), i) for i in range(self.sweeps.get_nos())])
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['../views/IV'])  # , datasets=['{:s}_{:d}'.format(self._IV_modes[not(self._bias)].lower(), i) for i in range(self.sweeps.get_nos())])
         ''' progress bar '''
         if self.progress_bar:
             num_its = {0: len(self._x_vec),
