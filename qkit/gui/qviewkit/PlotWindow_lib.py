@@ -404,6 +404,9 @@ def _display_2D_data(self,graphicsView):
         
         fill_x = dss[2].shape[0]
         fill_y = dss[2].shape[1]        
+        
+        self.TraceXValue.setText(self._getXValueFromTraceNum(self.ds,self.TraceXNum))
+        self.TraceYValue.setText(self._getYValueFromTraceNum(self.ds,self.TraceYNum))
     if self.ds_type == ds_types['box']:
         """
         The box ds-type can be plotted from 3 different "viewing directions" (PlotType). Depending on its 

@@ -26,12 +26,13 @@ if not in_pyqt5:
         sys.exit(-1)
 
 import pyqtgraph as pg
+import numpy as np
 
 import qkit
 from qkit.gui.qviewkit.plot_view import Ui_Form
 from qkit.storage.hdf_constants import ds_types, view_types
 from qkit.gui.qviewkit.PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
-from qkit.gui.qviewkit.PlotWindow_lib import _get_ds, _get_ds_url, _get_name
+from qkit.gui.qviewkit.PlotWindow_lib import _get_ds, _get_ds_url, _get_name, _get_unit
 
 class PlotWindow(QWidget,Ui_Form):
     """PlotWindow class organizes the correct display of data in a h5 file.
@@ -300,6 +301,8 @@ class PlotWindow(QWidget,Ui_Form):
         self.TraceYSelector.setEnabled(False)
         self.TraceYSelector.setRange(-1*shape[1],shape[1]-1)
         self.TraceYNum = -1
+        
+        self.PlotTypeSelector.setCurrentIndex(0)
 
     def _defaultBox(self):
         shape = self.ds.shape
@@ -505,37 +508,25 @@ class PlotWindow(QWidget,Ui_Form):
 
 
     def _getXValueFromTraceNum(self,ds,num):
-        x0 = ds.attrs.get("x0",0)
-        dx = ds.attrs.get("dx",1)
-        unit = ds.attrs.get("x_unit","")
-        max_len = ds.shape[0]
-        if num>-1:
-            xval = x0+num*dx
-        else:
-            xval = x0+(max_len+num)*dx
-        return str(xval)+" "+str(unit)
+        x_ds = _get_ds(ds, ds.attrs.get('x_ds_url'))
+        x_data = np.array(x_ds)
+        xunit = _get_unit(x_ds)
+        xval = x_data[num]
+        return str(xval)+" "+str(xunit)
 
     def _getYValueFromTraceNum(self,ds,num):
-        y0 = ds.attrs.get("y0",0)
-        dy = ds.attrs.get("dy",1)
-        unit = ds.attrs.get("y_unit","")
-        max_len = ds.shape[1]
-        if num>-1:
-            yval = y0+num*dy
-        else:
-            yval = y0+(max_len+num)*dy
-        return str(yval)+" "+str(unit)
+        y_ds = _get_ds(ds, ds.attrs.get('y_ds_url'))
+        y_data = np.array(y_ds)
+        yunit = _get_unit(y_ds)
+        yval = y_data[num]
+        return str(yval)+" "+str(yunit)
 
     def _getZValueFromTraceNum(self,ds,num):
-        z0 = ds.attrs.get("z0",0)
-        dz = ds.attrs.get("dz",1)
-        unit = ds.attrs.get("z_unit","")
-        max_len = ds.shape[2]
-        if num>-1:
-            zval = z0+num*dz
-        else:
-            zval = z0+(max_len+num)*dz
-        return str(zval)+" "+str(unit)
+        z_ds = _get_ds(ds, ds.attrs.get('z_ds_url'))
+        z_data = np.array(z_ds)
+        zunit = _get_unit(z_ds)
+        zval = z_data[num]
+        return str(zval)+" "+str(zunit)
 
     def addQvkMenu(self,menu):        
         """Add custom entry in the right-click menu.
