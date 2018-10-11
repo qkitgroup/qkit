@@ -365,7 +365,7 @@ class fid(file_system_service):
                 df = self.df.copy()[self.df['rating']>0]
             self.grid = qd.show_grid(df[rows], show_toolbar=False, grid_options={'enableColumnReorder': True})
             self.grid.observe(self._on_row_selected, names=['_selected_rows'])
-            self.grid.observe(self._grid_observer, names=['_df'])
+            self.grid.observe(self._grid_observer, names=['_selected_rows']) #Quick fix to also work with newer versions of qgrid. Should be changed to the .on() event mechanism at some point, but this requires newer qgrid version.
             return self.grid
         else:
             return self.df[self.df['rating']>0]
