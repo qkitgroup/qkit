@@ -243,10 +243,10 @@ class transport(object):
         """
         # y-vec
         if np.iterable(y_vec):
-            for val in y_vec:
-                if not str(val).isdigit():
-                    raise TypeError('{:s}: Cannot set {!s} as y-vector: {!s} is no number'.format(__name__, y_vec, val))
-            self._y_vec = y_vec
+            try:
+                self._y_vec = np.array(y_vec, dtype=float)
+            except Exception as e:
+                raise type(e)('{!s}: Cannot set {!s} as y-vector'.format(__name__, y_vec, e))
         else:
             raise TypeError('{:s}: Cannot set {!s} as y-vector: iterable object needed'.format(__name__, y_vec))
         # y-coordname
@@ -684,7 +684,7 @@ class transport(object):
         self._prepare_measurement_file()
         ''' opens qviewkit to plot measurement '''
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['../views/IV'])  # , datasets=['{:s}_{:d}'.format(self._IV_modes[not(self._bias)].lower(), i) for i in range(self.sweeps.get_nos())])
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['views/IV'])  # opens IV-view by default
         ''' progress bar '''
         if self.progress_bar:
             num_its = {0: len(self._x_vec),
