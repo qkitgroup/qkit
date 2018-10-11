@@ -509,14 +509,20 @@ class PlotWindow(QWidget,Ui_Form):
 
     def _getXValueFromTraceNum(self,ds,num):
         x_ds = _get_ds(ds, ds.attrs.get('x_ds_url'))
-        x_data = np.array(x_ds)[:ds.shape[0]]
+        if ds.attrs.get('ds_type') == ds_types['box']:
+            x_data = np.array(x_ds)[:ds.attrs.get('fill')[0]]
+        else:
+            x_data = np.array(x_ds)[:ds.shape[0]]
         xunit = _get_unit(x_ds)
         xval = x_data[num]
         return str(xval)+" "+str(xunit)
 
     def _getYValueFromTraceNum(self,ds,num):
         y_ds = _get_ds(ds, ds.attrs.get('y_ds_url'))
-        y_data = np.array(y_ds)[:ds.shape[1]]
+        if ds.attrs.get('ds_type') == ds_types['box']:
+            y_data = np.array(y_ds)[:ds.attrs.get('fill')[1]]
+        else:
+            y_data = np.array(y_ds)[:ds.shape[1]]
         yunit = _get_unit(y_ds)
         yval = y_data[num]
         return str(yval)+" "+str(yunit)
