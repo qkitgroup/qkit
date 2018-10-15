@@ -191,8 +191,11 @@ class Caen_FAST_PS(Instrument):
         '''
         logging.debug(__name__ + ' : set setcurrent to %s' % setcurrent)
         recv = self._ask('MWI:%s' %setcurrent)
-        if recv == self._ak_str: return True
-        else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
+        if recv == self._ak_str:
+            current = self.get_current()  # stores the actual current value in instrument.parameters
+            return True
+        else:
+            return 'ERROR: ' + error_msg[recv.split(':')[1]]
 
     def do_get_status(self):
         '''
@@ -358,8 +361,10 @@ class Caen_FAST_PS(Instrument):
                 while not self.ramp_finished():
                     time.sleep(0.1)
                 time.sleep(0.1)
+            current = self.get_current()  # stores the actual current value in instrument.parameters
             return True
-        else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
+        else:
+            return 'ERROR: ' + error_msg[recv.split(':')[1]]
     
     def ramp_voltage(self, voltage, ramp_rate = False, wait = True):
         '''
