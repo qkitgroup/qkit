@@ -121,13 +121,13 @@ class TdChannel(object):
         """
         Returns a dictionary featuring all important channel attributes:
             sequence_i: list of all pulses of sequnces number i (counting from 0)
-            time_i: time values for which sequence is called
+            par_i: parameter values for which sequence is called (usally this parameter is a time, e.g. separating two pulses)
             value of the interleave attribute
         """
         seq_dict = {}
         for i in range(len(self._sequences)):
             seq_dict["sequence_%i"%i] = self._sequences[i].get_pulses()
-            seq_dict["time_%i"%i] = self._times[i]
+            seq_dict["par_%i"%i] = np.concatenate(self._times[i])
         if seq_dict:
             seq_dict["interleave"] = self._interleave
         return seq_dict
@@ -155,7 +155,7 @@ class TdChannel(object):
         self._interleave = True
         return True
     
-    def plot(self, x_unit = "ns"): 
+    def plot(self, show_quadrature = "", x_unit = "ns"): 
         """
         Plots the sequences stored in channel.
         A slider provides the option to sweep through different time values.
@@ -164,8 +164,16 @@ class TdChannel(object):
         Args:
             x_unit: unit of the x-axis in the plot. Options are "s", "ms", "us", "ns".
         """
-        sequences, readout_indices = self._get_sequences()
+        show_iq = False
+        if show_quadrature in ["I", "Q"]:
+            show_iq = True
+        sequences, readout_indices = self._get_sequences(IQ_mixing=show_iq)
         seq_max = len(readout_indices) - 1
+        if show_quadrature is "I":
+            sequences = [np.real(seq) for seq in sequences]
+        elif show_quadrature is "Q":
+            sequences = [np.imag(seq) for seq in sequences]
+        
         bounds = self._get_boundaries(sequences, readout_indices, x_unit)
         
         interact(lambda sequence: self._plot_sequence(sequences[sequence], readout_indices[sequence], x_unit, bounds), 
@@ -380,21 +388,34 @@ class VirtualAWG(object):
                 chan.set_interleave(value)
         return True
 
-    def plot(self, x_unit = "ns"): 
+    def plot(self, show_quadrature = "", x_unit = "ns"): 
         """
         Plots the sequences stored in all channels.
         A slider provides the option to sweep through the sequences.
         Readout pulse is fixed at t = 0, where is t>0 before the readout tone.
+        By default, the amplitude of each sequence is plotted.
+        This may be changed by setting the show_quadrature option to either "I" or "Q".
 
         Args:
-            x_unit: unit of the x-axis in the plot (options are "s", "ms", "us", "ns").
+            show_quadrature: set to "I" or "Q" if you want to display either quadrature instead of the amplitude
+            x_unit:          unit of the x-axis in the plot (options are "s", "ms", "us", "ns").
         """
         seqs = []
         ro_inds = []
         seq_max = 0
         xmin, xmax, ymin, ymax = 0, 0, 0, 0
+
+        show_iq = False
+        if show_quadrature in ["I", "Q"]:
+            show_iq = True
+        
         for chan in self.channels[1:]:
-            sequences, readout_indices = chan._get_sequences()
+            sequences, readout_indices = chan._get_sequences(IQ_mixing=show_iq)
+            if show_quadrature is "I":
+                sequences = [np.real(seq) for seq in sequences]
+            elif show_quadrature is "Q":
+                sequences = [np.imag(seq) for seq in sequences]
+            
             seq_max = max(seq_max, len(readout_indices) - 1)
             seqs.append(sequences)
             ro_inds.append(readout_indices)
@@ -415,10 +436,11 @@ class VirtualAWG(object):
         The actual plotting of the sequences happens here.
         
         Args:
-            seqs:    list of sequences to be plotted (i.e. one list of sequence for each channel)
-            ro_inds: indices of the readout
-            x_unit:  x_unit for the time axis
-            bounds:  boundaries of the plot (xmin, xmax, ymin, ymax)
+            seqs:            list of sequences to be plotted (i.e. one list of sequence for each channel)
+            ro_inds:         indices of the readout
+            x_unit:          x_unit for the time axis
+            bounds:          boundaries of the plot (xmin, xmax, ymin, ymax)
+            show_quadrature: set to "I" or "Q" if you want to display either quadrature instead of the amplitude
         """
         fig = plt.figure(figsize=(18,6))
         xmin, xmax, ymin, ymax = bounds
