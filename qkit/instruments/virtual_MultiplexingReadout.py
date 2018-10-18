@@ -104,13 +104,12 @@ class virtual_MultiplexingReadout(Instrument):
                 logging.error('Specified AWG unknown. Aborting.')
                 raise ImportError
             #default settings
+            
             try:
                 self._awg.set_clock(self.sample.readout_clock)
                 self._dac_clock = self._awg.get_clock()
                 self._dac_channel_I = 0
                 self._dac_channel_Q = 1
-                self._adc_channel_I = 1
-                self._adc_channel_Q = 0
                 self._dac_attack = 0#5e-9
                 self._dac_decay = 0#5e-9
                 self._phase = 0
@@ -120,6 +119,15 @@ class virtual_MultiplexingReadout(Instrument):
             except Exception as m:
                 logging.error('Defaults not set properly: '+str(m))
                 raise ImportError
+        self._adc_channel_I = 1
+        self._adc_channel_Q = 0
+        self._phase = 0
+        
+        # used for DDC
+        self.lowpass_order = 14
+        self.cut_off_freq = 0.05  # in units of fs/2
+        # lowpass_delay = (lowpass_order / 2) / freqs
+        # a lowpass of order N delays the signal by N/2 samples
 
     def get_all(self):
         self.get_LO()
@@ -377,11 +385,7 @@ class virtual_MultiplexingReadout(Instrument):
         if freqs is None:
             freqs = np.array(self._tone_freq) - self._LO
         samplerate = self.get_adc_clock()
-        lowpass_order = 8
-        cut_off_freq = 0.4  # in units of fs/2
-        # lowpass_delay = (lowpass_order / 2) / freqs
-        # a lowpass of order N delays the signal by N/2 samples (see plot)
-        lowpass = signal.firwin(lowpass_order, cut_off_freq)  # design the filter
+        lowpass = signal.firwin(self.lowpass_order, self.cut_off_freq)  # design the filter
         sig_amp = np.zeros((len(freqs), len(I)))
         sig_pha = np.zeros((len(freqs), len(I)))
         for i, f in enumerate(freqs):
