@@ -86,14 +86,14 @@ class _Dac:
 
     def set_dac_voltage(self, voltage):
         if self.dac_device.get_type()[0:4] == 'IVVI':
-            mv = voltage * 1000 / 2
+            mv = voltage * 1000
             self.dac_device.set_dac(self.dac_port, mv, dacrange=(0, 4000))
         elif self.dac_device.get_type()[0:6] == 'DC_DAC':
-            self.dac_device.set_voltage(voltage/2, self.dac_port)
+            self.dac_device.do_set_voltage(voltage, self.dac_port)
 
     def get_dac_voltage(self):
         if self.dac_device.get_type()[0:4] == 'IVVI':
-            voltage = self.dac_device(self.dac_port) / 1000
+            voltage = self.dac_device.get_dac(self.dac_port, dacrange=(0, 4000)) / 1000
         elif self.dac_device.get_type()[0:6] == 'DC_DAC':
-            voltage = self.dac_device.set_voltage(self.dac_port)
+            voltage = self.dac_device.do_get_voltage(self.dac_port)
         return voltage
