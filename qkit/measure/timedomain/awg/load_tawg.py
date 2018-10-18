@@ -89,7 +89,7 @@ def load_tabor(channel_sequences, ro_index, sample, reset=True, show_progress_ba
     #qkit.flow.start()
 
     if reset:
-        reset(awg, number_of_channels, ro_index)
+        _reset(awg, number_of_channels, ro_index)
     # Loading the waveforms into the AWG, differentiating between all cases
     if show_progress_bar:
         p = Progress_Bar(len(ro_index), 'Load AWG')
@@ -162,7 +162,7 @@ def load_tabor(channel_sequences, ro_index, sample, reset=True, show_progress_ba
     return np.all([awg.get('ch%i_status' % i) for i in num_channels])
 
 
-def reset(awg, num_channels, ro_index):
+def _reset(awg, num_channels, ro_index):
     awg.set('p%i_runmode' % 1, 'SEQ')
     awg.define_sequence(1, len(ro_index))
     awg.set_ch1_status(True)
