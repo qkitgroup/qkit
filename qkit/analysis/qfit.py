@@ -543,8 +543,8 @@ class QFIT(object):
             hdf_y.append(np.array(self.fvalues))
             
             #parameter entry including errors
-            hdf_params = self.hf.add_value_vector(self.data_label+'_'+self.fit_function.__name__+'_params',folder=self.cfg['analysis_folder'])
-            hdf_params.append(np.array(list(fit_params)+list(fit_covariance)))
+            hdf_params = self.hf.add_coordinate(self.data_label+'_'+self.fit_function.__name__+'_params',folder=self.cfg['analysis_folder'])
+            hdf_params.add(np.array(list(fit_params)+list(fit_covariance)))
 
             if self.data_label+'_data_opt' in self.hf[os.path.join('/entry/',self.cfg['analysis_folder']+'0').replace('\\','/')].keys():
                 #create joint view with fit, data, and errors if existing
