@@ -368,7 +368,10 @@ class fid(file_system_service):
             self.grid.observe(self._grid_observer, names=['_selected_rows']) #Quick fix to also work with newer versions of qgrid. Should be changed to the .on() event mechanism at some point, but this requires newer qgrid version.
             return self.grid
         else:
-            return self.df[self.df['rating']>0]
+            if show_raw or "rating" not in self.df.keys():
+                return self.df
+            else:
+                return self.df[self.df['rating'] > 0]
 
     def get_filtered_uuids(self):
         """
