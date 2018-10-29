@@ -54,8 +54,7 @@ class Data(object):
         try:
             self.hf = H5_file(self._filepath, mode)
         except IOError:
-            print('IOError: File does not exist. Use argument \"mode=\'a\'\" to create a new h5 file.')
-            return
+            raise IOError('File does not exist. Use argument \"mode=\'a\'\" to create a new h5 file.')
         self._mapH5PathToObject()
         self.hf.flush()
 
