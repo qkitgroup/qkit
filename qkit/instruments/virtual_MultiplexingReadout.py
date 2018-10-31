@@ -124,8 +124,8 @@ class virtual_MultiplexingReadout(Instrument):
         self._phase = 0
         
         # used for DDC
-        self.lowpass_order = 14
-        self.cut_off_freq = 0.05  # in units of fs/2
+        self.lowpass_order = 20
+        self.cut_off_freq_ratio = 0.8  # ratio of the IQ frequency up to that is transmitted
         # lowpass_delay = (lowpass_order / 2) / freqs
         # a lowpass of order N delays the signal by N/2 samples
 
@@ -385,17 +385,16 @@ class virtual_MultiplexingReadout(Instrument):
         if freqs is None:
             freqs = np.array(self._tone_freq) - self._LO
         samplerate = self.get_adc_clock()
-        lowpass = signal.firwin(self.lowpass_order, self.cut_off_freq)  # design the filter
         sig_amp = np.zeros((len(freqs), len(I)))
         sig_pha = np.zeros((len(freqs), len(I)))
+        t = np.linspace(0, float(len(I)) / samplerate, len(I))
         for i, f in enumerate(freqs):
-            t = np.linspace(0, float(len(I)) / samplerate, len(I))
-            idown = np.cos(freqs * 2 * np.pi * t) * I
-            qdown = -np.sin(freqs * 2 * np.pi * t) * Q
-            idown_lp = scipy.signal.lfilter(lowpass, 1, idown)
-            qdown_lp = scipy.signal.lfilter(lowpass, 1, qdown)
-            sig_amp[i, :] = np.abs(idown_lp+1j*qdown_lp)
-            sig_pha[i, :] = np.angle(idown_lp+1j*qdown_lp)
+            cut_off_freq = self.cut_off_freq_ratio * f / (samplerate / 2)
+            b, a = signal.butter(self.lowpass_order, cut_off_freq, 'low')  # design the filter
+            signal_down = (I+1j*Q)*np.exp(1j*2*np.pi*f*t)
+            signal_down_lp = scipy.signal.lfilter(b, a, signal_down)
+            sig_amp[i, :] = np.abs(signal_down_lp)
+            sig_pha[i, :] = np.angle(signal_down_lp)
         return sig_amp.T, sig_pha.T  # transform because readout expects the data this way
 
     # +++++ DAC (AWG) settings ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
