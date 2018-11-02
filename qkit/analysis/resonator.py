@@ -43,6 +43,15 @@ class Resonator(object):
         self.pre_filter_params = []
         self._debug = False
 
+        # these ds_url should always be present in a resonator measurement
+        self.ds_url_amp = "/entry/data0/amplitude"
+        self.ds_url_pha = "/entry/data0/phase"
+        self.ds_url_freq = "/entry/data0/frequency"
+
+        # these ds_url depend on the measurement and may not exist
+        self.ds_url_power = "/entry/data0/power"
+        
+        
         '''
         catching error if datasets are empty while creating resonator object
         i.g. while live-fitting
@@ -142,33 +151,25 @@ class Resonator(object):
             logging.info('No hf file kown yet!')
             return
 
-        # these ds_url should always be present in a resonator measurement
-        ds_url_amp = "/entry/data0/amplitude"
-        ds_url_pha = "/entry/data0/phase"
-        ds_url_freq = "/entry/data0/frequency"
-
-        # these ds_url depend on the measurement and may not exist
-        ds_url_power  = "/entry/data0/power"
-
-        self._ds_amp = self._hf.get_dataset(ds_url_amp)
-        self._ds_pha = self._hf.get_dataset(ds_url_pha)
+        self._ds_amp = self._hf.get_dataset(self.ds_url_amp)
+        self._ds_pha = self._hf.get_dataset(self.ds_url_pha)
         self._ds_type = self._ds_amp.ds_type
 
-        self._amplitude = np.array(self._hf[ds_url_amp],dtype=np.float64)
-        self._phase = np.array(self._hf[ds_url_pha],dtype=np.float64)        
-        self._frequency = np.array(self._hf[ds_url_freq],dtype=np.float64)
+        self._amplitude = np.array(self._hf[self.ds_url_amp],dtype=np.float64)
+        self._phase = np.array(self._hf[self.ds_url_pha],dtype=np.float64)
+        self._frequency = np.array(self._hf[self.ds_url_freq],dtype=np.float64)
 
         try:
             self._x_co = self._hf.get_dataset(self._ds_amp.x_ds_url)
         except:
             try:
-                self._x_co = self._hf.get_dataset(ds_url_power) # hardcode a std url
+                self._x_co = self._hf.get_dataset(self.ds_url_power) # hardcode a std url
             except:
                 logging.warning('Unable to open any x_coordinate. Please set manually using \'set_x_coord()\'.')
         try:
             self._y_co = self._hf.get_dataset(self._ds_amp.y_ds_url)
         except:
-            try: self._y_co = self._hf.get_dataset(ds_url_freq) # hardcode a std url
+            try: self._y_co = self._hf.get_dataset(self.ds_url_freq) # hardcode a std url
             except:
                 logging.warning('Unable to open any y_coordinate. Please set manually using \'set_y_coord()\'.')
         self._datasets_loaded = True
@@ -208,8 +209,8 @@ class Resonator(object):
         self._frequency_co.add(self._fit_frequency)
 
     def _update_data(self):
-        self._amplitude = np.array(self._hf["/entry/data0/amplitude"],dtype=np.float64)
-        self._phase = np.array(self._hf["/entry/data0/phase"],dtype=np.float64)
+        self._amplitude = np.array(self._hf[self.ds_url_amp],dtype=np.float64)
+        self._phase = np.array(self._hf[self.ds_url_pha],dtype=np.float64)
 
     def _get_starting_values(self):
         pass
