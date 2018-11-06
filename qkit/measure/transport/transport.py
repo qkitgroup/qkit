@@ -684,7 +684,14 @@ class transport(object):
         self._prepare_measurement_file()
         ''' opens qviewkit to plot measurement '''
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['views/IV'])  # opens IV-view by default
+            if self._scan_dim == 0:
+                datasets = []
+            else:
+                datasets = ['views/IV']
+                if self._scan_dim > 1:
+                    for i in range(self.sweeps.get_nos()):
+                        datasets.append('{:s}_{:d}'.format(self._IV_modes[not(self._bias)].lower(), i))
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=datasets)  # opens IV-view by default
         ''' progress bar '''
         if self.progress_bar:
             num_its = {0: len(self._x_vec),
