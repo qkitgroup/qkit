@@ -389,7 +389,7 @@ class virtual_MultiplexingReadout(Instrument):
         sig_pha = np.zeros((len(freqs), len(I)))
         t = np.linspace(0, float(len(I)) / samplerate, len(I))
         for i, f in enumerate(freqs):
-            cut_off_freq = self.cut_off_freq_ratio * f / (samplerate / 2)
+            cut_off_freq = self.cut_off_freq_ratio * np.abs(f) / (samplerate / 2)
             b, a = signal.butter(self.lowpass_order, cut_off_freq, 'low')  # design the filter
             signal_down = (I+1j*Q)*np.exp(1j*2*np.pi*f*t)
             signal_down_lp = scipy.signal.lfilter(b, a, signal_down)
