@@ -2,10 +2,9 @@
 # modified by MK@KIT 09/2018
 # time domain measurement class
 
-import qt
+#import ##qt
 import numpy as np
 import os.path, glob
-import time
 import logging
 import threading
 
@@ -125,7 +124,7 @@ class Measure_td(object):
             print('Axes parameters not properly set...aborting')
             return
 
-        qt.mstart()
+        #qt.mstart()
         self.mode = 1 #1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
         self._prepare_measurement_file()
         
@@ -134,13 +133,13 @@ class Measure_td(object):
             # measurement loop
             for x in self.x_vec:
                 self.x_set_obj(x)
-                qt.msleep() # better done during measurement (waiting for trigger)
+                #qt.msleep() # better done during measurement (waiting for trigger)
                 self._append_data()
                 if self.show_progress_bar: p.iterate()
         finally:
             #self._safe_plots()
             self._end_measurement()
-            qt.mend()
+            #qt.mend()
 
 
     def measure_2D(self):
@@ -151,7 +150,7 @@ class Measure_td(object):
         if self.ReadoutTrace:
             raise ValueError('ReadoutTrace is currently not supported for 2D measurements')
         
-        qt.mstart()
+        #qt.mstart()
         self.mode = 2 #1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
         self._prepare_measurement_file()
 
@@ -161,9 +160,9 @@ class Measure_td(object):
             for x in self.x_vec:
                 self.x_set_obj(x)
                 for y in self.y_vec:
-                    qt.msleep() 
+                    #qt.msleep() 
                     self.y_set_obj(y)
-                    qt.msleep() 
+                    #qt.msleep() 
                     self._append_data()
                     if self.show_progress_bar: p.iterate()
                 for i in range(self.ndev):
@@ -171,7 +170,7 @@ class Measure_td(object):
                     self._hdf_pha[i].next_matrix()
         finally:
             self._end_measurement()
-            qt.mend()
+            #qt.mend()
 
 
     def measure_1D_AWG(self, iterations = 100):
@@ -199,8 +198,8 @@ class Measure_td(object):
             print('Axes parameters not properly set...aborting')
             return
     
-        qt.mstart()
-        qt.msleep()   # if stop button was pressed by now, abort without creating data files
+        #qt.mstart()
+        #qt.msleep()   # if stop button was pressed by now, abort without creating data files
         
         
         if iterations > 1:
@@ -240,16 +239,16 @@ class Measure_td(object):
             try:
                 # measurement loop
                 for it in range(len(self.y_vec)):
-                    qt.msleep() # better done during measurement (waiting for trigger)
+                    #qt.msleep() # better done during measurement (waiting for trigger)
                     self.y_set_obj(self.y_vec[it])
                     self._append_data(iteration=it)
                     if self.show_progress_bar: p.iterate()
             finally:
                 self._end_measurement()
-                qt.mend()
+                #qt.mend()
 
     def measure_3D_AWG(self):
-        '''x
+        '''
         x_vec is sequence in AWG
         '''
 
@@ -259,7 +258,7 @@ class Measure_td(object):
         if self.ReadoutTrace:
             raise ValueError('ReadoutTrace is currently not supported for 3D_AWG measurements')
         
-        qt.mstart()
+        #qt.mstart()
         self.mode = 4 #1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
         self._prepare_measurement_file()
 
@@ -269,9 +268,9 @@ class Measure_td(object):
             for z in self.z_vec:
                 self.z_set_obj(z)
                 for y in self.y_vec:
-                    qt.msleep() 
+                    #qt.msleep() 
                     self.y_set_obj(y)
-                    qt.msleep() 
+                    #qt.msleep() 
                     self._append_data()
                     if self.show_progress_bar: p.iterate()
                 for i in range(self.ndev):
@@ -280,7 +279,7 @@ class Measure_td(object):
         finally:
             self._end_measurement()
 
-            qt.mend()
+            #qt.mend()
 
     def measure_1D_ddc_time_trace(self):
         """
@@ -294,11 +293,11 @@ class Measure_td(object):
         self.mode = 1  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG
         self._prepare_measurement_file()
         try:
-            qt.msleep()
+            #qt.msleep()
             self._append_data(ddc=True)
         finally:
             self._end_measurement()
-            qt.mend()
+            #qt.mend()
 
     def measure_2D_ddc_time_trace(self):
         """
@@ -320,21 +319,21 @@ class Measure_td(object):
             p = Progress_Bar(len(self.y_vec),name=self.dirname)
         try:
             for y in self.y_vec:
-                qt.msleep()
+                #qt.msleep()
                 self.y_set_obj(y)
-                qt.msleep()
+                #qt.msleep()
                 self._append_data(ddc=True)
                 if self.show_progress_bar: p.iterate()
         finally:
             self._end_measurement()
-            qt.mend()
+            #qt.mend()
 
     def measure_1D_awg_ddc_timetrace(self):
         """
         Performs a digital down conversion of your readout trace for every value in your y-vector,
         whereas y_vec should be awg sequence. This function is useful for magnon cavity experiments.
         x-vec is automatically set by acquisition window.
-        (Also, all data are there at once as iteration is not yet implemented)
+        (Also, all data are there at once)
         :return:
         """
         if self.y_vec is None:
@@ -344,19 +343,48 @@ class Measure_td(object):
         time_array = np.linspace(0, time_end, self.mspec.get_samples())
         self.set_x_parameters(time_array, 'time', True, 'sec')
 
-        self.mode = 2  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG (2D, since iterations is not yet implemented)
+        self.mode = 2  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG
         self._prepare_measurement_file()
 
         try:
-            qt.msleep()
+            #qt.msleep()
             self._append_data(ddc=True)
         finally:
             self._end_measurement()
-            qt.mend()
+            #qt.mend()
 
+    def measure_1D_awg_1D_ddc_timetrace(self):
+        """
+        Performs a digital down conversion of your readout trace for every value in your y-vector
+        while also sweeping another parameter. y_vec should be awg sequence and z_vec/obj the sweeping parameter.
+        x-vec is automatically set by acquisition window.
+        :return:
+        """
+        if (self.y_vec is None) or (self.z_set_obj is None):
+            print('Axes parameters not properly set...aborting')
+            return
+        time_end = float(self.mspec.get_samples()) / self.mspec.get_samplerate()
+        time_array = np.linspace(0, time_end, self.mspec.get_samples())
+        self.set_x_parameters(time_array, 'time', True, 'sec')
+        self.mode = 4
+        self._prepare_measurement_file()
+        try:
+            for z in self.z_vec:
+                self.z_set_obj(z)
+                #qt.msleep()
+                self._append_data(ddc=True)
+                for i in range(self.ndev):
+                    self._hdf_amp[i].next_matrix()
+                    self._hdf_pha[i].next_matrix()
+                if self.ReadoutTrace:
+                    self._hdf_I.next_matrix()
+                    self._hdf_Q.next_matrix()
+        finally:
+            self._end_measurement()
+            #qt.mend()
 
     def _prepare_measurement_file(self):
-        if self.dirname == None:
+        if self.dirname is None:
             self.dirname = self.x_coordname
 
         self.ndev = len(self.readout.get_tone_freq())  # returns array of readout freqs (=1 for non-multiplexed readout)
@@ -378,7 +406,7 @@ class Measure_td(object):
             self._hdf_TimeTraceAxis = self._hdf.add_coordinate('recorded timepoint', unit = 's')
             self._hdf_TimeTraceAxis.add(np.arange(self.mspec.get_samples())/self.readout.get_adc_clock())
         
-        if self.mode == 1: #1D
+        if self.mode == 1:  # 1D
             self._hdf_amp = []
             self._hdf_pha = []
             for i in range(self.ndev):
@@ -390,22 +418,21 @@ class Measure_td(object):
                 self._hdf_Q = self._hdf.add_value_matrix('Q_TimeTrace', x = self._hdf_x, y = self._hdf_TimeTraceAxis,
                                                          unit = 'V', save_timestamp = False)
         
-        elif self.mode == 2: #2D
+        elif self.mode == 2:  # 2D
             self._hdf_y = self._hdf.add_coordinate(self.y_coordname, unit = self.y_unit)
             self._hdf_y.add(self.y_vec)
             self._hdf_amp = []
             self._hdf_pha = []
             for i in range(self.ndev):
-                self._hdf_amp.append(self._hdf.add_value_matrix('amplitude_%i'%i, x = self._hdf_y, y = self._hdf_x, unit = 'a.u.'))
-                self._hdf_pha.append(self._hdf.add_value_matrix('phase_%i'%i, x = self._hdf_y, y = self._hdf_x, unit = 'rad'))
+                self._hdf_amp.append(self._hdf.add_value_matrix('amplitude_%i'%i, x=self._hdf_y, y=self._hdf_x, unit='a.u.'))
+                self._hdf_pha.append(self._hdf.add_value_matrix('phase_%i'%i, x=self._hdf_y, y=self._hdf_x, unit='rad'))
             if self.ReadoutTrace:
-                self._hdf_I = self._hdf.add_value_matrix('I_TimeTrace', x = self._hdf_y, y = self._hdf_TimeTraceAxis,
-                                                         unit = 'V', save_timestamp = False)
-                self._hdf_Q = self._hdf.add_value_matrix('Q_TimeTrace', x = self._hdf_y, y = self._hdf_TimeTraceAxis,
-                                                         unit = 'V', save_timestamp = False)
-                
-                
-        elif self.mode == 3: #1D_AWG/2D_AWG
+                self._hdf_I = self._hdf.add_value_matrix('I_TimeTrace', x=self._hdf_y, y=self._hdf_TimeTraceAxis,
+                                                         unit='V', save_timestamp=False)
+                self._hdf_Q = self._hdf.add_value_matrix('Q_TimeTrace', x=self._hdf_y, y=self._hdf_TimeTraceAxis,
+                                                         unit='V', save_timestamp=False)
+
+        elif self.mode == 3:  # 1D_AWG/2D_AWG
             self._hdf_y = self._hdf.add_coordinate(self.y_coordname, unit = self.y_unit)
             self._hdf_y.add(self.y_vec)
             self._hdf_amp = []
@@ -421,8 +448,7 @@ class Measure_td(object):
                 self._hdf_Q = self._hdf.add_value_box('Q_TimeTrace', x = self._hdf_y, y = self._hdf_x,
                                                       z = self._hdf_TimeTraceAxis, unit = 'V', save_timestamp = False)
 
-
-        elif self.mode == 4: #3D_AWG
+        elif self.mode == 4:  # 3D_AWG
             self._hdf_y = self._hdf.add_coordinate(self.y_coordname, unit = self.y_unit)
             self._hdf_y.add(self.y_vec)
             self._hdf_z = self._hdf.add_coordinate(self.z_coordname, unit = self.z_unit)
@@ -430,20 +456,23 @@ class Measure_td(object):
             self._hdf_amp = []
             self._hdf_pha = []
             for i in range(self.ndev):
-                self._hdf_amp.append(self._hdf.add_value_box('amplitude_%i'%i,
-                                                                x = self._hdf_z, y = self._hdf_y, z=self._hdf_x, unit = 'a.u.'))
-                self._hdf_pha.append(self._hdf.add_value_box('phase_%i'%i,
-                                                                x = self._hdf_z, y = self._hdf_y, z=self._hdf_x, unit='rad'))
+                self._hdf_amp.append(self._hdf.add_value_box('amplitude_%i'%i, x=self._hdf_z, y=self._hdf_y,
+                                                             z=self._hdf_x, unit='a.u.'))
+                self._hdf_pha.append(self._hdf.add_value_box('phase_%i'%i, x=self._hdf_z, y=self._hdf_y,
+                                                             z=self._hdf_x, unit='rad'))
+            if self.ReadoutTrace:
+                self._hdf_I = self._hdf.add_value_box('I_TimeTrace', x=self._hdf_z, y=self._hdf_y,
+                                                      z=self._hdf_TimeTraceAxis, unit='V', save_timestamp=False)
+                self._hdf_Q = self._hdf.add_value_box('Q_TimeTrace', x=self._hdf_y, y=self._hdf_y,
+                                                      z=self._hdf_TimeTraceAxis, unit='V', save_timestamp=False)
+
         
         if self.create_averaged_data:
             self._hdf_amp_avg = []
             self._hdf_pha_avg = []
             for i in range(self.ndev):
-                self._hdf_amp_avg.append(self._hdf.add_value_vector('amplitude_avg_%i'%i, x = self._hdf_x, unit = 'a.u.'))
-                self._hdf_pha_avg.append(self._hdf.add_value_vector('phase_avg_%i'%i, x = self._hdf_x, unit='rad'))
- 
-
-
+                self._hdf_amp_avg.append(self._hdf.add_value_vector('amplitude_avg_%i'%i, x=self._hdf_x, unit='a.u.'))
+                self._hdf_pha_avg.append(self._hdf.add_value_vector('phase_avg_%i'%i, x=self._hdf_x, unit='rad'))
 
         if self.comment:
             self._hdf.add_comment(self.comment)
@@ -466,7 +495,7 @@ class Measure_td(object):
                 if self.mode < 3:  # mode 2 not yet fully supported but working for DDC timetrace experiments
                     self._hdf_I.append(Is)
                     self._hdf_Q.append(Qs)
-                if self.mode == 3:
+                elif self.mode == 3:  # mode 4 not supported for 3D_awg yet
                     for ix in range(len(self.x_vec)):
                         self._hdf_I.append(Is[:, ix])
                         self._hdf_Q.append(Qs[:, ix])
