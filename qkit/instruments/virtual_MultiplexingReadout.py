@@ -269,7 +269,7 @@ class virtual_MultiplexingReadout(Instrument):
             --> return amplitude and phase data at the given IQ frequency and also the full I and Q time trace
             if set to true using IQ_decode
         :param timeTrace: also output raw trace for further processing
-        :param ddc: performs a digital down conversion of your readout tone, (especially for magnon cavity experiments)
+        :param ddc: performs a digital down conversion of your readout tone to get the time trace at the frequency of interest
         :return:
         """
         Is, Qs = self._acquire_IQ()
@@ -326,8 +326,8 @@ class virtual_MultiplexingReadout(Instrument):
 
     def IQ_decode(self, I, Q, freqs = None, samplerate = None, phase = None):
         """
-            calculate fourier transform of the acquired waveform and
-            extract amplitude and phase of requested frequency components
+            calculate fourier analysis of the acquired waveform and
+            return amplitude and phase of requested frequency components
 
             Input:
                 I, Q       - signal acquired at rate samplerate
@@ -336,7 +336,7 @@ class virtual_MultiplexingReadout(Instrument):
                 phase      - apply additional rotation to I+1j*Q
 
             Output:
-                currently three vectors: frequency, amplitude, phase of each fft point
+                two vectors: amplitude and phase of each fft point
         """
         if samplerate is None: samplerate = self.get_adc_clock()
         if freqs is None: freqs = self._tone_freq
@@ -344,33 +344,21 @@ class virtual_MultiplexingReadout(Instrument):
         freqs = np.array(freqs)-self._LO
 
         sig_t = (np.array(I) + 1j*np.array(Q))*np.exp(1j*phase)
-        sig_f = np.fft.fftshift(np.fft.fft(sig_t))
-        #sig_x = np.fft.fftshift(np.fft.fftfreq(sig_t.size, 1./samplerate))
-        sig_x_fact = 1.*samplerate/sig_t.size
-
-        # linear interpolation of two fft points ToDO: linear interpolation is not good, use maybe only fourieranalysis
-        idxs = 1./sig_x_fact*np.array(freqs) + I.size/2
-        idxsH = np.array(np.ceil(idxs), dtype = np.integer)
-        idxsL = np.array(np.floor(idxs), dtype = np.integer)
-        idxsLw = idxsH-idxs
-        idxsHw = np.ones_like(idxsLw)-idxsLw
-        sig_amp = idxsHw*np.abs(sig_f[idxsH]) + np.abs(idxsLw*sig_f[idxsL])
-        sig_pha = np.angle(sig_f[idxsH]) # usually averages out between two points
-        return sig_amp, sig_pha
+        return self.fourieranalysis(sig_t, freqs, samplerate)
 
     def fourieranalysis(self, signal_t, freqs, samplerate):
         """
         useful for only a few samples and freqs because no interpolation is needed
-        :param freqs:
-        :param signal_t:
+        :param signal_t: The complex waveform to be analyzed
+        :param freqs: Float or array of Floats of frequencies
         :param samplerate:
-        :return:
+        :return: [amplitudes, phases], each of them being an array over len(freqs)
         """
-        # ToDo: might be useful to implement that in readout
-        w = np.exp(-2 * np.pi * 1j * freqs * np.arange(len(signal_t)) / samplerate)
-        f_signal = np.sum(w * signal_t)
+        freqs = np.atleast_1d(freqs)
+        w = np.array([np.exp(-2 * np.pi * 1j * f * np.arange(len(signal_t)) / samplerate) for f in freqs])
+        f_signal = np.sum(w * signal_t, axis=1) / len(signal_t)
         sig_amp = np.abs(f_signal)
-        sig_pha = np.abs(f_signal)
+        sig_pha = np.angle(f_signal)
         return sig_amp, sig_pha
 
     def digital_down_conversion(self, I, Q, freqs=None):
