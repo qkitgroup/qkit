@@ -3,7 +3,6 @@
 # time domain measurement class
 
 import numpy as np
-import os.path, glob
 import logging
 import threading
 
@@ -67,24 +66,8 @@ class Measure_td(object):
         self.multiplex_attribute = "readout pulse frequency"
         self.multiplex_unit = "Hz"
         self.init = iniTD(sample)
-
-
-    def find_latest_file(self):
-        '''
-        Returns filename of latest h5-file.
-        '''
-
-        self.data_dir = os.path.join(qkit.cfg.get('datadir'), qkit.cfg.get('run_id'), qkit.cfg.get('user'))
-        try:
-            filename = max(glob.iglob(str(self.data_dir)+'/*/*.h5'), key=os.path.getctime)   #find newest file in directory
-        except ValueError:
-            logging.error('No .{:s} file located in directory {:s}.'.format('h5', str(self.data_dir)))
-            return
-        
-        return filename
-        
-
-    def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit = None):
+    
+    def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit=None):
         self.x_vec = x_vec
         self.x_coordname = x_coordname
         self.x_set_obj = x_set_obj
@@ -190,27 +173,22 @@ class Measure_td(object):
             self.z_unit = ''
             
             self.measure_3D_AWG()
-
-            if self.ndev > 1:
-                print('Averaging is currently not supported for multiplexed readout')
-                return
-            else:
-                filename = self.find_latest_file()
-                hdf_file = hdf.Data(filename)
-                amp = np.array(hdf_file["/entry/data0/amplitude_0"])
-                pha = np.array(hdf_file["/entry/data0/phase_0"])
-                amp_avg = sum(amp[i] for i in range(iterations))/iterations
-                pha_avg = sum(pha[i] for i in range(iterations))/iterations
-
-                hdf_amp_avg = []
-                hdf_pha_avg = []
-                hdf_amp_avg.append(hdf_file.add_value_matrix('amplitude_avg_0', x = self._hdf_y, y = self._hdf_x, unit = 'a.u.'))
-                hdf_pha_avg.append(hdf_file.add_value_matrix('phase_avg_0', x = self._hdf_y, y = self._hdf_x, unit='rad'))
+            
+            # For 3D measurements with iterations, averages are only created at the end to get a consistent averaging base.
+            hdf_file = hdf.Data(self._hdf.get_filepath())
+            for j in range(self.ndev):
+                amp = np.array(hdf_file["/entry/data0/amplitude_%i" % j])
+                pha = np.array(hdf_file["/entry/data0/phase_%i" % j])
+                amp_avg = sum(amp[i] for i in range(iterations)) / iterations
+                pha_avg = sum(pha[i] for i in range(iterations)) / iterations
+                hdf_amp_avg = hdf_file.add_value_matrix('amplitude_avg_%i' % i, x=self._hdf_y, y=self._hdf_x, unit='a.u.')
+                hdf_pha_avg = hdf_file.add_value_matrix('phase_avg_%i' % i, x=self._hdf_y, y=self._hdf_x, unit='rad')
                 
-                for j in range(len(self.y_vec)):
-                    hdf_amp_avg[0].append(amp_avg[j])
-                    hdf_pha_avg[0].append(pha_avg[j])
-                hdf_file.close_file()
+                for i in range(len(self.y_vec)):
+                    hdf_amp_avg.append(amp_avg[i])
+                    hdf_pha_avg.append(pha_avg[i])
+            hdf_file.close_file()
+        
         else:
             self.mode = 3  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
             self._prepare_measurement_file()
