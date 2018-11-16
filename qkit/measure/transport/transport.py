@@ -55,6 +55,8 @@ class transport(object):
         self._measurement_object = Measurement()
         self._measurement_object.measurement_type = 'transport'
         self._web_visible = True
+        self._filename = None
+        self._expname = None
         self._comment = None
         # measurement services
         self.progress_bar = True
@@ -115,6 +117,22 @@ class transport(object):
         self.sweeps.add_sweep(+stop+offset, start+offset, step)
         self.sweeps.add_sweep(start+offset, -stop+offset, step)
         self.sweeps.add_sweep(-stop+offset, start+offset, step)
+
+    def add_sweep_halfswing(self, amplitude, step, offset=0):
+        """
+        Adds a halfswing sweep series with the pattern 
+            0th: (+amplitude -> -amplitude, step)+offset
+            1st: (-amplitude -> +amplitude, step)+offset
+        
+        Input:
+            amplitude (float): amplitude value of sweep
+            step (float): Step value of sweep
+            offset (float): Offset value by which <start> and <stop> are shifted
+        Output:
+            None
+        """
+        self.sweeps.add_sweep(+amplitude+offset, -amplitude+offset, step)
+        self.sweeps.add_sweep(-amplitude+offset, +amplitude+offset, step)
 
     def set_dVdI(self, status):
         """
@@ -178,10 +196,10 @@ class transport(object):
         """
         # x-vec
         if np.iterable(x_vec):
-            for val in x_vec:
-                if not str(val).isdigit():
-                    raise TypeError('{:s}: Cannot set {!s} as x-vector: {!s} is no number'.format(__name__, x_vec, val))
-            self._x_vec = x_vec
+            try:
+                self._x_vec = np.array(x_vec, dtype=float)
+            except Exception as e:
+                raise type(e)('{!s}: Cannot set {!s} as x-vector'.format(__name__, x_vec, e))
         else:
             raise TypeError('{:s}: Cannot set {!s} as x-vector: iterable object needed'.format(__name__, x_vec))
         # x-coordname
@@ -242,10 +260,10 @@ class transport(object):
         """
         # y-vec
         if np.iterable(y_vec):
-            for val in y_vec:
-                if not str(val).isdigit():
-                    raise TypeError('{:s}: Cannot set {!s} as y-vector: {!s} is no number'.format(__name__, y_vec, val))
-            self._y_vec = y_vec
+            try:
+                self._y_vec = np.array(y_vec, dtype=float)
+            except Exception as e:
+                raise type(e)('{!s}: Cannot set {!s} as y-vector'.format(__name__, y_vec, e))
         else:
             raise TypeError('{:s}: Cannot set {!s} as y-vector: iterable object needed'.format(__name__, y_vec))
         # y-coordname
@@ -683,7 +701,14 @@ class transport(object):
         self._prepare_measurement_file()
         ''' opens qviewkit to plot measurement '''
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath())  # , datasets=['{:s}_{:d}'.format(self._IV_modes[not(self._bias)].lower(), i) for i in range(self.sweeps.get_nos())])
+            if self._scan_dim == 0:
+                datasets = []
+            else:
+                datasets = ['views/IV']
+                if self._scan_dim > 1:
+                    for i in range(self.sweeps.get_nos()):
+                        datasets.append('{:s}_{:d}'.format(self._IV_modes[not(self._bias)].lower(), i))
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=datasets)  # opens IV-view by default
         ''' progress bar '''
         if self.progress_bar:
             num_its = {0: len(self._x_vec),
