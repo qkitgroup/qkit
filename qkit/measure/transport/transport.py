@@ -55,6 +55,7 @@ class transport(object):
         self._measurement_object = Measurement()
         self._measurement_object.measurement_type = 'transport'
         self._web_visible = True
+        self._filename = None
         self._expname = None
         self._comment = None
         # measurement services
@@ -116,6 +117,22 @@ class transport(object):
         self.sweeps.add_sweep(+stop+offset, start+offset, step)
         self.sweeps.add_sweep(start+offset, -stop+offset, step)
         self.sweeps.add_sweep(-stop+offset, start+offset, step)
+
+    def add_sweep_halfswing(self, amplitude, step, offset=0):
+        """
+        Adds a halfswing sweep series with the pattern 
+            0th: (+amplitude -> -amplitude, step)+offset
+            1st: (-amplitude -> +amplitude, step)+offset
+        
+        Input:
+            amplitude (float): amplitude value of sweep
+            step (float): Step value of sweep
+            offset (float): Offset value by which <start> and <stop> are shifted
+        Output:
+            None
+        """
+        self.sweeps.add_sweep(+amplitude+offset, -amplitude+offset, step)
+        self.sweeps.add_sweep(-amplitude+offset, +amplitude+offset, step)
 
     def set_dVdI(self, status):
         """
