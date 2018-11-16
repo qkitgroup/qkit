@@ -1680,6 +1680,7 @@ class Yokogawa(Instrument):
                    'bias_delay': [1, 2],
                    'sense_delay': [1, 2],
                    'sense_average': [1, 2],
+                   'bias_value': [1, 2],
                    'plc': [None],
                    'sense_nplc': [1, 2],
                    'sense_autozero': [1, 2],
