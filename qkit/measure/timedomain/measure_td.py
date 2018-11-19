@@ -12,7 +12,7 @@ from qkit.storage import store as hdf
 from qkit.gui.plot import plot as qviewkit
 import qkit.measure.write_additional_files as waf
 from qkit.measure.timedomain.initialize import InitializeTimeDomain as iniTD
-
+from qkit.measure.measurement_class import Measurement
 
 class Measure_td(object):
     '''
@@ -66,6 +66,9 @@ class Measure_td(object):
         self.multiplex_attribute = "readout pulse frequency"
         self.multiplex_unit = "Hz"
         self.init = iniTD(sample)
+        self._measurement_object = Measurement()
+        self._measurement_object.measurement_type = 'time_domain'
+        self._measurement_object.sample = self._sample
     
     def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit=None):
         self.x_vec = x_vec
@@ -344,6 +347,12 @@ class Measure_td(object):
         self._settings = self._hdf.add_textlist('settings')
         settings = waf.get_instrument_settings(self._hdf.get_filepath())
         self._settings.append(settings)
+        self._measurement_object.uuid = self._hdf._uuid
+        self._measurement_object.hdf_relpath = self._data_file._relpath
+        self._measurement_object.instruments = qkit.instruments.get_instrument_names()
+        self._measurement_object.save()
+        if qkit.instruments.get_instruments_by_type('VirtualAWG'):
+            waf.write_vawg_channels_sequence_dict()
         
         self._log = waf.open_log_file(self._hdf.get_filepath())
         

@@ -19,16 +19,15 @@
 import matplotlib.pyplot as plt
 import logging
 import numpy as np
+import qkit
 from qkit.measure.timedomain import gate_func
 from qkit.measure.timedomain import sequence_library as sl
-from qkit.measure.timedomain import VirtualAWG as virtual_awg
+from qkit.instruments import VirtualAWG as virtual_awg
 import ipywidgets as widgets
 
 class InitializeTimeDomain(object):
     def __init__(self,sample):
         self._sample = sample
-        
-        self._vawg = virtual_awg.VirtualAWG(self._sample)
         
     params = { #typical values are given in (brackets)
             'T_rep':                " repetition rate [s] (200e-6)",
@@ -314,6 +313,7 @@ class InitializeTimeDomain(object):
         self._sample.qubit_mw_src.set_frequency(self._sample.f01 - self._sample.iq_frequency)
         
     def _load_awg_square(self, times):
-        self._vawg.set_sequence(sl.rabi(self._sample, iq_frequency=0), times)
-        self._vawg.load(show_progress_bar=False)
-        
+        vawg = qkit.instruments.create('vawg_init', 'VirtualAWG', sample=self._sample)
+        vawg.set_sequence(sl.rabi(self._sample, iq_frequency=0), times)
+        vawg.load(show_progress_bar=False)
+        qkit.instruments.remove('vawg_init')

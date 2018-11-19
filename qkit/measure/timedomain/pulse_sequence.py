@@ -199,11 +199,10 @@ class PulseSequence(object):
         # if iq-mixing is enabled 
         wfms = [np.zeros(0)] * num_pulses # list of waveforms for each pulse
         timestep = 1.0 / self.samplerate # minimum time step
-        length = 0 #length of current pulse
+        length = 0 # length of current pulse
         readout_index = -1 # index of the readout in the waveform of the whole sequence
         for i in range(num_pulses):
             pulse_dict = self._pulses[i]
-
             # Determine length of the pulse
             if isinstance(pulse_dict["length"], float):
                 length = pulse_dict["length"]
@@ -212,16 +211,14 @@ class PulseSequence(object):
             elif pulse_dict["length"] is None:
                 length = 0
                 logging.warning("Pulse number {:d} (name = {:}) has no length! Setting length to 0.".format(i, pulse_dict["name"]))
-            if (pulse_dict["name"] is "readout") and (i is num_pulses - 1):
+            if (pulse_dict["name"] == "readout") and (i == num_pulses - 1):
                 length = timestep # if readout is last, omit the wfm (apart from a single digit)
             # Warning if pulse is shorter than smallest possible step
             if (length < 0.5*timestep) and (length != 0):
                 logging.warning("{:}-pulse is shorter than {:.2f} nanoseconds and thus is omitted.".format(pulse_dict["name"], 0.5*timestep*1e9))
             
             # create waveform array of the current pulse
-            if pulse_dict["name"] is "wait":
-                wfm = np.zeros(int(round(length * self.samplerate)))
-            elif pulse_dict["name"] is "readout":
+            if pulse_dict["name"] in ["wait", "readout"]:
                 wfm = np.zeros(int(round(length * self.samplerate)))
             else:
                 if length > 0.5*timestep:
@@ -229,7 +226,7 @@ class PulseSequence(object):
                 else:
                     wfm = np.zeros(0)
             # if current pulse is readout set readout_index
-            if (pulse_dict["name"] is "readout") and (readout_index == -1):
+            if (pulse_dict["name"] == "readout") and (readout_index == -1):
                 readout_index = len(wfms[i])
             #append in current wfm
             wfms[i] = np.append(wfms[i], wfm)

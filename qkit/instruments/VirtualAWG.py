@@ -20,10 +20,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from ipywidgets import interact, widgets, Layout
 import logging
-
 import qkit.measure.timedomain.pulse_sequence as ps
+from qkit.core.instrument_base import Instrument
 import qkit.measure.timedomain.awg.load_tawg as load_tawg
-
+try:
+    import dill
+except ImportError:
+    dill_loaded = False
 
 
 class TdChannel(object):
@@ -266,13 +269,13 @@ class TdChannel(object):
         return seq_list, ro_inds
 
 
-class VirtualAWG(object):
+class VirtualAWG(Instrument):
     """
     Class managing multiple manipulation channels for a timedomain experiment (virtual AWG).
     Each channel stores pulse sequences which can be loaded onto your device.
     The readout pulse of each sequences is used to align sequences of multiple channles.
 
-    Important attributes:
+    Important attributes and methods:
         self.channel[nr]: channel object - sequences can be added and plotted
         add_sequences:    add sequence(s) object (see pulse_sequence.py), maintaining currently stored sequences
         set_sequences:    add sequence(s) object (see pulse_sequence.py), deleting previously stored sequences
@@ -282,17 +285,19 @@ class VirtualAWG(object):
         get_sequence_dicts: returns a dictionary containing all important channel attributes
         plot: plot the pulse sequences of all channels
         load: load sequences of specified channel(s) on your physical device
-
+        save_channels: saves the current channels in a pickle / dill file. dill package needs to be installed
+        load_channels: loads channels previously saved in a dill file
     TODO:
         Write .load fct to directly load the pulse sequences on a device, i.e. VirtualAWG.load(device).
     """
 
-    def __init__(self, sample, channels = 1):
+    def __init__(self, name, sample, channels = 1, uuid = None):
         """
         Inits VirtualAWG with sample and number of channels:
             sample:   sample object
             channels: number of channels of the virtual AWG
-        """        
+        """
+        Instrument.__init__(self, name, tags=['virtual'])
         self._sample = sample
         self._num_chans = channels
 
@@ -524,3 +529,27 @@ class VirtualAWG(object):
         else:
             print("Unknown device type! Unable to load sequences.")
         return True
+
+    def save_channels(self, path):
+        """
+        saves the stored channels in a dill (pickle) file, so that it can later be reloaded. dill package needs to be
+        installed
+        :param path: (string) path where to store the file
+        :return:
+        """
+        if not dill_loaded:
+            raise ImportError("Dill module not found.")
+        with open(path, "wb") as outfile:
+            dill.dump(self.channels, outfile)
+
+    def load_channels(self, path):
+        """
+        loads previously stored channels from a dill file
+        :param path:
+        :return:
+        """
+        # TODO: if UID is given also load sample object
+        if not dill_loaded:
+            raise ImportError("Dill module not found.")
+        with open(path, "rb") as infile:
+            self.channels = dill.load(infile)
