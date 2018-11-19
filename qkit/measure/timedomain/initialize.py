@@ -22,7 +22,6 @@ import numpy as np
 import qkit
 from qkit.measure.timedomain import gate_func
 from qkit.measure.timedomain import sequence_library as sl
-from qkit.instruments import VirtualAWG as virtual_awg
 import ipywidgets as widgets
 
 class InitializeTimeDomain(object):

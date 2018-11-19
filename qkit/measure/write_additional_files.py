@@ -7,7 +7,7 @@ try:
     import dill
     dill_found = True
 except ImportError:
-    pass
+    dill_found = False
 
 
 def open_log_file(path,log_level=logging.INFO):
