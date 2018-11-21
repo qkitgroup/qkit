@@ -752,10 +752,12 @@ def _do_data_manipulation(data, unit, ds_type, manipulation, manipulations, colo
         data = np.unwrap(data)
     
     if manipulation & manipulations['linear']:
-        if ds_type == ds_types['vector']:
-            data = data - np.linspace(data[0],data[-1],len(data))  
-        else:
+        if len(data.shape) == 1:
+            data = data - np.nan_to_num(np.linspace(data[0],data[-1],len(data)))
+        elif len(data.shape) == 2:
             data = data - np.outer(data[:,-1]-data[:,0],np.linspace(0,1,data.shape[1]))
+        else:
+            print("linear correction not implemented for %iD"%len(data.shape))
 	
 	if colorplot:
 		## This manipulation removes all zeros which would blow up the color scale.
