@@ -16,15 +16,20 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+import qkit
 import numpy as np
+import os, glob
 import matplotlib.pyplot as plt
 from ipywidgets import interact, widgets, Layout
 import logging
 import qkit.measure.timedomain.pulse_sequence as ps
 from qkit.core.instrument_base import Instrument
+from qkit.measure.measurement_class import Measurement
+from qkit.storage.store import Data
 import qkit.measure.timedomain.awg.load_tawg as load_tawg
 try:
     import dill
+    dill_loaded = True
 except ImportError:
     dill_loaded = False
 
@@ -291,18 +296,20 @@ class VirtualAWG(Instrument):
         Write .load fct to directly load the pulse sequences on a device, i.e. VirtualAWG.load(device).
     """
 
-    def __init__(self, name, sample, channels = 1, uuid = None):
+    def __init__(self, name, sample, channels = 1):
         """
         Inits VirtualAWG with sample and number of channels:
             sample:   sample object
             channels: number of channels of the virtual AWG
         """
         Instrument.__init__(self, name, tags=['virtual'])
-        self._sample = sample
-        self._num_chans = channels
-
-        self.channels = [None]  # type: List[TdChannel]
-        self.channels.extend(TdChannel(self._sample, "channel_%i"%(i + 1)) for i in range(channels))
+        if isinstance(sample, basestring):
+            self._load_from_uid(sample)
+        else:
+            self._sample = sample
+            self._num_chans = channels
+            self.channels = [None]  # type: List[TdChannel]
+            self.channels.extend(TdChannel(self._sample, "channel_%i"%(i + 1)) for i in range(channels))
 
         # Dictionary for x-axis scaling
         self._x_unit = { "s": 1, "ms": 1e-3, "us": 1e-6, "ns": 1e-9}
@@ -545,11 +552,32 @@ class VirtualAWG(Instrument):
     def load_channels(self, path):
         """
         loads previously stored channels from a dill file
-        :param path:
+        :param path: (string) path where to find the file
         :return:
         """
-        # TODO: if UID is given also load sample object
         if not dill_loaded:
             raise ImportError("Dill module not found.")
         with open(path, "rb") as infile:
             self.channels = dill.load(infile)
+
+    def _load_from_uid(self, uid):
+        """
+        loads a complete vawg from a given uid
+        :param uid: (string)
+        :return:
+        """
+        m = Measurement(qkit.fid.measure_db[uid])
+        loaded_sample = m.sample
+        self._sample = loaded_sample
+        data = Data(qkit.fid.get(uid))
+        path = data.get_filepath()
+        fn, ext = os.path.splitext(path)
+        vawg_files = glob.glob(fn + '/*.dil')
+        if len(vawg_files) > 1:
+            logging.error('more than one vawg found. Not yet included. You have to load the dill file manually.')
+            # Todo: include option if more than one awg is saved
+        elif len(vawg_files) == 0:
+            raise ImportError('no dill file found')
+        else:
+            self.load_channels(vawg_files[0])
+        self._num_chans = len(self.channels)
