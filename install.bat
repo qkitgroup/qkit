@@ -83,4 +83,16 @@ SET /P install=
 if !install!==y (
     pip install dill
     )
+@echo.
+@echo.
+@echo Do you want to enable classic sorting in Windows Explorer to correctly sort measurements after UIDs (y/n)?
+SET /P install=
+if !install!==y (
+	@powershell Start-Process -FilePath "reg" -ArgumentList "import","%~dp0Windows_UID_sorting.reg" -Verb RunAs 
+    )
+@echo.
+@echo.
+@echo That was it. Happy measuring! 
+@echo.
+@echo.
 @pause
