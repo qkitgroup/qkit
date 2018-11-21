@@ -372,9 +372,10 @@ class Measure_td(object):
             self._hdf_amp = []
             self._hdf_pha = []
             for i in range(self.ndev):
-                self._hdf_amp.append(self._hdf.add_value_matrix('amplitude_%i' % i, x=self._hdf_y, y=self._hdf_x, unit='a.u.'))
-                self._hdf_pha.append(self._hdf.add_value_matrix('phase_%i' % i, x=self._hdf_y, y=self._hdf_x, unit='rad'))
+                self._hdf_amp.append(self._hdf.add_value_matrix('amplitude_%i' % i, x=self._hdf_x, y=self._hdf_y, unit='a.u.'))
+                self._hdf_pha.append(self._hdf.add_value_matrix('phase_%i' % i, x=self._hdf_x, y=self._hdf_y, unit='rad'))
             if self.ReadoutTrace:
+                # TODO: One dimension missing here?
                 self._hdf_I = self._hdf.add_value_matrix('I_TimeTrace', x=self._hdf_y, y=self._hdf_TimeTraceAxis,
                                                          unit='V', save_timestamp=False)
                 self._hdf_Q = self._hdf.add_value_matrix('Q_TimeTrace', x=self._hdf_y, y=self._hdf_TimeTraceAxis,
@@ -426,7 +427,9 @@ class Measure_td(object):
         if self.qviewkit_singleInstance and self.open_qviewkit and self._qvk_process:
             self._qvk_process.terminate()  # terminate an old qviewkit instance
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._hdf.get_filepath(), datasets=['amplitude', 'phase'])
+            self._qvk_process = qviewkit.plot(self._hdf.get_filepath(),
+                                              datasets=['amplitude_%i' % i for i in range(min(5,self.ndev))] + ['phase_%i' % i for i in range(min(5,self.ndev))]
+                                              )
     
     def _append_data(self, iteration=0, ddc=None):
         if self.ReadoutTrace:
