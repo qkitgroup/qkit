@@ -63,7 +63,7 @@ class Measure_td(object):
         self.qviewkit_singleInstance = True
         self._qvk_process = False
         self._plot_comment = ''
-        self.multiplex_attribute = "readout pulse frequency"
+        self.multiplex_attribute = "readout_pulse_frequency"
         self.multiplex_unit = "Hz"
         self.init = iniTD(sample)
     
@@ -347,8 +347,8 @@ class Measure_td(object):
         
         self._log = waf.open_log_file(self._hdf.get_filepath())
         
-        self._hdf_readout_frequencies = self._hdf.add_value_vector(self.multiplex_attribute, x=self._hdf_x, unit=self.multiplex_unit)
-        self._hdf_readout_frequencies.append(self.readout.get_tone_freq())
+        self._hdf_readout_frequencies = self._hdf.add_coordinate(self.multiplex_attribute, unit=self.multiplex_unit)
+        self._hdf_readout_frequencies.add(self.readout.get_tone_freq())
         
         if self.ReadoutTrace:
             self._hdf_TimeTraceAxis = self._hdf.add_coordinate('recorded timepoint', unit='s')
