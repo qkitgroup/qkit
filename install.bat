@@ -51,7 +51,7 @@ if !install!==y (
     )
 @echo.
 @echo.
-@echo Do you want to install ipywidgets, used for nice feature in the notebooks (y/n)?
+@echo Do you want to install ipywidgets, used for nice features in the notebooks (y/n)?
 SET /P install=
 if !install!==y (
     echo we need nodejs. If conda is not installed you must install it manually before you continue.
