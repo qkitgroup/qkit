@@ -8,7 +8,10 @@ import json
 import numpy as np
 import h5py
 
-import cPickle
+try:
+    import cPickle as pickle
+except:
+    import pickle
 
 class UUID_base(object):
     _alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -88,9 +91,9 @@ class file_system_service(UUID_base):
         self._n_mtime = {}
         try:
             with open(self._h5_mtime_db_path,'rb') as f:
-                self._h5_mtime_db = cPickle.load(f)
+                self._h5_mtime_db = pickle.load(f)
             with open(self._h5_info_cache_path,'rb') as f:
-                self._h5_info_cache_db = cPickle.load(f)
+                self._h5_info_cache_db = pickle.load(f)
         except IOError as e:
             logging.info("m_time_db not found. Not using cached files for now. %s"%e)
             self._new_cache = True
@@ -104,9 +107,9 @@ class file_system_service(UUID_base):
         """
         write_protocol = -1 # 0=text, 1...x binary, -1 highest binary. 
         with open(self._h5_mtime_db_path,'wb+') as f:
-            cPickle.dump(self._h5_n_mtime,f,protocol=write_protocol)
+            pickle.dump(self._h5_n_mtime,f,protocol=write_protocol)
         with open(self._h5_info_cache_path,'wb+') as f:
-            cPickle.dump(self.h5_info_db,f,protocol=write_protocol)
+            pickle.dump(self.h5_info_db,f,protocol=write_protocol)
 
     def update_file_db(self):
         with self.lock:
