@@ -108,7 +108,7 @@ class Resonator(object):
         #print gaussian, median
         if median:
             self._prefilter = median_filter
-            #print "median_filter"
+            #print("median_filter")
             if params:
                 self._prefilter_params = params[0]
             else:
@@ -116,7 +116,7 @@ class Resonator(object):
 
         if gaussian:
             self._prefilter = gaussian_filter1d
-            #print "gaussian_filter1d"
+            #print("gaussian_filter1d")
             if params:
                 self._prefilter_params = params[0]
             else:
@@ -626,16 +626,16 @@ class Resonator(object):
         fmax = fr+fr/Qr
         fs = np.linspace(fr,fmax,1000,dtype=np.float64)
         Amin = skewed_from_fit(p,fr)
-        #print "---"
-        #print "Amin, 2*Amin",Amin, 2*Amin
+        #print("---")
+        #print("Amin, 2*Amin",Amin, 2*Amin)
 
         for f in fs:
             A = skewed_from_fit(p,f)
-            #print A, f
+            #print(A, f)
             if A>2*Amin:
                 break
         qi = fr/(2*(f-fr))
-        #print "f, A, fr/2*(f-fr)", f,A, qi
+        #print("f, A, fr/2*(f-fr)", f,A, qi)
 
         return float(qi)
 
@@ -766,7 +766,7 @@ class Resonator(object):
             return err
 
         p_fit = leastsq(fano_residuals,p0,args=(self._fit_frequency,np.array(amplitudes_sq)))
-        #print ("q:%g bw:%g fr:%g a:%g")% (p_fit[0][0],p_fit[0][1],p_fit[0][2],p_fit[0][3])
+        #print(("q:%g bw:%g fr:%g a:%g")% (p_fit[0][0],p_fit[0][1],p_fit[0][2],p_fit[0][3]))
         return p_fit[0]
 
     def _fano_reflection_from_fit(self,fit):
@@ -854,4 +854,4 @@ if __name__ == "__main__":
             R.fit_fano(fit_all=fit_all, f_min=f_min,f_max=f_max)
         R.close()
     else:
-        print "no file supplied. type -h for help"
+        print("no file supplied. type -h for help")
