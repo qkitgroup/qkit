@@ -73,10 +73,12 @@ if qkit.cfg.get("qt_compatible", False):
     # Lets pretend that the original qt instrument and instruments modules 
     # are loaded. But instead every instrument driver loads tne qkit.core modules
     import sys
-
+    
+    sys.modules["qkit.instruments"] = ''
     sys.modules["instrument"] = qkit.core.instrument_base
     sys.modules["instruments"] = qkit.core.instrument_tools
     sys.modules["qt"] = qt
+    
 
 # Other functions should be registered using qt.flow.register_exit_handler
 from qkit.core.lib.misc import register_exit
