@@ -15,7 +15,7 @@ try_legacy = False
 try:
     pb_list
     if debug:
-        print "List of progressbars with %i items found"%(len(pb_list))
+        print("List of progressbars with %i items found"%(len(pb_list)))
 except NameError:
     pb_list = []
 
@@ -99,9 +99,9 @@ try:
                 #self.pi.value = progr_info
             
                     
-except ImportError,e:
+except ImportError as e:
     if debug:
-        print e
+        print(e)
     "Most likely not yet in the jupyter environment ... Falling back to old style progress bar, untouched."
     import uuid
     from IPython.display import HTML, Javascript, display
