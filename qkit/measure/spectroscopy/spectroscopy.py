@@ -197,14 +197,14 @@ class spectrum(object):
                 fit_fct = self.f_lin
                 p0 = p0[:2]
             else:
-                print 'function type not known...aborting'
+                print('function type not known...aborting')
                 raise ValueError
             
             popt, pcov = curve_fit(fit_fct, x_fit, y_fit, p0=p0)
             self.landscape.append(multiplier*fit_fct(self.x_vec, *popt))
             
         except Exception as message:
-            print 'fit not successful:', message
+            print('fit not successful:', message)
             popt = p0
 
     def _prepare_measurement_vna(self):
@@ -333,7 +333,7 @@ class spectrum(object):
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath()) 
-        print 'recording trace...'
+        print('recording trace...')
         sys.stdout.flush()
 
         qkit.flow.start()
@@ -478,7 +478,7 @@ class spectrum(object):
         LGruenhaupt 11/2016
         '''
         if self.vna.get_span() > 0: 
-            print 'VNA span not set to 0 Hz... aborting'
+            print('VNA span not set to 0 Hz... aborting')
             return
             
         self._scan_1D = False
@@ -505,7 +505,7 @@ class spectrum(object):
         
         if self.progress_bar: self._p = Progress_Bar(self.number_of_timetraces,'VNA timetrace '+self.dirname,self.vna.get_sweeptime_averages())
         
-        print 'recording timetrace(s)...'
+        print('recording timetrace(s)...')
         sys.stdout.flush()
 
         qkit.flow.start()
@@ -528,7 +528,7 @@ class spectrum(object):
                     
                     ''' This is to prevent the vna.ready() function from timing out. LG NOV/16 '''
                     if self.vna.get_Average():
-                        print 'this function only makes sense without averaging'
+                        print('this function only makes sense without averaging')
                         qkit.flow.end()
                         self._end_measuremt()
                     else:
@@ -547,7 +547,7 @@ class spectrum(object):
                 
                         
                 else: 
-                    print 'not implemented for this VNA, only works with Keysight ENA 5071C'
+                    print('not implemented for this VNA, only works with Keysight ENA 5071C')
                     qkit.flow.end()
                     self._end_measurement()
         finally:
@@ -627,7 +627,7 @@ class spectrum(object):
                     self._data_amp.append(data_amp)
                     self._data_pha.append(data_pha)
                     if self._nop < 10:
-                        #print data_amp[self._nop/2]
+                        #print(data_amp[self._nop/2])
                         self._data_amp_mid.append(float(data_amp[self._nop/2]))
                         self._data_pha_mid.append(float(data_pha[self._nop/2]))
                         
@@ -644,7 +644,7 @@ class spectrum(object):
         '''
         the data file is closed and filepath is printed
         '''
-        print self._data_file.get_filepath()
+        print(self._data_file.get_filepath())
         #qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment) #old version where we have to wait for the plots
         t = threading.Thread(target=qviewkit.save_plots,args=[self._data_file.get_filepath(),self._plot_comment])
         t.start()
@@ -712,7 +712,7 @@ class spectrum(object):
         try:
             x_coords = np.linspace(self.x_vec[0], self.x_vec[-1], num_points)
         except Exception as message:
-            print 'no x axis information specified', message
+            print('no x axis information specified', message)
             return
         '''
         if self.landscape:
@@ -722,11 +722,11 @@ class spectrum(object):
                     plt.plot(self.x_vec, trace)
                     plt.fill_between(self.x_vec, trace+float(self.span)/2, trace-float(self.span)/2, alpha=0.5)
                 except Exception:
-                    print 'invalid trace...skip'
+                    print('invalid trace...skip')
             plt.axhspan(self.y_vec[0], self.y_vec[-1], facecolor='0.5', alpha=0.5)
             plt.show()
         else:
-            print 'No trace generated.'
+            print('No trace generated.')
 
     def set_span(self, span):
         self.span = span
