@@ -91,7 +91,7 @@ try:
 except ImportError:
     found_qgrid = False
 
-from file_info_database_lib import file_system_service
+from qkit.core.lib.file_service.file_info_database_lib import file_system_service
 
 # display using qviewkit
 from qkit.gui.plot.plot import plot
@@ -148,7 +148,7 @@ class fid(file_system_service):
         Returns:
             None
         """
-        #print ("hallo",type(file_id))
+        #print("hallo",type(file_id))
         if file_id is None:
             return None
         elif type(file_id) is int:
@@ -410,12 +410,12 @@ class fid(file_system_service):
         if expression is not None and value is None and bounds is None:
             return self.df[self.df[column].str.contains(expression, na=False)]
         if value is not None and expression is None and bounds is None:
-            print [self.df[column] == value]
+            print([self.df[column] == value])
             return self.df[self.df[column] == value]
         if bounds is not None and value is None and expression is None:
             return self.df[((self.df[column] > bounds[0]) & (self.df[column] < bounds[1]))]
         else:
-            print "You have to pass exactly one variable"
+            print("You have to pass exactly one variable")
 
     def set_rating(self, uid, rating):
         """
