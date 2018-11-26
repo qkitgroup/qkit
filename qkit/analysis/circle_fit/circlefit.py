@@ -93,7 +93,7 @@ class circlefit(object):
         p0 = [A1a, A2a , A3a, A4a, fra, Qla]
         p_final = spopt.leastsq(residuals2,p0,args=(np.array(f_data),np.array(amplitude_sqr)))
         #A1, A2, A3, A4, fr, Ql = p_final[0]
-        #print p_final[0][5]
+        #print(p_final[0][5])
         return p_final[0]
     
     def _fit_circle(self,z_data, refine_results=False):
@@ -148,10 +148,10 @@ class circlefit(object):
         # the term *sqrt term corrects for the constraint, because it may be altered due to numerical inaccuracies during calculation
         r0 = 1./(2.*np.absolute(A_vec[0]))*np.sqrt(A_vec[1]*A_vec[1]+A_vec[2]*A_vec[2]-4.*A_vec[0]*A_vec[3])
         if refine_results:
-            print "agebraic r0: " + str(r0)
+            print("agebraic r0: " + str(r0))
             xc,yc,r0 = self._fit_circle_iter(z_data, xc, yc, r0)
             r0 = self._fit_circle_iter_radialweight(z_data, xc, yc, r0)
-            print "iterative r0: " + str(r0)
+            print("iterative r0: " + str(r0))
         return xc, yc, r0
 
     def _guess_delay(self,f_data,z_data):
@@ -289,35 +289,35 @@ class circlefit(object):
     
     def _residuals_notch_ideal(self,p,x,y):
         fr,absQc,Ql,phi0 = p
-        #if fr == 0: print p
+        #if fr == 0: print(p)
         err = np.absolute( y - (  ( 1. - (Ql/float(absQc)*np.exp(1j*phi0))/(1+2j*Ql*(x-fr)/float(fr)) )  ) )
         #if np.isinf((np.complex(1,2*Ql*(x-fr)/float(fr))).imag):
-         #   print np.complex(1,2*Ql*(x-fr)/float(fr))
-          #  print "x: " + str(x)
-           # print "Ql: " +str(Ql)
-            #print "fr: " +str(fr)
+         #   print(np.complex(1,2*Ql*(x-fr)/float(fr)))
+          #  print("x: " + str(x))
+           # print("Ql: " +str(Ql))
+            #print("fr: " +str(fr))
         return err
     
     def _residuals_notch_ideal_complex(self,p,x,y):
         fr,absQc,Ql,phi0 = p
-        #if fr == 0: print p
+        #if fr == 0: print(p)
         err = y - (  ( 1. - (Ql/float(absQc)*np.exp(1j*phi0))/(1+2j*Ql*(x-fr)/float(fr)) )  )
         #if np.isinf((np.complex(1,2*Ql*(x-fr)/float(fr))).imag):
-         #   print np.complex(1,2*Ql*(x-fr)/float(fr))
-          #  print "x: " + str(x)
-           # print "Ql: " +str(Ql)
-            #print "fr: " +str(fr)
+         #   print(np.complex(1,2*Ql*(x-fr)/float(fr)))
+          #  print("x: " + str(x))
+           # print("Ql: " +str(Ql))
+            #print("fr: " +str(fr))
         return err
         
     def _residuals_directrefl(self,p,x,y):
         fr,Qc,Ql = p
-        #if fr == 0: print p
+        #if fr == 0: print(p)
         err = y - ( 2.*Ql/Qc - 1. + 2j*Ql*(fr-x)/fr ) / ( 1. - 2j*Ql*(fr-x)/fr )
         #if np.isinf((np.complex(1,2*Ql*(x-fr)/float(fr))).imag):
-         #   print np.complex(1,2*Ql*(x-fr)/float(fr))
-          #  print "x: " + str(x)
-           # print "Ql: " +str(Ql)
-            #print "fr: " +str(fr)
+         #   print(np.complex(1,2*Ql*(x-fr)/float(fr)))
+          #  print("x: " + str(x))
+           # print("Ql: " +str(Ql))
+            #print("fr: " +str(fr))
         return err
     
     def _residuals_transm_ideal(self,p,x,y):
