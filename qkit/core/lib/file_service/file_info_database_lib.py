@@ -105,7 +105,7 @@ class file_system_service(UUID_base):
         exeptions are not handled ... if something fails here 
         there is a severe general problem, e.g. the disk is full.
         """
-        write_protocol = -1 # 0=text, 1...x binary, -1 highest binary. 
+        write_protocol = 2 # For Python 2 compatibility 0=text, 1...x binary, -1 highest binary. 
         with open(self._h5_mtime_db_path,'wb+') as f:
             pickle.dump(self._h5_n_mtime,f,protocol=write_protocol)
         with open(self._h5_info_cache_path,'wb+') as f:
