@@ -69,11 +69,11 @@ class GHzDAC(Instrument):
         self._ip_timeout = float(ip_timeout)
 
         # add parameters
-        self.add_parameter('MAC', type=types.StringType, flags=Instrument.FLAG_GETSET)
-        self.add_parameter('ip_host', type=types.StringType, flags=Instrument.FLAG_GET)
-        self.add_parameter('ip_port', type=types.IntType, flags=Instrument.FLAG_GET)
-        self.add_parameter('ip_timeout', type=types.FloatType, flags=Instrument.FLAG_GETSET)
-        self.add_parameter('rcvbuf', type=types.IntType, flags=Instrument.FLAG_GETSET)
+        self.add_parameter('MAC', type=str, flags=Instrument.FLAG_GETSET)
+        self.add_parameter('ip_host', type=str, flags=Instrument.FLAG_GET)
+        self.add_parameter('ip_port', type=int, flags=Instrument.FLAG_GET)
+        self.add_parameter('ip_timeout', type=float, flags=Instrument.FLAG_GETSET)
+        self.add_parameter('rcvbuf', type=int, flags=Instrument.FLAG_GETSET)
         self.add_function('get_regfile')
         self.add_function('set_regfile')
         self.add_function('set_sram')

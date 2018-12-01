@@ -31,36 +31,36 @@ class Agilent_DSO(Instrument):
         
         # initialize virtual instrument
         self.add_parameter('points', flags = Instrument.FLAG_GETSET, 
-            units = '', type = types.IntType, minval = 16, maxval = 524288)
+            units = '', type = int, minval = 16, maxval = 524288)
         self.add_parameter('segments', flags = Instrument.FLAG_GETSET, 
-            units = '', type = types.IntType)
+            units = '', type = int)
         self.add_parameter('averages', flags = Instrument.FLAG_GETSET, 
-            units = '', type = types.IntType, minval = 1, maxval = 4096)
+            units = '', type = int, minval = 1, maxval = 4096)
         self.add_parameter('average_enabled', flags = Instrument.FLAG_GETSET, 
-            units = '', type = types.BooleanType)
+            units = '', type = bool)
                     
         self.add_parameter('samplerate', flags = Instrument.FLAG_GETSET, 
-            units = 'Hz', type = types.FloatType)
+            units = 'Hz', type = float)
         self.add_parameter('bandwidth', flags = Instrument.FLAG_GETSET, 
-            units = 'Hz', type = types.FloatType)
+            units = 'Hz', type = float)
         self.add_parameter('acqmode', flags = Instrument.FLAG_GET, 
-            type = types.StringType)
+            type = str)
         self.add_function('acqmode_realtime')
         self.add_function('acqmode_peakdetect')
         self.add_function('acqmode_highres')
         self.add_function('acqmode_segmented')
             
         self.add_parameter('refclock', flags = Instrument.FLAG_GETSET,
-            type = types.BooleanType)
+            type = bool)
         self.add_parameter('xoffset', flags = Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-            units = 's', type = types.FloatType)
+            units = 's', type = float)
         self.add_parameter('xrange', flags = Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-            units = 's', type = types.FloatType)
+            units = 's', type = float)
         
         self.add_parameter('yoffset', flags = Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET, 
-            units = 'V', type = types.FloatType, channels=(1, self._numchs), channel_prefix='ch%d_')
+            units = 'V', type = float, channels=(1, self._numchs), channel_prefix='ch%d_')
         self.add_parameter('yrange', flags = Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET, 
-            units = 'V', type = types.FloatType, channels=(1, self._numchs), channel_prefix='ch%d_')
+            units = 'V', type = float, channels=(1, self._numchs), channel_prefix='ch%d_')
             
         self.add_function('reset')
         self.add_function('preset')

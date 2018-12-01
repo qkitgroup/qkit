@@ -18,7 +18,7 @@ class two_port_switch(Instrument):
         Instrument.__init__(self, name, tags=['physical'])
         
         self.add_parameter('position',
-            type=types.StringType,
+            type=str,
             flags=Instrument.FLAG_GETSET)
             
         self.HOST, self.PORT = host, port

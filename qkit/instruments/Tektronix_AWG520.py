@@ -66,42 +66,42 @@ class Tektronix_AWG520(Instrument):
         self._numpoints = numpoints
 
         # Add parameters
-        self.add_parameter('trigger_mode', type=types.StringType,
+        self.add_parameter('trigger_mode', type=str,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET)
-        self.add_parameter('trigger_impedance', type=types.FloatType,
+        self.add_parameter('trigger_impedance', type=float,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             minval=49, maxval=2e3, units='Ohm')
-        self.add_parameter('trigger_level', type=types.FloatType,
+        self.add_parameter('trigger_level', type=float,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             minval=-5, maxval=5, units='Volts')
-        self.add_parameter('clock', type=types.FloatType,
+        self.add_parameter('clock', type=float,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             minval=1e6, maxval=1e9, units='Hz')
-        self.add_parameter('numpoints', type=types.IntType,
+        self.add_parameter('numpoints', type=int,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             minval=100, maxval=1e9, units='Int')
-        self.add_parameter('filename', type=types.StringType,
+        self.add_parameter('filename', type=str,
             flags=Instrument.FLAG_SET, channels=(1, 2),
             channel_prefix='ch%d_')
-        self.add_parameter('amplitude', type=types.FloatType,
+        self.add_parameter('amplitude', type=float,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, 2), minval=0, maxval=2, units='Volts', channel_prefix='ch%d_')
-        self.add_parameter('offset', type=types.FloatType,
+        self.add_parameter('offset', type=float,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, 2), minval=-2, maxval=2, units='Volts', channel_prefix='ch%d_')
-        self.add_parameter('marker1_low', type=types.FloatType,
+        self.add_parameter('marker1_low', type=float,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, 2), minval=-2, maxval=2, units='Volts', channel_prefix='ch%d_')
-        self.add_parameter('marker1_high', type=types.FloatType,
+        self.add_parameter('marker1_high', type=float,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, 2), minval=-2, maxval=2, units='Volts', channel_prefix='ch%d_')
-        self.add_parameter('marker2_low', type=types.FloatType,
+        self.add_parameter('marker2_low', type=float,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, 2), minval=-2, maxval=2, units='Volts', channel_prefix='ch%d_')
-        self.add_parameter('marker2_high', type=types.FloatType,
+        self.add_parameter('marker2_high', type=float,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, 2), minval=-2, maxval=2, units='Volts', channel_prefix='ch%d_')
-        self.add_parameter('status', type=types.BooleanType,
+        self.add_parameter('status', type=bool,
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, 2),channel_prefix='ch%d_')
 

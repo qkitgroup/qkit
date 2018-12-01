@@ -48,13 +48,13 @@ class Keysight_E8267D(Instrument):
         self._visainstrument = visa.instrument(self._address)
 
         self.add_parameter('power',
-            flags=Instrument.FLAG_GETSET, units='dBm', minval=-135, maxval=25, type=types.FloatType)
+            flags=Instrument.FLAG_GETSET, units='dBm', minval=-135, maxval=25, type=float)
         self.add_parameter('phase',
-            flags=Instrument.FLAG_GETSET, units='rad', minval=-numpy.pi, maxval=numpy.pi, type=types.FloatType)
+            flags=Instrument.FLAG_GETSET, units='rad', minval=-numpy.pi, maxval=numpy.pi, type=float)
         self.add_parameter('frequency',
-            flags=Instrument.FLAG_GETSET, units='Hz', minval=1e5, maxval=13e9, type=types.FloatType)
+            flags=Instrument.FLAG_GETSET, units='Hz', minval=1e5, maxval=13e9, type=float)
         self.add_parameter('status',
-            flags=Instrument.FLAG_GETSET, type=types.BooleanType)
+            flags=Instrument.FLAG_GETSET, type=bool)
 
         self.add_function('reset')
         self.add_function ('get_all')

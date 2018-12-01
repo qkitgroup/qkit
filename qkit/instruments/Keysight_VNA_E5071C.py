@@ -55,102 +55,102 @@ class Keysight_VNA_E5071C(Instrument):
         self._nop = 0
 
         # Implement parameters
-        self.add_parameter('nop', type=types.IntType,
+        self.add_parameter('nop', type=int,
             flags=Instrument.FLAG_GETSET,
             minval=2, maxval=20001,
             tags=['sweep'])
             
-        self.add_parameter('bandwidth', type=types.FloatType,
+        self.add_parameter('bandwidth', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=1e9,
             units='Hz', tags=['sweep']) 
 
-        self.add_parameter('averages', type=types.IntType,
+        self.add_parameter('averages', type=int,
             flags=Instrument.FLAG_GETSET,
             minval=1, maxval=1024, tags=['sweep'])                    
 
-        self.add_parameter('Average', type=types.BooleanType,
+        self.add_parameter('Average', type=bool,
             flags=Instrument.FLAG_GETSET)   
                     
-        self.add_parameter('centerfreq', type=types.FloatType,
+        self.add_parameter('centerfreq', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])
 
-        self.add_parameter('cwfreq', type=types.FloatType,
+        self.add_parameter('cwfreq', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])
             
-        self.add_parameter('startfreq', type=types.FloatType,
+        self.add_parameter('startfreq', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])            
             
-        self.add_parameter('stopfreq', type=types.FloatType,
+        self.add_parameter('stopfreq', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])                        
             
-        self.add_parameter('span', type=types.FloatType,
+        self.add_parameter('span', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])        
             
-        self.add_parameter('power', type=types.FloatType,
+        self.add_parameter('power', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=-85, maxval=10,
             units='dBm', tags=['sweep'])
 
-        self.add_parameter('startpower', type=types.FloatType,
+        self.add_parameter('startpower', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=-85, maxval=10,
             units='dBm')
 
-        self.add_parameter('stoppower', type=types.FloatType,
+        self.add_parameter('stoppower', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=-85, maxval=10,
             units='dBm')
 
-        self.add_parameter('cw', type=types.BooleanType,
+        self.add_parameter('cw', type=bool,
             flags=Instrument.FLAG_GETSET)
 
-        self.add_parameter('zerospan', type=types.BooleanType,
+        self.add_parameter('zerospan', type=bool,
             flags=Instrument.FLAG_GETSET)
             
-        self.add_parameter('channel_index', type=types.IntType,
+        self.add_parameter('channel_index', type=int,
             flags=Instrument.FLAG_GETSET)
 
-        self.add_parameter('sweeptime', type=types.FloatType,   #added by MW
+        self.add_parameter('sweeptime', type=float,   #added by MW
             flags=Instrument.FLAG_GET,
             minval=0, maxval=1e3,
             units='s', tags=['sweep'])
             
-        self.add_parameter('sweeptime_averages', type=types.FloatType,   #JB
+        self.add_parameter('sweeptime_averages', type=float,   #JB
             flags=Instrument.FLAG_GET,
             minval=0, maxval=1e3,
             units='s', tags=['sweep'])
     
-        self.add_parameter('edel', type=types.FloatType, # legacy name for parameter. This corresponds to the VNA's port extension values.
+        self.add_parameter('edel', type=float, # legacy name for parameter. This corresponds to the VNA's port extension values.
             flags=Instrument.FLAG_GETSET, 
             minval=-10, maxval=10,
             units='s', tags=['sweep'],
             channels=(1, self._pi), channel_prefix = 'port%d_') # the channel option for qtlab's Instument class is used here to easily address the two VNA ports
   
-        self.add_parameter('edel_status', type=types.BooleanType, # legacy name for parameter. This corresponds to the VNA's port extension values.
+        self.add_parameter('edel_status', type=bool, # legacy name for parameter. This corresponds to the VNA's port extension values.
             flags=Instrument.FLAG_GETSET)
                    
-        self.add_parameter('sweep_mode', type=types.StringType,  #JDB This parameter switches on/off hold. The hold function below does the same job, this is just for code compatibility to the agilent and anritsu drivers.
+        self.add_parameter('sweep_mode', type=str,  #JDB This parameter switches on/off hold. The hold function below does the same job, this is just for code compatibility to the agilent and anritsu drivers.
             flags=Instrument.FLAG_GETSET,tags=['sweep']) 
                     
-        self.add_parameter('sweep_type', type=types.StringType,
+        self.add_parameter('sweep_type', type=str,
             flags=Instrument.FLAG_GETSET,tags=['sweep'])
 
-        self.add_parameter('active_trace', type=types.IntType,
+        self.add_parameter('active_trace', type=int,
             flags=Instrument.FLAG_GETSET)
                     
         #Triggering Stuff
-        self.add_parameter('trigger_source', type=types.StringType,
+        self.add_parameter('trigger_source', type=str,
             flags=Instrument.FLAG_GETSET)
         
         # Implement functions

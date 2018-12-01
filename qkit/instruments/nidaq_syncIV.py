@@ -134,12 +134,12 @@ def read(devchan, samples=1, freq=10000.0, minv=-10.0, maxv=10.0,
         A numpy.array with the data on success, None on error
     '''
 
-    if type(config) is types.StringType:
+    if type(config) is str:
         if config in _config_map:
             config = _config_map[config]
         else:
             return None
-    if type(config) is not types.IntType:
+    if type(config) is not int:
         return None
     
     if samples == 1:
@@ -205,7 +205,7 @@ def write(devchan, data, freq=10000.0, minv=-10.0, maxv=10.0,
         Number of values written
     '''
 
-    if type(data) in (types.IntType, types.FloatType):
+    if type(data) in (int, float):
         data = numpy.array([data], dtype=numpy.float64)
     elif isinstance(data, numpy.ndarray):
         if data.dtype is not numpy.float64:

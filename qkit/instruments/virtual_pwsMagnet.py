@@ -44,13 +44,13 @@ class virtual_pwsMagnet(Instrument):
             logging.error('no PWS2 found ... aborting')
             return
 
-        self.add_parameter('current', type=types.FloatType,
+        self.add_parameter('current', type=float,
                            flags=Instrument.FLAG_GETSET, units='A')
-        self.add_parameter('voltage', type=types.FloatType,
+        self.add_parameter('voltage', type=float,
                            flags=Instrument.FLAG_GET, units='V')
-        self.add_parameter('status', type=types.BooleanType,
+        self.add_parameter('status', type=bool,
                            flags=Instrument.FLAG_GETSET)
-        self.add_parameter('magneticField', type=types.FloatType,
+        self.add_parameter('magneticField', type=float,
                            flags=Instrument.FLAG_GET, units='mT')
 
         self.add_function('get_all')

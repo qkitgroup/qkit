@@ -55,74 +55,74 @@ class Agilent_VNA_E5071C(Instrument):
         self._nop = 0
 
         # Implement parameters
-        self.add_parameter('nop', type=types.IntType,
+        self.add_parameter('nop', type=int,
             flags=Instrument.FLAG_GETSET,
             minval=2, maxval=1601,
             tags=['sweep'])
             
-        self.add_parameter('bandwidth', type=types.FloatType,
+        self.add_parameter('bandwidth', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=1e9,
             units='Hz', tags=['sweep']) 
 
-        self.add_parameter('averages', type=types.IntType,
+        self.add_parameter('averages', type=int,
             flags=Instrument.FLAG_GETSET,
             minval=1, maxval=1024, tags=['sweep'])                    
 
-        self.add_parameter('Average', type=types.BooleanType,
+        self.add_parameter('Average', type=bool,
             flags=Instrument.FLAG_GETSET)   
                     
-        self.add_parameter('centerfreq', type=types.FloatType,
+        self.add_parameter('centerfreq', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=8.5e9,
             units='Hz', tags=['sweep'])
             
-        self.add_parameter('startfreq', type=types.FloatType,
+        self.add_parameter('startfreq', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=8.5e9,
             units='Hz', tags=['sweep'])            
             
-        self.add_parameter('stopfreq', type=types.FloatType,
+        self.add_parameter('stopfreq', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=8.5e9,
             units='Hz', tags=['sweep'])                        
             
-        self.add_parameter('span', type=types.FloatType,
+        self.add_parameter('span', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=8.5e9,
             units='Hz', tags=['sweep'])        
             
-        self.add_parameter('power', type=types.FloatType,
+        self.add_parameter('power', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=-55, maxval=10,
             units='dBm', tags=['sweep'])
 
-        self.add_parameter('zerospan', type=types.BooleanType,
+        self.add_parameter('zerospan', type=bool,
             flags=Instrument.FLAG_GETSET)
             
-        self.add_parameter('channel_index', type=types.IntType,
+        self.add_parameter('channel_index', type=int,
             flags=Instrument.FLAG_GETSET)
 
-        self.add_parameter('edel', type=types.FloatType,
+        self.add_parameter('edel', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=1e-3,
             units='s', tags=['sweep']) 
         
-        self.add_parameter('sweeptime', type=types.FloatType,
+        self.add_parameter('sweeptime', type=float,
             flags=Instrument.FLAG_GET,
             minval=0, maxval=1e3,
             units='s', tags=['sweep'])
             
-        self.add_parameter('sweeptime_averages', type=types.FloatType,
+        self.add_parameter('sweeptime_averages', type=float,
             flags=Instrument.FLAG_GET,
             minval=0, maxval=1e3,
             units='s', tags=['sweep'])
-        self.add_parameter('sweep_mode', type=types.StringType,
+        self.add_parameter('sweep_mode', type=str,
             flags=Instrument.FLAG_GETSET,tags=['sweep']) 
                     
                     
         #Triggering Stuff
-        self.add_parameter('trigger_source', type=types.StringType,
+        self.add_parameter('trigger_source', type=str,
             flags=Instrument.FLAG_GETSET)
         
         # Implement functions

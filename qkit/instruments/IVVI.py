@@ -75,11 +75,11 @@ class IVVI(Instrument):
 
         # Add parameters
         self.add_parameter('pol_dacrack',
-            type=types.StringType,
+            type=str,
             channels=(1, self._numdacs/4),
             flags=Instrument.FLAG_SET)
         self.add_parameter('dac',
-            type=types.FloatType,
+            type=float,
             flags=Instrument.FLAG_GETSET,
             channels=(1, self._numdacs),
             maxstep=10, stepdelay=50,

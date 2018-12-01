@@ -62,9 +62,9 @@ class OxfordInstruments_Kelvinox_IGH(Instrument):
         self._visainstrument.stop_bits = 2
 
         #Add parameters
-        self.add_parameter('1K_pot_temp', type=types.FloatType,
+        self.add_parameter('1K_pot_temp', type=float,
             flags=Instrument.FLAG_GET)
-        self.add_parameter('mix_chamber_temp', type=types.FloatType,
+        self.add_parameter('mix_chamber_temp', type=float,
             flags=Instrument.FLAG_GET)
 
         # Add functions

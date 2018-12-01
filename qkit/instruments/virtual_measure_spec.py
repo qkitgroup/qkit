@@ -62,16 +62,16 @@ class virtual_measure_spec(Instrument):
 
         # parameters
 
-        self.add_parameter('samples', type=types.IntType)
-        self.add_parameter('samplerate', type=types.IntType)
-        self.add_parameter('segments', type=types.IntType)
-        self.add_parameter('averages', type=types.IntType)
-        self.add_parameter('blocks', type=types.IntType)
+        self.add_parameter('samples', type=int)
+        self.add_parameter('samplerate', type=int)
+        self.add_parameter('segments', type=int)
+        self.add_parameter('averages', type=int)
+        self.add_parameter('blocks', type=int)
         self.add_parameter('offsets', type=types.ListType)
-        self.add_parameter('channels', type=types.IntType)
-        self.add_parameter('multimode', type=types.BooleanType)
-        self.add_parameter('trigger_rate', type=types.FloatType)
-        self.add_parameter('spec_trigger_delay', flags=Instrument.FLAG_GETSET, type=types.IntType)
+        self.add_parameter('channels', type=int)
+        self.add_parameter('multimode', type=bool)
+        self.add_parameter('trigger_rate', type=float)
+        self.add_parameter('spec_trigger_delay', flags=Instrument.FLAG_GETSET, type=int)
         # measurement functions
         self.add_function('get_clock')
         self.add_function('set_gate_func')

@@ -19,32 +19,32 @@ class virtual_Tlogger(Instrument):
         self._igh = qkit.instruments.get(igh)
 
         self.add_parameter('timeout',
-                           type=types.FloatType,
+                           type=float,
                            flags=Instrument.FLAG_GETSET,
                            units='sec')
         self.add_parameter('idle_mintime',
-                           type=types.FloatType,
+                           type=float,
                            flags=Instrument.FLAG_GETSET,
                            units='sec')
         self.add_parameter('slow_mintime',
-                           type=types.FloatType,
+                           type=float,
                            flags=Instrument.FLAG_GETSET,
                            units='sec')
         self.add_parameter('disk_mintime',
-                           type=types.FloatType,
+                           type=float,
                            flags=Instrument.FLAG_GETSET,
                            units='sec')
         self.add_parameter('timeout_mode',
-                           type=types.BooleanType,
+                           type=bool,
                            flags=Instrument.FLAG_GET)
         self.add_parameter('idle_mode',
-                           type=types.BooleanType,
+                           type=bool,
                            flags=Instrument.FLAG_GET)
         self.add_parameter('plot_enable',
-                           type=types.BooleanType,
+                           type=bool,
                            flags=Instrument.FLAG_GET)
         self.add_parameter('status',
-                           type=types.StringType,
+                           type=str,
                            flags=Instrument.FLAG_GET)
 
         self.add_function('start')

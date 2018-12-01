@@ -13,7 +13,7 @@ class StepAttenuator(Instrument):
         Instrument.__init__(self, name, tags=['physical'])
         
         self.add_parameter('attenuation',
-            type=types.FloatType, minval=0, maxval=31.5, units='dB',
+            type=float, minval=0, maxval=31.5, units='dB',
             flags=Instrument.FLAG_GETSET)
             
         self.HOST, self.PORT = host, port

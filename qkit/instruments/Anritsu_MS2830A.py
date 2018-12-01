@@ -56,34 +56,34 @@ class Anritsu_MS2830A(Instrument):
         self._visainstrument = visa.instrument(self._address)
 
         # Implement parameters
-        self.add_parameter('centerfreq', type=types.FloatType,
+        self.add_parameter('centerfreq', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=26.5e9,
             tags=['sweep'])
 
-        self.add_parameter('nop', type=types.FloatType,
+        self.add_parameter('nop', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=155, maxval=30001,
             tags=['sweep'])
-        self.add_parameter('freqspan', type=types.FloatType,
+        self.add_parameter('freqspan', type=float,
             flags=Instrument.FLAG_GETSET,tags=['sweep'])                    
 
-        self.add_parameter('powerunit', type=types.StringType,
+        self.add_parameter('powerunit', type=str,
             flags=Instrument.FLAG_GETSET,tags=['sweep'])
 
-        self.add_parameter('startfreq', type=types.FloatType,
+        self.add_parameter('startfreq', type=float,
             flags=Instrument.FLAG_GETSET,tags=['sweep']) 
 
-        self.add_parameter('stopfreq', type=types.FloatType,
+        self.add_parameter('stopfreq', type=float,
             flags=Instrument.FLAG_GETSET,tags=['sweep']) 
 
-        self.add_parameter('sweeptime', type=types.FloatType,
+        self.add_parameter('sweeptime', type=float,
             flags=Instrument.FLAG_GET,tags=['sweep'])
 
-        self.add_parameter('resolutionBW', type=types.FloatType,
+        self.add_parameter('resolutionBW', type=float,
             flags=Instrument.FLAG_GETSET,tags=['sweep'])
 
-        self.add_parameter('videoBW', type=types.FloatType,
+        self.add_parameter('videoBW', type=float,
             flags=Instrument.FLAG_GETSET,tags=['sweep'])           
             
         # Implement functions

@@ -35,7 +35,7 @@ class DC_DAC_LTC2666(Instrument):
         Instrument.__init__(self, name, tags=['physical'])
         
         self.channels = nchannels
-        self.add_parameter('voltage', type=types.FloatType, flags=Instrument.FLAG_GETSET, 
+        self.add_parameter('voltage', type=float, flags=Instrument.FLAG_GETSET, 
                 units='V', channels=(0, self.channels-1), channel_prefix='ch%d_')
         self.voltages = [0]*self.channels
         

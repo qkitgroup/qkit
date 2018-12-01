@@ -16,13 +16,13 @@ class virtual_yokomagnet(Instrument):
         self._source= self._instruments.get(source)
         self._channel = channel        
         # Add parameters        
-        self.add_parameter('current', type=types.FloatType,
+        self.add_parameter('current', type=float,
             flags=Instrument.FLAG_GETSET, units='A')
-        self.add_parameter('stepsize', type=types.FloatType,
+        self.add_parameter('stepsize', type=float,
             flags=Instrument.FLAG_GETSET, units='A')        
-        self.add_parameter('range', type=types.FloatType,
+        self.add_parameter('range', type=float,
             flags=Instrument.FLAG_GETSET, units='A')        
-        self.add_parameter('stepdelay', type=types.FloatType,
+        self.add_parameter('stepdelay', type=float,
             flags=Instrument.FLAG_GETSET, units='ms')
 
         self._stepsize = stepsize

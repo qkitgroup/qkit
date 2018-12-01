@@ -56,19 +56,19 @@ class Tektronix_PWS4205(Instrument):
         self._name = name
         
         self.add_parameter('voltage',
-            flags=Instrument.FLAG_GETSET, units='V', minval=-200, maxval=200, type=types.FloatType)
+            flags=Instrument.FLAG_GETSET, units='V', minval=-200, maxval=200, type=float)
             
         self.add_parameter('setvoltage',
-            flags=Instrument.FLAG_GET, units='V', minval=-200, maxval=200, type=types.FloatType)
+            flags=Instrument.FLAG_GET, units='V', minval=-200, maxval=200, type=float)
  
         self.add_parameter('current',
-            flags=Instrument.FLAG_GETSET, units='A', minval=-10, maxval=10, type=types.FloatType)
+            flags=Instrument.FLAG_GETSET, units='A', minval=-10, maxval=10, type=float)
             
         self.add_parameter('setcurrent',
-            flags=Instrument.FLAG_GET, units='A', minval=-10, maxval=10, type=types.FloatType)
+            flags=Instrument.FLAG_GET, units='A', minval=-10, maxval=10, type=float)
 
         self.add_parameter('status',
-            flags=Instrument.FLAG_GETSET, type=types.BooleanType)
+            flags=Instrument.FLAG_GETSET, type=bool)
 
         self.add_function('reset')
         self.add_function('on')

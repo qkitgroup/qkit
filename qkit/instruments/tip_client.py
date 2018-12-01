@@ -70,34 +70,34 @@ class tip_client(Instrument):
         
         self.add_parameter('T',
                            flags=Instrument.FLAG_GETSET,
-                           type=types.FloatType,
+                           type=float,
                            units='K'
                            )
         self.add_parameter('P',
                            flags=Instrument.FLAG_GETSET,
-                           type=types.FloatType,
+                           type=float,
                            units=''
                            )
         self.add_parameter('I',
                            flags=Instrument.FLAG_GETSET,
-                           type=types.FloatType,
+                           type=float,
                            units=''
                            )
         self.add_parameter('D',
                            flags=Instrument.FLAG_GETSET,
-                           type=types.FloatType,
+                           type=float,
                            units=''
                            )
-        self.add_parameter('interval', type=types.FloatType,
+        self.add_parameter('interval', type=float,
                            flags=Instrument.FLAG_GETSET, units="s",
                            channels=(1, 5), channel_prefix='T%d_')
-        self.add_parameter('range', type=types.IntType,
+        self.add_parameter('range', type=int,
                            flags=Instrument.FLAG_GETSET,
                            channels=(1, 5), channel_prefix='T%d_')
-        self.add_parameter('excitation', type=types.IntType,
+        self.add_parameter('excitation', type=int,
                            flags=Instrument.FLAG_GETSET,
                            channels=(1, 5), channel_prefix='T%d_')
-        self.add_parameter('temperature', type=types.FloatType,
+        self.add_parameter('temperature', type=float,
                            flags=Instrument.FLAG_GET, units="K",
                            channels=(1, 5), channel_prefix='T%d_')
 

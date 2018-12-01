@@ -104,87 +104,87 @@ class Tabor_WX1284C(Instrument):
             self._choff = 2
 
         if numchannels == 4:
-            self.add_parameter('runmode', type=types.StringType,
+            self.add_parameter('runmode', type=str,
                 flags=Instrument.FLAG_GETSET,
                 channels=(1, 2), channel_prefix='p%d_')
         else:
-            self.add_parameter('runmode', type=types.StringType,
+            self.add_parameter('runmode', type=str,
                 flags=Instrument.FLAG_GETSET)
         
-        self.add_parameter('output', type=types.BooleanType,
+        self.add_parameter('output', type=bool,
             flags=Instrument.FLAG_GETSET,
             channels=(1, self._numchannels), channel_prefix='ch%d_')
-        self.add_parameter('marker_output', type=types.BooleanType,
+        self.add_parameter('marker_output', type=bool,
             flags=Instrument.FLAG_GETSET,
             channels=(1, self._numchannels), channel_prefix='ch%d_')
-        self.add_parameter('trigger_impedance', type=types.FloatType,       #changed, checked in manual
+        self.add_parameter('trigger_impedance', type=float,       #changed, checked in manual
             flags=Instrument.FLAG_GETSET,
             minval=50, maxval=10e3, units='Ohm')
-        self.add_parameter('trigger_level', type=types.FloatType,
+        self.add_parameter('trigger_level', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=-5, maxval=5, units='Volts')
-        self.add_parameter('clock', type=types.FloatType,
+        self.add_parameter('clock', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=1e6, maxval=1.25e9, units='Hz')
-        self.add_parameter('reference_source', type=types.StringType,
+        self.add_parameter('reference_source', type=str,
             flags=Instrument.FLAG_GETSET)
-        self.add_parameter('reference_source_freq', type=types.FloatType,
+        self.add_parameter('reference_source_freq', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=10e6, maxval=100e6, units='Hz')
-        self.add_parameter('common_clock', type=types.BooleanType,
+        self.add_parameter('common_clock', type=bool,
                 flags=Instrument.FLAG_GETSET)
-        self.add_parameter('amplitude', type=types.FloatType,
+        self.add_parameter('amplitude', type=float,
             flags=Instrument.FLAG_GETSET,
             channels=(1, self._numchannels), minval=0, maxval=2, units='Volts', channel_prefix='ch%d_')
-        self.add_parameter('offset', type=types.FloatType,
+        self.add_parameter('offset', type=float,
             flags=Instrument.FLAG_GETSET,
             channels=(1, self._numchannels), minval=-2, maxval=2, units='Volts', channel_prefix='ch%d_')
-        self.add_parameter('marker_high', type=types.FloatType,
+        self.add_parameter('marker_high', type=float,
             flags=Instrument.FLAG_GETSET,
             channels=(1, self._numchannels), minval=-2, maxval=2, units='Volts', channel_prefix='ch%d_')
-        self.add_parameter('status', type=types.BooleanType,
+        self.add_parameter('status', type=bool,
             flags=Instrument.FLAG_GETSET,
             channels=(1, self._numchannels),channel_prefix='ch%d_')
-        self.add_parameter('sync_position', type=types.FloatType,
+        self.add_parameter('sync_position', type=float,
                 flags=Instrument.FLAG_GETSET,units='s')
 
         if numchannels == 4:
-            self.add_parameter('trigger_mode', type=types.StringType,
+            self.add_parameter('trigger_mode', type=str,
                 flags=Instrument.FLAG_GETSET,
                 channels=(1, 2), channel_prefix='p%d_')
-            self.add_parameter('trigger_delay', type=types.FloatType,
+            self.add_parameter('trigger_delay', type=float,
                 flags=Instrument.FLAG_GETSET,
                 channels=(1, 2), channel_prefix='p%d_')
-            self.add_parameter('sequence_mode', type=types.StringType,
+            self.add_parameter('sequence_mode', type=str,
                 flags=Instrument.FLAG_GETSET,
                 channels=(1, 2), channel_prefix='p%d_')
-            self.add_parameter('trigger_source', type=types.StringType,
+            self.add_parameter('trigger_source', type=str,
                 flags=Instrument.FLAG_GETSET,
                 channels=(1, 2), channel_prefix='p%d_')
-            self.add_parameter('trigger_time', type=types.FloatType,
+            self.add_parameter('trigger_time', type=float,
                 flags=Instrument.FLAG_GETSET,
                 channels=(1, 2), channel_prefix='p%d_')
-            self.add_parameter('sync_output', type=types.BooleanType,
+            self.add_parameter('sync_output', type=bool,
                 flags=Instrument.FLAG_GETSET,
                 channels=(1, 2), channel_prefix='p%d_')
-            self.add_parameter('trigger_slope', type=types.StringType,
+            self.add_parameter('trigger_slope', type=str,
                 flags=Instrument.FLAG_GETSET,
                 channels=(1, 2), channel_prefix='p%d_')
 
         else:
-            self.add_parameter('trigger_mode', type=types.StringType,
+            self.add_parameter('trigger_mode', type=str,
                 flags=Instrument.FLAG_GETSET)
-            self.add_parameter('trigger_delay', type=types.FloatType,
+            self.add_parameter('trigger_delay', type=float,
                 flags=Instrument.FLAG_GETSET)
-            self.add_parameter('sequence_mode', type=types.StringType,
+            self.add_parameter('sequence_mode', type=str,
                 flags=Instrument.FLAG_GETSET)
-            self.add_parameter('trigger_source', type=types.StringType,
+            self.add_parameter('trigger_source', type=str,
                 flags=Instrument.FLAG_GETSET)
-            self.add_parameter('trigger_time', type=types.FloatType,
+            self.add_parameter('trigger_time', type=float,
                 flags=Instrument.FLAG_GETSET)
-            self.add_parameter('sync_output', type=types.BooleanType,
+            self.add_parameter('sync_output', type=bool,
                 flags=Instrument.FLAG_GETSET)
-            self.add_parameter('trigger_slope', type=types.StringType,
+            self.add_parameter('trigger_slope', type=str,
                 flags=Instrument.FLAG_GETSET)
 
         # Add functions

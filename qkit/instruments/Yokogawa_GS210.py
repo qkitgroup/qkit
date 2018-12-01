@@ -63,39 +63,39 @@ class Yokogawa_GS210(Instrument):
         
         self.add_parameter('operation_mode',
             flags=Instrument.FLAG_SET,
-            type=types.StringType, units='')
+            type=str, units='')
 
         self.add_parameter('source_mode',
             flags=Instrument.FLAG_GETSET,
-            type=types.StringType, units='')
+            type=str, units='')
 
         self.add_parameter('source_range',
             flags=Instrument.FLAG_GETSET ,
-            units='', type=types.StringType)
+            units='', type=str)
             
         self.add_parameter('output',
             flags=Instrument.FLAG_GETSET ,
-            units='', type=types.StringType)
+            units='', type=str)
         
         self.add_parameter('level', 
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-            type=types.FloatType, units='')
+            type=float, units='')
 
         self.add_parameter('voltage_protection', 
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-            type=types.FloatType, units='V')
+            type=float, units='V')
 
         self.add_parameter('current_protection', 
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-            type=types.FloatType, units='A')
+            type=float, units='A')
             
         self.add_parameter('4W',
             flags=Instrument.FLAG_GETSET ,
-            units='', type=types.StringType)
+            units='', type=str)
 
         self.add_parameter('ramp_wait_time', 
             flags=Instrument.FLAG_GET,
-            type=types.FloatType, units = 's')
+            type=float, units = 's')
           
 
 

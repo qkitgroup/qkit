@@ -49,38 +49,38 @@ class Oxford_Triton(Instrument):
         self._soc.connect((self._host, self._port))
 
         # Implement parameters
-        self.add_parameter('temperature', type=types.FloatType,
+        self.add_parameter('temperature', type=float,
             flags=Instrument.FLAG_GET,
             minval=0, maxval=350,
             units='K')
 
-        self.add_parameter('resistance', type=types.FloatType,
+        self.add_parameter('resistance', type=float,
             flags=Instrument.FLAG_GET,
             minval=0, maxval=200000,
             units='Ohm')
 
-        self.add_parameter('pressure', type=types.FloatType,
+        self.add_parameter('pressure', type=float,
             flags=Instrument.FLAG_GET,
             minval=0, maxval=5,
             units='mbar')
 
-        self.add_parameter('valve', type=types.BooleanType,
+        self.add_parameter('valve', type=bool,
             flags=Instrument.FLAG_GETSET)
 
-        self.add_parameter('pulse_tube', type=types.BooleanType,
+        self.add_parameter('pulse_tube', type=bool,
             flags=Instrument.FLAG_GETSET)
 
-        self.add_parameter('still_power', type=types.FloatType,
+        self.add_parameter('still_power', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=1,
             units='uW')
 
-        self.add_parameter('base_power', type=types.FloatType,
+        self.add_parameter('base_power', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=300,
             units='uW')
 
-        self.add_parameter('warm_up_heater', type=types.BooleanType,
+        self.add_parameter('warm_up_heater', type=bool,
             flags=Instrument.FLAG_GETSET)
 
         # Implement functions

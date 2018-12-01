@@ -76,7 +76,7 @@ class FTDI_DAQ(Instrument):
         self._set_baudrate(baudrate)
 
         # provide user interface
-        self.add_parameter('port', type=types.StringType, flags=Instrument.FLAG_GET)
+        self.add_parameter('port', type=str, flags=Instrument.FLAG_GET)
         #self.add_parameter('aliases', type=types.DictType, flags=Instrument.FLAG_GETSET)
         self.add_function('digital_out')
         self.add_function('digital_stream')

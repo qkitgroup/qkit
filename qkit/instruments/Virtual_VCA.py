@@ -55,7 +55,7 @@ class Virtual_VCA(Instrument):
         #    self.volts_interpol=interpolate.interp1d(attenuation0812, volts)
         #    self.att_interpol=interpolate.interp1d(volts, attenuation0812)
 
-        self.add_parameter('attenuation', type=types.FloatType, flags=Instrument.FLAG_GETSET, units='dB', minval=0,
+        self.add_parameter('attenuation', type=float, flags=Instrument.FLAG_GETSET, units='dB', minval=0,
                            maxval=30)
         self._dac = _Dac(dac_device, dac_port)
 

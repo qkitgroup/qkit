@@ -53,108 +53,108 @@ class Anritsu_VNA(Instrument):
         self._nop = 0
 
         # Implement parameters
-        self.add_parameter('nop', type=types.IntType,
+        self.add_parameter('nop', type=int,
             flags=Instrument.FLAG_GETSET,
             minval=1, maxval=100000,
             tags=['sweep'])
 
-        self.add_parameter('bandwidth', type=types.FloatType,
+        self.add_parameter('bandwidth', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=1e9,
             units='Hz', tags=['sweep']) 
 
-        self.add_parameter('averages', type=types.IntType,
+        self.add_parameter('averages', type=int,
             flags=Instrument.FLAG_GETSET,
             minval=1, maxval=1024, tags=['sweep'])                    
 
-        self.add_parameter('Average', type=types.BooleanType,
+        self.add_parameter('Average', type=bool,
             flags=Instrument.FLAG_GETSET)   
 
-        self.add_parameter('centerfreq', type=types.FloatType,
+        self.add_parameter('centerfreq', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])
 
-        self.add_parameter('cwfreq', type=types.FloatType,
+        self.add_parameter('cwfreq', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])
 
-        self.add_parameter('startfreq', type=types.FloatType,
+        self.add_parameter('startfreq', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])            
 
-        self.add_parameter('stopfreq', type=types.FloatType,
+        self.add_parameter('stopfreq', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])                        
 
-        self.add_parameter('span', type=types.FloatType,
+        self.add_parameter('span', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])        
 
-        self.add_parameter('power', type=types.FloatType,
+        self.add_parameter('power', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=-25, maxval=30,
             units='dBm', tags=['sweep'])
 
-        self.add_parameter('cw', type=types.BooleanType,
+        self.add_parameter('cw', type=bool,
             flags=Instrument.FLAG_GETSET)
 
-        self.add_parameter('zerospan', type=types.BooleanType,
+        self.add_parameter('zerospan', type=bool,
             flags=Instrument.FLAG_GETSET)
 
-        self.add_parameter('channel_index', type=types.IntType,
+        self.add_parameter('channel_index', type=int,
             flags=Instrument.FLAG_GETSET)     
 
-        self.add_parameter('source_attenuation', type=types.IntType,
+        self.add_parameter('source_attenuation', type=int,
             flags=Instrument.FLAG_GETSET,channels=(1,2),
             minval=0, maxval=60,
             units='dB', tags=['sweep'])
             
-        self.add_parameter('source_power_start', type=types.FloatType,
+        self.add_parameter('source_power_start', type=float,
             flags=Instrument.FLAG_GETSET,channels=(1,2),
             minval=-2.9e1, maxval=3e1,
             units='dBm', tags=['sweep'])
             
-        self.add_parameter('source_power_stop', type=types.FloatType,
+        self.add_parameter('source_power_stop', type=float,
             flags=Instrument.FLAG_GETSET,channels=(1,2),
             minval=-2.9e1, maxval=3e1,
             units='dBm', tags=['sweep'])
             
-        self.add_parameter('calibration_state', type=types.BooleanType,
+        self.add_parameter('calibration_state', type=bool,
             flags=Instrument.FLAG_GETSET) 
         
-        self.add_parameter('sweep_type', type=types.StringType,
+        self.add_parameter('sweep_type', type=str,
             flags=Instrument.FLAG_GETSET,tags=['sweep']) 
             
-        self.add_parameter('power_nop', type=types.IntType,
+        self.add_parameter('power_nop', type=int,
             flags=Instrument.FLAG_GETSET,channels=(1,2),
             minval=0, maxval=60,
             tags=['sweep'])
         
-        self.add_parameter('avg_type', type=types.StringType,
+        self.add_parameter('avg_type', type=str,
             flags=Instrument.FLAG_GETSET,tags=['sweep']) 
         
-        self.add_parameter('edel', type=types.FloatType,   #added by MW
+        self.add_parameter('edel', type=float,   #added by MW
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=1e-3,
             units='s', tags=['sweep'])
         
-        self.add_parameter('sweeptime', type=types.FloatType,   #JB
+        self.add_parameter('sweeptime', type=float,   #JB
             flags=Instrument.FLAG_GET,
             minval=0, maxval=1e-3,
             units='s', tags=['sweep'])
             
-        self.add_parameter('sweeptime_averages', type=types.FloatType,   #JB
+        self.add_parameter('sweeptime_averages', type=float,   #JB
             flags=Instrument.FLAG_GET,
             minval=0, maxval=1e-3,
             units='s', tags=['sweep'])
                     
         #Triggering Stuff
-        self.add_parameter('trigger_source', type=types.StringType,
+        self.add_parameter('trigger_source', type=str,
             flags=Instrument.FLAG_GETSET)
         
         # Implement functions

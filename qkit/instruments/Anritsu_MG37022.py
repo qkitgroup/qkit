@@ -54,25 +54,25 @@ class Anritsu_MG37022(Instrument):
         sleep(1)
 
         # Implement parameters
-        self.add_parameter('frequency', type=types.FloatType,
+        self.add_parameter('frequency', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=20e9,
             units='Hz',tags=['sweep'])
-        self.add_parameter('phase_offset', type=types.FloatType,
+        self.add_parameter('phase_offset', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=-360, maxval=360,
             units='deg')
-        self.add_parameter('slope', type=types.FloatType,
+        self.add_parameter('slope', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=100,
             units='dB@10GHz')
-        self.add_parameter('power', type=types.FloatType,
+        self.add_parameter('power', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=-130, maxval=29,   #29dBm possible, this is security JB
             units='dBm', tags=['sweep'])
-        self.add_parameter('status', type=types.BooleanType,
+        self.add_parameter('status', type=bool,
             flags=Instrument.FLAG_GETSET)
-        self.add_parameter('high_power', type=types.BooleanType,
+        self.add_parameter('high_power', type=bool,
             flags=Instrument.FLAG_GETSET)
         
         # Implement functions

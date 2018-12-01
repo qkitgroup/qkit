@@ -38,22 +38,22 @@ class IQ_Mixer(Instrument):
         self.cache_iq = self._sample.iq_frequency
 
         # Parameters
-        self.add_parameter('sideband_frequency', type=types.FloatType,
+        self.add_parameter('sideband_frequency', type=float,
                            flags=Instrument.FLAG_GET, units='Hz',
                            minval=1, maxval=20e9)
 
-        self.add_parameter('output_power', type=types.FloatType,
+        self.add_parameter('output_power', type=float,
                            flags=Instrument.FLAG_GET, units='dBm')
 
-        self.add_parameter('iq_frequency', type=types.FloatType,
+        self.add_parameter('iq_frequency', type=float,
                            flags=Instrument.FLAG_GET, units='Hz',
                            minval=0,
                            maxval=1e9)  # This is only a get variable, because changing requires an update of all sequences in AWG
 
-        self.add_parameter('FSUP_connected', type=types.BooleanType,
+        self.add_parameter('FSUP_connected', type=bool,
                            flags=Instrument.FLAG_GET)
 
-        self.add_parameter('mixer_name', type=types.StringType,
+        self.add_parameter('mixer_name', type=str,
                            flags=Instrument.FLAG_GETSET)
 
         self.add_function('connect_FSUP')

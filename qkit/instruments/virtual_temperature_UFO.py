@@ -15,7 +15,7 @@ class virtual_temperature_UFO(Instrument):
     def __init__(self, name):
         Instrument.__init__(self, name, tags=['virtual'])
         
-        self.add_parameter('temperature', type=types.FloatType,
+        self.add_parameter('temperature', type=float,
             flags=Instrument.FLAG_GET, units='mK')
         
         self.t = tip_client('tip',address='pi-us74')   #tip raspberry instance

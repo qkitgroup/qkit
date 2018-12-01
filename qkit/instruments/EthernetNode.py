@@ -66,11 +66,11 @@ class EthernetNode(Instrument):
         self._updateLock = threading.Lock()
 
         #Add parameters
-        self.add_parameter('interface', type=types.StringType, flags=Instrument.FLAG_GET)
-        self.add_parameter('ethertype', type=types.IntType, flags=Instrument.FLAG_GET)
+        self.add_parameter('interface', type=str, flags=Instrument.FLAG_GET)
+        self.add_parameter('ethertype', type=int, flags=Instrument.FLAG_GET)
         self.add_parameter('MACs', type=types.ListType, flags=Instrument.FLAG_GET)
-        self.add_parameter('rcvbuf', type=types.IntType, flags=Instrument.FLAG_GETSET)
-        self.add_parameter('monitoring', type.types.BooleanType, flags.Instrument.FLAG_GETSET)
+        self.add_parameter('rcvbuf', type=int, flags=Instrument.FLAG_GETSET)
+        self.add_parameter('monitoring', type.bool, flags.Instrument.FLAG_GETSET)
 
         # Add functions
         self.add_function('register')

@@ -58,28 +58,28 @@ class Caen_FAST_PS(Instrument):
 
         
         self.add_parameter('voltage',
-            flags=Instrument.FLAG_GET, units='V', minval=-20, maxval=20, type=types.FloatType)
+            flags=Instrument.FLAG_GET, units='V', minval=-20, maxval=20, type=float)
             
         self.add_parameter('setvoltage',
-            flags=Instrument.FLAG_GETSET, units='V', minval=-20, maxval=20, type=types.FloatType)
+            flags=Instrument.FLAG_GETSET, units='V', minval=-20, maxval=20, type=float)
  
         self.add_parameter('current',
-            flags=Instrument.FLAG_GET, units='A', minval=-10, maxval=10, type=types.FloatType)
+            flags=Instrument.FLAG_GET, units='A', minval=-10, maxval=10, type=float)
             
         self.add_parameter('setcurrent',
-            flags=Instrument.FLAG_GETSET, units='A', minval=-10, maxval=10, type=types.FloatType)
+            flags=Instrument.FLAG_GETSET, units='A', minval=-10, maxval=10, type=float)
 
         self.add_parameter('status',
-            flags=Instrument.FLAG_GET, type=types.BooleanType)
+            flags=Instrument.FLAG_GET, type=bool)
 
         self.add_parameter('output_mode',
-            flags=Instrument.FLAG_GETSET, type=types.StringType)
+            flags=Instrument.FLAG_GETSET, type=str)
 
         self.add_parameter('current_ramp_rate',
-            flags=Instrument.FLAG_GETSET, units='A/s', minval=2e-4, maxval=10, type=types.FloatType)
+            flags=Instrument.FLAG_GETSET, units='A/s', minval=2e-4, maxval=10, type=float)
 
         self.add_parameter('voltage_ramp_rate',
-            flags=Instrument.FLAG_GETSET, units='A/s', minval=-10, maxval=10, type=types.FloatType)
+            flags=Instrument.FLAG_GETSET, units='A/s', minval=-10, maxval=10, type=float)
         
         self.add_function('ramp_current')
         self.add_function('ramp_voltage')

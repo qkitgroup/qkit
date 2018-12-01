@@ -72,12 +72,12 @@ class Virtual_Coil(Instrument):
         self.range_limits = [limits_dict[dacranges[i]] for i in range(self.channels)]
         # print self.range_limits
         if self.channels == 1:
-            self.add_parameter('current', type=types.FloatType, flags=Instrument.FLAG_GETSET, units='mA')
-            self.add_parameter('range', type=types.StringType, flags=Instrument.FLAG_GETSET)
+            self.add_parameter('current', type=float, flags=Instrument.FLAG_GETSET, units='mA')
+            self.add_parameter('range', type=str, flags=Instrument.FLAG_GETSET)
         elif self.channels > 1 and self.channels <= 16:
-            self.add_parameter('current', type=types.FloatType, flags=Instrument.FLAG_GETSET, units='mA',
+            self.add_parameter('current', type=float, flags=Instrument.FLAG_GETSET, units='mA',
                                channels=(1, self.channels), channel_prefix='ch%d_')
-            self.add_parameter('range', type=types.StringType, flags=Instrument.FLAG_GETSET,
+            self.add_parameter('range', type=str, flags=Instrument.FLAG_GETSET,
                                channels=(1, self.channels), channel_prefix='ch%d_')
         else:
             logging.error('incorrect number of channels specified')

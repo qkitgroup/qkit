@@ -21,12 +21,12 @@ class te_opto_dac(Instrument):
 		self._inverted = inverted
         
 		# Add parameters        
-		self.add_parameter('value', type=types.FloatType,
+		self.add_parameter('value', type=float,
 			channels=(1, dachannels), channel_prefix = 'ch%d_',
 			flags=Instrument.FLAG_SET, units='V')
-		self.add_parameter('invert', type=types.BooleanType,
+		self.add_parameter('invert', type=bool,
 			flags=Instrument.FLAG_SET, units='')
-		#self.add_parameter('binary', type=types.IntType,
+		#self.add_parameter('binary', type=int,
 		#	flags=Instrument.FLAG_SET, units='')
 
     def get_all(self):

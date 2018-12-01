@@ -57,57 +57,57 @@ class Yokogawa_GS820(Instrument):
         self.add_parameter('source_range',
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, self._numchs), channel_prefix='ch%d_',
-            units='', type=types.StringType)
+            units='', type=str)
         self.add_parameter('sense_range',
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, self._numchs), channel_prefix='ch%d_',
-            units='', type=types.StringType)
+            units='', type=str)
         self.add_parameter('source_mode',
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, self._numchs), channel_prefix='ch%d_',
-            type=types.StringType, units='')
+            type=str, units='')
         self.add_parameter('sense_mode',
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, self._numchs), channel_prefix='ch%d_',
-            type=types.StringType, units='')
+            type=str, units='')
         self.add_parameter('source_trig',
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, self._numchs), channel_prefix='ch%d_',
-            type=types.StringType, units='')
+            type=str, units='')
         self.add_parameter('sense_trig',
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, self._numchs), channel_prefix='ch%d_',
-            type=types.StringType, units='')
+            type=str, units='')
         self.add_parameter('source_delay',
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, self._numchs), channel_prefix='ch%d_',
-            type=types.FloatType, minval=15e-6, maxval=3600, units='s')
+            type=float, minval=15e-6, maxval=3600, units='s')
         self.add_parameter('sense_delay',
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, self._numchs), channel_prefix='ch%d_',
-            type=types.FloatType, minval=15e-6, maxval=3600, units='s')
+            type=float, minval=15e-6, maxval=3600, units='s')
         self.add_parameter('sweep_mode',
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, self._numchs), channel_prefix='ch%d_',
-            type=types.StringType, units='')
+            type=str, units='')
         self.add_parameter('4W',
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1, self._numchs), channel_prefix='ch%d_',
-            type=types.StringType, units='')
+            type=str, units='')
         self.add_parameter('level', 
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1,self._numchs),channel_prefix='ch%d_',
-            type=types.FloatType, units='')
+            type=float, units='')
         self.add_parameter('value', flags=Instrument.FLAG_GET,
             channels=(1, self._numchs), channel_prefix='ch%d_',
-            type=types.FloatType, units='')
+            type=float, units='')
         self.add_parameter('output',
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             channels=(1,self._numchs),channel_prefix='ch%d_',
-            type=types.StringType, units='')
+            type=str, units='')
         self.add_parameter('sync',
             flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
-            type=types.StringType, units='')
+            type=str, units='')
 
 
         # Add functions to wrapper

@@ -55,10 +55,10 @@ class StepMotor(Instrument):
         self.rotations = initial_position
         self.show_progress_bar = True
 
-        self.add_parameter('angle', type=types.IntType, flags=Instrument.FLAG_GETSET, minval=0, maxval=17.5 * 360)
-        self.add_parameter('waiting_time', type=types.FloatType, flags=Instrument.FLAG_GETSET,
+        self.add_parameter('angle', type=int, flags=Instrument.FLAG_GETSET, minval=0, maxval=17.5 * 360)
+        self.add_parameter('waiting_time', type=float, flags=Instrument.FLAG_GETSET,
                            minval=0.0001, maxval=0.01)
-        self.add_parameter('rotations', type=types.FloatType, flags=Instrument.FLAG_GETSET, minval=0, maxval=17.5 * 360)
+        self.add_parameter('rotations', type=float, flags=Instrument.FLAG_GETSET, minval=0, maxval=17.5 * 360)
         self.add_function('turn')
 
     def do_get_angle(self):

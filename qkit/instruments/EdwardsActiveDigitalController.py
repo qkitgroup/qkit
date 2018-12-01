@@ -20,10 +20,10 @@ class EdwardsActiveDigitalController(Instrument):
         Instrument.__init__(self, name, tags=['physical'])
         
         self.add_parameter('condenser_pressure',
-            type=types.FloatType,
+            type=float,
             flags=Instrument.FLAG_GET, units='mbar')
         self.add_parameter('still_pressure',
-            type=types.FloatType,
+            type=float,
             flags=Instrument.FLAG_GET, units='mbar')
             
         self.HOST, self.PORT = host, port

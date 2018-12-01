@@ -129,16 +129,16 @@ class EthernetServerWin(Instrument):
         self._updateLock = threading.Lock()
 
         # add parameters
-        self.add_parameter('interface', type=types.StringType, flags=Instrument.FLAG_GET)
-        self.add_parameter('MAC', type=types.StringType, flags=Instrument.FLAG_GET)
-        self.add_parameter('ethertype', type=types.IntType, flags=Instrument.FLAG_GET)
-        self.add_parameter('ip_host', type=types.StringType, flags=Instrument.FLAG_GET)
-        self.add_parameter('ip_port', type=types.IntType, flags=Instrument.FLAG_GET)
-        self.add_parameter('ip_filter', type=types.StringType, flags=Instrument.FLAG_GETSET)
+        self.add_parameter('interface', type=str, flags=Instrument.FLAG_GET)
+        self.add_parameter('MAC', type=str, flags=Instrument.FLAG_GET)
+        self.add_parameter('ethertype', type=int, flags=Instrument.FLAG_GET)
+        self.add_parameter('ip_host', type=str, flags=Instrument.FLAG_GET)
+        self.add_parameter('ip_port', type=int, flags=Instrument.FLAG_GET)
+        self.add_parameter('ip_filter', type=str, flags=Instrument.FLAG_GETSET)
         self.add_parameter('devices', type=types.ListType, flags=Instrument.FLAG_GET)
         self.add_parameter('listeners', type=types.ListType, flags=Instrument.FLAG_GET)
-        self.add_parameter('raw_rcvbuf', type=types.IntType, flags=Instrument.FLAG_GETSET)
-        self.add_parameter('udp_rcvbuf', type=types.IntType, flags=Instrument.FLAG_GETSET)
+        self.add_parameter('raw_rcvbuf', type=int, flags=Instrument.FLAG_GETSET)
+        self.add_parameter('udp_rcvbuf', type=int, flags=Instrument.FLAG_GETSET)
         self.add_function('get_all')
 
         # open sockets

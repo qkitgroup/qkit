@@ -40,9 +40,9 @@ class MicroMag3(Instrument):
         self.reset()
 
         #Add parameters
-        self.add_parameter('b_raw', type=types.IntType,
+        self.add_parameter('b_raw', type=int,
             flags=Instrument.FLAG_GET)
-        self.add_parameter('counts', type=types.IntType,
+        self.add_parameter('counts', type=int,
             flags=Instrument.FLAG_GETSET)
 
         # Add functions

@@ -99,7 +99,7 @@ class Tunnel_DAC(Instrument):
         self._resolution = 16 # DAC resolution in bits
         self._voltages = [0.]*numdacs
         
-        self.add_parameter('voltage', type=types.FloatType, flags=Instrument.FLAG_SET, channels=(1, self._numdacs),
+        self.add_parameter('voltage', type=float, flags=Instrument.FLAG_SET, channels=(1, self._numdacs),
                            minval = self._minval, maxval = self._maxval, units='mV', format = '%.02f') # tags=['sweep']
         self.add_function('set_voltages')
         self.add_function('commit')

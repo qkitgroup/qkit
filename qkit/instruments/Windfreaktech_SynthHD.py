@@ -56,20 +56,20 @@ class Windfreaktech_SynthHD(Instrument):
         self._power = [None, None, None]
 
         # Implement parameters
-        self.add_parameter('frequency', type=types.FloatType,
+        self.add_parameter('frequency', type=float,
                            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
                            channels=(1, self._numchannels), minval=0, maxval=13.6e9, units='Hz', channel_prefix='ch%d_')
 
-        self.add_parameter('power_level', type=types.FloatType,
+        self.add_parameter('power_level', type=float,
                            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
                            channels=(1, self._numchannels), minval=0, maxval=45000, units='arbu',
                            channel_prefix='ch%d_')
 
-        self.add_parameter('power', type=types.FloatType,
+        self.add_parameter('power', type=float,
                            flags=Instrument.FLAG_GETSET,
                            channels=(1, self._numchannels), minval=-70, maxval=20, units='dBm', channel_prefix='ch%d_')
 
-        self.add_parameter('status', type=types.BooleanType,
+        self.add_parameter('status', type=bool,
                            flags=Instrument.FLAG_GETSET,
                            channels=(1, self._numchannels), channel_prefix='ch%d_')
 

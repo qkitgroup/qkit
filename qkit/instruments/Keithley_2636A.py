@@ -53,19 +53,19 @@ class Keithley_2636A(Instrument):
         self._visainstrument = visa.instrument(self._address)
         
         self.add_parameter('voltageA',
-            flags=Instrument.FLAG_GETSET, units='V', minval=-200, maxval=200, type=types.FloatType)
+            flags=Instrument.FLAG_GETSET, units='V', minval=-200, maxval=200, type=float)
         self.add_parameter('voltageB',
-            flags=Instrument.FLAG_GETSET, units='V', minval=-200, maxval=200, type=types.FloatType)
+            flags=Instrument.FLAG_GETSET, units='V', minval=-200, maxval=200, type=float)
  
         self.add_parameter('currentA',
-            flags=Instrument.FLAG_GETSET, units='A', minval=-10, maxval=10, type=types.FloatType)
+            flags=Instrument.FLAG_GETSET, units='A', minval=-10, maxval=10, type=float)
         self.add_parameter('currentB',
-            flags=Instrument.FLAG_GETSET, units='A', minval=-10, maxval=10, type=types.FloatType)
+            flags=Instrument.FLAG_GETSET, units='A', minval=-10, maxval=10, type=float)
          
         self.add_parameter('statusA',
-            flags=Instrument.FLAG_GETSET, type=types.BooleanType)
+            flags=Instrument.FLAG_GETSET, type=bool)
         self.add_parameter('statusB',
-            flags=Instrument.FLAG_GETSET, type=types.BooleanType)
+            flags=Instrument.FLAG_GETSET, type=bool)
 
         self.add_function('reset')
         self.add_function('onA')

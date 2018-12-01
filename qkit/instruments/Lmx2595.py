@@ -92,7 +92,7 @@ class Lmx2595(Instrument):
         self.vco_max = 15e9  # default values according to manual
         self.vco_min = 7.5e9
 
-        self.add_parameter('frequency', type=types.FloatType, flags=Instrument.FLAG_GETSET, minval=200e6, maxval=14.9e9)
+        self.add_parameter('frequency', type=float, flags=Instrument.FLAG_GETSET, minval=200e6, maxval=14.9e9)
 
         if reset:
             self.reset()

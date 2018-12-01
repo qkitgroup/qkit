@@ -59,9 +59,9 @@ class Virtual_Current_Source(DC_DAC_LTC2666):
         Instrument.__init__(self, name, tags=['virtual'])
 
         self.channels = nchannels
-        self.add_parameter('current', type=types.FloatType, flags=Instrument.FLAG_GETSET, 
+        self.add_parameter('current', type=float, flags=Instrument.FLAG_GETSET, 
                 units='mA', channels=(0, self.channels-1), channel_prefix='ch%d_')
-        self.add_parameter('range', type=types.FloatType, flags=Instrument.FLAG_GETSET, 
+        self.add_parameter('range', type=float, flags=Instrument.FLAG_GETSET, 
                 channels=(0, self.channels-1), channel_prefix='ch%d_')
         self.currents = [0]*self.channels
         self.c_ranges = [1]*self.channels
