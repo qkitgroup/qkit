@@ -463,13 +463,13 @@ class Resonator(object):
         '''
         if self._ds_type == ds_types['vector']: # data from measure_1d
             self._lrnz_amp_gen = self._hf.add_value_vector('lrnz_amp_gen', folder = 'analysis', x = self._frequency_co, unit = 'arb. unit')  
-            self._lrnz_f0 = self._hf.add_value_vector('lrnz_f0', folder = 'analysis', unit = 'Hz')
-            self._lrnz_k = self._hf.add_value_vector('lrnz_k', folder = 'analysis', unit = 'Hz')
-            self._lrnz_a = self._hf.add_value_vector('lrnz_a', folder = 'analysis', unit = '')
-            self._lrnz_offs = self._hf.add_value_vector('lrnz_offs', folder = 'analysis', unit = '')
-            self._lrnz_Ql = self._hf.add_value_vector('lrnz_ql', folder = 'analysis', unit = '')
+            self._lrnz_f0 = self._hf.add_coordinate('lrnz_f0', folder = 'analysis', unit = 'Hz')
+            self._lrnz_k = self._hf.add_coordinate('lrnz_k', folder = 'analysis', unit = 'Hz')
+            self._lrnz_a = self._hf.add_coordinate('lrnz_a', folder = 'analysis', unit = '')
+            self._lrnz_offs = self._hf.add_coordinate('lrnz_offs', folder = 'analysis', unit = '')
+            self._lrnz_Ql = self._hf.add_coordinate('lrnz_ql', folder = 'analysis', unit = '')
     
-            self._lrnz_chi2_fit  = self._hf.add_value_vector('lrnz_chi2' , folder = 'analysis', unit = '')
+            self._lrnz_chi2_fit  = self._hf.add_coordinate('lrnz_chi2' , folder = 'analysis', unit = '')
             
         if self._ds_type == ds_types['matrix']: # data from measure_2d
             self._lrnz_amp_gen = self._hf.add_value_matrix('lrnz_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'arb. unit')
@@ -581,15 +581,15 @@ class Resonator(object):
         '''
         if self._ds_type == ds_types['vector']: # data from measure_1d
             self._skwd_amp_gen = self._hf.add_value_vector('sklr_amp_gen', folder = 'analysis', x = self._frequency_co, unit = 'arb. unit')
-            self._skwd_f0 = self._hf.add_value_vector('sklr_f0', folder = 'analysis', unit = 'Hz')
-            self._skwd_a1 = self._hf.add_value_vector('sklr_a1', folder = 'analysis', unit = 'Hz')
-            self._skwd_a2 = self._hf.add_value_vector('sklr_a2', folder = 'analysis', unit = '')
-            self._skwd_a3 = self._hf.add_value_vector('sklr_a3', folder = 'analysis', unit = '')
-            self._skwd_a4 = self._hf.add_value_vector('sklr_a4', folder = 'analysis', unit = '')
-            self._skwd_Qr = self._hf.add_value_vector('sklr_qr', folder = 'analysis', unit = '')
-            self._skwd_Qi = self._hf.add_value_vector('sklr_qi', folder = 'analysis', unit = '')
+            self._skwd_f0 = self._hf.add_coordinate('sklr_f0', folder = 'analysis', unit = 'Hz')
+            self._skwd_a1 = self._hf.add_coordinate('sklr_a1', folder = 'analysis', unit = 'Hz')
+            self._skwd_a2 = self._hf.add_coordinate('sklr_a2', folder = 'analysis', unit = '')
+            self._skwd_a3 = self._hf.add_coordinate('sklr_a3', folder = 'analysis', unit = '')
+            self._skwd_a4 = self._hf.add_coordinate('sklr_a4', folder = 'analysis', unit = '')
+            self._skwd_Qr = self._hf.add_coordinate('sklr_qr', folder = 'analysis', unit = '')
+            self._skwd_Qi = self._hf.add_coordinate('sklr_qi', folder = 'analysis', unit = '')
     
-            self._skwd_chi2_fit  = self._hf.add_value_vector('sklr_chi2' , folder = 'analysis', unit = '')
+            self._skwd_chi2_fit  = self._hf.add_coordinate('sklr_chi2' , folder = 'analysis', unit = '')
 
         if self._ds_type == ds_types['matrix']: # data from measure_2d
             self._skwd_amp_gen = self._hf.add_value_matrix('sklr_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'arb. unit')
@@ -643,14 +643,14 @@ class Resonator(object):
         "create the datasets for the fano fit in the hdf-file"
         if self._ds_type == ds_types['vector']: # data from measure_1d
             self._fano_amp_gen = self._hf.add_value_vector('fano_amp_gen', folder = 'analysis', x = self._frequency_co, unit = 'arb. unit')
-            self._fano_q_fit  = self._hf.add_value_vector('fano_q' , folder = 'analysis', unit = '')
-            self._fano_bw_fit = self._hf.add_value_vector('fano_bw', folder = 'analysis', unit = 'Hz')
-            self._fano_fr_fit = self._hf.add_value_vector('fano_fr', folder = 'analysis', unit = 'Hz')
-            self._fano_a_fit  = self._hf.add_value_vector('fano_a' , folder = 'analysis', unit = '')
+            self._fano_q_fit  = self._hf.add_coordinate('fano_q' , folder = 'analysis', unit = '')
+            self._fano_bw_fit = self._hf.add_coordinate('fano_bw', folder = 'analysis', unit = 'Hz')
+            self._fano_fr_fit = self._hf.add_coordinate('fano_fr', folder = 'analysis', unit = 'Hz')
+            self._fano_a_fit  = self._hf.add_coordinate('fano_a' , folder = 'analysis', unit = '')
     
-            self._fano_chi2_fit  = self._hf.add_value_vector('fano_chi2' , folder = 'analysis', unit = '')
-            self._fano_Ql_fit    = self._hf.add_value_vector('fano_Ql' , folder = 'analysis', unit = '')
-            self._fano_Q0_fit    = self._hf.add_value_vector('fano_Q0' , folder = 'analysis', unit = '')
+            self._fano_chi2_fit  = self._hf.add_coordinate('fano_chi2' , folder = 'analysis', unit = '')
+            self._fano_Ql_fit    = self._hf.add_coordinate('fano_Ql' , folder = 'analysis', unit = '')
+            self._fano_Q0_fit    = self._hf.add_coordinate('fano_Q0' , folder = 'analysis', unit = '')
             
         if self._ds_type == ds_types['matrix']: # data from measure_2d
             self._fano_amp_gen = self._hf.add_value_matrix('fano_amp_gen', folder = 'analysis', x = self._x_co, y = self._frequency_co, unit = 'arb. unit')
@@ -682,7 +682,7 @@ class Resonator(object):
         if not self._datasets_loaded:
             self._get_datasets()
         self._update_data()
-        self._prepare_fit_range(f_min,f_max)
+        self._prepare_f_range(f_min,f_max)
         if self._first_fano:
             self._prepare_fano()
             self._first_fano = False
