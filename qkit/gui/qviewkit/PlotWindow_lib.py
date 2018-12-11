@@ -177,13 +177,13 @@ def _display_1D_view(self, graphicsView):
                 pass
             
             if self.plot_style == self.plot_styles['line']:
-                graphicsView.plot(y=y_data, x=x_data, pen=(i, 3), name=names[1], connect='finite')
+                graphicsView.plot(y=y_data, x=x_data, pen=(i, 4), name=names[1], connect='finite')
             elif self.plot_style == self.plot_styles['linepoint']:
                 symbols = ['+', 'o', 's', 't', 'd']
-                graphicsView.plot(y=y_data, x=x_data, pen=(i, 3), name=names[1], connect='finite', symbol=symbols[i % len(symbols)])
+                graphicsView.plot(y=y_data, x=x_data, pen=(i, 4), name=names[1], connect='finite', symbol=symbols[i % len(symbols)], symbolSize=5)
             elif self.plot_style == self.plot_styles['point']:
                 symbols = ['+', 'o', 's', 'd', 't']
-                graphicsView.plot(y=y_data, x=x_data, name=names[1], pen=None, symbol=symbols[i % len(symbols)])
+                graphicsView.plot(y=y_data, x=x_data, name=names[1], pen=None, symbol=symbols[i % len(symbols)], symbolSize=5)
             if err_url:
                 err = pg.ErrorBarItem(x=x_data, y=y_data, height=err_data, beam=0.25 * scales[0][0])
                 graphicsView.getPlotItem().addItem(err)
