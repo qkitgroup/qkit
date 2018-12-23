@@ -20,7 +20,7 @@
 import numpy as np
 from scipy import signal
 import logging
-from time import sleep
+import time
 import sys
 import threading
 
@@ -154,13 +154,14 @@ class transport(object):
         self._measurement_object.sample = sample
         return
     
-    def add_sweep_4quadrants(self, start, stop, step, offset=0):
+    def add_sweep_4quadrants(self, start, stop, step, offset=0, sleep=0):
         """
         Adds a four quadrants sweep series with the pattern 
-            0th: (+start -> +stop,  step)+offset
-            1st: (+stop  -> +start, step)+offset
-            2nd: (+start -> -stop,  step)+offset
-            3rd: (-stop  -> +start, step)+offset
+            0th: (+<start> --> +<stop>,  <step>) + <offset>
+            1st: (+<stop>  --> +<start>, <step>) + <offset>
+            2nd: (+<start> --> -<stop>,  <step>) + <offset>
+            3rd: (-<stop>  --> +<start>, <step>) + <offset>
+            time.sleep(<sleep>)
         
         Parameters
         ----------
@@ -172,22 +173,25 @@ class transport(object):
             Step value of sweep.
         offset: float, optional
             Offset value by which <start> and <stop> are shifted. Default is 0.
+        sleep: float
+            Sleep time after whole sweep. Default is 0.
         
         Returns
         -------
         None
         """
-        self.sweeps.add_sweep(start+offset, +stop+offset, step)
-        self.sweeps.add_sweep(+stop+offset, start+offset, step)
-        self.sweeps.add_sweep(start+offset, -stop+offset, step)
-        self.sweeps.add_sweep(-stop+offset, start+offset, step)
+        self.sweeps.add_sweep(start=start+offset, stop=+stop+offset, step=step, sleep=sleep)
+        self.sweeps.add_sweep(start=+stop+offset, stop=start+offset, step=step, sleep=sleep)
+        self.sweeps.add_sweep(start=start+offset, stop=-stop+offset, step=step, sleep=sleep)
+        self.sweeps.add_sweep(start=-stop+offset, stop=start+offset, step=step, sleep=sleep)
         return
     
-    def add_sweep_halfswing(self, amplitude, step, offset=0):
+    def add_sweep_halfswing(self, amplitude, step, offset=0, sleep=0):
         """
         Adds a halfswing sweep series with the pattern 
-            0th: (+amplitude -> -amplitude, step)+offset
-            1st: (-amplitude -> +amplitude, step)+offset
+            0th: (+<amplitude> --> -<amplitude, <step>) + <offset>
+            1st: (-<amplitude> --> +<amplitude, <step>) + <offset>
+            time.sleep(<sleep>)
         
         Parameters
         ----------
@@ -197,13 +201,15 @@ class transport(object):
             Step value of sweep.
         offset: float
             Offset value by which <start> and <stop> are shifted. Default is 0.
+        sleep: float
+            Sleep time after whole sweep. Default is 0.
         
         Returns
         -------
         None
         """
-        self.sweeps.add_sweep(+amplitude+offset, -amplitude+offset, step)
-        self.sweeps.add_sweep(-amplitude+offset, +amplitude+offset, step)
+        self.sweeps.add_sweep(start=+amplitude+offset, stop=-amplitude+offset, step=step, sleep=sleep)
+        self.sweeps.add_sweep(start=-amplitude+offset, stop=+amplitude+offset, step=step, sleep=sleep)
         return
     
     def set_dVdI(self, status, func=None, *args, **kwargs):
@@ -979,18 +985,18 @@ class transport(object):
                         if self.progress_bar:
                             self._pb.iterate()
                         i += 1
-                    sleep(self._x_dt)
+                    time.sleep(self._x_dt)
             elif self._scan_dim in [1, 2, 3]:  # IV curve
                 for self.ix, (x, x_func) in enumerate([(None, _pass)] if self._scan_dim < 2 else [(x, self._x_set_obj) for x in self._x_vec]):  # loop: x_obj with parameters from x_vec if 2D or 3D else pass(None)
                     x_func(x)
-                    sleep(self._x_dt)
+                    time.sleep(self._x_dt)
                     # log function
                     if self.log_function != [None]:
                         for j, f in enumerate(self.log_function):
                             self._log_values[j].append(float(f()))
                     for y, y_func in [(None, _pass)] if self._scan_dim < 3 else [(y, self._y_set_obj) for y in self._y_vec]:  # loop: y_obj with parameters from y_vec if 3D else pass(None)
                         y_func(y)
-                        sleep(self._tdy)
+                        time.sleep(self._tdy)
                         # iterate sweeps and take data
                         self._get_sweepdata()
                     # filling of value-box by storing data in the next 2d structure after every y-loop
@@ -1169,7 +1175,7 @@ class transport(object):
         Parameters
         ----------
         sweep: array_likes of floats
-            Sweep object containing start, stop and step size.
+            Sweep object containing start, stop, step and sleep values.
         
         Returns
         -------
@@ -1294,12 +1300,12 @@ class transport(object):
     
     def take_IV(self, sweep):
         """
-        Takes IV and considers if landscape is set
+        Takes IV and considers if landscape is set.
         
         Parameters
         ----------
         sweep: array_likes of floats
-            Sweep object containing start, stop and step size.
+            Sweep object containing start, stop, step and sleep values.
         
         Returns
         -------
@@ -1323,9 +1329,10 @@ class transport(object):
             I_values, V_values = np.array([np.nan]*len(mask)), np.array([np.nan]*len(mask))
             np.place(arr=I_values, mask=mask, vals=data[0])
             np.place(arr=V_values, mask=mask, vals=data[1])
-            return I_values, V_values
         else:
-            return self._IVD.take_IV(sweep=sweep)
+            I_values, V_values = self._IVD.take_IV(sweep=sweep)
+        time.sleep(sweep[3])
+        return I_values, V_values
     
     def set_plot_comment(self, comment):
         """
@@ -1362,12 +1369,13 @@ class transport(object):
             self._starts = []
             self._stops = []
             self._steps = []
+            self._sleeps = []
             self.create_iterator()
             return
         
         def create_iterator(self):
             """
-            Creates iterator of start, stop and step arrays.
+            Creates iterator of start, stop, step and sleep arrays.
         
             Parameters
             ----------
@@ -1380,9 +1388,10 @@ class transport(object):
             self._start_iter = iter(self._starts)
             self._stop_iter = iter(self._stops)
             self._step_iter = iter(self._steps)
+            self._sleep_iter = iter(self._sleeps)
             return
         
-        def add_sweep(self, start, stop, step):
+        def add_sweep(self, start, stop, step, sleep=0):
             """
             Adds a sweep object with given parameters.
         
@@ -1394,6 +1403,8 @@ class transport(object):
                 Stop value of the sweep.
             step: float
                 Step value of the sweep.
+            sleep: float
+                Sleep time after whole sweep. Default is 0.
         
             Returns
             -------
@@ -1402,6 +1413,7 @@ class transport(object):
             self._starts.append(start)
             self._stops.append(stop)
             self._steps.append(step)
+            self._sleeps.append(sleep)
             return
         
         def reset_sweeps(self):
@@ -1419,6 +1431,7 @@ class transport(object):
             self._starts = []
             self._stops = []
             self._steps = []
+            self._sleeps = []
             return
         
         def get_sweep(self):
@@ -1432,11 +1445,12 @@ class transport(object):
             Returns
             -------
             sweep: tuple of floats
-                Sweep object containing start, stop and step size.
+                Sweep object containing start, stop, step and sleep values.
             """
             return (self._start_iter.next(),
                     self._stop_iter.next(),
-                    self._step_iter.next())
+                    self._step_iter.next(),
+                    self._sleep_iter.next())
         
         def get_sweeps(self):
             """
@@ -1449,9 +1463,9 @@ class transport(object):
             Returns
             -------
             sweep: list of floats
-                Sweep object containing start, stop and step size.
+                Sweep object containing start, stop, step and sleep values.
             """
-            return zip(*[self._starts, self._stops, self._steps])
+            return zip(*[self._starts, self._stops, self._steps, self._sleeps])
         
         def get_nos(self):
             """
