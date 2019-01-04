@@ -136,7 +136,14 @@ class Inficon(Instrument):
         Returns:
             The current rate in A/s (nm=False) or nm/s (nm=True).
         """
-        rate = float(self.remote_cmd(self.cmds.get_rate))
+        try:
+            ret=self.remote_cmd(self.cmds.get_rate)
+            rate = float(ret)
+        except ValueError as e:
+            print (e)
+            print (ret)
+            return numpy.NaN
+        
         if nm:
             # return rate in nm/s
             return rate/10.
@@ -154,7 +161,13 @@ class Inficon(Instrument):
         Returns:
             The current thickness in kA (nm=False) or nm (nm=True).
         """
-        thickness = float(self.remote_cmd(self.cmds.get_thickness))
+        try:
+            ret=self.remote_cmd(self.cmds.get_thickness)
+            thickness = float(ret)
+        except ValueError as e:
+            print (e)
+            print (ret)
+            return numpy.NaN
         if nm:
             # return thickness in nm
             return thickness*100.
@@ -213,6 +226,8 @@ class Inficon(Instrument):
 
     def set_material(self,material):
         """
+        # old (until 07/18) geometry parameter:
+        # 'Al': (('tooling-factor',82.0),('Z-ratio',1.080),('density',2.700))
         updates the parameters:
             Tooling factor
             Density
@@ -226,8 +241,9 @@ class Inficon(Instrument):
             tooling-factor, Z-ratio and density of actual material 
         """
         materials={
-            'Al': (('tooling-factor',82.0),('Z-ratio',1.080),('density',2.700)),
-            'AlO': (('tooling-factor',75),('Z-ratio',2.080),('density',2.314))
+            'Al': (('tooling-factor',72.0),('Z-ratio',1.080),('density',2.700)),
+            #'AlO': (('tooling-factor',72.0),('Z-ratio',0.463),('density',3.340))
+            'AlO': (('tooling-factor',72.0),('Z-ratio',1.000),('density',1.548))
             }
         tooling = materials[material][0][1]
         zratio = materials[material][1][1]
@@ -253,19 +269,34 @@ class Inficon(Instrument):
         Returns:
             dictionary with the parameters described above
         """
-        tooling = self.remote_cmd(self.cmds.query_tooling)  
+        tooling = self.remote_cmd(self.cmds.query_tooling)     
         density = self.remote_cmd(self.cmds.query_density)
         zratio = self.remote_cmd(self.cmds.query_zratio)
 
         final_thickness = self.remote_cmd(self.cmds.query_final_thickness)  
         spt_thickness = self.remote_cmd(self.cmds.query_spt_thickness)
         spt_timer = self.remote_cmd(self.cmds.query_spt_timer)
+
+        try:
+            tooling=float(tooling)
+            density=float(density)
+            zratio=float(zratio)
+            final_thickness=float(final_thickness)
+            spt_thickness=float(spt_thickness)
+        except ValueError as e:
+            print (e)
+            print (tooling)
+            print (density)
+            print (zratio)
+            print (final_thickness)
+            print (spt_thickness)
+            
         parameter={
-            'tooling': float(tooling),
-            'density': float(density),
-            'Z-ratio': float(zratio),
-            'final thickness': float(final_thickness),
-            'spt thickness': float(spt_thickness),
+            'tooling': (tooling),
+            'density': (density),
+            'Z-ratio': (zratio),
+            'final thickness': (final_thickness),
+            'spt thickness': (spt_thickness),
             'spt timer': spt_timer
         }   
         return parameter

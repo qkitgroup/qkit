@@ -256,7 +256,7 @@ class SputterMonitor(object):
         """
         # self.mfc.get_all()
         self.Ar_channel = self.mfc.predef_channels['Ar']
-        self.ArO_channel = self.mfc.predef_channels('ArO')
+        self.ArO_channel = self.mfc.predef_channels['ArO']
 
         pass
 
@@ -532,19 +532,29 @@ class SputterMonitor(object):
             set_duration and set_resolution should be called before to set the monitoring length and time resolution.
             set_filmparameters should be called before to provide the actual target values.
         """
-
+        class StopPauseExeption(Exception):
+            pass
+        class StartPauseExeption(Exception):
+            pass
         """
         A few boilerplate functions for the thread management:
         continue, stop, status, etc...
         """
         def stop(): raise StopIteration
-        def cont(): pass
+        def do_nothing(): pass
         def status(): self._depmon_queue.put(loop_status)
+        def cont() : raise StopPauseExeption
+        def pause(): raise StartPauseExeption
+
+                
+
         loop_status = 0
         tasks = {}
         tasks[0] = stop
-        tasks[1] = cont
+        tasks[1] = do_nothing
         tasks[2] = status
+        tasks[3] = pause
+        tasks[4] = cont
 
         """
         Initialize the data lists.
@@ -564,9 +574,23 @@ class SputterMonitor(object):
 
             # Handle external commands
             try:
-                tasks.get(self._depmon_queue.get(False), cont)()
+                tasks.get(self._depmon_queue.get(False), do_nothing)()
                 self._depmon_queue.task_done()
             except Empty:
+                pass
+            except StartPauseExeption:
+                print('monitoring paused')
+                while True:
+                    try:
+                        time.sleep(0.1)
+                        tasks.get(self._depmon_queue.get(False), do_nothing)()                    
+                        self._depmon_queue.task_done()
+                    except StopPauseExeption:
+                        print('monitoring restarted')
+                        break
+                    except Empty:
+                        pass
+            except StopPauseExeption:
                 pass
             except StopIteration:
                 break
@@ -627,6 +651,14 @@ class SputterMonitor(object):
         self._depmon_queue.put(2)
         print(self._depmon_queue.get())
         self._depmon_queue.task_done()
+
+    def pause_depmon(self):
+        print('Pause Monitoring deposition...')
+        self._depmon_queue.put(3)
+
+    def continue_depmon(self):
+        print('Continue Monitoring deposition...')
+        self._depmon_queue.put(4)
 
     def list_depmon_threads(self):
         """

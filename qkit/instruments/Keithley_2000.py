@@ -87,7 +87,13 @@ class Keithley_2000(Instrument):
             return 0
 
     def get_resistance(self):
-        return float(self.remote_cmd(":MEAS:RES?"))
+        try:
+            ret = self.remote_cmd(":MEAS:RES?")
+            return float(ret)
+        except ValueError as e:
+            print (e)
+            print (ret)
+            return numpy.NaN
 
 
 if __name__ == "__main__":
