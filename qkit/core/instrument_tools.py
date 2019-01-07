@@ -128,9 +128,9 @@ class Insttools(object):
             return None
 
     def get_instrument_names(self):
-        keys = self._instruments.keys()
-        keys.sort()
-        return keys
+        #keys = self._instruments.keys()
+        #keys.sort()
+        return sorted(self._instruments.keys())
 
     def get_instruments(self):
         '''
