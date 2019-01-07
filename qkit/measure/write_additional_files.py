@@ -45,7 +45,6 @@ def _dict_to_ordered_tuples(dic):
     '''Convert a dictionary to a list of tuples, sorted by key.'''
     if dic is None:
         return []
-    keys = dic.keys()
-    keys.sort()
+    keys = sorted(dic.keys())
     ret = [(key, dic[key]) for key in keys]
     return ret

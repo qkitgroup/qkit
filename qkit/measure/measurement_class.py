@@ -76,7 +76,7 @@ class Measurement(object):
         if copydict['sample']:
             copydict['sample'] = copydict['sample'].__dict__ # change entry to dict to make it readable for JSONEncoder
         if copydict['instruments']:
-            if type(copydict['instruments']) is not types.DictType: # conversion needed during measurement
+            if not isinstance(copydict['instruments'], dict): # conversion needed during measurement
                 copydict['instruments'] = self._JSON_instruments_dict()
         return copydict
             
