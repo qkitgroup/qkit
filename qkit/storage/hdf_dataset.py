@@ -78,16 +78,16 @@ class hdf_dataset(object):
     def _setup_metadata(self):
         ds = self.ds
         ds.attrs.create('ds_type',self.ds_type)            
-        ds.attrs.create("comment",self.comment)
-        ds.attrs.create('ds_url',self.ds_url)
+        ds.attrs.create("comment",self.comment.encode())
+        ds.attrs.create('ds_url',self.ds_url.encode())
         if self.ds_type != ds_types['txt']:
-            ds.attrs.create('unit', self.unit)
+            ds.attrs.create('unit', self.unit.encode())
             if self.x_object:
-                ds.attrs.create("x_ds_url",self.x_object.ds_url)
+                ds.attrs.create("x_ds_url",self.x_object.ds_url.encode())
             if self.y_object:
-                ds.attrs.create("y_ds_url",self.y_object.ds_url)
+                ds.attrs.create("y_ds_url",self.y_object.ds_url.encode())
             if self.z_object:
-                ds.attrs.create("z_ds_url",self.z_object.ds_url)
+                ds.attrs.create("z_ds_url",self.z_object.ds_url.encode())
 
 
     def next_matrix(self):
@@ -106,7 +106,7 @@ class hdf_dataset(object):
             reset (Boolean, optional); indicator for appending, or resetting the dataset
         """
         if self.ds_type == ds_types['txt']:
-            data = unicode(data)
+            data = data.encode("utf-8")
         else:
             ## we cast everything to a float numpy array
             data = numpy.atleast_1d(numpy.array(data,dtype=self.dtype))

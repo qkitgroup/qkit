@@ -85,7 +85,7 @@ def encode_uuid(value):
     la = len(alphabet)
     while value:
         output += alphabet[value % la]
-        value = value / la
+        value = int(value / la)
     return output[::-1]
 
 

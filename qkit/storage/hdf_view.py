@@ -62,12 +62,12 @@ class dataset_view(object):
         if init:
             ds.attrs.create("view_type",view_types['1D-V'])
             ds.attrs.create('ds_type',self.ds_type)
-            ds.attrs.create('view_params',self.view_params)
-        ds.attrs.create("xy_"+str(self.view_num),str(self.x_object)+":"+str(self.y_object))
+            ds.attrs.create('view_params',self.view_params.encode())
+        ds.attrs.create("xy_"+str(self.view_num),(str(self.x_object)+":"+str(self.y_object)).encode())
         if self.error_object:
-            ds.attrs.create("xy_"+str(self.view_num)+"_error",str(self.error_object))
+            ds.attrs.create("xy_"+str(self.view_num)+"_error",str(self.error_object).encode())
         ds.attrs.create("overlays",self.view_num)
-        ds.attrs.create("xy_"+str(self.view_num)+"_filter",str(self.filter))
+        ds.attrs.create("xy_"+str(self.view_num)+"_filter",str(self.filter).encode())
 
         self.view_num += 1
         

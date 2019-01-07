@@ -72,15 +72,15 @@ class Data(object):
             pass
         
         a = group()
-        for n, o in self.hf.hf['/entry/analysis0'].iteritems():
+        for n, o in self.hf.hf['/entry/analysis0'].items():
             a.__dict__[n] = o
-            for nn, oo in o.attrs.iteritems():
+            for nn, oo in o.attrs.items():
                 o.__dict__[nn] = oo
         a.__dict__['comment'] = self.hf.agrp.attrs.get('comment', '')
         d = group()
-        for n, o in self.hf.hf['/entry/data0'].iteritems():
+        for n, o in self.hf.hf['/entry/data0'].items():
             d.__dict__[n] = o
-            for nn, oo in o.attrs.iteritems():
+            for nn, oo in o.attrs.items():
                 o.__dict__[nn] = oo
         d.__dict__['comment'] = self.hf.dgrp.attrs.get('comment', '')
         self.__dict__.update({'analysis':a})
@@ -124,9 +124,9 @@ class Data(object):
 
     def add_comment(self,comment, folder = "data" ):
         if folder == "data":
-            self.hf.dgrp.attrs.create('comment',comment)
+            self.hf.dgrp.attrs.create('comment',comment.encode())
         elif folder == "analysis":
-            self.hf.agrp.attrs.create("comment",comment)
+            self.hf.agrp.attrs.create("comment",comment.encode())
         else: 
             logging.warning("Foler muset be either 'data' (default) or 'analysis': '%s' provided" % (folder))
             raise ValueError

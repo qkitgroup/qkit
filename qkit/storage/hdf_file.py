@@ -48,22 +48,22 @@ class H5_file(object):
     def set_base_attributes(self):
         "stores some attributes and creates the default data group"
         # store version of the file format
-        self.hf.attrs.create("qkit", "1.0")  # qkit version
+        self.hf.attrs.create("qkit", "1.0".encode())  # qkit version
         # make the structure compatible with the nexus format
         # maybe some day the data can by analyzed by the software supporting nexus
         # first the entry group
-        self.hf.attrs.create("NeXus_version","4.3.0")
+        self.hf.attrs.create("NeXus_version","4.3.0".encode())
         
         self.entry = self.hf.require_group("entry")
-        self.entry.attrs.create("NX_class","NXentry")
+        self.entry.attrs.create("NX_class","NXentry".encode())
         self.entry.attrs.create("data_latest",0)
         self.entry.attrs.create("analysis_latest",0)
         # create a nexus data group        
         self.dgrp = self.entry.require_group("data0")
         self.agrp = self.entry.require_group("analysis0")
         self.vgrp = self.entry.require_group("views")
-        self.dgrp.attrs.create("NX_class","NXdata")
-        self.dgrp.attrs.create("NX_class","NXdata")
+        self.dgrp.attrs.create("NX_class","NXdata".encode())
+        self.dgrp.attrs.create("NX_class","NXdata".encode())
     
     def setup_required_groups(self):
         # make the structure compatible with the nexus format
@@ -134,8 +134,10 @@ class H5_file(object):
         
         # we store text as unicode; this seems somewhat non-standard for hdf
         if ds_type == ds_types['txt']:
-            dtype = h5py.special_dtype(vlen=unicode)
-        
+            try:
+                dtype = h5py.special_dtype(vlen=unicode) # python 2
+            except NameError:
+                dtype = h5py.special_dtype(vlen=str) # python 3
         #create the dataset ...;  delete it first if it exists, unless it is data
         if name in self.grp.keys(): 
             if folder == "data":
@@ -151,13 +153,13 @@ class H5_file(object):
         else:
             ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype, fillvalue = np.nan)
         
-        ds.attrs.create("name",name)
+        ds.attrs.create("name",name.encode())
         if ds_type == ds_types['matrix'] or ds_type == ds_types['box']:
             ## fill value only needed for >1D datasets
             ds.attrs.create("fill", [0,0,0])
         # add attibutes
         for a in kwargs:
-             ds.attrs.create(a,kwargs[a])
+             ds.attrs.create(a,(kwargs[a]).encode())
              
         self.flush()
         return ds
