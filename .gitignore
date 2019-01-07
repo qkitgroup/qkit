@@ -1,5 +1,6 @@
 *.pyc
-qkit/analysis/.ipynb_checkpoints
+*.DS_Store
+*.ipynb_checkpoints
 qkit/core/userconfig.py
 qkit/config/local.py
 qkit/config/services.py
