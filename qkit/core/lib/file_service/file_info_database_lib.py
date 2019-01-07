@@ -31,7 +31,7 @@ class UUID_base(object):
         la = len(self._alphabet)
         while time:
             output += self._alphabet[time % la]
-            time = time / la
+            time = int(time / la)
         return output[::-1]
     
     def get_time(self,uuid):
