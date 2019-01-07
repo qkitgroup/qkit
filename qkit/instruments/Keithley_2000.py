@@ -49,6 +49,7 @@ class Keithley_2000(Instrument):
         Instrument.__init__(self, name, tags=['physical'])
         #self._address = address
         
+        self.four_wire=False
         self.setup(address)
 
     def setup(self, device="/dev/ttyUSB7"):
@@ -71,22 +72,32 @@ class Keithley_2000(Instrument):
             self.ser.read(rem_char)
         
         # send command
-        self.ser.write(cmd)
+        self.ser.write(str.encode(cmd))
         # wait until data is processed
         time.sleep(1)
         # read back
         rem_char = self.ser.inWaiting()
-        return self.ser.read(rem_char).strip('\r')
+        
+        retval = self.ser.read(rem_char)
+        #print (retval)
+        return retval #str(retval)#.strip('\r')
     
     def get_current_dc(self):
         value = self.remote_cmd(":MEAS:CURR:DC?")
         try:
             return float(value)
         except Exception as m:
-            print m
+            print (m)
             return 0
 
     def get_resistance(self):
+        if self.four_wire:
+            return self.get_resistance_4W()
+        else:
+            return self.get_resistance_2W()
+            
+
+    def get_resistance_2W(self):
         try:
             ret = self.remote_cmd(":MEAS:RES?")
             return float(ret)
@@ -95,7 +106,20 @@ class Keithley_2000(Instrument):
             print (ret)
             return numpy.NaN
 
+    def get_resistance_4W(self):
+        try:
+            ret = self.remote_cmd(":MEAS:FRES?")
+            return float(ret)
+        except ValueError as e:
+            print (e)
+            print (ret)
+            return numpy.NaN
+
+    def set_measure_4W(self,four_wire):
+        " sets 2 or 4 wire measurement mode "
+        self.four_wire = four_wire
+
 
 if __name__ == "__main__":
     KEITH = Keithley_2000(name = "Keithley_2000", address="COM6")
-    print "DC current: {:.4g}A".format(KEITH.get_current_dc())
+    print ("DC current: {:.4g}A".format(KEITH.get_current_dc()))
