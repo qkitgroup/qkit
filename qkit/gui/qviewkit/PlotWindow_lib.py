@@ -586,15 +586,15 @@ def _display_text(self, graphicsView):
             for key in sorted(sample):
                 try:
                     txt += str(key) + ":   " + str(sample[key]['content']) + "\n   "
-                except:
-                    txt += str(key) + ":   " + str(sample[key]) + "\n   "
+                except Exception as e:
+                    txt += str(key) + ":   " + str(sample[key])+"\n   "
             txt += '\n'
         if instruments:
             txt += 'instruments:\n   '
             for instrument in sorted(instruments):
                 txt += instrument + ':\n      '
                 for parameter in sorted(instruments[instrument]):
-                    txt += str(parameter) + ":   " + str(instruments[instrument][parameter]['content']) + "\n      "
+                    txt += str(parameter) + ":   " + str(instruments[int(instrument)][int(parameter)]['content'])+"\n      "
                 txt = txt[:-3]
     graphicsView.insertPlainText(txt.rstrip())
 
@@ -683,8 +683,12 @@ def _get_unit(ds):
     Returns:
         String with unit.
     """
-    return ds.attrs.get('unit', '_none_')
-
+    try:
+        return ds.attrs.get('unit', '_none_').decode("utf-8")
+    except AttributeError as e:
+        #print(ds)
+        print("Qviewkit _get_unit:",e)
+        return '_none_'
 
 def _get_name(ds):
     """Returns the name of a dataset.
@@ -696,8 +700,10 @@ def _get_name(ds):
         String with name.
     """
     try:
-        return ds.attrs.get('name', '_none_')
-    except:
+        return ds.attrs.get('name','_none_').decode("utf-8")
+    except AttributeError as e:
+        #print(ds)
+        print("Qviewkit _get_name:",e)
         return '_none_'
 
 
@@ -781,8 +787,7 @@ def _do_data_manipulation(data, unit, ds_type, manipulation, manipulations, colo
             ## This manipulation removes all zeros which would blow up the color scale.
             ## Only relevant for matrices and boxes in 2d
             if manipulation & manipulations['remove_zeros']:
-                data[np.where(
-                    data == 0)] = np.NaN  # replace all exact zeros in the hd5 data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
+                data[np.where(data == 0)] = np.NaN  # replace all exact zeros in the hd5 data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
     
     if manipulation & manipulations['sub_offset_avg_y']:
         # ignore division by zero

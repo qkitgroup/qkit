@@ -169,7 +169,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                 try:
                     s="shape\t"+str(self.h5file[tree_key].shape)+"\n"
                     for k in list(self.h5file[tree_key].attrs.keys()): 
-                        s+=k +"\t" +str(self.h5file[tree_key].attrs[k])+"\n"
+                        s += k + "\t" + str(self.h5file[tree_key].attrs[k],"utf-8") + "\n"
                     
                 except ValueError as e:
                     print("catch: populate data list:",e)
