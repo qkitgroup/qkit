@@ -31,7 +31,7 @@ import sys
 import time
 import threading
 from threading import Thread
-from Queue import Queue, Empty
+from queue import Queue, Empty
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -190,6 +190,15 @@ class SputterMonitor(object):
         self._fit_every = fit_every
         self._fit_points = fit_points
         self._p0 = p0
+
+    def set_resistance_4W(self,four_wire=False):
+        """
+        Sets 2 (default) or 4 wire measurement mode, if the device supports it.
+
+        Args:
+            four_wire = False
+        """
+        self.ohmmeter.set_measure_4W(four_wire)
 
     def _reciprocal(self, thickness, cond_per_layer):
         """
@@ -423,8 +432,9 @@ class SputterMonitor(object):
         self._data_time.append(time.time() - mon_data.t0)
 
         mon_data.resistance.append(self.ohmmeter.get_resistance())
-        rate = self.quartz.get_rate(nm=True)
-        mon_data.thickness.append(self.quartz.get_thickness(nm=True))
+        if self.quartz:
+            rate = self.quartz.get_rate(nm=True)
+            mon_data.thickness.append(self.quartz.get_thickness(nm=True))
         if self.mfc:
             pressure = self.mfc.get_pressure()
             Ar_flow = self.mfc.get_flow(self.Ar_channel)
@@ -433,18 +443,19 @@ class SputterMonitor(object):
         if mon_data.resistance[-1] > 1.e9:
             mon_data.resistance[-1] = np.nan
         self._data_resistance.append(mon_data.resistance[-1])
-        self._data_rate.append(rate)
-        self._data_thickness.append(mon_data.thickness[-1])
+        if self.quartz:
+            self._data_rate.append(rate)
+            self._data_thickness.append(mon_data.thickness[-1])
         if self.mfc:
             self._data_pressure.append(pressure)
             self._data_Ar_flow.append(Ar_flow)
             self._data_ArO_flow.append(ArO_flow)
+        if self.quartz:
+            deviation_abs = mon_data.resistance[-1] - self.ideal_resistance(mon_data.thickness[-1])
+            deviation_rel = deviation_abs / self._target_resistance
 
-        deviation_abs = mon_data.resistance[-1] - self.ideal_resistance(mon_data.thickness[-1])
-        deviation_rel = deviation_abs / self._target_resistance
-
-        self._data_deviation_abs.append(deviation_abs)
-        self._data_deviation_rel.append(deviation_rel)
+            self._data_deviation_abs.append(deviation_abs)
+            self._data_deviation_rel.append(deviation_rel)
 
         if ((self._fit_resistance) and (mon_data.it % self._fit_every == 0) and (len(mon_data.resistance) >= self._fit_points)):
             estimation = self._fit_trend(mon_data.thickness[-self._fit_points:None],
