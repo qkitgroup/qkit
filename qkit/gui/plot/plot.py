@@ -1,7 +1,12 @@
+#-*- coding: utf-8 -*-
 from subprocess import Popen, PIPE
 import os
 import numpy as np
 import logging
+import json
+
+from numpy.core.multiarray import ndarray
+
 logging.basicConfig(level=logging.INFO)
 
 import qkit
@@ -14,7 +19,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 # this is for live-plots
 def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
-    """Opens a .h5-file with qviewkit in a python subprocess.
+    """
+    Opens a .h5-file with qviewkit in a python subprocess.
     
     This is the outermost function to open a h5 file with qviewkit.
     To be independent from other processes i.e. running measurement the viewer
@@ -70,7 +76,8 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
 
 # this is for saving plots
 def save_plots(h5_filepath, comment='', save_pdf=False):
-    """Saves plots of all datasets with default settings. 
+    """
+    Saves plots of all datasets with default settings.
     
     Args:
         h5_filepath: String, absolute filepath.
@@ -83,12 +90,14 @@ def save_plots(h5_filepath, comment='', save_pdf=False):
 
 
 class h5plot(object):
-    """h5plot class plots and saves all dataset in the h5 file.
+    """
+    h5plot class plots and saves all dataset in the h5 file.
 
     We recursively walk through the entry tree of datasets, check for their
     ds_type and plot the data in a default setting with matplotlib. The plots 
     are then saved in an 'image' folder beside the h5 file. 
     """
+    y_data = None  # type: ndarray
 
     def __init__(self,h5_filepath, comment='', save_pdf=False):
         """Inits h5plot with a h5_filepath (string, absolute path), optional 
@@ -129,7 +138,8 @@ class h5plot(object):
         print('Plots saved in ' + self.image_dir)
 
     def plt(self):
-        """Creates the matplotlib figure, checks for some metadata and calls 
+        """
+        Creates the matplotlib figure, checks for some metadata and calls
         the plotting with respect to the ds_type of the dataset.
         
         Args:
@@ -147,6 +157,9 @@ class h5plot(object):
         self.fig = Figure(figsize=(20,10),tight_layout=True)
         self.ax = self.fig.gca()
         self.canvas = FigureCanvas(self.fig)
+
+        self._unit_prefixes = {24: 'Y', 21: 'Z', 18: 'E', 15: 'P', 12: 'T', 9: 'G', 6: 'M', 3: 'k', 0: '', -3: 'm', -6: u'µ', -9: 'n', -12: 'p', -15: 'f', -18: 'a', -21: 'z', -24: 'y'}
+        self.plot_styles = {0:'-', 1:'.-', 2:'.'}
 
         if self.ds_type == ds_types['coordinate']:
             #self.plt_coord()
@@ -193,35 +206,39 @@ class h5plot(object):
         """
 
     def plt_vector(self):
-        """Plot one-dimensional dataset. Print data vs. x-coordinate.
+        """
+        Plot one-dimensional dataset. Print data vs. x-coordinate.
         
         Args:
             self: Object of the h5plot class.
         Returns:
             No return variable. The function operates on the self- matplotlib 
             objects.
-        """        
+        """
         self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_'))
-        self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
-        self.data_y = np.array(self.ds)
-        self.y_label = self.ds_label
+        self.y_data = np.array(self.ds)
+        self.y_exp = self._get_exp(self.y_data)
+        self.y_label = self.ds.attrs.get('name','_name_') + ' (' + self._unit_prefixes[self.y_exp] + self.ds.attrs.get('unit','_unit_') + ')'
         try:
-            self.x_ds = self.hf[self.x_ds_url]
-            self.x_label = self.x_ds.attrs.get('name','_xname_')+' / '+self.x_ds.attrs.get('unit','_xunit_')
+            self.x_data = self.hf[self.x_ds_url]
+            self.x_exp = self._get_exp(np.array(self.x_data))
+            self.x_label = self.x_data.attrs.get('name','_xname_') + ' (' + self._unit_prefixes[self.x_exp] + self.x_data.attrs.get('unit','_xunit_') + ')'
         except Exception:
-            self.x_ds = np.arange(len(self.data_y))
+            self.x_data = np.arange(len(self.y_data))
             self.x_label = '_none_ / _none_'
-        if len(self.data_y) == 1: #only one entry, print as cross
-            plt_style = 'x'
-        else:
-            plt_style = '-'
+        plot_style = self.plot_styles[int(not (len(self.y_data) - 1)) * 2] # default is 'x' for one point and '-' for lines
+        #if len(self.y_data) == 1: #only one entry, print as cross
+        #    plot_style = 'x'
+        #else:
+        #    plot_style = '-'
         try:
-            self.ax.plot(self.x_ds,self.data_y[0:len(self.x_ds)], plt_style)   #JB: avoid crash after pressing the stop button when arrays are of different lengths
+            self.ax.plot(np.array(self.x_data)*10**int(-self.x_exp), self.y_data[0:len(self.x_data)]*10**int(-self.y_exp), plot_style)   #JB: avoid crash after pressing the stop button when arrays are of different lengths
         except TypeError:
-            self.ax.plot(0,self.data_y, plt_style)
+            self.ax.plot(0,self.y_data, plot_style)
 
     def plt_matrix(self):
-        """Plot two-dimensional dataset. print data color-coded y-coordinate 
+        """
+        Plot two-dimensional dataset. print data color-coded y-coordinate
         vs. x-coordinate.
         
         Args:
@@ -229,35 +246,43 @@ class h5plot(object):
         Returns:
             No return variable. The function operates on the self- matplotlib 
             objects.
-        """  
-
+        """
         self.x_ds = self.hf[self.x_ds_url]
+        self.x_exp = self._get_exp(np.array(self.x_ds))
+        self.x_label = self.x_ds.attrs.get('name', '_xname_') + ' (' + self._unit_prefixes[self.x_exp] + self.x_ds.attrs.get('unit', '_xunit_') + ')'
         self.y_ds = self.hf[self.y_ds_url]
+        self.y_exp = self._get_exp(np.array(self.y_ds))
+        self.y_label = self.y_ds.attrs.get('name', '_yname_') + ' (' + self._unit_prefixes[self.y_exp] + self.y_ds.attrs.get('unit', '_yunit_') + ')'
+        self.ds_data = np.array(self.ds).T #transpose matrix to get x/y axis correct
+        self.ds_exp = self._get_exp(self.ds_data)
+        self.ds_data *= 10.**-self.ds_exp
+        self.ds_label = self.ds.attrs.get('name', '_name_') + ' (' + self._unit_prefixes[self.ds_exp] + self.ds.attrs.get('unit', '_unit_') + ')'
 
-        self.x_label = self.x_ds.attrs.get('name','_xname_')+' / '+self.x_ds.attrs.get('unit','_xunit_')
-        self.y_label = self.y_ds.attrs.get('name','_yname_')+' / '+self.y_ds.attrs.get('unit','_yunit_')
-        self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
-        self.ax.set_title(self.hf._filename[:-3]+" "+self.y_ds.attrs.get('name','_name_'))
-        self.data = np.array(self.ds).T #transpose matrix to get x/y axis correct
-
-        self.xmin = self.x_ds.attrs.get('x0',0)
-        self.dx = self.x_ds.attrs.get('dx',1)
-        self.xmax = self.xmin+self.dx*self.x_ds.shape[0]
-        self.ymin = self.y_ds.attrs.get('x0',0)
-        self.dy = self.y_ds.attrs.get('dx',1)
-        self.ymax = self.ymin+self.dy*self.y_ds.shape[0]
+        x_data = np.array(self.x_ds)*10.**-self.x_exp
+        x_min, x_max = np.amin(x_data), np.amax(x_data)
+        dx = self.x_ds.attrs.get('dx', (x_data[-1]-x_data[0])/(len(x_data)-1))
+        y_data = np.array(self.y_ds)*10.**-self.y_exp
+        y_min, y_max = np.amin(y_data), np.amax(y_data)
+        dy = self.y_ds.attrs.get('dy', (y_data[-1]-y_data[0])/(len(y_data)-1))
 
         # downsweeps in any direction have to be corrected
         # this is triggered by dx/dy values < 0
         # data-matrix and min/max-values have to be swapped
-        if self.dx < 0:
-            self.data = np.fliplr(self.data)
-            self.xmin, self.xmax = self.xmax, self.xmin
-        if self.dy < 0:
-            self.data = np.flipud(self.data)
-            self.ymin, self.ymax = self.ymax, self.ymin
+        if dx < 0:
+            self.ds_data = np.fliplr(self.ds_data)
+        if dy < 0:
+            self.ds_data = np.flipud(self.ds_data)
 
-        self.cax = self.ax.imshow(self.data, aspect='auto', extent=[self.xmin,self.xmax,self.ymin,self.ymax], origin = 'lower', vmin = self._get_vrange(self.data,2)[0], vmax = self._get_vrange(self.data,2)[1], interpolation='none', cmap=plt.get_cmap('Greys_r'))
+        # plot
+        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_'))
+        self.cax = self.ax.imshow(self.ds_data,
+                                  extent=(x_min, x_max, y_min, y_max),
+                                  aspect='auto',
+                                  origin='lower',
+                                  vmin=self._get_vrange(self.ds_data, 2)[0], vmax=self._get_vrange(self.ds_data, 2)[1],
+                                  interpolation='none')
+        #self.cax = self.ax.pcolormesh(x_data, y_data, self.ds_data)
+        self.cax.set_rasterized(True)
         self.cbar = self.fig.colorbar(self.cax)
         self.cbar.ax.set_ylabel(self.ds_label)
         self.cbar.ax.yaxis.label.set_fontsize(20)
@@ -265,45 +290,58 @@ class h5plot(object):
             i.set_fontsize(16)
 
     def plt_box(self):
-        """Plot two-dimensional dataset. print data color-coded y-coordinate 
+        """
+        Plot two-dimensional dataset. Print data color-coded y-coordinate
         vs. x-coordinate.
-        
+
         Args:
             self: Object of the h5plot class.
         Returns:
-            No return variable. The function operates on the self- matplotlib 
+            No return variable. The function operates on the self- matplotlib
             objects.
-        """  
-
+        """
         self.x_ds = self.hf[self.x_ds_url]
+        self.x_exp = self._get_exp(np.array(self.x_ds))
+        self.x_label = self.x_ds.attrs.get('name', '_xname_') + ' (' + self._unit_prefixes[self.x_exp] + self.x_ds.attrs.get('unit', '_xunit_') + ')'
         self.y_ds = self.hf[self.y_ds_url]
+        self.y_exp = self._get_exp(np.array(self.y_ds))
+        self.y_label = self.y_ds.attrs.get('name', '_yname_') + ' (' + self._unit_prefixes[self.y_exp] + self.y_ds.attrs.get('unit', '_yunit_') + ')'
         self.z_ds = self.hf[self.z_ds_url]
+        self.z_exp = self._get_exp(np.array(self.z_ds))
+        self.z_label = self.z_ds.attrs.get('name', '_zname_') + ' (' + self._unit_prefixes[self.z_exp] + self.z_ds.attrs.get('unit', '_zunit_') + ')'
+        self.ds_data = np.array(self.ds)[:, :, self.ds.shape[2] / 2].T  # transpose matrix to get x/y axis correct
+        self.ds_exp = self._get_exp(self.ds_data)
+        self.ds_data *= 10.**-self.ds_exp
+        self.ds_label = self.ds.attrs.get('name', '_name_') + ' (' + self._unit_prefixes[self.ds_exp] + self.ds.attrs.get('unit', '_unit_') + ')'
 
-        self.x_label = self.x_ds.attrs.get('name','_xname_')+' / '+self.x_ds.attrs.get('unit','_xunit_')
-        self.y_label = self.y_ds.attrs.get('name','_yname_')+' / '+self.y_ds.attrs.get('unit','_yunit_')
-        self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
-        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds_label)
-        self.nop = self.ds.shape[2] #S1 this was ->self.z_ds.shape[0]<- before, but causes problems for some data
-        self.data = np.array(self.ds)[:,:,self.nop/2].T #transpose matrix to get x/y axis correct
-
-        self.xmin = self.x_ds.attrs.get('x0',0)
-        self.dx = self.x_ds.attrs.get('dx',1)
-        self.xmax = self.xmin+self.dx*self.x_ds.shape[0]
-        self.ymin = self.y_ds.attrs.get('x0',0)
-        self.dy = self.y_ds.attrs.get('dx',1)
-        self.ymax = self.ymin+self.dy*self.y_ds.shape[0]
+        x_data = np.array(self.x_ds)*10.**-self.x_exp
+        x_min, x_max = np.amin(x_data), np.amax(x_data)
+        dx = self.x_ds.attrs.get('dx', (x_data[-1]-x_data[0])/(len(x_data)-1))
+        y_data = np.array(self.y_ds)*10.**-self.y_exp
+        y_min, y_max = np.amin(y_data), np.amax(y_data)
+        dy = self.y_ds.attrs.get('dy', (y_data[-1]-y_data[0])/(len(y_data)-1))
+        z_data = np.array(self.z_ds)*10.**-self.z_exp
+        z_min, z_max = np.amin(z_data), np.amax(z_data)
+        dz = self.z_ds.attrs.get('dz', (z_data[-1]-z_data[0])/(len(z_data)-1))
 
         # downsweeps in any direction have to be corrected
         # this is triggered by dx/dy values < 0
         # data-matrix and min/max-values have to be swapped
-        if self.dx < 0:
-            self.data = np.fliplr(self.data)
-            self.xmin, self.xmax = self.xmax, self.xmin
-        if self.dy < 0:
-            self.data = np.flipud(self.data)
-            self.ymin, self.ymax = self.ymax, self.ymin
+        if dx < 0:
+            self.ds_data = np.fliplr(self.ds_data)
+        if dy < 0:
+            self.ds_data = np.flipud(self.ds_data)
 
-        self.cax = self.ax.imshow(self.data, aspect='auto', extent=[self.xmin,self.xmax,self.ymin,self.ymax], origin = 'lower', vmin = self._get_vrange(self.data,2)[0], vmax = self._get_vrange(self.data,2)[1], interpolation='none', cmap=plt.get_cmap('Greys_r'))
+        # plot
+        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_'))
+        self.cax = self.ax.imshow(self.ds_data,
+                                  extent=(x_min, x_max, y_min, y_max),
+                                  aspect='auto',
+                                  origin='lower',
+                                  vmin=self._get_vrange(self.ds_data, 2)[0], vmax=self._get_vrange(self.ds_data, 2)[1],
+                                  interpolation='none')
+        #self.cax = self.ax.pcolormesh(x_data, y_data, self.ds_data)
+        self.cax.set_rasterized(True)
         self.cbar = self.fig.colorbar(self.cax)
         self.cbar.ax.set_ylabel(self.ds_label)
         self.cbar.ax.yaxis.label.set_fontsize(20)
@@ -313,11 +351,14 @@ class h5plot(object):
     def plt_coord(self):
         # not (yet?) implemented. we'll see ...
         pass
+
     def plt_txt(self):
         # not (yet?) implemented. we'll see ...
         pass
+
     def plt_view(self):
-        """Plot views with possible multi-level overlays.
+        """
+        Plot views with possible multi-level overlays.
         
         First shot at (automatically) plotting views.
         Since this structure is rather flexible, there is no universal approach
@@ -331,7 +372,7 @@ class h5plot(object):
         Returns:
             No return variable. The function operates on the self- matplotlib 
             objects.
-        """  
+        """
         # views are organized in overlays, the number of x vs y plot in one figure (i.e. data and fit)
         overlay_num = self.ds.attrs.get("overlays",0)
         overlay_urls = []
@@ -364,7 +405,11 @@ class h5plot(object):
         the default display in qviewkit is saved.
         """
         self.ds_label = self.ds.attrs.get('name','_name_')
-        
+        view_params = json.loads(self.ds.attrs.get("view_params", {}))
+        #if 'aspect' in view_params:
+        #    self.ax.set_aspect = view_params.get('aspect', 'auto')
+        markersize = view_params.get('markersize', 5)
+
         # iteratring over all x- (and y-)datasets and checking for dimensions gives the data to be plotted
         for i, x_ds in enumerate(self.ds_xs):
             y_ds = self.ds_ys[i]
@@ -397,45 +442,42 @@ class h5plot(object):
             
             elif x_ds.attrs.get('ds_type',0) == ds_types['box']:
                 x_data = np.array(x_ds[-1,-1,:])
-                y_data = np.array(y_ds[-1,-1:])
-            
-            # x- and y-name come from the last added entry in the overlay
-            self.x_name = x_ds.attrs.get("name","_none_")
-            self.y_name = y_ds.attrs.get("name","_none_")
-            
-            self.x_unit = x_ds.attrs.get("unit","_none_")
-            self.y_unit = y_ds.attrs.get("unit","_none_")
-            
-            """
-            view_params = json.loads(ds.attrs.get("view_params",{}))
-            
-            # this allows to set a couple of plot related settings
-            if view_params:
-                aspect = view_params.pop('aspect',False)
-                if aspect:
-                    graphicsView.setAspectLocked(lock=True,ratio=aspect)
-                #bgcolor = view_params.pop('bgcolor',False)
-                #if bgcolor:
-                #    print tuple(bgcolor)
-                #    graphicsView.setBackgroundColor(tuple(bgcolor))
-            """
-            
-            if len(y_data) == 1: #only one entry, print as cross
-                plt_style = 'x'
-            else:
-                plt_style = '-'
+                y_data = np.array(y_ds[-1,-1,:])
+
+            plot_style = self.plot_styles[view_params.get('plot_style', int(not (len(y_data) - 1)) * 2)] # default is 'x' for one point and '-' for lines
             if err_ds:
-                self.ax.errorbar(x_data, y_data[0:len(x_data)], yerr=err_data[0:len(x_data)], label=self.y_name)
+                self.ax.errorbar(x_data, y_data[0:len(x_data)], yerr=err_data[0:len(x_data)], label=y_ds.name.split('/')[-1])
             else:
                 try:
-                    self.ax.plot(x_data,y_data[0:len(x_data)], plt_style, label=self.y_name)
+                    x_exp = self._get_exp(x_data) # caculate order of magnitude for unit-prefix
+                    y_exp = self._get_exp(y_data[0:len(x_data)])
+                    self.ax.plot(x_data*10**-x_exp, y_data[0:len(x_data)]*10**-y_exp, plot_style, label=y_ds.name.split('/')[-1])
                 except TypeError:
-                    self.ax.plot(0,y_data, plt_style)
-            self.ax.legend()
-            
+                    self.ax.plot(0,y_data, plot_style)
 
-    def _get_vrange(self,data,percent):
-        
+            # x- and y-labels come from view_params['labels'] or if not provided from the last added entry in the overlay
+            if view_params.get("labels", False):
+                self.x_label = view_params['labels'][0]
+                self.y_label = view_params['labels'][1]
+            else:
+                self.x_label = x_ds.attrs.get("name", "_none_")
+                self.y_label = y_ds.attrs.get("name", "_none_")
+            self.x_unit = x_ds.attrs.get("unit","_none_")
+            self.y_unit = y_ds.attrs.get("unit","_none_")
+            self.x_label += ' (' + self._unit_prefixes[x_exp] + self.x_unit + ')'
+            self.y_label += ' (' + self._unit_prefixes[y_exp] + self.y_unit + ')'
+        self.ax.legend()
+
+    def _get_exp(self, data):
+        """
+        This function calculates the order of magnitude (exponent in steps of 3) to use for unit-prefix.
+        """
+        try:
+            return np.max(np.log10(np.abs(data[data != 0]))) // 3 * 3
+        except:
+            return 0
+
+    def _get_vrange(self, data, percent):
         '''
         This function calculates ranges for the colorbar to get rid of spikes in the data.
         If the data is evenly distributed, this should not change anything in your colorbar.
