@@ -1124,7 +1124,7 @@ class transport(object):
                     self._data_dVdI.append(self._data_file.add_value_vector('dVdI_{!s}'.format(i), x=self._data_bias[i], unit='V/A', save_timestamp=False, folder='analysis', comment=self._get_numder_comment(self._data_V[i].name)+'/'+self._get_numder_comment(self._data_I[i].name)))
                     self._data_file.add_comment(comment='numerical_derivative: '+self._get_numder_comment('x'), folder='analysis')
             # add views
-            self._add_IV_view()
+            self._add_views()
         elif self._scan_dim == 2:
             ''' 2D scan '''
             self._data_x = self._data_file.add_coordinate(self._x_coordname, unit=self._x_unit)
@@ -1142,7 +1142,7 @@ class transport(object):
             # log-function
             self._add_log_value_vector()
             # add views
-            self._add_IV_view()
+            self._add_views()
         elif self._scan_dim == 3:
             ''' 3D scan '''
             self._data_x = self._data_file.add_coordinate(self._x_coordname, unit=self._x_unit)
@@ -1162,7 +1162,7 @@ class transport(object):
             # log-function
             self._add_log_value_vector()
             # add views
-            self._add_IV_view()
+            self._add_views()
         ''' add comment '''
         if self._comment:
             self._data_file.add_comment(self._comment)
@@ -1222,7 +1222,7 @@ class transport(object):
                 self._log_values.append(self._data_file.add_value_vector(self.log_name[i], x=self._data_x, unit=self.log_unit[i], dtype=self.log_dtype[i]))
         return
     
-    def _add_IV_view(self):
+    def _add_views(self):
         """
         Adds views to the .h5-file. The view "IV" plots I(V) and contains the whole set of sweeps that are set.
         If <dVdI> is true, the view "dVdI" plots the differential gradient dV/dI(V) and contains the whole set of sweeps that are set.
@@ -1235,11 +1235,11 @@ class transport(object):
         -------
         None
         """
-        self._view_IV = self._data_file.add_view('IV', x=self._data_V[0], y=self._data_I[0])
+        self._view_IV = self._data_file.add_view('IV', x=self._data_V[0], y=self._data_I[0], view_params={"labels": ('V', 'I'), 'plot_style': 1, 'markersize': 5})
         for i in range(1, self.sweeps.get_nos()):
             self._view_IV.add(x=self._data_V[i], y=self._data_I[i])
         if self._dVdI:
-            self._view_dVdI = self._data_file.add_view('dVdI', x=self._data_I[0], y=self._data_dVdI[0])
+            self._view_dVdI = self._data_file.add_view('dVdI', x=self._data_I[0], y=self._data_dVdI[0], view_params={"labels": ('I', 'dVdI'), 'plot_style': 1, 'markersize': 5})
             for i in range(1, self.sweeps.get_nos()):
                 self._view_dVdI.add(x=eval('self._data_{:s}'.format(self._IV_modes[self._bias]))[i], y=self._data_dVdI[i])
         return
