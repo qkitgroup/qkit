@@ -61,6 +61,7 @@ def _display_1D_view(self, graphicsView):
     
     ## evaluate the overlay-entries to get the ds_urls of the datasets to be 
     ## displayed.
+    view_params = json.loads(self.ds.attrs.get("view_params", {}))
     for i in range(overlay_num + 1):
         xyurls = self.ds.attrs.get("xy_" + str(i), "")
         ds_urls = [xyurls.split(":")[0], xyurls.split(":")[1]]
@@ -159,8 +160,6 @@ def _display_1D_view(self, graphicsView):
             graphicsView.setLabel('left', names[1], units=units[1])
             graphicsView.setLabel('bottom', names[0], units=units[0])
             
-            view_params = json.loads(self.ds.attrs.get("view_params", {}))
-            
             # this allows to set a couple of plot related settings
             if view_params:
                 aspect = view_params.pop('aspect', False)
@@ -175,18 +174,25 @@ def _display_1D_view(self, graphicsView):
                 graphicsView.plotItem.legend.removeItem(names[1])
             except:
                 pass
-            
+
+            self.plot_style = view_params.get('plot_style', 0)
+            self.markersize = view_params.get('markersize', 5)
             if self.plot_style == self.plot_styles['line']:
                 graphicsView.plot(y=y_data, x=x_data, pen=(i, 4), name=names[1], connect='finite')
             elif self.plot_style == self.plot_styles['linepoint']:
                 symbols = ['+', 'o', 's', 't', 'd']
-                graphicsView.plot(y=y_data, x=x_data, pen=(i, 4), name=names[1], connect='finite', symbol=symbols[i % len(symbols)], symbolSize=5)
+                graphicsView.plot(y=y_data, x=x_data, pen=(i, 4), name=names[1], connect='finite', symbol=symbols[i % len(symbols)], symbolSize=self.markersize)
             elif self.plot_style == self.plot_styles['point']:
                 symbols = ['+', 'o', 's', 'd', 't']
-                graphicsView.plot(y=y_data, x=x_data, name=names[1], pen=None, symbol=symbols[i % len(symbols)], symbolSize=5)
+                graphicsView.plot(y=y_data, x=x_data, name=names[1], pen=None, symbol=symbols[i % len(symbols)], symbolSize=self.markersize)
             if err_url:
                 err = pg.ErrorBarItem(x=x_data, y=y_data, height=err_data, beam=0.25 * scales[0][0])
                 graphicsView.getPlotItem().addItem(err)
+
+    # optionally take provided x_name, y_name as labels
+    if view_params.get("labels", False):
+        graphicsView.setLabel('bottom', view_params['labels'][0], units=units[0])
+        graphicsView.setLabel('left', view_params['labels'][1], units=units[1])
     
     plIt = graphicsView.getPlotItem()
     plVi = plIt.getViewBox()
@@ -692,7 +698,7 @@ def _get_unit(ds):
 
 def _get_name(ds):
     """Returns the name of a dataset.
-    
+
     Args:
         ds: hdf_dataset.
 
@@ -709,9 +715,9 @@ def _get_name(ds):
 
 def _get_all_ds_names_units_scales(ds, ds_urls=[]):
     """Reads and returns all the relevant information of the given datasets.
-    
+
     This function gathers all the needed metadata to correctly display the
-    dataset given in ds. The metadata of the datasets associated with the given 
+    dataset given in ds. The metadata of the datasets associated with the given
     urls are read out (data, name, unit, and scale). This information is used
     by the _display_...() fcts to correcly label and scale the plots. The order
     in the input- and output-list is maintained.
