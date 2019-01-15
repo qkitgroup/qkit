@@ -175,7 +175,8 @@ def _display_1D_view(self, graphicsView):
             except:
                 pass
 
-            self.plot_style = view_params.get('plot_style', 0)
+            if not self.user_setting_changed:
+                self.plot_style = view_params.get('plot_style', 0)
             self.markersize = view_params.get('markersize', 5)
             if self.plot_style == self.plot_styles['line']:
                 graphicsView.plot(y=y_data, x=x_data, pen=(i, 4), name=names[1], connect='finite')
