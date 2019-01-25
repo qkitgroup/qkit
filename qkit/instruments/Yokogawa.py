@@ -372,6 +372,7 @@ class Yokogawa(Instrument):
         try:
             logging.debug('{!s}: Set bias mode of channel {:d} to {:d}'.format(__name__, channel, mode))
             self._write(':chan{:d}:sour:func {:s}'.format(channel, self._IV_modes[mode]))
+            self.set_bias_range(val=-1, channel=channel)
         except Exception as e:
             logging.error('{!s}: Cannot set bias mode of channel {!s} to {!s}'.format(__name__, channel, mode))
             raise type(e)('{!s}: Cannot set bias mode of channel {!s} to {!s}\n{!s}'.format(__name__, channel, mode, e))
@@ -418,6 +419,7 @@ class Yokogawa(Instrument):
         try:
             logging.debug('{!s}: Set sense mode of channel {:d} to {:d}'.format(__name__, channel, mode))
             self._write(':chan{:d}:sens:func {:s}'.format(channel, self._IV_modes[mode]))
+            self.set_sense_range(val=-1, channel=channel)
         except Exception as e:
             logging.error('{!s}: Cannot set sense mode of channel {!s} to {!s}'.format(__name__, channel, mode))
             raise type(e)('{!s}: Cannot set sense mode of channel {!s} to {!s}\n{!s}'.format(__name__, channel, mode, e))
