@@ -106,7 +106,11 @@ class hdf_dataset(object):
             reset (Boolean, optional); indicator for appending, or resetting the dataset
         """
         if self.ds_type == ds_types['txt']:
-            data = data.encode("utf-8")
+            try:
+                data = data.encode("utf-8")
+            except AttributeError:
+                import json
+                data = json.dumps(data)
         else:
             ## we cast everything to a float numpy array
             data = numpy.atleast_1d(numpy.array(data,dtype=self.dtype))
