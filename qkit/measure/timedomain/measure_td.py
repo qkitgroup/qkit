@@ -40,7 +40,6 @@ class Measure_td(object):
             self.readout = sample.readout
         else:
             self.readout = readout
-        self.mspec = sample.mspec
         
         self.comment = None
         self.mode = None
@@ -241,8 +240,8 @@ class Measure_td(object):
         in your network by performing a digital down conversion
         :return: None
         """
-        time_end = float(self.mspec.get_samples()) / self.mspec.get_samplerate()
-        time_array = np.linspace(0, time_end, self.mspec.get_samples())
+        time_end = float(self.sample.mspec.get_samples()) / self.sample.mspec.get_samplerate()
+        time_array = np.linspace(0, time_end, self.sample.mspec.get_samples())
         self.set_x_parameters(time_array, 'time', True, 'sec')
         self.mode = 1  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG
         self._prepare_measurement_file()
@@ -260,8 +259,8 @@ class Measure_td(object):
         """
         if self.y_set_obj is None:
             raise ValueError('y-axes parameters not properly set')
-        time_end = float(self.mspec.get_samples()) / self.mspec.get_samplerate()
-        time_array = np.linspace(0, time_end, self.mspec.get_samples())
+        time_end = float(self.sample.mspec.get_samples()) / self.sample.mspec.get_samplerate()
+        time_array = np.linspace(0, time_end, self.sample.mspec.get_samples())
         self.set_x_parameters(time_array, 'time', True, 'sec')
         
         self.mode = 2  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG
@@ -289,8 +288,8 @@ class Measure_td(object):
         """
         if self.y_vec is None:
             raise ValueError('y-axes parameters not properly set')
-        time_end = float(self.mspec.get_samples()) / self.mspec.get_samplerate()
-        time_array = np.linspace(0, time_end, self.mspec.get_samples())
+        time_end = float(self.sample.mspec.get_samples()) / self.sample.mspec.get_samplerate()
+        time_array = np.linspace(0, time_end, self.sample.mspec.get_samples())
         self.set_x_parameters(time_array, 'time', True, 'sec')
         
         self.mode = 2  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG
@@ -311,8 +310,8 @@ class Measure_td(object):
         """
         if (self.y_vec is None) or (self.z_set_obj is None):
             raise ValueError('Axes parameters not properly set')
-        time_end = float(self.mspec.get_samples()) / self.mspec.get_samplerate()
-        time_array = np.linspace(0, time_end, self.mspec.get_samples())
+        time_end = float(self.sample.mspec.get_samples()) / self.sample.mspec.get_samplerate()
+        time_array = np.linspace(0, time_end, self.sample.mspec.get_samples())
         self.set_x_parameters(time_array, 'time', True, 'sec')
         self.mode = 4
         self._prepare_measurement_file()
@@ -352,7 +351,7 @@ class Measure_td(object):
         
         if self.ReadoutTrace:
             self._hdf_TimeTraceAxis = self._hdf.add_coordinate('recorded timepoint', unit='s')
-            self._hdf_TimeTraceAxis.add(np.arange(self.mspec.get_samples()) / self.readout.get_adc_clock())
+            self._hdf_TimeTraceAxis.add(np.arange(self.sample.mspec.get_samples()) / self.readout.get_adc_clock())
         
         if self.mode == 1:  # 1D
             self._hdf_amp = []
