@@ -34,6 +34,7 @@ import json
 import pyqtgraph as pg
 import qkit
 from qkit.storage.hdf_constants import ds_types
+import pprint
 
 
 def _display_1D_view(self, graphicsView):
@@ -582,27 +583,7 @@ def _display_text(self, graphicsView):
     except ValueError:
         txt = _display_string(self.ds)
     else:
-        sample = json_dict.pop('sample')
-        instruments = json_dict.pop('instruments')
-        txt = ""
-        for key in sorted(json_dict):
-            txt += str(key) + ":   " + str(json_dict[key]) + "\n"
-        txt += '\n'
-        if sample:
-            txt += 'sample:\n   '
-            for key in sorted(sample):
-                try:
-                    txt += str(key) + ":   " + str(sample[key]['content']) + "\n   "
-                except Exception as e:
-                    txt += str(key) + ":   " + str(sample[key])+"\n   "
-            txt += '\n'
-        if instruments:
-            txt += 'instruments:\n   '
-            for instrument in sorted(instruments):
-                txt += instrument + ':\n      '
-                for parameter in sorted(instruments[instrument]):
-                    txt += str(parameter) + ":   " + str(instruments[int(instrument)][int(parameter)]['content'])+"\n      "
-                txt = txt[:-3]
+        txt = pprint.pformat(json_dict, indent=4)
     graphicsView.insertPlainText(txt.rstrip())
 
 
