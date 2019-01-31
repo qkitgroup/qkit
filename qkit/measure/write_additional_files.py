@@ -1,5 +1,8 @@
 import logging
+import json
 import qkit
+#from qkit.measure.measurement_class.Measurement import _JSON_instruments_dict
+from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
 import os
 
 def open_log_file(path,log_level=logging.INFO):
@@ -25,6 +28,18 @@ def close_log_file(log_file_handler):
 
 def get_instrument_settings(path):
     fn, ext = os.path.splitext(path)
+    instr_dict = {}
+    for ins_name in qkit.instruments.get_instruments():
+        ins = qkit.instruments.get(ins_name)
+        param_dict = {}
+        for param_name in ins.get_parameter_names():
+                param_dict.update({param_name:ins.get(param_name, query=False)})
+        instr_dict.update({ins_name:param_dict})
+    with open(fn+'.set','w+') as filehandler:
+        json.dump(obj=instr_dict, fp=filehandler, cls=QkitJSONEncoder, indent = 4, sort_keys=True)
+
+    return instr_dict
+    """
     fn_log = fn + '.set'
     f = open(fn_log, 'w+')
     f.write('Filename: %s\n' % fn)
@@ -40,6 +55,7 @@ def get_instrument_settings(path):
     f.write(settings)
     f.close()
     return settings
+    """
 
 def _dict_to_ordered_tuples(dic):
     '''Convert a dictionary to a list of tuples, sorted by key.'''
