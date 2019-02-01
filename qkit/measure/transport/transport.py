@@ -1319,9 +1319,11 @@ class transport(object):
             # modify sweep by envelop of landscape function
             x_lim = self._lsc_vec[self.ix]
             if self._lsc_mirror:
-                sweep_lsc = np.nanmin([np.abs(sweep), [x_lim, x_lim, np.nan]], axis=0)*np.sign(sweep)
+                sweep_lsc = np.nanmin([np.abs(sweep), [x_lim, x_lim, np.nan, np.nan]], axis=0)*np.sign(sweep)
             else:
-                sweep_lsc = np.nanmin([sweep, [x_lim, x_lim, np.nan]], axis=0)
+                sweep_lsc = np.nanmin([sweep, [x_lim, x_lim, np.nan, np.nan]], axis=0)
+            # round to multiple of step
+            sweep_lsc = sweep_lsc[2]*np.round(sweep_lsc/sweep_lsc[2])
             # take data
             data = self._IVD.take_IV(sweep=sweep_lsc)
             # fill skipped bias values with np.nan to keep shape constant
