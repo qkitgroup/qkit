@@ -36,7 +36,7 @@ class DC_DAC_LTC2666(Instrument):
         
         self.channels = nchannels
         self.add_parameter('voltage', type=float, flags=Instrument.FLAG_GETSET, 
-                units='V', channels=(0, self.channels-1), channel_prefix='ch%d_')
+                units='V', channels=(0, self.channels-1), channel_prefix='ch%d_',minval=-5.,maxval=5)
         self.voltages = [0]*self.channels
         
         self.HOST, self.PORT = host, port
@@ -54,8 +54,11 @@ class DC_DAC_LTC2666(Instrument):
         '''
         Set dac voltage in range -5V..5V.
         '''
+        if voltage>5-10./2**16:
+            voltage = 5-10./2**16 #we can not set exactly +5V, but only one bit less
         try:
             self.c.set_voltage(channel, voltage)
+            self.voltages[channel]=voltage
         except Exception as detail:
             logging.error('{:s}'.format(detail))
     def do_get_voltage(self, channel):
