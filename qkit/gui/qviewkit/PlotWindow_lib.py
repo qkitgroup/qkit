@@ -413,7 +413,12 @@ def _display_2D_data(self, graphicsView):
         The matrix ds-type only knows one 2d plotting option. x_ds on x- and y_ds on y-axis
         """
         dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url', 'y_ds_url'])
-        data = dss[2][()]
+        try:
+          data = dss[2][()]
+        except IOError as e:
+              print("Could not open data file")
+              print(e)
+              return
         
         fill_x = dss[2].shape[0]
         fill_y = dss[2].shape[1]
@@ -435,7 +440,12 @@ def _display_2D_data(self, graphicsView):
                 self.TraceXValueChanged = False
             
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['y_ds_url', 'z_ds_url'])
-            data = dss[2][()][self.TraceXNum, :, :]
+            try:
+              data = dss[2][()][self.TraceXNum, :, :]
+            except IOError as e:
+              print("Could not open data file")
+              print(e)
+              return
             
             fill_x = dss[2].shape[1]
             fill_y = dss[2].shape[2]
@@ -449,7 +459,12 @@ def _display_2D_data(self, graphicsView):
                 self.TraceYValueChanged = False
             
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url', 'z_ds_url'])
-            data = dss[2][()][:, self.TraceYNum, :]
+            try:
+              data = dss[2][()][:, self.TraceYNum, :]
+            except IOError as e:
+              print("Could not open data file")
+              print(e)
+              return
             
             fill_x = dss[2].shape[0]
             fill_y = dss[2].shape[2]
@@ -463,7 +478,12 @@ def _display_2D_data(self, graphicsView):
                 self.TraceZValueChanged = False
             
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url', 'y_ds_url'])
-            data = dss[2][()][:, :, self.TraceZNum]
+            try:
+              data = dss[2][()][:, :, self.TraceZNum]
+            except IOError as e:
+              print("Could not open data file")
+              print(e)
+              return
             
             fill_x = dss[2].shape[0]
             fill_y = dss[2].shape[1]

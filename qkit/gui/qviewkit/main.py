@@ -14,7 +14,7 @@ try:
     from PyQt5.QtWidgets import QApplication
     in_pyqt5 = True
 except ImportError as e:
-    print("import of PyQt5 failed, trying PyQt4")
+    print("import of PyQt5 failed, trying PyQt4 "+e)
 
 if not in_pyqt5:
     try:
