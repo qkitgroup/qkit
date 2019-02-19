@@ -32,7 +32,7 @@ cfg['rootdir'] = cfg['qkitdir']
 cfg['tempdir'] = tempfile.gettempdir()
 cfg['datadir'] = os.path.join(cfg['qkitdir'],'data')
 
-cfg['instruments_dir']      = os.path.join(cfg['qkitdir'],'instruments')
+cfg['instruments_dir']      = os.path.join(cfg['qkitdir'],'drivers')
 cfg['user_instruments_dir'] = None
 
 
