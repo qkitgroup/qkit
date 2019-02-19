@@ -32,8 +32,8 @@ def get_instrument_settings(path):
     for ins_name in qkit.instruments.get_instruments():
         ins = qkit.instruments.get(ins_name)
         param_dict = {}
-        for param_name in ins.get_parameter_names():
-                param_dict.update({param_name:ins.get(param_name, query=False)})
+        for (param, popts) in _dict_to_ordered_tuples(ins.get_parameters()):
+            param_dict.update({param:ins.get(param, query=False, channels=popts)})
         instr_dict.update({ins_name:param_dict})
     with open(fn+'.set','w+') as filehandler:
         json.dump(obj=instr_dict, fp=filehandler, cls=QkitJSONEncoder, indent = 4, sort_keys=True)
