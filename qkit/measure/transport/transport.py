@@ -472,7 +472,13 @@ class transport(object):
         self._landscape = True
         self._lsc_vec = func(np.array(self._x_vec), *args)
         self._lsc_mirror = mirror
-        return 
+        return
+    
+    def reset_landscape(self):
+        self._landscape = False
+        self._lsc_vec = None
+        self._lsc_mirror = False
+        return
     
     def set_xy_parameters(self, x_name, x_func, x_vec, x_unit, y_name, y_func, y_unit, x_dt=1e-3):
         """
