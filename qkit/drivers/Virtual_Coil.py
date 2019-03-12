@@ -1,6 +1,6 @@
 # filename: Virtual_Coil.py
 # Jochen Braumueller <jochen.braumueller@kit.edu>, 11/2013
-# updates: 02/2015, 06/2016
+# updates: 02/2015, 06/2016, 03/2019
 # virtual coil instrument to be used as a wrapper for the DELFT tunnel electronics driver IVVI
 # use: 
 #  - set current range of downstream current source
@@ -31,24 +31,18 @@ vcoil.set_current(1.0)
 
 import qkit
 from qkit.core.instrument_base import Instrument
-import types
 import logging
 import numpy as np
 import time
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 
-if 'IVVI' not in qkit.instruments.get_instrument_names():
-    logging.error('Instrument IVVI not found.')
-    raise ImportError
-else:
-    IVVI = qkit.instruments.get('IVVI')
+
 
 DAC_ROUT = [5]   #dac port(s) to be used, passed as a list during instanciating
 dac_val = {'100m':2,'20m':1.30103,'10m':1,'1m':0,'100u':-1,'10u':-2,'1u':-3,'100n':-4,'10n':-5,'1n':-6}   #DELFT electronics dictionary
 
 class Virtual_Coil(Instrument):
-
-    def __init__(self, name, dacs=DAC_ROUT, dacranges=None):
+    def __init__(self, name, dacs=DAC_ROUT, dacranges=None, ivvi_instrument=None):
         """
         init virtual instrument object
         Inputs:
@@ -58,6 +52,16 @@ class Virtual_Coil(Instrument):
         """
         Instrument.__init__(self, name, tags=['virtual'])
 
+        if ivvi_instrument is None:
+            ins_list = qkit.instruments.get_instruments_by_type('IVVI') + qkit.instruments.get_instruments_by_type(
+                    'IVVIDIG_main') + qkit.instruments.get_instruments_by_type('IVVIDIG_main_eth')
+            if len(ins_list) > 1:
+                raise ImportError("I found %i instruments matching IVVI." % (len(ins_list)))
+            else:
+                self.IVVI = ins_list[0]
+        else:
+            self.IVVI = ivvi_instrument
+            
         self.dacs = dacs
         try:
             self.channels = len(self.dacs)
@@ -106,22 +110,17 @@ class Virtual_Coil(Instrument):
         try:
             val = np.round(-0.5 * (self.range_limits[channel - 1][0] + self.range_limits[channel - 1][-1]) + (
                         current * 1000 * np.power(10., -dac_val[self.c_ranges[channel - 1]])), 10)  # dac value in mV
-            # print val
             if val < -2000 or val > 2000:
-                logging.error('Value exceeds threshold!')
-                print 'dac range limits for this channel'
-                raise ArithmeticError
+                raise ValueError('DAC range limits exceeded')
             else:
                 if 10. * val != np.round(10. * val) and verbose:
                     logging.warning('16 bit resolution may be visible for the current value you are attempting to set.')
-                IVVI.set_dac(self.dacs[channel - 1], val)
 
+                val = np.power(10., -dac_val[self.c_ranges[channel - 1]]) * current * 1000  # dac is in mV
+                self.IVVI.set_dac(self.dacs[channel - 1], val)
         except IndexError as detail:
             logging.error('Electronics might be disconnected.')
-            print detail
-        except ArithmeticError as detail:
-            logging.error('Invalid current setting. No changees made.')
-            print detail
+            raise detail
             
     def ramp_to(self, target = 0, ch = 1, steps = 100, dt = 0.05,show_progressbar=True):
         """
@@ -143,13 +142,13 @@ class Virtual_Coil(Instrument):
         """
         get current of channel ch
         """
-        val = float(IVVI.get_dac(self.dacs[channel - 1]) + 0.5 * (
+        val = float(self.IVVI.get_dac(self.dacs[channel - 1]) + 0.5 * (
                     self.range_limits[channel - 1][0] + self.range_limits[channel - 1][-1])) / 1000  # dac value in mV
         # print val
         try:
             return val * np.power(10., dac_val[self.c_ranges[channel - 1]])
         except IndexError as detail:
             logging.error('Electronics might be disconnected.')
-            print detail
+            raise detail
         except Exception as detail:
             logging.error(detail)
