@@ -578,8 +578,8 @@ class spectrum(object):
                         loop: y_obj with parameters from y_vec (only 3D measurement)
                         """
                         if (np.min(np.abs(self.center_freqs[ix]-y*np.ones(len(self.center_freqs[ix])))) > self.span/2.) and self.landscape:    #if point is not of interest (not close to one of the functions)
-                            data_amp = np.zeros(int(self._nop))
-                            data_pha = np.zeros(int(self._nop))      #fill with zeros
+                            data_amp = np.zeros(int(self._nop))*np.nan
+                            data_pha = np.zeros(int(self._nop))*np.nan      #fill with nans to not spoil the colorbar in the view
                         else:
                             self.y_set_obj(y)
                             sleep(self.tdy)

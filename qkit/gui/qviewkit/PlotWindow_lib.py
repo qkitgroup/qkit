@@ -781,7 +781,7 @@ def _do_data_manipulation(data, unit, ds_type, manipulation, manipulations, colo
     
     # unwrap the phase
     if manipulation & manipulations['wrap']:
-        data = np.unwrap(data)
+        data[~np.isnan(data)] = np.unwrap(data[~np.isnan(data)])
     
     if manipulation & manipulations['linear']:
         if len(data.shape) == 1:

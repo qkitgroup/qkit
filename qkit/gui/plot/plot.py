@@ -473,7 +473,7 @@ class h5plot(object):
         This function calculates the order of magnitude (exponent in steps of 3) to use for unit-prefix.
         """
         try:
-            return np.max(np.log10(np.abs(data[data != 0]))) // 3 * 3
+            return np.nanmax(np.log10(np.abs(data[data != 0]))) // 3 * 3
         except:
             return 0
 
@@ -482,8 +482,8 @@ class h5plot(object):
         This function calculates ranges for the colorbar to get rid of spikes in the data.
         If the data is evenly distributed, this should not change anything in your colorbar.
         '''
-        _min = np.percentile(data,percent)
-        _max = np.percentile(data,100-percent)
+        _min = np.nanpercentile(data,percent)
+        _max = np.nanpercentile(data,100-percent)
         _min -= (_max-_min)*percent/(100.-2*percent)
         _max += (_max-_min)*percent/(100.-2*percent)
         return [_min,_max]
