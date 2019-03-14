@@ -1,6 +1,7 @@
 # RS FSUP
 # Andre Schneider <andre.schneider@student.kit.edu> 2014
 # modified: JB <jochen.braumueller@kit.edu> 11/2016
+# modified: Jan Brehm <jan.brehm@kit.edu> 02/2019
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,7 +20,6 @@
 
 from qkit.core.instrument_base import Instrument
 from qkit import visa
-import types
 import logging
 from time import sleep
 import numpy
@@ -51,6 +51,11 @@ class RS_FSUP(Instrument):
         self._visainstrument = visa.instrument(self._address)
 
         # Implement parameters
+
+        self.add_parameter('averages', type=int,
+            flags=Instrument.FLAG_GETSET,
+            minval=0, maxval=32767, tags=['sweep'])    
+
         self.add_parameter('centerfreq', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=26.5e9,
@@ -64,7 +69,7 @@ class RS_FSUP(Instrument):
             flags=Instrument.FLAG_GETSET,tags=['sweep'])                    
 
         self.add_parameter('powerunit', type=str,
-            flags=Instrument.FLAG_GETSET,tags=['sweep'])
+            flags=Instrument.FLAG_GETSET,tags=['sweep']) 
 
         self.add_parameter('startfreq', type=float,
             flags=Instrument.FLAG_GETSET,tags=['sweep']) 
@@ -73,7 +78,7 @@ class RS_FSUP(Instrument):
             flags=Instrument.FLAG_GETSET,tags=['sweep']) 
 
         self.add_parameter('sweeptime', type=float,
-            flags=Instrument.FLAG_GET,tags=['sweep'])
+            flags=Instrument.FLAG_GETSET,tags=['sweep'])
 
         self.add_parameter('resolutionBW', type=float,
             flags=Instrument.FLAG_GETSET,tags=['sweep'])
@@ -81,13 +86,28 @@ class RS_FSUP(Instrument):
         self.add_parameter('videoBW', type=float,
             flags=Instrument.FLAG_GETSET,tags=['sweep'])        
             
+        self.add_parameter('sweeptime_averages', type=float,
+            flags=Instrument.FLAG_GET,tags=['sweep'])
+
+        self.add_parameter('sweeptime_auto', type=float,
+            flags=Instrument.FLAG_GETSET,tags=['sweep'])    
+
+        self.add_parameter('freqpoints', type=float,
+            flags=Instrument.FLAG_GET,tags=['sweep'])    
+
+        self.add_parameter('active_traces', type=int, flags=Instrument.FLAG_GET)    
+                
         # Implement functions
         self.add_function('set_continuous_sweep_mode')
         #self.add_function('set_freq_center')
         #self.add_function('set_freq_span')
         self.add_function('set_marker')
+        self.add_function('start_measurement')
+        self.add_function('ready')
         self.add_function('set_powerunit')
         self.add_function('get_marker_level')
+        self.add_function('get_trace_name')
+        self.add_function('get_y_unit')
         #self.add_function('avg_clear')
         #self.add_function('avg_status')
         
@@ -97,7 +117,50 @@ class RS_FSUP(Instrument):
         self.get_marker_level(1)
         
         #self.get_zerospan()
+
+    def do_set_averages(self, av):
+        '''
+        Set number of averages
+
+        Input:
+            av (int) : Number of averages
+
+        Output:
+            None
+        '''
+
+        self._visainstrument.write('AVER ON')
+        self._visainstrument.write('AVER:AUTO OFF')
+        self._visainstrument.write('AVER:COUN %i' % (av))
+  
+
+
+    def do_get_averages(self):
+        '''
+        Get number of averages
+
+        Input:
+            None
+        Output:
+            number of averages
+        '''
+        
+        return int(self._visainstrument.ask('AVER:COUN?')) 
     
+    def do_get_freqpoints(self):
+        '''
+        Get number of averages
+
+        Input:
+            None
+        Output:
+            number of averages
+        '''
+
+        x_values=numpy.linspace(self.do_get_startfreq(), self.do_get_stopfreq(), self.do_get_nop())
+        return x_values
+        
+
     def do_set_resolutionBW(self, BW):
         '''
         sets the resolution bandwidth
@@ -109,6 +172,14 @@ class RS_FSUP(Instrument):
         gets the resolution bandwidth
         '''
         return float(self._visainstrument.ask('band?'))
+
+
+    def get_y_unit(self, channel):
+        '''
+        gets the y-unit
+        '''
+        y_unit=self.ask('CALC:LIM1:UNIT?')[:-1]
+        return str(y_unit.strip('"'))
 
     def do_set_videoBW(self, BW):
         '''
@@ -127,14 +198,48 @@ class RS_FSUP(Instrument):
         sets the sweeptime
         sweeptime in seconds (e.g. 3s) or milliseconds (e.g. 50ms)
         '''
-        return float(self._visainstrument.write('swe:time %s'%sweeptime))
+        self._visainstrument.write('swe:time %s'%sweeptime)
         
     def do_get_sweeptime(self):
         '''
         gets the sweeptime
         '''
         return float(self._visainstrument.ask('swe:time?'))
+
+    def do_set_sweeptime_auto(self, autosweep):
+        '''
+        sets the sweeptime
+        sweeptime in seconds (e.g. 3s) or milliseconds (e.g. 50ms)
+        '''
+        self._visainstrument.write('SWE:TIME:AUTO %s'%autosweep)
+        
+    def do_get_sweeptime_auto(self):
+        '''
+        gets the sweeptime
+        '''
+        return float(self._visainstrument.ask('SWE:TIME:AUTO?'))
     
+
+    def do_get_sweeptime_averages(self):
+        '''
+        gets the sweeptime averages
+        '''
+        return self.do_get_sweeptime()*self.do_get_averages()
+
+    def do_get_active_traces(self):
+        '''
+        gets the active channels A,B,AB for channel 1,2,1+2
+        '''
+        return 1
+
+    def get_trace_name(self, trace):
+        '''
+        function for signal spectroscopy script to automatically generate names for trace data
+        :param trace:
+        :return: (string) name of trace
+        '''
+        return 'Spectrum'
+
     def do_set_centerfreq(self, centerfreq):
         '''
         sets the center frequency
@@ -176,6 +281,16 @@ class RS_FSUP(Instrument):
 
     def do_get_nop(self):
         return int(self._visainstrument.ask('swe:poin?'))   
+
+    def ready(self):
+        '''
+        This is a proxy function, returning True when the VNA has finished the required number of averages.
+        '''
+        status = int(self._visainstrument.ask('STAT:OPER:COND?')[0:-1])
+        if status  == 0:
+            return True
+        else:
+            return False
         
     def do_set_powerunit(self,unit):
         '''
@@ -240,10 +355,17 @@ class RS_FSUP(Instrument):
     
     def get_trace(self, tracenumber=1):
         return self._visainstrument.query_ascii_values('trac:data? trace%i'%tracenumber)
+
+    def start_measurement(self):
+        """starts a new measurement"""
+        self._visainstrument.write("INIT:CONT OFF")
+        self._visainstrument.write("*CLS")
+        self._visainstrument.write("INIT:IMM; *OPC")
         
     def get_tracedata(self,tracenumber=1):
-        amp = self._visainstrument.query_ascii_values('trac:data? trace%i'%tracenumber)
-        return [amp,numpy.zeros_like(amp)]    
+
+        amp = numpy.array(self._visainstrument.query_ascii_values('trac:data? trace%i'%tracenumber))
+        return amp    
     
     def get_frequencies(self):
         '''
@@ -257,4 +379,10 @@ class RS_FSUP(Instrument):
     
     def ask(self,command):
         return self._visainstrument.ask(command)    
+
+    def pre_measurement(self):
+        pass
+
+    def post_measurement(self):
+        pass
     
