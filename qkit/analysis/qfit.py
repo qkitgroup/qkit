@@ -108,8 +108,6 @@ class QFIT(object):
             logging.warning('Package store not found.')
             self.cfg['store'] = False
 
-        print(self.cfg)
-
     # fit function definitions --------------------------------------------------------------------------------------
 
     def __f_Lorentzian_sqrt(self, f, f0, k, a, offs):
