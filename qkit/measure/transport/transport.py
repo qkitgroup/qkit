@@ -715,6 +715,21 @@ class transport(object):
         """
         return self._filename
     
+    def reset_filename(self):
+        """
+        Resets filename of current measurement to None.
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        None
+        """
+        self._filename = None
+        return
+    
     def set_expname(self, expname):
         """
         Sets experiment name of current measurement to <expname>.
@@ -746,6 +761,21 @@ class transport(object):
         """
         return self._expname
     
+    def reset_expname(self):
+        """
+        Resets experiment name of current measurement to None.
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        None
+        """
+        self._expname = None
+        return
+    
     def set_comment(self, comment):
         """
         Sets comment that is added to the .h5 file to <comment>
@@ -776,6 +806,21 @@ class transport(object):
             The comment added to data in .h5 file.
         """
         return self._comment
+    
+    def reset_comment(self):
+        """
+        Resets comment that is added to the .h5 file to None.
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        None
+        """
+        self._comment = None
+        return
     
     def set_average(self, avg):
         """
@@ -969,7 +1014,7 @@ class transport(object):
                        2: len(self._x_vec)*self.sweeps.get_nos()*[1 if self._average is None else self._average][0],
                        3: len(self._x_vec)*len(self._y_vec)*self.sweeps.get_nos()*[1 if self._average is None else self._average][0]}
             self._pb = Progress_Bar(max_it=num_its[self._scan_dim], 
-                                    name='{:d}D IV-curve: {:s}'.format(self._scan_dim, self._filename))
+                                    name='_'.join(filter(None, ('xy' if self._scan_dim is 0 else '{:d}D_IV_curve'.format(self._scan_dim), self._filename, self._expname))))
         else:
             print('recording trace...')
         ''' measurement '''
@@ -1022,7 +1067,6 @@ class transport(object):
             self._data_file.close_file()
             waf.close_log_file(self._log)
             self._set_IVD_status(False)
-            self._filename = None
             print('Measurement complete: {:s}'.format(self._data_file.get_filepath()))
         return
     
@@ -1076,18 +1120,8 @@ class transport(object):
         None
         """
         ''' create files '''
-        # default filename if not already set
-        dirnames = {0: '{:s}_vs_{:s}'.format('_'.join(self._y_name), self._x_name),
-                    1: 'IV_curve',
-                    2: 'IV_curve_{:s}'.format(self._x_coordname),
-                    3: 'IV_curve_{:s}_{:s}'.format(self._x_coordname, self._y_coordname)}
-        if self._filename is None:
-            self._filename = dirnames[self._scan_dim].replace(' ', '_').replace(',', '_')
-        if self._expname is not None:
-            self._filename = '{:s}_{:s}'.format(self._filename, self._expname)
-        self._filename = '{:s}_{:s}'.format('xy' if self._scan_dim is 0 else '{:d}D'.format(self._scan_dim), self._filename)
         # data.h5 file
-        self._data_file = hdf.Data(name=self._filename, mode='a')
+        self._data_file = hdf.Data(name='_'.join(filter(None, ('xy' if self._scan_dim is 0 else '{:d}D_IV_curve'.format(self._scan_dim), self._filename, self._expname))), mode='a')
         # settings.set file
         self._settings = self._data_file.add_textlist('settings')
         self._settings.append(waf.get_instrument_settings(self._data_file.get_filepath()))
