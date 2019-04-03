@@ -265,9 +265,9 @@ def _display_1D_data(self, graphicsView):
         """
         For a matrix type the data to be displayed on the x-axis depends on the selected plot_type
         """
-        
         if self.PlotTypeSelector.currentIndex() == 1:  # y_ds on x-axis
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['y_ds_url'])
+            self.TraceXSelector.setRange(-1 * self.ds.shape[0], self.ds.shape[0] - 1)
             if self.TraceXValueChanged:
                 """
                 If the trace to be displayed has been changed, the correct dataslice and the displayed
@@ -285,6 +285,7 @@ def _display_1D_data(self, graphicsView):
         
         if self.PlotTypeSelector.currentIndex() == 2:  # x_ds on x-axis
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url'])
+            self.TraceXSelector.setRange(-1 * self.ds.shape[1], self.ds.shape[1] - 1)
             if self.TraceYValueChanged:
                 """
                 If the trace to be displayed has been changed, the correct dataslice and the displayed
