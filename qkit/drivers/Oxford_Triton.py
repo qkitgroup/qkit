@@ -27,6 +27,8 @@ class Oxford_Triton(Instrument):
     Usage:
     Initialise with
     <name> = instruments.create('<name>', host='<IP address>', port=<port>)
+    For the bypass functionality, you need to specify the RaspberryPi as HOST,
+    where a proxy server runs, passing all commands to the Triton control PC.
 
     '''
 
@@ -82,6 +84,9 @@ class Oxford_Triton(Instrument):
 
         self.add_parameter('warm_up_heater', type=bool,
             flags=Instrument.FLAG_GETSET)
+        
+        self.add_parameter('pump', type=bool, flags=Instrument.FLAG_GETSET)
+        self.add_parameter('bypass', type=bool, flags=Instrument.FLAG_GETSET)
 
         # Implement functions
         self.add_function('get_all')
@@ -473,3 +478,72 @@ class Oxford_Triton(Instrument):
     def _ask(self, cmd):
         self._soc.sendall(cmd+'\n')
         return self._soc.recv(1024)
+    
+    def _do_set_pump(self,pump="COMP",state=False):
+        '''
+        Set pump on or off
+
+        Input:
+            pump: one of 'TURB1', 'FP', 'COMP'
+            state (bool)
+        '''
+        logging.debug(__name__ + ' : setting pump {} to state {}'.format(pump,"ON" if state else "OFF"))
+        return self._ask('SET:DEV:{}:PUMP:SIG:STATE:{}'.format(pump, "ON" if state else "OFF")).strip()[-6:] == ":VALID"
+        
+    def _do_get_pump(self,pump="COMP"):
+        '''
+        Get pump state (bool)
+
+        Input:
+            pump: one of 'TURB1', 'FP', 'COMP'
+        Output:
+            status (bool)
+        '''
+        logging.debug(__name__ + ' : Getting pump {} state'.format(pump))
+        return self._ask('READ:DEV:{}:PUMP:SIG:STATE'.format(pump)).strip()[-2:] == "ON"
+        
+    def _do_set_bypass(self,state):
+        '''
+        Open or close bypass and switch compressor accordingly.
+        Does a safety check wether P2<750mbar
+
+        Input:
+            state (bool): True: open bypass and switch off compressor,
+                          False: close bypass and switch on compressor
+        Output:
+            None
+        '''
+        logging.debug(__name__ + ' : {} bypass'.format("open" if state else "close"))
+        if state: #opening, do safety check
+          if self.do_get_pressure(gauge=2) > 750:
+            raise ValueError('{} bypass not successful. P2 is above 750mbar.'.format("open" if state else "close"))
+          sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+          sock.connect((self._host,9989))
+          sock.send("open\n")
+          response = sock.recv(1024*8).strip()
+          if response == "Ok":
+              self._do_set_pump("COMP",False)
+          else:
+              raise ValueError("Opening bypass not successful '{}' Compressor still on".format(response))
+        else: #closing
+          self._do_set_pump("COMP",True)
+          sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+          sock.connect((self._host,9989))
+          sock.send("close\n")
+          response = sock.recv(1024*8).strip()
+          if response == "Ok":
+              return True
+          else:
+              return False
+        
+    def _do_get_bypass(self):
+      sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+      sock.connect((self._host,9989))
+      sock.send("get_status\n")
+      response = sock.recv(1024*8).strip()
+      if response == "open":
+        return True
+      if response == "closed":
+        return False
+      else:
+          raise valueError("get_bypass responded with '{}'".format(response))
