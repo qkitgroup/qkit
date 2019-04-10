@@ -350,7 +350,7 @@ class ACF():
             for j in range(i + 1, self._flen):
                 fct_ind = np.append(fct_ind, (i + 1)*10 + (j + 1))
                 par_names = np.append(par_names, "g_" + str(fct_ind[-1]))
-        self.results = zip(fct_ind, par_names, fit_pars, self.std_dev)
+        self.results = list(zip(fct_ind, par_names, fit_pars, self.std_dev))
         return
     
     def _least_square_val(self, pars):
