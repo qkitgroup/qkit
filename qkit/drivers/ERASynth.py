@@ -45,23 +45,26 @@ def _reference_class_conversion(reference):
 
 
 class ERASynth(Instrument):
-    '''
-    This is the python driver for the ERASynth+ microwave source
+    '''This is the python driver for the ERASynth+ microwave source.
+    It initializes the ZeroRPC Client to communicate with according Server (RPi).
+
     Usage:
-        Initialise with
-        <name> = instruments.create('<name>', address='<TCP/IP>')
+    ----------
+    Initialise with
+    <name> = instruments.create('<name>', address='<TCP/IP>')
+
+    Parameters:
+    ----------
+    name (string):
+        Name of the instrument
+    address (string):
+        TCP/IP address including port, e.g. "141.52.65.185:4242"
+    reference (string):
+        Choose 10MHz reference (EXTERNAL, OCXO, TCXO).
+        External will be checked for lock and defaults to Oven if not present.
     '''
 
     def __init__(self, name, address, reference='external', model='ERASynth'):
-        '''
-        Initializes the ZeroRPC Client to communicate with according Server (RPi).
-        Input:
-            name (string)    : name of the instrument
-            address (string) : TCPIP Address including port e.g. "141.52.65.185:4242"
-            reference (string): Choose 10MHz Reference(EXTERNAL, OCXO, TCXO).
-                External will be checked for lock; Default to Oven if not present.
-        '''
-
         logging.info(__name__ + ' : Initializing instrument')
         Instrument.__init__(self, name)
         self._address = "tcp://" + address
@@ -83,16 +86,19 @@ class ERASynth(Instrument):
         self.add_parameter('status', type=bool,
                            flags=Instrument.FLAG_GETSET)
 
-        # Implement functions
+        # Initialize parameter values
         self.get_all(True)
 
+        # Set 10MHz reference and check for lock if external
+        # (if no reference is attached or quality is bad, it will switch to internal OCXO)
         lockcount = 0
         reference = _reference_class_conversion(reference)
         self.set_reference(ReferenceSource.OCXO)
         sleep(1)
         self.set_reference(reference)
         if reference == ReferenceSource.EXTERNAL:
-            for i in range(10):
+            # Check if PLL has stable lock on external reference
+            for _ in range(10):
                 if self.get_diag()["lock_xtal"] == "1":
                     lockcount += 1
             if lockcount == 0:
@@ -100,16 +106,12 @@ class ERASynth(Instrument):
                     "No Lock possible. Check your reference. Defaulted to OCXO.")
                 self.set_reference(ReferenceSource.OCXO)
             elif lockcount < 10:
-                warnings.warn("""External reference unstable. Check for sufficient 
-                                amplitude & accuracy. Defaulted to OCXO.""")
+                warnings.warn(
+                    "External reference unstable. Check for sufficient amplitude & accuracy. Defaulted to OCXO.")
                 self.set_reference(ReferenceSource.OCXO)
-                print("WARNINK")
-            print(lockcount)
 
-    # initialization related
     def get_all(self, query=True):
-        '''
-        Get Parameters (frequency, amplitude, output on/off, clock reference) of Device as dictionary
+        '''Get Parameters (frequency, amplitude, output on/off, clock reference) of Device as dictionary
         Input:
             query (bool): Query from device (true) or relay local info (false)
         Output:
@@ -132,9 +134,9 @@ class ERASynth(Instrument):
         return self._statusdict
 
     def get_diag(self):
-        '''
-        Get diagnostics parameters (Firmware Versions, PLL locks status,
-             Voltage, Temperature) of Device as dictionary
+        '''Get diagnostics parameters (Firmware Versions, PLL locks status,
+        Voltage, Temperature) of Device as dictionary
+
         Input:
             None
         Output:
@@ -143,14 +145,17 @@ class ERASynth(Instrument):
         return json.loads(self._rpc.readdiag())
 
     def set_reference(self, source):
-        '''
-        Set which 10MHz Reference to Use
+        '''Set which 10MHz Reference to use
+
         Input:
-            source (ReferenceSource): External, Oven stabilized, Quarz stabilized
+            source (ReferenceSource | str):
+                External (EXTERNAL), Oven stabilized (OCXO), Quarz stabilized (TCXO)
         Output:
             None
         '''
         try:
+            # Source can also be specified as string, not only as ReferenceSource
+            # so try to convert it here.
             source = _reference_class_conversion(source)
         except:
             pass
@@ -163,13 +168,13 @@ class ERASynth(Instrument):
             self._rpc.setrefint()
             self._rpc.setreftcxo()
         else:
-            print(repr(source))
-            raise ValueError("Unknown ReferenceSource value.")
+            raise ValueError(
+                "Unknown ReferenceSource value ({}).".format(source))
         self._reference = source
 
     def get_reference(self, query=True):
-        '''
-        Get which 10MHz reference is in use
+        '''Get which 10MHz reference is in use
+
         Input:
             query (bool): Refresh parameters from device memory if True
         Output:
@@ -178,10 +183,9 @@ class ERASynth(Instrument):
         self.get_all(query)
         return self._reference
 
-    # Communication with device
     def do_get_frequency(self, query=True):
-        '''
-        Get frequency of device
+        '''Get frequency of device
+
         Input:
             query (bool): Refresh parameters from device memory if True
         Output:
@@ -191,20 +195,20 @@ class ERASynth(Instrument):
         return self._frequency
 
     def do_set_frequency(self, frequency):
-        '''
-        Set frequency of device
+        '''Set frequency of device
+
         Input:
-            freq (float) : Frequency in Hz
+            freq (float): Frequency in Hz
         Output:
             None
         '''
-        #logging.debug(__name__ + ' : setting frequency to %s Hz' % (frequency*1.0e9))
+        # logging.debug(__name__ + ' : setting frequency to %s Hz' % frequency)
         self._rpc.setfrequency(frequency)
         self._frequency = frequency
 
     def do_get_power(self, query=True):
-        '''
-        Get output power of device
+        '''Get output power of device
+
         Input:
             query (bool): Refresh parameters from device memory if True
         Output:
@@ -214,20 +218,20 @@ class ERASynth(Instrument):
         return self._power
 
     def do_set_power(self, power=None):
-        '''
-        Typ. Max. Output 15 dB, Absolute Max. 20 dBm
+        '''Typ. Max. Output 15 dB, Absolute Max. 20 dBm
+
         Input:
             power (float) : Power in dBm
         Output:
             None
         '''
-        #logging.debug(__name__ + ' : setting power to %s dBm' % power)
+        # logging.debug(__name__ + ' : setting power to %s dBm' % power)
         self._power = power
         self._rpc.setamplitude(power)
 
     def do_get_status(self, query=True):
-        '''
-        Get status of output channel
+        '''Get status of output channel
+
         Input:
             query (bool): Refresh parameters from device memory if True
         Output:
@@ -237,14 +241,14 @@ class ERASynth(Instrument):
         return self._status
 
     def do_set_status(self, status):
-        '''
-        Set status of output (Bool)
+        '''Set status of output (Bool)
+
         Input:
-            status (bool): enable rf output(true), disable rf output (false)
+            status (bool): Enable rf output (True), disable rf output (False)
         Output:
             None
         '''
-        #logging.debug(__name__ + ' : setting status to "%s"' % status)
+        # logging.debug(__name__ + ' : setting status to "%s"' % status)
         if status:
             self._rpc.enableout()
         else:
@@ -256,5 +260,5 @@ class ERASynth(Instrument):
         self.set_status(False)
 
     def on(self):
-        '''Turn RF Ouput On'''
+        '''Turn RF Output On'''
         self.set_status(True)

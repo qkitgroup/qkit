@@ -20,9 +20,9 @@ class ERASynth(object):
                     # sys.stdout.write(s)
                     print(s)
             print("Device: " + self.path)
-            print("Initialization Complete")
+            print("Initialization complete")
         else:
-            print("Error: Establishing connection Failed!")
+            print("Error: Establishing connection failed!")
             print("Check permissions and connection.")
 
     def __del__(self):
