@@ -25,10 +25,12 @@ import warnings
 from time import sleep
 from enum import Enum
 
+
 class ReferenceSource(Enum):
     EXTERNAL = 0
     OCXO = 1
     TCXO = 2
+
 
 def _reference_class_conversion(reference):
     reference = {
@@ -41,6 +43,7 @@ def _reference_class_conversion(reference):
                             'EXTERNAL', 'OCXO', 'TCXO'""")
     return reference
 
+
 class ERASynth(Instrument):
     '''
     This is the python driver for the ERASynth+ microwave source
@@ -49,7 +52,7 @@ class ERASynth(Instrument):
         <name> = instruments.create('<name>', address='<TCP/IP>')
     '''
 
-    def __init__(self, name, address, reference='external', model = 'ERASynth'):
+    def __init__(self, name, address, reference='external', model='ERASynth'):
         '''
         Initializes the ZeroRPC Client to communicate with according Server (RPi).
         Input:
@@ -70,16 +73,16 @@ class ERASynth(Instrument):
 
         # Implement parameters
         self.add_parameter('frequency', type=float,
-            flags=Instrument.FLAG_GETSET,
-            minval=250e3, maxval=15e9,
-            units='Hz')
+                           flags=Instrument.FLAG_GETSET,
+                           minval=250e3, maxval=15e9,
+                           units='Hz')
         self.add_parameter('power', type=float,
-            flags=Instrument.FLAG_GETSET,
-            minval=-60, maxval=20,   #15 dBm Typ, up to 20 depending on F
-            units='dBm')
+                           flags=Instrument.FLAG_GETSET,
+                           minval=-60, maxval=20,  # 15 dBm Typ, up to 20 depending on F
+                           units='dBm')
         self.add_parameter('status', type=bool,
-            flags=Instrument.FLAG_GETSET)
-        
+                           flags=Instrument.FLAG_GETSET)
+
         # Implement functions
         self.get_all(True)
 
@@ -93,7 +96,8 @@ class ERASynth(Instrument):
                 if self.get_diag()["lock_xtal"] == "1":
                     lockcount += 1
             if lockcount == 0:
-                warnings.warn("No Lock possible. Check your reference. Defaulted to OCXO.")
+                warnings.warn(
+                    "No Lock possible. Check your reference. Defaulted to OCXO.")
                 self.set_reference(ReferenceSource.OCXO)
             elif lockcount < 10:
                 warnings.warn("""External reference unstable. Check for sufficient 
@@ -174,7 +178,7 @@ class ERASynth(Instrument):
         self.get_all(query)
         return self._reference
 
-    #Communication with device
+    # Communication with device
     def do_get_frequency(self, query=True):
         '''
         Get frequency of device
@@ -185,7 +189,7 @@ class ERASynth(Instrument):
         '''
         self.get_all(query)
         return self._frequency
-        
+
     def do_set_frequency(self, frequency):
         '''
         Set frequency of device
@@ -209,7 +213,7 @@ class ERASynth(Instrument):
         self.get_all(query)
         return self._power
 
-    def do_set_power(self,power = None):
+    def do_set_power(self, power=None):
         '''
         Typ. Max. Output 15 dB, Absolute Max. 20 dBm
         Input:
@@ -232,7 +236,7 @@ class ERASynth(Instrument):
         self.get_all(query)
         return self._status
 
-    def do_set_status(self,status):
+    def do_set_status(self, status):
         '''
         Set status of output (Bool)
         Input:
@@ -246,7 +250,7 @@ class ERASynth(Instrument):
         else:
             self._rpc.disableout()
 
-    #shortcuts
+    # shortcuts
     def off(self):
         '''Turn RF Output Off'''
         self.set_status(False)

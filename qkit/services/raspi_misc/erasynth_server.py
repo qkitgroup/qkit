@@ -3,8 +3,9 @@ import time
 import sys
 import zerorpc
 
+
 class ERASynth(object):
-    def __init__(self, ttyname, verb = True):
+    def __init__(self, ttyname, verb=True):
         s = '/dev/tty'
         self.path = s + str(ttyname)
         self.ser = serial.Serial(self.path)
@@ -14,9 +15,9 @@ class ERASynth(object):
         if(self.ser.is_open == True):
             s = ""
             while s.find("HTTP server started") == -1:
-                s += self.ser.readline().decode("ascii")#.rstrip()
+                s += self.ser.readline().decode("ascii")  # .rstrip()
                 if(self.verbose):
-                    #sys.stdout.write(s)
+                    # sys.stdout.write(s)
                     print(s)
             print("Device: " + self.path)
             print("Initialization Complete")
@@ -34,7 +35,7 @@ class ERASynth(object):
             return s
         else:
             return s
-    
+
     def enableout(self):
         self.ser.write(b'>P01\r\n')
         return self.readln()
@@ -74,6 +75,7 @@ class ERASynth(object):
     def readdiag(self):
         self.ser.write(b'>RD\r\n')
         return self.readln()
+
 
 s = zerorpc.Server(ERASynth("ACM0", False))
 s.bind("tcp://0.0.0.0:4242")
