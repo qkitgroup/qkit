@@ -87,6 +87,8 @@ class Oxford_Triton(Instrument):
         
         self.add_parameter('pump', type=bool, flags=Instrument.FLAG_GETSET)
         self.add_parameter('bypass', type=bool, flags=Instrument.FLAG_GETSET)
+        self.add_parameter('turbo_speed', type=int, flags=Instrument.FLAG_GET)
+        self.add_parameter('turbo_power', type=int, flags=Instrument.FLAG_GET)
         
         # Implement functions
         self.add_function('get_all')
@@ -546,3 +548,11 @@ class Oxford_Triton(Instrument):
             return False
         else:
             raise valueError("get_bypass responded with '{}'".format(response))
+    
+    def _do_get_turbo_speed(self):
+        logging.debug(__name__ + ' : Getting speed of the turbo pump')
+        return int(self._ask('READ:DEV:TURB1:PUMP:SIG:SPD').strip()[28:-2])
+    
+    def _do_get_turbo_power(self):
+        logging.debug(__name__ + ' : Getting power of the turbo pump')
+        return int(self._ask('READ:DEV:TURB1:PUMP:SIG:POWR').strip()[29:-1])
