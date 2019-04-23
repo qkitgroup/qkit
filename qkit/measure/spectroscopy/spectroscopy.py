@@ -333,8 +333,6 @@ class spectrum(object):
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath()) 
-        print('recording trace...')
-        sys.stdout.flush()
 
         qkit.flow.start()
         if rescan:
