@@ -583,9 +583,12 @@ class spectrum(object):
                             sleep(self.tdy)
                             if self.averaging_start_ready:
                                 self.vna.start_measurement()
-                                qkit.flow.sleep(.2) #just to make sure, the ready command does not *still* show ready
+                                if self.vna.ready():
+                                  logging.debug("VNA STILL ready... Adding delay")
+                                  qkit.flow.sleep(.2) #just to make sure, the ready command does not *still* show ready
+                                  
                                 while not self.vna.ready():
-                                    qkit.flow.sleep(.2)
+                                    qkit.flow.sleep(min(self.vna.get_sweeptime_averages(query=False)/11.,.2))
                             else:
                                 self.vna.avg_clear()
                                 qkit.flow.sleep(self._sweeptime_averages)
@@ -614,9 +617,12 @@ class spectrum(object):
                 if self._scan_2D:
                     if self.averaging_start_ready:
                         self.vna.start_measurement()
-                        qkit.flow.sleep(.2) #just to make sure, the ready command does not *still* show ready
+                        if self.vna.ready():
+                          logging.debug("VNA STILL ready... Adding delay")
+                          qkit.flow.sleep(.2) #just to make sure, the ready command does not *still* show ready
+                          
                         while not self.vna.ready():
-                            qkit.flow.sleep(.2)
+                            qkit.flow.sleep(min(self.vna.get_sweeptime_averages(query=False)/11.,.2))
                     else:
                         self.vna.avg_clear()
                         qkit.flow.sleep(self._sweeptime_averages)
