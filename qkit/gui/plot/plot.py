@@ -103,6 +103,8 @@ class h5plot(object):
         """Inits h5plot with a h5_filepath (string, absolute path), optional 
         comment string, and optional save_pdf boolean.
         """
+        if not qkit.cfg.get('save_png',True):
+            return False
         self.comment = comment
         self.save_pdf = save_pdf
         self.path = h5_filepath
