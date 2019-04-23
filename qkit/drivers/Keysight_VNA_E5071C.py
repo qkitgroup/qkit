@@ -607,7 +607,7 @@ class Keysight_VNA_E5071C(Instrument):
         Output:
             sweep time (float) times number of averages: sec
         '''
-        return self.get_sweeptime() * self.get_averages()
+        return self.get_sweeptime() * (self.get_averages() if self.get_Average() else 1)
         
     def do_get_sweeptime(self):  #added MW July 2013
         '''
@@ -644,24 +644,24 @@ class Keysight_VNA_E5071C(Instrument):
         self._edel = float(self._visainstrument.ask('SENS1:CORR:EXT:PORT%i:TIME?'% channel))
         return  self._edel   
         
-    def do_set_edel_status(self, status):   # MP 04/2017
+    def do_set_edel_status(self, status):   # AS 04/2019
 
         '''
         Set electrical delay
 
         '''
         logging.debug(__name__ + ' : setting port extension status to %s' % (status))
-        self._visainstrument.write('SENS.CORR.EXT.STAT %i' % (status))
+        self._visainstrument.write('SENS:CORR:EXT:STAT %i' % (status))
             
     
-    def do_get_edel_status(self):   # MP 04/2017
+    def do_get_edel_status(self):   # AS 04/2019
 
         '''
         Get electrical delay
 
         '''
         logging.debug(__name__ + ' :  port extension status')
-        return  self._visainstrument.ask('SENS:CORR:EXT:STAT?')
+        return  self._visainstrument.ask('SENS:CORR:EXT:STAT?').strip() == "1"
         
         
     def do_set_startfreq(self,val):
