@@ -201,13 +201,13 @@ class h5plot(object):
             No return variable. The function operates on the self- matplotlib 
             objects.
         """        
-        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_'))
-        self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
+        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_').decode())
+        self.ds_label = self.ds.attrs.get('name','_name_').decode()+' / '+self.ds.attrs.get('unit','_unit_').decode()
         self.data_y = np.array(self.ds)
         self.y_label = self.ds_label
         try:
             self.x_ds = self.hf[self.x_ds_url]
-            self.x_label = self.x_ds.attrs.get('name','_xname_')+' / '+self.x_ds.attrs.get('unit','_xunit_')
+            self.x_label = self.x_ds.attrs.get('name','_xname_').decode()+' / '+self.x_ds.attrs.get('unit','_xunit_').decode()
         except Exception:
             self.x_ds = np.arange(len(self.data_y))
             self.x_label = '_none_ / _none_'
@@ -234,10 +234,10 @@ class h5plot(object):
         self.x_ds = self.hf[self.x_ds_url]
         self.y_ds = self.hf[self.y_ds_url]
 
-        self.x_label = self.x_ds.attrs.get('name','_xname_')+' / '+self.x_ds.attrs.get('unit','_xunit_')
-        self.y_label = self.y_ds.attrs.get('name','_yname_')+' / '+self.y_ds.attrs.get('unit','_yunit_')
-        self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
-        self.ax.set_title(self.hf._filename[:-3]+" "+self.y_ds.attrs.get('name','_name_'))
+        self.x_label = self.x_ds.attrs.get('name','_xname_').decode()+' / '+self.x_ds.attrs.get('unit','_xunit_').decode()
+        self.y_label = self.y_ds.attrs.get('name','_yname_').decode()+' / '+self.y_ds.attrs.get('unit','_yunit_').decode()
+        self.ds_label = self.ds.attrs.get('name','_name_').decode()+' / '+self.ds.attrs.get('unit','_unit_').decode()
+        self.ax.set_title(self.hf._filename[:-3]+" "+self.y_ds.attrs.get('name','_name_').decode())
         self.data = np.array(self.ds).T #transpose matrix to get x/y axis correct
 
         self.xmin = self.x_ds.attrs.get('x0',0)
@@ -279,9 +279,9 @@ class h5plot(object):
         self.y_ds = self.hf[self.y_ds_url]
         self.z_ds = self.hf[self.z_ds_url]
 
-        self.x_label = self.x_ds.attrs.get('name','_xname_')+' / '+self.x_ds.attrs.get('unit','_xunit_')
-        self.y_label = self.y_ds.attrs.get('name','_yname_')+' / '+self.y_ds.attrs.get('unit','_yunit_')
-        self.ds_label = self.ds.attrs.get('name','_name_')+' / '+self.ds.attrs.get('unit','_unit_')
+        self.x_label = self.x_ds.attrs.get('name','_xname_').decode()+' / '+self.x_ds.attrs.get('unit','_xunit_').decode()
+        self.y_label = self.y_ds.attrs.get('name','_yname_').decode()+' / '+self.y_ds.attrs.get('unit','_yunit_').decode()
+        self.ds_label = self.ds.attrs.get('name','_name_').decode()+' / '+self.ds.attrs.get('unit','_unit_').decode()
         self.ax.set_title(self.hf._filename[:-3]+" "+self.ds_label)
         self.nop = self.ds.shape[2] #S1 this was ->self.z_ds.shape[0]<- before, but causes problems for some data
         self.data = np.array(self.ds)[:,:,self.nop/2].T #transpose matrix to get x/y axis correct
@@ -336,7 +336,7 @@ class h5plot(object):
         overlay_num = self.ds.attrs.get("overlays",0)
         overlay_urls = []
         err_urls = []
-        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_'))
+        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_').decode())
         
         # the overlay_urls (urls of the x and y datasets that ar plotted) are extracted from the metadata
         for i in range(overlay_num+1):
@@ -363,7 +363,7 @@ class h5plot(object):
         since the initial demand for the plotting comes from IV measurements and for easy handling,
         the default display in qviewkit is saved.
         """
-        self.ds_label = self.ds.attrs.get('name','_name_')
+        self.ds_label = self.ds.attrs.get('name','_name_').decode()
         
         # iteratring over all x- (and y-)datasets and checking for dimensions gives the data to be plotted
         for i, x_ds in enumerate(self.ds_xs):
