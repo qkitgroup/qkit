@@ -263,7 +263,7 @@ class Instrument(object):
         if 'channels' in options:
             if len(options['channels']) == 2 and type(options['channels'][0]) is int:
                 minch, maxch = options['channels']
-                channels = xrange(minch, maxch + 1)
+                channels = range(minch, maxch + 1)
             else:
                 channels = options['channels']
 

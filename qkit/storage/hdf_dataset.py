@@ -157,8 +157,8 @@ class hdf_dataset(object):
         and unix timestamp added at each append() call.
         """
         self.ds_ts = self.hf.create_dataset(self.name+'_ts', tracelength = 1,folder=self.folder,dim=max(self.dim-1, 1), dtype='float64')
-        self.ds_ts.attrs.create('name', 'measurement_time')       
-        self.ds_ts.attrs.create('unit', 's')
+        self.ds_ts.attrs.create('name', 'measurement_time'.encode())       
+        self.ds_ts.attrs.create('unit', 's'.encode())
         if self.ds_type == ds_types['vector']:
             self.ds_ts.attrs.create('ds_type', ds_types['vector'])
         if self.ds_type == ds_types['matrix']:
