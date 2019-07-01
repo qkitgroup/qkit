@@ -392,8 +392,9 @@ class Caen_FAST_PS(Instrument):
                 return str(self.do_get_voltage())
        
     def _ask(self, cmd):
-        self._soc.sendall(cmd+'\r')
-        return self._soc.recv(1024).strip()
+        cmd = (cmd+'\r').encode('utf-8')
+        self._soc.sendall(cmd)
+        return self._soc.recv(1024).strip().decode('utf8')
        
     def set_coil(self, coil):
         '''
