@@ -202,10 +202,10 @@ class Keysight_VNA_E5071C(Instrument):
         self._visainstrument.write(":TRIG:SOUR INT")
         if status:
             self._visainstrument.write(':INIT%i:CONT OFF'%(self._ci))
-            #print 'continuous off'
+            #print('continuous off')
         else:
             self._visainstrument.write(':INIT%i:CONT ON'%(self._ci))
-            #print 'continuous on'
+            #print('continuous on')
 
     def get_hold(self):     # added MW July 13
         #self._visainstrument.read(':INIT%i:CONT?'%(self._ci))
@@ -250,7 +250,7 @@ class Keysight_VNA_E5071C(Instrument):
         
         
         if single==True:        #added MW July. 
-            #print 'single shot readout'
+            #print('single shot readout')
             self._visainstrument.write('TRIG:SOUR INT') #added MW July 2013. start single sweep.
             self._visainstrument.write('INIT%i:CONT ON'%(self._ci)) #added MW July 2013. start single sweep.
             self.hold(True)
@@ -352,7 +352,7 @@ class Keysight_VNA_E5071C(Instrument):
 
         logging.debug(__name__ + ' : setting Number of Points to %s ' % (nop))
         if self._zerospan:
-          print 'in zerospan mode, nop is 1'
+          print('in zerospan mode, nop is 1')
         else:
           cw = self.get_cw()
           if(nop == 1) and (not cw):
