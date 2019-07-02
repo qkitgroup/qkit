@@ -895,9 +895,9 @@ class virtual_tunnel_electronic(Instrument):
             elif self._pseudo_bias_mode:  # 1 (voltage bias)
                 return self._SMU.get_bias_value(channel=channel)/self._Vdiv
         elif self._sweep_mode == 1:  # 1 (IV mode)
-            return self._SMU.set_sense_value(channel=channel)
+            return self._SMU.get_sense_value(channel=channel)
         elif self._sweep_mode == 2:  # 2 (VI-mode)
-            return self._SMU.set_bias_value(channel=channel)
+            return self._SMU.get_bias_value(channel=channel)
     
     def set_current(self, val, channel=1):
         """
@@ -950,9 +950,9 @@ class virtual_tunnel_electronic(Instrument):
             elif self._pseudo_bias_mode:  # 1 (voltage bias)
                 return self._SMU.get_sense_value(channel=channel)/self._dVdA
         elif self._sweep_mode == 1:  # 1 (IV mode)
-            return self._SMU.set_bias_value(channel=channel)
+            return self._SMU.get_bias_value(channel=channel)
         elif self._sweep_mode == 2:  # 2 (VI-mode)
-            return self._SMU.set_sense_value(channel=channel)
+            return self._SMU.get_sense_value(channel=channel)
     
     def set_sweep_parameters(self, sweep):
         """

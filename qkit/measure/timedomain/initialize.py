@@ -299,7 +299,7 @@ class InitializeTimeDomain(object):
         rec = self._sample.readout.spectrum()
         ro = self._sample.readout.readout()
         plt.figure(figsize=(15,5))
-        plt.plot(rec[0],rec[1],'--o')
+        plt.plot(rec[0],rec[1]/len(rec[1]),'--o')
         ylim = plt.ylim()
         plt.vlines(self._sample.readout.get_LO(),*ylim,color='r')
         for i,fr in enumerate(np.atleast_1d(self._sample.fr)):

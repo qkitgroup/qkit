@@ -67,11 +67,29 @@ try:
             display(self.pi)
             display(self.pb)            
             
-            
+        def reset(self,max_it=None,name=None):
+            if max_it is not None:
+                self.max_it = max_it
+            if name is not None:
+                self.name = name
+                self.pb.description = self.name
+            self.progr = 0
+            self.starttime = time.time()
+            self.start_eta_time = self.starttime
+            self.pb.color = None
+            self.pb.bar_style = ""
+            self.pb.max = max_it
+            self._update()
+                    
+        def set(self,iteration,param=""):
+            self.progr = iteration
+            self._update(param)
+        
         def iterate(self,param=""):
-            
-
             self.progr += 1
+            self._update(param)
+        
+        def _update(self,param=""):
             progr_info = "<table style='width:100%%'><tr><td>%s (%i/%i) </td><td>&#9992; %s    </td><td>&#128336;  %s   (estimated)</td><td>&#10010;  %s (elapsed) </td><td>&#9866;  %s (remaining)</td></tr></table>"%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
                     self.progr,
                     self.max_it,
@@ -148,6 +166,8 @@ except ImportError as e:
 
         def iterate(self,param=""):
             self.progr += 1
+            
+        def _update(self,param=""):
             display(Javascript("$('div#%s0').width('%i%%');" % (self.divid, 100*self.progr/self.max_it)))
             outp = "<table style='width:100%%;border:none'><tr style='border:none'><td style='border:none'>%s (%i/%i) </td><td style='border:none'>&#9992; %s    </td><td style='border:none'>&#128336;  %s   (estimated)</td><td style='border:none'>&#10010;  %s (elapsed) </td><td style='border:none'>&#9866;  %s (remaining)</td></tr></table>"%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
                     self.progr,
@@ -178,3 +198,18 @@ except ImportError as e:
                 </div>
                 """ % (self.name, self.name, self.name, outp))
                 display(self.pb)
+        
+        def reset(self,max_it=None,name=None):
+            if max_it is not None:
+                self.max_it = max_it
+            if name is not None:
+                self.name = name
+                self.pb.description = self.name
+            self.progr = 0
+            self.starttime = time.time()
+            self.start_eta_time = self.starttime
+            self._update()
+                    
+        def set(self,iteration,param=""):
+            self.progr = iteration
+            self._update(param)

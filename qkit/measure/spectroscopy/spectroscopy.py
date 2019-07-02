@@ -333,8 +333,6 @@ class spectrum(object):
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath()) 
-        print('recording trace...')
-        sys.stdout.flush()
 
         qkit.flow.start()
         if rescan:
@@ -578,16 +576,19 @@ class spectrum(object):
                         loop: y_obj with parameters from y_vec (only 3D measurement)
                         """
                         if (np.min(np.abs(self.center_freqs[ix]-y*np.ones(len(self.center_freqs[ix])))) > self.span/2.) and self.landscape:    #if point is not of interest (not close to one of the functions)
-                            data_amp = np.zeros(int(self._nop))
-                            data_pha = np.zeros(int(self._nop))      #fill with zeros
+                            data_amp = np.zeros(int(self._nop))*np.nan
+                            data_pha = np.zeros(int(self._nop))*np.nan      #fill with nans to not spoil the colorbar in the view
                         else:
                             self.y_set_obj(y)
                             sleep(self.tdy)
                             if self.averaging_start_ready:
                                 self.vna.start_measurement()
-                                qkit.flow.sleep(.2) #just to make sure, the ready command does not *still* show ready
+                                if self.vna.ready():
+                                  logging.debug("VNA STILL ready... Adding delay")
+                                  qkit.flow.sleep(.2) #just to make sure, the ready command does not *still* show ready
+                                  
                                 while not self.vna.ready():
-                                    qkit.flow.sleep(.2)
+                                    qkit.flow.sleep(min(self.vna.get_sweeptime_averages(query=False)/11.,.2))
                             else:
                                 self.vna.avg_clear()
                                 qkit.flow.sleep(self._sweeptime_averages)
@@ -616,9 +617,12 @@ class spectrum(object):
                 if self._scan_2D:
                     if self.averaging_start_ready:
                         self.vna.start_measurement()
-                        qkit.flow.sleep(.2) #just to make sure, the ready command does not *still* show ready
+                        if self.vna.ready():
+                          logging.debug("VNA STILL ready... Adding delay")
+                          qkit.flow.sleep(.2) #just to make sure, the ready command does not *still* show ready
+                          
                         while not self.vna.ready():
-                            qkit.flow.sleep(.2)
+                            qkit.flow.sleep(min(self.vna.get_sweeptime_averages(query=False)/11.,.2))
                     else:
                         self.vna.avg_clear()
                         qkit.flow.sleep(self._sweeptime_averages)

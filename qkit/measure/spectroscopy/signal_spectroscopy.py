@@ -23,7 +23,6 @@ import matplotlib.pylab as plt
 from scipy.optimize import curve_fit
 from time import sleep,time
 import sys
-import qt
 import threading
 
 import qkit

@@ -34,8 +34,8 @@ class ACF():
     def __init__(self):
         self.xdata = 0
         self.ydata = 0
-        self.functions = 0
-        self.p0 = 0
+        self.functions = None
+        self.p0 = None
         self.fit_pars = 0
         self.cov_mat = 0
         self.results = 0
@@ -112,7 +112,7 @@ class ACF():
         self.xdata = self._list_wrapper(args)
         self._xlen = len(self.xdata)
         if self._xlen <= 1:
-            print "At least 2 x-arrays required."
+            print("At least 2 x-arrays required.")
         return
     
     def set_ydata(self, *args):
@@ -127,7 +127,7 @@ class ACF():
         self.ydata = self._list_wrapper(args)
         self._ylen = len(self.ydata)
         if self._ylen <=1:
-            print "At least 2 y-arrays required."
+            print("At least 2 y-arrays required.")
         return
     
     def set_functions(self, *args):
@@ -142,7 +142,7 @@ class ACF():
         self.functions = self._list_wrapper(args)
         self._flen = len(self.functions)
         if self._flen <= 1:
-            print "At least 2 functions are required."
+            print("At least 2 functions are required.")
             return
         # Check if functions are callable. 
         # Determine number and name of free parameters of each function.
@@ -160,14 +160,14 @@ class ACF():
                     # Remove x as fct argument
                     par_names.remove("x")
                 except:
-                    print "In " + fct.__name__ + ": No x argument found. Please rename axis variable to x."
+                    print("In " + fct.__name__ + ": No x argument found. Please rename axis variable to x.")
                 self._fct_par_names.append(par_names)
-                self._fct_par_nums.append(len(par_names))
+                self._fct_par_nums.append(int(len(par_names)))
             else:
-                print "At least one function is not callable."
+                print("At least one function is not callable.")
                 return
         # Increase number of parameters by number of coupling coefficients
-        self._fct_par_nums.append((self._flen**2 - self._flen)/2)
+        self._fct_par_nums.append(int((self._flen**2 - self._flen)/2))
         
         return
     
@@ -203,8 +203,8 @@ class ACF():
         self.set_ydata(y)
         if f != None:
             self.set_functions(f)
-        elif self.functions == 0:
-            print "Default functions set to constant_line and straight_line.\n"
+        elif self.functions is None:
+            print("Default functions set to constant_line and straight_line.\n")
             self.set_functions(self.constant_line, self.straight_line)
         if p0 != None:
             self.set_init_pars(p0)
@@ -228,7 +228,7 @@ class ACF():
         elif (len(args) == 1) and isinstance(args[0], list):
             return args[0]
         else:
-            print "Wrong input format."
+            print("Wrong input format.")
             return [0]
     
     def _validity_check(self):
@@ -242,30 +242,27 @@ class ACF():
         
         # Check if parameters have been set.
         if self.xdata is 0:
-            print "No xdata found. Use set_xdata for input."
+            print("No xdata found. Use set_xdata for input.")
             valid = 0
         if self.ydata is 0:
-            print "No ydata found. Use set_ydata for input."
+            print("No ydata found. Use set_ydata for input.")
             valid = 0
-        if self.functions is 0:
-            print "No input functions found..."
-            print "constant_line and straight_line set as default.\n"
+        if self.functions is None:
+            print("No input functions found...")
+            print("constant_line and straight_line set as default.\n")
             self.set_functions(self.constant_line, self.straight_line)
         if not valid:
             return
 
         # Check if the three lists are of the same length.
         if self._xlen != self._ylen:
-            print("Number of x- (" + str(self._xlen) + ")  and y-arrays ("
-                  + str(self._ylen) + ") is incompatible.")
+            print("Number of x- (" + str(self._xlen) + ")  and y-arrays (" + str(self._ylen) + ") is incompatible.")
             valid = 0
         if self._xlen != self._flen:
-            print("Number of x-arrays (" + str(self._xlen) + ") and number of functions ("
-                  + str(self._flen) + ") is incompatible.")
+            print("Number of x-arrays (" + str(self._xlen) + ") and number of functions (" + str(self._flen) + ") is incompatible.")
             valid = 0
         if self._ylen != self._flen:
-            print ("Number of y-arrays (" + str(self._ylen) + ") and number of functions ("
-                  + str(self._flen) + ") is incompatible.")
+            print("Number of y-arrays (" + str(self._ylen) + ") and number of functions (" + str(self._flen) + ") is incompatible.")
             valid = 0
         if not valid:
             return valid
@@ -273,8 +270,7 @@ class ACF():
         # Check if pairs of x- and y-arrays in xdata and ydata have the same length.
         for i in range(0, self._xlen):
             if len(self.xdata[i]) != len(self.ydata[i]):
-                print("In xdata/ydata: Elements " + str(i) +" do not have the same lengths (" 
-                      + str(len(self.xdata[i])) + ", " + str(len(self.ydata[i])) + ").")
+                print("In xdata/ydata: Elements " + str(i) +" do not have the same lengths (" + str(len(self.xdata[i])) + ", " + str(len(self.ydata[i])) + ").")
                 valid = 0
                 
         return valid
@@ -287,23 +283,23 @@ class ACF():
         """
         p0_reset = False
         # If p0 is not set, set all values to 1.
-        if self.p0 is 0:
-            self.p0 = [1]*sum(self._fct_par_nums)
+        if self.p0 is None:
+            self.p0 = [1]*int(sum(self._fct_par_nums))
             p0_reset = True
-            print "No initial parameters given. Setting all values to 1."
+            print("No initial parameters given. Setting all values to 1.")
         # If number of initial parameters is to small/large -> cut/append.
         elif self._p0len < sum(self._fct_par_nums):
-            self.p0 = np.append(self.p0, [1]*(sum(self._fct_par_nums) - self._p0len))
+            self.p0 = np.append(self.p0, [1]*int(sum(self._fct_par_nums) - self._p0len))
             p0_reset = True
-            print "Not enough initial parameters. Filling up with 1."
+            print("Not enough initial parameters. Filling up with 1.")
         elif self._p0len > sum(self._fct_par_nums):
-            self.p0 = self.p0[:sum(self._fct_par_nums)]
+            self.p0 = self.p0[:int(sum(self._fct_par_nums))]
             p0_reset = True
-            print "To many initial parameters given. Cutting off redundant values."
+            print("To many initial parameters given. Cutting off redundant values.")
         
         if p0_reset:
             self._p0len = sum(self._fct_par_nums)
-            print "New initial parameters:\n p0 = " + str(self.p0)
+            print("New initial parameters:\n p0 = " + str(self.p0))
         return
     
     def _sort(self):
@@ -317,7 +313,7 @@ class ACF():
         self.xdata = list(np.array(self.xdata)[indices])
         self.ydata = list(np.array(self.ydata)[indices])
         if min(np.gradient(indices)) < 0:
-            print "\nChanging order of x- and y-data respectively...\n"
+            print("\nChanging order of x- and y-data respectively...\n")
         return
     
     def _reshape(self, pars):
@@ -354,7 +350,7 @@ class ACF():
             for j in range(i + 1, self._flen):
                 fct_ind = np.append(fct_ind, (i + 1)*10 + (j + 1))
                 par_names = np.append(par_names, "g_" + str(fct_ind[-1]))
-        self.results = zip(fct_ind, par_names, fit_pars, self.std_dev)
+        self.results = list(zip(fct_ind, par_names, fit_pars, self.std_dev))
         return
     
     def _least_square_val(self, pars):
@@ -430,7 +426,7 @@ class ACF():
         """
         # Check if fit is executable:
         if not self._validity_check():
-            print "\nAddress problems before fit can be excecuted."
+            print("\nAddress problems before fit can be excecuted.")
             return
         
         self._check_p0()
@@ -445,15 +441,13 @@ class ACF():
             # Calculate standard deviation
             self.std_dev = np.abs(np.diag(self.cov_mat))**0.5
         else:
-            print "Covariance matrix could not be calculated."
+            print("Covariance matrix could not be calculated.")
             self.std_dev = [float('nan')]*sum(self._fct_par_nums)
         
         # Reshape fit_pars into a list of parameters, as is accepted by crossing_fct.
         # After reshaping fit_pars is a list, where the element i contains the fit parameters of function i. 
         # The last element of fit_pars contains the coupling strenghts.
         self.fit_pars = self._reshape(self.fit_pars)
-        # Change coupling to always have +sign
-        self.fit_pars[-1] = np.abs(self.fit_pars[-1])
         self._generate_results()
         
         # Show output. Includes some crude formatting.
@@ -471,7 +465,7 @@ class ACF():
         Prints the fit results in a legible form.
         """
         if self.fit_pars is 0:
-            print "Fit was not yet performed. No data available."
+            print("Fit was not yet performed. No data available.")
             return
         format_str = " = ( {:7.4g} +- {:7.4g})"
         fct_index = 0
@@ -501,7 +495,7 @@ class ACF():
             fct_cols *= np.ceil(float(self._flen)/float(len(dat_cols)))
         
         if (self.xdata is 0) or (self.ydata is 0):
-                print "No data for plot available."
+                print("No data for plot available.")
                 return
         for i in range(0, self._xlen):
             plt.plot(self.xdata[i], self.ydata[i], dat_cols[i], marker = mrkr, linewidth = 0)
@@ -528,7 +522,7 @@ class ACF():
         Plot of input xy-datasets and the coupled modes using the fit results.
         """
         if self.fit_pars is 0:
-            print "Fit was not yet performed. Use self.plot_init_pars() to look at your input."
+            print("Fit was not yet performed. Use self.plot_init_pars() to look at your input.")
             return
         self._plot(self.fit_pars)
         return

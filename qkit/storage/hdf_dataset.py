@@ -11,6 +11,7 @@ import numpy
 import time
 import qkit
 from qkit.storage.hdf_constants import ds_types
+from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
 
 class hdf_dataset(object):
     """Dataset representation in qkit.        
@@ -106,7 +107,11 @@ class hdf_dataset(object):
             reset (Boolean, optional); indicator for appending, or resetting the dataset
         """
         if self.ds_type == ds_types['txt']:
-            data = data.encode("utf-8")
+            try:
+                data = data.encode("utf-8")
+            except AttributeError:
+                import json
+                data = json.dumps(data, cls=QkitJSONEncoder, indent = 4, sort_keys=True)
         else:
             ## we cast everything to a float numpy array
             data = numpy.atleast_1d(numpy.array(data,dtype=self.dtype))

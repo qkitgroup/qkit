@@ -259,6 +259,7 @@ class PlotWindow(QWidget,Ui_Form):
         self.manipulation = 8
         self.TraceNum = -1
         self.view_type = self.ds.attrs.get("view_type",None)
+        self.user_setting_changed = False
 
         if self.ds_type == ds_types["coordinate"]:
             self.view_type = view_types['1D']
@@ -587,18 +588,21 @@ class PlotWindow(QWidget,Ui_Form):
     @pyqtSlot()
     def setPointMode(self):
         self.plot_style = self.plot_styles['point']
+        self.user_setting_changed = True
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
 
     @pyqtSlot()
     def setLineMode(self):
         self.plot_style = self.plot_styles['line']
+        self.user_setting_changed = True
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
 
     @pyqtSlot()
     def setPointLineMode(self):
         self.plot_style = self.plot_styles['linepoint']
+        self.user_setting_changed = True
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
 

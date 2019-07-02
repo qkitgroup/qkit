@@ -284,7 +284,11 @@ class transport(object):
             An N-dimensional array containing numerical derivative dy/dx.
         """
         ### TODO: care about +/-np.inf and viewer
-        return self._numder_func(y, *self._numder_args, **self._numder_kwargs) / self._numder_func(x, *self._numder_args, **self._numder_kwargs)
+        ### TODO: catch error, if len(dataset) < window_length in case of SavGol filter
+        try:
+            return self._numder_func(y, *self._numder_args, **self._numder_kwargs) / self._numder_func(x, *self._numder_args, **self._numder_kwargs)
+        except:
+            return np.zeros(len(y))*np.nan
     
     def set_x_dt(self, x_dt):
         """
@@ -468,7 +472,13 @@ class transport(object):
         self._landscape = True
         self._lsc_vec = func(np.array(self._x_vec), *args)
         self._lsc_mirror = mirror
-        return 
+        return
+    
+    def reset_landscape(self):
+        self._landscape = False
+        self._lsc_vec = None
+        self._lsc_mirror = False
+        return
     
     def set_xy_parameters(self, x_name, x_func, x_vec, x_unit, y_name, y_func, y_unit, x_dt=1e-3):
         """
@@ -705,6 +715,21 @@ class transport(object):
         """
         return self._filename
     
+    def reset_filename(self):
+        """
+        Resets filename of current measurement to None.
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        None
+        """
+        self._filename = None
+        return
+    
     def set_expname(self, expname):
         """
         Sets experiment name of current measurement to <expname>.
@@ -736,6 +761,21 @@ class transport(object):
         """
         return self._expname
     
+    def reset_expname(self):
+        """
+        Resets experiment name of current measurement to None.
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        None
+        """
+        self._expname = None
+        return
+    
     def set_comment(self, comment):
         """
         Sets comment that is added to the .h5 file to <comment>
@@ -766,6 +806,21 @@ class transport(object):
             The comment added to data in .h5 file.
         """
         return self._comment
+    
+    def reset_comment(self):
+        """
+        Resets comment that is added to the .h5 file to None.
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        None
+        """
+        self._comment = None
+        return
     
     def set_average(self, avg):
         """
@@ -959,7 +1014,7 @@ class transport(object):
                        2: len(self._x_vec)*self.sweeps.get_nos()*[1 if self._average is None else self._average][0],
                        3: len(self._x_vec)*len(self._y_vec)*self.sweeps.get_nos()*[1 if self._average is None else self._average][0]}
             self._pb = Progress_Bar(max_it=num_its[self._scan_dim], 
-                                    name='{:d}D IV-curve: {:s}'.format(self._scan_dim, self._filename))
+                                    name='_'.join(filter(None, ('xy' if self._scan_dim is 0 else '{:d}D_IV_curve'.format(self._scan_dim), self._filename, self._expname))))
         else:
             print('recording trace...')
         ''' measurement '''
@@ -1012,7 +1067,6 @@ class transport(object):
             self._data_file.close_file()
             waf.close_log_file(self._log)
             self._set_IVD_status(False)
-            self._filename = None
             print('Measurement complete: {:s}'.format(self._data_file.get_filepath()))
         return
     
@@ -1066,18 +1120,8 @@ class transport(object):
         None
         """
         ''' create files '''
-        # default filename if not already set
-        dirnames = {0: '{:s}_vs_{:s}'.format('_'.join(self._y_name), self._x_name),
-                    1: 'IV_curve',
-                    2: 'IV_curve_{:s}'.format(self._x_coordname),
-                    3: 'IV_curve_{:s}_{:s}'.format(self._x_coordname, self._y_coordname)}
-        if self._filename is None:
-            self._filename = dirnames[self._scan_dim].replace(' ', '_').replace(',', '_')
-        if self._expname is not None:
-            self._filename = '{:s}_{:s}'.format(self._filename, self._expname)
-        self._filename = '{:s}_{:s}'.format('xy' if self._scan_dim is 0 else '{:d}D'.format(self._scan_dim), self._filename)
         # data.h5 file
-        self._data_file = hdf.Data(name=self._filename, mode='a')
+        self._data_file = hdf.Data(name='_'.join(filter(None, ('xy' if self._scan_dim is 0 else '{:d}D_IV_curve'.format(self._scan_dim), self._filename, self._expname))), mode='a')
         # settings.set file
         self._settings = self._data_file.add_textlist('settings')
         self._settings.append(waf.get_instrument_settings(self._data_file.get_filepath()))
@@ -1124,7 +1168,7 @@ class transport(object):
                     self._data_dVdI.append(self._data_file.add_value_vector('dVdI_{!s}'.format(i), x=self._data_bias[i], unit='V/A', save_timestamp=False, folder='analysis', comment=self._get_numder_comment(self._data_V[i].name)+'/'+self._get_numder_comment(self._data_I[i].name)))
                     self._data_file.add_comment(comment='numerical_derivative: '+self._get_numder_comment('x'), folder='analysis')
             # add views
-            self._add_IV_view()
+            self._add_views()
         elif self._scan_dim == 2:
             ''' 2D scan '''
             self._data_x = self._data_file.add_coordinate(self._x_coordname, unit=self._x_unit)
@@ -1142,7 +1186,7 @@ class transport(object):
             # log-function
             self._add_log_value_vector()
             # add views
-            self._add_IV_view()
+            self._add_views()
         elif self._scan_dim == 3:
             ''' 3D scan '''
             self._data_x = self._data_file.add_coordinate(self._x_coordname, unit=self._x_unit)
@@ -1162,7 +1206,7 @@ class transport(object):
             # log-function
             self._add_log_value_vector()
             # add views
-            self._add_IV_view()
+            self._add_views()
         ''' add comment '''
         if self._comment:
             self._data_file.add_comment(self._comment)
@@ -1222,7 +1266,7 @@ class transport(object):
                 self._log_values.append(self._data_file.add_value_vector(self.log_name[i], x=self._data_x, unit=self.log_unit[i], dtype=self.log_dtype[i]))
         return
     
-    def _add_IV_view(self):
+    def _add_views(self):
         """
         Adds views to the .h5-file. The view "IV" plots I(V) and contains the whole set of sweeps that are set.
         If <dVdI> is true, the view "dVdI" plots the differential gradient dV/dI(V) and contains the whole set of sweeps that are set.
@@ -1235,11 +1279,11 @@ class transport(object):
         -------
         None
         """
-        self._view_IV = self._data_file.add_view('IV', x=self._data_V[0], y=self._data_I[0])
+        self._view_IV = self._data_file.add_view('IV', x=self._data_V[0], y=self._data_I[0], view_params={"labels": ('V', 'I'), 'plot_style': 1, 'markersize': 5})
         for i in range(1, self.sweeps.get_nos()):
             self._view_IV.add(x=self._data_V[i], y=self._data_I[i])
         if self._dVdI:
-            self._view_dVdI = self._data_file.add_view('dVdI', x=self._data_I[0], y=self._data_dVdI[0])
+            self._view_dVdI = self._data_file.add_view('dVdI', x=self._data_I[0], y=self._data_dVdI[0], view_params={"labels": ('I', 'dVdI'), 'plot_style': 1, 'markersize': 5})
             for i in range(1, self.sweeps.get_nos()):
                 self._view_dVdI.add(x=eval('self._data_{:s}'.format(self._IV_modes[self._bias]))[i], y=self._data_dVdI[i])
         return
@@ -1319,9 +1363,11 @@ class transport(object):
             # modify sweep by envelop of landscape function
             x_lim = self._lsc_vec[self.ix]
             if self._lsc_mirror:
-                sweep_lsc = np.nanmin([np.abs(sweep), [x_lim, x_lim, np.nan]], axis=0)*np.sign(sweep)
+                sweep_lsc = np.nanmin([np.abs(sweep), [x_lim, x_lim, np.nan, np.nan]], axis=0)*np.sign(sweep)
             else:
-                sweep_lsc = np.nanmin([sweep, [x_lim, x_lim, np.nan]], axis=0)
+                sweep_lsc = np.nanmin([sweep, [x_lim, x_lim, np.nan, np.nan]], axis=0)
+            # round to multiple of step
+            sweep_lsc = sweep_lsc[2]*np.round(sweep_lsc/sweep_lsc[2])
             # take data
             data = self._IVD.take_IV(sweep=sweep_lsc)
             # fill skipped bias values with np.nan to keep shape constant

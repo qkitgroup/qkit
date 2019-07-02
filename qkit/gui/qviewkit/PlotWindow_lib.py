@@ -34,6 +34,7 @@ import json
 import pyqtgraph as pg
 import qkit
 from qkit.storage.hdf_constants import ds_types
+import pprint
 
 
 def _display_1D_view(self, graphicsView):
@@ -61,6 +62,7 @@ def _display_1D_view(self, graphicsView):
     
     ## evaluate the overlay-entries to get the ds_urls of the datasets to be 
     ## displayed.
+    view_params = json.loads(self.ds.attrs.get("view_params", {}))
     for i in range(overlay_num + 1):
         xyurls = self.ds.attrs.get("xy_" + str(i), "")
         ds_urls = [xyurls.split(":")[0], xyurls.split(":")[1]]
@@ -159,8 +161,6 @@ def _display_1D_view(self, graphicsView):
             graphicsView.setLabel('left', names[1], units=units[1])
             graphicsView.setLabel('bottom', names[0], units=units[0])
             
-            view_params = json.loads(self.ds.attrs.get("view_params", {}))
-            
             # this allows to set a couple of plot related settings
             if view_params:
                 aspect = view_params.pop('aspect', False)
@@ -175,18 +175,26 @@ def _display_1D_view(self, graphicsView):
                 graphicsView.plotItem.legend.removeItem(names[1])
             except:
                 pass
-            
+
+            if not self.user_setting_changed:
+                self.plot_style = view_params.get('plot_style', 0)
+            self.markersize = view_params.get('markersize', 5)
             if self.plot_style == self.plot_styles['line']:
                 graphicsView.plot(y=y_data, x=x_data, pen=(i, 4), name=names[1], connect='finite')
             elif self.plot_style == self.plot_styles['linepoint']:
                 symbols = ['+', 'o', 's', 't', 'd']
-                graphicsView.plot(y=y_data, x=x_data, pen=(i, 4), name=names[1], connect='finite', symbol=symbols[i % len(symbols)], symbolSize=5)
+                graphicsView.plot(y=y_data, x=x_data, pen=(i, 4), name=names[1], connect='finite', symbol=symbols[i % len(symbols)], symbolSize=self.markersize)
             elif self.plot_style == self.plot_styles['point']:
                 symbols = ['+', 'o', 's', 'd', 't']
-                graphicsView.plot(y=y_data, x=x_data, name=names[1], pen=None, symbol=symbols[i % len(symbols)], symbolSize=5)
+                graphicsView.plot(y=y_data, x=x_data, name=names[1], pen=None, symbol=symbols[i % len(symbols)], symbolSize=self.markersize)
             if err_url:
                 err = pg.ErrorBarItem(x=x_data, y=y_data, height=err_data, beam=0.25 * scales[0][0])
                 graphicsView.getPlotItem().addItem(err)
+
+    # optionally take provided x_name, y_name as labels
+    if view_params.get("labels", False):
+        graphicsView.setLabel('bottom', view_params['labels'][0], units=units[0])
+        graphicsView.setLabel('left', view_params['labels'][1], units=units[1])
     
     plIt = graphicsView.getPlotItem()
     plVi = plIt.getViewBox()
@@ -257,9 +265,9 @@ def _display_1D_data(self, graphicsView):
         """
         For a matrix type the data to be displayed on the x-axis depends on the selected plot_type
         """
-        
         if self.PlotTypeSelector.currentIndex() == 1:  # y_ds on x-axis
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['y_ds_url'])
+            self.TraceXSelector.setRange(-1 * self.ds.shape[0], self.ds.shape[0] - 1)
             if self.TraceXValueChanged:
                 """
                 If the trace to be displayed has been changed, the correct dataslice and the displayed
@@ -277,6 +285,7 @@ def _display_1D_data(self, graphicsView):
         
         if self.PlotTypeSelector.currentIndex() == 2:  # x_ds on x-axis
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url'])
+            self.TraceXSelector.setRange(-1 * self.ds.shape[1], self.ds.shape[1] - 1)
             if self.TraceYValueChanged:
                 """
                 If the trace to be displayed has been changed, the correct dataslice and the displayed
@@ -405,7 +414,12 @@ def _display_2D_data(self, graphicsView):
         The matrix ds-type only knows one 2d plotting option. x_ds on x- and y_ds on y-axis
         """
         dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url', 'y_ds_url'])
-        data = dss[2][()]
+        try:
+          data = dss[2][()]
+        except IOError as e:
+              print("Could not open data file")
+              print(e)
+              return
         
         fill_x = dss[2].shape[0]
         fill_y = dss[2].shape[1]
@@ -427,7 +441,12 @@ def _display_2D_data(self, graphicsView):
                 self.TraceXValueChanged = False
             
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['y_ds_url', 'z_ds_url'])
-            data = dss[2][()][self.TraceXNum, :, :]
+            try:
+              data = dss[2][()][self.TraceXNum, :, :]
+            except IOError as e:
+              print("Could not open data file")
+              print(e)
+              return
             
             fill_x = dss[2].shape[1]
             fill_y = dss[2].shape[2]
@@ -441,7 +460,12 @@ def _display_2D_data(self, graphicsView):
                 self.TraceYValueChanged = False
             
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url', 'z_ds_url'])
-            data = dss[2][()][:, self.TraceYNum, :]
+            try:
+              data = dss[2][()][:, self.TraceYNum, :]
+            except IOError as e:
+              print("Could not open data file")
+              print(e)
+              return
             
             fill_x = dss[2].shape[0]
             fill_y = dss[2].shape[2]
@@ -455,7 +479,12 @@ def _display_2D_data(self, graphicsView):
                 self.TraceZValueChanged = False
             
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url', 'y_ds_url'])
-            data = dss[2][()][:, :, self.TraceZNum]
+            try:
+              data = dss[2][()][:, :, self.TraceZNum]
+            except IOError as e:
+              print("Could not open data file")
+              print(e)
+              return
             
             fill_x = dss[2].shape[0]
             fill_y = dss[2].shape[1]
@@ -575,27 +604,7 @@ def _display_text(self, graphicsView):
     except ValueError:
         txt = _display_string(self.ds)
     else:
-        sample = json_dict.pop('sample')
-        instruments = json_dict.pop('instruments')
-        txt = ""
-        for key in sorted(json_dict):
-            txt += str(key) + ":   " + str(json_dict[key]) + "\n"
-        txt += '\n'
-        if sample:
-            txt += 'sample:\n   '
-            for key in sorted(sample):
-                try:
-                    txt += str(key) + ":   " + str(sample[key]['content']) + "\n   "
-                except Exception as e:
-                    txt += str(key) + ":   " + str(sample[key])+"\n   "
-            txt += '\n'
-        if instruments:
-            txt += 'instruments:\n   '
-            for instrument in sorted(instruments):
-                txt += instrument + ':\n      '
-                for parameter in sorted(instruments[instrument]):
-                    txt += str(parameter) + ":   " + str(instruments[int(instrument)][int(parameter)]['content'])+"\n      "
-                txt = txt[:-3]
+        txt = pprint.pformat(json_dict, indent=4)
     graphicsView.insertPlainText(txt.rstrip())
 
 
@@ -692,7 +701,7 @@ def _get_unit(ds):
 
 def _get_name(ds):
     """Returns the name of a dataset.
-    
+
     Args:
         ds: hdf_dataset.
 
@@ -709,9 +718,9 @@ def _get_name(ds):
 
 def _get_all_ds_names_units_scales(ds, ds_urls=[]):
     """Reads and returns all the relevant information of the given datasets.
-    
+
     This function gathers all the needed metadata to correctly display the
-    dataset given in ds. The metadata of the datasets associated with the given 
+    dataset given in ds. The metadata of the datasets associated with the given
     urls are read out (data, name, unit, and scale). This information is used
     by the _display_...() fcts to correcly label and scale the plots. The order
     in the input- and output-list is maintained.
@@ -773,7 +782,7 @@ def _do_data_manipulation(data, unit, ds_type, manipulation, manipulations, colo
     
     # unwrap the phase
     if manipulation & manipulations['wrap']:
-        data = np.unwrap(data)
+        data[~np.isnan(data)] = np.unwrap(data[~np.isnan(data)])
     
     if manipulation & manipulations['linear']:
         if len(data.shape) == 1:

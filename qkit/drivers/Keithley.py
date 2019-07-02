@@ -1493,7 +1493,7 @@ class Keithley(Instrument):
         try:
             self._write('format.data = format.ASCII')
             self._write('format.asciiprecision = 6')
-            self._start, self._stop, self._step = np.array(sweep, dtype=float)
+            self._start, self._stop, self._step = np.array(sweep[:3], dtype=float)
             if not self._sweep_mode:  # 0 (VV-mode)
                 channel_bias, channel_sense = self._sweep_channels
                 readingbuffer_bias = 'smu{:s}.nvbuffer1'.format(chr(96+channel_bias)) if self._readingbuffer_bias is None else self._readingbuffer_bias

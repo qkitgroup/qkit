@@ -32,7 +32,7 @@ cfg['rootdir'] = cfg['qkitdir']
 cfg['tempdir'] = tempfile.gettempdir()
 cfg['datadir'] = os.path.join(cfg['qkitdir'],'data')
 
-cfg['instruments_dir']      = os.path.join(cfg['qkitdir'],'instruments')
+cfg['instruments_dir']      = os.path.join(cfg['qkitdir'],'drivers')
 cfg['user_instruments_dir'] = None
 
 
@@ -91,6 +91,11 @@ cfg['stdout_log_level'] = 'WARNING'
 ## check via git if updates are available
 ##
 #cfg['check_for_updates'] = False
+
+##
+## Make png files at the end of the measurement
+##
+#cfg['save_png'] = True
 
 ##
 ## QT related options
