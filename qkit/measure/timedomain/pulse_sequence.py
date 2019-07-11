@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from inspect import getargspec as getargspec
 from inspect import getsourcelines as getsourcelines
+from typing import Dict
 import logging
 
 class Shape(np.vectorize):
@@ -141,6 +142,7 @@ class PulseSequence(object):
                         This correction is added to the dc offset during the pulse (i.e. of the pulse object).
         """
         self._sequence = []
+        self._pulses = {}  # type: Dict[Pulse]
         self._sample = sample
         self.dc_corr = dc_corr
         if self._sample:
@@ -281,7 +283,13 @@ class PulseSequence(object):
             logging.warning(pulse.name + " is not permitted as pulse name.")
             logging.warning("Pulse name set to None.")
             pulse_dict["name"] = None
+        elif self._pulses.has_key(pulse.name) and not self._pulses[pulse.name] is pulse:
+            logging.error("Another pulse with the same name ({name}) is already present in the sequence!".format(name=pulse.name))
+            return self
         else:
+            # Add the pulse to the pulse dictionary if it is not yet present
+            if not self._pulses.has_key(pulse.name):
+                self._pulses[pulse.name] = pulse
             pulse_dict["name"] = pulse.name
             pulse_dict["iq_frequency"] = pulse.iq_frequency
             pulse_dict["phase"] = pulse.phase
