@@ -389,6 +389,9 @@ class spectrum(object):
         if not self.x_set_obj:
             logging.error('axes parameters not properly set...aborting')
             return
+        if len(self.x_vec) == 0:
+            logging.error('No points to measure given. Check your x vector... aborting')
+            return
         self._scan_1D = False
         self._scan_2D = True
         self._scan_3D = False
@@ -432,6 +435,10 @@ class spectrum(object):
         if not self.x_set_obj or not self.y_set_obj:
             logging.error('axes parameters not properly set...aborting')
             return
+        if len(self.x_vec)*len(self.y_vec) == 0:
+            logging.error('No points to measure given. Check your x ad y vector... aborting')
+            return
+        
         self._scan_1D = False
         self._scan_2D = False
         self._scan_3D = True
