@@ -140,7 +140,7 @@ class PulseSequence(object):
                         The real part encodes the dc offset of I, the imaginary part is the dc offset of Q.
                         This correction is added to the dc offset during the pulse (i.e. of the pulse object).
         """
-        self._pulses = []
+        self._sequence = []
         self._sample = sample
         self.dc_corr = dc_corr
         if self._sample:
@@ -186,7 +186,7 @@ class PulseSequence(object):
             IQ_mixing = False
 
         # find readout
-        pulse_names = [p["name"] for p in self._pulses]
+        pulse_names = [p["name"] for p in self._sequence]
         num_pulses = len(pulse_names) # number of pulses in the sequence
         if "readout" in pulse_names:
             readout_pos = pulse_names.index("readout")
@@ -202,7 +202,7 @@ class PulseSequence(object):
         length = 0 #length of current pulse
         readout_index = -1 # index of the readout in the waveform of the whole sequence
         for i in range(num_pulses):
-            pulse_dict = self._pulses[i]
+            pulse_dict = self._sequence[i]
 
             # Determine length of the pulse
             if isinstance(pulse_dict["length"], float):
@@ -246,7 +246,7 @@ class PulseSequence(object):
                 continue
             # Encode I and Q in real/imaginary part of the sequence
             if IQ_mixing:
-                pulse = self._pulses[i]["pulse"]
+                pulse = self._sequence[i]["pulse"]
                 iq_freq = pulse.iq_frequency
                 if iq_freq == 0: # homodyne pulses are not mixed
                     continue
@@ -303,7 +303,7 @@ class PulseSequence(object):
             return self
         pulse_dict["pulse"] = pulse
         pulse_dict["skip"] = skip
-        self._pulses.append(pulse_dict)
+        self._sequence.append(pulse_dict)
         return self
 
     def add_wait(self, time):
@@ -333,7 +333,7 @@ class PulseSequence(object):
             logging.error("Pulse length not understood.")
             return self
         pulse_dict["skip"] = False
-        self._pulses.append(pulse_dict)
+        self._sequence.append(pulse_dict)
         return self
 
     def add_readout(self, skip = False):
@@ -351,7 +351,7 @@ class PulseSequence(object):
             readout_tone_length = None
         pulse_dict["length"] = readout_tone_length
         pulse_dict["skip"] = skip
-        self._pulses.append(pulse_dict)
+        self._sequence.append(pulse_dict)
         return self
 
     def get_pulses(self):
@@ -360,7 +360,7 @@ class PulseSequence(object):
         The properties of each pulse are stored in a dictionary with keys: name, shape, length, skip value
         """
         dict_list = []
-        for pulse_dict in self._pulses:
+        for pulse_dict in self._sequence:
             temp = pulse_dict.copy()
             # remove the pulse object from dictionary (object id does not really help the user)
             if "pulse" in temp.keys():
@@ -378,7 +378,7 @@ class PulseSequence(object):
         ampmax = 1
         col = None
 
-        for pulse_dict in self._pulses:
+        for pulse_dict in self._sequence:
             i += 1
             if pulse_dict["skip"]:
                 amp += 1
