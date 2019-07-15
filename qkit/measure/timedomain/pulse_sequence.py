@@ -151,9 +151,9 @@ class PulseSequence(object):
         self._variables = set()  # type: Set[str]
         self._sample = sample
         self.dc_corr = dc_corr
-        if self._sample:
-            self.samplerate = sample.clock  # type: float
-        else:
+        try:
+            self.samplerate = self._sample.clock
+        except AttributeError:
             self.samplerate = samplerate
         
         self._cols = ["C0", "C1", "C2", "C3", "C4", "C5",
