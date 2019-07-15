@@ -477,8 +477,8 @@ class Oxford_Triton(Instrument):
         return self.get_warm_up_heater() is status
     
     def _ask(self, cmd):
-        self._soc.sendall(cmd + '\n')
-        return self._soc.recv(1024)
+        self._soc.sendall((cmd + '\n').encode())
+        return self._soc.recv(1024).decode()
     
     def _do_set_pump(self, pump="COMP", state=False):
         '''
@@ -520,8 +520,8 @@ class Oxford_Triton(Instrument):
                 raise ValueError('{} bypass not successful. P2 is above 750mbar.'.format("open" if state else "close"))
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((self._host, 9989))
-            sock.send("open\n")
-            response = sock.recv(1024 * 8).strip()
+            sock.send(b"open\n")
+            response = sock.recv(1024 * 8).strip().decode()
             if response == "Ok":
                 self._do_set_pump("COMP", False)
             else:
@@ -530,8 +530,8 @@ class Oxford_Triton(Instrument):
             self._do_set_pump("COMP", True)
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((self._host, 9989))
-            sock.send("close\n")
-            response = sock.recv(1024 * 8).strip()
+            sock.send(b"close\n")
+            response = sock.recv(1024 * 8).strip().decode()
             if response == "Ok":
                 return True
             else:
@@ -540,8 +540,8 @@ class Oxford_Triton(Instrument):
     def _do_get_bypass(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((self._host, 9989))
-        sock.send("get_status\n")
-        response = sock.recv(1024 * 8).strip()
+        sock.send(b"get_status\n")
+        response = sock.recv(1024 * 8).strip().decode()
         if response == "open":
             return True
         if response == "closed":
