@@ -7,11 +7,13 @@ from inspect import getsourcelines as getsourcelines
 from typing import Dict
 import logging
 
+
 class Shape(np.vectorize):
     """
     A vectorized function describing a possible shape
     defined on the standardized interval [0,1).
     """
+
     def __init__(self, name, func, *args, **kwargs):
         self.name = name
         super(Shape, self).__init__(func, *args, **kwargs)
@@ -28,7 +30,8 @@ class ShapeLib(object):
 
     def __init__(self):
         self.rect = Shape("rect", lambda x: np.where(x >= 0 and x < 1, 1, 0))
-        self.gauss = Shape("gauss", lambda x: np.exp(-0.5 * np.power((x - 0.5) / 0.166, 2.0))) * self.rect
+        self.gauss = Shape("gauss", lambda x: np.exp(-0.5 *
+                                                     np.power((x - 0.5) / 0.166, 2.0))) * self.rect
 
 
 # Make ShapeLib a singleton:
@@ -40,7 +43,7 @@ class Pulse(object):
     Class to describe a single pulse.
     """
 
-    def __init__(self, length, shape=ShapeLib.rect, name = None, amplitude=1, phase = 0, iq_frequency = 0, iq_dc_offset = 0, iq_angle = 90):
+    def __init__(self, length, shape=ShapeLib.rect, name=None, amplitude=1, phase=0, iq_frequency=0, iq_dc_offset=0, iq_angle=90):
         """
         Inits a pulse with:
             length:       length of the pulse. This can also be a (lambda) function for variable pulse lengths.
@@ -54,9 +57,9 @@ class Pulse(object):
         """
         self.length = length  # type: float or string
         self.shape = shape
-        self.name = name # type: string
+        self.name = name  # type: string
         self.amplitude = amplitude  # type: float
-        self.phase = phase #type: float
+        self.phase = phase  # type: float
         self.iq_frequency = iq_frequency  # type: float
         self.iq_dc_offset = iq_dc_offset
         self.iq_angle = iq_angle
@@ -77,7 +80,7 @@ class Pulse(object):
     def get_envelope(self, samplerate):
         """
         Returns the envelope of the pulse as array with given time steps.
-        
+
         Args:
             samplerate: samplerate for calculating the envelope
 
@@ -94,7 +97,7 @@ class Pulse(object):
     def get_complex_envelope(self, samplerate):
         """
         Returns the envelope of the pulse as array with given time steps.
-        
+
         Args:
             samplerate: samplerate for calculating the envelope
 
@@ -107,13 +110,15 @@ class Pulse(object):
             # for homodyne mixing the envelope is real
             return envelope
         time = np.arange(0, self.length, timestep)
-        envelope_complex = envelope * np.exp(1.j *(2*np.pi *self.iq_frequency * time - np.pi/180 * self.phase))
+        envelope_complex = envelope * \
+            np.exp(1.j * (2*np.pi * self.iq_frequency *
+                          time - np.pi/180 * self.phase))
         # adjust angle between I and Q by rotating Q:
         I = np.real(envelope_complex)
-        Q = np.imag(envelope_complex * np.exp(1.j * np.pi /180 * (90 - self.iq_angle)))
+        Q = np.imag(envelope_complex * np.exp(1.j *
+                                              np.pi / 180 * (90 - self.iq_angle)))
         envelope_complex = I + 1.j * Q + self.iq_dc_offset
         return envelope_complex
-
 
 
 class PulseSequence(object):
@@ -130,8 +135,8 @@ class PulseSequence(object):
         plot:        plots schematic of the sequence
         get_pulses:  returns list of currently added pulses and their properties.
     """
-    
-    def __init__(self, sample = None, samplerate = None, dc_corr = 0):
+
+    def __init__(self, sample=None, samplerate=None, dc_corr=0):
         """
         Inits PulseSequence with sample and samplerate:
             sample:     Sample object
@@ -146,11 +151,12 @@ class PulseSequence(object):
         self._sample = sample
         self.dc_corr = dc_corr
         if self._sample:
-            self.samplerate = sample.clock # type: float
+            self.samplerate = sample.clock  # type: float
         else:
             self.samplerate = samplerate
         self._varnum = 0
-        self._cols = ["C0" ,"C1", "C2", "C3", "C4", "C5", "C6", "C8", "C9", "r", "g", "b", "y", "k", "m"]
+        self._cols = ["C0", "C1", "C2", "C3", "C4", "C5",
+                      "C6", "C8", "C9", "r", "g", "b", "y", "k", "m"]
         self._cols_temp = self._cols[:]
         self._pulse_cols = {"readout": "C7", "wait": "w"}
 
@@ -169,19 +175,20 @@ class PulseSequence(object):
             waveform:      numpy array of the squence envelope, if IQ_mixing is True real part is I, imaginary part is Q
             readout_index: index of the readout tone
         """
-        
+
         if len(args) < self._varnum:
             logging.error("Insufficient number of arguments.")
             return
         elif len(args) > self._varnum:
             if self._varnum > 0:
-                logging.warning("To many arguments given. Omitting excess arguments.")
+                logging.warning(
+                    "To many arguments given. Omitting excess arguments.")
             args = args[:self._varnum]
-        
+
         if not self.samplerate:
             logging.error("Sequence call requires samplerate.")
             return
-        
+
         if kwargs.has_key("IQ_mixing"):
             IQ_mixing = kwargs["IQ_mixing"]
         else:
@@ -189,20 +196,21 @@ class PulseSequence(object):
 
         # find readout
         pulse_names = [p["name"] for p in self._sequence]
-        num_pulses = len(pulse_names) # number of pulses in the sequence
+        num_pulses = len(pulse_names)  # number of pulses in the sequence
         if "readout" in pulse_names:
             readout_pos = pulse_names.index("readout")
         else:
             readout_pos = num_pulses
-            logging.warning("No readout in sequence! Adding readout at the end of the sequence.")
+            logging.warning(
+                "No readout in sequence! Adding readout at the end of the sequence.")
             self.add_readout()
-        
+
         # build waveforms for each pulse
-        # if iq-mixing is enabled 
-        wfms = [np.zeros(0)] * num_pulses # list of waveforms for each pulse
-        timestep = 1.0 / self.samplerate # minimum time step
-        length = 0 #length of current pulse
-        readout_index = -1 # index of the readout in the waveform of the whole sequence
+        # if iq-mixing is enabled
+        wfms = [np.zeros(0)] * num_pulses  # list of waveforms for each pulse
+        timestep = 1.0 / self.samplerate  # minimum time step
+        length = 0  # length of current pulse
+        readout_index = -1  # index of the readout in the waveform of the whole sequence
         for i in range(num_pulses):
             pulse_dict = self._sequence[i]
 
@@ -213,13 +221,16 @@ class PulseSequence(object):
                 length = pulse_dict["length"](*args)
             elif pulse_dict["length"] is None:
                 length = 0
-                logging.warning("Pulse number {:d} (name = {:}) has no length! Setting length to 0.".format(i, pulse_dict["name"]))
+                logging.warning("Pulse number {:d} (name = {:}) has no length! Setting length to 0.".format(
+                    i, pulse_dict["name"]))
             if (pulse_dict["name"] is "readout") and (i is num_pulses - 1):
-                length = timestep # if readout is last, omit the wfm (apart from a single digit)
+                # if readout is last, omit the wfm (apart from a single digit)
+                length = timestep
             # Warning if pulse is shorter than smallest possible step
             if (length < 0.5*timestep) and (length != 0):
-                logging.warning("{:}-pulse is shorter than {:.2f} nanoseconds and thus is omitted.".format(pulse_dict["name"], 0.5*timestep*1e9))
-            
+                logging.warning("{:}-pulse is shorter than {:.2f} nanoseconds and thus is omitted.".format(
+                    pulse_dict["name"], 0.5*timestep*1e9))
+
             # create waveform array of the current pulse
             if pulse_dict["name"] is "wait":
                 wfm = np.zeros(int(round(length * self.samplerate)))
@@ -227,21 +238,23 @@ class PulseSequence(object):
                 wfm = np.zeros(int(round(length * self.samplerate)))
             else:
                 if length > 0.5*timestep:
-                    wfm = pulse_dict["pulse"](np.arange(0, length, timestep) / length)
+                    wfm = pulse_dict["pulse"](
+                        np.arange(0, length, timestep) / length)
                 else:
                     wfm = np.zeros(0)
             # if current pulse is readout set readout_index
             if (pulse_dict["name"] is "readout") and (readout_index == -1):
                 readout_index = len(wfms[i])
-            #append in current wfm
+            # append in current wfm
             wfms[i] = np.append(wfms[i], wfm)
             # append zeros in wfms if skip is False
             if not pulse_dict["skip"]:
-                for j in range(i + 1, num_pulses): # only necessary for pulses after the current pulse
+                # only necessary for pulses after the current pulse
+                for j in range(i + 1, num_pulses):
                     wfms[j] = np.append(wfms[j], np.zeros_like(wfm))
-        
+
         # Create waveform of the sequence
-        max_len = max([len(w) for w in wfms]) # length of the longest waveform
+        max_len = max([len(w) for w in wfms])  # length of the longest waveform
         for i in range(num_pulses):
             wfms[i] = np.append(wfms[i], np.zeros(max_len - len(wfms[i])))
             if not any(wfms[i]):
@@ -250,27 +263,31 @@ class PulseSequence(object):
             if IQ_mixing:
                 pulse = self._sequence[i]["pulse"]
                 iq_freq = pulse.iq_frequency
-                if iq_freq == 0: # homodyne pulses are not mixed
+                if iq_freq == 0:  # homodyne pulses are not mixed
                     continue
                 # calculate I and Q
-                time = np.arange(0, max_len, 1) * timestep - readout_index * timestep # adjust global phase relative to the readout
-                iq_phase = np.exp(1.j *(2 * np.pi * iq_freq * time - np.pi/180 * pulse.phase))
+                # adjust global phase relative to the readout
+                time = np.arange(0, max_len, 1) * timestep - \
+                    readout_index * timestep
+                iq_phase = np.exp(
+                    1.j * (2 * np.pi * iq_freq * time - np.pi/180 * pulse.phase))
                 wfms[i] = wfms[i] * iq_phase
                 # account for mixer calibration i.e. dc offset and phase != 90deg between I and Q
                 if pulse.iq_angle != 90:
                     I = np.real(wfms[i])
-                    Q = np.imag(wfms[i] * np.exp(1.j * np.pi /180 * (90 - pulse.iq_angle)))
+                    Q = np.imag(
+                        wfms[i] * np.exp(1.j * np.pi / 180 * (90 - pulse.iq_angle)))
                     wfms[i] = I + 1.j * Q
                 wfms[i][wfms[i] != 0] += pulse.iq_dc_offset
-            
+
         # generate full waveform from wfms
-        waveform = np.sum(np.array(wfms), axis = 0) + self.dc_corr
+        waveform = np.sum(np.array(wfms), axis=0) + self.dc_corr
         # make sure first and last point of the waveform go to 0
         waveform = np.append(0, waveform)
         waveform = np.append(waveform, 0)
-        return waveform, readout_index + 1 # +1 due to leading 0
+        return waveform, readout_index + 1  # +1 due to leading 0
 
-    def add(self, pulse, skip = False):
+    def add(self, pulse, skip=False):
         """
         Append a pulse to the sequence.
 
@@ -284,7 +301,8 @@ class PulseSequence(object):
             logging.warning("Pulse name set to None.")
             pulse_dict["name"] = None
         elif self._pulses.has_key(pulse.name) and not self._pulses[pulse.name] is pulse:
-            logging.error("Another pulse with the same name ({name}) is already present in the sequence!".format(name=pulse.name))
+            logging.error("Another pulse with the same name ({name}) is already present in the sequence!".format(
+                name=pulse.name))
             return self
         else:
             # Add the pulse to the pulse dictionary if it is not yet present
@@ -304,7 +322,8 @@ class PulseSequence(object):
             elif self._varnum is varnum:
                 pass
             else:
-                logging.error("Number of variable does not match previously added pulses/wait times!")
+                logging.error(
+                    "Number of variable does not match previously added pulses/wait times!")
                 return self
         else:
             logging.error("Pulse length not understood.")
@@ -324,7 +343,7 @@ class PulseSequence(object):
         """
         pulse_dict = {}
         pulse_dict["name"] = "wait"
-        
+
         if callable(time):
             pulse_dict["length"] = time
             varnum = len(getargspec(time)[0])
@@ -333,7 +352,8 @@ class PulseSequence(object):
             elif self._varnum is varnum:
                 pass
             else:
-                logging.error("Number of variable does not match previously added pulses/wait times!")
+                logging.error(
+                    "Number of variable does not match previously added pulses/wait times!")
                 return self
         elif isinstance(time, float):
             pulse_dict["length"] = time
@@ -344,7 +364,7 @@ class PulseSequence(object):
         self._sequence.append(pulse_dict)
         return self
 
-    def add_readout(self, skip = False):
+    def add_readout(self, skip=False):
         """
         Add a readout pulse to the sequence.
 
@@ -375,11 +395,11 @@ class PulseSequence(object):
                 del(temp["pulse"])
             dict_list.append(temp)
         return dict_list
-    
+
     def plot(self):
         """
         Plot a schematic of the stored pulses.
-        """        
+        """
         fig, ax = plt.subplots()
         i = -1
         amp = 1
@@ -393,7 +413,7 @@ class PulseSequence(object):
                 ampmax = max(ampmax, amp)
             else:
                 amp = 1
-            #Generate displayed text
+            # Generate displayed text
             text = ""
             if pulse_dict["name"] is not None:
                 text += pulse_dict["name"]
@@ -404,10 +424,12 @@ class PulseSequence(object):
             text += "\n" + self._pulselength_as_str(pulse_dict["length"])
             if "iq_frequency" in pulse_dict.keys():
                 if pulse_dict["iq_frequency"] not in [0, None]:
-                    text += "\n\n f_iq = {:.0f} MHz".format(pulse_dict["iq_frequency"] / 1e6)
+                    text += "\n\n f_iq = {:.0f} MHz".format(
+                        pulse_dict["iq_frequency"] / 1e6)
                     if pulse_dict["phase"] != 0:
-                        text += "\n phase = {:.0f} deg".format(pulse_dict["phase"] / 1e6)
-            #Make sure pulse colors are unique
+                        text += "\n phase = {:.0f} deg".format(
+                            pulse_dict["phase"] / 1e6)
+            # Make sure pulse colors are unique
             if self._cols_temp is []:
                 self._cols_temp = self._cols[:]
                 print("All colors already in use...\n Resetting color palette.")
@@ -420,14 +442,16 @@ class PulseSequence(object):
                 self._cols_temp = self._cols_temp[1:]
             else:
                 col = self._pulse_cols[pulse_dict["name"]]
-            
-            ax.fill([i, i, i + 1, i + 1, i], [amp - 1, amp, amp, amp - 1, amp - 1], color = col, alpha = 0.3)
-            ax.text(i+0.5, amp - 0.5, text, horizontalalignment = "center", verticalalignment = "center")
+
+            ax.fill([i, i, i + 1, i + 1, i], [amp - 1, amp, amp,
+                                              amp - 1, amp - 1], color=col, alpha=0.3)
+            ax.text(i+0.5, amp - 0.5, text,
+                    horizontalalignment="center", verticalalignment="center")
 
             # if skip, omit next step forward in time
             if pulse_dict["skip"]:
                 i -= 1
-        
+
         # make sure plot looks nice and fits on the screen (max number of pulses before scaling down is 9)
         size = 2.*min(1., 9./(i + 1))
         fig.set_figheight(size * ampmax)
@@ -454,8 +478,9 @@ class PulseSequence(object):
         if callable(pulse_length):
             fct_code = getsourcelines(pulse_length)[0][0]
             fct_start = fct_code.find(":") + 1
-            fct_end = len(fct_code) - fct_code[::-1].find(")") - 1 # find last bracket
-            length = fct_code[fct_start : fct_end]
+            # find last bracket
+            fct_end = len(fct_code) - fct_code[::-1].find(")") - 1
+            length = fct_code[fct_start: fct_end]
             fct_end = length.find(",")
             if fct_end is not -1:
                 length = length[: fct_end]
