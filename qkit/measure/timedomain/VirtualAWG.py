@@ -68,7 +68,7 @@ class TdChannel(object):
         self.name = name
         self._sample = sample
         self._sequences = []
-        self._times = []  # type: List[Dict[List[float]]]
+        self._variables = []  # type: List[Dict[List[float]]]
         self._interleave = False
         # Dictionary for x-axis scaling
         self._x_unit = {"s": 1, "ms": 1e-3, "us": 1e-6, "ns": 1e-9}
@@ -90,17 +90,17 @@ class TdChannel(object):
             return False
 
         # Check if all variable lists have the same length and are non-empty
-        if not all_are_same(len(v) for v in variables.values()):
+        if not all_are_same([len(v) for v in variables.values()]):
             logging.error("Length of variable lists do not match.")
             return False
-        elif len(variables[0]) == 0:
+        elif len(variables.values()[0]) == 0:
             logging.error(
                 "The lists containing values of the variables must not be empty.")
             return False
 
         # Add sequence and variable lists to channel
         self._sequences.append(sequence)
-        self._times.append(variables)
+        self._variables.append(variables)
 
         # Check if interleaving should be done and if so, if it is still possible
         if (len(self._sequences) >= 1) and self._interleave:
@@ -121,7 +121,7 @@ class TdChannel(object):
         """
         # Delete previously stored sequences
         self._sequences = []
-        self._times = []
+        self._variables = []
 
         # Add new sequence
         return self.add_sequence(sequence, **variables)
@@ -136,10 +136,10 @@ class TdChannel(object):
         """
         if seq_nr is None:
             self._sequences = []
-            self._times = []
+            self._variables = []
         else:
             temp = self._sequences.pop(seq_nr)
-            temp = self._times.pop(seq_nr)
+            temp = self._variables.pop(seq_nr)
         return True
 
     def get_sequence_dict(self):
@@ -152,7 +152,7 @@ class TdChannel(object):
         seq_dict = {}
         for i in range(len(self._sequences)):
             seq_dict["sequence_%i" % i] = self._sequences[i].get_pulses()
-            seq_dict["par_%i" % i] = self._times[i]
+            seq_dict["par_%i" % i] = self._variables[i]
         if seq_dict:
             seq_dict["interleave"] = self._interleave
         return seq_dict
@@ -172,14 +172,14 @@ class TdChannel(object):
             # Disabling interleave mode always works
             return True
 
-        if not self._times:
+        if not self._variables:
             # If there are no sequences yet, one can also turn on interleave mode
             self._interleave = True
             return True
 
         # Check if all variable vectors have same length
         # (Only need to check first variable of each vector, as within we already checked during add procedure)
-        if not all_are_same(len(vs.values()[0]) for vs in self._times):
+        if not all_are_same([len(vs.values()[0]) for vs in self._variables]):
             logging.error(
                 "Only sequences that have the same number of variables can be interleaved.")
             return False
@@ -282,7 +282,7 @@ class TdChannel(object):
         """
         seq_list = []
         ro_inds = []
-        for sequence, variables in zip(self._sequences, self._times):
+        for sequence, variables in zip(self._sequences, self._variables):
             for single_variables in dictify_variable_lists(variables):
                 seq, ro_ind = sequence(IQ_mixing=IQ_mixing, **single_variables)
                 seq_list.append(seq)
@@ -295,7 +295,7 @@ class TdChannel(object):
         if self._interleave:
             seqs_temp = []
             ro_inds_temp = []
-            time_dim = len(self._times[0].values()[0])
+            time_dim = len(self._variables[0].values()[0])
             for i in range(time_dim):
                 seqs_temp += seq_list[i::time_dim]
                 ro_inds_temp += ro_inds[i::time_dim]
