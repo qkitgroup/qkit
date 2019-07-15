@@ -835,6 +835,7 @@ class Instrument(object):
             int: int,
             float: float,
             bytes: str,
+            str: str,
             bool: bool,
             tuple: tuple,
             list: list,
