@@ -16,6 +16,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+from typing import Dict, List, Generator
 import numpy as np
 import matplotlib.pyplot as plt
 from ipywidgets import interact, widgets, Layout
@@ -23,6 +24,21 @@ import logging
 
 import qkit.measure.timedomain.pulse_sequence as ps
 import qkit.measure.timedomain.awg.load_tawg as load_tawg
+
+
+# Helper functions
+def all_are_same(array):
+    """Check if all elements of a list are the same."""
+    return all(item == array[0] for item in array)
+
+
+def dictify_variable_lists(variables):
+    # type: (Dict[List[float]]) -> Generator[Dict[float]]
+    for i in range(len(variables.values()[0])):
+        single_variables = {}
+        for key in variables.keys():
+            single_variables[key] = variables[key][i]
+        yield single_variables
 
 
 class TdChannel(object):
@@ -52,55 +68,63 @@ class TdChannel(object):
         self.name = name
         self._sample = sample
         self._sequences = []
-        self._times = []
+        self._times = []  # type: List[Dict[List[float]]]
         self._interleave = False
         # Dictionary for x-axis scaling
         self._x_unit = {"s": 1, "ms": 1e-3, "us": 1e-6, "ns": 1e-9}
 
-    def add_sequence(self, sequence, *times):
+    def add_sequence(self, sequence, **variables):
+        # type: (ps.PulseSequence, **List[float]) -> bool
         """
         Append sequence to sequences currently stored in channel.
 
         Args:
-            sequence: sequence object
-            *times:   time steps where sequence is called. Usually this is a single array of time steps.
-                      In a T1 measurement this would be the wait time between pi-pulse and readout tone.
+            sequence:     sequence object
+            **variables:  One or multiple keywords matching the variable names of time functions and each containing a list of values.
+                          In a T1 measurement this would be the wait time between pi-pulse and readout tone.
         """
-        if not times:
-            print("No time given.")
+        # Check that lists are given for all necessary variables
+        if not variables or sequence.variable_names != set(variables.keys()):
+            logging.error("Lists for the variables of the sequence have to be specified. Given variables do not match with required ones. " +
+                          "The following keyword arguments are required: {}.".format(", ".join(sequence.variable_names)))
             return False
-        len0 = 0
-        for time in times:
-            time = np.atleast_1d(time)
-            if len0 is 0:
-                len0 = len(time)
-            elif len(time) is not len0:
-                print("Dimensions of input arrays do not match.")
-                return False
+
+        # Check if all variable lists have the same length and are non-empty
+        if not all_are_same(len(v) for v in variables.values()):
+            logging.error("Length of variable lists do not match.")
+            return False
+        elif len(variables[0]) == 0:
+            logging.error(
+                "The lists containing values of the variables must not be empty.")
+            return False
+
+        # Add sequence and variable lists to channel
         self._sequences.append(sequence)
-        self._times.append(np.vstack((times)).T)
+        self._times.append(variables)
+
+        # Check if interleaving should be done and if so, if it is still possible
         if (len(self._sequences) >= 1) and self._interleave:
             if not self.set_interleave():
-                print(
-                    "Dimension of new time array does not fit previous inputs.\nInterleaving no longer possible.")
+                logging.error("Dimension of new time array does not fit previous inputs.\n" +
+                              "Interleaving no longer possible.")
+
         return True
 
-    def set_sequence(self, sequence, *times):
+    def set_sequence(self, sequence, **variables):
         """
-        Set sequence in channel to sequence deleting previouisly stored sequences.
+        Set sequence in channel to sequence deleting previously stored sequences.
 
         Input:
-            sequence: sequence object
-            *times:   time steps where sequence is called. Usually this is a single array of time steps.
-                      In a T1 measurement this would be the wait time between pi-pulse and readout tone.
+            sequence:     sequence object
+            **variables:  One or multiple keywords matching the variable names of time functions and each containing a list of values.
+                          In a T1 measurement this would be the wait time between pi-pulse and readout tone.
         """
+        # Delete previously stored sequences
         self._sequences = []
         self._times = []
-        if not times:
-            print("No time given.")
-            return False
-        self.add_sequence(sequence, *times)
-        return True
+
+        # Add new sequence
+        return self.add_sequence(sequence, **variables)
 
     def delete_sequence(self, seq_nr=None):
         """
@@ -121,39 +145,45 @@ class TdChannel(object):
     def get_sequence_dict(self):
         """
         Returns a dictionary featuring all important channel attributes:
-            sequence_i: list of all pulses of sequnces number i (counting from 0)
-            par_i: parameter values for which sequence is called (usally this parameter is a time, e.g. separating two pulses)
+            sequence_i: list of all pulses of sequences number i (counting from 0)
+            par_i: parameter values for which sequence is called (usually this parameter is a time, e.g. separating two pulses)
             value of the interleave attribute
         """
         seq_dict = {}
         for i in range(len(self._sequences)):
             seq_dict["sequence_%i" % i] = self._sequences[i].get_pulses()
-            seq_dict["par_%i" % i] = np.concatenate(self._times[i])
+            seq_dict["par_%i" % i] = self._times[i]
         if seq_dict:
             seq_dict["interleave"] = self._interleave
         return seq_dict
 
-    def set_interleave(self, value=True):
+    def set_interleave(self, use_interleave=True):
         """
         Sequences with an equal number of timesteps may be interleaved.
         In order for this to work they must have the same number of time steps.
 
         Args:
-            value: if true, the sequences in this channel are interleaved.
+            use_interleave: if true, the sequences in this channel are interleaved.
         """
-        if value is False:
-            self._interleave = False
+        # By default, interleave mode is off
+        self._interleave = False
+
+        if not use_interleave:
+            # Disabling interleave mode always works
             return True
+
         if not self._times:
+            # If there are no sequences yet, one can also turn on interleave mode
             self._interleave = True
             return True
-        len0 = len(self._times[0])
-        for time in self._times[1:]:
-            if len(time) is not len0:
-                print(
-                    "Only sequences with an equal number of timesteps may be interleaved.")
-                self._interleave = False
-                return False
+
+        # Check if all variable vectors have same length
+        # (Only need to check first variable of each vector, as within we already checked during add procedure)
+        if not all_are_same(len(vs.values()[0]) for vs in self._times):
+            logging.error(
+                "Only sequences that have the same number of variables can be interleaved.")
+            return False
+
         self._interleave = True
         return True
 
@@ -252,18 +282,20 @@ class TdChannel(object):
         """
         seq_list = []
         ro_inds = []
-        for i in range(len(self._sequences)):
-            for time in self._times[i]:
-                seq, ro_ind = self._sequences[i](time, IQ_mixing=IQ_mixing)
+        for sequence, variables in zip(self._sequences, self._times):
+            for single_variables in dictify_variable_lists(variables):
+                seq, ro_ind = sequence(IQ_mixing=IQ_mixing, **single_variables)
                 seq_list.append(seq)
                 ro_inds.append(ro_ind)
+
         if not seq_list:
             logging.warning("No sequence stored in channel " + self.name)
             return [np.zeros(1)], [0]
+
         if self._interleave:
             seqs_temp = []
             ro_inds_temp = []
-            time_dim = len(self._times[0])
+            time_dim = len(self._times[0].values()[0])
             for i in range(time_dim):
                 seqs_temp += seq_list[i::time_dim]
                 ro_inds_temp += ro_inds[i::time_dim]
