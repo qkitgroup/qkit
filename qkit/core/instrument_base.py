@@ -200,7 +200,7 @@ class Instrument(object):
                 doc += '    %s\n' % str(fmtval)
         if 'format_map' in options:
             doc += '\n\nAllowed parameters:\n'
-            for fmtkey, fmtval in options['format_map'].iteritems():
+            for fmtkey, fmtval in options['format_map'].items():
                 doc += '    %s or %s\n' % (fmtkey, fmtval)
 
         if doc != '':
@@ -395,7 +395,7 @@ class Instrument(object):
         object can be garbage collected.
         '''
 
-        for name, opts in self._parameters.iteritems():
+        for name, opts in self._parameters.items():
             for fname in ('get_%s' % name, 'set_%s' % name):
                 if hasattr(self, fname):
                     delattr(self, fname)
@@ -459,7 +459,7 @@ class Instrument(object):
             print('Parameter %s not defined' % name)
             return None
 
-        for key, val in kwargs.iteritems():
+        for key, val in kwargs.items():
             self._parameters[name][key] = val
 
         #self.emit('parameter-changed', name) # YS: try to get rid of 32bit gobject from pygtk
@@ -787,7 +787,7 @@ class Instrument(object):
         return thread.get_return_value()
 
     def _key_from_format_map_val(self, dic, value):
-        for key, val in dic.iteritems():
+        for key, val in dic.items():
             if val == value:
                 return key
         return None
@@ -826,7 +826,7 @@ class Instrument(object):
         except:
             pass
 
-        for k, v in opts.iteritems():
+        for k, v in opts.items():
             if v == value:
                 return k
         return None
@@ -998,7 +998,7 @@ class Instrument(object):
         result = True
         changed = {}
         if type(name) == dict:
-            for key, val in name.iteritems():
+            for key, val in name.items():
                 val = self._set_value(key, val, **kwargs)
                 if val is not None:
                     changed[key] = val
