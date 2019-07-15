@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from inspect import getargspec as getargspec
 from inspect import getsourcelines as getsourcelines
-from typing import Dict
+from typing import Dict, Set
 import logging
 
 
@@ -148,51 +148,43 @@ class PulseSequence(object):
         """
         self._sequence = []
         self._pulses = {}  # type: Dict[Pulse]
+        self._variables = set()  # type: Set[str]
         self._sample = sample
         self.dc_corr = dc_corr
         if self._sample:
             self.samplerate = sample.clock  # type: float
         else:
             self.samplerate = samplerate
-        self._varnum = 0
+        
         self._cols = ["C0", "C1", "C2", "C3", "C4", "C5",
                       "C6", "C8", "C9", "r", "g", "b", "y", "k", "m"]
         self._cols_temp = self._cols[:]
         self._pulse_cols = {"readout": "C7", "wait": "w"}
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, IQ_mixing=False, **kwargs):
         """
         Returns the envelope of the whole pulse sequence for the input time.
         Also returns the index where the readout pulse starts.
         If no readout tone is found it is assumed to be at the end of the sequence.
 
         Args:
-            *args:    function arguments for time dependent pulse lengths/wait times
-            **kwargs:
-                IQ_mixing - returns complex valued sequence if IQ_mixing is True (real part encodes I, imaginary part encodes Q)
+            IQ_mixing:   returns complex valued sequence if IQ_mixing is True (real part encodes I, imaginary part encodes Q)
+            **kwargs:    function arguments for time dependent pulse lengths/wait times. Parameter names need to match time function parameters.
+                
 
         Returns:
             waveform:      numpy array of the squence envelope, if IQ_mixing is True real part is I, imaginary part is Q
             readout_index: index of the readout tone
         """
 
-        if len(args) < self._varnum:
-            logging.error("Insufficient number of arguments.")
+        if self._variables != set(kwargs.keys()):
+            logging.error("Given function arguments do not match with required ones. " +
+                          "The following keyword arguments are required: {}.".format(", ".join(self._variables)))
             return
-        elif len(args) > self._varnum:
-            if self._varnum > 0:
-                logging.warning(
-                    "To many arguments given. Omitting excess arguments.")
-            args = args[:self._varnum]
 
         if not self.samplerate:
             logging.error("Sequence call requires samplerate.")
             return
-
-        if kwargs.has_key("IQ_mixing"):
-            IQ_mixing = kwargs["IQ_mixing"]
-        else:
-            IQ_mixing = False
 
         # find readout
         pulse_names = [p["name"] for p in self._sequence]
@@ -218,7 +210,8 @@ class PulseSequence(object):
             if isinstance(pulse_dict["length"], float):
                 length = pulse_dict["length"]
             elif callable(pulse_dict["length"]):
-                length = pulse_dict["length"](*args)
+                required_arguments = {k: v for k, v in kwargs.items() if k in getargspec(pulse_dict["length"]).args}
+                length = pulse_dict["length"](**required_arguments)
             elif pulse_dict["length"] is None:
                 length = 0
                 logging.warning("Pulse number {:d} (name = {:}) has no length! Setting length to 0.".format(
@@ -316,15 +309,8 @@ class PulseSequence(object):
             pulse_dict["length"] = pulse.length
         elif callable(pulse.length):
             pulse_dict["length"] = pulse.length
-            varnum = len(getargspec(pulse.length)[0])
-            if self._varnum is 0:
-                self._varnum = varnum
-            elif self._varnum is varnum:
-                pass
-            else:
-                logging.error(
-                    "Number of variable does not match previously added pulses/wait times!")
-                return self
+            # Keep track of all variable names: Add them to a set of unique variable names
+            self._variables.update(getargspec(pulse.length).args)
         else:
             logging.error("Pulse length not understood.")
             return self
@@ -346,15 +332,8 @@ class PulseSequence(object):
 
         if callable(time):
             pulse_dict["length"] = time
-            varnum = len(getargspec(time)[0])
-            if self._varnum is 0:
-                self._varnum = varnum
-            elif self._varnum is varnum:
-                pass
-            else:
-                logging.error(
-                    "Number of variable does not match previously added pulses/wait times!")
-                return self
+            # Keep track of all variable names: Add them to a set of unique variable names
+            self._variables.update(getargspec(time).args)
         elif isinstance(time, float):
             pulse_dict["length"] = time
         else:
