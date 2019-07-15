@@ -361,6 +361,11 @@ class PulseSequence(object):
         self._sequence.append(pulse_dict)
         return self
 
+    @property
+    def variable_names(self):
+        """A list with the names of all variables present in this sequence."""
+        return self._variables
+
     def get_pulses(self):
         """
         Returns a list of all pulses and their properties. 
