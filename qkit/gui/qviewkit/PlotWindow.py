@@ -311,7 +311,7 @@ class PlotWindow(QWidget,Ui_Form):
         self.TraceZSelector.setEnabled(True)
         self.TraceZSelector.setRange(-1*shape[2],shape[2]-1)
         self.TraceZSelector.setValue(shape[2]/2)
-        self.TraceZNum = shape[2]/2
+        self.TraceZNum = int(shape[2]/2)
         
         self.TraceXSelector.setEnabled(False)
         self.TraceXSelector.setRange(-1*shape[0],shape[0]-1)
