@@ -1,5 +1,6 @@
 """Module to provide a high-level possibility to arange pulses for an experiment."""
 
+from enum import Enum
 import numpy as np
 import matplotlib.pyplot as plt
 from inspect import getargspec as getargspec
@@ -37,13 +38,18 @@ class ShapeLib(object):
 # Make ShapeLib a singleton:
 ShapeLib = ShapeLib()
 
+class PulseType(Enum):
+    """Type of Pulse object"""
+    Pulse = 1
+    Wait = 2
+    Readout = 3
 
 class Pulse(object):
     """
     Class to describe a single pulse.
     """
 
-    def __init__(self, length, shape=ShapeLib.rect, name=None, amplitude=1, phase=0, iq_frequency=0, iq_dc_offset=0, iq_angle=90):
+    def __init__(self, length, shape=ShapeLib.rect, name=None, amplitude=1, phase=0, iq_frequency=0, iq_dc_offset=0, iq_angle=90, ptype=PulseType.Pulse):
         """
         Inits a pulse with:
             length:       length of the pulse. This can also be a (lambda) function for variable pulse lengths.
@@ -54,6 +60,7 @@ class Pulse(object):
             iq_frequency: IQ-frequency of your pulse for heterodyne mixing (if 0 homodyne mixing is employed)
             iq_dc_offset: complex dc offset for calibrating the IQ-mixer (real part for dc offset of I, imaginary part is dc offset of Q)
             iq_angle:     angle between I and Q in the complex plane (default is 90 deg)
+            type:         The type of the created pulse (from enum PulseType: can be Pulse, Wait or Readout)
         """
         self.length = length  # type: float or string
         self.shape = shape
@@ -63,6 +70,7 @@ class Pulse(object):
         self.iq_frequency = iq_frequency  # type: float
         self.iq_dc_offset = iq_dc_offset
         self.iq_angle = iq_angle
+        self.type = ptype  # type: PulseType
 
     def __call__(self, time_fractions):
         """
