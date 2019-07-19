@@ -30,6 +30,7 @@ class ShapeLib(object):
     """
 
     def __init__(self):
+        self.zero = Shape("", lambda x: 0)
         self.rect = Shape("rect", lambda x: np.where(x >= 0 and x < 1, 1, 0))
         self.gauss = Shape("gauss", lambda x: np.exp(-0.5 *
                                                      np.power((x - 0.5) / 0.166, 2.0))) * self.rect
@@ -38,11 +39,13 @@ class ShapeLib(object):
 # Make ShapeLib a singleton:
 ShapeLib = ShapeLib()
 
+
 class PulseType(Enum):
     """Type of Pulse object"""
     Pulse = 1
     Wait = 2
     Readout = 3
+
 
 class Pulse(object):
     """
@@ -62,7 +65,12 @@ class Pulse(object):
             iq_angle:     angle between I and Q in the complex plane (default is 90 deg)
             type:         The type of the created pulse (from enum PulseType: can be Pulse, Wait or Readout)
         """
-        self.length = length  # type: float or string
+        if isinstance(length, float) or callable(length):
+            self.length = length  # type: float or lambda
+        else:
+            raise ValueError(
+                "Pulse length is not understood. Only floats and functions returning floats are allowed.")
+
         self.shape = shape
         self.name = name  # type: string
         self.amplitude = amplitude  # type: float
@@ -163,11 +171,11 @@ class PulseSequence(object):
             self.samplerate = self._sample.clock
         except AttributeError:
             self.samplerate = samplerate
-        
+
         self._cols = ["C0", "C1", "C2", "C3", "C4", "C5",
                       "C6", "C8", "C9", "r", "g", "b", "y", "k", "m"]
         self._cols_temp = self._cols[:]
-        self._pulse_cols = {"readout": "C7", "wait": "w"}
+        self._pulse_cols = {PulseType.Readout: "C7", PulseType.Wait: "w"}
 
     def __call__(self, IQ_mixing=False, **kwargs):
         """
@@ -178,7 +186,7 @@ class PulseSequence(object):
         Args:
             IQ_mixing:   returns complex valued sequence if IQ_mixing is True (real part encodes I, imaginary part encodes Q)
             **kwargs:    function arguments for time dependent pulse lengths/wait times. Parameter names need to match time function parameters.
-                
+
 
         Returns:
             waveform:      numpy array of the squence envelope, if IQ_mixing is True real part is I, imaginary part is Q
@@ -194,16 +202,17 @@ class PulseSequence(object):
             logging.error("Sequence call requires samplerate.")
             return
 
-        # find readout
-        pulse_names = [p["name"] for p in self._sequence]
-        num_pulses = len(pulse_names)  # number of pulses in the sequence
-        if "readout" in pulse_names:
-            readout_pos = pulse_names.index("readout")
-        else:
-            readout_pos = num_pulses
+        # Find index of last readout pulse in sequence
+        try:
+            readout_pos = max(i for i, p in enumerate(
+                self._sequence) if p.type == PulseType.Readout)
+        except ValueError:
             logging.warning(
                 "No readout in sequence! Adding readout at the end of the sequence.")
             self.add_readout()
+            readout_pos = len(self._sequence) - 1
+
+        num_pulses = len(self._sequence)  # number of pulses in the sequence
 
         # build waveforms for each pulse
         # if iq-mixing is enabled
@@ -218,13 +227,16 @@ class PulseSequence(object):
             if isinstance(pulse_dict["length"], float):
                 length = pulse_dict["length"]
             elif callable(pulse_dict["length"]):
-                required_arguments = {k: v for k, v in kwargs.items() if k in getargspec(pulse_dict["length"]).args}
+                required_arguments = {
+                    k: v for k, v in kwargs.items()
+                    if k in getargspec(pulse_dict["length"]).args
+                }
                 length = pulse_dict["length"](**required_arguments)
             elif pulse_dict["length"] is None:
                 length = 0
                 logging.warning("Pulse number {:d} (name = {:}) has no length! Setting length to 0.".format(
                     i, pulse_dict["name"]))
-            if (pulse_dict["name"] is "readout") and (i is num_pulses - 1):
+            if (pulse_dict["pulse"].type == PulseType.Readout) and (i == num_pulses - 1):
                 # if readout is last, omit the wfm (apart from a single digit)
                 length = timestep
             # Warning if pulse is shorter than smallest possible step
@@ -233,19 +245,21 @@ class PulseSequence(object):
                     pulse_dict["name"], 0.5*timestep*1e9))
 
             # create waveform array of the current pulse
-            if pulse_dict["name"] is "wait":
-                wfm = np.zeros(int(round(length * self.samplerate)))
-            elif pulse_dict["name"] is "readout":
-                wfm = np.zeros(int(round(length * self.samplerate)))
-            else:
+            if pulse_dict["pulse"].type == PulseType.Pulse:
                 if length > 0.5*timestep:
                     wfm = pulse_dict["pulse"](
                         np.arange(0, length, timestep) / length)
                 else:
                     wfm = np.zeros(0)
+            else:
+                # Wait or Readout
+                # TODO Unify as these are normal pulses now
+                wfm = np.zeros(int(round(length * self.samplerate)))
+
             # if current pulse is readout set readout_index
-            if (pulse_dict["name"] is "readout") and (readout_index == -1):
+            if (pulse_dict["pulse"].type == PulseType.Readout) and (readout_index == -1):
                 readout_index = len(wfms[i])
+
             # append in current wfm
             wfms[i] = np.append(wfms[i], wfm)
             # append zeros in wfms if skip is False
@@ -296,22 +310,24 @@ class PulseSequence(object):
             pulse: pulse object
             skip:  if True the next pulse in the sequence will not wait until this pulse is finished (i.e. they happen at the same time)
         """
-        pulse_dict = {}
-        if pulse.name in ["readout", "wait"]:
-            logging.warning(pulse.name + " is not permitted as pulse name.")
-            logging.warning("Pulse name set to None.")
-            pulse_dict["name"] = None
+        # Check if pulse name is valid and unique
+        if pulse.name is None or not isinstance(pulse.name, str):
+            logging.error(
+                "The pulse name has to be a string and must not be None.")
+            return self
         elif self._pulses.has_key(pulse.name) and not self._pulses[pulse.name] is pulse:
             logging.error("Another pulse with the same name ({name}) is already present in the sequence!".format(
                 name=pulse.name))
             return self
-        else:
-            # Add the pulse to the pulse dictionary if it is not yet present
-            if not self._pulses.has_key(pulse.name):
-                self._pulses[pulse.name] = pulse
-            pulse_dict["name"] = pulse.name
-            pulse_dict["iq_frequency"] = pulse.iq_frequency
-            pulse_dict["phase"] = pulse.phase
+
+        # Add the pulse to the pulse dictionary if it is not yet present
+        if not self._pulses.has_key(pulse.name):
+            self._pulses[pulse.name] = pulse
+
+        pulse_dict = {}
+        pulse_dict["name"] = pulse.name
+        pulse_dict["iq_frequency"] = pulse.iq_frequency
+        pulse_dict["phase"] = pulse.phase
         pulse_dict["shape"] = pulse.shape.name
         if isinstance(pulse.length, float):
             pulse_dict["length"] = pulse.length
@@ -327,47 +343,66 @@ class PulseSequence(object):
         self._sequence.append(pulse_dict)
         return self
 
-    def add_wait(self, time):
+    def add_wait(self, time, name=None):
         """
         Add a wait time to the sequence.
         Use a (lambda) function for variable wait times.
 
         Args:
             time: float or function
+            name: A special name can be passed for this wait block (by default, wait[#] will be used)
         """
-        pulse_dict = {}
-        pulse_dict["name"] = "wait"
+        def compose_name(index):
+            return "wait[{}]".format(index)
 
-        if callable(time):
-            pulse_dict["length"] = time
-            # Keep track of all variable names: Add them to a set of unique variable names
-            self._variables.update(getargspec(time).args)
-        elif isinstance(time, float):
-            pulse_dict["length"] = time
-        else:
-            logging.error("Pulse length not understood.")
-            return self
-        pulse_dict["skip"] = False
-        self._sequence.append(pulse_dict)
-        return self
+        if name is None:
+            # Find a unused name for the next wait "pulse"
+            wait_index = 0
+            while self._pulses.has_key(compose_name(wait_index)):
+                wait_index += 1
+            name = compose_name(wait_index)
 
-    def add_readout(self, skip=False):
+        wait_pulse = Pulse(time, shape=ShapeLib.zero,
+                           name=name, ptype=PulseType.Wait)
+        return self.add(wait_pulse)
+
+    def add_readout(self, skip=False, pulse=None):
         """
         Add a readout pulse to the sequence.
 
         Args:
             skip: If True the next pulse will follow at the same time as the readout.
+            pulse: A user-defined readout pulse can be specified if necessary.
         """
-        pulse_dict = {}
-        pulse_dict["name"] = "readout"
-        if self._sample:
-            readout_tone_length = self._sample.readout_tone_length
+        def compose_name(index):
+            return "readout[{}]".format(index)
+
+        if pulse is None:
+            # Find a unused name for the next readout pulse
+            readout_index = 0
+            while self._pulses.has_key(compose_name(readout_index)):
+                readout_index += 1
+            name = compose_name(readout_index)
+
+            # Try to determine useful readout tone length
+            try:
+                readout_length = self._sample.readout_tone_length
+            except AttributeError:
+                readout_length = 0.
+
+            # Create the readout pulse (just a symbolic placeholder)
+            readout_pulse = Pulse(
+                readout_length, shape=ShapeLib.zero, name=name, ptype=PulseType.Readout)
         else:
-            readout_tone_length = None
-        pulse_dict["length"] = readout_tone_length
-        pulse_dict["skip"] = skip
-        self._sequence.append(pulse_dict)
-        return self
+            # If a special pulse is needed, user can add it
+            readout_pulse = pulse  # type: Pulse
+
+            if readout_pulse.type != PulseType.Readout:
+                readout_pulse.type = PulseType.Readout
+                logging.warning(
+                    "The type of the added pulse has to be Readout and was changed accordingly.")
+
+        return self.add(readout_pulse)
 
     @property
     def variable_names(self):
@@ -397,6 +432,7 @@ class PulseSequence(object):
         amp = 1
         ampmax = 1
         col = None
+        self._cols_temp = self._cols[:]
 
         for pulse_dict in self._sequence:
             i += 1
@@ -406,14 +442,14 @@ class PulseSequence(object):
             else:
                 amp = 1
             # Generate displayed text
-            text = ""
-            if pulse_dict["name"] is not None:
-                text += pulse_dict["name"]
-            try:
-                text += "\n" + pulse_dict["shape"]
-            except:
-                pass
-            text += "\n" + self._pulselength_as_str(pulse_dict["length"])
+            text = "{name}\n{shape}\n{time}".format(
+                name=pulse_dict["name"] or "",
+                shape=pulse_dict["pulse"].shape.name,
+                time=(
+                    self._pulselength_as_str(pulse_dict["length"])
+                    if pulse_dict["pulse"].type != PulseType.Readout else ""
+                )
+            )
             if "iq_frequency" in pulse_dict.keys():
                 if pulse_dict["iq_frequency"] not in [0, None]:
                     text += "\n\n f_iq = {:.0f} MHz".format(
@@ -428,12 +464,12 @@ class PulseSequence(object):
             if pulse_dict["name"] is None:
                 col = self._cols_temp[0]
                 self._cols_temp = self._cols_temp[1:]
-            elif pulse_dict["name"] not in self._pulse_cols.keys():
+            elif pulse_dict["pulse"].type not in self._pulse_cols.keys():
                 col = self._cols_temp[0]
                 self._pulse_cols[pulse_dict["name"]] = col
                 self._cols_temp = self._cols_temp[1:]
             else:
-                col = self._pulse_cols[pulse_dict["name"]]
+                col = self._pulse_cols[pulse_dict["pulse"].type]
 
             ax.fill([i, i, i + 1, i + 1, i], [amp - 1, amp, amp,
                                               amp - 1, amp - 1], color=col, alpha=0.3)
