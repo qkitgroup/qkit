@@ -205,7 +205,7 @@ class PulseSequence(object):
         # Find index of last readout pulse in sequence
         try:
             readout_pos = max(i for i, p in enumerate(
-                self._sequence) if p.type == PulseType.Readout)
+                self._sequence) if p["pulse"].type == PulseType.Readout)
         except ValueError:
             logging.warning(
                 "No readout in sequence! Adding readout at the end of the sequence.")
@@ -219,7 +219,7 @@ class PulseSequence(object):
         wfms = [np.zeros(0)] * num_pulses  # list of waveforms for each pulse
         timestep = 1.0 / self.samplerate  # minimum time step
         length = 0  # length of current pulse
-        readout_index = -1  # index of the readout in the waveform of the whole sequence
+        readout_index = 0  # index of the readout in the waveform of the whole sequence
         for i in range(num_pulses):
             pulse_dict = self._sequence[i]
 
@@ -256,9 +256,9 @@ class PulseSequence(object):
                 # TODO Unify as these are normal pulses now
                 wfm = np.zeros(int(round(length * self.samplerate)))
 
-            # if current pulse is readout set readout_index
-            if (pulse_dict["pulse"].type == PulseType.Readout) and (readout_index == -1):
-                readout_index = len(wfms[i])
+            # Store index if this pulse is the last readout pulse
+            if readout_pos == i:
+                readout_index = len(wfms[i]) + 1 # +1 due to leading 0
 
             # append in current wfm
             wfms[i] = np.append(wfms[i], wfm)
@@ -300,7 +300,7 @@ class PulseSequence(object):
         # make sure first and last point of the waveform go to 0
         waveform = np.append(0, waveform)
         waveform = np.append(waveform, 0)
-        return waveform, readout_index + 1  # +1 due to leading 0
+        return waveform, readout_index
 
     def add(self, pulse, skip=False):
         """
