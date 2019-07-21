@@ -65,13 +65,18 @@ class Pulse(object):
             iq_angle:     angle between I and Q in the complex plane (default is 90 deg)
             type:         The type of the created pulse (from enum PulseType: can be Pulse, Wait or Readout)
         """
-        if isinstance(length, float) or callable(length):
-            self.length = length  # type: float or lambda
+        if isinstance(length, float):
+            self.length = length  # type: float
+            self._variables = None
+            
+        elif callable(length):
+            self.length = length  # type: lambda
+            self._variables = getargspec(self.length).args
         else:
             raise ValueError(
                 "Pulse length is not understood. Only floats and functions returning floats are allowed.")
 
-        self.shape = shape
+        self.shape = shape  # type: Shape
         self.name = name  # type: string
         self.amplitude = amplitude  # type: float
         self.phase = phase  # type: float
@@ -93,48 +98,78 @@ class Pulse(object):
         # Pulse class can be called like a vectorized function!
         return self.amplitude * self.shape(time_fractions)
 
-    def get_envelope(self, samplerate):
+    def get_envelope(self, samplerate, **kwargs):
         """
-        Returns the envelope of the pulse as array with given time steps.
+        Returns the pulse envelope for a given frequency and, if length is a function, with given variables as kwargs
 
         Args:
-            samplerate: samplerate for calculating the envelope
+            samplerate: sample rate for calculating the envelope
+            **kwargs: the variables for the length function, if any
 
         Returns:
             envelope of the pulse as numpy array
         """
+        length = self.calculate_length()
         timestep = 1. / samplerate
-        if callable(self.length):
-            print("This pulse has a variable length.")
-            return 0
-        time_fractions = np.arange(0, self.length, timestep) / self.length
+        time_fractions = np.arange(0, length, timestep) / length
         return self(time_fractions)
 
-    def get_complex_envelope(self, samplerate):
+    def get_complex_envelope(self, samplerate, start_phase=0, **kwargs):
         """
         Returns the envelope of the pulse as array with given time steps.
 
         Args:
             samplerate: samplerate for calculating the envelope
+            start_phase: the global phase at which the pulse should start (in rad, defaults to 0)
+            **kwargs: the variables for the length function, if any
 
         Returns:
             envelope of the pulse as numpy array
         """
+        length = self.calculate_length()
         timestep = 1. / samplerate
-        envelope = self.get_envelope(samplerate)
-        if self.iq_frequency is 0:
+        envelope = self.get_envelope(samplerate, **kwargs)
+
+        if self.iq_frequency == 0:
             # for homodyne mixing the envelope is real
             return envelope
+        
         time = np.arange(0, self.length, timestep)
-        envelope_complex = envelope * \
-            np.exp(1.j * (2*np.pi * self.iq_frequency *
-                          time - np.pi/180 * self.phase))
-        # adjust angle between I and Q by rotating Q:
-        I = np.real(envelope_complex)
-        Q = np.imag(envelope_complex * np.exp(1.j *
-                                              np.pi / 180 * (90 - self.iq_angle)))
-        envelope_complex = I + 1.j * Q + self.iq_dc_offset
-        return envelope_complex
+        envelope *= np.exp(1.j * (
+            start_phase - np.pi/180 * self.phase 
+            + 2*np.pi * self.iq_frequency * time
+        ))
+        # account for mixer calibration i.e. dc offset and phase != 90deg between I and Q
+        if self.iq_angle != 90:
+            envelope_i = np.real(envelope)
+            envelope_q = np.imag(envelope * np.exp(1.j * np.pi / 180 * (90 - self.iq_angle)))
+            envelope = envelope_i + 1.j * envelope_q
+        envelope[envelope != 0] += self.iq_dc_offset
+        
+        return envelope
+    
+    def calculate_length(self, **kwargs):
+        """Calculates the length of the pulse and takes variables given as kwargs into account.
+
+        Args:
+            **kwargs: the variables for the length function, if any
+
+        Returns:
+            The calculated length of the pulse
+        """
+        if not callable(self.length):
+            return self.length
+
+        if not self._variables in set(kwargs.keys()):
+            raise ValueError("Given function arguments do not include all required ones. " +
+                          "The following keyword arguments are required: {}.".format(", ".join(self._variables)))
+        
+        required_arguments = {
+            k: v for k, v in kwargs.items()
+            if k in self._variables
+        }
+        return self.length(**required_arguments)
+
 
 
 class PulseSequence(object):
