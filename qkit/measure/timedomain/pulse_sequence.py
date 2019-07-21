@@ -67,8 +67,8 @@ class Pulse(object):
         """
         if isinstance(length, float):
             self.length = length  # type: float
-            self._variables = None
-            
+            self._variables = set()
+
         elif callable(length):
             self.length = length  # type: lambda
             self._variables = set(getargspec(self.length).args)
@@ -97,6 +97,11 @@ class Pulse(object):
         """
         # Pulse class can be called like a vectorized function!
         return self.amplitude * self.shape(time_fractions)
+
+    @property
+    def variable_names(self):
+        """A set with the names of all variables necessary to calculate the pulse length."""
+        return self._variables
 
     def get_envelope(self, samplerate, **kwargs):
         """
@@ -147,21 +152,22 @@ class Pulse(object):
             # Empty envelope needs no IQ modulation and
             # for homodyne mixing the envelope is real
             return envelope
-        
+
         time = np.arange(0, length, timestep)
         envelope *= np.exp(1.j * (
-            start_phase - np.pi/180 * self.phase 
+            start_phase - np.pi/180 * self.phase
             + 2*np.pi * self.iq_frequency * time
         ))
         # account for mixer calibration i.e. dc offset and phase != 90deg between I and Q
         if self.iq_angle != 90:
             envelope_i = np.real(envelope)
-            envelope_q = np.imag(envelope * np.exp(1.j * np.pi / 180 * (90 - self.iq_angle)))
+            envelope_q = np.imag(
+                envelope * np.exp(1.j * np.pi / 180 * (90 - self.iq_angle)))
             envelope = envelope_i + 1.j * envelope_q
         envelope[envelope != 0] += self.iq_dc_offset
-        
+
         return envelope
-    
+
     def calculate_length(self, **kwargs):
         """Calculates the length of the pulse and takes variables given as kwargs into account.
 
@@ -173,7 +179,7 @@ class Pulse(object):
         """
         if not callable(self.length):
             return self.length
-        
+
         # Extract the given necessary variables (ignore other kwargs)
         variables = {
             k: v for k, v in kwargs.items()
@@ -181,8 +187,8 @@ class Pulse(object):
         }
         if self._variables != set(variables.keys()):
             raise ValueError("Given function arguments do not include all required ones. " +
-                          "The following keyword arguments are required: {}.".format(", ".join(self._variables)))
-        
+                             "The following keyword arguments are required: {}.".format(", ".join(self._variables)))
+
         return self.length(**variables)
 
 
@@ -223,7 +229,7 @@ class PulseSequence(object):
             self.samplerate = samplerate
 
         self._color_palette = ["C0", "C1", "C2", "C3", "C4", "C5",
-                      "C6", "C8", "C9", "r", "g", "b", "y", "k", "m"]
+                               "C6", "C8", "C9", "r", "g", "b", "y", "k", "m"]
         self._pulse_cols = {PulseType.Readout: "C7", PulseType.Wait: "w"}
 
     def __call__(self, IQ_mixing=False, **kwargs):
@@ -255,23 +261,26 @@ class PulseSequence(object):
         full_waveform = np.zeros(0)
         timestep = 1.0 / self.samplerate  # minimum time step
         readout_index = 0  # index of the readout in the waveform of the whole sequence
-        position_of_next_slice = 0 # index where the next time slice will start
+        position_of_next_slice = 0  # index where the next time slice will start
         for time_slice in self._sequence:
-            wfm_slice = np.zeros(0) # holds all waveforms that start at the same time (within the same slice)
-            last_wfm_length = 0 # tracks the length of the last waveform in the slice as the next slice will start after that
+            # holds all waveforms that start at the same time (within the same slice)
+            wfm_slice = np.zeros(0)
+            # tracks the length of the last waveform in the slice as the next slice will start after that
+            last_wfm_length = 0
             for pulse in time_slice:
                 # create waveform array of the current pulse
                 if IQ_mixing:
                     # adjust global phase relative to the beginning of the sequence
                     start_phase = 2. * np.pi * pulse.iq_frequency * position_of_next_slice * timestep
-                    wfm = pulse.get_complex_envelope(self.samplerate, start_phase, **kwargs)
+                    wfm = pulse.get_complex_envelope(
+                        self.samplerate, start_phase, **kwargs)
                 else:
                     wfm = pulse.get_envelope(self.samplerate, **kwargs)
-                
-                #if (pulse_dict["pulse"].type == PulseType.Readout) and (i == len(self._sequence) - 1):
-                #    # if readout is last, omit the wfm (apart from a single digit)
-                #    length = timestep
-                    
+
+                # if (pulse_dict["pulse"].type == PulseType.Readout) and (i == len(self._sequence) - 1):
+                #     # if readout is last, omit the wfm (apart from a single digit)
+                #     length = timestep
+
                 # Store index if this pulse is a readout pulse (will have the last one at the end)
                 if pulse.type == PulseType.Readout:
                     readout_index = position_of_next_slice
@@ -290,10 +299,14 @@ class PulseSequence(object):
                 wfm_slice += wfm
 
             # Resize waveform to be capable of holding current wfm_slice
-            new_waveform_length = max(len(full_waveform), position_of_next_slice + len(wfm_slice))
+            new_waveform_length = max(
+                len(full_waveform),
+                position_of_next_slice + len(wfm_slice)
+            )
             full_waveform.resize(new_waveform_length)
             # Add current time slice to global waveform
-            full_waveform[position_of_next_slice:(position_of_next_slice + len(wfm_slice))] += wfm_slice
+            full_waveform[position_of_next_slice:(
+                position_of_next_slice + len(wfm_slice))] += wfm_slice
 
             # Update position for next slice (the last waveform has no skip and thus decides the time)
             position_of_next_slice += last_wfm_length
@@ -303,8 +316,8 @@ class PulseSequence(object):
         # make sure first and last point of the waveform go to 0
         full_waveform = np.append(0, full_waveform)
         full_waveform = np.append(full_waveform, 0)
-        
-        return full_waveform, readout_index + 1 # +1 due to leading 0
+
+        return full_waveform, readout_index + 1  # +1 due to leading 0
 
     def add(self, pulse, skip=False):
         """
@@ -401,7 +414,7 @@ class PulseSequence(object):
                 readout_pulse.type = PulseType.Readout
                 logging.warning(
                     "The type of the added pulse has to be Readout and was changed accordingly.")
-            
+
             if readout_pulse.shape is not ShapeLib.zero or readout_pulse.amplitude != 0:
                 readout_pulse.amplitude = 0
                 logging.warning(
@@ -411,7 +424,7 @@ class PulseSequence(object):
 
     @property
     def variable_names(self):
-        """A list with the names of all variables present in this sequence."""
+        """A set with the names of all variables present in this sequence."""
         return self._variables
 
     def get_pulses(self):
@@ -446,7 +459,7 @@ class PulseSequence(object):
         for i, time_slice in enumerate(self._sequence):
             for amp, pulse in enumerate(reversed(time_slice)):
                 ampmax = max(ampmax, amp + 1)
-            
+
                 # Generate displayed text
                 text = "{name}\n{shape}\n{time}".format(
                     name=pulse.name,
@@ -478,7 +491,6 @@ class PulseSequence(object):
                     col = remaining_colors[0]
                     pulse_colors[pulse.name] = col
                     remaining_colors = remaining_colors[1:]
-                    
 
                 ax.fill(
                     [i, i, i + 1, i + 1, i],
