@@ -418,7 +418,7 @@ class PulseSequence(object):
         pulse_colors = {}  # type: Dict[str, str]
 
         for i, time_slice in enumerate(self._sequence):
-            for amp, pulse in enumerate(time_slice):
+            for amp, pulse in enumerate(reversed(time_slice)):
                 ampmax = max(ampmax, amp + 1)
             
                 # Generate displayed text
