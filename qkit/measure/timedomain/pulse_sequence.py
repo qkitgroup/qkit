@@ -163,6 +163,7 @@ class PulseSequence(object):
                         This correction is added to the dc offset during the pulse (i.e. of the pulse object).
         """
         self._sequence = []
+        self._next_pulse_is_parallel = False
         self._pulses = {}  # type: Dict[Pulse]
         self._variables = set()  # type: Set[str]
         self._sample = sample
@@ -202,105 +203,92 @@ class PulseSequence(object):
             logging.error("Sequence call requires samplerate.")
             return
 
-        # Find index of last readout pulse in sequence
-        try:
-            readout_pos = max(i for i, p in enumerate(
-                self._sequence) if p["pulse"].type == PulseType.Readout)
-        except ValueError:
-            logging.warning(
-                "No readout in sequence! Adding readout at the end of the sequence.")
-            self.add_readout()
-            readout_pos = len(self._sequence) - 1
-
-        num_pulses = len(self._sequence)  # number of pulses in the sequence
-
-        # build waveforms for each pulse
-        # if iq-mixing is enabled
-        wfms = [np.zeros(0)] * num_pulses  # list of waveforms for each pulse
+        # build the waveform of this sequence
+        full_waveform = np.zeros(0)
         timestep = 1.0 / self.samplerate  # minimum time step
-        length = 0  # length of current pulse
         readout_index = 0  # index of the readout in the waveform of the whole sequence
-        for i in range(num_pulses):
-            pulse_dict = self._sequence[i]
+        position_of_next_slice = 0 # index where the next time slice will start
+        for time_slice in self._sequence:
+            wfm_slice = np.zeros(0)
+            last_wfm_length = 0
+            for pulse_dict in time_slice:
+                length = 0  # length of current pulse
+                # Determine length of the pulse
+                if isinstance(pulse_dict["length"], float):
+                    length = pulse_dict["length"]
+                elif callable(pulse_dict["length"]):
+                    required_arguments = {
+                        k: v for k, v in kwargs.items()
+                        if k in getargspec(pulse_dict["length"]).args
+                    }
+                    length = pulse_dict["length"](**required_arguments)
+                elif pulse_dict["length"] is None:
+                    length = 0
+                    logging.warning("Pulse {:} has no length! Setting length to 0.".format(
+                        pulse_dict["name"]))
+                #if (pulse_dict["pulse"].type == PulseType.Readout) and (i == len(self._sequence) - 1):
+                #    # if readout is last, omit the wfm (apart from a single digit)
+                #    length = timestep
+                # Warning if pulse is shorter than smallest possible step
+                if (length < 0.5*timestep) and (length != 0):
+                    logging.warning("{:}-pulse is shorter than {:.2f} nanoseconds and thus is omitted.".format(
+                        pulse_dict["name"], 0.5*timestep*1e9))
 
-            # Determine length of the pulse
-            if isinstance(pulse_dict["length"], float):
-                length = pulse_dict["length"]
-            elif callable(pulse_dict["length"]):
-                required_arguments = {
-                    k: v for k, v in kwargs.items()
-                    if k in getargspec(pulse_dict["length"]).args
-                }
-                length = pulse_dict["length"](**required_arguments)
-            elif pulse_dict["length"] is None:
-                length = 0
-                logging.warning("Pulse number {:d} (name = {:}) has no length! Setting length to 0.".format(
-                    i, pulse_dict["name"]))
-            if (pulse_dict["pulse"].type == PulseType.Readout) and (i == num_pulses - 1):
-                # if readout is last, omit the wfm (apart from a single digit)
-                length = timestep
-            # Warning if pulse is shorter than smallest possible step
-            if (length < 0.5*timestep) and (length != 0):
-                logging.warning("{:}-pulse is shorter than {:.2f} nanoseconds and thus is omitted.".format(
-                    pulse_dict["name"], 0.5*timestep*1e9))
-
-            # create waveform array of the current pulse
-            if pulse_dict["pulse"].type == PulseType.Pulse:
-                if length > 0.5*timestep:
-                    wfm = pulse_dict["pulse"](
-                        np.arange(0, length, timestep) / length)
+                # create waveform array of the current pulse
+                if pulse_dict["pulse"].type == PulseType.Pulse:
+                    if length > 0.5*timestep:
+                        wfm = pulse_dict["pulse"](
+                            np.arange(0, length, timestep) / length)
+                    else:
+                        wfm = np.zeros(0)
                 else:
-                    wfm = np.zeros(0)
-            else:
-                # Wait or Readout
-                # TODO Unify as these are normal pulses now
-                wfm = np.zeros(int(round(length * self.samplerate)))
+                    # Wait or Readout
+                    # TODO Unify as these are normal pulses now
+                    wfm = np.zeros(int(round(length * self.samplerate)))
 
-            # Store index if this pulse is the last readout pulse
-            if readout_pos == i:
-                readout_index = len(wfms[i]) + 1 # +1 due to leading 0
+                # Store index if this pulse is a readout pulse (will have the last one at the end)
+                if pulse_dict["pulse"].type == PulseType.Readout:
+                    readout_index = position_of_next_slice
+                
+                # Encode I and Q in real/imaginary part of the sequence
+                iq_freq = pulse_dict["pulse"].iq_frequency
+                # homodyne pulses are not mixed (iq_freq = 0)
+                if IQ_mixing and iq_freq != 0:
+                    # calculate I and Q
+                    # adjust global phase relative to the beginning of the sequence
+                    time = np.arange(position_of_next_slice, len(wfm)) * timestep
+                    iq_phase = np.exp(
+                        1.j * (2 * np.pi * iq_freq * time - np.pi/180 * pulse_dict["pulse"].phase))
+                    wfm *= iq_phase
+                    # account for mixer calibration i.e. dc offset and phase != 90deg between I and Q
+                    if pulse_dict["pulse"].iq_angle != 90:
+                        wfm_i = np.real(wfm)
+                        wfm_q = np.imag(wfm * np.exp(1.j * np.pi / 180 * (90 - pulse_dict["pulse"].iq_angle)))
+                        wfm = wfm_i + 1.j * wfm_q
+                    wfm[wfm != 0] += pulse_dict["pulse"].iq_dc_offset
 
-            # append in current wfm
-            wfms[i] = np.append(wfms[i], wfm)
-            # append zeros in wfms if skip is False
-            if not pulse_dict["skip"]:
-                # only necessary for pulses after the current pulse
-                for j in range(i + 1, num_pulses):
-                    wfms[j] = np.append(wfms[j], np.zeros_like(wfm))
+                # Add pulse to waveform of current time slice
+                if len(wfm_slice) < len(wfm):
+                    wfm_slice.resize(len(wfm))
+                last_wfm_length = len(wfm)
+                wfm.resize(len(wfm_slice))
+                wfm_slice += wfm
 
-        # Create waveform of the sequence
-        max_len = max([len(w) for w in wfms])  # length of the longest waveform
-        for i in range(num_pulses):
-            wfms[i] = np.append(wfms[i], np.zeros(max_len - len(wfms[i])))
-            if not any(wfms[i]):
-                continue
-            # Encode I and Q in real/imaginary part of the sequence
-            if IQ_mixing:
-                pulse = self._sequence[i]["pulse"]
-                iq_freq = pulse.iq_frequency
-                if iq_freq == 0:  # homodyne pulses are not mixed
-                    continue
-                # calculate I and Q
-                # adjust global phase relative to the readout
-                time = np.arange(0, max_len, 1) * timestep - \
-                    readout_index * timestep
-                iq_phase = np.exp(
-                    1.j * (2 * np.pi * iq_freq * time - np.pi/180 * pulse.phase))
-                wfms[i] = wfms[i] * iq_phase
-                # account for mixer calibration i.e. dc offset and phase != 90deg between I and Q
-                if pulse.iq_angle != 90:
-                    I = np.real(wfms[i])
-                    Q = np.imag(
-                        wfms[i] * np.exp(1.j * np.pi / 180 * (90 - pulse.iq_angle)))
-                    wfms[i] = I + 1.j * Q
-                wfms[i][wfms[i] != 0] += pulse.iq_dc_offset
+            # Add current time slice to global waveform
+            new_waveform_length = max(len(full_waveform), position_of_next_slice + len(wfm_slice))
+            full_waveform.resize(new_waveform_length)
+            wfm_slice_filled = np.zeros_like(full_waveform)
+            wfm_slice_filled[position_of_next_slice:(position_of_next_slice + len(wfm_slice))] = wfm_slice
+            full_waveform += wfm_slice_filled
 
-        # generate full waveform from wfms
-        waveform = np.sum(np.array(wfms), axis=0) + self.dc_corr
+            # Update position for next slice (the last waveform has no skip and thus decides the time)
+            position_of_next_slice += last_wfm_length
+
+        full_waveform += self.dc_corr
         # make sure first and last point of the waveform go to 0
-        waveform = np.append(0, waveform)
-        waveform = np.append(waveform, 0)
-        return waveform, readout_index
+        full_waveform = np.append(0, full_waveform)
+        full_waveform = np.append(full_waveform, 0)
+        return full_waveform, readout_index + 1 # +1 due to leading 0
 
     def add(self, pulse, skip=False):
         """
@@ -340,7 +328,16 @@ class PulseSequence(object):
             return self
         pulse_dict["pulse"] = pulse
         pulse_dict["skip"] = skip
-        self._sequence.append(pulse_dict)
+
+        if not self._next_pulse_is_parallel:
+            # Add empty list for next pulse
+            self._sequence.append([])
+        # Add pulse to last sequence slice
+        self._sequence[-1].append(pulse_dict)
+
+        # If skip is true the next pulse will be scheduled at the same time
+        self._next_pulse_is_parallel = skip
+
         return self
 
     def add_wait(self, time, name=None):
@@ -415,12 +412,13 @@ class PulseSequence(object):
         The properties of each pulse are stored in a dictionary with keys: name, shape, length, skip value
         """
         dict_list = []
-        for pulse_dict in self._sequence:
-            temp = pulse_dict.copy()
-            # remove the pulse object from dictionary (object id does not really help the user)
-            if "pulse" in temp.keys():
-                del(temp["pulse"])
-            dict_list.append(temp)
+        for time_slice in self._sequence:
+            for pulse_dict in time_slice:
+                temp = pulse_dict.copy()
+                # remove the pulse object from dictionary (object id does not really help the user)
+                if "pulse" in temp.keys():
+                    del(temp["pulse"])
+                dict_list.append(temp)
         return dict_list
 
     def plot(self):
@@ -428,57 +426,51 @@ class PulseSequence(object):
         Plot a schematic of the stored pulses.
         """
         fig, ax = plt.subplots()
-        i = -1
         amp = 1
         ampmax = 1
         col = None
         self._cols_temp = self._cols[:]
 
-        for pulse_dict in self._sequence:
-            i += 1
-            if pulse_dict["skip"]:
-                amp += 1
-                ampmax = max(ampmax, amp)
-            else:
-                amp = 1
-            # Generate displayed text
-            text = "{name}\n{shape}\n{time}".format(
-                name=pulse_dict["name"] or "",
-                shape=pulse_dict["pulse"].shape.name,
-                time=(
-                    self._pulselength_as_str(pulse_dict["length"])
-                    if pulse_dict["pulse"].type != PulseType.Readout else ""
+        for i, time_slice in enumerate(self._sequence):
+            for amp, pulse_dict in enumerate(time_slice):
+                ampmax = max(ampmax, amp + 1)
+            
+                # Generate displayed text
+                text = "{name}\n{shape}\n{time}".format(
+                    name=pulse_dict["name"] or "",
+                    shape=pulse_dict["pulse"].shape.name,
+                    time=(
+                        self._pulselength_as_str(pulse_dict["length"])
+                        if pulse_dict["pulse"].type != PulseType.Readout else ""
+                    )
                 )
-            )
-            if "iq_frequency" in pulse_dict.keys():
-                if pulse_dict["iq_frequency"] not in [0, None]:
-                    text += "\n\n f_iq = {:.0f} MHz".format(
-                        pulse_dict["iq_frequency"] / 1e6)
-                    if pulse_dict["phase"] != 0:
-                        text += "\n phase = {:.0f} deg".format(
-                            pulse_dict["phase"] / 1e6)
-            # Make sure pulse colors are unique
-            if self._cols_temp is []:
-                self._cols_temp = self._cols[:]
-                print("All colors already in use...\n Resetting color palette.")
-            if pulse_dict["name"] is None:
-                col = self._cols_temp[0]
-                self._cols_temp = self._cols_temp[1:]
-            elif pulse_dict["pulse"].type not in self._pulse_cols.keys():
-                col = self._cols_temp[0]
-                self._pulse_cols[pulse_dict["name"]] = col
-                self._cols_temp = self._cols_temp[1:]
-            else:
-                col = self._pulse_cols[pulse_dict["pulse"].type]
+                if "iq_frequency" in pulse_dict.keys():
+                    if pulse_dict["iq_frequency"] not in [0, None]:
+                        text += "\n\n f_iq = {:.0f} MHz".format(
+                            pulse_dict["iq_frequency"] / 1e6)
+                        if pulse_dict["phase"] != 0:
+                            text += "\n phase = {:.0f} deg".format(
+                                pulse_dict["phase"] / 1e6)
+                # Make sure pulse colors are unique
+                if self._cols_temp is []:
+                    self._cols_temp = self._cols[:]
+                    print("All colors already in use...\n Resetting color palette.")
+                if pulse_dict["name"] is None:
+                    col = self._cols_temp[0]
+                    self._cols_temp = self._cols_temp[1:]
+                elif pulse_dict["pulse"].type not in self._pulse_cols.keys():
+                    col = self._cols_temp[0]
+                    self._pulse_cols[pulse_dict["name"]] = col
+                    self._cols_temp = self._cols_temp[1:]
+                else:
+                    col = self._pulse_cols[pulse_dict["pulse"].type]
 
-            ax.fill([i, i, i + 1, i + 1, i], [amp - 1, amp, amp,
-                                              amp - 1, amp - 1], color=col, alpha=0.3)
-            ax.text(i+0.5, amp - 0.5, text,
-                    horizontalalignment="center", verticalalignment="center")
-
-            # if skip, omit next step forward in time
-            if pulse_dict["skip"]:
-                i -= 1
+                ax.fill(
+                    [i, i, i + 1, i + 1, i],
+                    [amp, amp + 1, amp + 1, amp, amp],
+                    color=col, alpha=0.3)
+                ax.text(i + 0.5, amp + 0.5, text,
+                        horizontalalignment="center", verticalalignment="center")
 
         # make sure plot looks nice and fits on the screen (max number of pulses before scaling down is 9)
         size = 2.*min(1., 9./(i + 1))
