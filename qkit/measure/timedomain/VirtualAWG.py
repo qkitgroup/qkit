@@ -120,8 +120,7 @@ class TdChannel(object):
                           In a T1 measurement this would be the wait time between pi-pulse and readout tone.
         """
         # Delete previously stored sequences
-        self._sequences = []
-        self._variables = []
+        self.delete_sequence()
 
         # Add new sequence
         return self.add_sequence(sequence, **variables)
@@ -344,15 +343,15 @@ class VirtualAWG(object):
         self._chancols = {1: "C0", 2: "C1", 3: "C2",
                           4: "C3", 5: "C4", 6: "C5", 7: "C6"}
 
-    def add_sequence(self, sequence, time, channel=1):
+    def add_sequence(self, sequence, channel=1, **variables):
         """
         Sequence is added to current sequences.
         If channel is None all sequence is added to all channels.
 
         Args:
-            sequence: sequence or list of sequences.
-            time:     time where sequence is called
-            channel:  channel number in which sequence will be loaded.
+            sequence:     sequence or list of sequences.
+            channel:      channel number in which sequence will be loaded.
+            **variables:  keyword arguments matching the variable names of time functions and each containing a list of values.
 
         """
         if channel > self._num_chans:
@@ -360,28 +359,28 @@ class VirtualAWG(object):
                 channel, self._num_chans))
             return False
         if channel is not None:
-            self.channels[channel].add_sequence(sequence, time)
+            self.channels[channel].add_sequence(sequence, **variables)
         elif channel is None:
             for channel in self.channels:
-                channel.add_sequence(sequence, time)
+                channel.add_sequence(sequence, **variables)
         return True
 
-    def set_sequence(self, sequence, time, channel=1):
+    def set_sequence(self, sequence, channel=1, **variables):
         """
-        Delete previously added sequences, replaxing them with sequence.
+        Delete previously added sequences, replacing them with sequence.
         If channel is None set all sequences in all channels to sequence.
 
         Args:
-            sequence: sequence object.
-            time:     time where sequence is called
-            channel:  channel number in which sequence will be loaded
+            sequence:     sequence or list of sequences.
+            channel:      channel number in which sequence will be loaded.
+            **variables:  keyword arguments matching the variable names of time functions and each containing a list of values.
 
         """
         if channel is not None:
-            self.channels[channel].set_sequence(sequence, time)
+            self.channels[channel].set_sequence(sequence, **variables)
         elif channel is None:
             for channel in self.channels:
-                channel.set_sequence(sequence, time)
+                channel.set_sequence(sequence, **variables)
         return True
 
     def delete_sequence(self, seq_nr, channel=1):
@@ -560,7 +559,7 @@ class VirtualAWG(object):
         Load the sequences stored in the channels of the virtual AWG to your physical device (awg, fpga).
         Currently only enabled for the tabor awg.
         """
-        # Case descrimination:
+        # Case discrimination:
         if self._sample.awg.get_name() is "tawg":
             sequences, readout_inds = self._sync()
             load_tawg.load_tabor(
