@@ -413,12 +413,17 @@ class PulseSequence(object):
         """
         dict_list = []
         for time_slice in self._sequence:
-            for pulse_dict in time_slice:
-                temp = pulse_dict.copy()
-                # remove the pulse object from dictionary (object id does not really help the user)
-                if "pulse" in temp.keys():
-                    del(temp["pulse"])
-                dict_list.append(temp)
+            for i, pulse_dict in enumerate(time_slice):
+                pulse = pulse_dict["pulse"]  # type: Pulse
+                # This is more for legacy reasons
+                dict_list.append({
+                    "name": pulse.name,
+                    "shape": pulse.shape.name,
+                    "length": pulse.length,
+                    "iq_frequency": pulse.iq_frequency,
+                    "phase": pulse.phase,
+                    "skip": i != len(time_slice) - 1
+                })
         return dict_list
 
     def plot(self):
