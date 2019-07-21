@@ -103,18 +103,18 @@ class Pulse(object):
         """A set with the names of all variables necessary to calculate the pulse length."""
         return self._variables
 
-    def get_envelope(self, samplerate, **kwargs):
+    def get_envelope(self, samplerate, **variables):
         """
         Returns the pulse envelope for a given frequency and, if length is a function, with given variables as kwargs
 
         Args:
             samplerate: sample rate for calculating the envelope
-            **kwargs: the variables for the length function, if any
+            **variables: the variables for the length function, if any
 
         Returns:
             envelope of the pulse as numpy array
         """
-        length = self.calculate_length(**kwargs)
+        length = self.calculate_length(**variables)
         timestep = 1. / samplerate
 
         if length < timestep / 2.:
@@ -131,33 +131,34 @@ class Pulse(object):
         time_fractions = np.arange(0, length, timestep) / length
         return self(time_fractions)
 
-    def get_complex_envelope(self, samplerate, start_phase=0, **kwargs):
+    def get_complex_envelope(self, samplerate, start_phase=0, **variables):
         """
         Returns the envelope of the pulse as array with given time steps.
 
         Args:
             samplerate: samplerate for calculating the envelope
             start_phase: the global phase at which the pulse should start (in rad, defaults to 0)
-            **kwargs: the variables for the length function, if any
+            **variables: the variables for the length function, if any
 
         Returns:
             envelope of the pulse as numpy array
         """
-        envelope = self.get_envelope(samplerate, **kwargs)
-
-        length = self.calculate_length(**kwargs)
-        timestep = 1. / samplerate
+        envelope = self.get_envelope(samplerate, **variables)
 
         if not envelope or self.iq_frequency == 0:
             # Empty envelope needs no IQ modulation and
             # for homodyne mixing the envelope is real
             return envelope
-
+        
+        length = self.calculate_length(**variables)
+        timestep = 1. / samplerate
         time = np.arange(0, length, timestep)
+
         envelope *= np.exp(1.j * (
             start_phase - np.pi/180 * self.phase
             + 2*np.pi * self.iq_frequency * time
         ))
+
         # account for mixer calibration i.e. dc offset and phase != 90deg between I and Q
         if self.iq_angle != 90:
             envelope_i = np.real(envelope)
@@ -168,11 +169,11 @@ class Pulse(object):
 
         return envelope
 
-    def calculate_length(self, **kwargs):
+    def calculate_length(self, **variables):
         """Calculates the length of the pulse and takes variables given as kwargs into account.
 
         Args:
-            **kwargs: the variables for the length function, if any
+            **variables: the variables for the length function, if any
 
         Returns:
             The calculated length of the pulse
@@ -181,15 +182,15 @@ class Pulse(object):
             return self.length
 
         # Extract the given necessary variables (ignore other kwargs)
-        variables = {
-            k: v for k, v in kwargs.items()
+        useful_variables = {
+            k: v for k, v in variables.items()
             if k in self._variables
         }
-        if self._variables != set(variables.keys()):
+        if self._variables != set(useful_variables.keys()):
             raise ValueError("Given function arguments do not include all required ones. " +
                              "The following keyword arguments are required: {}.".format(", ".join(self._variables)))
 
-        return self.length(**variables)
+        return self.length(**useful_variables)
 
 
 class PulseSequence(object):
@@ -232,7 +233,7 @@ class PulseSequence(object):
                                "C6", "C8", "C9", "r", "g", "b", "y", "k", "m"]
         self._pulse_cols = {PulseType.Readout: "C7", PulseType.Wait: "w"}
 
-    def __call__(self, IQ_mixing=False, **kwargs):
+    def __call__(self, IQ_mixing=False, **variables):
         """
         Returns the envelope of the whole pulse sequence for the input time.
         Also returns the index where the readout pulse starts.
@@ -240,7 +241,7 @@ class PulseSequence(object):
 
         Args:
             IQ_mixing:   returns complex valued sequence if IQ_mixing is True (real part encodes I, imaginary part encodes Q)
-            **kwargs:    function arguments for time dependent pulse lengths/wait times. Parameter names need to match time function parameters.
+            **variables:    function arguments for time dependent pulse lengths/wait times. Parameter names need to match time function parameters.
 
 
         Returns:
@@ -248,7 +249,7 @@ class PulseSequence(object):
             readout_index: index of the readout tone
         """
 
-        if self._variables != set(kwargs.keys()):
+        if self._variables != set(variables.keys()):
             logging.error("Given function arguments do not match with required ones. " +
                           "The following keyword arguments are required: {}.".format(", ".join(self._variables)))
             return
@@ -273,9 +274,9 @@ class PulseSequence(object):
                     # adjust global phase relative to the beginning of the sequence
                     start_phase = 2. * np.pi * pulse.iq_frequency * position_of_next_slice * timestep
                     wfm = pulse.get_complex_envelope(
-                        self.samplerate, start_phase, **kwargs)
+                        self.samplerate, start_phase, **variables)
                 else:
-                    wfm = pulse.get_envelope(self.samplerate, **kwargs)
+                    wfm = pulse.get_envelope(self.samplerate, **variables)
 
                 # if (pulse_dict["pulse"].type == PulseType.Readout) and (i == len(self._sequence) - 1):
                 #     # if readout is last, omit the wfm (apart from a single digit)
