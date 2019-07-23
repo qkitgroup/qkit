@@ -16,7 +16,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-from typing import Dict, List, Generator
+from typing import Dict, List, Generator, Any
 import numpy as np
 import matplotlib.pyplot as plt
 from ipywidgets import interact, widgets, Layout
@@ -72,6 +72,11 @@ class TdChannel(object):
         self._interleave = False
         # Dictionary for x-axis scaling
         self._x_unit = {"s": 1, "ms": 1e-3, "us": 1e-6, "ns": 1e-9}
+
+    @property
+    def sequence_count(self):
+        """The number of loaded sequences."""
+        return len(self._sequences)
 
     def add_sequence(self, sequence, **variables):
         # type: (ps.PulseSequence, **List[float]) -> bool
@@ -140,6 +145,11 @@ class TdChannel(object):
             temp = self._sequences.pop(seq_nr)
             temp = self._variables.pop(seq_nr)
         return True
+    
+    def get_sequence(self, num):
+        # type: (int) -> (PulseSequence, Dict[str, List[Any]])
+        """Returns the PulseSequence object and variables for a given index."""
+        return self._sequences[num], self._variables[num]
 
     def get_sequence_dict(self):
         """
@@ -342,6 +352,11 @@ class VirtualAWG(object):
         # Dictonary for channel colors
         self._chancols = {1: "C0", 2: "C1", 3: "C2",
                           4: "C3", 5: "C4", 6: "C5", 7: "C6"}
+
+    @property
+    def channel_count(self):
+        """The number of existing channels."""
+        return self._num_chans
 
     def add_sequence(self, sequence, channel=1, **variables):
         """
