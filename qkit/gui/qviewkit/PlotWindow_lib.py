@@ -608,6 +608,7 @@ def _display_text(self, graphicsView):
         txt = _display_string(self.ds)
     else:
         txt = pprint.pformat(json_dict, indent=4)
+        txt = txt.replace("u'",'').replace("'","").replace("{"," ").replace("}","").replace(",\n","\n")
     graphicsView.insertPlainText(txt.rstrip())
 
 
