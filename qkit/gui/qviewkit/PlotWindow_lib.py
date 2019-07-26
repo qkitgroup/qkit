@@ -504,6 +504,9 @@ def _display_2D_data(self, graphicsView):
     # pos is the zero-point of the axis  
     # scale is responsible for the "accidential" correct display of the axis
     # for downsweeps scale has negative values and extends the axis from the min values into the correct direction
+    if np.all(np.isnan(data)):
+        data[(0,) * len(data.shape)] = 0
+        print("Your Data array is all NaN. I set the first value to not blow up graphics window.")
     graphicsView.setImage(data, pos=(scales[0][0] - scales[0][1] / 2., scales[1][0] - scales[1][1] / 2.), scale=(scales[0][1], scales[1][1]))
     graphicsView.show()
     
