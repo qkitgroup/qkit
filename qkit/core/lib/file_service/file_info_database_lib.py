@@ -247,17 +247,14 @@ class file_system_service(UUID_base):
             logging.error("Tried to add '{:s}' to the qkit.fid database: Not a .h5 filename.".format(h5_filename))
         with self.lock:
             if os.path.isfile(h5_filename):
-                self.h5_db[uuid] = h5_filename
                 logging.debug("Store_db: Adding manually h5: " + basename + 'h5')
                 self._inspect_and_add_Leaf(basename + 'h5', dirname)
             else:
                 logging.error("Tried to add '{:s}' to the qkit.fid database: File does not exist.".format(h5_filename))
             if os.path.isfile(h5_filename[:-2] + 'set'):
-                self.set_db[uuid] = h5_filename[:-2] + 'set'
                 logging.debug("Store_db: Adding manually set: " + basename + 'set')
                 self._inspect_and_add_Leaf(basename + 'set', dirname)
             if os.path.isfile(h5_filename[:-2] + 'measurement'):
-                self.h5_db[uuid] = h5_filename[:-2] + 'measurement'
                 logging.debug("Store_db: Adding manually measurement: " + basename + 'measurement')
                 self._inspect_and_add_Leaf(basename + 'measurement', dirname)
         self.update_grid_db()
