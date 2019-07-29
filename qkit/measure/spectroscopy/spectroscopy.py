@@ -193,6 +193,8 @@ class spectrum(object):
                 fit_fct = self.f_parab
             elif curve_f == 'hyp':
                 fit_fct = self.f_hyp
+            elif curve_f == 'transmon':
+                fit_fct = self.f_transmon
             elif curve_f == 'lin':
                 fit_fct = self.f_lin
                 p0 = p0[:2]
@@ -766,6 +768,22 @@ class spectrum(object):
         
     def f_lin(self,x,a,b):
         return a*x+b
+    
+    def f_transmon(self, x, w_max, L, I_ext, djj):
+        """
+        Dispersion of a tunable transmon qubit with junction asymmetry.
+
+        Args:
+            x:     x-value
+            w_max:    Maximum qubit frequency without detuning.
+            L:     Oscillation period in current/x-value.
+            I_ext: Offset current/x offset.
+            djj:   Josephson junction asymmetry (Ic1 - Ic2)/(Ic1 + Ic2)
+        
+        Returns:
+            Primal transition frequency of a transmon qubit.
+        """
+        return  w_max * (np.abs(np.cos(np.pi/L*(x - I_ext)))*(1 + djj**2*np.tan(np.pi/L*(x - I_ext))**2)**.5)**0.5
 
     def set_plot_comment(self, comment):
         '''
