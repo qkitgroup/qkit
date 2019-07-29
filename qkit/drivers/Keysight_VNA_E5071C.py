@@ -276,31 +276,14 @@ class Keysight_VNA_E5071C(Instrument):
           else:
             return datareal, dataimag
         elif format == 'AmpPha':
-          if self._zerospan:
-            datareal = numpy.mean(datareal)
-            dataimag = numpy.mean(dataimag)
-            dataamp = numpy.sqrt(datareal*datareal+dataimag*dataimag)
-            for i in numpy.arange(len(datareal)):    #added MW July 2013
-                if datareal[i]>=0 and dataimag[i] >=0:   #1. quadrant
-                    datapha = numpy.arctan(dataimag[i]/datareal[i])
-                elif  datareal[i] <0 and dataimag[i] >=0:  #2. quadrant
-                    datapha = numpy.arctan(dataimag[i]/datareal[i])+ numpy.pi
-                elif  datareal[i] <0 and dataimag[i] <0:  #3. quadrant
-                    datapha = numpy.arctan(dataimag[i]/datareal[i])- numpy.pi
-                elif  datareal[i] >=0 and dataimag[i]<0:   #4. quadrant
-                    datapha = numpy.arctan(dataimag[i]/datareal[i])
-                    
-            return dataamp, datapha
+          if self._zerospan or self.get_cw(False):
+            datacomplex = [numpy.mean(datareal + 1j*dataimag)]
+            dataamp = numpy.abs(datacomplex)
+            datapha = numpy.angle(datacomplex)
           else:
             dataamp = numpy.sqrt(datareal*datareal+dataimag*dataimag)
             datapha = numpy.arctan2(dataimag,datareal)
-            if self.get_cw():
-                # in cw mode the vna performs a power sweep with 2 power values. the driver sets them to the same level,
-                # but the returned data may cause a dimension problem.
-                # therefore we only take one datapoint or average them.
-                # Spectroscopy requires a sized object, so there must be [] around the values
-                dataamp, datapha = numpy.array([numpy.mean(dataamp)]), numpy.array([numpy.mean(datapha)])
-            return dataamp, datapha
+          return dataamp, datapha
         else:
           raise ValueError('get_tracedata(): Format must be AmpPha or RealImag') 
       
@@ -542,6 +525,8 @@ class Keysight_VNA_E5071C(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting center frequency to %s' % cf)
+        if self.get_cw(False):
+          self.set_cwfreq(cf)
         self._visainstrument.write('SENS%i:FREQ:CENT %f' % (self._ci,cf))
         self.get_startfreq()
         self.get_stopfreq()
