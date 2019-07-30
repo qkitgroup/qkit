@@ -458,8 +458,6 @@ class spectrum(object):
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
-        if self.progress_bar: self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec),'3D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
-
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
@@ -474,6 +472,13 @@ class spectrum(object):
             self.center_freqs = []     #load default sequence
             for i in range(len(self.x_vec)):
                 self.center_freqs.append([0])
+         
+        if self.progress_bar: 
+            if self.landscape:
+                points = np.sum(np.min(np.abs(self.y_vec[:,np.newaxis,np.newaxis]- self.center_freqs),axis=2) <= self.span/2)
+            else: 
+                points = len(self.x_vec)*len(self.y_vec)
+            self._p = Progress_Bar(points,'3D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
 
         self._measure()
         
@@ -608,13 +613,13 @@ class spectrum(object):
                             
                             """ measurement """
                             data_amp, data_pha = self.vna.get_tracedata()
+                            if self.progress_bar:
+                                self._p.iterate()
 
                         self._data_amp.append(data_amp)
                         self._data_pha.append(data_pha)
                         if self._fit_resonator:
                             self._do_fit_resonator()
-                        if self.progress_bar:
-                            self._p.iterate()
                         qkit.flow.sleep()
                     """
                     filling of value-box is done here.
