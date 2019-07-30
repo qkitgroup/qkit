@@ -39,7 +39,7 @@ class Pulse(object):
     Class to describe a single pulse.
     """
 
-    def __init__(self, length, shape=ShapeLib.rect, name = None, amplitude=1, phase = 0, iq_frequency = 0, iq_dc_offset = 0, iq_angle = 90):
+    def __init__(self, length, shape=ShapeLib.rect, name = None, amplitude=1., phase = 0., iq_frequency = 0., iq_dc_offset = 0., iq_angle = 90., q_rel = 1.):
         """
         Inits a pulse with:
             length:       length of the pulse. This can also be a (lambda) function for variable pulse lengths.
@@ -50,6 +50,7 @@ class Pulse(object):
             iq_frequency: IQ-frequency of your pulse for heterodyne mixing (if 0 homodyne mixing is employed)
             iq_dc_offset: complex dc offset for calibrating the IQ-mixer (real part for dc offset of I, imaginary part is dc offset of Q)
             iq_angle:     angle between I and Q in the complex plane (default is 90 deg)
+            q_rel:        relative amplitude of Q in respect to I. This is needed for mixer calibration. If q_rel > 1 make sure you are still within the limits of your device.
         """
         self.length = length  # type: float or string
         self.shape = shape
@@ -59,6 +60,7 @@ class Pulse(object):
         self.iq_frequency = iq_frequency  # type: float
         self.iq_dc_offset = iq_dc_offset
         self.iq_angle = iq_angle
+        self.q_rel = q_rel
 
     def __call__(self, time_fractions):
         """
@@ -109,7 +111,7 @@ class Pulse(object):
         envelope_complex = envelope * np.exp(1.j *(2*np.pi *self.iq_frequency * time - np.pi/180 * self.phase))
         # adjust angle between I and Q by rotating Q:
         I = np.real(envelope_complex)
-        Q = np.imag(envelope_complex * np.exp(1.j * np.pi /180 * (90 - self.iq_angle)))
+        Q = self.q_rel * np.imag(envelope_complex * np.exp(1.j * np.pi /180 * (90 - self.iq_angle)))
         envelope_complex = I + 1.j * Q + self.iq_dc_offset
         return envelope_complex
 
@@ -255,10 +257,10 @@ class PulseSequence(object):
                 iq_phase = np.exp(1.j *(2 * np.pi * iq_freq * time - np.pi/180 * pulse.phase))
                 wfms[i] = wfms[i] * iq_phase
                 # account for mixer calibration i.e. dc offset and phase != 90deg between I and Q
-                if pulse.iq_angle != 90:
+                if pulse.iq_angle != 90 or pulse.q_rel != 1.:
                     I = np.real(wfms[i])
                     Q = np.imag(wfms[i] * np.exp(1.j * np.pi /180 * (90 - pulse.iq_angle)))
-                    wfms[i] = I + 1.j * Q
+                    wfms[i] = I + 1.j * pulse.q_rel * Q
                 wfms[i][wfms[i] != 0] += pulse.iq_dc_offset
             
         # generate full waveform from wfms
