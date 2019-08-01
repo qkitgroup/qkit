@@ -251,14 +251,14 @@ class h5plot(object):
         """
         self.x_ds = self.hf[self.x_ds_url]
         self.x_exp = self._get_exp(np.array(self.x_ds))
-        self.x_label = self.x_ds.attrs.get('name', '_xname_') + ' (' + self._unit_prefixes[self.x_exp] + self.x_ds.attrs.get('unit', '_xunit_') + ')'
+        self.x_label = self.x_ds.attrs.get('name', '_xname_').decode() + ' (' + self._unit_prefixes[self.x_exp] + self.x_ds.attrs.get('unit', '_xunit_').decode() + ')'
         self.y_ds = self.hf[self.y_ds_url]
         self.y_exp = self._get_exp(np.array(self.y_ds))
-        self.y_label = self.y_ds.attrs.get('name', '_yname_') + ' (' + self._unit_prefixes[self.y_exp] + self.y_ds.attrs.get('unit', '_yunit_') + ')'
+        self.y_label = self.y_ds.attrs.get('name', '_yname_').decode() + ' (' + self._unit_prefixes[self.y_exp] + self.y_ds.attrs.get('unit', '_yunit_').decode() + ')'
         self.ds_data = np.array(self.ds).T #transpose matrix to get x/y axis correct
         self.ds_exp = self._get_exp(self.ds_data)
         self.ds_data *= 10.**-self.ds_exp
-        self.ds_label = self.ds.attrs.get('name', '_name_') + ' (' + self._unit_prefixes[self.ds_exp] + self.ds.attrs.get('unit', '_unit_') + ')'
+        self.ds_label = self.ds.attrs.get('name', '_name_').decode() + ' (' + self._unit_prefixes[self.ds_exp] + self.ds.attrs.get('unit', '_unit_').decode() + ')'
 
         x_data = np.array(self.x_ds)*10.**-self.x_exp
         x_min, x_max = np.amin(x_data), np.amax(x_data)
