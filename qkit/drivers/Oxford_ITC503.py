@@ -20,8 +20,9 @@
 
 from qkit.core.instrument_base import Instrument
 from qkit import visa
+import re
 import logging
-
+        
 
 class Oxford_ITC503(Instrument):
     """
@@ -107,6 +108,64 @@ class Oxford_ITC503(Instrument):
         """
         self._visainstrument.write('Q0')  # usually defines the communication protocol, but can be used to clear the the communications buffer
         return self._visainstrument.query(cmd)
+    
+    def get_IDN(self):
+        """
+        Gets the identification query of the device.
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        IDN: (str)
+            Identification query.
+        """
+        try:
+            logging.debug('{:s}: Get IDN'.format(__name__))
+            return str(self.query('V'))
+        except Exception as e:
+            logging.error('{!s}: Cannot get IDN'.format(__name__))
+            raise type(e)('{!s}: Cannot get IDN\n{!s}'.format(__name__, e))
+    
+    def get_status(self, *args):
+        """
+        Gets status entries.
+        
+        Meanings are:
+            X: SYSTEM STATUS (Always zero currently)
+            A: AUTO/MAN STATUS (n as for A COMMAND but see below)
+            C: LOC/REM/LOCK STATUS (n as for C COMMAND)
+            S: SWEEP STATUS (nn=0-32 as follows)
+                nn=0 SWEEP NOT RUNNING
+                nn=2P-1 SWEEPING to step P
+                nn=2P HOLDING at step P
+            H: CONTROL SENSOR (n as for H COMMAND)
+            L: AUTO-PID STATUS (n as for L COMMAND)
+        
+        Parameters
+        ----------
+        *args: (str)
+            variables of interest
+        
+        Returns
+        -------
+        status: (dict)
+            All or selected entries of status query.
+        """
+        # Corresponding Command: XnAnCnSnnHnLn = X
+        try:
+            logging.debug('{:s}: Get status'.format(__name__))
+            ans = self.query('X')
+            status = {str(key): str(val) for key, val in zip(re.findall(r'[A-Za-z]+', ans), re.findall(r'\d+', ans))}
+            if args:
+                return {var: status[var] for var in args}
+            else:
+                return status
+        except Exception as e:
+            logging.error('{!s}: Cannot get status'.format(__name__))
+            raise type(e)('{!s}: Cannot get status{!s}'.format(__name__, e))
         
     def set_control(self, remote=1, unlocked=1):
         """
@@ -121,7 +180,7 @@ class Oxford_ITC503(Instrument):
         
         Returns
         -------
-            None
+        None
         """
         # Corresponding Command: Cn
         try:
@@ -132,27 +191,59 @@ class Oxford_ITC503(Instrument):
             raise type(e)('{!s}: Cannot set control o {!r}, {!r}\n{!s}'.format(__name__, remote, unlocked, e))
         return
     
-    def get_value(self, ind):
+    def set_display(self, channel):
         """
-        Read the variable defined by the index.
-
-        The possible inputs are:
-            0: SET TEMPERATURE
-            1: SENSOR 1 TEMPERATURE
-            2: SENSOR 2 TEMPERATURE
-            3: SENSOR 3 TEMPERATURE
-            4: TEMPERATURE ERROR
-            5: HEATER O/P (as %)
-            6: HEATER O/P (as V)
-            7: GAS FLOW O/P (a.u.)
-            8: PROPORTIONAL BAND
-            9: INTEGRAL ACTION TIME
-            10: DERIVATIVE ACTION TIME
+        Sets the front panel display to channel <channel>.
         
         Parameters
         ----------
-        ind: (int)
-            Index of variable to read.
+        channel: (int)
+            Channel to read. Possible channels are:
+                0: SET TEMPERATURE
+                1: SENSOR 1 TEMPERATURE
+                2: SENSOR 2 TEMPERATURE
+                3: SENSOR 3 TEMPERATURE
+                4: TEMPERATURE ERROR
+                5: HEATER O/P (as %)
+                6: HEATER O/P (as V)
+                7: GAS FLOW O/P (a.u.)
+                8: PROPORTIONAL BAND
+                9: INTEGRAL ACTION TIME
+                10: DERIVATIVE ACTION TIME
+        
+        Returns
+        -------
+        None
+        """
+        # Corresponding Command: Fnn
+        assert type(channel) == int, 'Argument must be an integer.'
+        assert channel in range(0,11), 'Argument is not a valid number.'
+        try:
+            logging.debug('{:s}: Get value of channel {:d}'.format(__name__, channel))
+            self.write('F{:d}'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot set front pannel to channel {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot set front pannel to channel {!s}\n{!s}'.format(__name__, channel, e))
+    
+    def get_value(self, channel, display=False):
+        """
+        Gets the current value of channel <channel>.
+        
+        Parameters
+        ----------
+        channel: (int)
+            Channel to read. Possible channels are:
+                0: SET TEMPERATURE
+                1: SENSOR 1 TEMPERATURE
+                2: SENSOR 2 TEMPERATURE
+                3: SENSOR 3 TEMPERATURE
+                4: TEMPERATURE ERROR
+                5: HEATER O/P (as %)
+                6: HEATER O/P (as V)
+                7: GAS FLOW O/P (a.u.)
+                8: PROPORTIONAL BAND
+                9: INTEGRAL ACTION TIME
+                10: DERIVATIVE ACTION TIME
         
         Returns
         -------
@@ -160,14 +251,15 @@ class Oxford_ITC503(Instrument):
             answer of queried variable.
         """
         # Corresponding Command: Rn
-        assert type(ind) == int, 'Argument must be an integer.'
-        assert ind in range(0,11), 'Argument is not a valid number.'
+        assert type(channel) == int, 'Argument must be an integer.'
+        assert channel in range(0,11), 'Argument is not a valid number.'
         try:
-            logging.debug('{:s}: Get value of variable {:d}'.format(__name__, ind))
-            return float(self.query('R{:d}'.format(ind)).strip('R+'))
+            logging.debug('{:s}: Get value of channel {:d}'.format(__name__, channel))
+            if display: self.set_display(channel=channel)
+            return float(self.query('R{:d}'.format(channel)).strip('R+'))
         except Exception as e:
-            logging.error('{!s}: Cannot value of variable  {!s}'.format(__name__, ind))
-            raise type(e)('{!s}: Cannot value of variable  {!s}\n{!s}'.format(__name__, ind, e))
+            logging.error('{!s}: Cannot get value of channel  {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get value of channel  {!s}\n{!s}'.format(__name__, channel, e))
     
     def get_Temp(self, sensor=2):
         """
@@ -190,8 +282,8 @@ class Oxford_ITC503(Instrument):
             logging.debug('{:s}: Get temperature of sensor {:d}'.format(__name__, sensor))
             return float(self.query('R{:d}'.format(sensor)).strip('R+'))
         except Exception as e:
-            logging.error('{!s}: Cannot temperature of sensor {!s}'.format(__name__, sensor))
-            raise type(e)('{!s}: Cannot temperature of sensor {!s}\n{!s}'.format(__name__, sensor, e))
+            logging.error('{!s}: Cannot get temperature of sensor {!s}'.format(__name__, sensor))
+            raise type(e)('{!s}: Cannot get temperature of sensor {!s}\n{!s}'.format(__name__, sensor, e))
         
     def set_proportional(self, proportional=0):
         """
@@ -204,15 +296,15 @@ class Oxford_ITC503(Instrument):
         
         Returns
         -------
-            None
+        None
         """
         # Corresponding Command: Pnnnn
         try:
             logging.debug('{:s}: Set proportional band to {:f}'.format(__name__, proportional))
             self.write('P{}'.format(proportional))
         except Exception as e:
-            logging.error('{!s}: Cannot proportional band to {!s}'.format(__name__, proportional))
-            raise type(e)('{!s}: Cannot proportional band to {!s}\n{!s}'.format(__name__, proportional, e))
+            logging.error('{!s}: Cannot set proportional band to {!s}'.format(__name__, proportional))
+            raise type(e)('{!s}: Cannot set proportional band to {!s}\n{!s}'.format(__name__, proportional, e))
         return
         
     def set_integral(self, integral=0):
@@ -226,15 +318,15 @@ class Oxford_ITC503(Instrument):
         
         Returns
         -------
-            None
+        None
         """
         # Corresponding Command: Innnn
         try:
             logging.debug('{:s}: Set integral action time to {:f}'.format(__name__, integral))
             self.write('I{}'.format(integral))
         except Exception as e:
-            logging.error('{!s}: Cannot integral action time to {!s}'.format(__name__, integral))
-            raise type(e)('{!s}: Cannot integral action time to {!s}\n{!s}'.format(__name__, integral, e))
+            logging.error('{!s}: Cannot set integral action time to {!s}'.format(__name__, integral))
+            raise type(e)('{!s}: Cannot set integral action time to {!s}\n{!s}'.format(__name__, integral, e))
         return
         
     def set_derivative(self, derivative=0):
@@ -248,15 +340,15 @@ class Oxford_ITC503(Instrument):
         
         Returns
         -------
-            None
+        None
         """
         # Corresponding Command: Dnnnn
         try:
             logging.debug('{:s}: Set derivative action time to {:f}'.format(__name__, derivative))
             self.write('D{}'.format(derivative))
         except Exception as e:
-            logging.error('{!s}: Cannot derivative action time to {!s}'.format(__name__, derivative))
-            raise type(e)('{!s}: Cannot derivative action time to {!s}\n{!s}'.format(__name__, derivative, e))
+            logging.error('{!s}: Cannot set derivative action time to {!s}'.format(__name__, derivative))
+            raise type(e)('{!s}: Cannot set derivative action time to {!s}\n{!s}'.format(__name__, derivative, e))
         return
 
     def set_temperature(self, temperature=0.010):
@@ -270,7 +362,7 @@ class Oxford_ITC503(Instrument):
         
         Returns
         -------
-            None
+        None
         """
         # Corresponding Command: Tnnnnn
         assert type(temperature) in [int, float], 'argument must be a number'
@@ -278,8 +370,8 @@ class Oxford_ITC503(Instrument):
             logging.debug('{:s}: Set temperature set point to {:f}'.format(__name__, temperature))
             self.write('T{:d}'.format(int(1000*temperature)))
         except Exception as e:
-            logging.error('{!s}: Cannot temperature set point to {!s}'.format(__name__, temperature))
-            raise type(e)('{!s}: Cannot temperature set point to {!s}\n{!s}'.format(__name__, temperature, e))
+            logging.error('{!s}: Cannot set temperature set point to {!s}'.format(__name__, temperature))
+            raise type(e)('{!s}: Cannot set temperature set point to {!s}\n{!s}'.format(__name__, temperature, e))
         return
         
     def set_heater_sensor(self, sensor=1):
@@ -293,7 +385,7 @@ class Oxford_ITC503(Instrument):
         
         Returns
         -------
-            None
+        None
         """
         # Corresponding Command: Hn
         assert sensor in [1,2,3], 'Heater not on list.'
@@ -301,8 +393,8 @@ class Oxford_ITC503(Instrument):
             logging.debug('{:s}: Set heater sensor. to {:f}'.format(__name__, sensor))
             self.write('H{}'.format(sensor))
         except Exception as e:
-            logging.error('{!s}: Cannot heater sensor. to {!s}'.format(__name__, sensor))
-            raise type(e)('{!s}: Cannot heater sensor. to {!s}\n{!s}'.format(__name__, sensor, e))
+            logging.error('{!s}: Cannot set heater sensor. to {!s}'.format(__name__, sensor))
+            raise type(e)('{!s}: Cannot set heater sensor. to {!s}\n{!s}'.format(__name__, sensor, e))
         return
             
     def set_heater_maximum(self, val):
@@ -323,8 +415,8 @@ class Oxford_ITC503(Instrument):
             logging.debug('{:s}: Set maximum heater voltage to {:f}'.format(__name__, val))
             self.write('M{:04.1F}'.format(val))
         except Exception as e:
-            logging.error('{!s}: Cannot maximum heater voltage to {!s}'.format(__name__, val))
-            raise type(e)('{!s}: Cannot maximum heater voltage to {!s}\n{!s}'.format(__name__, val, e))
+            logging.error('{!s}: Cannot set maximum heater voltage to {!s}'.format(__name__, val))
+            raise type(e)('{!s}: Cannot set maximum heater voltage to {!s}\n{!s}'.format(__name__, val, e))
         return
     
     def set_heater_output(self, val):
@@ -345,111 +437,117 @@ class Oxford_ITC503(Instrument):
             logging.debug('{:s}: Set heater output to {:f}'.format(__name__, val))
             self.query('O{:04.1F}'.format(val))
         except Exception as e:
-            logging.error('{!s}: Cannot heater output to {!s}'.format(__name__, val))
-            raise type(e)('{!s}: Cannot heater output to {!s}\n{!s}'.format(__name__, val, e))
+            logging.error('{!s}: Cannot set heater output to {!s}'.format(__name__, val))
+            raise type(e)('{!s}: Cannot set heater output to {!s}\n{!s}'.format(__name__, val, e))
         return
-        
-
-##########################################################################################
-### https://labdrivers.readthedocs.io/en/latest/_modules/labdrivers/oxford/itc503.html ### 
-########################################################################################## 
-
-
-    def setGasOutput(self, gas_output=0):
+    
+    def set_gas_output(self, val=0):
         """
-        Sets the gas (needle valve) output level.
+        Sets the gas (needle valve) output level <gas_output>.
         
-        Args:
-            gas_output: Sets the percent of the maximum gas
-                    output in units of 0.1%.
-                    Min: 0. Max: 999.
+        Parameters
+        ----------
+        val: (float)
+            Sets the percent of the maximum gas output in units of 0.1%. Ranges from 0 to 99.9.
+        
+        Returns
+        -------
+        None
         """
-        self.write('G{}'.format(gas_output))
-        return None      
-
-        
-    def setAutoControl(self, auto_manual=0):
+        # Corresponding Command: Gnnn
+        try:
+            logging.debug('{:s}: Set gas output to {:f}'.format(__name__, val))
+            self.query('G{:04.1F}'.format(val))
+        except Exception as e:
+            logging.error('{!s}: Cannot set gas output to {!s}'.format(__name__, val))
+            raise type(e)('{!s}: Cannot set gas output to {!s}\n{!s}'.format(__name__, val, e))
+        return
+    
+    def set_auto_control(self, heater_auto=0, gas_auto=0):
         """
-        Sets automatic control for heater/gas(needle valve).
+        Sets automatic control for heater and gas flow (needle valve).
         
-        Value: Status map
-            0: heater manual, gas manual
-            1: heater auto  , gas manual
-            2: heater manual, gas auto
-            3: heater auto  , gas auto
+        Parameters
+        ----------
+        heater_auto: (bool)
+            Status of heater function.
+        gas_auto: (bool)
+            Status of gas flow control function.
         
-        Args:
-            auto_manual: Index for gas/manual.
+        Returns
+        -------
+        None
         """
-        self.write('A{}'.format(auto_manual))
-
-
-    def setSweeps(self, sweep_parameters):
+        # Corresponding Command: An
+        try:
+            logging.debug('{:s}: Set automatic control for heater to {:d} and gas flow to {:d}'.format(__name__, heater_auto, gas_auto))
+            self.write('A{}'.format(int(str(int(gas_auto))+str(int(heater_auto)), 2)))
+        except Exception as e:
+            logging.error('{!s}: Cannot set automatic control for heater to {!s} and gas flow to {!s}'.format(__name__, heater_auto, gas_auto))
+            raise type(e)('{!s}: Cannot set automatic control for heater to {!s} and gas flow to {!s}\n{!s}'.format(__name__, heater_auto, gas_auto, e))
+        return
+    
+    def set_sweeps(self, sweep_parameters):
         """
         Sets the parameters for all sweeps.
 
-        This fills up a dictionary with all the possible steps in
-        a sweep. If a step number is not found in the sweep_parameters
-        dictionary, then it will create the sweep step with all
-        parameters set to 0.
-
-        Args:
-            sweep_parameters: A dictionary whose keys are the step
-                numbers (keys: 1-16). The value of each key is a
-                dictionary whose keys are the parameters in the
-                sweep table (see _setSweepStep).
+        This fills up a dictionary with all the possible steps in a sweep. If a step number is not found in the sweep_parametersdictionary, then it will create the sweep step with all parameters set to 0.
+        
+        Parameters
+        ----------
+        sweep_parameters: (dict)
+            Keys are the step numbers and range fron 1 to 16. The value of each key is a dictionary whose keys are the parameters in the sweep table (see _setSweepStep).
+        
+        Returns
+        -------
+        None
         """
-        steps = range(1,17)
-        parameters_keys = sweep_parameters.keys()
-        null_parameter = {  'set_point' : 0,
-                            'sweep_time': 0,
-                            'hold_time' : 0  }
-
-        for step in steps:
-            if step in parameters_keys:
-                self._setSweepStep(step, sweep_parameters[step])
+        for step in range(1,17):
+            if step in sweep_parameters.keys():
+                self._set_sweep_step(step, sweep_parameters[step])
             else:
-                self._setSweepStep(step, null_parameter)
-
-
-    def _setSweepStep(self, sweep_step, sweep_table):
+                self._set_sweep_step(step, {'set_point': 0, 'sweep_time': 0, 'hold_time': 0 })  # default is 0
+    
+    def _set_sweep_step(self, sweep_step, sweep_table):
         """
-        Sets the parameters for a sweep step.
-
-        This sets the step pointer (x) to the proper step.
-        Then this sets the step parameters (y1, y2, y3) to
-        the values dictated by the sweep_table. Finally, this
-        resets the x and y pointers to 0.
-
-        Args:
-            sweep_step: The sweep step to be modified (values: 1-16)
-            sweep_table: A dictionary of parameters describing the
-                sweep. Keys: set_point, sweep_time, hold_time.
+        Sets the parameters for a sweep step by setting the step pointer (x) to the proper step, the step parameters (y1, y2, y3) to the values dictated by the sweep_table and resetting the x and y pointers to 0.
+        
+        Parameters
+        ----------
+        sweep_step: (int)
+            The sweep step to be modified. Ranges from 1 to 16
+        sweep_table: (int)
+            A dictionary of parameters describing the sweep. Keys are set_point, sweep_time and hold_time.
+        
+        Returns
+        -------
+        None
         """
-        step_setting = 'x{}'.format(sweep_step)
-        self.write(step_setting)
-
-        setpoint_setting = 's{}'.format(
-                            sweep_table['set_point'])
-        sweeptime_setting = 's{}'.format(
-                            sweep_table['sweep_time'])
-        holdtime_setting = 's{}'.format(
-                            sweep_table['hold_time'])
+        self.write('x{}'.format(sweep_step))
 
         self.write('y1')
-        self.write(setpoint_setting)
+        self.write('s{}'.format(sweep_table['set_point']))
 
         self.write('y2')
-        self.write(sweeptime_setting)
+        self.write('s{}'.format(sweep_table['sweep_time']))
 
         self.write('y3')
-        self.write(holdtime_setting)
+        self.write('s{}'.format(sweep_table['hold_time']))
 
-        self._resetSweepTablePointers()
+        self._reset_sweep_table_pointers()
 
-    def _resetSweepTablePointers(self):
+    def _reset_sweep_table_pointers(self):
         """
         Resets the table pointers to x=0 and y=0 to prevent accidental sweep table changes.
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        None
         """
         self.write('x0')
         self.write('y0')
+    
