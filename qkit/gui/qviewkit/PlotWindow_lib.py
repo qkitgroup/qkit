@@ -712,6 +712,8 @@ def _get_name(ds):
     Returns:
         String with name.
     """
+    if ds is None:
+        return '_none_'
     try:
         return ds.attrs.get('name','_none_').decode("utf-8")
     except AttributeError as e:
