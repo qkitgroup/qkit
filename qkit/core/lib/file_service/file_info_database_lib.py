@@ -211,10 +211,6 @@ class file_system_service(UUID_base):
                                 pass
                         except (KeyError, AttributeError):
                             pass
-                    try:
-                        h5_info_db.update(dict(h5f['/entry/analysis0'].attrs))
-                    except(AttributeError, KeyError):
-                        pass
                     if "measurement" in h5f['/entry/data0']:
                         try:
                             mmt = json.loads(h5f['/entry/data0/measurement'][0])
@@ -223,6 +219,10 @@ class file_system_service(UUID_base):
                             )
                         except(AttributeError, KeyError):
                             pass
+                    try:
+                        h5_info_db.update(dict(h5f['/entry/analysis0'].attrs))
+                    except(AttributeError, KeyError):
+                        pass
                 except KeyError as e:
                     logging.debug("fid could not index file {}, probably it is just new and empty. Original message: {}".format(path,e))
                 except IOError as e:
