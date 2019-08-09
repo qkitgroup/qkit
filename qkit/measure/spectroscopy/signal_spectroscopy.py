@@ -330,19 +330,19 @@ class spectrum(object):
         print 'recording trace...'
         sys.stdout.flush()
 
-        qt.mstart()
+        qkit.flow.start()
         if rescan:
             if self.averaging_start_ready:
                 self.sig_analyzer.start_measurement()
                 ti = time()
                 if self.progress_bar: self._p = Progress_Bar(self.sig_analyzer.get_averages(), self.dirname,
                                                              self.sig_analyzer.get_sweeptime())
-                qt.msleep(.2)
+                qkit.flow.sleep(.2)
                 while not self.sig_analyzer.ready():
                     if time() - ti > self.sig_analyzer.get_sweeptime(query=False):
                         if self.progress_bar: self._p.iterate()
                         ti = time()
-                    qt.msleep(.2)
+                    qkit.flow.sleep(.2)
                 if self.progress_bar:
                     while self._p.progr < self._p.max_it:
                         self._p.iterate()
@@ -350,7 +350,7 @@ class spectrum(object):
                 self.sig_analyzer.avg_clear()
                 if self.sig_analyzer.get_averages() == 1 or self.sig_analyzer.get_Average() == False:  # no averaging
                     if self.progress_bar: self._p = Progress_Bar(1, self.dirname, self.sig_analyzer.get_sweeptime())
-                    qt.msleep(self.sig_analyzer.get_sweeptime())  # wait single sweep
+                    qkit.flow.sleep(self.sig_analyzer.get_sweeptime())  # wait single sweep
                     if self.progress_bar: self._p.iterate()
                 else:  # with averaging
                     if self.progress_bar: self._p = Progress_Bar(self.sig_analyzer.get_averages(), self.dirname,
@@ -358,17 +358,17 @@ class spectrum(object):
                     if "avg_status" in self.sig_analyzer.get_function_names():
                         for a in range(self.sig_analyzer.get_averages()):
                             while self.sig_analyzer.avg_status() <= a:
-                                qt.msleep(.2)  # maybe one would like to adjust this at a later point
+                                qkit.flow.sleep(.2)  # maybe one would like to adjust this at a later point
                             if self.progress_bar: self._p.iterate()
                     else:  # old style
                         for a in range(self.sig_analyzer.get_averages()):
-                            qt.msleep(self.sig_analyzer.get_sweeptime())  # wait single sweep time
+                            qkit.flow.sleep(self.sig_analyzer.get_sweeptime())  # wait single sweep time
                             if self.progress_bar: self._p.iterate()
 
         for i in range(self.num_traces):
             self._data[i].append(self.sig_analyzer.get_tracedata(i+1))
 
-        qt.mend()
+        qkit.flow.end()
         self._end_measurement()
 
     def measure_2D(self, web_visible=True):
@@ -463,7 +463,7 @@ class spectrum(object):
         measures and plots the data depending on the measurement type.
         the measurement loops feature the setting of the objects and saving the data in the .h5 file.
         '''
-        qt.mstart()
+        qkit.flow.start()
         try:
             """
             loop: x_obj with parameters from x_vec
@@ -492,16 +492,16 @@ class spectrum(object):
                             sleep(self.tdy)
                             if self.averaging_start_ready:
                                 self.sig_analyzer.start_measurement()
-                                qt.msleep(.2)  # just to make sure, the ready command does not *still* show ready
+                                qkit.flow.sleep(.2)  # just to make sure, the ready command does not *still* show ready
                                 while not self.sig_analyzer.ready():
-                                    qt.msleep(.2)
+                                    qkit.flow.sleep(.2)
                             else:
                                 self.sig_analyzer.avg_clear()
-                                qt.msleep(self._sweeptime_averages)
+                                qkit.flow.sleep(self._sweeptime_averages)
 
                             # if "avg_status" in self.sig_analyzer.get_function_names():
                             #       while self.sig_analyzer.avg_status() < self.sig_analyzer.get_averages():
-                            #            qt.msleep(.2) #maybe one would like to adjust this at a later point
+                            #            qkit.flow.sleep(.2) #maybe one would like to adjust this at a later point
 
                             """ measurement """
                             for i in range(self.num_traces):
@@ -510,7 +510,7 @@ class spectrum(object):
 
                         if self.progress_bar:
                             self._p.iterate()
-                        qt.msleep()
+                        qkit.flow.sleep()
                     """
                     filling of value-box is done here.
                     after every y-loop the data is stored the next 2d structure
@@ -521,22 +521,22 @@ class spectrum(object):
                 if self._scan_2D:
                     if self.averaging_start_ready:
                         self.sig_analyzer.start_measurement()
-                        qt.msleep(.2)  # just to make sure, the ready command does not *still* show ready
+                        qkit.flow.sleep(.2)  # just to make sure, the ready command does not *still* show ready
                         while not self.sig_analyzer.ready():
-                            qt.msleep(.2)
+                            qkit.flow.sleep(.2)
                     else:
                         self.sig_analyzer.avg_clear()
-                        qt.msleep(self._sweeptime_averages)
+                        qkit.flow.sleep(self._sweeptime_averages)
                     """ measurement """
                     for i in range(self.num_traces):
                         self._data[i].append(self.sig_analyzer.get_tracedata(i+1))
 
                     if self.progress_bar:
                         self._p.iterate()
-                    qt.msleep()
+                    qkit.flow.sleep()
         finally:
             self._end_measurement()
-            qt.mend()
+            qkit.flow.end()
 
     def _end_measurement(self):
         '''
