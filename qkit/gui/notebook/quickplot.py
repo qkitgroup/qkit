@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 @author: andre.schneider@kit.edu / 2019
+@author: micha.wildermuth@kit.edu / 2019
 @license: GPL
 
 This file provides some methods to quickly plot different datasets in a
@@ -10,6 +11,7 @@ the database view of qkit.fid
 make sure to have qkit.fid enabled and %matplotlib qt executed beforehand
 """
 import h5py
+import json
 import matplotlib.pyplot as plt
 import numpy as np
 from IPython.core.display import display, HTML
@@ -24,7 +26,9 @@ class QuickPlot(object):
         The maximize switch can be used to increase the width of
         the notebook view, giving you more space for the database table.
         """
-        self.fig, [self.ax1, self.ax2] = plt.subplots(2, num="Quickplot", clear=True)
+        self.fig, self.ax = plt.subplots(2, num="Quickplot", clear=True)
+        self.args, self.kwargs = (), {}
+        self.m_type, self.ds_type, self.num_plots = None, None, None
         self.remove_offset_x_avg = False
         self.remove_offset_y_avg = False
         self.unwrap_phase = False
@@ -33,31 +37,68 @@ class QuickPlot(object):
     
     def plot_selected_df(self, change):
         uuid = qkit.fid._selected_df.index[0]
-        d = h5py.File(qkit.fid.h5_db[uuid], 'r')
+        self.d = h5py.File(qkit.fid.h5_db[uuid], "r")
         try:
-            self.ax1.cla()
-            self.ax2.cla()
-            self.ax2.set_title("WORKING")
+            self.m_type = json.loads(self.d["entry/data0/measurement"][0])["measurement_type"]
+        except:
+            self.m_type = None
+        if self.m_type == "transport":
+            self.overlays = self.d["entry/views/IV"].attrs[u"overlays"]+1
+        else:
+            self.overlays = None
+        try:
+            self.ds_type = self.d["entry/data0/"+{"spectroscopy": "amplitude", "transport": "v_0"}[self.m_type]].attrs["ds_type"]
+        except:
+            self.ds_type = None
+        if self.args is () and self.kwargs == {}:
+            self.num_plots = {"spectroscopy": 2,
+                              "transport": (1, self.overlays, self.overlays)[self.ds_type-1]}[self.m_type]
+        else:
+            self.num_plots = len(self.args)+sum([1 if type(val) is str else len(val) for val in self.kwargs.values()])
+        try:
+            plt.clf()
+            self.fig, self.ax = plt.subplots(self.num_plots, num="Quickplot", clear=True)
+            if not np.iterable(self.ax):
+                self.ax = [self.ax]
             self.fig.canvas.draw()
-            self.ax1.set_title(uuid + " | " + qkit.fid.h5_info_db[uuid]['name'])
-            if "amplitude_midpoint" in d["entry/data0"].keys():
-                self.plot_2D("amplitude_midpoint", "phase_midpoint", d)
-            elif "amplitude" in d["entry/data0"].keys():
-                if len(d["entry/data0/amplitude"].shape) == 3:
-                    self.plot_4D("amplitude", "phase", d)
-                if len(d["entry/data0/amplitude"].shape) == 2:
-                    self.plot_3D("amplitude", "phase", d)
-                elif len(d["entry/data0/amplitude"].shape) == 1:
-                    self.plot_2D("amplitude", "phase", d)
+            self.ax[0].set_title(uuid + " | " + qkit.fid.h5_info_db[uuid]["name"])
+            args = {"ds": [], "view": []}
+            if self.m_type == "spectroscopy":
+                if "amplitude_midpoint" in self.d["entry/data0"].keys():
+                    self.plot_2D("amplitude_midpoint", "phase_midpoint")
+                else:
+                    if self.args == ():
+                        args["ds"] = ["amplitude", "phase"]
+                    else:
+                        args["ds"] = list(self.args)
+                    [self.plot_1D, self.plot_2D, self.plot_3D][self.ds_type - 1](args)
+            elif self.m_type == "transport":
+                if self.args == () and self.kwargs == {}:
+                    if self.ds_type == 1:
+                        args["view"] = ["IV"]
+                    else:
+                        args["ds"] = ("v_" + str(i) for i in range(self.overlays))
+                else:
+                    if len(self.args) != 0:
+                        args["ds"] = list(self.args)
+                    if "ds" in self.kwargs.keys():
+                        args["ds"].append(self.kwargs["ds"])
+                    if "view" in self.kwargs.keys():
+                        args["view"] = self.kwargs["view"] if type(self.kwargs["view"])==list else [self.kwargs["view"]]
+                # remove empty "ds" and "view"
+                for key, val in args.items():
+                    if val == []:
+                        del args[key]
+                [self.plot_1D, self.plot_2D, self.plot_3D][self.ds_type - 1](args)
             else:
                 print("No matching entries found for file %s" % uuid)
             self.fig.tight_layout()
         except Exception as e:
             print(e)
         finally:
-            d.close()
-            self.ax2.set_title("")
-            self.ax1.autoscale_view()
+            self.d.close()
+            [ax.set_title("") for ax in self.ax[1:]]
+            self.ax[0].autoscale_view()
             self.fig.canvas.draw()
     
     @staticmethod
@@ -67,7 +108,7 @@ class QuickPlot(object):
             return {
                 -9: [1e-9, "nano", "n"],
                 -6: [1e-6, "micro", "u"],
-                -3: [1e-3, "mili", "m"],
+                -3: [1e-3, "milli", "m"],
                 0 : [1, "", ""],
                 3 : [1e3, "kilo", "k"],
                 6 : [1e6, "Mega", "M"],
@@ -76,82 +117,97 @@ class QuickPlot(object):
         except KeyError:
             return [1, "", ""]
     
-    def plot_4D(self, key1, key2, d):
-        if type(key1) is not list:
-            key1 = [key1]
-        if type(key2) is not list:
-            key2 = [key2]
-        
-        def _plot(axis, k, d):
-            if "/" not in k:
-                k = "entry/data0/" + k
-            si_x = self.si_prefix(d[d[k].attrs['x_ds_url']])
-            si_y = self.si_prefix(d[d[k].attrs['y_ds_url']])
-            z_index = int(d[k].shape[2] / 2)
-            data = d[k][:, :, z_index].T
-            if self.unwrap_phase and k.split("/")[-1] == "phase":
-                data.T[~np.isnan(data.T)] = np.unwrap(data.T[~np.isnan(data.T)])
-            if self.remove_offset_x_avg:
-                data -= np.nanmean(data, axis=1, keepdims=True)
-            if self.remove_offset_y_avg:
-                data -= np.nanmean(data, axis=0, keepdims=True)
-            axis.pcolorfast(d[d[k].attrs['x_ds_url']][:d[k].shape[0]] / si_x[0], d[d[k].attrs['y_ds_url']][:d[k].shape[1]] / si_y[0], data)
-            axis.set_xlabel("%s (%s%s)" % (d[d[k].attrs['x_ds_url']].attrs['name'], si_x[2], d[d[k].attrs['x_ds_url']].attrs['unit']))
-            axis.set_ylabel("%s (%s%s)" % (d[d[k].attrs['y_ds_url']].attrs['name'], si_y[2], d[d[k].attrs['y_ds_url']].attrs['unit']))
-        
-        for k in key1:
-            _plot(self.ax1, k, d)
-        for k in key2:
-            _plot(self.ax2, k, d)
+    def plot_3D(self, args):
+        def _plot(ax, key, val):
+            if key == "view":
+                for i in range(self.overlays):
+                    x_url, d_url = self.d["entry/views/" + val].attrs[u"xy_" + str(i)].split(":")
+                    si_x = self.si_prefix(self.d[x_url])
+                    si_d = self.si_prefix(self.d[d_url])
+                    x_index = int(self.d[x_url].shape[0] / 2)
+                    y_index = int(self.d[x_url].shape[1] / 2)
+                    ax.plot(self.d[x_url][x_index,y_index,:] / si_x[0], self.d[d_url][x_index,y_index,:] / si_d[0])
+                    ax.set_ylabel("%s (%s%s)" % (self.d[d_url].attrs["name"], si_d[2], self.d[d_url].attrs["unit"]))
+                    ax.set_xlabel("%s (%s%s)" % (self.d[x_url].attrs["name"], si_d[2], self.d[x_url].attrs["unit"]))
+            elif key == "ds":
+                if "/" not in val:
+                    val = "entry/data0/" + val
+                si_x = self.si_prefix(self.d[self.d[val].attrs["x_ds_url"]])
+                si_y = self.si_prefix(self.d[self.d[val].attrs["y_ds_url"]])
+                z_index = int(self.d[val].shape[2] / 2)
+                data = self.d[val][:, :, z_index].T
+                if self.unwrap_phase and val.split("/")[-1] == "phase":
+                    data.T[~np.isnan(data.T)] = np.unwrap(data.T[~np.isnan(data.T)])
+                if self.remove_offset_x_avg:
+                    data -= np.nanmean(data, axis=1, keepdims=True)
+                if self.remove_offset_y_avg:
+                    data -= np.nanmean(data, axis=0, keepdims=True)
+                ax.pcolorfast(self.d[self.d[val].attrs["x_ds_url"]][:self.d[val].shape[0]] / si_x[0], self.d[self.d[val].attrs["y_ds_url"]][:self.d[val].shape[1]] / si_y[0], data)
+                ax.set_xlabel("%s (%s%s)" % (self.d[self.d[val].attrs["x_ds_url"]].attrs["name"], si_x[2], self.d[self.d[val].attrs["x_ds_url"]].attrs["unit"]))
+                ax.set_ylabel("%s (%s%s)" % (self.d[self.d[val].attrs["y_ds_url"]].attrs["name"], si_y[2], self.d[self.d[val].attrs["y_ds_url"]].attrs["unit"]))
+        ax_iter = iter(self.ax)
+        for key, vals in args.items():
+            for val in vals:
+                _plot(ax_iter.next(), key, val)
     
-    def plot_3D(self, key1, key2, d):
-        if type(key1) is not list:
-            key1 = [key1]
-        if type(key2) is not list:
-            key2 = [key2]
-        
-        def _plot(axis, k, d):
-            if "/" not in k:
-                k = "entry/data0/" + k
-            si_x = self.si_prefix(d[d[k].attrs['x_ds_url']])
-            si_y = self.si_prefix(d[d[k].attrs['y_ds_url']])
-            data = d[k][:].T
-            if self.unwrap_phase and k.split("/")[-1] == "phase":
-                data[~np.isnan(data)] = np.unwrap(data[~np.isnan(data)], axis=0)
-            if self.remove_offset_x_avg:
-                data -= np.nanmean(data, axis=1, keepdims=True)
-            if self.remove_offset_y_avg:
-                data -= np.nanmean(data, axis=0, keepdims=True)
-            axis.pcolorfast(d[d[k].attrs['x_ds_url']][:d[k].shape[0]] / si_x[0], d[d[k].attrs['y_ds_url']][:d[k].shape[1]] / si_y[0], data)
-            axis.set_xlabel("%s (%s%s)" % (d[d[k].attrs['x_ds_url']].attrs['name'], si_x[2], d[d[k].attrs['x_ds_url']].attrs['unit']))
-            axis.set_ylabel("%s (%s%s)" % (d[d[k].attrs['y_ds_url']].attrs['name'], si_y[2], d[d[k].attrs['y_ds_url']].attrs['unit']))
-        
-        for k in key1:
-            _plot(self.ax1, k, d)
-        for k in key2:
-            _plot(self.ax2, k, d)
+    def plot_2D(self, args):
+        def _plot(ax, key, val):
+            if key == "view":
+                for i in range(self.overlays):
+                    x_url, d_url = self.d["entry/views/" + val].attrs[u"xy_" + str(i)].split(":")
+                    si_x = self.si_prefix(self.d[x_url])
+                    si_d = self.si_prefix(self.d[d_url])
+                    y_index = int(self.d[x_url].shape[0] / 2)
+                    ax.plot(self.d[x_url][y_index,:] / si_x[0], self.d[d_url][y_index,:] / si_d[0])
+                    ax.set_ylabel("%s (%s%s)" % (self.d[d_url].attrs["name"], si_d[2], self.d[d_url].attrs["unit"]))
+                    ax.set_xlabel("%s (%s%s)" % (self.d[x_url].attrs["name"], si_d[2], self.d[x_url].attrs["unit"]))
+            elif key == "ds":
+                if "/" not in val:
+                    val = "entry/data0/" + val
+                si_x = self.si_prefix(self.d[self.d[val].attrs["x_ds_url"]])
+                si_y = self.si_prefix(self.d[self.d[val].attrs["y_ds_url"]])
+                data = self.d[val][:].T
+                if self.unwrap_phase and val.split("/")[-1] == "phase":
+                    data[~np.isnan(data)] = np.unwrap(data[~np.isnan(data)], axis=0)
+                if self.remove_offset_x_avg:
+                    data -= np.nanmean(data, axis=1, keepdims=True)
+                if self.remove_offset_y_avg:
+                    data -= np.nanmean(data, axis=0, keepdims=True)
+                ax.pcolorfast(self.d[self.d[val].attrs["x_ds_url"]][:self.d[val].shape[0]] / si_x[0], self.d[self.d[val].attrs["y_ds_url"]][:self.d[val].shape[1]] / si_y[0], data)
+                ax.set_xlabel("%s (%s%s)" % (self.d[self.d[val].attrs["x_ds_url"]].attrs["name"], si_x[2], self.d[self.d[val].attrs["x_ds_url"]].attrs["unit"]))
+                ax.set_ylabel("%s (%s%s)" % (self.d[self.d[val].attrs["y_ds_url"]].attrs["name"], si_y[2], self.d[self.d[val].attrs["y_ds_url"]].attrs["unit"]))
+        ax_iter = iter(self.ax)
+        for key, vals in args.items():
+            for val in vals:
+                _plot(ax_iter.next(), key, val)
     
-    def plot_2D(self, key1, key2, d):
-        if type(key1) is not list:
-            key1 = [key1]
-        if type(key2) is not list:
-            key2 = [key2]
-        
-        def _plot(axis, k, d):
-            if "/" not in k:
-                k = "entry/data0/" + k
-            si_x = self.si_prefix(d[d[k].attrs['x_ds_url']])
-            si_d = self.si_prefix(d[k])
-            axis.plot(d[d[k].attrs['x_ds_url']][:d[k].shape[0]] / si_x[0], d[k][:] / si_d[0])
-            axis.set_ylabel("%s (%s%s)" % (d[k].attrs['name'], si_d[2], d[k].attrs['unit']))
-            axis.set_xlabel("%s (%s%s)" % (d[d[k].attrs['x_ds_url']].attrs['name'], si_x[2], d[d[k].attrs['x_ds_url']].attrs['unit']))
-        
-        for k in key1:
-            _plot(self.ax1, k, d)
-        for k in key2:
-            _plot(self.ax2, k, d)
-    
-    def show(self):
+    def plot_1D(self, args):
+        def _plot(ax, key, val):
+            if key == "view":
+                for i in range(self.overlays):
+                    x_url, d_url = self.d["entry/views/"+val].attrs[u"xy_" + str(i)].split(":")
+                    si_x = self.si_prefix(self.d[x_url])
+                    si_d = self.si_prefix(self.d[d_url])
+                    ax.plot(self.d[x_url][:] / si_x[0], self.d[d_url][:] / si_d[0])
+                    ax.set_ylabel("%s (%s%s)" % (self.d[d_url].attrs["name"], si_d[2], self.d[d_url].attrs["unit"]))
+                    ax.set_xlabel("%s (%s%s)" % (self.d[x_url].attrs["name"], si_d[2], self.d[x_url].attrs["unit"]))
+            elif key == "ds":
+                if "/" not in val:
+                    val = "entry/data0/" + val
+                si_x = self.si_prefix(self.d[self.d[val].attrs["x_ds_url"]])
+                si_d = self.si_prefix(self.d[val])
+                ax.plot(self.d[self.d[val].attrs["x_ds_url"]][:self.d[val].shape[0]] / si_x[0], self.d[val][:] / si_d[0])
+                ax.set_ylabel("%s (%s%s)" % (self.d[val].attrs["name"], si_d[2], self.d[val].attrs["unit"]))
+                ax.set_xlabel("%s (%s%s)" % (self.d[self.d[val].attrs["x_ds_url"]].attrs["name"], si_x[2], self.d[self.d[val].attrs["x_ds_url"]].attrs["unit"]))
+        self.output = self.ax, args
+        ax_iter = iter(self.ax)
+        for key, vals in args.items():
+            for val in vals:
+                _plot(ax_iter.next(), key, val)
+
+    def show(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
         qkit.fid.show()
-        qkit.fid.grid.observe(self.plot_selected_df, names=['_selected_rows'])
+        qkit.fid.grid.observe(self.plot_selected_df, names=["_selected_rows"])
         return qkit.fid.grid
