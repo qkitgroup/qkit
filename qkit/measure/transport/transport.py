@@ -1229,8 +1229,8 @@ class transport(object):
         start = float(sweep[0])
         stop = float(sweep[1])
         step = float(sweep[2])
-        nop = round(np.abs(start-stop)/step+1)
-        arr = np.linspace(start, stop, nop)
+        nop = int(abs((stop-start)/step)+1)
+        arr = np.linspace(start, np.sign(stop)*(np.floor(np.abs(float(stop-start)/step))*step)+start, nop) # stop is rounded down to multiples of step
         return np.array([np.sign(val)*round(np.abs(val), -int(np.floor(np.log10(np.abs(step))))+1) for val in arr])  # round to overcome missing precision of numpy linspace
     
     def _get_numder_comment(self, name):
@@ -1360,19 +1360,21 @@ class transport(object):
         """
         # take data
         if self._landscape:
+            temp = time.time()
             # modify sweep by envelop of landscape function
             x_lim = self._lsc_vec[self.ix]
             if self._lsc_mirror:
                 sweep_lsc = np.nanmin([np.abs(sweep), [x_lim, x_lim, np.nan, np.nan]], axis=0)*np.sign(sweep)
             else:
                 sweep_lsc = np.nanmin([sweep, [x_lim, x_lim, np.nan, np.nan]], axis=0)
-            # round to multiple of step
-            sweep_lsc = sweep_lsc[2]*np.round(sweep_lsc/sweep_lsc[2])
+            # find landscape bounds in full bias values
+            bias_data = self._get_bias_values(sweep)
+            mask = np.logical_and(bias_data >= np.min(sweep_lsc[:2]), bias_data <= np.max(sweep_lsc[:2]))
+            sweep_lsc[:2] = bias_data[np.where(mask)[0]][0], bias_data[np.where(mask)[0]][-1]
             # take data
             data = self._IVD.take_IV(sweep=sweep_lsc)
             # fill skipped bias values with np.nan to keep shape constant
-            mask = [val in self._get_bias_values(sweep_lsc) for val in self._get_bias_values(sweep)]  # better replace self._get_bias_values(sweep) by i_b_0 self._data_bias[?].ds[:] ?
-            I_values, V_values = np.array([np.nan]*len(mask)), np.array([np.nan]*len(mask))
+            I_values, V_values = np.array([np.nan] * len(mask)), np.array([np.nan] * len(mask))
             np.place(arr=I_values, mask=mask, vals=data[0])
             np.place(arr=V_values, mask=mask, vals=data[1])
         else:
