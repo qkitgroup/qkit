@@ -283,7 +283,6 @@ class transport(object):
         dydx: numpy.array
             An N-dimensional array containing numerical derivative dy/dx.
         """
-        ### TODO: care about +/-np.inf and viewer
         ### TODO: catch error, if len(dataset) < window_length in case of SavGol filter
         try:
             return self._numder_func(y, *self._numder_args, **self._numder_kwargs) / self._numder_func(x, *self._numder_args, **self._numder_kwargs)
@@ -369,6 +368,8 @@ class transport(object):
         # x dt
         if x_dt is not None:
             self._x_dt = x_dt
+        if self._landscape:
+            self._lsc_vec = self._lsc_func(np.array(self._x_vec), *self._lsc_args)
         return
     
     def set_tdy(self, x_dt):
@@ -453,8 +454,8 @@ class transport(object):
     
     def set_landscape(self, func, args, mirror=True):
         """
-        envelop function for landscape option in case of 2D and 3D scans
-        fasten up 
+        Sets parameters for landscapes scans in case of 2D and 3D scans to fasten up the measurement.
+        The values of the given envelop function limit the sweep bounds for each x-value of 2D or 3D scans. The overall sweep bounds can merely be decreased, so that only envelop values <= sweep bounds affect them.
         
         Parameters
         ----------
@@ -468,8 +469,27 @@ class transport(object):
         Returns
         -------
         None
+
+        Examples
+        --------
+        >>> tr.add_sweep_halfswing(1e-6, 10e-9)
+        >>> def x_function(i):
+                set_x_value(i)
+                return
+        >>> tr.set_x_parameters(x_vec = np.linspace(-10, 10, 21),
+                                x_coordname = 'x_name',
+                                x_set_obj = x_function,
+                                x_unit = 'x_unit')
+        >>> def lsc_func(x, a0, a1, x0):
+                y = np.ones(shape = len(x)) * a1
+                y[np.abs(x) > x0] = a0
+                return y
+        >>> tr.set_landscape(lsc_func, (500e-9, 1e-6, 5))
         """
+        ### TODO: possibility for landscape scans in both x and y direction
         self._landscape = True
+        self._lsc_func = func
+        self._lsc_args = args
         self._lsc_vec = func(np.array(self._x_vec), *args)
         self._lsc_mirror = mirror
         return
@@ -584,7 +604,6 @@ class transport(object):
         -------
         None
         """
-        ### TODO: add function as comment / attribut to data
         ### TODO: dtype = float instead of 'f'
         # log-function
         if callable(func):
@@ -997,6 +1016,8 @@ class transport(object):
         self._prepare_measurement_IVD()
         ''' prepare data storage '''
         self._prepare_measurement_file()
+        ''' prepare progress bar '''
+        self._prepare_progress_bar()
         ''' opens qviewkit to plot measurement '''
         if self.open_qviewkit:
             if self._scan_dim == 0:
@@ -1005,18 +1026,8 @@ class transport(object):
                 datasets = ['views/IV']
                 if self._scan_dim > 1:
                     for i in range(self.sweeps.get_nos()):
-                        datasets.append('{:s}_{:d}'.format(self._IV_modes[not(self._bias)].lower(), i))
+                        datasets.append('{:s}_{:d}'.format(self._IV_modes[not self._bias].lower(), i))
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=datasets)  # opens IV-view by default
-        ''' progress bar '''
-        if self.progress_bar:
-            num_its = {0: len(self._x_vec),
-                       1: self.sweeps.get_nos()*[1 if self._average is None else self._average][0],
-                       2: len(self._x_vec)*self.sweeps.get_nos()*[1 if self._average is None else self._average][0],
-                       3: len(self._x_vec)*len(self._y_vec)*self.sweeps.get_nos()*[1 if self._average is None else self._average][0]}
-            self._pb = Progress_Bar(max_it=num_its[self._scan_dim], 
-                                    name='_'.join(filter(None, ('xy' if self._scan_dim is 0 else '{:d}D_IV_curve'.format(self._scan_dim), self._filename, self._expname))))
-        else:
-            print('recording trace...')
         ''' measurement '''
         sys.stdout.flush()
         qkit.flow.start()
@@ -1049,7 +1060,7 @@ class transport(object):
                     if self.log_function != [None]:
                         for j, f in enumerate(self.log_function):
                             self._log_values[j].append(float(f()))
-                    for y, y_func in [(None, _pass)] if self._scan_dim < 3 else [(y, self._y_set_obj) for y in self._y_vec]:  # loop: y_obj with parameters from y_vec if 3D else pass(None)
+                    for self.iy, (y, y_func) in enumerate([(None, _pass)]) if self._scan_dim < 3 else [(y, self._y_set_obj) for y in self._y_vec]:  # loop: y_obj with parameters from y_vec if 3D else pass(None)
                         y_func(y)
                         time.sleep(self._tdy)
                         # iterate sweeps and take data
@@ -1211,6 +1222,38 @@ class transport(object):
         if self._comment:
             self._data_file.add_comment(self._comment)
         return
+
+    def _prepare_progress_bar(self):
+        """
+        Creates a progress bar using ipywidgets to show the measurement progress.
+        Usually the number of performed sweeps, but in case of landscape scans entire number of bias points, is used as number of iterations.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        if self.progress_bar:
+            # number of iterations as number of performed sweeps
+            num_its = {0: len(self._x_vec),
+                       1: self.sweeps.get_nos()*[1 if self._average is None else self._average][0],
+                       2: len(self._x_vec)*self.sweeps.get_nos()*[1 if self._average is None else self._average][0],
+                       3: len(self._x_vec)*len(self._y_vec)*self.sweeps.get_nos()*[1 if self._average is None else self._average][0]}
+            if self._landscape and self._scan_dim in [2, 3]:
+                # use entire number of bias points as number of iterations to estimate measurement time better
+                bias_values = np.array([np.dot(np.ones((len(self._x_vec), 1)), [self._get_bias_values(sweep)]) for sweep in self.sweeps.get_sweeps()])
+                lsc_limits = np.array([self._lsc_vec, -self._lsc_vec if self._lsc_mirror else np.ones(shape=self._x_vec.shape) * np.min(sweep[:2])])
+                lsc_mask = np.logical_and(bias_values <= np.dot(np.ones((bias_values.shape[2], 1)), [np.max(lsc_limits, axis=0)]).T,
+                                          bias_values >= np.dot(np.ones((bias_values.shape[2], 1)), [np.min(lsc_limits, axis=0)]).T)
+                num_its[self._scan_dim] = np.sum(lsc_mask)*len(self._y_vec)*[1 if self._average is None else self._average][0]
+                self._pb_addend = np.concatenate(zip(*np.sum(lsc_mask, axis=2)))  # value that counter has to be increased after each sweep
+            self._pb = Progress_Bar(max_it=num_its[self._scan_dim],
+                                    name='_'.join(filter(None, ('xy' if self._scan_dim is 0 else '{:d}D_IV_curve'.format(self._scan_dim), self._filename, self._expname))))
+        else:
+            print('recording trace...')
     
     def _get_bias_values(self, sweep):
         """
@@ -1229,8 +1272,8 @@ class transport(object):
         start = float(sweep[0])
         stop = float(sweep[1])
         step = float(sweep[2])
-        nop = int(abs((stop-start)/step)+1)
-        arr = np.linspace(start, np.sign(stop)*(np.floor(np.abs(float(stop-start)/step))*step)+start, nop) # stop is rounded down to multiples of step
+        nop = int(round(abs((stop-start)/step)+1))
+        arr = np.linspace(start, np.sign(stop)*(np.floor(np.abs(np.round(float(stop-start)/step)))*step)+start, nop)  # stop is rounded down to multiples of step
         return np.array([np.sign(val)*round(np.abs(val), -int(np.floor(np.log10(np.abs(step))))+1) for val in arr])  # round to overcome missing precision of numpy linspace
     
     def _get_numder_comment(self, name):
@@ -1312,7 +1355,7 @@ class transport(object):
                     lst.append(val)
                 # iterate progress bar
                 if self.progress_bar:
-                    self._pb.iterate()
+                    self._pb.iterate(addend=self._pb_addend[self.ix] if self._landscape else 1)
                 qkit.flow.sleep()
         else:
             I_values, V_values = [], []
@@ -1333,7 +1376,7 @@ class transport(object):
                         self._data_file.flush()
                     # iterate progress bar
                     if self.progress_bar:
-                        self._pb.iterate()
+                        self._pb.iterate(addend=self._pb_addend[self.ix] if self._landscape else 1)
             # set average attribute to number of averages
             for j in range(self.sweeps.get_nos()):
                 for lst in [val for k, val in enumerate([self._data_I, self._data_V, self._data_dVdI]) if k < 2+int(self._dVdI)]:
@@ -1360,13 +1403,12 @@ class transport(object):
         """
         # take data
         if self._landscape:
-            temp = time.time()
             # modify sweep by envelop of landscape function
-            x_lim = self._lsc_vec[self.ix]
+            bias_lim = self._lsc_vec[self.ix]
             if self._lsc_mirror:
-                sweep_lsc = np.nanmin([np.abs(sweep), [x_lim, x_lim, np.nan, np.nan]], axis=0)*np.sign(sweep)
+                sweep_lsc = np.nanmin([np.abs(sweep), [bias_lim, bias_lim, np.nan, np.nan]], axis=0)*np.sign(sweep)
             else:
-                sweep_lsc = np.nanmin([sweep, [x_lim, x_lim, np.nan, np.nan]], axis=0)
+                sweep_lsc = np.nanmin([sweep, [bias_lim, bias_lim, np.nan, np.nan]], axis=0)
             # find landscape bounds in full bias values
             bias_data = self._get_bias_values(sweep)
             mask = np.logical_and(bias_data >= np.min(sweep_lsc[:2]), bias_data <= np.max(sweep_lsc[:2]))
