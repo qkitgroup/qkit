@@ -285,18 +285,23 @@ class Resonator(object):
         '''
         creates the datasets for the circle fit in the hdf-file
         '''
-        self._result_keys_notch = {"Qi_dia_corr": '', "Qi_no_corr": '', "absQc": '', "Qc_dia_corr": '', "Ql": '',
-                                   "fr": '', "theta0": '', "phi0": '', "phi0_err": '', "Ql_err": '', "absQc_err": '',
-                                   "fr_err": '', "chi_square": '', "Qi_no_corr_err": '', "Qi_dia_corr_err": ''}
-        self._result_keys_reflection = {"Qi": '', "Qc": '', "Ql": '', "fr": '', "theta0": '', "Ql_err": '',
-                                        "Qc_err": '', "fr_err": '', "chi_square": '', "Qi_err": ''}
         self._results = {}
-
-        if self._circle_notch:
-            self._result_keys = self._result_keys_notch
-
-        if self._circle_reflection:
-            self._result_keys = self._result_keys_reflection
+        circle_fit_version = qkit.cfg.get("circle_fit_version", 1)
+        if circle_fit_version == 1:
+            if self._circle_notch:
+                self._result_keys = ["Qi_dia_corr", "Qi_no_corr", "absQc", "Qc_dia_corr", "Ql",
+                                     "fr", "theta0", "phi0", "phi0_err", "Ql_err", "absQc_err",
+                                     "fr_err", "chi_square", "Qi_no_corr_err", "Qi_dia_corr_err"]
+            elif self._circle_reflection:
+                self._result_keys = ["Qi", "Qc", "Ql", "fr", "theta0", "Ql_err",
+                                     "Qc_err", "fr_err", "chi_square", "Qi_err"]
+                
+        elif circle_fit_version == 2:
+            self._result_keys = ["delay", "delay_remaining", "a", "alpha", "theta", "phi", "fr", "Ql", "Qc",
+                                 "Qc_no_dia_corr", "Qi", "Qi_no_dia_corr", "fr_err", "Ql_err", "absQc_err",
+                                 "phi_err", "Qi_err", "Qi_no_dia_corr_err", "chi_square"]
+        else:
+            logging.warning("Circle fit version not properly set in configuration!")
 
         if self._ds_type == ds_types['vector']:  # data from measure_1d
             self._data_real_gen = self._hf.add_value_vector('data_real_gen', self._frequency_co, folder='analysis',
@@ -313,8 +318,8 @@ class Resonator(object):
             self._circ_imag_gen = self._hf.add_value_vector('circ_imag_gen', self._frequency_co, folder='analysis',
                                                             unit='')
 
-            for key in iter(self._result_keys):
-                self._results[str(key)] = self._hf.add_coordinate('circ_' + str(key), folder='analysis', unit='')
+            for key in self._result_keys:
+                self._results[key] = self._hf.add_coordinate('circ_' + key, folder='analysis', unit='')
 
         if self._ds_type == ds_types['matrix']:  # data from measure_2d
             self._data_real_gen = self._hf.add_value_matrix('data_real_gen', self._x_co, self._frequency_co,
@@ -331,9 +336,8 @@ class Resonator(object):
             self._circ_imag_gen = self._hf.add_value_matrix('circ_imag_gen', self._x_co, self._frequency_co,
                                                             folder='analysis', unit='')
 
-            for key in iter(self._result_keys):
-                self._results[str(key)] = self._hf.add_value_vector('circ_' + str(key), folder='analysis', x=self._x_co,
-                                                                    unit='')
+            for key in self._result_keys:
+                self._results[key] = self._hf.add_value_vector('circ_' + key, folder='analysis', x=self._x_co, unit='')
 
         circ_view_amp = self._hf.add_view('circ_amp', x=self._y_co, y=self._ds_amp)
         circ_view_amp.add(x=self._frequency_co, y=self._circ_amp_gen)
