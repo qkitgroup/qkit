@@ -64,7 +64,7 @@ def _display_1D_view(self, graphicsView):
     ## displayed.
     view_params = json.loads(self.ds.attrs.get("view_params", {}))
     for i in range(overlay_num + 1):
-        xyurls = self.ds.attrs.get("xy_" + str(i), "")
+        xyurls = self.ds.attrs.get("xy_" + str(i), "").decode()
         ds_urls = [xyurls.split(":")[0], xyurls.split(":")[1]]
         if xyurls:
             err_url = self.ds.attrs.get("xy_" + str(i) + "_error", "")

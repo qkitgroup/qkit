@@ -160,14 +160,14 @@ class Resonator(object):
         self._frequency = np.array(self._hf[self.ds_url_freq],dtype=np.float64)
 
         try:
-            self._x_co = self._hf.get_dataset(self._ds_amp.x_ds_url)
+            self._x_co = self._hf.get_dataset(self._ds_amp.x_ds_url.decode())
         except:
             try:
                 self._x_co = self._hf.get_dataset(self.ds_url_power) # hardcode a std url
             except:
                 logging.warning('Unable to open any x_coordinate. Please set manually using \'set_x_coord()\'.')
         try:
-            self._y_co = self._hf.get_dataset(self._ds_amp.y_ds_url)
+            self._y_co = self._hf.get_dataset(self._ds_amp.y_ds_url.decode())
         except:
             try: self._y_co = self._hf.get_dataset(self.ds_url_freq) # hardcode a std url
             except:
@@ -268,7 +268,7 @@ class Resonator(object):
                 self._circ_real_gen.append(err)
                 self._circ_imag_gen.append(err)
 
-                for key in self._results.iterkeys():
+                for key in iter(self._results):
                     self._results[str(key)].append(np.nan)
 
             else:
@@ -277,7 +277,7 @@ class Resonator(object):
                 self._circ_real_gen.append(np.real(self._circle_port.z_data_sim))
                 self._circ_imag_gen.append(np.imag(self._circle_port.z_data_sim))
 
-                for key in self._results.iterkeys():
+                for key in iter(self._results):
                     self._results[str(key)].append(float(self._circle_port.fitresults[str(key)]))
             trace+=1
 
@@ -313,7 +313,7 @@ class Resonator(object):
             self._circ_imag_gen = self._hf.add_value_vector('circ_imag_gen', self._frequency_co, folder='analysis',
                                                             unit='')
 
-            for key in self._result_keys.iterkeys():
+            for key in iter(self._result_keys):
                 self._results[str(key)] = self._hf.add_coordinate('circ_' + str(key), folder='analysis', unit='')
 
         if self._ds_type == ds_types['matrix']:  # data from measure_2d
@@ -331,7 +331,7 @@ class Resonator(object):
             self._circ_imag_gen = self._hf.add_value_matrix('circ_imag_gen', self._x_co, self._frequency_co,
                                                             folder='analysis', unit='')
 
-            for key in self._result_keys.iterkeys():
+            for key in iter(self._result_keys):
                 self._results[str(key)] = self._hf.add_value_vector('circ_' + str(key), folder='analysis', x=self._x_co,
                                                                     unit='')
 
@@ -339,9 +339,9 @@ class Resonator(object):
         circ_view_amp.add(x=self._frequency_co, y=self._circ_amp_gen)
         circ_view_pha = self._hf.add_view('circ_pha', x=self._y_co, y=self._ds_pha)
         circ_view_pha.add(x=self._frequency_co, y=self._circ_pha_gen)
-        circ_view_iq = self._hf.add_view('circ_IQ', x=self._circ_real_gen, y=self._circ_imag_gen,
+        circ_view_iq = self._hf.add_view('circ_IQ', x=self._data_real_gen, y=self._data_imag_gen,
                                          view_params={'aspect': 1.0})
-        circ_view_iq.add(x=self._data_real_gen, y=self._data_imag_gen)
+        circ_view_iq.add(x=self._circ_real_gen, y=self._circ_imag_gen)
 
     def _get_data_circle(self):
         '''
