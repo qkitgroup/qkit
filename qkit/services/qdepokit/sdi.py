@@ -490,7 +490,7 @@ class SputterMonitor(object):
         sys.stdout.flush()
 
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['resistance'])
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['views/resistance_thickness'])
 
         try:
             """
@@ -639,7 +639,7 @@ class SputterMonitor(object):
         self._init_depmon()
 
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['resistance'])
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['views/resistance_thickness'], refresh=1.)
 
         self._depmon = Thread(target=self._monitor_depo_bg, name="depmon-1")
         self._depmon.daemon = True
