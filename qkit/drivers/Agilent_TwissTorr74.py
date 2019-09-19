@@ -186,7 +186,7 @@ class Agilent_TwissTorr74(Instrument):
 
         start = '\x02'
 
-        command_string = chr(addr) + window + rw
+        command_string = start + chr(addr) + window + rw
         if rw == 1:
             command_string += data
         end = '\x03'
@@ -199,7 +199,7 @@ class Agilent_TwissTorr74(Instrument):
         crc1 = crch[-2]
         crc2 = crch[-1]
 
-        cmd = start + command_string + crc1 + crc2
+        cmd = command_string + crc1 + crc2
 
         return cmd
 
@@ -211,7 +211,7 @@ class Agilent_TwissTorr74(Instrument):
         else:
             window = answer[2] + answer[3] + answer[4]
             rw = answer[5]
-            for i in range(6,len(answer)-4):
+            for i in range(6,len(answer)-3):
                 data += answer[i]
             return data
 
