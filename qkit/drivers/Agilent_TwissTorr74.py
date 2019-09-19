@@ -83,6 +83,7 @@ class Agilent_TwissTorr74(Instrument):
         value_hex=self.ret_value(value_bin)
         value_chr=map(lambda x: chr(value_hex[x]),range(len(value_hex)))
         return value_hex
+
     def get_temperature(self):
         # get temperature
         temperature=[0x02,0x80,0x32,0x30,0x34,0x30,0x03,0x38,0x35]
@@ -142,8 +143,7 @@ class Agilent_TwissTorr74(Instrument):
         value_hex=self.ret_value(value_bin)
         value_chr=map(lambda x: chr(value_hex[x]),range(len(value_hex)))
         return ''.join(value_chr[5:12])
-    
-    
+
     def _std_open(self, device, baudrate, timeout):
         return serial.Serial(device, baudrate, timeout=timeout)
 
@@ -162,6 +162,7 @@ class Agilent_TwissTorr74(Instrument):
         for i in range(N):
             format = format + "B" # 
         return struct.pack(format, *data)#
+
     def ret_value(self,data):
         N=len(data)
         format = ">"
@@ -169,4 +170,96 @@ class Agilent_TwissTorr74(Instrument):
             format = format + "B" # 
         return struct.unpack(format, data)
 
+    def command(self, addr=0x80, window, rw, data=None):
+        """
+        Function building the command string sent to the device.
 
+        Args:
+            addr (hex): Unit address = 0x80 for RS-232, 0x80 + device number for RS-485
+            window (str): String of 3 numeric character indicating the window number (defining the command)
+            rw (str): Is the command used to read ('0') or write ('1') to the device
+            data (str):  Alphanumeric ASCII string with the data to be written in case rw=1
+
+        Returns:
+            cmd (str): Complete string to be sent to the device including a CRC
+        """
+
+        start = '\x02'
+
+        command_string = chr(addr) + window + rw
+        if rw == 1:
+            command_string += data
+        end = '\x03'
+        command_string += end
+
+        crc = ord(command_string[1])^ord(command_string[2])
+        for i in range(3,len(command_string)):
+            crc = crc^ord(command_string[i])
+        crch = hex(crc)
+        crc1 = crch[-2]
+        crc2 = crch[-1]
+
+        cmd = start + command_string + crc1 + crc2
+
+        return cmd
+
+    def answer(self, answer):
+        start = answer[0]
+        address = answer[1]
+        if answer[2] == chr(0x06):
+            return answer[2]
+        else:
+            window = answer[2] + answer[3] + answer[4]
+            rw = answer[5]
+            for i in range(6,len(answer)-4):
+                data += answer[i]
+            return data
+
+    def start(self):
+        window = '000'
+        rw = '1'
+        data = '1'
+        cmd = self.command(window=window, rw=rw, data=data)
+        self.remote_cmd(cmd)
+
+    def stop(self):
+        window = "000"
+        rw = '1'
+        data = '0'
+        cmd = self.command(window=window, rw=rw, data=data)
+        self.remote_cmd(cmd)
+
+    def set_softstart(self, status=False):
+        window = "100"
+        rw = '1'
+        if status: data = "1"
+        else: data = "0"
+        cmd = self.command(window=window, rw=rw, data=data)
+        self.remote_cmd(cmd)
+
+    def set_rot_freq_setting(self, freq=1167):
+        """
+        Rotational frequency setting (Hz)
+
+        Args:
+            freq (int): Rotational frequency [1100..1167], default = 1167
+        """
+        window = "000"
+        rw = '1'
+        data = str(freq)
+        cmd = self.command(window=window, rw=rw, data=data)
+        self.remote_cmd(cmd)
+
+    def get_rot_freq(self):
+        """
+        Get rotation frequency (Hz)
+
+        Returns:
+            freq (int): Rotation frequency in Hz
+        """
+        window = "226"
+        rw = '0'
+        cmd = self.command(window=window, rw=rw)
+        answer = self.answer(self.remote_cmd(cmd))
+        answer = int(answer)/60.
+        return answer
