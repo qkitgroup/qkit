@@ -71,25 +71,27 @@ class Agilent_TwissTorr74(Instrument):
     def command(self, addr=0x80, window='205', write=False, data=None):
         """
         Function building the command string sent to the device.
+        For possible commands, see manual or use predefined functions in this module.
 
         Args:
             addr (hex): Unit address = 0x80 for RS-232, 0x80 + device number for RS-485
             window (str): String of 3 numeric character indicating the window number (defining the command)
-            write (bool): Is the command used to read (false) or write (True) to the device
-            data (str):  Alphanumeric ASCII string with the data to be written in case rw=1
+            write (bool): Is the command used to read (False) or write (True) to the device
+            data (str):  Alphanumeric ASCII string with the data to be written in case write==True
 
         Returns:
             cmd (str): Complete string to be sent to the device including a CRC
         """
 
         start = '\x02'
-
         command_string = start + chr(addr) + window
-        if write == True:
+
+        if write:
             command_string += '1'
             command_string += data
         else:
             command_string += '0'
+
         end = '\x03'
         command_string += end
 
@@ -109,8 +111,13 @@ class Agilent_TwissTorr74(Instrument):
         Function unpacking the device answer.
         If the returned string has the length corresponding to one char of information,
         this information is decoded using the described meanings from the manual.
-        In the case that the returned string is longer,
-        the characters containing the data are returned.
+        In the case that the returned string is longer, the characters containing the data are returned.
+
+        Args:
+            answer (str): Answer string as it came from the device
+
+        Returns:
+            Decoded answer as described above.
         """
         start = answer[0]
         address = answer[1]

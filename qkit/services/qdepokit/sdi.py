@@ -79,6 +79,8 @@ class SputterMonitor(object):
         self._fit_points = 5
         self._p0 = None
 
+        self.reference_uid = None
+
         self._plot_comment = ""
 
         self.open_qviewkit = True
@@ -190,6 +192,16 @@ class SputterMonitor(object):
         self._fit_every = fit_every
         self._fit_points = fit_points
         self._p0 = p0
+
+    def set_reference_uid(self, uid=None)
+        try:
+            ref = hdf.Data(qkit.fid[uid])
+            self._ref_resistance = ref.data.resistance
+            self._ref_thickness = ref.data.thickness
+            self._reference_uid = uid
+            ref.close()
+        except: self._reference_uid = None
+
 
     def set_resistance_4W(self,four_wire=False):
         """
@@ -369,6 +381,8 @@ class SputterMonitor(object):
                                                      x=self._data_thickness,
                                                      y=self._data_resistance)
         self._resist_view.add(x=self._thickness_coord, y=self._data_ideal)
+        if self._reference_uid not None:
+            self._resist_view.add(x=self._ref_thickness, y=self._ref_resistance)
 
         self._deviation_abs_view = self._data_file.add_view('deviation_absolute',
                                                             x=self._data_thickness,
