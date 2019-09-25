@@ -31,7 +31,10 @@ import sys
 import time
 import threading
 from threading import Thread
-from queue import Queue, Empty
+try: # In Python 2 the following command works only with python-future installed
+    from queue import Queue, Empty
+except ImportError:
+    from Queue import Queue, Empty
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -194,16 +197,24 @@ class SputterMonitor(object):
         self._p0 = p0
 
     def set_reference_uid(self, uid=None):
+        """
+        Set a UID to be shown as a reference trace in the "resistance_thickness" view.
+
+        Args:
+            uid (str): The UID of the h5 file from which the resistance and thickness data is to be displayed.
+        """
         try:
             ref = hdf.Data(qkit.fid[uid])
-            self._ref_resistance = ref.data.resistance
-            self._ref_thickness = ref.data.thickness
+            self._ref_resistance = ref.data.resistance[:]
+            self._ref_thickness = ref.data.thickness[:]
             self._reference_uid = uid
-            ref.close()
-        except: self._reference_uid = None
+            ref.close
+            return self._reference_uid
+        except:
+            self._reference_uid = None
+            return "Invalid UID"
 
-
-    def set_resistance_4W(self,four_wire=False):
+    def set_resistance_4W(self, four_wire=False):
         """
         Sets 2 (default) or 4 wire measurement mode, if the device supports it.
 
@@ -375,14 +386,29 @@ class SputterMonitor(object):
                                                                            save_timestamp=False)
 
         '''
+        Reference dataset
+        '''
+        if not self._reference_uid == None:
+            self._thickness_reference = self._data_file.add_value_vector('thickness_reference',
+                                                                         x=None,
+                                                                         unit='nm',
+                                                                         save_timestamp=False)
+            self._thickness_reference.append(self._ref_thickness)
+            self._resistance_reference = self._data_file.add_value_vector('reference_' + self._reference_uid,
+                                                                          x=None,
+                                                                          unit='Ohm',
+                                                                          save_timestamp=False)
+            self._resistance_reference.append(self._ref_resistance)
+
+        '''
         Create Views
         '''
         self._resist_view = self._data_file.add_view('resistance_thickness',
                                                      x=self._data_thickness,
                                                      y=self._data_resistance)
         self._resist_view.add(x=self._thickness_coord, y=self._data_ideal)
-        if not self._reference_uid = None:
-            self._resist_view.add(x=self._ref_thickness, y=self._ref_resistance)
+        if not self._reference_uid == None:
+            self._resist_view.add(x=self._thickness_reference, y=self._resistance_reference)
 
         self._deviation_abs_view = self._data_file.add_view('deviation_absolute',
                                                             x=self._data_thickness,
@@ -471,7 +497,8 @@ class SputterMonitor(object):
             self._data_deviation_abs.append(deviation_abs)
             self._data_deviation_rel.append(deviation_rel)
 
-        if ((self._fit_resistance) and (mon_data.it % self._fit_every == 0) and (len(mon_data.resistance) >= self._fit_points)):
+        if ((self._fit_resistance) and (mon_data.it % self._fit_every == 0) and (
+                len(mon_data.resistance) >= self._fit_points)):
             estimation = self._fit_trend(mon_data.thickness[-self._fit_points:None],
                                          mon_data.resistance[-self._fit_points:None])
             self._thickness_estimation.append(estimation[0])
@@ -510,9 +537,11 @@ class SputterMonitor(object):
             """
             Initialize the data lists.
             """
+
             class MonData(object):
                 resistance = []
                 thickness = []
+
             mon_data = MonData()
 
             """
@@ -526,7 +555,7 @@ class SputterMonitor(object):
                     self._p.iterate()
 
                 # calculate the time when the next iteration should take place
-                ti = mon_data.t0 + (float(mon_data.it)+1) * self._resolution
+                ti = mon_data.t0 + (float(mon_data.it) + 1) * self._resolution
                 # wait until the total dt(iteration) has elapsed
                 while time.time() < ti:
                     time.sleep(0.05)
@@ -557,21 +586,32 @@ class SputterMonitor(object):
             set_duration and set_resolution should be called before to set the monitoring length and time resolution.
             set_filmparameters should be called before to provide the actual target values.
         """
+
         class StopPauseExeption(Exception):
             pass
+
         class StartPauseExeption(Exception):
             pass
+
         """
         A few boilerplate functions for the thread management:
         continue, stop, status, etc...
         """
-        def stop(): raise StopIteration
-        def do_nothing(): pass
-        def status(): self._depmon_queue.put(loop_status)
-        def cont() : raise StopPauseExeption
-        def pause(): raise StartPauseExeption
 
-                
+        def stop():
+            raise StopIteration
+
+        def do_nothing():
+            pass
+
+        def status():
+            self._depmon_queue.put(loop_status)
+
+        def cont():
+            raise StopPauseExeption
+
+        def pause():
+            raise StartPauseExeption
 
         loop_status = 0
         tasks = {}
@@ -584,9 +624,11 @@ class SputterMonitor(object):
         """
         Initialize the data lists.
         """
+
         class MonData(object):
             resistance = []
             thickness = []
+
         mon_data = MonData()
 
         """
@@ -608,7 +650,7 @@ class SputterMonitor(object):
                 while True:
                     try:
                         time.sleep(0.1)
-                        tasks.get(self._depmon_queue.get(False), do_nothing)()                    
+                        tasks.get(self._depmon_queue.get(False), do_nothing)()
                         self._depmon_queue.task_done()
                     except StopPauseExeption:
                         print('monitoring restarted')
@@ -653,7 +695,8 @@ class SputterMonitor(object):
         self._init_depmon()
 
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['views/resistance_thickness'], refresh=1.)
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['views/resistance_thickness'],
+                                              refresh=1.)
 
         self._depmon = Thread(target=self._monitor_depo_bg, name="depmon-1")
         self._depmon.daemon = True
@@ -691,7 +734,7 @@ class SputterMonitor(object):
         """
         for thread in threading.enumerate():
             if thread.getName()[:3] == "dep":
-                print (thread)
+                print(thread)
 
     def _end_measurement(self):
         """
