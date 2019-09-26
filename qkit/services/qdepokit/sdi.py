@@ -82,7 +82,7 @@ class SputterMonitor(object):
         self._fit_points = 5
         self._p0 = None
 
-        self.reference_uid = None
+        self._reference_uid = None
 
         self._plot_comment = ""
 
