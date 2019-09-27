@@ -86,7 +86,7 @@ class Keysight_B2900(Instrument):
         self._measurement_modes = {0: '2-wire', 1: '4-wire'}
         self._IV_modes = {0: 'curr', 1: 'volt', 2: 'res'}
         self._IV_units = {0: 'A', 1: 'V', 2: 'Ohm'}
-        self._sense_mode = {i+1: None for i in range(self._channels)}
+        self._sense_mode = {i+1: 0 for i in range(self._channels)}
         # dict of defaults values: defaults[<sweep_mode>][<channel>][<parameter>][<value>]
         self._defaults = {0: [{'measurement_mode': 0,
                                'bias_mode': 1,
@@ -344,9 +344,9 @@ class Keysight_B2900(Instrument):
         # reset
         if reset:
             self.reset()
+            [self.set_sense_mode(channel=channel, mode=0) for channel in np.arange(self._channels)+1]
         else:
-            #self.get_all()
-            print('')
+            self.get_all()
         self._write(':syst:beep:stat 0')  # disable beeper
 
     def _write(self, cmd):
@@ -2035,8 +2035,8 @@ class Keysight_B2900(Instrument):
         print('sense mode         = {:s}'.format(self._IV_modes[self.get_sense_mode()]))
         print('bias range         = {:1.0e}{:s}'.format(self.get_bias_range(), self._IV_units[self.get_bias_mode()]))
         print('sense range        = {:1.0e}{:s}'.format(self.get_sense_range(), self._IV_units[self.get_sense_mode()]))
-        print('bias delay         = {:1.3e}s'.format(self.get_bias_delay()))
-        print('sense delay        = {:1.3e}s'.format(self.get_sense_delay()))
+        print('bias delay         = {!s}'.format(self.get_bias_delay()))
+        print('sense delay        = {!s}'.format(self.get_sense_delay()))
         print('plc                = {:f}Hz'.format(self.get_plc()))
         print('sense nplc         = {:f}'.format(self.get_sense_nplc()))
         print('status             = {!r}'.format(self.get_status()))
