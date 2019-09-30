@@ -100,6 +100,7 @@ class SputterMonitor(object):
 
         self._target_resistance = 1000.
         self._target_thickness = 20.
+        self._target_marker = False
 
         self._depmon_queue = Queue()  # for communication with the depmon thread
 
@@ -141,7 +142,7 @@ class SputterMonitor(object):
         """
         return self._resolution
 
-    def set_filmparameters(self, resistance=1000., thickness=20.):
+    def set_filmparameters(self, resistance=1000., thickness=20., target_marker=False):
         """
         Set the target parameters of the film to be deposited.
         They are used to calculate the ideal trend of the measured parameters and their deviation from the ideal.
@@ -149,9 +150,11 @@ class SputterMonitor(object):
         Args:
             resistance (float): The target sheet resistance in Ohm.
             thickness (float): The target thickness in nm.
+            target_marker (bool): Display a cross marking the target resistance and thickness.
         """
         self._target_resistance = resistance
         self._target_thickness = thickness
+        self._target_marker = target_marker
 
     def get_filmparameters(self):
         """
@@ -372,6 +375,23 @@ class SputterMonitor(object):
                                                             save_timestamp=False)
         self._data_ideal.append(self.ideal_trend()[1])
 
+        if self._target_marker:
+            self._target_thickness_line = self._data_file.add_value_vector('target_thickness',
+                                                                          x=None,
+                                                                          unit='nm',
+                                                                          save_timestamp=False)
+            self._target_thickness_line.append([0.8*self._target_thickness,
+                                                self._target_thickness, self._target_thickness,
+                                                self._target_thickness, self._target_thickness,
+                                                1.2*self._target_thickness])
+            self._target_resistance_line = self._data_file.add_value_vector('target_resistance',
+                                                                          x=None,
+                                                                          unit='Ohm',
+                                                                          save_timestamp=False)
+            self._target_resistance_line.append([self._target_resistance, self._target_resistance,
+                                                 1.2*self._target_resistance, 0.8*self._target_resistance,
+                                                 self._target_resistance, self._target_resistance])
+
         '''
         Estimation datasets
         '''
@@ -412,6 +432,8 @@ class SputterMonitor(object):
                                                      x=self._data_thickness,
                                                      y=self._data_resistance)
         self._resist_view.add(x=self._thickness_coord, y=self._data_ideal)
+        if self._target_marker:
+            self._resist_view.add(x=self._target_thickness_line, y=self._target_resistance_line)
         if not self._reference_uid == None:
             self._resist_view.add(x=self._thickness_reference, y=self._resistance_reference)
         if self._fit_resistance:
