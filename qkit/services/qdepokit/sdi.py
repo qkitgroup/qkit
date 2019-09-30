@@ -257,10 +257,10 @@ class SputterMonitor(object):
                 return [np.nan, np.nan]
 
         try:
-            popt, _ = curve_fit(self._reciprocal, t_points, R_points, p0=self._p0)
+            self._popt, _ = curve_fit(self._reciprocal, t_points, R_points, p0=self._p0)
 
-            t_final = 1. / (self._target_resistance * popt[0])
-            R_final = 1. / (self._target_thickness * popt[0])
+            t_final = 1. / (self._target_resistance * self._popt[0])
+            R_final = 1. / (self._target_thickness * self._popt[0])
 
             return [t_final, R_final]
 
@@ -384,6 +384,11 @@ class SputterMonitor(object):
                                                                            x=None,
                                                                            unit='Ohm',
                                                                            save_timestamp=False)
+            self._last_resistance_fit = self._data_file.add_value_vector('last_resistance_fit',
+                                                                         x=None,
+                                                                         unit='Ohm',
+                                                                         save_timestamp=False)
+
 
         '''
         Reference dataset
@@ -409,6 +414,8 @@ class SputterMonitor(object):
         self._resist_view.add(x=self._thickness_coord, y=self._data_ideal)
         if not self._reference_uid == None:
             self._resist_view.add(x=self._thickness_reference, y=self._resistance_reference)
+        if self._fit_resistance:
+            self._resist_view.add(x=self._thickness_coord, y=self._last_resistance_fit)
 
         self._deviation_abs_view = self._data_file.add_view('deviation_absolute',
                                                             x=self._data_thickness,
@@ -503,6 +510,7 @@ class SputterMonitor(object):
                                          mon_data.resistance[-self._fit_points:None])
             self._thickness_estimation.append(estimation[0])
             self._resistance_estimation.append(estimation[1])
+            self._last_resistance_fit.append(self._reciprocal(self.ideal_trend()[0],self._popt[0]), reset=True)
 
     def monitor_depo(self):
         """
