@@ -161,9 +161,14 @@ class SputterMonitor(object):
 
     def get_filmparameters(self):
         """
-        Pass
+        Get the set film parameters.
+
+        Returns:
+            Tuple containing:
+                [0]: target_resistance (float): The target sheet resistance in Ohm.
+                [1]: target_thickness (float): The target thickness in nm.
         """
-        pass  # FIXME: How to format return?
+        return self._target_resistance, self._target_thickness
 
     def ideal_resistance(self, thickness):
         """
@@ -230,6 +235,19 @@ class SputterMonitor(object):
         self.ohmmeter.set_measure_4W(four_wire)
 
     def _theory(self, thickness, thickness_start, conductivity, cond_per_layer):
+        """
+        Calculate a prediction for the resistance at a certain film thickness,
+        given the current thickness, current conductivity and added conductivity per layer.
+
+        Args:
+            thickness (float): Film thickness for which the resistance shall be predicted
+            thickness_start (float): Film thickness at the start of the prediction.
+            conductivity (float): Film conductivity at the start of the prediction.
+            cond_per_layer (float): Added conductivity per layer for the remaining film growth.
+
+        Returns:
+            The projected film resistance (float).
+        """
         t_added = thickness - thickness_start
         try:
             return 1. / (conductivity + t_added * cond_per_layer)
@@ -237,9 +255,26 @@ class SputterMonitor(object):
             return np.nan
 
     def _linear(self, x, a, b):
+        """
+        Helper function providing a linear fitting function.
+        """
         return a*x+b
 
     def _fit_layer(self, t_points, R_points):
+        """
+        Fit the changing film resistance to extract the gained conductivity per layer.
+        This is then used to project the final film resistance with the provided target film parameters.
+
+        Args:
+            t_points (numpy array): Thickness data from which the conductivity per layer is to be extracted.
+            R_points (numpy array): Resistance data from which the conductivity per layer is to be extracted.
+
+        Returns:
+            Tuple containing:
+                [0]: t_final (float): The predicted thickness at which the target resistance will be reached.
+                [1]: R_final (float): The predicted resistance that will be reached at the target thickness.
+                [2]: popt[0] (float): Conductivity per layer as obtained by linear fit.
+        """
         for i in R_points:
             if i == 0:
                 return [np.nan, np.nan, np.nan]
@@ -441,7 +476,6 @@ class SputterMonitor(object):
                                                                          x=None,
                                                                          unit='Ohm',
                                                                          save_timestamp=False)
-
 
         '''
         Reference dataset
