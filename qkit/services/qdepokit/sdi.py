@@ -77,6 +77,9 @@ class SputterMonitor(object):
         self.y_set_obj = None
 
         self.progress_bar = False
+
+        self._show_ideal = False
+
         self._fit_resistance = False
         self._fit_every = 1
         self._fit_points = 5
@@ -226,6 +229,32 @@ class SputterMonitor(object):
         """
         self.ohmmeter.set_measure_4W(four_wire)
 
+    def _theory(self, thickness, thickness_start, conductivity, cond_per_layer):
+        t_added = thickness - thickness_start
+        try:
+            return 1. / (conductivity + t_added * cond_per_layer)
+        except:
+            return np.nan
+
+    def _linear(self, x, a, b):
+        return a*x+b
+
+    def _fit_layer(self, t_points, R_points):
+        for i in R_points:
+            if i == 0:
+                return [np.nan, np.nan, np.nan]
+
+        try:
+            c_target = 1./self._target_resistance
+            c_points = 1./R_points
+            popt, _ = curve_fit(self._linear, t_points, c_points, p0=self._p0)
+            R_final = self._theory(self._target_thickness, t_points[0], c_points[0], popt[0])
+            t_final = ( (c_target - c_points[-1]) / popt[0] ) + t_points[-1]
+            return [t_final, R_final, popt[0]]
+
+        except:
+            return [np.nan, np.nan, np.nan]
+
     def _reciprocal(self, thickness, cond_per_layer):
         """
         Function used by the curvefit routine.
@@ -369,12 +398,16 @@ class SputterMonitor(object):
         '''
         self._thickness_coord = self._data_file.add_coordinate('thickness_coord', unit='nm')
         self._thickness_coord.add(self.ideal_trend()[0])
-        self._data_ideal = self._data_file.add_value_vector('ideal_resistance',
-                                                            x=self._thickness_coord,
-                                                            unit='Ohm',
-                                                            save_timestamp=False)
-        self._data_ideal.append(self.ideal_trend()[1])
+        if self._show_ideal:
+            self._data_ideal = self._data_file.add_value_vector('ideal_resistance',
+                                                                x=self._thickness_coord,
+                                                                unit='Ohm',
+                                                                save_timestamp=False)
+            self._data_ideal.append(self.ideal_trend()[1])
 
+        '''
+        Create target marker
+        '''
         if self._target_marker:
             self._target_thickness_line = self._data_file.add_value_vector('target_thickness',
                                                                           x=None,
@@ -431,7 +464,8 @@ class SputterMonitor(object):
         self._resist_view = self._data_file.add_view('resistance_thickness',
                                                      x=self._data_thickness,
                                                      y=self._data_resistance)
-        self._resist_view.add(x=self._thickness_coord, y=self._data_ideal)
+        if self._show_ideal:
+            self._resist_view.add(x=self._thickness_coord, y=self._data_ideal)
         if self._target_marker:
             self._resist_view.add(x=self._target_thickness_line, y=self._target_resistance_line)
         if not self._reference_uid == None:
@@ -500,10 +534,12 @@ class SputterMonitor(object):
         """
         self._data_time.append(time.time() - mon_data.t0)
 
-        mon_data.resistance.append(self.ohmmeter.get_resistance())
+        #mon_data.resistance.append(self.ohmmeter.get_resistance())
+        mon_data.resistance = np.append(mon_data.resistance, self.ohmmeter.get_resistance())
         if self.quartz:
             rate = self.quartz.get_rate(nm=True)
-            mon_data.thickness.append(self.quartz.get_thickness(nm=True))
+            #mon_data.thickness.append(self.quartz.get_thickness(nm=True))
+            mon_data.thickness = np.append(mon_data.thickness, self.quartz.get_thickness(nm=True))
         if self.mfc:
             pressure = self.mfc.get_pressure()
             Ar_flow = self.mfc.get_flow(self.Ar_channel)
@@ -528,11 +564,21 @@ class SputterMonitor(object):
 
         if ((self._fit_resistance) and (mon_data.it % self._fit_every == 0) and (
                 len(mon_data.resistance) >= self._fit_points)):
+            """
+            # OLD ROUTINE
             estimation = self._fit_trend(mon_data.thickness[-self._fit_points:None],
                                          mon_data.resistance[-self._fit_points:None])
             self._thickness_estimation.append(estimation[0])
             self._resistance_estimation.append(estimation[1])
             self._last_resistance_fit.append(self._reciprocal(self.ideal_trend()[0],self._popt[0]), reset=True)
+            """
+            estimation = self._fit_layer(mon_data.thickness[-self._fit_points:None],
+                                         mon_data.resistance[-self._fit_points:None])
+            self._thickness_estimation.append(estimation[0])
+            self._resistance_estimation.append(estimation[1])
+            self._last_resistance_fit.append(self._theory(self.ideal_trend()[0], mon_data.thickness[-1],
+                                                          1./mon_data.resistance[-1], estimation[2]),
+                                             reset=True)
 
     def monitor_depo(self):
         """
@@ -569,8 +615,8 @@ class SputterMonitor(object):
             """
 
             class MonData(object):
-                resistance = []
-                thickness = []
+                resistance = np.array([])
+                thickness = np.array([])
 
             mon_data = MonData()
 
@@ -656,8 +702,8 @@ class SputterMonitor(object):
         """
 
         class MonData(object):
-            resistance = []
-            thickness = []
+            resistance = np.array([])
+            thickness = np.array([])
 
         mon_data = MonData()
 
