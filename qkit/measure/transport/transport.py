@@ -1060,7 +1060,7 @@ class transport(object):
                     if self.log_function != [None]:
                         for j, f in enumerate(self.log_function):
                             self._log_values[j].append(float(f()))
-                    for self.iy, (y, y_func) in enumerate([(None, _pass)]) if self._scan_dim < 3 else [(y, self._y_set_obj) for y in self._y_vec]:  # loop: y_obj with parameters from y_vec if 3D else pass(None)
+                    for self.iy, (y, y_func) in enumerate([(None, _pass)] if self._scan_dim < 3 else [(y, self._y_set_obj) for y in self._y_vec]):  # loop: y_obj with parameters from y_vec if 3D else pass(None)
                         y_func(y)
                         time.sleep(self._tdy)
                         # iterate sweeps and take data
