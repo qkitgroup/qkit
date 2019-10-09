@@ -219,7 +219,7 @@ class SputterMonitor(object):
             self._ref_resistance = ref.data.resistance[:]
             self._ref_thickness = ref.data.thickness[:]
             self._reference_uid = uid
-            ref.close
+            ref.close()
             return self._reference_uid
         except:
             self._reference_uid = None
@@ -275,6 +275,7 @@ class SputterMonitor(object):
                 [1]: R_final (float): The predicted resistance that will be reached at the target thickness.
                 [2]: popt[0] (float): Conductivity per layer as obtained by linear fit.
         """
+        #ToDo: Store all fits, Store time of fit to sync it to other datasets, revise theory.
         for i in R_points:
             if i == 0:
                 return [np.nan, np.nan, np.nan]
@@ -401,6 +402,10 @@ class SputterMonitor(object):
                                                                  x=self._data_time,
                                                                  unit='Ohm',
                                                                  save_timestamp=False)
+        self._data_conductance = self._data_file.add_value_vector('conductance',
+                                                                 x=self._data_time,
+                                                                 unit='S',
+                                                                 save_timestamp=False)
         self._data_deviation_abs = self._data_file.add_value_vector('deviation_absolute',
                                                                     x=self._data_time,
                                                                     unit='Ohm',
@@ -459,6 +464,13 @@ class SputterMonitor(object):
             self._target_resistance_line.append([self._target_resistance, self._target_resistance,
                                                  1.2*self._target_resistance, 0.8*self._target_resistance,
                                                  self._target_resistance, self._target_resistance])
+            self._target_conductance_line = self._data_file.add_value_vector('target_conductance',
+                                                                             x=None,
+                                                                             unit='S',
+                                                                             save_timestamp=False)
+            self._target_conductance_line.append([1./self._target_resistance, 1./self._target_resistance,
+                                                 1./1.2/self._target_resistance, 1./0.8/self._target_resistance,
+                                                 1./self._target_resistance, 1./self._target_resistance])
 
         '''
         Estimation datasets
@@ -506,6 +518,13 @@ class SputterMonitor(object):
             self._resist_view.add(x=self._thickness_reference, y=self._resistance_reference)
         if self._fit_resistance:
             self._resist_view.add(x=self._thickness_coord, y=self._last_resistance_fit)
+
+        self._conductance_view = self._data_file.add_view('conductance_thickness',
+                                                          x=self._data_thickness,
+                                                          y=self._data_conductance)
+        if self._target_marker:
+            self._conductance_view.add(x=self._target_thickness_line, y=self._target_conductance_line)
+
 
         self._deviation_abs_view = self._data_file.add_view('deviation_absolute',
                                                             x=self._data_thickness,
@@ -582,6 +601,10 @@ class SputterMonitor(object):
         if mon_data.resistance[-1] > 1.e9:
             mon_data.resistance[-1] = np.nan
         self._data_resistance.append(mon_data.resistance[-1])
+        if not mon_data.resistance[-1] == 0:
+            self._data_conductance.append(1./mon_data.resistance[-1])
+        else:
+            self._data_conductance.append(np.nan)
         if self.quartz:
             self._data_rate.append(rate)
             self._data_thickness.append(mon_data.thickness[-1])
