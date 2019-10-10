@@ -375,6 +375,66 @@ class IV_curve(object):
         self.I_offset, self.V_offset = map(np.nanmean, self.get_offsets(*args, **kwargs))
         return self.I_offset, self.V_offset
 
+    def get_2wire_slope_correction(self, I=None, V=None, dVdI=None, peak_finder=sig.find_peaks, **kwargs):
+        """
+        Gets voltage values corrected by an ohmic slope such as occur in 2wire measurements.
+        The two maxima in the differential resistivity <dVdI> are identified as critical and retrapping currents. The slope of the superconducting regime in between (which should ideally be infinity) is fitted using numpy.linalg.qr algorithm and subtracted from the raw data.
+
+        Parameters
+        ----------
+        I: numpy.array (optional)
+            An N-dimensional array containing current values. Default is None that means self.I.
+        V: numpy.array (optional)
+            An N-dimensional array containing voltage values. Default is None that means self.V.
+        dVdI: numpy.array (optional)
+            An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means self.dVdI.
+        peak_finder: function (optional)
+            Peak finding algorithm. Default is scipy.signal.find_peaks.
+        kwargs:
+            Keyword arguments forwarded to the peak finding algorithm <peak_finder>.
+
+        Returns
+        -------
+        V_corr: numpy.array
+            Ohmic slope corrected voltage values
+        """
+        def lin_fit(x, y):
+            X = np.stack((x, np.ones(len(x)))).T
+            q, r = np.linalg.qr(X)
+            p = np.dot(q.T, y)
+            return np.dot(np.linalg.inv(r), p)
+        if I is None:
+            I = self.I
+        if V is None:
+            V = self.V
+        if dVdI is None:
+            dVdI = self.dVdI
+        if peak_finder is sig.find_peaks and 'prominence' not in kwargs.keys():
+            kwargs['prominence'] = 100
+        if peak_finder is sig.find_peaks_cwt and 'widths' not in kwargs.keys():
+            kwargs['widths'] = np.arange(10)
+        ''' peak detection in dV/dI '''
+        if self._scan_dim == 1:
+            peaks = np.array(map(lambda dVdI1D: peak_finder(dVdI1D, **kwargs), dVdI))
+            slices = map(lambda peaks1D: slice(*np.sort(peaks1D[0][peaks1D[1]['prominences'].argsort()[-2:][::-1]])), peaks)
+            popts = map(lambda (I1D, V1D, s1D): lin_fit(I1D[s1D], V1D[s1D]), zip(I, V, slices))
+            self.V_corr = np.array(map(lambda (I1D, V1D, popt1D): V1D - (popt1D[0] * I1D + popt1D[1]), zip(I, V, popts)))
+            return self.V_corr
+        elif self._scan_dim == 2:
+            peaks = np.array(map(lambda dVdI2D: map(lambda dVdI1D: peak_finder(dVdI1D, **kwargs), dVdI2D), dVdI))
+            slices = map(lambda peaks2D: map(lambda peaks1D: slice(*np.sort(peaks1D[0][peaks1D[1]['prominences'].argsort()[-2:][::-1]])), peaks2D), peaks)
+            popts = map(lambda (I2D, V2D, s2D): map(lambda (I1D, V1D, s1D): lin_fit(I1D[s1D], V1D[s1D]), zip(I2D, V2D, s2D)), zip(I, V, slices))
+            self.V_corr = np.array(map(lambda (I2D, V2D, popt2D): map(lambda (I1D, V1D, popt1D): V1D - (popt1D[0] * I1D + popt1D[1]), zip(I2D, V2D, popt2D)), zip(I, V, popts)))
+            return self.V_corr
+        elif self._scan_dim == 3:
+            peaks = np.array(map(lambda dVdI3D: map(lambda dVdI2D: map(lambda dVdI1D: peak_finder(dVdI1D, **kwargs), dVdI2D), dVdI3D), dVdI))
+            slices = map(lambda peaks3D: map(lambda peaks2D: map(lambda peaks1D: slice(*np.sort(peaks1D[0][peaks1D[1]['prominences'].argsort()[-2:][::-1]])), peaks2D), peaks3D), peaks)
+            popts = map(lambda (I3D, V3D, s3D): map(lambda (I2D, V2D, s2D): map(lambda (I1D, V1D, s1D): lin_fit(I1D[s1D], V1D[s1D]), zip(I2D, V2D, s2D)), zip(I3D, V3D, s3D)), zip(I, V, slices))
+            self.V_corr = np.array(map(lambda (I3D, V3D, popt3D): np.array(map(lambda (I2D, V2D, popt2D): map(lambda (I1D, V1D, popt1D): V1D - (popt1D[0] * I1D + popt1D[1]), zip(I2D, V2D, popt2D)), zip(I3D, V3D, popt3D)), zip(I, V, popts)))
+            return self.V_corr
+        else:
+            raise ValueError('Scan dimension must be in {1, 2, 3}')
+
     def get_Ic_threshold(self, I=None, V=None, threshold=20e-6, offset=None, Ir=False):
         """
         Get critical current values. These are considered as currents, where the voltage jumps beyond threshold ± <threshold> - <offset>.
@@ -530,13 +590,13 @@ class IV_curve(object):
 
         Examples
         --------
-            # 1D scan
-            >>> I_cs, props = ivc.get_Ic_deriv(prominence=1e-5)
-            >>> Is = np.array(map(lambda prop: prop['I'], props))  # has shape (number of sweeps, number of peaks)
-
-            # 2D scan
-            >>> I_cs, I_rs, props = ivc.get_Ic_dft(prominence=1e-5, Ir=True)
-            >>> Is = np.array(map(lambda prop: map(lambda p: p['prominences'], prop), props))  # has shape (number of sweeps, number of x_values, number of peaks)
+        >>> I_cs, props = ivc.get_Ic_deriv(prominence=1e-5)
+        >>> if ivc._scan_dim == 1:
+        >>>     Is = np.array(map(lambda p1D: p1D['I'], props))  # has shape (number of sweeps, number of peaks)
+        >>> elif ivc._scan_dim == 2:
+        >>>     Is = np.array(map(lambda p2D: map(lambda p1D: p1D['I'], p2D), props))  # has shape (number of sweeps, number of x-values, number of peaks)
+        >>> elif ivc._scan_dim == 3:
+        >>>     Is = np.array(map(lambda p3D: map(lambda p2D: map(lambda p1D: p1D['I'], p2D), p3D), props))  # has shape (number of sweeps, number of y-values, number of x-values, number of peaks)
         """
         if I is None:
             I = self.I
