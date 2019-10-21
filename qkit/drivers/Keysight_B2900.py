@@ -70,6 +70,7 @@ class Keysight_B2900(Instrument):
         Initialized the file info database (qkit.fid) in 0.000 seconds.
         """
         # Corresponding Command: :SYSTem:BEEPer:STATe mode
+        self.__name__ = __name__
         # Start VISA communication
         logging.info(__name__ + ': Initializing instrument Keysight B29000')
         Instrument.__init__(self, name, tags=['physical'])
@@ -117,7 +118,7 @@ class Keysight_B2900(Instrument):
                                'sense_mode': 0,
                                'bias_range': -1,
                                'sense_range': -1,
-                               'bias_delay': 15-6,
+                               'bias_delay': 15e-6,
                                'sense_delay': 15e-6,
                                'sense_nplc': 1}]}
         self._default_str = 'default parameters'
@@ -1058,6 +1059,9 @@ class Keysight_B2900(Instrument):
             logging.error('{!s}: Cannot get sense nplc{:s}'.format(__name__, self._log_chans[self._channels][channel]))
             raise type(e)('{!s}: Cannot get sense nplc{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], e))
 
+    def get_sense_average(self, channel=1):
+        return None
+
     def set_status(self, status, channel=1):
         """
         Sets output status of channel <channel> to <status>.
@@ -1417,14 +1421,10 @@ class Keysight_B2900(Instrument):
         channels: int or tuple(int)
             Number of channel of usage. Must be 1 or 2 for IV-mode and VI-mode or a tuple containing both channels for VV-mode (1st argument as bias channel and 2nd argument as sense channel).
 
-
         Returns
         -------
         None
         """
-        if self._channels == 1 and mode == 0:
-            logging.error('{!s}: Cannot set sweep mode to {!s} with a SMU with only one channel'.format(__name__, mode))
-            raise ValueError('{!s}: Cannot set sweep mode to {!s} with a SMU with only one channel'.format(__name__, mode))
         default_channels = {0: (1, 2), 1: (1,), 2: (1,)}
         if mode in [0, 1, 2]:
             if len(channels) == int(not mode)+1:
@@ -2017,7 +2017,7 @@ class Keysight_B2900(Instrument):
         self._default_str = new
         return
 
-    def get_all(self):
+    def get_all(self, channel=1):
         """
         Prints all settings of channel <channel>.
         
