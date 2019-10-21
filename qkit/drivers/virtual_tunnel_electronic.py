@@ -88,7 +88,8 @@ class virtual_tunnel_electronic(Instrument):
         self._dVdA = 1e8  # for external voltage bias
         self._Vdiv = 1e3  # for external voltage divider
         # internal variables
-        self.set_sweep_mode(0, 1, 2)  # 0 (VV-mode) with channels 1 (bias) and 2 (sense)
+        self._sweep_mode = 0  # VV-mode
+        self._sweep_channels = (1, 2)
         self._sweep_modes = {0: 'VV-mode', 1: 'IV-mode', 2: 'VI-mode'}
         self._pseudo_bias_mode = 0  # current bias
         self._pseudo_bias_modes = {0: 'current bias', 1: 'voltage bias'}
@@ -310,7 +311,7 @@ class virtual_tunnel_electronic(Instrument):
         None
         """
         return self._SMU.set_measurement_mode(mode=mode, channel=channel)
-    
+
     def get_measurement_mode(self, channel=1):
         """
         Gets measurement mode (wiring system) <mode> of channel <channel>.
@@ -612,7 +613,7 @@ class virtual_tunnel_electronic(Instrument):
         None
         """
         return self._SMU.set_sense_nplc(val=val, channel=channel)
-    
+
     def get_sense_nplc(self, channel=1):
         """
         Gets sense nplc (number of power line cycle) <val> of channel <channel>.
@@ -709,25 +710,21 @@ class virtual_tunnel_electronic(Instrument):
             Sweep mode denoting bias and sense modes. Possible values are 0 (VV-mode), 1 (IV-mode) or 2 (VI-mode). Default is 1
         channels: int or tuple(int)
             Number of channel of usage. Must be 1 or 2 for IV-mode and VI-mode or a tuple containing both channels for VV-mode (1st argument as bias channel and 2nd argument as sense channel).
-            
-        
+
         Returns
         -------
         None
         """
         default_channels = {0: (1, 2), 1: (1,), 2: (1,)}
         if mode in [0, 1, 2]:
-            if len(channels) == int(not mode) + 1:
-                logging.debug('{!s}: Set sweep channels to {:s}'.format(__name__, channels))
-                self._sweep_channels = channels
-                self._SMU._sweep_channels = channels
-            elif len(channels) == 0:
+            if len(channels) == 0:
                 logging.debug('{!s}: Set sweep channels to {:s}'.format(__name__, default_channels[mode]))
                 self._sweep_channels = default_channels[mode]
                 self._SMU._sweep_channels = default_channels[mode]
             else:
-                logging.error('{!s}: Cannot set sweep channels to {!s}'.format(__name__, channels))
-                raise ValueError('{!s}: Cannot set sweep channels to {!s}'.format(__name__, channels))
+                logging.debug('{!s}: Set sweep channels to {:s}'.format(__name__, channels))
+                self._sweep_channels = channels
+                self._SMU._sweep_channels = channels
             logging.debug('{!s}: Set sweep mode to {:d}'.format(__name__, mode))
             self._sweep_mode = mode
             self._SMU.set_sweep_mode(mode=mode)
@@ -751,11 +748,7 @@ class virtual_tunnel_electronic(Instrument):
         mode: int
             Sweep mode denoting bias and sense modes. Meanings are 0 (VV-mode), 1 (IV-mode) or 2 (VI-mode).
         """
-        if self._sweep_mode != self._SMU.get_sweep_mode():
-            logging.error('{!s}: sweep mode of {:s} and {:s} do not coincide: {:s} and {:s}'.format(__name__, self.__name__, self._SMU.__name__, self._sweep_modes[self._sweep_mode], self._sweep_modes[self._SMU.get_sweep_mode()]))
-            raise ValueError('{!s}: sweep mode of {:s} and {:s} do not coincide: {:s} and {:s}'.format(__name__, self.__name__, self._SMU.__name__, self._sweep_modes[self._sweep_mode], self._sweep_modes[self._SMU.get_sweep_mode()]))
-        else:
-            return self._sweep_mode
+        return self._sweep_mode
     
     def get_sweep_channels(self):
         """
@@ -1140,27 +1133,27 @@ class virtual_tunnel_electronic(Instrument):
         parlist: dict
             Parameter names as keys, corresponding channels of interest as values.
         """
-        parlist = {'measurement_mode': [1, 2],
-                   'bias_mode': [1, 2],
-                   'sense_mode': [1, 2],
-                   'bias_range': [1, 2],
-                   'sense_range': [1, 2],
-                   'bias_delay': [1, 2],
-                   'sense_delay': [1, 2],
-                   'sense_average': [1, 2],
+        parlist = {'measurement_mode': self._sweep_channels,
+                   'bias_mode': self._sweep_channels,
+                   'sense_mode': self._sweep_channels,
+                   'bias_range': self._sweep_channels,
+                   'sense_range': self._sweep_channels,
+                   'bias_delay': self._sweep_channels,
+                   'sense_delay': self._sweep_channels,
+                   'sense_average': self._sweep_channels,
                    'plc': [None],
-                   'sense_nplc': [1, 2],
+                   'sense_nplc': self._sweep_channels,
                    'sweep_mode': [None],
                    'pseudo_bias_mode': [None],
                    'BW': [None]}
         if not self._pseudo_bias_mode:  # 0 (current bias)
             parlist['dAdV'] = [None]
             parlist['amp'] = [None]
-            parlist['current'] = [1, 2]
+            parlist['current'] = self._sweep_channels
         elif self._pseudo_bias_mode:  # 1 (voltage bias)
             parlist['dVdA'] = [None]
             parlist['Vdiv'] = [None]
-            parlist['voltage'] = [1, 2]
+            parlist['voltage'] = self._sweep_channels
         return parlist
     
     def get(self, param, **kwargs):
