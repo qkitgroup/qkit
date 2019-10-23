@@ -8,6 +8,7 @@ class CurveXtractor():
     Use the mouse to find points in your data.
     Use the keyboard to generate a spline following your points.
     Finally, extract a curve from the data, which is in the vicinity of the spline.
+    Note, use of the module requires the widget backend for matplotlib.
     
     Attributes:
     
@@ -28,6 +29,9 @@ class CurveXtractor():
             zdata:      2d matix of zdata
             smoothness: smoothness of the spline (can also be changed later on in the procedure).
         """
+        if plt.get_backend().find("nbagg") == -1:
+            print("Module requires using the widget backend for matplotlib.\nActivate with %matplotlib widget.")
+            return
         self.xvals = 0 
         self.yvals = 0 
         self.zvals = 0
@@ -151,13 +155,11 @@ class CurveXtractor():
         """
         self._fig = plt.figure(figsize = (9, 6))
         plt.pcolormesh(self.xvals, self.yvals, self.zvals)
-        info = ("""Use left mouse button to add points to the current curve.
-                   Use right mouse button to add another curve.
-                   Press delete (entf) to remove the last point.
-                   
-                   Once you are finished press enter to calculate splines following your curves.
-                   If you are satisfied with the result, continue with extract_points.
-                   In case you want to change something, press enter to return to the editing mode.""")
+        info = ("""Use left mouse button to add points to the current curve.\nUse right mouse button to add another curve.\nPress delete (entf) to remove the last point.\n
+        
+        Once you are finished press enter to calculate splines following your curves.
+        If you are satisfied with the result, continue with extract_points.
+        In case you want to change something, press enter to return to the editing mode.""")
 
         self._cid = self._fig.canvas.mpl_connect("button_press_event", self._click_event)
         self._cid = self._fig.canvas.mpl_connect("key_press_event", self._key_event)
