@@ -946,6 +946,70 @@ class virtual_tunnel_electronic(Instrument):
             return self._SMU.get_bias_value(channel=channel)
         elif self._sweep_mode == 2:  # 2 (VI-mode)
             return self._SMU.get_sense_value(channel=channel)
+
+    def ramp_voltage(self, stop, step, step_time=0.1, channel=1):
+        """
+        Ramps voltage of channel <channel> from recent value to stop value <stop> with step size <step> and step time <step_time> according to bias_mode.
+        This can only be set in the effective voltage bias mode, defined by <self.sweep_mode> and <self.pseudo_bias_mode>, and considers an external voltage divider <self._Vdiv>.
+
+        Parameters
+        ----------
+        stop: float
+            Stop voltage value
+        step: float
+            Step voltage size.
+        step_time: float
+            Sleep time between voltage staircase ramp.
+        channel: int
+            Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels. Default is 1. (default)
+
+        Returns
+        -------
+        None
+        """
+        if self._sweep_mode == 0:  # 0 (VV mode)
+            if not self._pseudo_bias_mode:  # 0 (current bias)
+                logging.error('{!s}: Cannot set voltage value of channel {!s} in the current bias'.format(__name__, channel))
+                raise SystemError('{!s}: Cannot set voltage value of channel {!s} in the current bias'.format(__name__, channel))
+            elif self._pseudo_bias_mode:  # 1 (voltage bias)
+                return self._SMU.ramp_bias(stop=stop*self._Vdiv, step=step*self._Vdiv, step_time=step_time, channel=channel)
+        elif self._sweep_mode == 1:  # 1 (IV mode)
+            logging.error('{!s}: Cannot set voltage value of channel {!s} in the current bias'.format(__name__, channel))
+            raise SystemError('{!s}: Cannot set voltage value of channel {!s} in the current bias'.format(__name__, channel))
+        elif self._sweep_mode == 2:  # 2 (VI-mode)
+            return self._SMU.ramp_bias(stop=stop, step=step, step_time=step_time, channel=channel)
+
+    def ramp_current(self, stop, step, step_time=0.1, channel=1):
+        """
+        Ramps current of channel <channel> from recent value to stop value <stop> with step size <step> and step time <step_time> according to bias_mode.
+        This can only be set in the effective current bias mode, defined by <self.sweep_mode> and <self.pseudo_bias_mode>, and considers an external voltage-controlled current source <self._dAdV>.
+
+        Parameters
+        ----------
+        stop: float
+            Stop voltage value
+        step: float
+            Step voltage size.
+        step_time: float
+            Sleep time between voltage staircase ramp.
+        channel: int
+            Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels. Default is 1. (default)
+
+        Returns
+        -------
+        None
+        """
+        if self._sweep_mode == 0:  # 0 (VV mode)
+            if not self._pseudo_bias_mode:  # 0 (current bias)
+                return self._SMU.ramp_bias(stop=stop/self._dAdV, step=step/self._dAdV, step_time=step_time, channel=channel)
+            elif self._pseudo_bias_mode:  # 1 (voltage bias)
+                logging.error('{!s}: Cannot set current value of channel {!s} in the voltage bias'.format(__name__, channel))
+                raise SystemError('{!s}: Cannot set current value of channel {!s} in the voltage bias'.format(__name__, channel))
+        elif self._sweep_mode == 1:  # 1 (IV mode)
+            return self._SMU.ramp_bias(stop=stop, step=step, step_time=step_time, channel=channel)
+        elif self._sweep_mode == 2:  # 2 (VI-mode)
+            logging.error('{!s}: Cannot set current value of channel {!s} in the voltage bias'.format(__name__, channel))
+            raise SystemError('{!s}: Cannot set current value of channel {!s} in the voltage bias'.format(__name__, channel))
     
     def set_sweep_parameters(self, sweep):
         """
