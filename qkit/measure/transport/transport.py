@@ -503,7 +503,7 @@ class transport(object):
         self._lsc_mirror = False
         return
     
-    def set_xy_parameters(self, x_name, x_func, x_vec, x_unit, y_name, y_func, y_unit, x_dt=1e-3):
+    def set_xy_parameters(self, x_name, x_func, x_vec, x_unit, x_kwargs={}, y_name, y_func, y_unit, y_kwargs={}, x_dt=1e-3):
         """
         Set x- and y-parameters for measure_xy(), where y-parameters can be a list in order to record various quantities.
         
@@ -517,12 +517,16 @@ class transport(object):
             An array of x-values at which data should be taken.
         x_unit: str
             The unit of the x-parameter to be used in data series in the .h5 file.
+        x_kwargs: dict
+            Keyword arguments forwarded to the x-function <x_func>.
         y_name: array_likes of strings
             Names of y-parameters to be created as data series in the .h5 file.
         y_func: function
             A function that returns y-values.
         y_unit: array_likes of strings
             Units of y-parameters to be used in data series in the .h5 file.
+        y_kwargs: dict
+            Keyword arguments forwarded to the y-function <y_func>.
         x_dt: float, optional
             The sleep time between queries of x-values. Default is 1e-3.
         
@@ -550,6 +554,11 @@ class transport(object):
             self._x_unit = x_unit
         else:
             raise ValueError('{:s}: Cannot set {!s} as x-unit: string needed'.format(__name__, x_unit))
+        # x-kwargs
+        if type(x_kwargs) is dict:
+            self._x_kwargs = x_kwargs
+        else:
+            raise ValueError('{:s}: Cannot set {!s} as x-kwargs: dict needed'.format(__name__, x_kwargs))
         # y-name
         if type(y_name) is str:
             self._y_name = [y_name]
@@ -580,6 +589,11 @@ class transport(object):
             self._y_unit = y_unit
         else:
             raise ValueError('{:s}: Cannot set {!s} as y-unit: string of iterable object of strings needed'.format(__name__, y_unit))
+        # y-kwargs
+        if type(y_kwargs) is dict:
+            self._y_kwargs = y_kwargs
+        else:
+            raise ValueError('{:s}: Cannot set {!s} as y-kwargs: dict needed'.format(__name__, y_kwargs))
         # x-dt
         self._x_dt = x_dt
         return
@@ -1037,24 +1051,14 @@ class transport(object):
         qkit.flow.start()
         try:
             if self._scan_dim == 0:  # single data points
-                x_vec = list(self._x_vec)
-                # add +/-inf as last element to x_vec
-                if all(x < y for x, y in zip(x_vec, x_vec[1:])):  # x_vec is increasing
-                    x_vec.append(np.inf)
-                elif all(x > y for x, y in zip(x_vec, x_vec[1:])):  # x_vec is decreasing
-                    x_vec.append(-np.inf)
-                # iterate x_vec
-                i = 0
-                while i < len(x_vec)-1:
-                    x_val = self._x_func()
-                    if min(x_vec[i:i+2]) <= x_val <= max(x_vec[i:i+2]):
-                        for func, lst in zip(self._y_func, self._hdf_y):
-                            lst.add(func())
-                        self._hdf_x.add(x_val)
-                        # iterate progress bar
-                        if self.progress_bar:
-                            self._pb.iterate()
-                        i += 1
+                for x_val, x_kwargs in zip(self._x_vec, self._x_kwargs):
+                    self._hdf_x.add(x_val)
+                    self._x_func(x_val)
+                    for func, kwargs, lst in zip(self._y_func, self._y_kwargs, self._hdf_y):
+                        lst.add(func(**kwargs))
+                    # iterate progress bar
+                    if self.progress_bar:
+                        self._pb.iterate()
                     time.sleep(self._x_dt)
             elif self._scan_dim in [1, 2, 3]:  # IV curve
                 reset = False  # variable to save points of log-function in 2D-matrix
@@ -1146,7 +1150,7 @@ class transport(object):
         """
         ''' create files '''
         # data.h5 file
-        self._data_file = hdf.Data(name='_'.join(filter(None, ('xy' if self._scan_dim is 0 else '{:d}D_IV_curve'.format(self._scan_dim), self._filename, self._expname))), mode='a')
+        self._data_file = hdf.Data(name='_'.join(list(filter(None, ('xy' if self._scan_dim is 0 else '{:d}D_IV_curve'.format(self._scan_dim), self._filename, self._expname)))), mode='a')
         # settings.set file
         self._hdf_settings = self._data_file.add_textlist('settings')
         self._hdf_settings.append(waf.get_instrument_settings(self._data_file.get_filepath()))
@@ -1265,9 +1269,9 @@ class transport(object):
                 lsc_mask = np.logical_and(bias_values <= np.dot(np.ones((bias_values.shape[2], 1)), [np.max(lsc_limits, axis=0)]).T,
                                           bias_values >= np.dot(np.ones((bias_values.shape[2], 1)), [np.min(lsc_limits, axis=0)]).T)
                 num_its[self._scan_dim] = np.sum(lsc_mask)*len(self._y_vec)*[1 if self._average is None else self._average][0]
-                self._pb_addend = np.concatenate(zip(*np.sum(lsc_mask, axis=2)))  # value that counter has to be increased after each sweep
+                self._pb_addend = np.concatenate(list(zip(*np.sum(lsc_mask, axis=2))))  # value that counter has to be increased after each sweep
             self._pb = Progress_Bar(max_it=num_its[self._scan_dim],
-                                    name='_'.join(filter(None, ('xy' if self._scan_dim is 0 else '{:d}D_IV_curve'.format(self._scan_dim), self._filename, self._expname))))
+                                    name='_'.join(list(filter(None, ('xy' if self._scan_dim is 0 else '{:d}D_IV_curve'.format(self._scan_dim), self._filename, self._expname)))))
         else:
             print('recording trace...')
     
@@ -1305,7 +1309,7 @@ class transport(object):
         -------
         None
         """
-        return '{!s}.{!s}('.format(self._numder_func.__module__, self._numder_func.__name__)+', '.join(np.concatenate([[name], np.array(self._numder_args, dtype=str) if self._numder_args else [], ['{:s}={!s}'.format(key, val) for key, val in self._numder_kwargs.iteritems()] if self._numder_kwargs else []]))+')'
+        return '{!s}.{!s}('.format(self._numder_func.__module__, self._numder_func.__name__)+', '.join(np.concatenate([[name], np.array(self._numder_args, dtype=str) if self._numder_args else [], ['{:s}={!s}'.format(key, val) for key, val in self._numder_kwargs.items()] if self._numder_kwargs else []]))+')'
     
     def _add_log_value_vector(self):
         """
@@ -1400,7 +1404,7 @@ class transport(object):
                     # take data
                     for val, lst in zip(self.take_IV(sweep=self.sweeps.get_sweep()), [I_values, V_values]):
                         lst[i].append(list(val))  # append as list in order to later use zip
-                    I_values_avg, V_values_avg = np.mean(zip(*I_values)[j], axis=0), np.mean(zip(*V_values)[j], axis=0)  # use zip since np.mean cannot handle different shapes
+                    I_values_avg, V_values_avg = np.mean(list(zip(*I_values))[j], axis=0), np.mean(list(zip(*V_values))[j], axis=0)  # use zip since np.mean cannot handle different shapes
                     # save data
                     for val, lst in zip([I_values_avg, V_values_avg, self._numerical_derivative(I_values_avg, V_values_avg)],
                                         [data for k, data in enumerate([self._hdf_I, self._hdf_V, self._hdf_dVdI]) if k < 2+int(self._dVdI)]):
@@ -1570,10 +1574,10 @@ class transport(object):
             sweep: tuple of floats
                 Sweep object containing start, stop, step and sleep values.
             """
-            return (self._start_iter.next(),
-                    self._stop_iter.next(),
-                    self._step_iter.next(),
-                    self._sleep_iter.next())
+            return (next(self._start_iter),
+                    next(self._stop_iter),
+                    next(self._step_iter),
+                    next(self._sleep_iter))
         
         def get_sweeps(self):
             """
@@ -1588,7 +1592,7 @@ class transport(object):
             sweep: list of floats
                 Sweep object containing start, stop, step and sleep values.
             """
-            return zip(*[self._starts, self._stops, self._steps, self._sleeps])
+            return list(zip(*[self._starts, self._stops, self._steps, self._sleeps]))
         
         def get_nos(self):
             """
