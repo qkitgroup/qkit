@@ -483,7 +483,7 @@ class Keysight_B2900(Instrument):
         # Corresponding Command: [:SOURce[c]]:FUNCtion:MODE?
         try:
             logging.debug('{!s}: Get bias mode{:s}'.format(__name__, self._log_chans[self._channels][channel]))
-            return int(self._IV_modes.keys()[self._IV_modes.values().index(self._ask(':sour{:s}:func:mode'.format(self._cmd_chans[self._channels][channel])).lower())])
+            return int(list(self._IV_modes.keys())[list(self._IV_modes.values()).index(self._ask(':sour{:s}:func:mode'.format(self._cmd_chans[self._channels][channel])).lower())])
         except Exception as e:
             logging.error('{!s}: Cannot get bias mode{:s}'.format(__name__, self._log_chans[self._channels][channel]))
             raise type(e)('{!s}: Cannot get bias mode{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], e))
@@ -1808,7 +1808,7 @@ class Keysight_B2900(Instrument):
         """
         ccr = self.get_measurement_ccr()
         msg = [('\n\t{:36s}:{!r}\t({:s})'.format(sb[0], ccr[i], sb[1])) for i, sb in enumerate(self.measurement_ccr) if sb != ('', '')]
-        print 'Measurement ccr :{:s}'.format(''.join(msg))
+        print('Measurement ccr :{:s}'.format(''.join(msg)))
         return
 
     def get_operation_ccr(self):
