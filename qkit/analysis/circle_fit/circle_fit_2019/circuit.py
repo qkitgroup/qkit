@@ -30,7 +30,6 @@ class circuit:
         
         self.fitresults = {}
         
-        self.fit_delay_threshold = 5e-11
         self.fit_delay_max_iterations = 5
     
     @classmethod
@@ -107,11 +106,13 @@ class circuit:
             z_data -= np.complex(xc, yc)
             
             # Find correction to current delay
-            guesses = (fr, Ql, self.fit_delay_threshold)
+            guesses = (fr, Ql, 5e-11)
             fr, Ql, theta, delay_corr = self._fit_phase(z_data, guesses)
             
             # Stop if correction would be smaller than "measurable"
-            if abs(delay_corr) <= self.fit_delay_threshold:
+            phase_fit = self.phase_centered(self.f_data, fr, Ql, theta, delay_corr)
+            residuals = np.unwrap(np.angle(z_data)) - phase_fit
+            if 2*np.pi*(self.f_data[-1]-self.f_data[0])*delay_corr <= np.std(residuals):
                 break
             
             # Avoid overcorrection that makes procedure switch between positive
@@ -121,7 +122,7 @@ class circuit:
                     self.delay *= 0.5
                 else:
                     # delay += 0.1*delay_corr
-                    self.delay += 0.1*np.sign(delay_corr)*self.fit_delay_threshold
+                    self.delay += 0.1*np.sign(delay_corr)*5e-11
             else: # same direction -> can converge faster
                 if abs(delay_corr) >= 1e-8:
                     self.delay += min(delay_corr, self.delay)
@@ -130,11 +131,9 @@ class circuit:
                 else:
                     self.delay += delay_corr
         
-        if abs(delay_corr) > self.fit_delay_threshold:
+        if 2*np.pi*(self.f_data[-1]-self.f_data[0])*delay_corr > np.std(residuals):
             logging.warning(
-                "Delay could not be fit with set accuracy of {} ns!".format(
-                    self.fit_delay_threshold*1e9
-                )
+                "Delay could not be fit properly!"
             )
         
         # Store result in dictionary (also for backwards-compatibility)
@@ -265,11 +264,13 @@ class circuit:
         Probst: "Efficient and robust analysis of complex scattering data under
         noise in microwave resonators" (arXiv:1410.3365v2)
         """
-        # TODO: implement refine_results?
         
-        # Normalize amplitude to deal with comparable numbers
-        normalization = np.max(np.abs(z_data))
-        z_data = z_data / normalization
+        # Normalize circle to deal with comparable numbers
+        x_norm = 0.5*(np.max(z_data.real) + np.min(z_data.real))
+        y_norm = 0.5*(np.max(z_data.imag) + np.min(z_data.imag))
+        z_data = z_data[:] - (x_norm + 1j*y_norm)
+        amp_norm = np.max(np.abs(z_data))
+        z_data = z_data / amp_norm
         
         # Calculate matrix of moments
         xi = z_data.real
@@ -322,7 +323,7 @@ class circuit:
             A_vec[1]*A_vec[1]+A_vec[2]*A_vec[2]-4.*A_vec[0]*A_vec[3]
         )
         
-        return xc*normalization, yc*normalization, r0*normalization
+        return xc*amp_norm+x_norm, yc*amp_norm+y_norm, r0*amp_norm
     
     def _fit_phase(self, z_data, guesses=None):
         """
@@ -347,12 +348,12 @@ class circuit:
         phase = np.unwrap(np.angle(z_data))
         
         # For centered circle roll-off should be close to 2pi. If not warn user.
-        if np.max(phase) - np.min(phase) <= 0.9*2*np.pi:
+        if np.max(phase) - np.min(phase) <= 0.8*2*np.pi:
             logging.warning(
-                "Phase data does not cover a full circle (only {:.1f}".format(
+                "Data does not cover a full circle (only {:.1f}".format(
                     np.max(phase) - np.min(phase)
                 )
-               +" rad. Increase the frequency span around the resonance?"
+               +" rad). Increase the frequency span around the resonance?"
             )
             roll_off = np.max(phase) - np.min(phase)
         else:
