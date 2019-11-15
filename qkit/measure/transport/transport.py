@@ -503,7 +503,7 @@ class transport(object):
         self._lsc_mirror = False
         return
     
-    def set_xy_parameters(self, x_name, x_func, x_vec, x_unit, x_kwargs={}, y_name, y_func, y_unit, y_kwargs={}, x_dt=1e-3):
+    def set_xy_parameters(self, x_name, x_func, x_vec, x_unit, y_name, y_func, y_unit, x_kwargs={}, y_kwargs={}, x_dt=1e-3):
         """
         Set x- and y-parameters for measure_xy(), where y-parameters can be a list in order to record various quantities.
         
@@ -1365,7 +1365,7 @@ class transport(object):
         if self._dVdI:
             self._hdf_view_dVdI = self._data_file.add_view('dVdI', x=self._hdf_I[0], y=self._hdf_dVdI[0], view_params={"labels": ('I', 'dVdI'), 'plot_style': 1, 'markersize': 5})
             for i in range(1, self.sweeps.get_nos()):
-                self._hdf_view_dVdI.add(x=eval('self._data_{:s}'.format(self._IV_modes[self._bias]))[i], y=self._hdf_dVdI[i])
+                self._hdf_view_dVdI.add(x=eval('self._hdf_{:s}'.format(self._IV_modes[self._bias]))[i], y=self._hdf_dVdI[i])
         return
     
     def _get_sweepdata(self):
