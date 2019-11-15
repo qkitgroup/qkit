@@ -311,7 +311,7 @@ class h5plot(object):
         self.z_ds = self.hf[self.z_ds_url]
         self.z_exp = self._get_exp(np.array(self.z_ds))
         self.z_label = self.z_ds.attrs.get('name', '_zname_').decode() + ' (' + self._unit_prefixes[self.z_exp] + self.z_ds.attrs.get('unit', '_zunit_').decode() + ')'
-        self.ds_data = np.array(self.ds)[:, :, self.ds.shape[2] / 2].T  # transpose matrix to get x/y axis correct
+        self.ds_data = np.array(self.ds)[:, :, self.ds.shape[2] // 2].T  # transpose matrix to get x/y axis correct
         self.ds_exp = self._get_exp(self.ds_data)
         self.ds_data *= 10.**-self.ds_exp
         self.ds_label = self.ds.attrs.get('name', '_name_').decode() + ' (' + self._unit_prefixes[self.ds_exp] + self.ds.attrs.get('unit', '_unit_').decode() + ')'
@@ -383,7 +383,7 @@ class h5plot(object):
         
         # the overlay_urls (urls of the x and y datasets that ar plotted) are extracted from the metadata
         for i in range(overlay_num+1):
-            ov = self.ds.attrs.get("xy_"+str(i),"")
+            ov = self.ds.attrs.get("xy_"+str(i),"").decode()
             if ov:
                 overlay_urls.append(ov.split(":"))
             err_urls.append(self.ds.attrs.get("xy_"+str(i)+"_error",""))
@@ -461,12 +461,12 @@ class h5plot(object):
                 self.x_label = view_params['labels'][0]
                 self.y_label = view_params['labels'][1]
             else:
-                self.x_label = x_ds.attrs.get("name", "_none_")
-                self.y_label = y_ds.attrs.get("name", "_none_")
+                self.x_label = x_ds.attrs.get("name", "_none_").decode()
+                self.y_label = y_ds.attrs.get("name", "_none_").decode()
             self.x_unit = x_ds.attrs.get("unit","_none_")
             self.y_unit = y_ds.attrs.get("unit","_none_")
-            self.x_label += ' (' + self._unit_prefixes[x_exp] + self.x_unit + ')'
-            self.y_label += ' (' + self._unit_prefixes[y_exp] + self.y_unit + ')'
+            self.x_label += ' (' + self._unit_prefixes[x_exp] + self.x_unit.decode() + ')'
+            self.y_label += ' (' + self._unit_prefixes[y_exp] + self.y_unit.decode() + ')'
         self.ax.legend()
 
     def _get_exp(self, data):
