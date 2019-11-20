@@ -253,7 +253,7 @@ class PlotWindow(QWidget,Ui_Form):
         ## Some look-up dicts for manipulation and plot styles.
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
         self.manipulations = {'dB':1, 'wrap':2, 'linear':4, 'remove_zeros':8,
-                              'sub_offset_avg_y':16, 'norm_data_avg_x':32} #BITMASK for manipulation
+                              'sub_offset_avg_y':16, 'norm_data_avg_x':32, 'histogram':64 } #BITMASK for manipulation
 
         self.plot_style = 0
         self.manipulation = 8
@@ -583,6 +583,10 @@ class PlotWindow(QWidget,Ui_Form):
         self.qvkMenu.addAction(norm_correction)
         norm_correction.triggered.connect(self.setNormDataCorrection)
 
+        histogram = QAction('Histogram', self.qvkMenu)
+        self.qvkMenu.addAction(histogram)
+        histogram.triggered.connect(self.setHistogram)
+
         menu.addMenu(self.qvkMenu)
 
     @pyqtSlot()
@@ -641,6 +645,11 @@ class PlotWindow(QWidget,Ui_Form):
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
 
+    @pyqtSlot()
+    def setHistogram(self):
+        self.manipulation = self.manipulation ^ self.manipulations['histogram']
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
 
 
 from collections import OrderedDict
