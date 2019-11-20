@@ -156,7 +156,7 @@ def _display_1D_view(self, graphicsView):
                 return
             
             ## Any data manipulation (dB <-> lin scale, etc) is done here
-            y_data, units[1] = _do_data_manipulation(y_data, units[1], ds_types['vector'], self.manipulation, self.manipulations)
+            x_data, y_data, units[1] = _do_data_manipulation(x_data, y_data, units[1], ds_types['vector'], self.manipulation, self.manipulations)
             
             graphicsView.setLabel('left', names[1], units=units[1])
             graphicsView.setLabel('bottom', names[0], units=units[0])
@@ -344,7 +344,7 @@ def _display_1D_data(self, graphicsView):
         y_data = dss[1][()][self.TraceXNum, self.TraceYNum, :]
     
     ## Any data manipulation (dB <-> lin scale, etc) is done here
-    y_data, units[1] = _do_data_manipulation(y_data, units[1], self.ds_type, self.manipulation, self.manipulations)
+    x_data, y_data, units[1] = _do_data_manipulation(x_data, y_data, units[1], self.ds_type, self.manipulation, self.manipulations)
     
     graphicsView.setLabel('left', names[1], units=units[1])
     graphicsView.setLabel('bottom', names[0], units=units[0])
@@ -493,7 +493,7 @@ def _display_2D_data(self, graphicsView):
         self.TraceYValue.setText(self._getYValueFromTraceNum(self.ds, self.TraceYNum))
         self.TraceZValue.setText(self._getZValueFromTraceNum(self.ds, self.TraceZNum))
     
-    data, units[2] = _do_data_manipulation(data, units[2], self.ds_type, self.manipulation, self.manipulations, colorplot=True)
+    _, data, units[2] = _do_data_manipulation(None, data, units[2], self.ds_type, self.manipulation, self.manipulations, colorplot=True) # FIXME
     
     graphicsView.clear()
     graphicsView.view.setLabel('left', names[1], units=units[1])
@@ -760,17 +760,19 @@ def _get_all_ds_names_units_scales(ds, ds_urls=[]):
 """ Unify the data manipulation to share code """
 
 
-def _do_data_manipulation(data, unit, ds_type, manipulation, manipulations, colorplot=False):
+def _do_data_manipulation(x_data, y_data, unit, ds_type, manipulation, manipulations, colorplot=False):
     """Data manipulation for display gets done here.
     
     This function gathers all the needed metadata to correctly display the
     dataset given in ds. The metadata of the datasets associated with the given 
-    urls are read out (data, name, unit, and scale). This information is used
+    urls are read out (y_data, name, unit, and scale). This information is used
     by the _display_...() fcts to correcly label and scale the plots. The order
     in the input- and output-list is maintained.
     
     Args:
-        data: Numpy array of the to be displayed / to be manipulated data.
+        x_data: Numpy array of the to be displayed / to be manipulated data.
+            This needs to be changed for histograms.
+        y_data: Numpy array of the to be displayed / to be manipulated data.
         ds_type: Dataset type for information about the dimension.
         manipulation: Integer, power of 2 number indicating the manipulation to
             be performed.
@@ -783,38 +785,42 @@ def _do_data_manipulation(data, unit, ds_type, manipulation, manipulations, colo
     """
     # set the y data  to the decibel scale 
     if manipulation & manipulations['dB']:
-        data = 20 * np.log10(data)
+        y_data = 20 * np.log10(y_data)
         unit = 'dB'
     
     # unwrap the phase
     if manipulation & manipulations['wrap']:
-        data[~np.isnan(data)] = np.unwrap(data[~np.isnan(data)])
+        y_data[~np.isnan(y_data)] = np.unwrap(y_data[~np.isnan(y_data)])
     
     if manipulation & manipulations['linear']:
-        if len(data.shape) == 1:
-            data = data - np.nan_to_num(np.linspace(data[0], data[-1], len(data)))
-        elif len(data.shape) == 2:
-            data = data - np.outer(data[:, -1] - data[:, 0], np.linspace(0, 1, data.shape[1]))
+        if len(y_data.shape) == 1:
+            y_data = y_data - np.nan_to_num(np.linspace(y_data[0], y_data[-1], len(y_data)))
+        elif len(y_data.shape) == 2:
+            y_data = y_data - np.outer(y_data[:, -1] - y_data[:, 0], np.linspace(0, 1, y_data.shape[1]))
         else:
-            print("linear correction not implemented for %iD" % len(data.shape))
+            print("linear correction not implemented for %iD" % len(y_data.shape))
         
         if colorplot:
             ## This manipulation removes all zeros which would blow up the color scale.
             ## Only relevant for matrices and boxes in 2d
             if manipulation & manipulations['remove_zeros']:
-                data[np.where(data == 0)] = np.NaN  # replace all exact zeros in the hd5 data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
+                y_data[np.where(y_data == 0)] = np.NaN  # replace all exact zeros in the hd5 y_data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
     
     if manipulation & manipulations['sub_offset_avg_y']:
         # ignore division by zero
         old_warn = np.seterr(divide='print')
         np.seterr(**old_warn)
-        data = data - np.nanmean(data, axis=1, keepdims=True)
+        y_data = y_data - np.nanmean(y_data, axis=1, keepdims=True)
     
-    # subtract offset from the data
+    # subtract offset from the y_data
     if manipulation & manipulations['norm_data_avg_x']:
         # ignore division by zero
         old_warn = np.seterr(divide='print')
         np.seterr(**old_warn)
-        data = data / np.nanmean(data, axis=0, keepdims=True)
+        y_data = y_data / np.nanmean(y_data, axis=0, keepdims=True)
+
+    if manipulation & manipulations['histogram']:
+        y_data, x_data = np.histogram(y_data, bins=100)
+        x_data = x_data[:-1]-(x_data[1]-x_data[0])/2.
     
-    return data, unit
+    return x_data, y_data, unit
