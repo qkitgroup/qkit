@@ -1121,7 +1121,8 @@ class transport(object):
                         self._pb.iterate()
                     time.sleep(self._x_dt)
             elif self._scan_dim in [1, 2, 3]:  # IV curve
-                reset = False  # variable to save points of log-function in 2D-matrix
+                _rst_log_hdf_appnd = False  # variable to save points of log-function in 2D-matrix
+                self._rst_fit_hdf_appnd = False
                 for self.ix, (x, x_func) in enumerate([(None, _pass)] if self._scan_dim < 2 else [(x, self._x_set_obj) for x in self._x_vec]):  # loop: x_obj with parameters from x_vec if 2D or 3D else pass(None)
                     x_func(x)
                     time.sleep(self._x_dt)
@@ -1139,8 +1140,8 @@ class transport(object):
                                     self._hdf_log[j].append(self._data_log[j], reset=True)
                                 elif self._scan_dim == 3:
                                     self._data_log[j][self.ix, self.iy] = float(f())
-                                    self._hdf_log[j].append(self._data_log[j][self.ix], reset=reset)
-                                    reset = not bool(self.iy+1 == len(self._y_vec))
+                                    self._hdf_log[j].append(self._data_log[j][self.ix], reset=_rst_log_hdf_appnd)
+                                    _rst_log_hdf_appnd = not bool(self.iy+1 == len(self._y_vec))
                         # iterate sweeps and take data
                         self._get_sweepdata()
                     # filling of value-box by storing data in the next 2d structure after every y-loop
@@ -1234,6 +1235,7 @@ class transport(object):
         self._hdf_V = []
         self._hdf_dVdI = []
         self._hdf_fit = []
+        self._data_fit = []
         if self._scan_dim == 0:
             ''' xy '''
             # add data variables
@@ -1284,6 +1286,7 @@ class transport(object):
                                                                           save_timestamp=False,
                                                                           folder='analysis',
                                                                           comment=self._get_fit_comment(i)))
+                    self._data_fit.append(np.nan)
             # log-function
             self._add_log_value_vector()
             # add views
@@ -1324,6 +1327,7 @@ class transport(object):
                                                                           save_timestamp=False,
                                                                           folder='analysis',
                                                                           comment=self._get_fit_comment(i)))
+                    self._data_fit.append(np.ones(len(self._x_vec)) * np.nan)
             # log-function
             self._add_log_value_vector()
             # add views
@@ -1372,6 +1376,7 @@ class transport(object):
                                                                           save_timestamp=False,
                                                                           folder='analysis',
                                                                           comment=self._get_fit_comment(i)))
+                    self._data_fit.append(np.ones((len(self._x_vec), len(self._y_vec))) * np.nan)
             # log-function
             self._add_log_value_vector()
             # add views
@@ -1560,18 +1565,37 @@ class transport(object):
             for j in range(self.sweeps.get_nos()):
                 # take data
                 I_values, V_values = self.take_IV(sweep=self.sweeps.get_sweep())
-                data = {self._hdf_I[j]:I_values,
-                        self._hdf_V[j]:V_values}
+                data = {self._hdf_I[j]:(I_values,),
+                        self._hdf_V[j]:(V_values,)} # tuple in oder to use *args later
                 if self._dVdI:
-                    data[self._hdf_dVdI[j]] = self._numerical_derivative(I_values, V_values)
+                    data[self._hdf_dVdI[j]] = (self._numerical_derivative(I_values, V_values),)
                 if self._fit_func:
-                    data[self._hdf_fit[j]] = self._fit_func(data[self._hdf_I[j]],
-                                                            data[self._hdf_V[j]],
-                                                            data[self._hdf_dVdI[j]],
-                                                            **self._fit_kwargs)
+                    #data[self._hdf_fit[j]] = self._fit_func(data[self._hdf_I[j]],
+                    #                                        data[self._hdf_V[j]],
+                    #                                        data[self._hdf_dVdI[j]],
+                    #                                        **self._fit_kwargs)
+                    if self._scan_dim == 1:
+                        self._data_fit[j] = float(self._fit_func(data[self._hdf_I[j]][0],
+                                                                           data[self._hdf_V[j]][0],
+                                                                           data[self._hdf_dVdI[j]][0],
+                                                                           **self._fit_kwargs))
+                        data[self._hdf_fit[j]] = (self._data_fit[j],)
+                    elif self._scan_dim == 2:
+                        self._data_fit[j][self.ix] = float(self._fit_func(data[self._hdf_I[j]][0],
+                                                                          data[self._hdf_V[j]][0],
+                                                                          data[self._hdf_dVdI[j]][0],
+                                                                          **self._fit_kwargs))
+                        data[self._hdf_fit[j]] = (self._data_fit[j], True)
+                    elif self._scan_dim == 3:
+                        self._data_fit[j][self.ix, self.iy] = float(self._fit_func(data[self._hdf_I[j]][0],
+                                                                                   data[self._hdf_V[j]][0],
+                                                                                   data[self._hdf_dVdI[j]][0],
+                                                                                   **self._fit_kwargs))
+                        data[self._hdf_fit[j]] = (self._data_fit[j][self.ix], self._rst_fit_hdf_appnd)
+                        self._rst_fit_hdf_appnd = not bool(self.iy + 1 == len(self._y_vec))
                 # save data
                 for key, val in data.items():
-                    key.append(val)
+                    key.append(*val)
                 # iterate progress bar
                 if self.progress_bar:
                     self._pb.iterate(addend=self._pb_addend[self.ix] if self._landscape else 1)
