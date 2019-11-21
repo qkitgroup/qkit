@@ -113,7 +113,7 @@ class tip2_client(Instrument):
         self.socket.close()
 
     def setup_connection(self,url="tcp://localhost:5000"):
-        print("Connecting to TIP server…")
+        print("Connecting to TIP server...")
         self.socket.connect(url)
 
     def set_param(self,device, param, value):
