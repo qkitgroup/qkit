@@ -70,6 +70,7 @@ class IV_curve2(object):
         """
         qkit.fid.update_all()  # update file database
         self.uuid, self.path, self.df = None, None, None
+        self.settings = None
         self.mo = mc.Measurement()  # qkit-sample object
         self.m_type, self.scan_dim, self.sweeptype, self.sweeps, self.bias = None, None, None, None, None
         self.I, self.V, self.V_corr, self.dVdI = None, None, None, None
@@ -101,6 +102,7 @@ class IV_curve2(object):
         self.uuid = uuid
         self.path = qkit.fid.get(self.uuid)
         self.df = Data(self.path)
+        self.settings = json.loads(self.df.data.settings.value[0], cls=QkitJSONDecoder)
         self.mo.load(qkit.fid.measure_db[self.uuid])
         self.m_type = self.mo.measurement_type  # measurement type
         if self.m_type == 'transport':
@@ -581,11 +583,6 @@ class IV_curve2(object):
         I_rs: numpy.array (optional)
             Retrapping current values.
         """
-        if len(V.shape)-1 == 0: # single trace used for in situ fit
-            mask = np.logical_and(V >= -threshold + offset, V <= threshold + offset)
-            I_sc = np.copy(I)
-            np.place(I_sc, np.logical_not(mask), np.nan)
-            return np.nanmax(I_sc)
         if V is None:
             V = self.V
         if I is None:
@@ -595,6 +592,11 @@ class IV_curve2(object):
                 offset = 0
             else:
                 offset = self.V_offset
+        if len(V.shape)-1 == 0: # single trace used for in situ fit
+            mask = np.logical_and(V >= -threshold + offset, V <= threshold + offset)
+            I_sc = np.copy(I)
+            np.place(I_sc, np.logical_not(mask), np.nan)
+            return np.nanmax(I_sc)
         ''' constant range via threshold (for JJ superconducting range via threshold voltage) '''
         mask = np.logical_and(V >= -threshold + offset, V <= threshold + offset)
         V_sc, I_sc = np.copy(V), np.copy(I)
@@ -663,12 +665,6 @@ class IV_curve2(object):
                 return [np.array([False]), {}]
             else:
                 return ans
-        if len(V.shape)-1 == 0: # single trace used for in situ fit
-            peaks = _peak_finder(dVdI, **kwargs)
-            try:
-                return I[peaks[0]]
-            except IndexError:  # if no peak found return np.nan
-                return np.nan
         if I is None:
             I = self.I
         if V is None:
@@ -679,6 +675,12 @@ class IV_curve2(object):
             kwargs['prominence'] = 100
         if peak_finder is sig.find_peaks_cwt and 'widths' not in kwargs.keys():
             kwargs['widths'] = np.arange(10)
+        if len(V.shape)-1 == 0: # single trace used for in situ fit
+            peaks = _peak_finder(dVdI, **kwargs)
+            try:
+                return I[peaks[0]]
+            except IndexError:  # if no peak found return np.nan
+                return np.nan
         ''' peak detection in dV/dI '''
         if self.scan_dim == 1:
             peaks = np.array(map(lambda dVdI1D:
@@ -756,6 +758,14 @@ class IV_curve2(object):
                 return [np.array([False]), {}]
             else:
                 return ans
+        if I is None:
+            I = self.I
+        if V is None:
+            V = self.V
+        if peak_finder is sig.find_peaks and 'prominence' not in kwargs.keys():
+            kwargs['prominence'] = 1e-5
+        if peak_finder is sig.find_peaks_cwt and 'widths' not in kwargs.keys():
+            kwargs['widths'] = np.arange(10)
         if len(V.shape)-1 == 0: # single trace used for in situ fit
             V_corr = V - np.linspace(start=V[0], stop=V[-1], num=V.shape[-1], axis=0)  # adjust offset slope
             dV_smooth = _get_deriv_dft(V_corr)
@@ -765,14 +775,6 @@ class IV_curve2(object):
                 return I[peaks[0]]
             except IndexError:  # if no peak found return np.nan
                 return np.nan
-        if I is None:
-            I = self.I
-        if V is None:
-            V = self.V
-        if peak_finder is sig.find_peaks and 'prominence' not in kwargs.keys():
-            kwargs['prominence'] = 1e-5
-        if peak_finder is sig.find_peaks_cwt and 'widths' not in kwargs.keys():
-            kwargs['widths'] = np.arange(10)
         ''' differentiate and smooth in the frequency domain '''
         if self.scan_dim == 1:
             V_corr = V - np.linspace(start=V[:, 0], stop=V[:, -1], num=V.shape[-1], axis=1)  # adjust offset slope
