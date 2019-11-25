@@ -10,8 +10,8 @@ class QkitJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if type(obj) == np.ndarray:
             return {'dtype' : type(obj).__name__, 'content' : obj.tolist()}
-        if type(obj) == types.InstanceType:
-            return {'dtype' : type(obj).__name__, 'content': str(obj.get_name())}
+        #if type(obj) == types.InstanceType:  # no valid synatx in python 3 and probably not needed (MMW)
+        #    return {'dtype' : type(obj).__name__, 'content': str(obj.get_name())}
         try:
             return obj._json()
         except AttributeError:
@@ -22,8 +22,10 @@ class QkitJSONDecoder(json.JSONDecoder):
         json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
 
     def object_hook(self, obj):
-        if obj.has_key('content') and obj.has_key("dtype") and len(obj)==2:
-            if obj['dtype'] == 'ndarray':   return np.array(obj['content'])
-            if obj['dtype'] == 'instance' or obj['dtype']=='qkitInstrument':  return qkit.instruments.get(obj['content'])
+        if 'content' in obj and 'dtype' in obj and len(obj) == 2:
+            if obj['dtype'] == 'ndarray':
+                return np.array(obj['content'])
+            if obj['dtype'] == 'qkitInstrument':  # or obj['dtype'] == 'instance'
+                return qkit.instruments.get(obj['content'])
         else:
             return obj 
