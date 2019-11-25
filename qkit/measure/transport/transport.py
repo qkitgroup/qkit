@@ -1133,7 +1133,7 @@ class transport(object):
                         if self.log_function != [None]:
                             for j, f in enumerate(self.log_function):
                                 if self._scan_dim == 1:
-                                    self._data_log[j] = np.array([float(f())])
+                                    self._data_log[j] = np.array([float(f())])  # np.asarray(f(), dtype=float)
                                     self._hdf_log[j].append(self._data_log[j])
                                 elif self._scan_dim == 2:
                                     self._data_log[j][self.ix] = float(f())
@@ -1154,7 +1154,7 @@ class transport(object):
             qkit.flow.end()
             t = threading.Thread(target=qviewkit.save_plots, args=[self._data_file.get_filepath(), self._plot_comment])
             t.start()
-            #self._data_file.close_file()
+            self._data_file.close_file()
             waf.close_log_file(self._log_file)
             self._set_IVD_status(False)
             print('Measurement complete: {:s}'.format(self._data_file.get_filepath()))
@@ -1543,7 +1543,7 @@ class transport(object):
                                                                         'plot_style': 1,
                                                                         'markersize': 5})
             for i in range(1, self.sweeps.get_nos()):
-                self._hdf_view_dVdI.add(x=eval('self._hdf_{:s}'.format(self._IV_modes[self._bias]))[i],
+                self._hdf_view_dVdI.add(x=[self._hdf_I, self._hdf_V][self._bias][i],
                                         y=self._hdf_dVdI[i])
         return
     
