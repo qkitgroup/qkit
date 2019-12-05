@@ -27,7 +27,15 @@ import qkit.measure.measurement_class as mc
 from qkit.gui.plot import plot as qviewkit
 
 import json
-from qkit.measure.json_handler import QkitJSONEncoder
+from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
+
+class dict2obj(object):
+    def __init__(self, d):
+        for a, b in d.items():
+            if isinstance(b, (list, tuple)):
+                setattr(self, a, [dict2obj(x) if isinstance(x, dict) else x for x in b])
+            else:
+                setattr(self, a, dict2obj(b) if isinstance(b, dict) else b)
 
 
 class IV_curve2(object):
@@ -102,7 +110,10 @@ class IV_curve2(object):
         self.uuid = uuid
         self.path = qkit.fid.get(self.uuid)
         self.df = Data(self.path)
-        self.settings = json.loads(self.df.data.settings.value[0], cls=QkitJSONDecoder)
+        try:
+            self.settings = dict2obj(json.loads(self.df.data.settings.value[0], cls=QkitJSONDecoder))
+        except:
+            self.settings = self.df.data.settings[:]
         self.mo.load(qkit.fid.measure_db[self.uuid])
         self.m_type = self.mo.measurement_type  # measurement type
         if self.m_type == 'transport':
