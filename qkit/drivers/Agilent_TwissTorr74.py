@@ -30,9 +30,9 @@ class Agilent_TwissTorr74(Instrument):
         logging.info(__name__ + ': Initializing instrument Twisstorr')
         if sys.version_info[0] < 3:
             def enc(string):
-                pass
-            def dec(byte):
-                pass
+                return string
+            def dec(string):
+                return string
         else:
             def enc(string):
                 return string.encode('latin-1')
