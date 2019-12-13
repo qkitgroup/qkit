@@ -21,12 +21,25 @@ import logging
 import serial
 import time
 import atexit
+import sys
 
 class Agilent_TwissTorr74(Instrument):
 
     def __init__(self, name, address, reset=False):
         Instrument.__init__(self, name, tags=['physical'])
         logging.info(__name__ + ': Initializing instrument Twisstorr')
+        if sys.version_info[0] < 3:
+            def enc(string):
+                pass
+            def dec(byte):
+                pass
+        else:
+            def enc(string):
+                return string.encode('latin-1')
+            def dec(byte):
+                return byte.decode('latin-1')
+        self._enc = enc
+        self._dec = dec
         self.setup(address)
 
     def setup(self, device="COM4"):
@@ -104,6 +117,8 @@ class Agilent_TwissTorr74(Instrument):
 
         cmd = command_string + crc1 + crc2
 
+        cmd = self._enc(cmd)
+
         return cmd
 
     def answer(self, answer):
@@ -119,6 +134,7 @@ class Agilent_TwissTorr74(Instrument):
         Returns:
             Decoded answer as described above.
         """
+        answer = self._dec(answer)
         start = answer[0]
         address = answer[1]
         if len(answer) == 6:
