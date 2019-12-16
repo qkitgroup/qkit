@@ -174,6 +174,12 @@ class fid(file_system_service):
             Deletes all cached database files and rescans the whole directory tree.
             Use this if your database looks strange.
         '''
+        self.h5_db = {}
+        self.set_db = {}
+        self.measure_db = {}
+        self.h5_info_db = {}
+        self._h5_n_mtime = {}
+        
         self._remove_cache_files()
         self.create_database()
 

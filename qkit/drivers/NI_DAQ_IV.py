@@ -18,8 +18,8 @@
 import qkit
 from qkit.core.instrument_base import Instrument
 import types
-import qkit.instruments.nidaq_syncIV as nidaq
-import numpy
+import nidaq_syncIV as nidaq
+import numpy as np
 import time
 
 
@@ -35,6 +35,7 @@ def _get_channel(devchan):
 class NI_DAQ_IV(Instrument):
 
     def __init__(self, name, id):
+        self.__name__ = __name__ # 'NI_DAQ' #
         Instrument.__init__(self, name, tags=['physical'])
 
         self._id = id
@@ -48,8 +49,10 @@ class NI_DAQ_IV(Instrument):
                                tags=['measure'],
                                get_func=self.do_get_input,
                                channel=ch_in)
-
-        for ch_out in self._get_output_channels():
+        self._plc = 50.
+        self._sense_nplc = None
+        self._bias_values = {} # dict with {channel: value}
+        for i, ch_out in enumerate(self._get_output_channels()):
             ch_out = _get_channel(ch_out)
             self.add_parameter(ch_out,
                                flags=Instrument.FLAG_SET,
@@ -58,6 +61,7 @@ class NI_DAQ_IV(Instrument):
                                tags=['sweep'],
                                set_func=self.do_set_output,
                                channel=ch_out)
+            self.set_bias_value(val=0, channel=i)
 
         for ch_ctr in self._get_counter_channels():
             ch_ctr = _get_channel(ch_ctr)
@@ -89,30 +93,112 @@ class NI_DAQ_IV(Instrument):
         self.add_function('write')
         self.add_function('sync_output_input')
 
+
+        self.O_devchan = self._id+'/ao0'
+        self.I_devchan = self._id+'/ai0'
+
         self.reset()
         self.set_chan_config('RSE')
         self.set_count_time(0.1)
         self.get_all()
 
-        self._dAdV = 1
-        self._dAdV_B = 1
-        self._dVdA = 1
-        self._amp = 1
+    def write(self, devchan, data, freq=10000.0, minv=-10.0, maxv=10.0, timeout=10.0):
+        return nidaq.write(devchan, data, freq=freq, minv=minv, maxv=maxv, timeout=timeout)
 
-    def set_dAdV(self, dAdV=1):
-        self._dAdV = dAdV
+    def read(self, devchan, samples=1, freq=10000.0, minv=-10.0, maxv=10.0, timeout=10.0):
+        return nidaq.read(devchan, samples=samples, freq=freq, minv=minv, maxv=maxv, timeout=timeout,
+                          config=self._chan_config)
 
-    def set_dAdV_B(self, dAdV_B=1):
-        self._dAdV_B = dAdV_B
+    ####################################################################################################################
+    ### functions needed for transport.py and virtual_tunnel_electronics.py                                          ###
+    ####################################################################################################################
 
-    def get_dAdV_B(self):
-        return self._dAdV_B
+    def get_measurement_mode(self, channel=0):
+        return 1  # 4-wire
 
-    def set_amplification(self, amp=1):
-        self._amp = amp
+    def get_bias_mode(self, channel=0):
+        return 1  # voltage bias
 
-    def set_dVdA(self, dVdA=1):
-        self._dVdA = dVdA
+    def get_sense_mode(self, channel=0):
+        return 1  # voltage bias
+
+    def get_bias_range(self, channel=0):
+        return -1  # 5V
+
+    def get_sense_range(self, channel=0):
+        return -1  # 5V
+
+    def get_bias_delay(self, channel=0):
+        return 0
+
+    def get_sense_delay(self, channel=0):
+        return 0
+
+    def get_sense_average(self, channel=0):
+        return 1
+
+    def get_plc(self):
+        return self._plc
+
+    def set_sense_nplc(self, val, channel=0):
+        self._sense_nplc = val
+
+    def get_sense_nplc(self, channel=0):
+        return self._sense_nplc
+
+    def set_bias_value(self, val, channel=0):
+        self._bias_values[channel] = val
+        nidaq.write('{:s}/ao{:d}'.format(self._id, channel), val)
+
+    def get_bias_value(self, channel=0):
+        return self._bias_values[channel]
+
+    def get_sense_value(self, channel=0):
+        return nidaq.read('{:s}/ai{:d}'.format(self._id, channel), config=self._chan_config)
+
+    def set_status(self, status, channel=0):
+        pass
+        #if not status:
+        #    self.set_bias_value(val=0, channel=channel)
+
+    def get_sweep_mode(self):
+        return 0  (VV-mode)
+
+    def get_sweep_channels(self):
+        return (1,2)#(self.O_devchan, self.I_devchan)
+
+    def get_sweep_bias(self):
+        return 1  # voltage
+
+    def set_step_time(self, step_time):
+        self._step_time = step_time
+
+    def set_sweep_mode(self, *args, **kwargs):
+        pass
+
+    def get_sweep_mode(self):
+        return 0
+
+    def set_sweep_parameters(self, sweep):
+        start = float(sweep[0])
+        stop = float(sweep[1])
+        step = float(sweep[2])
+        nop = int(round(abs((stop-start)/step)+1))
+        self.waveform = np.linspace(start, np.sign(stop)*(np.floor(np.abs(np.round(float(stop-start)/step)))*step)+start, nop) # stop is rounded down to multiples of step
+        self.rate = self._plc/self._sense_nplc
+        self.set_bias_value(start)
+        time.sleep(1./self.rate)
+
+    def get_tracedata(self):
+        in_data = self.waveform
+        out_data = nidaq.sync_write_read(self.O_devchan, self.I_devchan, in_data, rate=self.rate)
+        return self.waveform, out_data
+
+
+
+    ####################################################################################################################
+    ### old version                                                                                                  ###
+    ####################################################################################################################
 
     def get_all(self):
         ch_in = [_get_channel(ch) for ch in self._get_input_channels()]
@@ -157,56 +243,6 @@ class NI_DAQ_IV(Instrument):
 
     def sync_output_input(self, O_devchan, I_devchan, waveform, rate=1000, **kwargs):
         return nidaq.sync_write_read(O_devchan, I_devchan, waveform, rate=rate)
-
-    def get_bias_mode(self, channel=1):
-        return 'curr'
-
-    def set_status(self, status, channel=1):
-        return True
-
-    def set_devchan(self, O_devchan='Dev1/ao0', I_devchan='Dev1/ai0'):
-        self.O_devchan = O_devchan
-        self.I_devchan = I_devchan
-
-    def set_step_time(self, step_time):
-        self._step_time = step_time
-
-    def set_sweep_parameters(self, sweep, channel=1):
-        self._step = sweep[2]
-        self.waveform = numpy.arange(sweep[0], sweep[1], sweep[2])
-        self.rate = 1. / self._step_time
-        self.set_ao0(sweep[0] / self._dAdV)
-
-    def take_IV(self, channel=1):
-        in_data = self.waveform / self._dAdV
-        out_data = nidaq.sync_write_read(self.O_devchan, self.I_devchan, in_data, rate=self.rate) / self._amp
-        return self.waveform, out_data
-
-    """
-    def ramp_current(self, target, step, wait=0.1, channel=1):
-        '''
-        Ramps current from current value to <target>
-        
-        Input:
-            target (float)
-            step (float)
-            wait (float)
-        Output:
-            None
-        '''
-        start = self.get_ao1()*self._dAdV_B
-        if(target < start): step = -step
-        for i in numpy.concatenate((numpy.arange(start, target, step)[1:], [target])):
-            self.set_ao1(i/self._dAdV_B)
-            time.sleep(wait)
-    """
-
-    def write(self, devchan, data, freq=10000.0, minv=-10.0, maxv=10.0, timeout=10.0):
-        return nidaq.write(devchan, data, freq=freq, minv=minv, maxv=maxv, timeout=timeout)
-
-    def read(self, devchan, samples=1, freq=10000.0, minv=-10.0, maxv=10.0, timeout=10.0):
-        return nidaq.read(devchan, samples=samples, freq=freq, minv=minv, maxv=maxv, timeout=timeout,
-                          config=self._chan_config)
 
 
 def detect_instruments():

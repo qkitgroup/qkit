@@ -93,6 +93,11 @@ cfg['stdout_log_level'] = 'WARNING'
 #cfg['check_for_updates'] = False
 
 ##
+## Make png files at the end of the measurement
+##
+#cfg['save_png'] = True
+
+##
 ## QT related options
 ## 
 # we don't use qtlab anymore

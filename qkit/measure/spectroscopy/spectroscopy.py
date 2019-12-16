@@ -193,6 +193,8 @@ class spectrum(object):
                 fit_fct = self.f_parab
             elif curve_f == 'hyp':
                 fit_fct = self.f_hyp
+            elif curve_f == 'transmon':
+                fit_fct = self.f_transmon
             elif curve_f == 'lin':
                 fit_fct = self.f_lin
                 p0 = p0[:2]
@@ -333,8 +335,6 @@ class spectrum(object):
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath()) 
-        print('recording trace...')
-        sys.stdout.flush()
 
         qkit.flow.start()
         if rescan:
@@ -391,6 +391,9 @@ class spectrum(object):
         if not self.x_set_obj:
             logging.error('axes parameters not properly set...aborting')
             return
+        if len(self.x_vec) == 0:
+            logging.error('No points to measure given. Check your x vector... aborting')
+            return
         self._scan_1D = False
         self._scan_2D = True
         self._scan_3D = False
@@ -434,6 +437,10 @@ class spectrum(object):
         if not self.x_set_obj or not self.y_set_obj:
             logging.error('axes parameters not properly set...aborting')
             return
+        if len(self.x_vec)*len(self.y_vec) == 0:
+            logging.error('No points to measure given. Check your x ad y vector... aborting')
+            return
+        
         self._scan_1D = False
         self._scan_2D = False
         self._scan_3D = True
@@ -451,8 +458,6 @@ class spectrum(object):
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
-        if self.progress_bar: self._p = Progress_Bar(len(self.x_vec)*len(self.y_vec),'3D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
-
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
@@ -467,6 +472,13 @@ class spectrum(object):
             self.center_freqs = []     #load default sequence
             for i in range(len(self.x_vec)):
                 self.center_freqs.append([0])
+         
+        if self.progress_bar: 
+            if self.landscape:
+                points = np.sum(np.min(np.abs(self.y_vec[:,np.newaxis,np.newaxis]- self.center_freqs),axis=2) <= self.span/2)
+            else: 
+                points = len(self.x_vec)*len(self.y_vec)
+            self._p = Progress_Bar(points,'3D VNA sweep '+self.dirname,self.vna.get_sweeptime_averages())
 
         self._measure()
         
@@ -585,9 +597,12 @@ class spectrum(object):
                             sleep(self.tdy)
                             if self.averaging_start_ready:
                                 self.vna.start_measurement()
-                                qkit.flow.sleep(.2) #just to make sure, the ready command does not *still* show ready
+                                if self.vna.ready():
+                                  logging.debug("VNA STILL ready... Adding delay")
+                                  qkit.flow.sleep(.2) #just to make sure, the ready command does not *still* show ready
+                                  
                                 while not self.vna.ready():
-                                    qkit.flow.sleep(.2)
+                                    qkit.flow.sleep(min(self.vna.get_sweeptime_averages(query=False)/11.,.2))
                             else:
                                 self.vna.avg_clear()
                                 qkit.flow.sleep(self._sweeptime_averages)
@@ -598,13 +613,13 @@ class spectrum(object):
                             
                             """ measurement """
                             data_amp, data_pha = self.vna.get_tracedata()
+                            if self.progress_bar:
+                                self._p.iterate()
 
                         self._data_amp.append(data_amp)
                         self._data_pha.append(data_pha)
                         if self._fit_resonator:
                             self._do_fit_resonator()
-                        if self.progress_bar:
-                            self._p.iterate()
                         qkit.flow.sleep()
                     """
                     filling of value-box is done here.
@@ -616,9 +631,12 @@ class spectrum(object):
                 if self._scan_2D:
                     if self.averaging_start_ready:
                         self.vna.start_measurement()
-                        qkit.flow.sleep(.2) #just to make sure, the ready command does not *still* show ready
+                        if self.vna.ready():
+                          logging.debug("VNA STILL ready... Adding delay")
+                          qkit.flow.sleep(.2) #just to make sure, the ready command does not *still* show ready
+                          
                         while not self.vna.ready():
-                            qkit.flow.sleep(.2)
+                            qkit.flow.sleep(min(self.vna.get_sweeptime_averages(query=False)/11.,.2))
                     else:
                         self.vna.avg_clear()
                         qkit.flow.sleep(self._sweeptime_averages)
@@ -755,6 +773,22 @@ class spectrum(object):
         
     def f_lin(self,x,a,b):
         return a*x+b
+    
+    def f_transmon(self, x, w_max, L, I_ext, djj):
+        """
+        Dispersion of a tunable transmon qubit with junction asymmetry.
+
+        Args:
+            x:     x-value
+            w_max:    Maximum qubit frequency without detuning.
+            L:     Oscillation period in current/x-value.
+            I_ext: Offset current/x offset.
+            djj:   Josephson junction asymmetry (Ic1 - Ic2)/(Ic1 + Ic2)
+        
+        Returns:
+            Primal transition frequency of a transmon qubit.
+        """
+        return  w_max * (np.abs(np.cos(np.pi/L*(x - I_ext)))*(1 + djj**2*np.tan(np.pi/L*(x - I_ext))**2)**.5)**0.5
 
     def set_plot_comment(self, comment):
         '''

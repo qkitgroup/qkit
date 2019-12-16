@@ -31,7 +31,10 @@ import sys
 import time
 import threading
 from threading import Thread
-from queue import Queue, Empty
+try: # In Python 2 the following command works only with python-future installed
+    from queue import Queue, Empty
+except ImportError:
+    from Queue import Queue, Empty
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -74,10 +77,15 @@ class SputterMonitor(object):
         self.y_set_obj = None
 
         self.progress_bar = False
+
+        self._show_ideal = False
+
         self._fit_resistance = False
         self._fit_every = 1
         self._fit_points = 5
         self._p0 = None
+
+        self._reference_uid = None
 
         self._plot_comment = ""
 
@@ -95,6 +103,7 @@ class SputterMonitor(object):
 
         self._target_resistance = 1000.
         self._target_thickness = 20.
+        self._target_marker = False
 
         self._depmon_queue = Queue()  # for communication with the depmon thread
 
@@ -136,7 +145,7 @@ class SputterMonitor(object):
         """
         return self._resolution
 
-    def set_filmparameters(self, resistance=1000., thickness=20.):
+    def set_filmparameters(self, resistance=1000., thickness=20., target_marker=False):
         """
         Set the target parameters of the film to be deposited.
         They are used to calculate the ideal trend of the measured parameters and their deviation from the ideal.
@@ -144,15 +153,22 @@ class SputterMonitor(object):
         Args:
             resistance (float): The target sheet resistance in Ohm.
             thickness (float): The target thickness in nm.
+            target_marker (bool): Display a cross marking the target resistance and thickness.
         """
         self._target_resistance = resistance
         self._target_thickness = thickness
+        self._target_marker = target_marker
 
     def get_filmparameters(self):
         """
-        Pass
+        Get the set film parameters.
+
+        Returns:
+            Tuple containing:
+                [0]: target_resistance (float): The target sheet resistance in Ohm.
+                [1]: target_thickness (float): The target thickness in nm.
         """
-        pass  # FIXME: How to format return?
+        return self._target_resistance, self._target_thickness
 
     def ideal_resistance(self, thickness):
         """
@@ -191,7 +207,25 @@ class SputterMonitor(object):
         self._fit_points = fit_points
         self._p0 = p0
 
-    def set_resistance_4W(self,four_wire=False):
+    def set_reference_uid(self, uid=None):
+        """
+        Set a UID to be shown as a reference trace in the "resistance_thickness" view.
+
+        Args:
+            uid (str): The UID of the h5 file from which the resistance and thickness data is to be displayed.
+        """
+        try:
+            ref = hdf.Data(qkit.fid[uid])
+            self._ref_resistance = ref.data.resistance[:]
+            self._ref_thickness = ref.data.thickness[:]
+            self._reference_uid = uid
+            ref.close()
+            return self._reference_uid
+        except:
+            self._reference_uid = None
+            return "Invalid UID"
+
+    def set_resistance_4W(self, four_wire=False):
         """
         Sets 2 (default) or 4 wire measurement mode, if the device supports it.
 
@@ -199,6 +233,63 @@ class SputterMonitor(object):
             four_wire = False
         """
         self.ohmmeter.set_measure_4W(four_wire)
+
+    def _theory(self, thickness, thickness_start, conductivity, cond_per_layer):
+        """
+        Calculate a prediction for the resistance at a certain film thickness,
+        given the current thickness, current conductivity and added conductivity per layer.
+
+        Args:
+            thickness (float): Film thickness for which the resistance shall be predicted
+            thickness_start (float): Film thickness at the start of the prediction.
+            conductivity (float): Film conductivity at the start of the prediction.
+            cond_per_layer (float): Added conductivity per layer for the remaining film growth.
+
+        Returns:
+            The projected film resistance (float).
+        """
+        t_added = thickness - thickness_start
+        try:
+            return 1. / (conductivity + t_added * cond_per_layer)
+        except:
+            return np.nan
+
+    def _linear(self, x, a, b):
+        """
+        Helper function providing a linear fitting function.
+        """
+        return a*x+b
+
+    def _fit_layer(self, t_points, R_points):
+        """
+        Fit the changing film resistance to extract the gained conductivity per layer.
+        This is then used to project the final film resistance with the provided target film parameters.
+
+        Args:
+            t_points (numpy array): Thickness data from which the conductivity per layer is to be extracted.
+            R_points (numpy array): Resistance data from which the conductivity per layer is to be extracted.
+
+        Returns:
+            Tuple containing:
+                [0]: t_final (float): The predicted thickness at which the target resistance will be reached.
+                [1]: R_final (float): The predicted resistance that will be reached at the target thickness.
+                [2]: popt[0] (float): Conductivity per layer as obtained by linear fit.
+        """
+        #ToDo: Store all fits, Store time of fit to sync it to other datasets, revise theory.
+        for i in R_points:
+            if i == 0:
+                return [np.nan, np.nan, np.nan]
+
+        try:
+            c_target = 1./self._target_resistance
+            c_points = 1./R_points
+            popt, _ = curve_fit(self._linear, t_points, c_points, p0=self._p0)
+            R_final = self._theory(self._target_thickness, t_points[0], c_points[0], popt[0])
+            t_final = ( (c_target - c_points[-1]) / popt[0] ) + t_points[-1]
+            return [t_final, R_final, popt[0]]
+
+        except:
+            return [np.nan, np.nan, np.nan]
 
     def _reciprocal(self, thickness, cond_per_layer):
         """
@@ -234,10 +325,10 @@ class SputterMonitor(object):
                 return [np.nan, np.nan]
 
         try:
-            popt, _ = curve_fit(self._reciprocal, t_points, R_points, p0=self._p0)
+            self._popt, _ = curve_fit(self._reciprocal, t_points, R_points, p0=self._p0)
 
-            t_final = 1. / (self._target_resistance * popt[0])
-            R_final = 1. / (self._target_thickness * popt[0])
+            t_final = 1. / (self._target_resistance * self._popt[0])
+            R_final = 1. / (self._target_thickness * self._popt[0])
 
             return [t_final, R_final]
 
@@ -311,6 +402,10 @@ class SputterMonitor(object):
                                                                  x=self._data_time,
                                                                  unit='Ohm',
                                                                  save_timestamp=False)
+        self._data_conductance = self._data_file.add_value_vector('conductance',
+                                                                 x=self._data_time,
+                                                                 unit='S',
+                                                                 save_timestamp=False)
         self._data_deviation_abs = self._data_file.add_value_vector('deviation_absolute',
                                                                     x=self._data_time,
                                                                     unit='Ohm',
@@ -343,11 +438,39 @@ class SputterMonitor(object):
         '''
         self._thickness_coord = self._data_file.add_coordinate('thickness_coord', unit='nm')
         self._thickness_coord.add(self.ideal_trend()[0])
-        self._data_ideal = self._data_file.add_value_vector('ideal_resistance',
-                                                            x=self._thickness_coord,
-                                                            unit='Ohm',
-                                                            save_timestamp=False)
-        self._data_ideal.append(self.ideal_trend()[1])
+        if self._show_ideal:
+            self._data_ideal = self._data_file.add_value_vector('ideal_resistance',
+                                                                x=self._thickness_coord,
+                                                                unit='Ohm',
+                                                                save_timestamp=False)
+            self._data_ideal.append(self.ideal_trend()[1])
+
+        '''
+        Create target marker
+        '''
+        if self._target_marker:
+            self._target_thickness_line = self._data_file.add_value_vector('target_thickness',
+                                                                          x=None,
+                                                                          unit='nm',
+                                                                          save_timestamp=False)
+            self._target_thickness_line.append([0.8*self._target_thickness,
+                                                self._target_thickness, self._target_thickness,
+                                                self._target_thickness, self._target_thickness,
+                                                1.2*self._target_thickness])
+            self._target_resistance_line = self._data_file.add_value_vector('target_resistance',
+                                                                          x=None,
+                                                                          unit='Ohm',
+                                                                          save_timestamp=False)
+            self._target_resistance_line.append([self._target_resistance, self._target_resistance,
+                                                 1.2*self._target_resistance, 0.8*self._target_resistance,
+                                                 self._target_resistance, self._target_resistance])
+            self._target_conductance_line = self._data_file.add_value_vector('target_conductance',
+                                                                             x=None,
+                                                                             unit='S',
+                                                                             save_timestamp=False)
+            self._target_conductance_line.append([1./self._target_resistance, 1./self._target_resistance,
+                                                 1./1.2/self._target_resistance, 1./0.8/self._target_resistance,
+                                                 1./self._target_resistance, 1./self._target_resistance])
 
         '''
         Estimation datasets
@@ -361,6 +484,25 @@ class SputterMonitor(object):
                                                                            x=None,
                                                                            unit='Ohm',
                                                                            save_timestamp=False)
+            self._last_resistance_fit = self._data_file.add_value_vector('last_resistance_fit',
+                                                                         x=None,
+                                                                         unit='Ohm',
+                                                                         save_timestamp=False)
+
+        '''
+        Reference dataset
+        '''
+        if not self._reference_uid == None:
+            self._thickness_reference = self._data_file.add_value_vector('thickness_reference',
+                                                                         x=None,
+                                                                         unit='nm',
+                                                                         save_timestamp=False)
+            self._thickness_reference.append(self._ref_thickness)
+            self._resistance_reference = self._data_file.add_value_vector('reference_' + self._reference_uid,
+                                                                          x=None,
+                                                                          unit='Ohm',
+                                                                          save_timestamp=False)
+            self._resistance_reference.append(self._ref_resistance)
 
         '''
         Create Views
@@ -368,7 +510,21 @@ class SputterMonitor(object):
         self._resist_view = self._data_file.add_view('resistance_thickness',
                                                      x=self._data_thickness,
                                                      y=self._data_resistance)
-        self._resist_view.add(x=self._thickness_coord, y=self._data_ideal)
+        if self._show_ideal:
+            self._resist_view.add(x=self._thickness_coord, y=self._data_ideal)
+        if self._target_marker:
+            self._resist_view.add(x=self._target_thickness_line, y=self._target_resistance_line)
+        if not self._reference_uid == None:
+            self._resist_view.add(x=self._thickness_reference, y=self._resistance_reference)
+        if self._fit_resistance:
+            self._resist_view.add(x=self._thickness_coord, y=self._last_resistance_fit)
+
+        self._conductance_view = self._data_file.add_view('conductance_thickness',
+                                                          x=self._data_thickness,
+                                                          y=self._data_conductance)
+        if self._target_marker:
+            self._conductance_view.add(x=self._target_thickness_line, y=self._target_conductance_line)
+
 
         self._deviation_abs_view = self._data_file.add_view('deviation_absolute',
                                                             x=self._data_thickness,
@@ -431,10 +587,12 @@ class SputterMonitor(object):
         """
         self._data_time.append(time.time() - mon_data.t0)
 
-        mon_data.resistance.append(self.ohmmeter.get_resistance())
+        #mon_data.resistance.append(self.ohmmeter.get_resistance())
+        mon_data.resistance = np.append(mon_data.resistance, self.ohmmeter.get_resistance())
         if self.quartz:
             rate = self.quartz.get_rate(nm=True)
-            mon_data.thickness.append(self.quartz.get_thickness(nm=True))
+            #mon_data.thickness.append(self.quartz.get_thickness(nm=True))
+            mon_data.thickness = np.append(mon_data.thickness, self.quartz.get_thickness(nm=True))
         if self.mfc:
             pressure = self.mfc.get_pressure()
             Ar_flow = self.mfc.get_flow(self.Ar_channel)
@@ -443,6 +601,10 @@ class SputterMonitor(object):
         if mon_data.resistance[-1] > 1.e9:
             mon_data.resistance[-1] = np.nan
         self._data_resistance.append(mon_data.resistance[-1])
+        if not mon_data.resistance[-1] == 0:
+            self._data_conductance.append(1./mon_data.resistance[-1])
+        else:
+            self._data_conductance.append(np.nan)
         if self.quartz:
             self._data_rate.append(rate)
             self._data_thickness.append(mon_data.thickness[-1])
@@ -457,11 +619,23 @@ class SputterMonitor(object):
             self._data_deviation_abs.append(deviation_abs)
             self._data_deviation_rel.append(deviation_rel)
 
-        if ((self._fit_resistance) and (mon_data.it % self._fit_every == 0) and (len(mon_data.resistance) >= self._fit_points)):
+        if ((self._fit_resistance) and (mon_data.it % self._fit_every == 0) and (
+                len(mon_data.resistance) >= self._fit_points)):
+            """
+            # OLD ROUTINE
             estimation = self._fit_trend(mon_data.thickness[-self._fit_points:None],
                                          mon_data.resistance[-self._fit_points:None])
             self._thickness_estimation.append(estimation[0])
             self._resistance_estimation.append(estimation[1])
+            self._last_resistance_fit.append(self._reciprocal(self.ideal_trend()[0],self._popt[0]), reset=True)
+            """
+            estimation = self._fit_layer(mon_data.thickness[-self._fit_points:None],
+                                         mon_data.resistance[-self._fit_points:None])
+            self._thickness_estimation.append(estimation[0])
+            self._resistance_estimation.append(estimation[1])
+            self._last_resistance_fit.append(self._theory(self.ideal_trend()[0], mon_data.thickness[-1],
+                                                          1./mon_data.resistance[-1], estimation[2]),
+                                             reset=True)
 
     def monitor_depo(self):
         """
@@ -490,15 +664,17 @@ class SputterMonitor(object):
         sys.stdout.flush()
 
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['resistance'])
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['views/resistance_thickness'])
 
         try:
             """
             Initialize the data lists.
             """
+
             class MonData(object):
-                resistance = []
-                thickness = []
+                resistance = np.array([])
+                thickness = np.array([])
+
             mon_data = MonData()
 
             """
@@ -512,7 +688,7 @@ class SputterMonitor(object):
                     self._p.iterate()
 
                 # calculate the time when the next iteration should take place
-                ti = mon_data.t0 + (float(mon_data.it)+1) * self._resolution
+                ti = mon_data.t0 + (float(mon_data.it) + 1) * self._resolution
                 # wait until the total dt(iteration) has elapsed
                 while time.time() < ti:
                     time.sleep(0.05)
@@ -543,21 +719,32 @@ class SputterMonitor(object):
             set_duration and set_resolution should be called before to set the monitoring length and time resolution.
             set_filmparameters should be called before to provide the actual target values.
         """
+
         class StopPauseExeption(Exception):
             pass
+
         class StartPauseExeption(Exception):
             pass
+
         """
         A few boilerplate functions for the thread management:
         continue, stop, status, etc...
         """
-        def stop(): raise StopIteration
-        def do_nothing(): pass
-        def status(): self._depmon_queue.put(loop_status)
-        def cont() : raise StopPauseExeption
-        def pause(): raise StartPauseExeption
 
-                
+        def stop():
+            raise StopIteration
+
+        def do_nothing():
+            pass
+
+        def status():
+            self._depmon_queue.put(loop_status)
+
+        def cont():
+            raise StopPauseExeption
+
+        def pause():
+            raise StartPauseExeption
 
         loop_status = 0
         tasks = {}
@@ -570,9 +757,11 @@ class SputterMonitor(object):
         """
         Initialize the data lists.
         """
+
         class MonData(object):
-            resistance = []
-            thickness = []
+            resistance = np.array([])
+            thickness = np.array([])
+
         mon_data = MonData()
 
         """
@@ -594,7 +783,7 @@ class SputterMonitor(object):
                 while True:
                     try:
                         time.sleep(0.1)
-                        tasks.get(self._depmon_queue.get(False), do_nothing)()                    
+                        tasks.get(self._depmon_queue.get(False), do_nothing)()
                         self._depmon_queue.task_done()
                     except StopPauseExeption:
                         print('monitoring restarted')
@@ -639,7 +828,8 @@ class SputterMonitor(object):
         self._init_depmon()
 
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['resistance'])
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['views/resistance_thickness'],
+                                              refresh=1.)
 
         self._depmon = Thread(target=self._monitor_depo_bg, name="depmon-1")
         self._depmon.daemon = True
@@ -677,7 +867,7 @@ class SputterMonitor(object):
         """
         for thread in threading.enumerate():
             if thread.getName()[:3] == "dep":
-                print (thread)
+                print(thread)
 
     def _end_measurement(self):
         """

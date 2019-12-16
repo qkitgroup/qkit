@@ -85,8 +85,8 @@ try:
             self.progr = iteration
             self._update(param)
         
-        def iterate(self,param=""):
-            self.progr += 1
+        def iterate(self, param="", addend=1):
+            self.progr += addend
             self._update(param)
         
         def _update(self,param=""):

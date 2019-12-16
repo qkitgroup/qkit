@@ -69,12 +69,13 @@ class hdf_dataset(object):
         self.first = True
 
     def _read_ds_from_hdf(self,ds_url):
-        self.ds_url =  ds_url
         ds = self.hf[str(ds_url)]
 
         for attr in ds.attrs.keys():
             val = ds.attrs.get(attr)
             setattr(self,attr,val)
+        
+        self.ds_url =  ds_url
         
     def _setup_metadata(self):
         ds = self.ds
@@ -137,7 +138,7 @@ class hdf_dataset(object):
         if self._next_matrix:
             self._next_matrix = False
         if self._save_timestamp:
-            self.hf.append(self.ds_ts, numpy.array(time.time()), reset=reset)
+            self.hf.append(self.ds_ts, numpy.array([time.time()]), reset=reset)
 
         self.hf.flush()
             
@@ -162,8 +163,8 @@ class hdf_dataset(object):
         and unix timestamp added at each append() call.
         """
         self.ds_ts = self.hf.create_dataset(self.name+'_ts', tracelength = 1,folder=self.folder,dim=max(self.dim-1, 1), dtype='float64')
-        self.ds_ts.attrs.create('name', 'measurement_time')       
-        self.ds_ts.attrs.create('unit', 's')
+        self.ds_ts.attrs.create('name', 'measurement_time'.encode())       
+        self.ds_ts.attrs.create('unit', 's'.encode())
         if self.ds_type == ds_types['vector']:
             self.ds_ts.attrs.create('ds_type', ds_types['vector'])
         if self.ds_type == ds_types['matrix']:

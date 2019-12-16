@@ -103,6 +103,8 @@ class h5plot(object):
         """Inits h5plot with a h5_filepath (string, absolute path), optional 
         comment string, and optional save_pdf boolean.
         """
+        if not qkit.cfg.get('save_png',True):
+            return False
         self.comment = comment
         self.save_pdf = save_pdf
         self.path = h5_filepath
@@ -215,14 +217,14 @@ class h5plot(object):
             No return variable. The function operates on the self- matplotlib 
             objects.
         """
-        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_'))
+        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_').decode())
         self.y_data = np.array(self.ds)
         self.y_exp = self._get_exp(self.y_data)
-        self.y_label = self.ds.attrs.get('name','_name_') + ' (' + self._unit_prefixes[self.y_exp] + self.ds.attrs.get('unit','_unit_') + ')'
+        self.y_label = self.ds.attrs.get('name','_name_').decode() + ' (' + self._unit_prefixes[self.y_exp] + self.ds.attrs.get('unit','_unit_').decode() + ')'
         try:
             self.x_data = self.hf[self.x_ds_url]
             self.x_exp = self._get_exp(np.array(self.x_data))
-            self.x_label = self.x_data.attrs.get('name','_xname_') + ' (' + self._unit_prefixes[self.x_exp] + self.x_data.attrs.get('unit','_xunit_') + ')'
+            self.x_label = self.x_data.attrs.get('name','_xname_').decode() + ' (' + self._unit_prefixes[self.x_exp] + self.x_data.attrs.get('unit','_xunit_').decode() + ')'
         except Exception:
             self.x_data = np.arange(len(self.y_data))
             self.x_label = '_none_ / _none_'
@@ -249,14 +251,14 @@ class h5plot(object):
         """
         self.x_ds = self.hf[self.x_ds_url]
         self.x_exp = self._get_exp(np.array(self.x_ds))
-        self.x_label = self.x_ds.attrs.get('name', '_xname_') + ' (' + self._unit_prefixes[self.x_exp] + self.x_ds.attrs.get('unit', '_xunit_') + ')'
+        self.x_label = self.x_ds.attrs.get('name', '_xname_').decode() + ' (' + self._unit_prefixes[self.x_exp] + self.x_ds.attrs.get('unit', '_xunit_').decode() + ')'
         self.y_ds = self.hf[self.y_ds_url]
         self.y_exp = self._get_exp(np.array(self.y_ds))
-        self.y_label = self.y_ds.attrs.get('name', '_yname_') + ' (' + self._unit_prefixes[self.y_exp] + self.y_ds.attrs.get('unit', '_yunit_') + ')'
+        self.y_label = self.y_ds.attrs.get('name', '_yname_').decode() + ' (' + self._unit_prefixes[self.y_exp] + self.y_ds.attrs.get('unit', '_yunit_').decode() + ')'
         self.ds_data = np.array(self.ds).T #transpose matrix to get x/y axis correct
         self.ds_exp = self._get_exp(self.ds_data)
         self.ds_data *= 10.**-self.ds_exp
-        self.ds_label = self.ds.attrs.get('name', '_name_') + ' (' + self._unit_prefixes[self.ds_exp] + self.ds.attrs.get('unit', '_unit_') + ')'
+        self.ds_label = self.ds.attrs.get('name', '_name_').decode() + ' (' + self._unit_prefixes[self.ds_exp] + self.ds.attrs.get('unit', '_unit_').decode() + ')'
 
         x_data = np.array(self.x_ds)*10.**-self.x_exp
         x_min, x_max = np.amin(x_data), np.amax(x_data)
@@ -274,7 +276,7 @@ class h5plot(object):
             self.ds_data = np.flipud(self.ds_data)
 
         # plot
-        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_'))
+        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_').decode())
         self.cax = self.ax.imshow(self.ds_data,
                                   extent=(x_min, x_max, y_min, y_max),
                                   aspect='auto',
@@ -302,17 +304,17 @@ class h5plot(object):
         """
         self.x_ds = self.hf[self.x_ds_url]
         self.x_exp = self._get_exp(np.array(self.x_ds))
-        self.x_label = self.x_ds.attrs.get('name', '_xname_') + ' (' + self._unit_prefixes[self.x_exp] + self.x_ds.attrs.get('unit', '_xunit_') + ')'
+        self.x_label = self.x_ds.attrs.get('name', '_xname_').decode() + ' (' + self._unit_prefixes[self.x_exp] + self.x_ds.attrs.get('unit', '_xunit_').decode() + ')'
         self.y_ds = self.hf[self.y_ds_url]
         self.y_exp = self._get_exp(np.array(self.y_ds))
-        self.y_label = self.y_ds.attrs.get('name', '_yname_') + ' (' + self._unit_prefixes[self.y_exp] + self.y_ds.attrs.get('unit', '_yunit_') + ')'
+        self.y_label = self.y_ds.attrs.get('name', '_yname_').decode() + ' (' + self._unit_prefixes[self.y_exp] + self.y_ds.attrs.get('unit', '_yunit_').decode() + ')'
         self.z_ds = self.hf[self.z_ds_url]
         self.z_exp = self._get_exp(np.array(self.z_ds))
-        self.z_label = self.z_ds.attrs.get('name', '_zname_') + ' (' + self._unit_prefixes[self.z_exp] + self.z_ds.attrs.get('unit', '_zunit_') + ')'
-        self.ds_data = np.array(self.ds)[:, :, self.ds.shape[2] / 2].T  # transpose matrix to get x/y axis correct
+        self.z_label = self.z_ds.attrs.get('name', '_zname_').decode() + ' (' + self._unit_prefixes[self.z_exp] + self.z_ds.attrs.get('unit', '_zunit_').decode() + ')'
+        self.ds_data = np.array(self.ds)[:, :, self.ds.shape[2] // 2].T  # transpose matrix to get x/y axis correct
         self.ds_exp = self._get_exp(self.ds_data)
         self.ds_data *= 10.**-self.ds_exp
-        self.ds_label = self.ds.attrs.get('name', '_name_') + ' (' + self._unit_prefixes[self.ds_exp] + self.ds.attrs.get('unit', '_unit_') + ')'
+        self.ds_label = self.ds.attrs.get('name', '_name_').decode() + ' (' + self._unit_prefixes[self.ds_exp] + self.ds.attrs.get('unit', '_unit_').decode() + ')'
 
         x_data = np.array(self.x_ds)*10.**-self.x_exp
         x_min, x_max = np.amin(x_data), np.amax(x_data)
@@ -333,7 +335,7 @@ class h5plot(object):
             self.ds_data = np.flipud(self.ds_data)
 
         # plot
-        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_'))
+        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_').decode())
         self.cax = self.ax.imshow(self.ds_data,
                                   extent=(x_min, x_max, y_min, y_max),
                                   aspect='auto',
@@ -377,11 +379,11 @@ class h5plot(object):
         overlay_num = self.ds.attrs.get("overlays",0)
         overlay_urls = []
         err_urls = []
-        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_'))
+        self.ax.set_title(self.hf._filename[:-3]+" "+self.ds.attrs.get('name','_name_').decode())
         
         # the overlay_urls (urls of the x and y datasets that ar plotted) are extracted from the metadata
         for i in range(overlay_num+1):
-            ov = self.ds.attrs.get("xy_"+str(i),"")
+            ov = self.ds.attrs.get("xy_"+str(i),"").decode()
             if ov:
                 overlay_urls.append(ov.split(":"))
             err_urls.append(self.ds.attrs.get("xy_"+str(i)+"_error",""))
@@ -404,12 +406,11 @@ class h5plot(object):
         since the initial demand for the plotting comes from IV measurements and for easy handling,
         the default display in qviewkit is saved.
         """
-        self.ds_label = self.ds.attrs.get('name','_name_')
-        view_params = json.loads(self.ds.attrs.get("view_params", {}))
+        self.ds_label = self.ds.attrs.get('name','_name_').decode()
+        view_params = json.loads(self.ds.attrs.get("view_params", {}).decode())
         #if 'aspect' in view_params:
         #    self.ax.set_aspect = view_params.get('aspect', 'auto')
         markersize = view_params.get('markersize', 5)
-
         # iteratring over all x- (and y-)datasets and checking for dimensions gives the data to be plotted
         for i, x_ds in enumerate(self.ds_xs):
             y_ds = self.ds_ys[i]
@@ -460,12 +461,12 @@ class h5plot(object):
                 self.x_label = view_params['labels'][0]
                 self.y_label = view_params['labels'][1]
             else:
-                self.x_label = x_ds.attrs.get("name", "_none_")
-                self.y_label = y_ds.attrs.get("name", "_none_")
+                self.x_label = x_ds.attrs.get("name", "_none_").decode()
+                self.y_label = y_ds.attrs.get("name", "_none_").decode()
             self.x_unit = x_ds.attrs.get("unit","_none_")
             self.y_unit = y_ds.attrs.get("unit","_none_")
-            self.x_label += ' (' + self._unit_prefixes[x_exp] + self.x_unit + ')'
-            self.y_label += ' (' + self._unit_prefixes[y_exp] + self.y_unit + ')'
+            self.x_label += ' (' + self._unit_prefixes[x_exp] + self.x_unit.decode() + ')'
+            self.y_label += ' (' + self._unit_prefixes[y_exp] + self.y_unit.decode() + ')'
         self.ax.legend()
 
     def _get_exp(self, data):

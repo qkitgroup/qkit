@@ -18,3 +18,8 @@ cfg['datafolder_structure'] = 2
 
 # If you are using qkit for measurements, you should install visa and uncomment the following line:
 #cfg['load_visa'] = True
+
+# Which version of the circle fit do you want?
+#  1 = "classic" circle fit by S. Probst (only version available until 08/2019)
+#  2 = updated circle fit by D. Rieger available since 08/2019
+cfg['circle_fit_version'] = 1

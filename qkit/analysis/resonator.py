@@ -6,7 +6,7 @@ import logging
 
 import qkit
 from qkit.storage import store
-from qkit.analysis.circle_fit import circuit
+from qkit.analysis.circle_fit.circle_fit_2019 import circuit
 from qkit.storage.hdf_constants import ds_types
 from scipy.optimize import leastsq
 from scipy.ndimage import gaussian_filter1d
@@ -160,14 +160,14 @@ class Resonator(object):
         self._frequency = np.array(self._hf[self.ds_url_freq],dtype=np.float64)
 
         try:
-            self._x_co = self._hf.get_dataset(self._ds_amp.x_ds_url)
+            self._x_co = self._hf.get_dataset(self._ds_amp.x_ds_url.decode())
         except:
             try:
                 self._x_co = self._hf.get_dataset(self.ds_url_power) # hardcode a std url
             except:
                 logging.warning('Unable to open any x_coordinate. Please set manually using \'set_x_coord()\'.')
         try:
-            self._y_co = self._hf.get_dataset(self._ds_amp.y_ds_url)
+            self._y_co = self._hf.get_dataset(self._ds_amp.y_ds_url.decode())
         except:
             try: self._y_co = self._hf.get_dataset(self.ds_url_freq) # hardcode a std url
             except:
@@ -268,7 +268,7 @@ class Resonator(object):
                 self._circ_real_gen.append(err)
                 self._circ_imag_gen.append(err)
 
-                for key in self._results.iterkeys():
+                for key in iter(self._results):
                     self._results[str(key)].append(np.nan)
 
             else:
@@ -277,7 +277,7 @@ class Resonator(object):
                 self._circ_real_gen.append(np.real(self._circle_port.z_data_sim))
                 self._circ_imag_gen.append(np.imag(self._circle_port.z_data_sim))
 
-                for key in self._results.iterkeys():
+                for key in iter(self._results):
                     self._results[str(key)].append(float(self._circle_port.fitresults[str(key)]))
             trace+=1
 
@@ -285,18 +285,23 @@ class Resonator(object):
         '''
         creates the datasets for the circle fit in the hdf-file
         '''
-        self._result_keys_notch = {"Qi_dia_corr": '', "Qi_no_corr": '', "absQc": '', "Qc_dia_corr": '', "Ql": '',
-                                   "fr": '', "theta0": '', "phi0": '', "phi0_err": '', "Ql_err": '', "absQc_err": '',
-                                   "fr_err": '', "chi_square": '', "Qi_no_corr_err": '', "Qi_dia_corr_err": ''}
-        self._result_keys_reflection = {"Qi": '', "Qc": '', "Ql": '', "fr": '', "theta0": '', "Ql_err": '',
-                                        "Qc_err": '', "fr_err": '', "chi_square": '', "Qi_err": ''}
         self._results = {}
-
-        if self._circle_notch:
-            self._result_keys = self._result_keys_notch
-
-        if self._circle_reflection:
-            self._result_keys = self._result_keys_reflection
+        circle_fit_version = qkit.cfg.get("circle_fit_version", 1)
+        if circle_fit_version == 1:
+            if self._circle_notch:
+                self._result_keys = ["Qi_dia_corr", "Qi_no_corr", "absQc", "Qc_dia_corr", "Ql",
+                                     "fr", "theta0", "phi0", "phi0_err", "Ql_err", "absQc_err",
+                                     "fr_err", "chi_square", "Qi_no_corr_err", "Qi_dia_corr_err"]
+            elif self._circle_reflection:
+                self._result_keys = ["Qi", "Qc", "Ql", "fr", "theta0", "Ql_err",
+                                     "Qc_err", "fr_err", "chi_square", "Qi_err"]
+                
+        elif circle_fit_version == 2:
+            self._result_keys = ["delay", "delay_remaining", "a", "alpha", "theta", "phi", "fr", "Ql", "Qc",
+                                 "Qc_no_dia_corr", "Qi", "Qi_no_dia_corr", "fr_err", "Ql_err", "absQc_err",
+                                 "phi_err", "Qi_err", "Qi_no_dia_corr_err", "chi_square"]
+        else:
+            logging.warning("Circle fit version not properly set in configuration!")
 
         if self._ds_type == ds_types['vector']:  # data from measure_1d
             self._data_real_gen = self._hf.add_value_vector('data_real_gen', self._frequency_co, folder='analysis',
@@ -313,8 +318,8 @@ class Resonator(object):
             self._circ_imag_gen = self._hf.add_value_vector('circ_imag_gen', self._frequency_co, folder='analysis',
                                                             unit='')
 
-            for key in self._result_keys.iterkeys():
-                self._results[str(key)] = self._hf.add_coordinate('circ_' + str(key), folder='analysis', unit='')
+            for key in self._result_keys:
+                self._results[key] = self._hf.add_coordinate('circ_' + key, folder='analysis', unit='')
 
         if self._ds_type == ds_types['matrix']:  # data from measure_2d
             self._data_real_gen = self._hf.add_value_matrix('data_real_gen', self._x_co, self._frequency_co,
@@ -331,17 +336,16 @@ class Resonator(object):
             self._circ_imag_gen = self._hf.add_value_matrix('circ_imag_gen', self._x_co, self._frequency_co,
                                                             folder='analysis', unit='')
 
-            for key in self._result_keys.iterkeys():
-                self._results[str(key)] = self._hf.add_value_vector('circ_' + str(key), folder='analysis', x=self._x_co,
-                                                                    unit='')
+            for key in self._result_keys:
+                self._results[key] = self._hf.add_value_vector('circ_' + key, folder='analysis', x=self._x_co, unit='')
 
         circ_view_amp = self._hf.add_view('circ_amp', x=self._y_co, y=self._ds_amp)
         circ_view_amp.add(x=self._frequency_co, y=self._circ_amp_gen)
         circ_view_pha = self._hf.add_view('circ_pha', x=self._y_co, y=self._ds_pha)
         circ_view_pha.add(x=self._frequency_co, y=self._circ_pha_gen)
-        circ_view_iq = self._hf.add_view('circ_IQ', x=self._circ_real_gen, y=self._circ_imag_gen,
+        circ_view_iq = self._hf.add_view('circ_IQ', x=self._data_real_gen, y=self._data_imag_gen,
                                          view_params={'aspect': 1.0})
-        circ_view_iq.add(x=self._data_real_gen, y=self._data_imag_gen)
+        circ_view_iq.add(x=self._circ_real_gen, y=self._circ_imag_gen)
 
     def _get_data_circle(self):
         '''

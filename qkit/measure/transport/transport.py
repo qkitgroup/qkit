@@ -114,6 +114,9 @@ class transport(object):
         self._numder_kwargs = {'window_length': 15, 'polyorder': 3, 'deriv': 1}  # keyword arguments for derivation function
         self._average = None  # trace averaging
         self._view_xy = False
+        # x and y data
+        self._hdf_x = None
+        self._hdf_y = None
         # xy, 2D & 3D scan variables
         self.set_log_function()
         self._x_name = ''
@@ -130,6 +133,10 @@ class transport(object):
         self._y_set_obj = None
         self._y_unit = None
         self._landscape = False
+        self._fit_func = None
+        self._fit_name = None
+        self._fit_unit = None
+        self._fit_kwargs = None
     
     def set_sample(self, sample):
         """
@@ -283,10 +290,9 @@ class transport(object):
         dydx: numpy.array
             An N-dimensional array containing numerical derivative dy/dx.
         """
-        ### TODO: care about +/-np.inf and viewer
-        ### TODO: catch error, if len(dataset) < window_length in case of SavGol filter
+        # TODO: catch error, if len(dataset) < window_length in case of SavGol filter
         try:
-            return self._numder_func(y, *self._numder_args, **self._numder_kwargs) / self._numder_func(x, *self._numder_args, **self._numder_kwargs)
+            return self._numder_func(y, *self._numder_args, **self._numder_kwargs)/self._numder_func(x, *self._numder_args, **self._numder_kwargs)
         except:
             return np.zeros(len(y))*np.nan
     
@@ -369,6 +375,8 @@ class transport(object):
         # x dt
         if x_dt is not None:
             self._x_dt = x_dt
+        if self._landscape:
+            self._lsc_vec = self._lsc_func(np.array(self._x_vec), *self._lsc_args)
         return
     
     def set_tdy(self, x_dt):
@@ -453,8 +461,8 @@ class transport(object):
     
     def set_landscape(self, func, args, mirror=True):
         """
-        envelop function for landscape option in case of 2D and 3D scans
-        fasten up 
+        Sets parameters for landscapes scans in case of 2D and 3D scans to fasten up the measurement.
+        The values of the given envelop function limit the sweep bounds for each x-value of 2D or 3D scans. The overall sweep bounds can merely be decreased, so that only envelop values <= sweep bounds affect them.
         
         Parameters
         ----------
@@ -468,8 +476,27 @@ class transport(object):
         Returns
         -------
         None
+
+        Examples
+        --------
+        >>> tr.add_sweep_halfswing(1e-6, 10e-9)
+        >>> def x_function(i):
+                set_x_value(i)
+                return
+        >>> tr.set_x_parameters(x_vec = np.linspace(-10, 10, 21),
+                                x_coordname = 'x_name',
+                                x_set_obj = x_function,
+                                x_unit = 'x_unit')
+        >>> def lsc_func(x, a0, a1, x0):
+                y = np.ones(shape = len(x)) * a1
+                y[np.abs(x) > x0] = a0
+                return y
+        >>> tr.set_landscape(lsc_func, (500e-9, 1e-6, 5))
         """
+        # TODO: possibility for landscape scans in both x and y direction
         self._landscape = True
+        self._lsc_func = func
+        self._lsc_args = args
         self._lsc_vec = func(np.array(self._x_vec), *args)
         self._lsc_mirror = mirror
         return
@@ -480,7 +507,7 @@ class transport(object):
         self._lsc_mirror = False
         return
     
-    def set_xy_parameters(self, x_name, x_func, x_vec, x_unit, y_name, y_func, y_unit, x_dt=1e-3):
+    def set_xy_parameters(self, x_name, x_func, x_vec, x_unit, y_name, y_func, y_unit, x_kwargs={}, y_kwargs={}, x_dt=1e-3):
         """
         Set x- and y-parameters for measure_xy(), where y-parameters can be a list in order to record various quantities.
         
@@ -494,12 +521,16 @@ class transport(object):
             An array of x-values at which data should be taken.
         x_unit: str
             The unit of the x-parameter to be used in data series in the .h5 file.
+        x_kwargs: dict
+            Keyword arguments forwarded to the x-function <x_func>.
         y_name: array_likes of strings
             Names of y-parameters to be created as data series in the .h5 file.
         y_func: function
             A function that returns y-values.
         y_unit: array_likes of strings
             Units of y-parameters to be used in data series in the .h5 file.
+        y_kwargs: dict
+            Keyword arguments forwarded to the y-function <y_func>.
         x_dt: float, optional
             The sleep time between queries of x-values. Default is 1e-3.
         
@@ -527,6 +558,11 @@ class transport(object):
             self._x_unit = x_unit
         else:
             raise ValueError('{:s}: Cannot set {!s} as x-unit: string needed'.format(__name__, x_unit))
+        # x-kwargs
+        if type(x_kwargs) is dict:
+            self._x_kwargs = x_kwargs
+        else:
+            raise ValueError('{:s}: Cannot set {!s} as x-kwargs: dict needed'.format(__name__, x_kwargs))
         # y-name
         if type(y_name) is str:
             self._y_name = [y_name]
@@ -557,6 +593,11 @@ class transport(object):
             self._y_unit = y_unit
         else:
             raise ValueError('{:s}: Cannot set {!s} as y-unit: string of iterable object of strings needed'.format(__name__, y_unit))
+        # y-kwargs
+        if type(y_kwargs) is dict:
+            self._y_kwargs = y_kwargs
+        else:
+            raise ValueError('{:s}: Cannot set {!s} as y-kwargs: dict needed'.format(__name__, y_kwargs))
         # x-dt
         self._x_dt = x_dt
         return
@@ -584,8 +625,7 @@ class transport(object):
         -------
         None
         """
-        ### TODO: add function as comment / attribut to data
-        ### TODO: dtype = float instead of 'f'
+        # TODO: dtype = float instead of 'f'
         # log-function
         if callable(func):
             func = [func]
@@ -682,8 +722,65 @@ class transport(object):
         self.log_name = []
         self.log_unit = []
         self.log_dtype = []
+        self._hdf_log = []
         return
-    
+
+    def set_fit_IV(self, func, name, unit='', **kwargs):
+        """
+        Sets fit-parameters for an in situ IV fit.
+        This function is called for each trace with ints kexword arguments
+
+        Parameters
+        ----------
+        func: obj
+            An callable object to execute for each trace.
+        name: string
+            The coordinate name to be created as data series in the .h5 file.
+        unit: string, optional
+            The unit name to be used in data series in the .h5 file.
+        **kwargs: dictionary_likes, optional
+            Keyword arguments for fit function.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> from qkit.analysis.IV_curve import IV_curve as IVC
+        >>> ivc = IVC()
+
+        Ic fit via threshold voltage
+        >>> tr.set_fit_IV(func=ivc.get_Ic_threshold, name='I_c', unit='A', offset=0)
+
+        Ic fit via peaks in the numerical derivative dV/dI
+        >>> tr.set_fit_IV(func=ivc.get_Ic_deriv, name='I_c', unit='A', prominence=10)
+
+        Ic fit via peaks in the smoothed derivation in the frequency domain
+        >>> tr.set_fit_IV(func=ivc.get_Ic_dft, name='I_c', unit='A', prominence=1e-2)
+        """
+        self._fit_func = func
+        self._fit_name = name
+        self._fit_unit = unit
+        self._fit_kwargs = kwargs
+
+    def reset_fit_IV(self):
+        """
+        Resets all fit_function settings.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        self._fit_func = None
+        self._fit_name = None
+        self._fit_unit = None
+        self._fit_kwargs = None
+
     def set_filename(self, filename):
         """
         Sets filename of current measurement to <filename>.
@@ -997,6 +1094,8 @@ class transport(object):
         self._prepare_measurement_IVD()
         ''' prepare data storage '''
         self._prepare_measurement_file()
+        ''' prepare progress bar '''
+        self._prepare_progress_bar()
         ''' opens qviewkit to plot measurement '''
         if self.open_qviewkit:
             if self._scan_dim == 0:
@@ -1005,58 +1104,49 @@ class transport(object):
                 datasets = ['views/IV']
                 if self._scan_dim > 1:
                     for i in range(self.sweeps.get_nos()):
-                        datasets.append('{:s}_{:d}'.format(self._IV_modes[not(self._bias)].lower(), i))
+                        datasets.append('{:s}_{:d}'.format(self._IV_modes[not self._bias].lower(), i))
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=datasets)  # opens IV-view by default
-        ''' progress bar '''
-        if self.progress_bar:
-            num_its = {0: len(self._x_vec),
-                       1: self.sweeps.get_nos()*[1 if self._average is None else self._average][0],
-                       2: len(self._x_vec)*self.sweeps.get_nos()*[1 if self._average is None else self._average][0],
-                       3: len(self._x_vec)*len(self._y_vec)*self.sweeps.get_nos()*[1 if self._average is None else self._average][0]}
-            self._pb = Progress_Bar(max_it=num_its[self._scan_dim], 
-                                    name='_'.join(filter(None, ('xy' if self._scan_dim is 0 else '{:d}D_IV_curve'.format(self._scan_dim), self._filename, self._expname))))
-        else:
-            print('recording trace...')
         ''' measurement '''
         sys.stdout.flush()
         qkit.flow.start()
         try:
             if self._scan_dim == 0:  # single data points
-                x_vec = list(self._x_vec)
-                # add +/-inf as last element to x_vec
-                if all(x < y for x, y in zip(x_vec, x_vec[1:])):  # x_vec is increasing
-                    x_vec.append(np.inf)
-                elif all(x > y for x, y in zip(x_vec, x_vec[1:])):  # x_vec is decreasing
-                    x_vec.append(-np.inf)
-                # iterate x_vec
-                i = 0
-                while i < len(x_vec)-1:
-                    x_val = self._x_func()
-                    if min(x_vec[i:i+2]) <= x_val <= max(x_vec[i:i+2]):
-                        for func, lst in zip(self._y_func, self._data_y):
-                            lst.add(func())
-                        self._data_x.add(x_val)
-                        # iterate progress bar
-                        if self.progress_bar:
-                            self._pb.iterate()
-                        i += 1
+                for x_val, x_kwargs in zip(self._x_vec, self._x_kwargs):
+                    self._hdf_x.add(x_val)
+                    self._x_func(x_val)
+                    for func, kwargs, lst in zip(self._y_func, self._y_kwargs, self._hdf_y):
+                        lst.add(func(**kwargs))
+                    # iterate progress bar
+                    if self.progress_bar:
+                        self._pb.iterate()
                     time.sleep(self._x_dt)
             elif self._scan_dim in [1, 2, 3]:  # IV curve
+                _rst_log_hdf_appnd = False  # variable to save points of log-function in 2D-matrix
+                self._rst_fit_hdf_appnd = False
                 for self.ix, (x, x_func) in enumerate([(None, _pass)] if self._scan_dim < 2 else [(x, self._x_set_obj) for x in self._x_vec]):  # loop: x_obj with parameters from x_vec if 2D or 3D else pass(None)
                     x_func(x)
                     time.sleep(self._x_dt)
-                    # log function
-                    if self.log_function != [None]:
-                        for j, f in enumerate(self.log_function):
-                            self._log_values[j].append(float(f()))
-                    for y, y_func in [(None, _pass)] if self._scan_dim < 3 else [(y, self._y_set_obj) for y in self._y_vec]:  # loop: y_obj with parameters from y_vec if 3D else pass(None)
+                    for self.iy, (y, y_func) in enumerate([(None, _pass)] if self._scan_dim < 3 else [(y, self._y_set_obj) for y in self._y_vec]):  # loop: y_obj with parameters from y_vec if 3D else pass(None)
                         y_func(y)
                         time.sleep(self._tdy)
+                        # log function
+                        if self.log_function != [None]:
+                            for j, f in enumerate(self.log_function):
+                                if self._scan_dim == 1:
+                                    self._data_log[j] = np.array([float(f())])  # np.asarray(f(), dtype=float)
+                                    self._hdf_log[j].append(self._data_log[j])
+                                elif self._scan_dim == 2:
+                                    self._data_log[j][self.ix] = float(f())
+                                    self._hdf_log[j].append(self._data_log[j], reset=True)
+                                elif self._scan_dim == 3:
+                                    self._data_log[j][self.ix, self.iy] = float(f())
+                                    self._hdf_log[j].append(self._data_log[j][self.ix], reset=_rst_log_hdf_appnd)
+                                    _rst_log_hdf_appnd = not bool(self.iy+1 == len(self._y_vec))
                         # iterate sweeps and take data
                         self._get_sweepdata()
                     # filling of value-box by storing data in the next 2d structure after every y-loop
                     if self._scan_dim is 3:
-                        for lst in [val for k, val in enumerate([self._data_I, self._data_V, self._data_dVdI]) if k < 2+int(self._dVdI)]:
+                        for lst in [val for k, val in enumerate([self._hdf_I, self._hdf_V, self._hdf_dVdI]) if k < 2+int(self._dVdI)]:
                             for val in range(self.sweeps.get_nos()):
                                 lst[val].next_matrix()
         finally:
@@ -1065,7 +1155,7 @@ class transport(object):
             t = threading.Thread(target=qviewkit.save_plots, args=[self._data_file.get_filepath(), self._plot_comment])
             t.start()
             self._data_file.close_file()
-            waf.close_log_file(self._log)
+            waf.close_log_file(self._log_file)
             self._set_IVD_status(False)
             print('Measurement complete: {:s}'.format(self._data_file.get_filepath()))
         return
@@ -1121,12 +1211,12 @@ class transport(object):
         """
         ''' create files '''
         # data.h5 file
-        self._data_file = hdf.Data(name='_'.join(filter(None, ('xy' if self._scan_dim is 0 else '{:d}D_IV_curve'.format(self._scan_dim), self._filename, self._expname))), mode='a')
+        self._data_file = hdf.Data(name='_'.join(list(filter(None, ('xy' if self._scan_dim is 0 else '{:d}D_IV_curve'.format(self._scan_dim), self._filename, self._expname)))), mode='a')
         # settings.set file
-        self._settings = self._data_file.add_textlist('settings')
-        self._settings.append(waf.get_instrument_settings(self._data_file.get_filepath()))
+        self._hdf_settings = self._data_file.add_textlist('settings')
+        self._hdf_settings.append(waf.get_instrument_settings(self._data_file.get_filepath()))
         # logging.log file
-        self._log = waf.open_log_file(self._data_file.get_filepath())
+        self._log_file = waf.open_log_file(self._data_file.get_filepath())
         ''' measurement object, sample object '''
         self._measurement_object.uuid = self._data_file._uuid
         self._measurement_object.hdf_relpath = self._data_file._relpath
@@ -1137,72 +1227,156 @@ class transport(object):
         if self._average is not None:
             self._measurement_object.average = self._average
         self._measurement_object.save()
-        self._mo = self._data_file.add_textlist('measurement')
-        self._mo.append(self._measurement_object.get_JSON())
+        self._hdf_mo = self._data_file.add_textlist('measurement')
+        self._hdf_mo.append(self._measurement_object.get_JSON())
         ''' data variables '''
-        self._data_bias = []
-        self._data_I = []
-        self._data_V = []
-        self._data_dVdI = []
+        self._hdf_bias = []
+        self._hdf_I = []
+        self._hdf_V = []
+        self._hdf_dVdI = []
+        self._hdf_fit = []
+        self._data_fit = []
         if self._scan_dim == 0:
             ''' xy '''
             # add data variables
-            self._data_x = self._data_file.add_coordinate(self._x_name, unit=self._x_unit)
-            self._data_y = [self._data_file.add_value_vector(self._y_name[i], x=self._data_x, unit=self._y_unit[i], save_timestamp=False) for i in range(len(self._y_func))]
+            self._hdf_x = self._data_file.add_coordinate(self._x_name,
+                                                         unit=self._x_unit)
+            self._hdf_y = [self._data_file.add_value_vector(self._y_name[i],
+                                                            x=self._hdf_x,
+                                                            unit=self._y_unit[i],
+                                                            save_timestamp=False)
+                           for i in range(len(self._y_func))]
             # add views
             if self._view_xy:
                 if self._view_xy is True:
-                    self._view_xy = [(x, y) for i, x in enumerate(range(len(self._data_y))) for y in range(len(self._data_y))[i+1::]]
+                    self._view_xy = [(x, y) for i, x in enumerate(range(len(self._hdf_y)))
+                                     for y in range(len(self._hdf_y))[i+1::]]
                 for view in self._view_xy:
-                    self._data_file.add_view('{:s}_vs_{:s}'.format(*np.array(self._y_name)[np.array(view[::-1])]), x=self._data_y[view[0]], y=self._data_y[view[1]])
+                    self._data_file.add_view('{:s}_vs_{:s}'.format(*np.array(self._y_name)[np.array(view[::-1])]),
+                                             x=self._hdf_y[view[0]],
+                                             y=self._hdf_y[view[1]])
         elif self._scan_dim == 1:
             ''' 1D scan '''
             # add data variables
             self.sweeps.create_iterator()
             for i in range(self.sweeps.get_nos()):
-                self._data_bias.append(self._data_file.add_coordinate('{:s}_b_{!s}'.format(self._IV_modes[self._bias], i), unit=self._IV_units[self._bias]))
-                self._data_bias[i].add(self._get_bias_values(sweep=self.sweeps.get_sweep()))
-                self._data_I.append(self._data_file.add_value_vector('I_{!s}'.format(i), x=self._data_bias[i], unit='A', save_timestamp=False))
-                self._data_V.append(self._data_file.add_value_vector('V_{!s}'.format(i), x=self._data_bias[i], unit='V', save_timestamp=False))
+                self._hdf_bias.append(self._data_file.add_coordinate('{:s}_b_{!s}'.format(self._IV_modes[self._bias], i),
+                                                                     unit=self._IV_units[self._bias]))
+                self._hdf_bias[i].add(self._get_bias_values(sweep=self.sweeps.get_sweep()))
+                self._hdf_I.append(self._data_file.add_value_vector('I_{!s}'.format(i),
+                                                                    x=self._hdf_bias[i],
+                                                                    unit='A',
+                                                                    save_timestamp=False))
+                self._hdf_V.append(self._data_file.add_value_vector('V_{!s}'.format(i),
+                                                                    x=self._hdf_bias[i],
+                                                                    unit='V',
+                                                                    save_timestamp=False))
                 if self._dVdI:
-                    self._data_dVdI.append(self._data_file.add_value_vector('dVdI_{!s}'.format(i), x=self._data_bias[i], unit='V/A', save_timestamp=False, folder='analysis', comment=self._get_numder_comment(self._data_V[i].name)+'/'+self._get_numder_comment(self._data_I[i].name)))
-                    self._data_file.add_comment(comment='numerical_derivative: '+self._get_numder_comment('x'), folder='analysis')
+                    self._hdf_dVdI.append(self._data_file.add_value_vector('dVdI_{!s}'.format(i),
+                                                                           x=self._hdf_bias[i],
+                                                                           unit='V/A',
+                                                                           save_timestamp=False,
+                                                                           folder='analysis',
+                                                                           comment=self._get_numder_comment(self._hdf_V[i].name)+
+                                                                                   '/'+self._get_numder_comment(self._hdf_I[i].name)))
+                if self._fit_func:
+                    self._hdf_fit.append(self._data_file.add_value_vector('{:s}_{:d}'.format(self._fit_name, i),
+                                                                          x=np.zeros(1),
+                                                                          unit=self._fit_unit,
+                                                                          save_timestamp=False,
+                                                                          folder='analysis',
+                                                                          comment=self._get_fit_comment(i)))
+                    self._data_fit.append(np.nan)
+            # log-function
+            self._add_log_value_vector()
             # add views
             self._add_views()
         elif self._scan_dim == 2:
             ''' 2D scan '''
-            self._data_x = self._data_file.add_coordinate(self._x_coordname, unit=self._x_unit)
-            self._data_x.add(self._x_vec)
+            self._hdf_x = self._data_file.add_coordinate(self._x_coordname, unit=self._x_unit)
+            self._hdf_x.add(self._x_vec)
             # add data variables
             self.sweeps.create_iterator()
             for i in range(self.sweeps.get_nos()):
-                self._data_bias.append(self._data_file.add_coordinate('{:s}_b_{!s}'.format(self._IV_modes[self._bias], i), unit=self._IV_units[self._bias]))
-                self._data_bias[i].add(self._get_bias_values(sweep=self.sweeps.get_sweep()))
-                self._data_I.append(self._data_file.add_value_matrix('I_{!s}'.format(i), x=self._data_x, y=self._data_bias[i], unit='A', save_timestamp=False))
-                self._data_V.append(self._data_file.add_value_matrix('V_{!s}'.format(i), x=self._data_x, y=self._data_bias[i], unit='V', save_timestamp=False))
+                self._hdf_bias.append(self._data_file.add_coordinate('{:s}_b_{!s}'.format(self._IV_modes[self._bias], i),
+                                                                     unit=self._IV_units[self._bias]))
+                self._hdf_bias[i].add(self._get_bias_values(sweep=self.sweeps.get_sweep()))
+                self._hdf_I.append(self._data_file.add_value_matrix('I_{!s}'.format(i),
+                                                                    x=self._hdf_x,
+                                                                    y=self._hdf_bias[i],
+                                                                    unit='A',
+                                                                    save_timestamp=False))
+                self._hdf_V.append(self._data_file.add_value_matrix('V_{!s}'.format(i),
+                                                                    x=self._hdf_x,
+                                                                    y=self._hdf_bias[i],
+                                                                    unit='V',
+                                                                    save_timestamp=False))
                 if self._dVdI:
-                    self._data_dVdI.append(self._data_file.add_value_matrix('dVdI_{!s}'.format(i), x=self._data_x, y=self._data_bias[i], unit='V/A', save_timestamp=False, folder='analysis', comment=self._get_numder_comment(self._data_V[i].name)+'/'+self._get_numder_comment(self._data_I[i].name)))
-                    self._data_file.add_comment(comment='numerical_derivative: '+self._get_numder_comment('x'), folder='analysis')
+                    self._hdf_dVdI.append(self._data_file.add_value_matrix('dVdI_{!s}'.format(i),
+                                                                           x=self._hdf_x,
+                                                                           y=self._hdf_bias[i],
+                                                                           unit='V/A',
+                                                                           save_timestamp=False,
+                                                                           folder='analysis',
+                                                                           comment=self._get_numder_comment(self._hdf_V[i].name)+
+                                                                                   '/'+self._get_numder_comment(self._hdf_I[i].name)))
+                if self._fit_func:
+                    self._hdf_fit.append(self._data_file.add_value_vector('{:s}_{:d}'.format(self._fit_name, i),
+                                                                          x=self._hdf_x,
+                                                                          unit=self._fit_unit,
+                                                                          save_timestamp=False,
+                                                                          folder='analysis',
+                                                                          comment=self._get_fit_comment(i)))
+                    self._data_fit.append(np.ones(len(self._x_vec)) * np.nan)
             # log-function
             self._add_log_value_vector()
             # add views
             self._add_views()
         elif self._scan_dim == 3:
             ''' 3D scan '''
-            self._data_x = self._data_file.add_coordinate(self._x_coordname, unit=self._x_unit)
-            self._data_x.add(self._x_vec)
-            self._data_y = self._data_file.add_coordinate(self._y_coordname, unit=self._y_unit)
-            self._data_y.add(self._y_vec)
+            self._hdf_x = self._data_file.add_coordinate(self._x_coordname,
+                                                         unit=self._x_unit)
+            self._hdf_x.add(self._x_vec)
+            self._hdf_y = self._data_file.add_coordinate(self._y_coordname,
+                                                         unit=self._y_unit)
+            self._hdf_y.add(self._y_vec)
             # add data variables
             self.sweeps.create_iterator()
             for i in range(self.sweeps.get_nos()):
-                self._data_bias.append(self._data_file.add_coordinate('{:s}_b_{!s}'.format(self._IV_modes[self._bias], i), unit=self._IV_units[self._bias]))
-                self._data_bias[i].add(self._get_bias_values(sweep=self.sweeps.get_sweep()))
-                self._data_I.append(self._data_file.add_value_box('I_{!s}'.format(i), x=self._data_x, y=self._data_y, z=self._data_bias[i], unit='A', save_timestamp=False))
-                self._data_V.append(self._data_file.add_value_box('V_{!s}'.format(i), x=self._data_x, y=self._data_y, z=self._data_bias[i], unit='V', save_timestamp=False))
+                self._hdf_bias.append(self._data_file.add_coordinate('{:s}_b_{!s}'.format(self._IV_modes[self._bias], i),
+                                                                     unit=self._IV_units[self._bias]))
+                self._hdf_bias[i].add(self._get_bias_values(sweep=self.sweeps.get_sweep()))
+                self._hdf_I.append(self._data_file.add_value_box('I_{!s}'.format(i),
+                                                                 x=self._hdf_x,
+                                                                 y=self._hdf_y,
+                                                                 z=self._hdf_bias[i],
+                                                                 unit='A',
+                                                                 save_timestamp=False))
+                self._hdf_V.append(self._data_file.add_value_box('V_{!s}'.format(i),
+                                                                 x=self._hdf_x,
+                                                                 y=self._hdf_y,
+                                                                 z=self._hdf_bias[i],
+                                                                 unit='V',
+                                                                 save_timestamp=False))
                 if self._dVdI:
-                    self._data_dVdI.append(self._data_file.add_value_box('dVdI_{!s}'.format(i), x=self._data_x, y=self._data_y, z=self._data_bias[i], unit='V/A', save_timestamp=False, folder='analysis', comment=self._get_numder_comment(self._data_V[i].name)+'/'+self._get_numder_comment(self._data_I[i].name)))
-                    self._data_file.add_comment(comment='numerical_derivative: '+self._get_numder_comment('x'), folder='analysis')
+                    self._hdf_dVdI.append(self._data_file.add_value_box('dVdI_{!s}'.format(i),
+                                                                        x=self._hdf_x,
+                                                                        y=self._hdf_y,
+                                                                        z=self._hdf_bias[i],
+                                                                        unit='V/A',
+                                                                        save_timestamp=False,
+                                                                        folder='analysis',
+                                                                        comment=self._get_numder_comment(self._hdf_V[i].name)+
+                                                                                '/'+self._get_numder_comment(self._hdf_I[i].name)))
+                if self._fit_func:
+                    self._hdf_fit.append(self._data_file.add_value_matrix('{:s}_{:d}'.format(self._fit_name, i),
+                                                                          x=self._hdf_x,
+                                                                          y=self._hdf_y,
+                                                                          unit=self._fit_unit,
+                                                                          save_timestamp=False,
+                                                                          folder='analysis',
+                                                                          comment=self._get_fit_comment(i)))
+                    self._data_fit.append(np.ones((len(self._x_vec), len(self._y_vec))) * np.nan)
             # log-function
             self._add_log_value_vector()
             # add views
@@ -1211,6 +1385,40 @@ class transport(object):
         if self._comment:
             self._data_file.add_comment(self._comment)
         return
+
+    def _prepare_progress_bar(self):
+        """
+        Creates a progress bar using ipywidgets to show the measurement progress.
+        Usually the number of performed sweeps, but in case of landscape scans entire number of bias points, is used as number of iterations.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        if self.progress_bar:
+            # number of iterations as number of performed sweeps
+            num_its = {0: len(self._x_vec),
+                       1: self.sweeps.get_nos()*[1 if self._average is None else self._average][0],
+                       2: len(self._x_vec)*self.sweeps.get_nos()*[1 if self._average is None else self._average][0],
+                       3: len(self._x_vec)*len(self._y_vec)*self.sweeps.get_nos()*[1 if self._average is None else self._average][0]}
+            if self._landscape and self._scan_dim in [2, 3]:
+                # use entire number of bias points as number of iterations to estimate measurement time better
+                bias_values = np.array([np.meshgrid(self._get_bias_values(sweep),
+                                                    np.ones(len(self._x_vec)))[0]
+                                        for sweep in self.sweeps.get_sweeps()])
+                lsc_limits = np.array([self._lsc_vec, -self._lsc_vec if self._lsc_mirror else np.ones(shape=self._x_vec.shape)*np.min(sweep[:2])])
+                lsc_mask = np.logical_and(bias_values <= np.dot(np.ones((bias_values.shape[2], 1)), [np.max(lsc_limits, axis=0)]).T,
+                                          bias_values >= np.dot(np.ones((bias_values.shape[2], 1)), [np.min(lsc_limits, axis=0)]).T)
+                num_its[self._scan_dim] = np.sum(lsc_mask)*len(self._y_vec)*[1 if self._average is None else self._average][0]
+                self._pb_addend = np.concatenate(list(zip(*np.sum(lsc_mask, axis=2))))  # value that counter has to be increased after each sweep
+            self._pb = Progress_Bar(max_it=num_its[self._scan_dim],
+                                    name='_'.join(list(filter(None, ('xy' if self._scan_dim is 0 else '{:d}D_IV_curve'.format(self._scan_dim), self._filename, self._expname)))))
+        else:
+            print('recording trace...')
     
     def _get_bias_values(self, sweep):
         """
@@ -1229,8 +1437,8 @@ class transport(object):
         start = float(sweep[0])
         stop = float(sweep[1])
         step = float(sweep[2])
-        nop = round(np.abs(start-stop)/step+1)
-        arr = np.linspace(start, stop, nop)
+        nop = int(round(abs((stop-start)/step)+1))
+        arr = np.linspace(start, np.sign(stop-start)*(np.floor(np.abs(np.round(float(stop-start)/step)))*step)+start, nop)  # stop is rounded down to multiples of step
         return np.array([np.sign(val)*round(np.abs(val), -int(np.floor(np.log10(np.abs(step))))+1) for val in arr])  # round to overcome missing precision of numpy linspace
     
     def _get_numder_comment(self, name):
@@ -1246,8 +1454,31 @@ class transport(object):
         -------
         None
         """
-        return '{!s}.{!s}('.format(self._numder_func.__module__, self._numder_func.__name__)+', '.join(np.concatenate([[name], np.array(self._numder_args, dtype=str) if self._numder_args else [], ['{:s}={!s}'.format(key, val) for key, val in self._numder_kwargs.iteritems()] if self._numder_kwargs else []]))+')'
-    
+        return '{!s}.{!s}('.format(self._numder_func.__module__, self._numder_func.__name__)+\
+               ', '.join(np.concatenate([[name],
+                                         np.array(self._numder_args, dtype=str) if self._numder_args else [],
+                                         ['{:s}={!s}'.format(key, val) for key, val in self._numder_kwargs.items()] if self._numder_kwargs else []]))+\
+               ')'
+
+    def _get_fit_comment(self, i):
+        """
+        Save fit method (function, arguments, keyword arguments) to analysis comment in the .h5 file.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        return '{!s}.{!s}('.format(self._fit_func.__module__, self._fit_func.__name__)+\
+               ', '.join(np.concatenate([['I={:s}'.format(self._hdf_I[i].name),
+                                         'V={:s}'.format(self._hdf_V[i].name),
+                                         'dVdI={:s}'.format(self._hdf_dVdI[i].name)],
+                                        ['{:s}={!s}'.format(key, val) for key, val in self._fit_kwargs.items()] if self._fit_kwargs else []]))+\
+               ')'
+
     def _add_log_value_vector(self):
         """
         Adds all value vectors for log-function parameter.
@@ -1260,10 +1491,27 @@ class transport(object):
         -------
         None
         """
-        if self.log_function is not None:
-            self._log_values = []
+        if self.log_function != [None]:
+            self._hdf_log = []
+            self._data_log = []
             for i in range(len(self.log_function)):
-                self._log_values.append(self._data_file.add_value_vector(self.log_name[i], x=self._data_x, unit=self.log_unit[i], dtype=self.log_dtype[i]))
+                if self._scan_dim == 1:
+                    self._hdf_log.append(self._data_file.add_coordinate(self.log_name[i],
+                                                                        unit=self.log_unit[i]))
+                    self._data_log.append(np.nan)
+                elif self._scan_dim == 2:
+                    self._hdf_log.append(self._data_file.add_value_vector(self.log_name[i],
+                                                                          x=self._hdf_x,
+                                                                          unit=self.log_unit[i],
+                                                                          dtype=self.log_dtype[i]))
+                    self._data_log.append(np.ones(len(self._x_vec))*np.nan)
+                elif self._scan_dim == 3:
+                    self._hdf_log.append(self._data_file.add_value_matrix(self.log_name[i],
+                                                                          x=self._hdf_x,
+                                                                          y=self._hdf_y,
+                                                                          unit=self.log_unit[i],
+                                                                          dtype=self.log_dtype[i]))
+                    self._data_log.append(np.ones((len(self._x_vec), len(self._y_vec)))*np.nan)
         return
     
     def _add_views(self):
@@ -1279,13 +1527,24 @@ class transport(object):
         -------
         None
         """
-        self._view_IV = self._data_file.add_view('IV', x=self._data_V[0], y=self._data_I[0], view_params={"labels": ('V', 'I'), 'plot_style': 1, 'markersize': 5})
+        self._hdf_view_IV = self._data_file.add_view('IV',
+                                                     x=self._hdf_V[0],
+                                                     y=self._hdf_I[0],
+                                                     view_params={"labels": ('V', 'I'),
+                                                                  'plot_style': 1,
+                                                                  'markersize': 5})
         for i in range(1, self.sweeps.get_nos()):
-            self._view_IV.add(x=self._data_V[i], y=self._data_I[i])
+            self._hdf_view_IV.add(x=self._hdf_V[i], y=self._hdf_I[i])
         if self._dVdI:
-            self._view_dVdI = self._data_file.add_view('dVdI', x=self._data_I[0], y=self._data_dVdI[0], view_params={"labels": ('I', 'dVdI'), 'plot_style': 1, 'markersize': 5})
+            self._hdf_view_dVdI = self._data_file.add_view('dVdI',
+                                                           x=self._hdf_I[0],
+                                                           y=self._hdf_dVdI[0],
+                                                           view_params={"labels": ('I', 'dVdI'),
+                                                                        'plot_style': 1,
+                                                                        'markersize': 5})
             for i in range(1, self.sweeps.get_nos()):
-                self._view_dVdI.add(x=eval('self._data_{:s}'.format(self._IV_modes[self._bias]))[i], y=self._data_dVdI[i])
+                self._hdf_view_dVdI.add(x=[self._hdf_I, self._hdf_V][self._bias][i],
+                                        y=self._hdf_dVdI[i])
         return
     
     def _get_sweepdata(self):
@@ -1306,13 +1565,40 @@ class transport(object):
             for j in range(self.sweeps.get_nos()):
                 # take data
                 I_values, V_values = self.take_IV(sweep=self.sweeps.get_sweep())
+                data = {self._hdf_I[j]:(I_values,),
+                        self._hdf_V[j]:(V_values,)} # tuple in oder to use *args later
+                if self._dVdI:
+                    data[self._hdf_dVdI[j]] = (self._numerical_derivative(I_values, V_values),)
+                if self._fit_func:
+                    #data[self._hdf_fit[j]] = self._fit_func(data[self._hdf_I[j]],
+                    #                                        data[self._hdf_V[j]],
+                    #                                        data[self._hdf_dVdI[j]],
+                    #                                        **self._fit_kwargs)
+                    if self._scan_dim == 1:
+                        self._data_fit[j] = float(self._fit_func(data[self._hdf_I[j]][0],
+                                                                           data[self._hdf_V[j]][0],
+                                                                           data[self._hdf_dVdI[j]][0],
+                                                                           **self._fit_kwargs))
+                        data[self._hdf_fit[j]] = (self._data_fit[j],)
+                    elif self._scan_dim == 2:
+                        self._data_fit[j][self.ix] = float(self._fit_func(data[self._hdf_I[j]][0],
+                                                                          data[self._hdf_V[j]][0],
+                                                                          data[self._hdf_dVdI[j]][0],
+                                                                          **self._fit_kwargs))
+                        data[self._hdf_fit[j]] = (self._data_fit[j], True)
+                    elif self._scan_dim == 3:
+                        self._data_fit[j][self.ix, self.iy] = float(self._fit_func(data[self._hdf_I[j]][0],
+                                                                                   data[self._hdf_V[j]][0],
+                                                                                   data[self._hdf_dVdI[j]][0],
+                                                                                   **self._fit_kwargs))
+                        data[self._hdf_fit[j]] = (self._data_fit[j][self.ix], self._rst_fit_hdf_appnd)
+                        self._rst_fit_hdf_appnd = not bool(self.iy + 1 == len(self._y_vec))
                 # save data
-                for val, lst in zip([I_values, V_values, self._numerical_derivative(I_values, V_values) if self._dVdI else None],
-                                    [self._data_I[j], self._data_V[j], self._data_dVdI[j] if self._dVdI else [None]]):
-                    lst.append(val)
+                for key, val in data.items():
+                    key.append(*val)
                 # iterate progress bar
                 if self.progress_bar:
-                    self._pb.iterate()
+                    self._pb.iterate(addend=self._pb_addend[self.ix] if self._landscape else 1)
                 qkit.flow.sleep()
         else:
             I_values, V_values = [], []
@@ -1324,19 +1610,27 @@ class transport(object):
                     # take data
                     for val, lst in zip(self.take_IV(sweep=self.sweeps.get_sweep()), [I_values, V_values]):
                         lst[i].append(list(val))  # append as list in order to later use zip
-                    I_values_avg, V_values_avg = np.mean(zip(*I_values)[j], axis=0), np.mean(zip(*V_values)[j], axis=0)  # use zip since np.mean cannot handle different shapes
+                    I_values_avg, V_values_avg = np.mean(list(zip(*I_values))[j], axis=0), np.mean(list(zip(*V_values))[j], axis=0)  # use zip since np.mean cannot handle different shapes
+                    data = {self._hdf_I[j]:I_values_avg,
+                            self._hdf_V[j]:V_values_avg}
+                    if self._dVdI:
+                        data[self._hdf_dVdI[j]] = self._numerical_derivative(I_values_avg, V_values_avg)
+                    if self._fit_func:
+                        data[self._hdf_fit[j]] = self._fit_func(data[self._hdf_I[j]],
+                                                                data[self._hdf_V[j]],
+                                                                data[self._hdf_dVdI[j]],
+                                                                **self._fit_kwargs)
                     # save data
-                    for val, lst in zip([I_values_avg, V_values_avg, self._numerical_derivative(I_values_avg, V_values_avg)],
-                                        [data for k, data in enumerate([self._data_I, self._data_V, self._data_dVdI]) if k < 2+int(self._dVdI)]):
-                        lst[j].append(val, reset=bool(i))  # append data series or overwrite last iteration by new averaged data
-                        lst[j].ds.attrs['average'] = '({:d}/{:d})'.format(i+1, self._average)  # add (iteration/average) as attribute
+                    for key, val in data.items():
+                        key.append(val, reset=bool(i))  # append data series or overwrite last iteration by new averaged data
+                        key.ds.attrs['average'] = '({:d}/{:d})'.format(i+1, self._average)  # add (iteration/average) as attribute
                         self._data_file.flush()
                     # iterate progress bar
                     if self.progress_bar:
-                        self._pb.iterate()
+                        self._pb.iterate(addend=self._pb_addend[self.ix] if self._landscape else 1)
             # set average attribute to number of averages
             for j in range(self.sweeps.get_nos()):
-                for lst in [val for k, val in enumerate([self._data_I, self._data_V, self._data_dVdI]) if k < 2+int(self._dVdI)]:
+                for lst in [val for k, val in enumerate([self._hdf_I, self._hdf_V, self._hdf_dVdI]) if k < 2+int(self._dVdI)]:
                     lst[j].ds.attrs['average'] = self._average
             self._data_file.flush()
             qkit.flow.sleep()
@@ -1361,18 +1655,19 @@ class transport(object):
         # take data
         if self._landscape:
             # modify sweep by envelop of landscape function
-            x_lim = self._lsc_vec[self.ix]
+            bias_lim = self._lsc_vec[self.ix]
             if self._lsc_mirror:
-                sweep_lsc = np.nanmin([np.abs(sweep), [x_lim, x_lim, np.nan, np.nan]], axis=0)*np.sign(sweep)
+                sweep_lsc = np.nanmin([np.abs(sweep), [bias_lim, bias_lim, np.nan, np.nan]], axis=0)*np.sign(sweep)
             else:
-                sweep_lsc = np.nanmin([sweep, [x_lim, x_lim, np.nan, np.nan]], axis=0)
-            # round to multiple of step
-            sweep_lsc = sweep_lsc[2]*np.round(sweep_lsc/sweep_lsc[2])
+                sweep_lsc = np.nanmin([sweep, [bias_lim, bias_lim, np.nan, np.nan]], axis=0)
+            # find landscape bounds in full bias values
+            bias_data = self._get_bias_values(sweep)
+            mask = np.logical_and(bias_data >= np.min(sweep_lsc[:2]), bias_data <= np.max(sweep_lsc[:2]))
+            sweep_lsc[:2] = bias_data[np.where(mask)[0]][0], bias_data[np.where(mask)[0]][-1]
             # take data
             data = self._IVD.take_IV(sweep=sweep_lsc)
             # fill skipped bias values with np.nan to keep shape constant
-            mask = [val in self._get_bias_values(sweep_lsc) for val in self._get_bias_values(sweep)]  # better replace self._get_bias_values(sweep) by i_b_0 self._data_bias[?].ds[:] ?
-            I_values, V_values = np.array([np.nan]*len(mask)), np.array([np.nan]*len(mask))
+            I_values, V_values = np.array([np.nan] * len(mask)), np.array([np.nan] * len(mask))
             np.place(arr=I_values, mask=mask, vals=data[0])
             np.place(arr=V_values, mask=mask, vals=data[1])
         else:
@@ -1493,10 +1788,10 @@ class transport(object):
             sweep: tuple of floats
                 Sweep object containing start, stop, step and sleep values.
             """
-            return (self._start_iter.next(),
-                    self._stop_iter.next(),
-                    self._step_iter.next(),
-                    self._sleep_iter.next())
+            return (next(self._start_iter),
+                    next(self._stop_iter),
+                    next(self._step_iter),
+                    next(self._sleep_iter))
         
         def get_sweeps(self):
             """
@@ -1511,7 +1806,7 @@ class transport(object):
             sweep: list of floats
                 Sweep object containing start, stop, step and sleep values.
             """
-            return zip(*[self._starts, self._stops, self._steps, self._sleeps])
+            return list(zip(*[self._starts, self._stops, self._steps, self._sleeps]))
         
         def get_nos(self):
             """

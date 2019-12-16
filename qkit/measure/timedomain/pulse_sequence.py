@@ -52,7 +52,7 @@ class Pulse(object):
     Class to describe a single pulse.
     """
 
-    def __init__(self, length, shape=ShapeLib.rect, name=None, amplitude=1, phase=0, iq_frequency=0, iq_dc_offset=0, iq_angle=90, ptype=PulseType.Pulse):
+    def __init__(self, length, shape=ShapeLib.rect, name=None, amplitude=1., phase=0., iq_frequency=0., iq_dc_offset=0., iq_angle=90., q_rel=1., ptype=PulseType.Pulse):
         """
         Inits a pulse with:
             length:       length of the pulse. This can also be a (lambda) function for variable pulse lengths.
@@ -63,6 +63,7 @@ class Pulse(object):
             iq_frequency: IQ-frequency of your pulse for heterodyne mixing (if 0 homodyne mixing is employed)
             iq_dc_offset: complex dc offset for calibrating the IQ-mixer (real part for dc offset of I, imaginary part is dc offset of Q)
             iq_angle:     angle between I and Q in the complex plane (default is 90 deg)
+            q_rel:        relative amplitude of Q in respect to I. This is needed for mixer calibration. If q_rel > 1 make sure you are still within the limits of your device.
             type:         The type of the created pulse (from enum PulseType: can be Pulse, Wait or Readout)
         """
         if isinstance(length, float):
@@ -83,6 +84,7 @@ class Pulse(object):
         self.iq_frequency = iq_frequency  # type: float
         self.iq_dc_offset = iq_dc_offset
         self.iq_angle = iq_angle
+        self.q_rel = q_rel
         self.type = ptype  # type: PulseType
 
     def __call__(self, time_fractions):
@@ -160,9 +162,9 @@ class Pulse(object):
         ))
 
         # account for mixer calibration i.e. dc offset and phase != 90deg between I and Q
-        if self.iq_angle != 90:
+        if self.iq_angle != 90 or self.q_rel != 1.:
             envelope_i = np.real(envelope)
-            envelope_q = np.imag(
+            envelope_q = self.q_rel * np.imag(
                 envelope * np.exp(1.j * np.pi / 180 * (90 - self.iq_angle)))
             envelope = envelope_i + 1.j * envelope_q
         envelope[envelope != 0] += self.iq_dc_offset

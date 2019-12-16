@@ -56,11 +56,15 @@ class DC_DAC_LTC2666(Instrument):
         '''
         if voltage>5-10./2**16:
             voltage = 5-10./2**16 #we can not set exactly +5V, but only one bit less
-        try:
-            self.c.set_voltage(channel, voltage)
-            self.voltages[channel]=voltage
-        except Exception as detail:
-            logging.error('{:s}'.format(detail))
+        for i in range(10):
+          try:
+              self.c.set_voltage(channel, voltage)
+              self.voltages[channel]=voltage
+              break
+          except Exception as detail:
+              if i==9:
+                  logging.error('{:s}'.format(detail))
+                  
     def do_get_voltage(self, channel):
         '''
         Get the current voltage setting for channel.

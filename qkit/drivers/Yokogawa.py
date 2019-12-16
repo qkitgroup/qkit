@@ -395,7 +395,7 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SOURce:FUNCtion VOLTage|CURRent
         try:
             logging.debug('{!s}: Get bias mode of channel {:d}'.format(__name__, channel))
-            return int(self._IV_modes.keys()[self._IV_modes.values().index(self._ask(':chan{:d}:sour:func'.format(channel)).lower())])
+            return int(list(self._IV_modes.keys())[list(self._IV_modes.values()).index(self._ask(':chan{:d}:sour:func'.format(channel)).lower())])
         except Exception as e:
             logging.error('{!s}: Cannot get bias mode of channel {!s}'.format(__name__, channel))
             raise type(e)('{!s}: Cannot get bias mode of channel {!s}\n{!s}'.format(__name__, channel, e))
@@ -442,7 +442,7 @@ class Yokogawa(Instrument):
         # Corresponding Command: [:CHANnel<n>]:SENSe:FUNCtion VOLTage|CURRent
         try:
             logging.debug('{!s}: Get sense mode of channel {:d}'.format(__name__, channel))
-            return int(self._IV_modes.keys()[self._IV_modes.values().index(self._ask(':chan{:d}:sens:func'.format(channel)).lower())])
+            return int(list(self._IV_modes.keys())[list(self._IV_modes.values()).index(self._ask(':chan{:d}:sens:func'.format(channel)).lower())])
         except Exception as e:
             logging.error('{!s}: Cannot get sense mode of channel {!s}'.format(__name__, channel))
             raise type(e)('{!s}: Cannot get sense mode of channel {!s}\n{!s}'.format(__name__, channel, e))

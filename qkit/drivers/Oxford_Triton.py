@@ -87,6 +87,8 @@ class Oxford_Triton(Instrument):
         
         self.add_parameter('pump', type=bool, flags=Instrument.FLAG_GETSET)
         self.add_parameter('bypass', type=bool, flags=Instrument.FLAG_GETSET)
+        self.add_parameter('turbo_speed', type=int, flags=Instrument.FLAG_GET)
+        self.add_parameter('turbo_power', type=int, flags=Instrument.FLAG_GET)
         
         # Implement functions
         self.add_function('get_all')
@@ -475,8 +477,8 @@ class Oxford_Triton(Instrument):
         return self.get_warm_up_heater() is status
     
     def _ask(self, cmd):
-        self._soc.sendall(cmd + '\n')
-        return self._soc.recv(1024)
+        self._soc.sendall((cmd + '\n').encode())
+        return self._soc.recv(1024).decode()
     
     def _do_set_pump(self, pump="COMP", state=False):
         '''
@@ -518,8 +520,8 @@ class Oxford_Triton(Instrument):
                 raise ValueError('{} bypass not successful. P2 is above 750mbar.'.format("open" if state else "close"))
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((self._host, 9989))
-            sock.send("open\n")
-            response = sock.recv(1024 * 8).strip()
+            sock.send(b"open\n")
+            response = sock.recv(1024 * 8).strip().decode()
             if response == "Ok":
                 self._do_set_pump("COMP", False)
             else:
@@ -528,8 +530,8 @@ class Oxford_Triton(Instrument):
             self._do_set_pump("COMP", True)
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((self._host, 9989))
-            sock.send("close\n")
-            response = sock.recv(1024 * 8).strip()
+            sock.send(b"close\n")
+            response = sock.recv(1024 * 8).strip().decode()
             if response == "Ok":
                 return True
             else:
@@ -538,11 +540,19 @@ class Oxford_Triton(Instrument):
     def _do_get_bypass(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((self._host, 9989))
-        sock.send("get_status\n")
-        response = sock.recv(1024 * 8).strip()
+        sock.send(b"get_status\n")
+        response = sock.recv(1024 * 8).strip().decode()
         if response == "open":
             return True
         if response == "closed":
             return False
         else:
             raise valueError("get_bypass responded with '{}'".format(response))
+    
+    def _do_get_turbo_speed(self):
+        logging.debug(__name__ + ' : Getting speed of the turbo pump')
+        return int(self._ask('READ:DEV:TURB1:PUMP:SIG:SPD').strip()[28:-2])
+    
+    def _do_get_turbo_power(self):
+        logging.debug(__name__ + ' : Getting power of the turbo pump')
+        return int(self._ask('READ:DEV:TURB1:PUMP:SIG:POWR').strip()[29:-1])
