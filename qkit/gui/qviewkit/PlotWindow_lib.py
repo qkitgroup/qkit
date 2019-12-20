@@ -697,7 +697,7 @@ def _get_unit(ds):
         String with unit.
     """
     try:
-        return ds.attrs.get('unit', '_none_').decode("utf-8")
+        return ds.attrs.get('unit', b'_none_').decode('utf-8')
     except AttributeError as e:
         #print(ds)
         print("Qviewkit _get_unit:",e)
@@ -715,7 +715,7 @@ def _get_name(ds):
     if ds is None:
         return '_none_'
     try:
-        return ds.attrs.get('name','_none_').decode("utf-8")
+        return ds.attrs.get('name', b'_none_').decode("utf-8")
     except AttributeError as e:
         #print(ds)
         print("Qviewkit _get_name:",e)
