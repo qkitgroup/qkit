@@ -43,7 +43,7 @@ class Inficon(Instrument):
     xtal.set_thickness_zero()
 
     Show actual parameters for this measurement setup
-    print xtal.query_parameters()
+    printxtal.query_parameters()
 
     Choose material
     xtal.set_material('AlO') 
@@ -62,6 +62,18 @@ class Inficon(Instrument):
         logging.info(__name__ + ': Initializing instrument Inficon')
         Instrument.__init__(self, name, tags=['physical'])
         #self._address = address
+        if sys.version_info[0] < 3:
+            def enc(string):
+                return string
+            def dec(string):
+                return string
+        else:
+            def enc(string):
+                return string.encode('latin-1')
+            def dec(byte):
+                return byte.decode('latin-1')
+        self._enc = enc
+        self._dec = dec
         
         self.setup(address)
 
@@ -113,14 +125,14 @@ class Inficon(Instrument):
         return serial.Serial(device, baudrate, timeout=timeout)
 
     def remote_cmd(self, cmd):
-        self.ser.write(cmd)
+        self.ser.write(self._enc(cmd))
         
         time.sleep(0.1)
         #value = self.ser.readline().strip("\x06")
         rem_char = self.ser.inWaiting()
         
-        value = self.ser.read(rem_char).strip(self.ack)
-        #print "##"+value+"##"+value.strip()+"###"
+        value = self._dec(self.ser.read(rem_char)).strip(self.ack)
+        #print"##"+value+"##"+value.strip()+"###"
         return value #value.strip()
     
     def get_hello(self):
@@ -140,8 +152,8 @@ class Inficon(Instrument):
             ret=self.remote_cmd(self.cmds.get_rate)
             rate = float(ret)
         except ValueError as e:
-            print (e)
-            print (ret)
+            print(e)
+            print(ret)
             return numpy.NaN
         
         if nm:
@@ -165,8 +177,8 @@ class Inficon(Instrument):
             ret=self.remote_cmd(self.cmds.get_thickness)
             thickness = float(ret)
         except ValueError as e:
-            print (e)
-            print (ret)
+            print(e)
+            print(ret)
             return numpy.NaN
         if nm:
             # return thickness in nm
@@ -284,12 +296,12 @@ class Inficon(Instrument):
             final_thickness=float(final_thickness)
             spt_thickness=float(spt_thickness)
         except ValueError as e:
-            print (e)
-            print (tooling)
-            print (density)
-            print (zratio)
-            print (final_thickness)
-            print (spt_thickness)
+            print(e)
+            print(tooling)
+            print(density)
+            print(zratio)
+            print(final_thickness)
+            print(spt_thickness)
             
         parameter={
             'tooling': (tooling),
@@ -304,5 +316,5 @@ class Inficon(Instrument):
 
 if __name__ == "__main__":
     INFI=Inficon("Inficon", address="COM5")
-    print 'Rate:', INFI.get_rate()
-    print 'Thickness:', INFI.get_thickness()
+    print('Rate:', INFI.get_rate())
+    print('Thickness:', INFI.get_thickness())
