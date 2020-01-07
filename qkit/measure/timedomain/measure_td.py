@@ -430,6 +430,11 @@ class Measure_td(object):
                                               datasets=['amplitude_%i' % i for i in range(min(5,self.ndev))] + ['phase_%i' % i for i in range(min(5,self.ndev))]
                                               )
     
+        try:
+            self.readout.start()
+        except AttributeError:
+            pass
+    
     def _append_data(self, iteration=0, ddc=None):
         if self.ReadoutTrace:
             ampliData, phaseData, Is, Qs = self.readout.readout(timeTrace=True, ddc=ddc)
@@ -478,6 +483,10 @@ class Measure_td(object):
                 self._hdf.flush()
     
     def _end_measurement(self):
+        try:
+            self.readout.cleanup()
+        except AttributeError:
+            pass
         t = threading.Thread(target=qviewkit.save_plots, args=[self._hdf.get_filepath(), self._plot_comment])
         t.start()
         self._hdf.close_file()
