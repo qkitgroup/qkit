@@ -67,7 +67,7 @@ class NI_DAQ_IV(Instrument):
         Loading module ... S98_started.py
         Loading module ... S99_init_user.py
 
-        >>> DAQ = qkit.instruments.create('DAQ', 'NI_DAQ_IV', id='Dev1', reset=True)
+        >>> DAQ = qkit.instruments.create('DAQ', 'NI_DAQ_IV', dev='Dev1', reset=True)
         Initialized the file info database (qkit.fid) in 0.000 seconds.
         """
         # Corresponding command: http://zone.ni.com/reference/en-XX/help/370471AM-01/mxcprop/func193b/
@@ -75,7 +75,7 @@ class NI_DAQ_IV(Instrument):
         # setup
         logging.info(__name__ + ': Initializing instrument NI DAQ')
         Instrument.__init__(self, name, tags=['physical'])
-        if id in nidaq.get_device_names():
+        if dev in nidaq.get_device_names():
             self._dev = dev
         else:
             raise ValueError('{:s}: Cannot find device {!s}'.format(self.__name__, id))
@@ -596,8 +596,8 @@ class NI_DAQ_IV(Instrument):
         start = float(sweep[0])
         stop = float(sweep[1])
         step = float(sweep[2])
-        nop = int(round(abs((stop-start)/step)+1))
-        self.bias_data = np.linspace(start, np.sign(stop-start)*(np.floor(np.abs(np.round(float(stop-start)/step)))*step)+start, nop)  # stop is rounded down to multiples of step
+        self.nop = int(round(abs((stop-start)/step)+1))
+        self.bias_data = np.linspace(start, np.sign(stop-start)*(np.floor(np.abs(np.round(float(stop-start)/step)))*step)+start, self.nop)  # stop is rounded down to multiples of step
         self.rate = self._plc/self._sense_nplc[self.get_sweep_channels()[1]]
         self.set_bias_value(start)
         time.sleep(1./self.rate)
@@ -634,7 +634,12 @@ class NI_DAQ_IV(Instrument):
         output_channel, input_channel = [''.join(i).strip() for i in zip(*np.array([[self._dev] * 2,
                                                                                     ['/ao', '/ai'],
                                                                                     self.get_sweep_channels()]))]
-        sense_data = nidaq.sync_write_read(output_channel, input_channel, self.bias_data, rate=self.rate, config=self._chan_config[self.get_sweep_channels()[1]])
+        sense_data = nidaq.sync_write_read(O_devchan=output_channel,  # device / bias channel
+                                           I_devchan=input_channel,  # device / sense channel
+                                           waveform=self.bias_data,  # bias data
+                                           rate=self.rate,  # sweep rate
+                                           timeout=self.nop/self.rate*1.1,  # 1.1 fold of the calculated measurement time, just to be on the safe side
+                                           config=self._chan_config[self.get_sweep_channels()[1]])  # sense channel configuration
         return self.bias_data, sense_data
 
     def take_IV(self, sweep):
@@ -696,9 +701,30 @@ class NI_DAQ_IV(Instrument):
         self.rate = None
         self._sweep_channels = (0, 0)
 
-    def get_all(self):
-        # TODO: add get_all and not just dummy
-        return None
+    def get_all(self, channel=0):
+        """
+        Prints all settings of channel <channel>.
+
+        Parameters
+        ----------
+        channel: int
+            Number of channel of interest. Default is 0.
+
+        Returns
+        -------
+        None
+        """
+        logging.debug('{:s}: Get all'.format(__name__))
+        print('output channels  = {!s}'.format(self._output_channels))
+        print('input channels   = {!s}'.format(self._input_channels))
+        print('channel config   = {!s}'.format(self._chan_config[channel]))
+        print('sample frequency = {:g}'.format(self._sample_freq[channel]))
+        print('sense average      = {:f}'.format(self.get_sense_average(channel=channel)))
+        print('plc                = {:g}Hz'.format(self.get_plc()))
+        print('sense nplc         = {:g}'.format(self.get_sense_nplc(channel=channel)))
+        print('bias value         = {:g}V'.format(self.get_bias_value(channel=channel)))
+        print('sense value        = {:g}V'.format(self.get_sense_value(channel=channel)))
+        return
 
     def get_parameters(self):
         """
