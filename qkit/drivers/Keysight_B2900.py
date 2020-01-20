@@ -2213,8 +2213,9 @@ class Keysight_B2900(Instrument):
             Parameter names as keys, values of corresponding channels as values.
         """
         channels = kwargs.get('channels')
-        if channels != [None]:
-            return tuple([eval('self.get_{:s}(channel={!s})'.format(param, channel)) for channel in channels])
+        if channels == [None]:
+            return tuple(eval('map(lambda channel, self=self: self.get_{:s}(), [None])'.format(param)))
+            #return eval('self.get_{:s}()'.format(param))
         else:
-            return eval('self.get_{:s}()'.format(param))
-
+            return tuple(eval('map(lambda channel, self=self: self.get_{:s}(channel=channel), [{:s}])'.format(param, ', '.join(map(str, channels)))))
+            #return tuple([eval('self.get_{:s}(channel={!s})'.format(param, channel)) for channel in channels])
