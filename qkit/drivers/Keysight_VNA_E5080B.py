@@ -58,7 +58,7 @@ class Keysight_VNA_E5080B(Instrument):
         # Implement parameters
         self.add_parameter('nop', type=int,
             flags=Instrument.FLAG_GETSET,
-            minval=1, maxval=20001,
+            minval=1, maxval=100001,
             tags=['sweep'])
 
         self.add_parameter('bandwidth', type=float,
@@ -68,49 +68,53 @@ class Keysight_VNA_E5080B(Instrument):
 
         self.add_parameter('averages', type=int,
             flags=Instrument.FLAG_GETSET,
-            minval=1, maxval=1024, tags=['sweep'])                    
+            minval=1, maxval=65536, tags=['sweep'])
+
+        self.add_parameter('count', type=int,
+            flags=Instrument.FLAG_GETSET,
+            minval=1, maxval=2e6, tags=['sweep'])
 
         self.add_parameter('Average', type=bool,
             flags=Instrument.FLAG_GETSET)   
                     
         self.add_parameter('centerfreq', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=20e9,
+            minval=0, maxval=14e9,
             units='Hz', tags=['sweep'])
 
         self.add_parameter('cwfreq', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=20e9,
+            minval=0, maxval=14e9,
             units='Hz', tags=['sweep'])
             
         self.add_parameter('startfreq', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=20e9,
+            minval=0, maxval=14e9,
             units='Hz', tags=['sweep'])            
             
         self.add_parameter('stopfreq', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=20e9,
+            minval=0, maxval=14e9,
             units='Hz', tags=['sweep'])                        
             
         self.add_parameter('span', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=20e9,
+            minval=0, maxval=14e9,
             units='Hz', tags=['sweep'])        
             
         self.add_parameter('power', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=-85, maxval=10,
+            minval=-100, maxval=20,
             units='dBm', tags=['sweep'])
 
         self.add_parameter('startpower', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=-85, maxval=10,
+            minval=-100, maxval=20,
             units='dBm')
 
         self.add_parameter('stoppower', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=-85, maxval=10,
+            minval=-100, maxval=20,
             units='dBm')
 
         self.add_parameter('cw', type=bool,
@@ -228,6 +232,7 @@ class Keysight_VNA_E5080B(Instrument):
         if single:
             print('No longer implemented. Use manual trigger source.')
         if averages is not None:
+
             print('Average parameter no longer supported.')
 
         self._visainstrument.write('FORM:DATA REAL,32')
@@ -256,7 +261,7 @@ class Keysight_VNA_E5080B(Instrument):
       
     def get_freqpoints(self, query = False):
         if query:
-            print('Currently not supported')
+            self._freqpoints = numpy.array(self._visainstrument.query_ascii_values('SENS:X?'))
         if self.get_cw():
           self._freqpoints = numpy.atleast_1d(self.get_centerfreq())
         else:
@@ -269,7 +274,7 @@ class Keysight_VNA_E5080B(Instrument):
     
     def do_set_sweep_mode(self, mode):
         """
-        select the sweep mode from 'hold', 'cont', single'
+        select the sweep mode from 'hold', 'cont', single' and "group"
         single means only one single trace, not all the averages even if averages
          larger than 1 and Average==True
         """
@@ -279,11 +284,13 @@ class Keysight_VNA_E5080B(Instrument):
             self._visainstrument.write('SENS%i:SWE:MODE CONT' % self._ci)
         elif mode == 'single':
             self._visainstrument.write('SENS%i:SWE:MODE SING' % self._ci)
+        elif mode == 'group':
+            self._visainstrument.write('SENS%i:SWE:MODE GRO' % self._ci)
         else:
             logging.warning('invalid mode')
             
     def do_get_sweep_mode(self):
-        return int(self._visainstrument.query(':INIT%i:CONT?' % self._ci))
+        return str(self._visainstrument.query(':SENS%i:SWE:MODE?' % self._ci)).rstrip()
     
     def do_set_nop(self, nop):
         """
@@ -355,7 +362,6 @@ class Keysight_VNA_E5080B(Instrument):
 
         Input:
             av (int) : Number of averages
-
         Output:
             None
         """
@@ -370,11 +376,35 @@ class Keysight_VNA_E5080B(Instrument):
         Input:
             None
         Output:
-            number of averages
+            Number of averages
         """
         logging.debug(__name__ + ' : getting Number of Averages')
         return int(self._visainstrument.query('SENS%i:AVER:COUN?' % self._ci))
-                
+
+    def do_set_count(self, co):
+        """
+        Sets the trigger count (groups)
+
+        Input:
+            co (int) : Count number
+        Output:
+            None
+        """
+        logging.debug(__name__ + ' : setting count number to %i ' % co)
+        self._visainstrument.write('SENS%i:SWE:GRO:COUN %i' % (self._ci,co))
+
+    def do_get_count(self):
+        """
+        Sets the trigger count (groups)
+
+        Input:
+            None
+        Output:
+            Count number
+        """
+        logging.debug(__name__ + ' : getting count number')
+        return int(self._visainstrument.query('SENS%i:SWE:GRO:COUN?' % (self._ci)))
+
     def do_set_power(self,pow,port=1):
         """
         Set probe power
@@ -659,7 +689,8 @@ class Keysight_VNA_E5080B(Instrument):
             None
         """
         logging.debug(__name__ + ' : setting bandwidth to %s Hz' % band)
-        self._visainstrument.write('SENS%i:BWID:RES %i' % (self._ci,band))
+        self._visainstrument.write('SENS%i:BWID %i' % (self._ci,band))
+
     def do_get_bandwidth(self):
         """
         Get Bandwidth
@@ -672,7 +703,7 @@ class Keysight_VNA_E5080B(Instrument):
         """
         logging.debug(__name__ + ' : getting bandwidth')
         # getting value from instrument
-        return  float(self._visainstrument.query('SENS%i:BWID:RES?'%self._ci))
+        return  float(self._visainstrument.query('SENS%i:BWID?'%self._ci))
     
     def do_set_cw(self, val):
         """
@@ -687,14 +718,14 @@ class Keysight_VNA_E5080B(Instrument):
         else:
             self._visainstrument.write(':SENS%i:SWE:POIN 1001' % self._ci)
             self.set_startfreq(self._start)
-            self.do_set_stopfreq(self._stop)
+            self.set_stopfreq(self._stop)
 
         
     def do_get_cw(self):
         """
         retrieve CW mode status
         """
-        if (self.do_get_nop() == 1) and (self.get_sweep_type() == "LIN"): ret = True
+        if (self.get_nop() == 1) and (self.get_sweep_type() == "LIN"): ret = True
         else: ret = False
         return ret
 
@@ -788,7 +819,7 @@ class Keysight_VNA_E5080B(Instrument):
         Set Trigger Mode
 
         Input:
-            source (string) : EXTernal | IMMediate | MANual
+            source (string) : EXTernal | IMMediate (internal) | MANual
         Output:
             None
         Default:
@@ -828,30 +859,29 @@ class Keysight_VNA_E5080B(Instrument):
         """
         Set everything needed for the measurement
         Averaging has to be enabled.
-        Continuous mode has to be enabled.
+        Trigger count is set to number of averages
         """
         if not self.get_Average():
             self.set_Average(True)
             self.set_averages(1)
-        self.hold(False)
+        self.set_count(self.do_get_averages())
 
     def post_measurement(self):
         """
         Bring the VNA back to a mode where it can be easily used by the operator.
-        For this VNA and measurement method, no special things have to be done.
         """
-        pass
+        self.set_sweep_mode("cont")
 
     def start_measurement(self):
         """
         This function is called at the beginning of each single measurement in the spectroscopy script.
-        Here, it resets the averaging.
+        Here, it starts n sweeps, where n is the active channels trigger count.
         """
-        self.avg_clear()
+        self.set_sweep_mode("group")
 
     
     def ready(self):
         """
-        This is a proxy function, returning True when the VNA has finished the required number of averages for traces 1-14.
+        This is a proxy function, returning True when the VNA is on HOLD after finishing the required number of averages .
         """
-        return (int(self._visainstrument.query('STAT:OPER:AVER1:COND?')) & 2)==2
+        return self.get_sweep_mode()=="HOLD"
