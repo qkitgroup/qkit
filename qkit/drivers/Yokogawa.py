@@ -1306,10 +1306,10 @@ class Yokogawa(Instrument):
         default_channels = {0: (1, 2), 1: (1,), 2: (1,)}
         if mode in [0, 1, 2]:
             if len(channels) == int(not mode)+1:
-                logging.debug('{!s}: Set sweep channels to {:s}'.format(__name__, channels))
+                logging.debug('{!s}: Set sweep channels to {!s}'.format(__name__, channels))
                 self._sweep_channels = channels
             elif len(channels) == 0:
-                logging.debug('{!s}: Set sweep channels to {:s}'.format(__name__, default_channels[mode]))
+                logging.debug('{!s}: Set sweep channels to {!s}'.format(__name__, default_channels[mode]))
                 self._sweep_channels = default_channels[mode]
             else:
                 logging.error('{!s}: Cannot set sweep channels to {!s}'.format(__name__, channels))
