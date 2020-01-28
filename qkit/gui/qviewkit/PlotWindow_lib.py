@@ -821,6 +821,6 @@ def _do_data_manipulation(x_data, y_data, unit, ds_type, manipulation, manipulat
 
     if manipulation & manipulations['histogram']:
         y_data, x_data = np.histogram(y_data[~np.isnan(y_data)], bins='auto')  # FIXME: axis labels not correct (MMW)
-        x_data = x_data[:-1]-(x_data[1]-x_data[0])/2.
+        x_data = x_data[:-1]+(x_data[1]-x_data[0])/2.
     
     return x_data, y_data, unit
