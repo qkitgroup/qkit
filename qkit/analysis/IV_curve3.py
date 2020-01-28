@@ -80,7 +80,7 @@ class IV_curve3(object):
         >>> ivc = IVC()
         Initialized the file info database (qkit.fid) in 0.000 seconds.
         """
-        qkit.fid.update_all()  # update file database
+        qkit.fid.update_file_db()  # update file database
         self.uuid, self.path, self.df = None, None, None
         self.settings = None
         self.mo = mc.Measurement()  # qkit-sample object
@@ -406,20 +406,24 @@ class IV_curve3(object):
             if 'axis' not in kwargs.keys():
                 kwargs['axis'] = self.scan_dim
         if x is None:
-            try:
+            if np.isnan(x).any():
+                y_nans = np.isnan(y)
+                dy = mode(np.nan_to_num(y, copy=True, nan=0.0), **kwargs)
+                np.place(dy, y_nans, np.nan)
+                return dy
+            else:
                 return mode(y, **kwargs)
-            except Exception as e:
-                print('{:s}\n slice np.nans at the end, differentiate and add np.nans at the end'.format(e))
-                y_nans = np.isnan(y)
-                return np.concatenate([mode(y[np.logical_not(y_nans)], **kwargs), y[y_nans]])
         else:
-            try:
-                return mode(y, **kwargs)/mode(x, **kwargs)
-            except Exception as e:
-                print('{:s}\n slice np.nans at the end, differentiate and add np.nans at the end'.format(e))
-                x_nans = np.isnan(x)
+            if np.isnan(x).any():
+                x_nans = np.isnan(x)  # mask for np.nan
                 y_nans = np.isnan(y)
-                return np.concatenate([mode(y[np.logical_not(y_nans)], **kwargs), y[y_nans]])/np.concatenate([mode(x[np.logical_not(x_nans)], **kwargs), x[x_nans]])
+                dx = mode(np.nan_to_num(x, copy=True, nan=0.0), **kwargs)  # derivation function with np.nan replaced by 0
+                dy = mode(np.nan_to_num(y, copy=True, nan=0.0), **kwargs)
+                np.place(dx, x_nans, np.nan)  # write np.nan using mask from above
+                np.place(dy, y_nans, np.nan)
+                return dy/dx
+            else:
+                return mode(y, **kwargs)/mode(x, **kwargs)
 
     def get_offsets(self, x=None, y=None, threshold=20e-6, offset=0, yr=False):
         """
@@ -450,7 +454,8 @@ class IV_curve3(object):
         if y is None:
             y = [self.I, self.V][self.bias]
         ''' constant range via threshold (for JJ superconducting range via threshold voltage) '''
-        mask = np.logical_and(x >= -threshold + offset, x <= threshold + offset)
+        with np.errstate(invalid='ignore'):  # raises warning due to np.nan
+            mask = np.logical_and(x >= -threshold + offset, x <= threshold + offset)
         x_const, y_const = np.copy(x), np.copy(y)
         np.place(x_const, np.logical_not(mask), np.nan)
         np.place(y_const, np.logical_not(mask), np.nan)
@@ -459,23 +464,35 @@ class IV_curve3(object):
             x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
             ''' get y offset (for JJ current offset) '''
             if yr:  # retrapping y (for JJ retrapping current)
-                y_rs = np.array([np.nanmax(y_const[0], axis=(self.scan_dim-1)), np.nanmin(y_const[1], axis=(self.scan_dim-1))])
+                y_rs = np.array([np.nanmax(y_const[0], axis=(self.scan_dim-1)),
+                                 np.nanmin(y_const[1], axis=(self.scan_dim-1))])
                 y_offsets = np.mean(y_rs, axis=0)
             else:  # critical y (for JJ critical current)
-                y_cs = np.array([np.nanmin(y_const[0], axis=(self.scan_dim-1)), np.nanmax(y_const[1], axis=(self.scan_dim-1))])
+                y_cs = np.array([np.nanmin(y_const[0], axis=(self.scan_dim-1)),
+                                 np.nanmax(y_const[1], axis=(self.scan_dim-1))])
                 y_offsets = np.mean(y_cs, axis=0)
         elif self.sweeptype == 1:  # 4 quadrants
             ''' get x offset '''
             x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
             ''' get y offset '''
             if yr:  # retrapping y (for JJ retrapping current)
-                y_rs = np.array([np.nanmax(y_const[1], axis=(self.scan_dim-1)), np.nanmin(y_const[3], axis=(self.scan_dim-1))])
+                y_rs = np.array([np.nanmax(y_const[1], axis=(self.scan_dim-1)),
+                                 np.nanmin(y_const[3], axis=(self.scan_dim-1))])
                 y_offsets = np.mean(y_rs, axis=0)
             else:  # critical y (for JJ critical current)
-                y_cs = np.array([np.nanmax(y_const[0], axis=(self.scan_dim-1)), np.nanmin(y_const[2], axis=(self.scan_dim-1))])
+                y_cs = np.array([np.nanmax(y_const[0], axis=(self.scan_dim-1)),
+                                 np.nanmin(y_const[2], axis=(self.scan_dim-1))])
                 y_offsets = np.mean(y_cs, axis=0)
-        else:
-            raise NotImplementedError('No algorithm implemented for custom sweeptype')
+        else:  # custom sweeptype
+            ''' get x offset '''
+            x_offsets = np.nanmean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
+            ''' get y offset '''
+            if yr:  # retrapping y (for JJ retrapping current)
+                raise NotImplementedError('No algorithm implemented for custom sweeptype')
+            else:
+                y_cs = np.array([np.nanmax(y_const, axis=(self.scan_dim-1)),
+                                 np.nanmin(y_const, axis=(self.scan_dim-1))])
+                y_offsets = np.mean(y_cs, axis=0)
         self.I_offsets, self.V_offsets = [x_offsets, y_offsets][::int(np.sign(self.bias - .5))]
         return self.I_offsets, self.V_offsets
 
@@ -651,12 +668,14 @@ class IV_curve3(object):
             else:
                 offset = self.V_offset
         if len(V.shape)-1 == 0:  # single trace used for in situ fit
-            mask = np.logical_and(V >= -threshold + offset, V <= threshold + offset)
+            with np.errstate(invalid='ignore'):  # raises warning due to np.nan
+                mask = np.logical_and(V >= -threshold + offset, V <= threshold + offset)
             I_sc = np.copy(I)
             np.place(I_sc, np.logical_not(mask), np.nan)
             return np.nanmax(I_sc)
         ''' constant range via threshold (for JJ superconducting range via threshold voltage) '''
-        mask = np.logical_and(V >= -threshold + offset, V <= threshold + offset)
+        with np.errstate(invalid='ignore'):  # raises warning due to np.nan
+            mask = np.logical_and(V >= -threshold + offset, V <= threshold + offset)
         V_sc, I_sc = np.copy(V), np.copy(I)
         np.place(V_sc, np.logical_not(mask), np.nan)
         np.place(I_sc, np.logical_not(mask), np.nan)
@@ -670,8 +689,13 @@ class IV_curve3(object):
             I_cs = np.array([np.nanmax(I_sc[0], axis=(self.scan_dim-1)), np.nanmin(I_sc[2], axis=(self.scan_dim-1))])
             ''' retrapping current '''
             I_rs = np.array([np.nanmax(I_sc[1], axis=(self.scan_dim-1)), np.nanmin(I_sc[3], axis=(self.scan_dim-1))])
-        else:
-            raise NotImplementedError('No algorithm implemented for custom sweeptype')
+        else:  # custom sweeptype
+            ''' critical current '''
+            I_cs = np.array([np.nanmax(I_sc, axis=(self.scan_dim-1)),
+                             np.nanmin(I_sc, axis=(self.scan_dim-1))])
+            ''' retrapping current '''
+            if Ir:
+                raise NotImplementedError('No algorithm implemented for custom sweeptype')
         if Ir:
             return [I_cs, I_rs]
         else:
