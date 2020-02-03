@@ -1428,10 +1428,10 @@ class Keysight_B2900(Instrument):
         default_channels = {0: (1, 2), 1: (1,), 2: (1,)}
         if mode in [0, 1, 2]:
             if len(channels) == int(not mode)+1:
-                logging.debug('{!s}: Set sweep channels to {:s}'.format(__name__, channels))
+                logging.debug('{!s}: Set sweep channels to {!s}'.format(__name__, channels))
                 self._sweep_channels = channels
             elif len(channels) == 0:
-                logging.debug('{!s}: Set sweep channels to {:s}'.format(__name__, default_channels[mode]))
+                logging.debug('{!s}: Set sweep channels to {!s}'.format(__name__, default_channels[mode]))
                 self._sweep_channels = default_channels[mode]
             else:
                 logging.error('{!s}: Cannot set sweep channels to {!s}'.format(__name__, channels))
@@ -1868,7 +1868,7 @@ class Keysight_B2900(Instrument):
         """
         ccr = self.get_operation_ccr()
         msg = [('\n\t{:36s}:{!r}\t({:s})'.format(sb[0], ccr[i], sb[1])) for i, sb in enumerate(self.operation_ccr) if sb != ('', '')]
-        print 'Operation ccr :{:s}'.format(''.join(msg))
+        print('Operation ccr :{:s}'.format(''.join(msg)))
         return
 
     def get_questionable_ccr(self):
@@ -1928,7 +1928,7 @@ class Keysight_B2900(Instrument):
         """
         ccr = self.get_questionable_ccr()
         msg = [('\n\t{:36s}:{!r}\t({:s})'.format(sb[0], ccr[i], sb[1])) for i, sb in enumerate(self.questionable_ccr) if sb != ('', '')]
-        print 'Questionable ccr :{:s}'.format(''.join(msg))
+        print('Questionable ccr :{:s}'.format(''.join(msg)))
         return
 
     def get_transition_idle(self, channel=1):
@@ -1995,9 +1995,10 @@ class Keysight_B2900(Instrument):
         if sweep_mode is not None:
             self.set_sweep_mode(sweep_mode)
         # set values
-        for i, channel in enumerate(self._sweep_channels):
+        for i, channel in enumerate(self._sweep_channels[:self._channels]):
             for key_parameter, val_parameter in self._defaults[self._sweep_mode][i].items():
-                eval('self.set_{:s}({!s}, channel={:d})'.format(key_parameter, val_parameter, channel))
+                eval('map(lambda channel, self=self: self.set_{:s}({!s}, channel=channel), [{:d}])'.format(key_parameter, val_parameter, channel))
+                #eval('self.set_{:s}({!s}, channel={:d})'.format(key_parameter, val_parameter, channel))
         return
 
     def _set_defaults_docstring(self):
