@@ -46,12 +46,21 @@ def _adjust_wfs_for_tabor(wf1, wf2, ro_index, chpair, segment, sample):
     # for single channel pulses
     if len(wf1) > len(wf2):
         wf2 = np.append(wf2, np.zeros(len(wf1)-len(wf2)))
+    
+    # all wfms start and end with 0
+    wf1 = np.append(0, wf1)
+    wf1 = np.append(wf1, 0)
+    wf2 = np.append(0, wf2)
+    wf2 = np.append(wf2, 0)
+    marker1 = np.append(0, marker1)
+    marker1 = np.append(marker1, 0)
+        
     end_zeros = len(wf1) % divisor
     # minimum waveform is 192 points, handled by the Tabor driver
     if end_zeros != 0:
-        wf1 = np.append(wf1, np.zeros(divisor - end_zeros))
-        wf2 = np.append(wf2, np.zeros(divisor - end_zeros))
-        marker1 = np.append(marker1, np.zeros(divisor - end_zeros))
+        wf1 = np.append(np.zeros(divisor - end_zeros), wf1)
+        wf2 = np.append(np.zeros(divisor - end_zeros), wf2)
+        marker1 = np.append(np.zeros(divisor - end_zeros), marker1)
     sample.awg.wfm_send2(wf1, wf2, marker1, marker1, chpair * 2 - 1, segment + 1)
 
 
