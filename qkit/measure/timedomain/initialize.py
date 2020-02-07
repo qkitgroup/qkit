@@ -115,10 +115,13 @@ class InitializeTimeDomain(object):
             self._sample.awg.set_clock(self._sample.clock)
             self._sample.readout_awg.set_clock(self._sample.readout_clock)
             self._load_awg_square([100e-9])
-
-            self._sample.awg.set_p1_trigger_time(self._sample.T_rep)
-            self._sample.awg.set_p1_sync_output(True)
             
+            if self._sample.awg._numchannels == 4:
+                self._sample.awg.set_p1_trigger_time(self._sample.T_rep)
+                self._sample.awg.set_p1_sync_output(True)
+            else:
+                self._sample.awg.set_trigger_time(self._sample.T_rep)
+                self._sample.awg.set_sync_output(True)
             if self._sample.T_rep < 1.5 * self._sample.exc_T:
                 raise ValueError("Your repetition rate T_rep is too small for the chosen window exc_T.")
             
