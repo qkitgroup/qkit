@@ -18,6 +18,7 @@
 
 import sys
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy import signal as sig
 # TODO: uncertainty analysis probably using import uncertainties
 
@@ -108,6 +109,8 @@ class IV_curve3(object):
                           'Z': 1e21,  # zetta
                           'Y': 1e24,  # yotta
                           }
+        self.scm = self.switching_current(sweeps=self.sweeps,
+                                          settings=self.settings)  # subclass for switching current measurement analysis
 
     def load(self, uuid, dVdI='analysis0'):
         """
@@ -134,15 +137,17 @@ class IV_curve3(object):
         self.path = qkit.fid.get(self.uuid)
         self.df = Data(self.path)
         try:
-            self.settings = dict2obj(json.loads(self.df.data.settings.value[0], cls=QkitJSONDecoder))
+            self.settings = dict2obj(json.loads(self.df.data.settings[0], cls=QkitJSONDecoder))
         except:
             self.settings = self.df.data.settings[:]
+        self.scm.settings = self.settings
         self.mo.load(qkit.fid.measure_db[self.uuid])
         self.m_type = self.mo.measurement_type  # measurement type
         if self.m_type == 'transport':
             self.scan_dim = self.df.data.i_0.attrs['ds_type']  # scan dimension (1D, 2D, ...)
             self.bias = self.get_bias()
             self.sweeps = self.mo.sample.sweeps  # sweeps (start, stop, step)
+            self.scm.sweeps = self.sweeps
             self.sweeptype = self.get_sweeptype()
             shape = np.concatenate([[len(self.sweeps)], np.max([self.df['entry/data0/i_{:d}'.format(j)].shape for j in range(len(self.sweeps))], axis=0)])  # (number of sweeps, eventually len y-values, eventually len x-values, maximal number of sweep points)
             self.I, self.V, self.dVdI = np.empty(shape=shape), np.empty(shape=shape), np.empty(shape=shape)
@@ -1085,3 +1090,255 @@ class IV_curve3(object):
             return I_cs, I_rs, properties
         else:
             return I_cs, properties
+
+    # def fit_switching_current(self, I_0, omega_0, dIdt=None, plot=True, **kwargs):
+    #     """
+    #     Creates switching current histogram, calculates and escape rate and recalculates the fit to the switching current distribution
+    #
+    #     Parameters
+    #     ----------
+    #     I_0: array-like
+    #         Switching currents
+    #     omega_0: float
+    #         Plasma frequency used for fit
+    #     dIdt: float
+    #         sweep rate (in 1/s)
+    #     plot: boolean
+    #
+    #
+    #     Returns
+    #     -------
+    #     None
+    #
+    #     Examples
+    #     --------
+    #     >>> XXXXXX
+    #     """
+    #     ''' histogram '''
+    #     if not 'range' in kwargs:
+    #         kwargs['range'] = (np.nanmin(I_0), np.nanmax(I_0))
+    #     if not 'weights' in kwargs:
+    #         kwargs['weights'] = np.ones_like(I_0)/I_0.size  # normed to 1
+    #     P, edges = np.histogram(a=I_0, **kwargs)
+    #     bins = np.convolve(edges, np.ones((2,))/2, mode='valid')  # moving average with window length 2
+    #     ''' escape rate '''
+    #     Delta_I = np.abs(np.nanmax(bins)-np.nanmin(bins))/bins.size
+    #     if dIdt is None:
+    #         dIdt = self.sweeps[0][2]*self.settings.IVD.sense_nplc[0]/self.settings.IVD.plc
+    #     Gamma = dIdt/Delta_I*np.array([np.log(np.sum(P[j:], dtype=float)/np.sum(P[j+1:]), dtype=float) for j, _ in enumerate(P)])
+    #     ''' fit norm. escape rate '''
+    #     x = bins
+    #     y = np.log(omega_0/(2*np.pi*Gamma))**(2/3)
+    #     popt, pcov = np.polyfit(x=x[np.isfinite(y)],
+    #                             y=y[np.isfinite(y)],
+    #                             deg=1,
+    #                             cov=True)
+    #     I_c = -popt[1]/popt[0]
+    #     ''' calculate fitted escape rate and fitted switching current distribution '''
+    #     a = 10  # factor for number of points of fit: nop = a*bins.size
+    #     x_fit = np.linspace(np.min(bins), np.max(bins), bins.size*a) # bins  #
+    #     y_fit = popt[0] * x_fit + popt[1]
+    #     Delta_I_fit = np.abs(np.nanmax(x_fit)-np.nanmin(x_fit))/x_fit.size  # Delta_I
+    #     Gamma_fit = omega_0/(2*np.pi*np.exp((popt[0]*x_fit+popt[1])**(3/2)))  # np.sum([p*x**i for i, p in enumerate(popt[::-1])], axis=0)
+    #     def get_P(Gamma, Delta_I, dIdt):
+    #         return np.array([gamma/dIdt*np.exp(-np.sum(Gamma[:k+1])*Delta_I/dIdt) for k, gamma in enumerate(Gamma)])
+    #     P_fit = get_P(Gamma=Gamma_fit,
+    #                   Delta_I=Delta_I_fit,
+    #                   dIdt=dIdt)
+    #     ''' plot '''
+    #     if plot:
+    #         fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(6, 6))
+    #         ax1.set_ylabel('esc. probability $ P~(\si{\percent}) $')
+    #         ax1.bar(x=bins,
+    #                 height=P,
+    #                 width=np.mean(np.gradient(edges)),
+    #                 )
+    #         ax1.plot(x_fit, P_fit/np.sum(P_fit)*a, 'k-')
+    #         ''' escape rate '''
+    #         ax2.set_xlabel('esc. current $ I_\mathrm{esc}~(\si{\micro A}) $')
+    #         ax2.set_ylabel('esc. rate $ \gamma_\mathrm{esc}(I)~(\si{\per\second}) $')
+    #         ax2.semilogy(bins, Gamma, 'b.')
+    #         ax2.semilogy(x_fit, Gamma_fit, 'k-')
+    #         ''' normalized escape rate '''
+    #         ax3 = plt.twinx(ax2)
+    #         ax3.set_ylabel('norm. escape rate $ \ln(\omega_0/2\pi\Gamma) $')
+    #         ax3.plot(x, y, 'r.')
+    #         ax3.plot(x_fit, y_fit, 'k-')
+    #         plt.show()
+    #
+    #     return {'P':P,
+    #             'P_fit':P_fit,
+    #             'Gamma':Gamma,
+    #             'Gamma_fit':Gamma_fit,
+    #             'popt':popt,
+    #             'pcov':pcov,
+    #             'I_c':I_c,
+    #             }
+
+    class switching_current(object):
+        """ This is an analysis class for switching current measurements """
+        def __init__(self, sweeps, settings):
+            self.sweeps = sweeps
+            self.settings = settings
+
+        def fit(self, I_0, omega_0, dIdt=None, **kwargs):
+            """
+            Creates switching current histogram, calculates and escape rate and recalculates the fit to the switching current distribution.
+
+            Parameters
+            ----------
+            I_0: array-like
+                Switching currents
+            omega_0: float
+                Plasma frequency used for fit
+            dIdt: float (optional)
+                Sweep rate (in A/s). Defauls is sweeps stepwidth*nplc/plc
+            kwargs:
+                Keyword arguments forwarded to numpy.histogram. Defaults are bins=10, range=(min(I_0), max(I_0)), normed=None, weights=None, density=None
+
+            Returns
+            -------
+            P: np.array
+                Probability distribution
+            P_fit: np.array
+                Fitted probability distribution
+            Gamma: np.array
+                Escape rate
+            Gamma_fit: np.array
+                Fitted escape rate
+            popt: list
+                Optimal fit parameters
+            pcov: list
+                Covariance matrix
+            I_c: float
+                Fitted critical current
+
+            Examples
+            --------
+            >>> ivc.scm.fit(I_0=I_0*1e6, omega_0=14e9, bins=50);
+            """
+            ''' histogram '''
+            if not 'range' in kwargs:
+                kwargs['range'] = (np.nanmin(I_0), np.nanmax(I_0))
+            if not 'weights' in kwargs:
+                kwargs['weights'] = np.ones_like(I_0)/I_0.size  # normed to 1
+            self.P, self.edges = np.histogram(a=I_0, **kwargs)
+            self.bins = np.convolve(self.edges, np.ones((2,))/2, mode='valid')  # moving average with window length 2
+            ''' escape rate '''
+            self.Delta_I = np.mean(np.gradient(self.bins)) # np.abs(np.max(self.bins)-np.min(self.bins))/(self.bins.size-1) #
+            if dIdt is None:
+                self.dIdt = self.sweeps[0][2]*self.settings.IVD.sense_nplc[0]/self.settings.IVD.plc
+            else:
+                self.dIdt = dIdt
+            self.omega_0 = omega_0
+            self.Gamma = self.dIdt/self.Delta_I*np.array([np.log(np.sum(self.P[j:])/np.sum(self.P[j+1:])) for j, _ in enumerate(self.P)])
+            ''' fit norm. escape rate '''
+            self.x = self.bins
+            self.y = np.log(self.omega_0/(2*np.pi*self.Gamma))**(2/3)
+            self.popt, self.pcov = np.polyfit(x=self.x[np.isfinite(self.y)],
+                                              y=self.y[np.isfinite(self.y)],
+                                              deg=1,
+                                              cov=True)
+            self.I_c = -self.popt[1]/self.popt[0]
+            ''' calculate fitted escape rate and fitted switching current distribution '''
+            alpha = 1  # factor for number of points of fit: nop = a*bins.size # FIXME: if e.g. alpha=10 fit shifts in x-direction
+            self.x_fit = np.linspace(np.min(self.edges), np.max(self.edges), (self.edges.size-1)*alpha+1)
+            self.y_fit = self.popt[0]*self.x_fit+self.popt[1]
+            self.Delta_I_fit = np.mean(np.gradient(self.x_fit)) # np.abs(np.max(self.x_fit)-np.min(self.x_fit))/(self.x_fit.size-1) #
+            self.Gamma_fit = self.omega_0/(2*np.pi*np.exp((self.popt[0]*self.x_fit+self.popt[1])**(3/2)))  # np.sum([p*self.x_fit**i for i, p in enumerate(self.popt[::-1])], axis=0)
+            def get_P(Gamma, Delta_I, dIdt, norm):
+                P = np.array([gamma/dIdt*np.exp(-np.sum(Gamma[:k+1])*Delta_I/dIdt) for k, gamma in enumerate(Gamma)])
+                return P/np.sum(P)*norm
+            self.P_fit = get_P(Gamma=self.Gamma_fit,
+                               Delta_I=self.Delta_I_fit,
+                               dIdt=self.dIdt,
+                               norm=alpha)
+            return {'P': self.P,
+                    'P_fit': self.P_fit,
+                    'Gamma': self.Gamma,
+                    'Gamma_fit': self.Gamma_fit,
+                    'popt': self.popt,
+                    'pcov': self.pcov,
+                    'I_c': self.I_c,
+                    }
+
+        def plot(self,
+                 xlabel='escape current $ I_{esc}~(A) $',
+                 y1label='escape probability $ P $',
+                 y2label='escape rate $ \Gamma_{esc}~(s^{-1}) $',
+                 y3label='norm. escape rate $ \ln(\omega_0/2\pi\Gamma) $'):
+            """
+            Plots switching current histogram, escape rate and normalized escape rate as well as their fits
+
+            Parameters
+            ----------
+            xlabel: str
+                X-axis label. Default is 'escape current $ I_{esc}~(A) $'.
+            y1label: str
+                Y-axis label of histogram. Default is 'escape probability $ P $'.
+            y2label: str
+                Y-axis label of escape rate. Default is 'escape rate $ \Gamma_{esc}~(s^{-1}) $'.
+            y3label: str
+                Y-axis label of normalized escape rate. Default is 'norm. escape rate $ \ln(\omega_0/2\pi\Gamma) $'.
+
+            Returns
+            -------
+            P: np.array
+                Probability distribution
+            P_fit: np.array
+                Fitted probability distribution
+            Gamma: np.array
+                Escape rate
+            Gamma_fit: np.array
+                Fitted escape rate
+            popt: list
+                Optimal fit parameters
+            pcov: list
+                Covariance matrix
+            I_c: float
+                Fitted critical current
+
+            Examples
+            --------
+            >>> ivc.scm.plot()
+            """
+            ''' plot '''
+            self.fig, (self.ax1, self.ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(6, 6))
+            self.ax3 = plt.twinx(self.ax2)
+            self.ax2.set_xlabel(xlabel)
+            self.ax1.set_ylabel(y1label)
+            self.ax2.set_ylabel(y2label)
+            self.ax3.set_ylabel(y3label)
+            ''' histogram '''
+            self.ax1.bar(x=self.bins,
+                         height=self.P,
+                         width=np.mean(np.gradient(self.edges)),
+                         label='data'
+                    )
+            self.ax1.plot(self.x_fit,
+                          self.P_fit,
+                          label='fit',
+                          ls='-',
+                          color='black')
+            self.ax1.legend(loc='upper left')
+            ''' escape rate '''
+            lgd21, = self.ax2.semilogy(self.bins,
+                                       self.Gamma,
+                                       'b.',
+                                       label='$ \Gamma $')
+            lgd22, = self.ax2.semilogy(self.x_fit,
+                                      self.Gamma_fit,
+                                      'b-',
+                                      label='fit')
+            ''' normalized escape rate '''
+            lgd31, = self.ax3.plot(self.x,
+                                  self.y,
+                                  'r.',
+                                  label='$ \ln(\omega_0/2\pi\Gamma) $')
+            lgd32, = self.ax3.plot(self.x_fit,
+                                  self.y_fit,
+                                  'r-',
+                                  label='fit')
+            self.ax2.legend(((lgd21, lgd22), (lgd31, lgd32)), ('$ \Gamma $', '$ \ln(\omega_0/2\pi\Gamma) $'), loc='upper center')
+            plt.subplots_adjust(hspace=0)
+            plt.show()
