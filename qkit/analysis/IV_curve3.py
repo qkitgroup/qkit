@@ -30,6 +30,7 @@ from qkit.gui.plot import plot as qviewkit
 import json
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
 
+
 class dict2obj(object):
     def __init__(self, d):
         for a, b in d.items():
@@ -765,7 +766,7 @@ class IV_curve3(object):
             kwargs['prominence'] = 100
         if peak_finder is sig.find_peaks_cwt and 'widths' not in kwargs.keys():
             kwargs['widths'] = np.arange(10)
-        if len(V.shape)-1 == 0: # single trace used for in situ fit
+        if len(V.shape)-1 == 0:  # single trace used for in situ fit
             peaks = _peak_finder(dVdI, **kwargs)
             try:
                 return I[peaks[0]]
@@ -848,12 +849,14 @@ class IV_curve3(object):
             V_fft_smooth = 1j * f * np.exp(-s * f ** 2) * V_fft  # Fourier transform of a Gaussian smoothed derivation of V in the frequency domain
             dV_smooth = np.fft.ifft(V_fft_smooth)  # inverse Fourier transform of the smoothed derivation of V from reciprocal to time domain
             return dV_smooth
+
         def _peak_finder(x, **_kwargs):
             ans = peak_finder(x, **_kwargs)
             if np.array_equal(ans[0], []):  # no peaks found
                 return [np.array([False]), {}]
             else:
                 return ans
+
         if I is None:
             I = self.I
         if V is None:
@@ -862,7 +865,7 @@ class IV_curve3(object):
             kwargs['prominence'] = 1e-5
         if peak_finder is sig.find_peaks_cwt and 'widths' not in kwargs.keys():
             kwargs['widths'] = np.arange(10)
-        if len(V.shape)-1 == 0: # single trace used for in situ fit
+        if len(V.shape)-1 == 0:  # single trace used for in situ fit
             V_corr = V - np.linspace(start=V[0], stop=V[-1], num=V.shape[-1], axis=0)  # adjust offset slope
             dV_smooth = _get_deriv_dft(V_corr)
             peaks = _peak_finder(dV_smooth, **kwargs)
@@ -1091,95 +1094,16 @@ class IV_curve3(object):
         else:
             return I_cs, properties
 
-    # def fit_switching_current(self, I_0, omega_0, dIdt=None, plot=True, **kwargs):
-    #     """
-    #     Creates switching current histogram, calculates and escape rate and recalculates the fit to the switching current distribution
-    #
-    #     Parameters
-    #     ----------
-    #     I_0: array-like
-    #         Switching currents
-    #     omega_0: float
-    #         Plasma frequency used for fit
-    #     dIdt: float
-    #         sweep rate (in 1/s)
-    #     plot: boolean
-    #
-    #
-    #     Returns
-    #     -------
-    #     None
-    #
-    #     Examples
-    #     --------
-    #     >>> XXXXXX
-    #     """
-    #     ''' histogram '''
-    #     if not 'range' in kwargs:
-    #         kwargs['range'] = (np.nanmin(I_0), np.nanmax(I_0))
-    #     if not 'weights' in kwargs:
-    #         kwargs['weights'] = np.ones_like(I_0)/I_0.size  # normed to 1
-    #     P, edges = np.histogram(a=I_0, **kwargs)
-    #     bins = np.convolve(edges, np.ones((2,))/2, mode='valid')  # moving average with window length 2
-    #     ''' escape rate '''
-    #     Delta_I = np.abs(np.nanmax(bins)-np.nanmin(bins))/bins.size
-    #     if dIdt is None:
-    #         dIdt = self.sweeps[0][2]*self.settings.IVD.sense_nplc[0]/self.settings.IVD.plc
-    #     Gamma = dIdt/Delta_I*np.array([np.log(np.sum(P[j:], dtype=float)/np.sum(P[j+1:]), dtype=float) for j, _ in enumerate(P)])
-    #     ''' fit norm. escape rate '''
-    #     x = bins
-    #     y = np.log(omega_0/(2*np.pi*Gamma))**(2/3)
-    #     popt, pcov = np.polyfit(x=x[np.isfinite(y)],
-    #                             y=y[np.isfinite(y)],
-    #                             deg=1,
-    #                             cov=True)
-    #     I_c = -popt[1]/popt[0]
-    #     ''' calculate fitted escape rate and fitted switching current distribution '''
-    #     a = 10  # factor for number of points of fit: nop = a*bins.size
-    #     x_fit = np.linspace(np.min(bins), np.max(bins), bins.size*a) # bins  #
-    #     y_fit = popt[0] * x_fit + popt[1]
-    #     Delta_I_fit = np.abs(np.nanmax(x_fit)-np.nanmin(x_fit))/x_fit.size  # Delta_I
-    #     Gamma_fit = omega_0/(2*np.pi*np.exp((popt[0]*x_fit+popt[1])**(3/2)))  # np.sum([p*x**i for i, p in enumerate(popt[::-1])], axis=0)
-    #     def get_P(Gamma, Delta_I, dIdt):
-    #         return np.array([gamma/dIdt*np.exp(-np.sum(Gamma[:k+1])*Delta_I/dIdt) for k, gamma in enumerate(Gamma)])
-    #     P_fit = get_P(Gamma=Gamma_fit,
-    #                   Delta_I=Delta_I_fit,
-    #                   dIdt=dIdt)
-    #     ''' plot '''
-    #     if plot:
-    #         fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(6, 6))
-    #         ax1.set_ylabel('esc. probability $ P~(\si{\percent}) $')
-    #         ax1.bar(x=bins,
-    #                 height=P,
-    #                 width=np.mean(np.gradient(edges)),
-    #                 )
-    #         ax1.plot(x_fit, P_fit/np.sum(P_fit)*a, 'k-')
-    #         ''' escape rate '''
-    #         ax2.set_xlabel('esc. current $ I_\mathrm{esc}~(\si{\micro A}) $')
-    #         ax2.set_ylabel('esc. rate $ \gamma_\mathrm{esc}(I)~(\si{\per\second}) $')
-    #         ax2.semilogy(bins, Gamma, 'b.')
-    #         ax2.semilogy(x_fit, Gamma_fit, 'k-')
-    #         ''' normalized escape rate '''
-    #         ax3 = plt.twinx(ax2)
-    #         ax3.set_ylabel('norm. escape rate $ \ln(\omega_0/2\pi\Gamma) $')
-    #         ax3.plot(x, y, 'r.')
-    #         ax3.plot(x_fit, y_fit, 'k-')
-    #         plt.show()
-    #
-    #     return {'P':P,
-    #             'P_fit':P_fit,
-    #             'Gamma':Gamma,
-    #             'Gamma_fit':Gamma_fit,
-    #             'popt':popt,
-    #             'pcov':pcov,
-    #             'I_c':I_c,
-    #             }
-
     class switching_current(object):
         """ This is an analysis class for switching current measurements """
         def __init__(self, sweeps, settings):
             self.sweeps = sweeps
             self.settings = settings
+            self.P, self.P_fit, self.edges, self.bins = None, None, None, None
+            self.Delta_I, self.Delta_I_fit, self.dIdt = None, None, None
+            self.Gamma, self.Gamma_fit, self.x, self.x_fit, self.y, self.y_fit = None, None, None, None, None, None
+            self.popt, self.pcov, self.I_c = None, None, None
+            self.fig, self.ax1, self.ax2, self.ax3 = None, None, None, None
 
         def fit(self, I_0, omega_0, dIdt=None, **kwargs):
             """
@@ -1188,13 +1112,13 @@ class IV_curve3(object):
             Parameters
             ----------
             I_0: array-like
-                Switching currents
+                Switching currents.
             omega_0: float
-                Plasma frequency used for fit
+                Plasma frequency used for fit.
             dIdt: float (optional)
-                Sweep rate (in A/s). Defauls is sweeps stepwidth*nplc/plc
+                Sweep rate (in A/s). Default is sweeps stepwidth*nplc/plc.
             kwargs:
-                Keyword arguments forwarded to numpy.histogram. Defaults are bins=10, range=(min(I_0), max(I_0)), normed=None, weights=None, density=None
+                Keyword arguments forwarded to numpy.histogram. Defaults are bins=10, range=(min(I_0), max(I_0)), normed=None, weights=None, density=None.
 
             Returns
             -------
@@ -1217,24 +1141,27 @@ class IV_curve3(object):
             --------
             >>> ivc.scm.fit(I_0=I_0*1e6, omega_0=14e9, bins=50);
             """
+            def get_P(Gamma, Delta_I, dIdt, norm):
+                P = np.array([gamma/dIdt*np.exp(-np.sum(Gamma[:k+1])*Delta_I/dIdt) for k, gamma in enumerate(Gamma)])
+                return P/np.sum(P)*norm
+
             ''' histogram '''
-            if not 'range' in kwargs:
+            if 'range' not in kwargs:
                 kwargs['range'] = (np.nanmin(I_0), np.nanmax(I_0))
-            if not 'weights' in kwargs:
+            if 'weights' not in kwargs:
                 kwargs['weights'] = np.ones_like(I_0)/I_0.size  # normed to 1
             self.P, self.edges = np.histogram(a=I_0, **kwargs)
-            self.bins = np.convolve(self.edges, np.ones((2,))/2, mode='valid')  # moving average with window length 2
+            self.bins = np.convolve(self.edges, np.ones((2,))/2, mode='valid')  # center of bins by moving average with window length 2
             ''' escape rate '''
-            self.Delta_I = np.mean(np.gradient(self.bins)) # np.abs(np.max(self.bins)-np.min(self.bins))/(self.bins.size-1) #
+            self.Delta_I = np.mean(np.gradient(self.bins))  # np.abs(np.max(self.bins)-np.min(self.bins))/(self.bins.size-1) #
             if dIdt is None:
                 self.dIdt = self.sweeps[0][2]*self.settings.IVD.sense_nplc[0]/self.settings.IVD.plc
             else:
                 self.dIdt = dIdt
-            self.omega_0 = omega_0
             self.Gamma = self.dIdt/self.Delta_I*np.array([np.log(np.sum(self.P[j:])/np.sum(self.P[j+1:])) for j, _ in enumerate(self.P)])
             ''' fit norm. escape rate '''
             self.x = self.bins
-            self.y = np.log(self.omega_0/(2*np.pi*self.Gamma))**(2/3)
+            self.y = np.log(omega_0/(2*np.pi*self.Gamma))**(2/3)
             self.popt, self.pcov = np.polyfit(x=self.x[np.isfinite(self.y)],
                                               y=self.y[np.isfinite(self.y)],
                                               deg=1,
@@ -1244,11 +1171,8 @@ class IV_curve3(object):
             alpha = 1  # factor for number of points of fit: nop = a*bins.size # FIXME: if e.g. alpha=10 fit shifts in x-direction
             self.x_fit = np.linspace(np.min(self.edges), np.max(self.edges), (self.edges.size-1)*alpha+1)
             self.y_fit = self.popt[0]*self.x_fit+self.popt[1]
-            self.Delta_I_fit = np.mean(np.gradient(self.x_fit)) # np.abs(np.max(self.x_fit)-np.min(self.x_fit))/(self.x_fit.size-1) #
-            self.Gamma_fit = self.omega_0/(2*np.pi*np.exp((self.popt[0]*self.x_fit+self.popt[1])**(3/2)))  # np.sum([p*self.x_fit**i for i, p in enumerate(self.popt[::-1])], axis=0)
-            def get_P(Gamma, Delta_I, dIdt, norm):
-                P = np.array([gamma/dIdt*np.exp(-np.sum(Gamma[:k+1])*Delta_I/dIdt) for k, gamma in enumerate(Gamma)])
-                return P/np.sum(P)*norm
+            self.Delta_I_fit = np.mean(np.gradient(self.x_fit))  # np.abs(np.max(self.x_fit)-np.min(self.x_fit))/(self.x_fit.size-1) #
+            self.Gamma_fit = omega_0/(2*np.pi*np.exp((self.popt[0]*self.x_fit+self.popt[1])**(3/2)))  # np.sum([p*self.x_fit**i for i, p in enumerate(self.popt[::-1])], axis=0)
             self.P_fit = get_P(Gamma=self.Gamma_fit,
                                Delta_I=self.Delta_I_fit,
                                dIdt=self.dIdt,
