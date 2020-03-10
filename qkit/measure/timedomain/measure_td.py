@@ -191,7 +191,7 @@ class Measure_td(object):
         else:
             self.mode = 3  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
             self._prepare_measurement_file()
-            if self.ndev > 1: raise ValueError('Multiplexed readout is currently not supported for 2D measurements')
+            # if self.ndev > 1: raise ValueError('Multiplexed readout is currently not supported for 2D measurements')
             if self.show_progress_bar:
                 p = Progress_Bar(len(self.y_vec), name=self.dirname)
             try:
