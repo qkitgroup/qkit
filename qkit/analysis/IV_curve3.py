@@ -18,6 +18,7 @@
 
 import sys
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy import signal as sig
 # TODO: uncertainty analysis probably using import uncertainties
 
@@ -28,6 +29,7 @@ from qkit.gui.plot import plot as qviewkit
 
 import json
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
+
 
 class dict2obj(object):
     def __init__(self, d):
@@ -80,7 +82,7 @@ class IV_curve3(object):
         >>> ivc = IVC()
         Initialized the file info database (qkit.fid) in 0.000 seconds.
         """
-        qkit.fid.update_all()  # update file database
+        qkit.fid.update_file_db()  # update file database
         self.uuid, self.path, self.df = None, None, None
         self.settings = None
         self.mo = mc.Measurement()  # qkit-sample object
@@ -108,6 +110,8 @@ class IV_curve3(object):
                           'Z': 1e21,  # zetta
                           'Y': 1e24,  # yotta
                           }
+        self.scm = self.switching_current(sweeps=self.sweeps,
+                                          settings=self.settings)  # subclass for switching current measurement analysis
 
     def load(self, uuid, dVdI='analysis0'):
         """
@@ -134,15 +138,17 @@ class IV_curve3(object):
         self.path = qkit.fid.get(self.uuid)
         self.df = Data(self.path)
         try:
-            self.settings = dict2obj(json.loads(self.df.data.settings.value[0], cls=QkitJSONDecoder))
+            self.settings = dict2obj(json.loads(self.df.data.settings[0], cls=QkitJSONDecoder))
         except:
             self.settings = self.df.data.settings[:]
+        self.scm.settings = self.settings
         self.mo.load(qkit.fid.measure_db[self.uuid])
         self.m_type = self.mo.measurement_type  # measurement type
         if self.m_type == 'transport':
             self.scan_dim = self.df.data.i_0.attrs['ds_type']  # scan dimension (1D, 2D, ...)
             self.bias = self.get_bias()
             self.sweeps = self.mo.sample.sweeps  # sweeps (start, stop, step)
+            self.scm.sweeps = self.sweeps
             self.sweeptype = self.get_sweeptype()
             shape = np.concatenate([[len(self.sweeps)], np.max([self.df['entry/data0/i_{:d}'.format(j)].shape for j in range(len(self.sweeps))], axis=0)])  # (number of sweeps, eventually len y-values, eventually len x-values, maximal number of sweep points)
             self.I, self.V, self.dVdI = np.empty(shape=shape), np.empty(shape=shape), np.empty(shape=shape)
@@ -406,20 +412,24 @@ class IV_curve3(object):
             if 'axis' not in kwargs.keys():
                 kwargs['axis'] = self.scan_dim
         if x is None:
-            try:
+            if np.isnan(x).any():
+                y_nans = np.isnan(y)
+                dy = mode(np.nan_to_num(y, copy=True, nan=0.0), **kwargs)
+                np.place(dy, y_nans, np.nan)
+                return dy
+            else:
                 return mode(y, **kwargs)
-            except Exception as e:
-                print('{:s}\n slice np.nans at the end, differentiate and add np.nans at the end'.format(e))
-                y_nans = np.isnan(y)
-                return np.concatenate([mode(y[np.logical_not(y_nans)], **kwargs), y[y_nans]])
         else:
-            try:
-                return mode(y, **kwargs)/mode(x, **kwargs)
-            except Exception as e:
-                print('{:s}\n slice np.nans at the end, differentiate and add np.nans at the end'.format(e))
-                x_nans = np.isnan(x)
+            if np.isnan(x).any():
+                x_nans = np.isnan(x)  # mask for np.nan
                 y_nans = np.isnan(y)
-                return np.concatenate([mode(y[np.logical_not(y_nans)], **kwargs), y[y_nans]])/np.concatenate([mode(x[np.logical_not(x_nans)], **kwargs), x[x_nans]])
+                dx = mode(np.nan_to_num(x, copy=True, nan=0.0), **kwargs)  # derivation function with np.nan replaced by 0
+                dy = mode(np.nan_to_num(y, copy=True, nan=0.0), **kwargs)
+                np.place(dx, x_nans, np.nan)  # write np.nan using mask from above
+                np.place(dy, y_nans, np.nan)
+                return dy/dx
+            else:
+                return mode(y, **kwargs)/mode(x, **kwargs)
 
     def get_offsets(self, x=None, y=None, threshold=20e-6, offset=0, yr=False):
         """
@@ -450,7 +460,8 @@ class IV_curve3(object):
         if y is None:
             y = [self.I, self.V][self.bias]
         ''' constant range via threshold (for JJ superconducting range via threshold voltage) '''
-        mask = np.logical_and(x >= -threshold + offset, x <= threshold + offset)
+        with np.errstate(invalid='ignore'):  # raises warning due to np.nan
+            mask = np.logical_and(x >= -threshold + offset, x <= threshold + offset)
         x_const, y_const = np.copy(x), np.copy(y)
         np.place(x_const, np.logical_not(mask), np.nan)
         np.place(y_const, np.logical_not(mask), np.nan)
@@ -459,23 +470,35 @@ class IV_curve3(object):
             x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
             ''' get y offset (for JJ current offset) '''
             if yr:  # retrapping y (for JJ retrapping current)
-                y_rs = np.array([np.nanmax(y_const[0], axis=(self.scan_dim-1)), np.nanmin(y_const[1], axis=(self.scan_dim-1))])
+                y_rs = np.array([np.nanmax(y_const[0], axis=(self.scan_dim-1)),
+                                 np.nanmin(y_const[1], axis=(self.scan_dim-1))])
                 y_offsets = np.mean(y_rs, axis=0)
             else:  # critical y (for JJ critical current)
-                y_cs = np.array([np.nanmin(y_const[0], axis=(self.scan_dim-1)), np.nanmax(y_const[1], axis=(self.scan_dim-1))])
+                y_cs = np.array([np.nanmin(y_const[0], axis=(self.scan_dim-1)),
+                                 np.nanmax(y_const[1], axis=(self.scan_dim-1))])
                 y_offsets = np.mean(y_cs, axis=0)
         elif self.sweeptype == 1:  # 4 quadrants
             ''' get x offset '''
             x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
             ''' get y offset '''
             if yr:  # retrapping y (for JJ retrapping current)
-                y_rs = np.array([np.nanmax(y_const[1], axis=(self.scan_dim-1)), np.nanmin(y_const[3], axis=(self.scan_dim-1))])
+                y_rs = np.array([np.nanmax(y_const[1], axis=(self.scan_dim-1)),
+                                 np.nanmin(y_const[3], axis=(self.scan_dim-1))])
                 y_offsets = np.mean(y_rs, axis=0)
             else:  # critical y (for JJ critical current)
-                y_cs = np.array([np.nanmax(y_const[0], axis=(self.scan_dim-1)), np.nanmin(y_const[2], axis=(self.scan_dim-1))])
+                y_cs = np.array([np.nanmax(y_const[0], axis=(self.scan_dim-1)),
+                                 np.nanmin(y_const[2], axis=(self.scan_dim-1))])
                 y_offsets = np.mean(y_cs, axis=0)
-        else:
-            raise NotImplementedError('No algorithm implemented for custom sweeptype')
+        else:  # custom sweeptype
+            ''' get x offset '''
+            x_offsets = np.nanmean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
+            ''' get y offset '''
+            if yr:  # retrapping y (for JJ retrapping current)
+                raise NotImplementedError('No algorithm implemented for custom sweeptype')
+            else:
+                y_cs = np.array([np.nanmax(y_const, axis=(self.scan_dim-1)),
+                                 np.nanmin(y_const, axis=(self.scan_dim-1))])
+                y_offsets = np.mean(y_cs, axis=0)
         self.I_offsets, self.V_offsets = [x_offsets, y_offsets][::int(np.sign(self.bias - .5))]
         return self.I_offsets, self.V_offsets
 
@@ -651,12 +674,14 @@ class IV_curve3(object):
             else:
                 offset = self.V_offset
         if len(V.shape)-1 == 0:  # single trace used for in situ fit
-            mask = np.logical_and(V >= -threshold + offset, V <= threshold + offset)
+            with np.errstate(invalid='ignore'):  # raises warning due to np.nan
+                mask = np.logical_and(V >= -threshold + offset, V <= threshold + offset)
             I_sc = np.copy(I)
             np.place(I_sc, np.logical_not(mask), np.nan)
             return np.nanmax(I_sc)
         ''' constant range via threshold (for JJ superconducting range via threshold voltage) '''
-        mask = np.logical_and(V >= -threshold + offset, V <= threshold + offset)
+        with np.errstate(invalid='ignore'):  # raises warning due to np.nan
+            mask = np.logical_and(V >= -threshold + offset, V <= threshold + offset)
         V_sc, I_sc = np.copy(V), np.copy(I)
         np.place(V_sc, np.logical_not(mask), np.nan)
         np.place(I_sc, np.logical_not(mask), np.nan)
@@ -670,8 +695,13 @@ class IV_curve3(object):
             I_cs = np.array([np.nanmax(I_sc[0], axis=(self.scan_dim-1)), np.nanmin(I_sc[2], axis=(self.scan_dim-1))])
             ''' retrapping current '''
             I_rs = np.array([np.nanmax(I_sc[1], axis=(self.scan_dim-1)), np.nanmin(I_sc[3], axis=(self.scan_dim-1))])
-        else:
-            raise NotImplementedError('No algorithm implemented for custom sweeptype')
+        else:  # custom sweeptype
+            ''' critical current '''
+            I_cs = np.array([np.nanmax(I_sc, axis=(self.scan_dim-1)),
+                             np.nanmin(I_sc, axis=(self.scan_dim-1))])
+            ''' retrapping current '''
+            if Ir:
+                raise NotImplementedError('No algorithm implemented for custom sweeptype')
         if Ir:
             return [I_cs, I_rs]
         else:
@@ -736,7 +766,7 @@ class IV_curve3(object):
             kwargs['prominence'] = 100
         if peak_finder is sig.find_peaks_cwt and 'widths' not in kwargs.keys():
             kwargs['widths'] = np.arange(10)
-        if len(V.shape)-1 == 0: # single trace used for in situ fit
+        if len(V.shape)-1 == 0:  # single trace used for in situ fit
             peaks = _peak_finder(dVdI, **kwargs)
             try:
                 return I[peaks[0]]
@@ -819,12 +849,14 @@ class IV_curve3(object):
             V_fft_smooth = 1j * f * np.exp(-s * f ** 2) * V_fft  # Fourier transform of a Gaussian smoothed derivation of V in the frequency domain
             dV_smooth = np.fft.ifft(V_fft_smooth)  # inverse Fourier transform of the smoothed derivation of V from reciprocal to time domain
             return dV_smooth
+
         def _peak_finder(x, **_kwargs):
             ans = peak_finder(x, **_kwargs)
             if np.array_equal(ans[0], []):  # no peaks found
                 return [np.array([False]), {}]
             else:
                 return ans
+
         if I is None:
             I = self.I
         if V is None:
@@ -833,7 +865,7 @@ class IV_curve3(object):
             kwargs['prominence'] = 1e-5
         if peak_finder is sig.find_peaks_cwt and 'widths' not in kwargs.keys():
             kwargs['widths'] = np.arange(10)
-        if len(V.shape)-1 == 0: # single trace used for in situ fit
+        if len(V.shape)-1 == 0:  # single trace used for in situ fit
             V_corr = V - np.linspace(start=V[0], stop=V[-1], num=V.shape[-1], axis=0)  # adjust offset slope
             dV_smooth = _get_deriv_dft(V_corr)
             peaks = _peak_finder(dV_smooth, **kwargs)
@@ -1061,3 +1093,176 @@ class IV_curve3(object):
             return I_cs, I_rs, properties
         else:
             return I_cs, properties
+
+    class switching_current(object):
+        """ This is an analysis class for switching current measurements """
+        def __init__(self, sweeps, settings):
+            self.sweeps = sweeps
+            self.settings = settings
+            self.P, self.P_fit, self.edges, self.bins = None, None, None, None
+            self.Delta_I, self.Delta_I_fit, self.dIdt = None, None, None
+            self.Gamma, self.Gamma_fit, self.x, self.x_fit, self.y, self.y_fit = None, None, None, None, None, None
+            self.popt, self.pcov, self.I_c = None, None, None
+            self.fig, self.ax1, self.ax2, self.ax3 = None, None, None, None
+
+        def fit(self, I_0, omega_0, dIdt=None, **kwargs):
+            """
+            Creates switching current histogram, calculates and escape rate and recalculates the fit to the switching current distribution.
+
+            Parameters
+            ----------
+            I_0: array-like
+                Switching currents.
+            omega_0: float
+                Plasma frequency used for fit.
+            dIdt: float (optional)
+                Sweep rate (in A/s). Default is sweeps stepwidth*nplc/plc.
+            kwargs:
+                Keyword arguments forwarded to numpy.histogram. Defaults are bins=10, range=(min(I_0), max(I_0)), normed=None, weights=None, density=None.
+
+            Returns
+            -------
+            P: np.array
+                Probability distribution
+            P_fit: np.array
+                Fitted probability distribution
+            Gamma: np.array
+                Escape rate
+            Gamma_fit: np.array
+                Fitted escape rate
+            popt: list
+                Optimal fit parameters
+            pcov: list
+                Covariance matrix
+            I_c: float
+                Fitted critical current
+
+            Examples
+            --------
+            >>> ivc.scm.fit(I_0=I_0*1e6, omega_0=14e9, bins=50);
+            """
+            def get_P(Gamma, Delta_I, dIdt, norm):
+                P = np.array([gamma/dIdt*np.exp(-np.sum(Gamma[:k+1])*Delta_I/dIdt) for k, gamma in enumerate(Gamma)])
+                return P/np.sum(P)*norm
+
+            ''' histogram '''
+            if 'range' not in kwargs:
+                kwargs['range'] = (np.nanmin(I_0), np.nanmax(I_0))
+            if 'weights' not in kwargs:
+                kwargs['weights'] = np.ones_like(I_0)/I_0.size  # normed to 1
+            self.P, self.edges = np.histogram(a=I_0, **kwargs)
+            self.bins = np.convolve(self.edges, np.ones((2,))/2, mode='valid')  # center of bins by moving average with window length 2
+            ''' escape rate '''
+            self.Delta_I = np.mean(np.gradient(self.bins))  # np.abs(np.max(self.bins)-np.min(self.bins))/(self.bins.size-1) #
+            if dIdt is None:
+                self.dIdt = self.sweeps[0][2]*self.settings.IVD.sense_nplc[0]/self.settings.IVD.plc
+            else:
+                self.dIdt = dIdt
+            self.Gamma = self.dIdt/self.Delta_I*np.array([np.log(np.sum(self.P[j:])/np.sum(self.P[j+1:])) for j, _ in enumerate(self.P)])
+            ''' fit norm. escape rate '''
+            self.x = self.bins
+            self.y = np.log(omega_0/(2*np.pi*self.Gamma))**(2/3)
+            self.popt, self.pcov = np.polyfit(x=self.x[np.isfinite(self.y)],
+                                              y=self.y[np.isfinite(self.y)],
+                                              deg=1,
+                                              cov=True)
+            self.I_c = -self.popt[1]/self.popt[0]
+            ''' calculate fitted escape rate and fitted switching current distribution '''
+            alpha = 1  # factor for number of points of fit: nop = a*bins.size # FIXME: if e.g. alpha=10 fit shifts in x-direction
+            self.x_fit = np.linspace(np.min(self.edges), np.max(self.edges), (self.edges.size-1)*alpha+1)
+            self.y_fit = self.popt[0]*self.x_fit+self.popt[1]
+            self.Delta_I_fit = np.mean(np.gradient(self.x_fit))  # np.abs(np.max(self.x_fit)-np.min(self.x_fit))/(self.x_fit.size-1) #
+            self.Gamma_fit = omega_0/(2*np.pi*np.exp((self.popt[0]*self.x_fit+self.popt[1])**(3/2)))  # np.sum([p*self.x_fit**i for i, p in enumerate(self.popt[::-1])], axis=0)
+            self.P_fit = get_P(Gamma=self.Gamma_fit,
+                               Delta_I=self.Delta_I_fit,
+                               dIdt=self.dIdt,
+                               norm=alpha)
+            return {'P': self.P,
+                    'P_fit': self.P_fit,
+                    'Gamma': self.Gamma,
+                    'Gamma_fit': self.Gamma_fit,
+                    'popt': self.popt,
+                    'pcov': self.pcov,
+                    'I_c': self.I_c,
+                    }
+
+        def plot(self,
+                 xlabel='escape current $ I_{esc}~(A) $',
+                 y1label='escape probability $ P $',
+                 y2label='escape rate $ \Gamma_{esc}~(s^{-1}) $',
+                 y3label='norm. escape rate $ \ln(\omega_0/2\pi\Gamma) $'):
+            """
+            Plots switching current histogram, escape rate and normalized escape rate as well as their fits
+
+            Parameters
+            ----------
+            xlabel: str
+                X-axis label. Default is 'escape current $ I_{esc}~(A) $'.
+            y1label: str
+                Y-axis label of histogram. Default is 'escape probability $ P $'.
+            y2label: str
+                Y-axis label of escape rate. Default is 'escape rate $ \Gamma_{esc}~(s^{-1}) $'.
+            y3label: str
+                Y-axis label of normalized escape rate. Default is 'norm. escape rate $ \ln(\omega_0/2\pi\Gamma) $'.
+
+            Returns
+            -------
+            P: np.array
+                Probability distribution
+            P_fit: np.array
+                Fitted probability distribution
+            Gamma: np.array
+                Escape rate
+            Gamma_fit: np.array
+                Fitted escape rate
+            popt: list
+                Optimal fit parameters
+            pcov: list
+                Covariance matrix
+            I_c: float
+                Fitted critical current
+
+            Examples
+            --------
+            >>> ivc.scm.plot()
+            """
+            ''' plot '''
+            self.fig, (self.ax1, self.ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(6, 6))
+            self.ax3 = plt.twinx(self.ax2)
+            self.ax2.set_xlabel(xlabel)
+            self.ax1.set_ylabel(y1label)
+            self.ax2.set_ylabel(y2label)
+            self.ax3.set_ylabel(y3label)
+            ''' histogram '''
+            self.ax1.bar(x=self.bins,
+                         height=self.P,
+                         width=np.mean(np.gradient(self.edges)),
+                         label='data'
+                    )
+            self.ax1.plot(self.x_fit,
+                          self.P_fit,
+                          label='fit',
+                          ls='-',
+                          color='black')
+            self.ax1.legend(loc='upper left')
+            ''' escape rate '''
+            lgd21, = self.ax2.semilogy(self.bins,
+                                       self.Gamma,
+                                       'b.',
+                                       label='$ \Gamma $')
+            lgd22, = self.ax2.semilogy(self.x_fit,
+                                      self.Gamma_fit,
+                                      'b-',
+                                      label='fit')
+            ''' normalized escape rate '''
+            lgd31, = self.ax3.plot(self.x,
+                                  self.y,
+                                  'r.',
+                                  label='$ \ln(\omega_0/2\pi\Gamma) $')
+            lgd32, = self.ax3.plot(self.x_fit,
+                                  self.y_fit,
+                                  'r-',
+                                  label='fit')
+            self.ax2.legend(((lgd21, lgd22), (lgd31, lgd32)), ('$ \Gamma $', '$ \ln(\omega_0/2\pi\Gamma) $'), loc='upper center')
+            plt.subplots_adjust(hspace=0)
+            plt.show()

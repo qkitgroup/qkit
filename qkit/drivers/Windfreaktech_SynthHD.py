@@ -115,7 +115,7 @@ class Windfreaktech_SynthHD(Instrument):
 
     def __del__(self):
         self._visainstrument.close()
-        print "Session closed."
+        print("Session closed.")
 
     def set_PLL_frequency(self, frequency):
         '''
@@ -170,7 +170,7 @@ class Windfreaktech_SynthHD(Instrument):
         this only returns the stored power value and does not communicate with the device!
         '''
         if self._power[channel] == None:
-            print "Power was not set since reload of driver. You have to do this to get a proper value."
+            print("Power was not set since reload of driver. You have to do this to get a proper value.")
         return self._power[channel]
 
     def do_set_power(self, power, channel):

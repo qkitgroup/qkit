@@ -1350,10 +1350,10 @@ class Keithley(Instrument):
         default_channels = {0: (1, 2), 1: (1,), 2: (1,)}
         if mode in [0, 1, 2]:
             if len(channels) == int(not mode)+1:
-                logging.debug('{!s}: Set sweep channels to {:s}'.format(__name__, channels))
+                logging.debug('{!s}: Set sweep channels to {!s}'.format(__name__, channels))
                 self._sweep_channels = channels
             elif len(channels) == 0:
-                logging.debug('{!s}: Set sweep channels to {:s}'.format(__name__, default_channels[mode]))
+                logging.debug('{!s}: Set sweep channels to {!s}'.format(__name__, default_channels[mode]))
                 self._sweep_channels = default_channels[mode]
             else:
                 logging.error('{!s}: Cannot set sweep channels to {!s}'.format(__name__, channels))
@@ -1951,6 +1951,8 @@ class Keithley(Instrument):
         """
         channels = kwargs.get('channels')
         if channels == [None]:
-            return eval('self.get_{:s}()'.format(param))
+            return tuple(eval('map(lambda channel, self=self: self.get_{:s}(), [None])'.format(param)))
+            #return eval('self.get_{:s}()'.format(param))
         else:
-            return tuple([eval('self.get_{:s}(channel={!s})'.format(param, channel)) for channel in channels])
+            return tuple(eval('map(lambda channel, self=self: self.get_{:s}(channel=channel), [{:s}])'.format(param, ', '.join(map(str, channels)))))
+            #return tuple([eval('self.get_{:s}(channel={!s})'.format(param, channel)) for channel in channels])

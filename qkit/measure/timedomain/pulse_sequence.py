@@ -32,8 +32,9 @@ class ShapeLib(object):
     def __init__(self):
         self.zero = Shape("", lambda x: 0)
         self.rect = Shape("rect", lambda x: np.where(x >= 0 and x < 1, 1, 0))
-        self.gauss = Shape("gauss", lambda x: np.exp(-0.5 *
-                                                     np.power((x - 0.5) / 0.166, 2.0))) * self.rect
+        self.gauss = Shape("gauss", lambda x: np.exp(-0.5 * np.power((x - 0.5) / 0.166, 2.0))) * self.rect
+        self.ramp = Shape("ramp", lambda x: x) * self.rect
+        self.sqrfct = Shape("sqrfct", lambda x: x**2) * self.rect
 
 
 # Make ShapeLib a singleton:

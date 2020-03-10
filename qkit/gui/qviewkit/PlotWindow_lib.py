@@ -697,7 +697,7 @@ def _get_unit(ds):
         String with unit.
     """
     try:
-        return ds.attrs.get('unit', '_none_').decode("utf-8")
+        return ds.attrs.get('unit', b'_none_').decode('utf-8')
     except AttributeError as e:
         #print(ds)
         print("Qviewkit _get_unit:",e)
@@ -715,7 +715,7 @@ def _get_name(ds):
     if ds is None:
         return '_none_'
     try:
-        return ds.attrs.get('name','_none_').decode("utf-8")
+        return ds.attrs.get('name', b'_none_').decode("utf-8")
     except AttributeError as e:
         #print(ds)
         print("Qviewkit _get_name:",e)
@@ -821,6 +821,6 @@ def _do_data_manipulation(x_data, y_data, unit, ds_type, manipulation, manipulat
 
     if manipulation & manipulations['histogram']:
         y_data, x_data = np.histogram(y_data[~np.isnan(y_data)], bins='auto')  # FIXME: axis labels not correct (MMW)
-        x_data = x_data[:-1]-(x_data[1]-x_data[0])/2.
+        x_data = x_data[:-1]+(x_data[1]-x_data[0])/2.
     
     return x_data, y_data, unit

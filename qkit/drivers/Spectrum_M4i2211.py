@@ -1476,9 +1476,9 @@ class Spectrum_M4i2211(Instrument):
             data (int[memsize]): Measurement data
         '''
         self.init_default(memsize=memsize, posttrigger=posttrigger, amp=amp)
-        print 'starting card and waiting for trigger'
+        print('starting card and waiting for trigger')
         self.start_with_trigger_and_waitready()
-        print "received trigger"
+        print("received trigger")
         self.data = self.readout_singlemode_float()
         return self.data
 

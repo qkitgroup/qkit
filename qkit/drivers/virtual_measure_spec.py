@@ -374,7 +374,7 @@ class virtual_measure_spec(Instrument):
         if (blocking):
             err = self._dacq.waitready()
             if (err == 263):
-                print 'measure_spec: Timeout during data acquisition.'
+                print('measure_spec: Timeout during data acquisition.')
                 return None;
         else:
             status = self._dacq.get_card_status()
@@ -428,7 +428,7 @@ class virtual_measure_spec(Instrument):
         for idx in range(1, 1 + self._averages):
             err = self._dacq.start_with_trigger_and_waitready()
             if (err == 263):
-                print 'measure_spec: Timeout during data acquisition.'
+                print('measure_spec: Timeout during data acquisition.')
                 return None;
             data = self._dacq.readout_doublechannel_singlemode_bin()
             averaged.__iadd__(data)  # numpy.array(data, numpy.float32)

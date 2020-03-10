@@ -191,7 +191,7 @@ class Measure_td(object):
         else:
             self.mode = 3  # 1: 1D, 2: 2D, 3:1D_AWG/2D_AWG, 4:3D_AWG
             self._prepare_measurement_file()
-            if self.ndev > 1: raise ValueError('Multiplexed readout is currently not supported for 2D measurements')
+            # if self.ndev > 1: raise ValueError('Multiplexed readout is currently not supported for 2D measurements')
             if self.show_progress_bar:
                 p = Progress_Bar(len(self.y_vec), name=self.dirname)
             try:
@@ -430,6 +430,11 @@ class Measure_td(object):
                                               datasets=['amplitude_%i' % i for i in range(min(5,self.ndev))] + ['phase_%i' % i for i in range(min(5,self.ndev))]
                                               )
     
+        try:
+            self.readout.start()
+        except AttributeError:
+            pass
+    
     def _append_data(self, iteration=0, ddc=None):
         if self.ReadoutTrace:
             ampliData, phaseData, Is, Qs = self.readout.readout(timeTrace=True, ddc=ddc)
@@ -478,6 +483,10 @@ class Measure_td(object):
                 self._hdf.flush()
     
     def _end_measurement(self):
+        try:
+            self.readout.cleanup()
+        except AttributeError:
+            pass
         t = threading.Thread(target=qviewkit.save_plots, args=[self._hdf.get_filepath(), self._plot_comment])
         t.start()
         self._hdf.close_file()

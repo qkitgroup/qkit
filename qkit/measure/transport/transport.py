@@ -1410,7 +1410,9 @@ class transport(object):
                 bias_values = np.array([np.meshgrid(self._get_bias_values(sweep),
                                                     np.ones(len(self._x_vec)))[0]
                                         for sweep in self.sweeps.get_sweeps()])
-                lsc_limits = np.array([self._lsc_vec, -self._lsc_vec if self._lsc_mirror else np.ones(shape=self._x_vec.shape)*np.min(sweep[:2])])
+                lsc_limits = np.array([self._lsc_vec,
+                                        -self._lsc_vec if self._lsc_mirror
+                                        else np.ones(shape=self._x_vec.shape)*np.array(self.sweeps.get_sweeps())[:,:2]])
                 lsc_mask = np.logical_and(bias_values <= np.dot(np.ones((bias_values.shape[2], 1)), [np.max(lsc_limits, axis=0)]).T,
                                           bias_values >= np.dot(np.ones((bias_values.shape[2], 1)), [np.min(lsc_limits, axis=0)]).T)
                 num_its[self._scan_dim] = np.sum(lsc_mask)*len(self._y_vec)*[1 if self._average is None else self._average][0]

@@ -79,7 +79,7 @@ class Keithley_2000(Instrument):
         rem_char = self.ser.inWaiting()
         
         retval = self.ser.read(rem_char)
-        #print (retval)
+        #print(retval)
         return retval #str(retval)#.strip('\r')
     
     def get_current_dc(self):
@@ -87,7 +87,7 @@ class Keithley_2000(Instrument):
         try:
             return float(value)
         except Exception as m:
-            print (m)
+            print(m)
             return 0
 
     def get_resistance(self):
@@ -102,8 +102,8 @@ class Keithley_2000(Instrument):
             ret = self.remote_cmd(":MEAS:RES?")
             return float(ret)
         except ValueError as e:
-            print (e)
-            print (ret)
+            print(e)
+            print(ret)
             return numpy.NaN
 
     def get_resistance_4W(self):
@@ -111,8 +111,8 @@ class Keithley_2000(Instrument):
             ret = self.remote_cmd(":MEAS:FRES?")
             return float(ret)
         except ValueError as e:
-            print (e)
-            print (ret)
+            print(e)
+            print(ret)
             return numpy.NaN
 
     def set_measure_4W(self,four_wire):
@@ -122,4 +122,4 @@ class Keithley_2000(Instrument):
 
 if __name__ == "__main__":
     KEITH = Keithley_2000(name = "Keithley_2000", address="COM6")
-    print ("DC current: {:.4g}A".format(KEITH.get_current_dc()))
+    print("DC current: {:.4g}A".format(KEITH.get_current_dc()))
