@@ -234,12 +234,6 @@ class IV_curve3(object):
             for x in lst:
                 if x not in res:
                     res.append(x)
-            """
-            res = []
-            for x in lst:
-                if x not in res:
-                    res.append(x)
-            """
             if len(res) == 1:
                 return res[0]
             else:
@@ -1196,7 +1190,6 @@ class IV_curve3(object):
             V_corr = V - np.linspace(start=V[0], stop=V[-1], num=V.shape[-1], axis=0)  # adjust offset slope
             dV_smooth = _get_deriv_dft(V_corr)
             peaks = _peak_finder(dV_smooth, **kwargs)
-            print(len(peaks), peaks)
             try:
                 return I[peaks[0]]
             except IndexError:  # if no peak found return np.nan
