@@ -20,13 +20,15 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal as sig
+from collections import defaultdict
 # TODO: uncertainty analysis probably using import uncertainties
 
 import qkit
 from qkit.storage.store import Data
 import qkit.measure.measurement_class as mc
 from qkit.gui.plot import plot as qviewkit
-
+from qkit.storage import store as hdf
+from qkit.storage.hdf_constants import ds_types
 import json
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
 
@@ -87,7 +89,7 @@ class IV_curve3(object):
         self.settings = None
         self.mo = mc.Measurement()  # qkit-sample object
         self.m_type, self.scan_dim, self.sweeptype, self.sweeps, self.bias = None, None, None, None, None
-        self.I, self.V, self.V_corr, self.dVdI = None, None, None, None
+        self.I, self.V, self.V_corr, self.dVdI, self.d2VdI2 = None, None, None, None, None
         self.I_offsets, self.V_offsets, self.I_offset, self.V_offset = None, None, None, None
         self.x_ds, self.x_coordname, self.x_unit, self.x_vec = None, None, None, None
         self.y_ds, self.y_coordname, self.y_unit, self.y_vec = None, None, None, None
@@ -120,7 +122,7 @@ class IV_curve3(object):
         Parameters
         ----------
         uuid: str
-            qkit identification name, that is looked for and loaded
+            Qkit identification name, that is looked for and loaded
         dVdI: str | boolean
             Folder, where numerical derivative dV/dI is tried to load form datafile, if this was already analyzed during the measurement. If False, dV/dI is not loaded. Default is 'analysis0'.
 
@@ -142,7 +144,10 @@ class IV_curve3(object):
         except:
             self.settings = self.df.data.settings[:]
         self.scm.settings = self.settings
-        self.mo.load(qkit.fid.measure_db[self.uuid])
+        try:
+            self.mo.load(qkit.fid.measure_db[self.uuid])
+        except:
+            self.mo = dict2obj(json.loads(self.df.data.measurement[0], cls=QkitJSONDecoder))
         self.m_type = self.mo.measurement_type  # measurement type
         if self.m_type == 'transport':
             self.scan_dim = self.df.data.i_0.attrs['ds_type']  # scan dimension (1D, 2D, ...)
@@ -190,6 +195,195 @@ class IV_curve3(object):
         else:
             raise ValueError('No data of transport measurements')
         return
+
+    def merge(self, uuids, order=None):
+        """
+        Merges transport measurement data of several individual files with given uuids <uuids>.
+        * 1D: all sweep data are stacked and views are merged.
+        * 2D: values of x-parameter and its corresponding sweep data are merged in the order <order>.
+        * 3D: values of x- and y-parameters and its corresponding sweep data are merged in the order <order>.
+
+        Parameters
+        ----------
+        uuids: list of str
+            Qkit identification names, that are looked for, loaded and merged.
+        order: list of int (optional)
+            Order by which data are merged. It is used to slice the data np.arrays via [::<order>], where 1 means same  and -1 opposite direction. Default is 1 (same direction).
+
+        Returns
+        -------
+        uuid: str
+            Qkit identification names of created file
+
+        Examples
+        --------
+        >>> ivc.merge(uuid=['XXXXXX', 'YYYYYY'], order=[-1, 1])
+        """
+        def get_key(key, dct):
+            """
+            Check if key already exists and increases counter by one if so.
+            """
+            if key in dct.keys():
+                parts = key.split('_')
+                key = '_'.join([str(int(part)+1) if part.isdigit() else part for j, part in enumerate(parts)])
+                return get_key(key, dct)
+            else:
+                return key
+        def remove_duplicates(lst):
+            res = []
+            for x in lst:
+                if x not in res:
+                    res.append(x)
+            """
+            res = []
+            for x in lst:
+                if x not in res:
+                    res.append(x)
+            """
+            if len(res) == 1:
+                return res[0]
+            else:
+                return res
+        def merge_dict(lstdct):
+            dict_merged = defaultdict(list)
+            for dct in lstdct:
+                for key, val in dct.items():
+                    dict_merged[key].append(val)
+            return dict_merged
+
+        #TODO: write additional files and plots
+        order = np.ones_like(uuids, dtype=int) if order is None else np.array(order, dtype=int)
+        ''' load data from input files '''
+        data = []
+        attrs = []
+        run_user = []
+        scan_dim = []
+        for i, uuid in enumerate(uuids):
+            data.append({})
+            attrs.append({})
+            self.load(uuid)
+            run_user.append([self.mo.run_id, self.mo.user])
+            scan_dim.append(self.scan_dim)
+            for group in self.df.hf.entry:
+                for dataset in self.df.hf.entry[group]:
+                    path = '/'.join((group, dataset))
+                    data[i][path] = self.df.hf.entry[path][:][::order[i]]
+                    attrs[i][path] = self.df.hf.entry[path].attrs.items()
+        ''' merge data '''
+        if set(scan_dim) == {1}:
+            keys, data_merged, attrs_merged = {}, {}, {}
+            for j, d in enumerate(data):
+                for key, val in d.items():
+                    ds_type = dict(attrs[j][key])['ds_type']
+                    if ds_type < 5:  # coordinate, vector, matrix or box
+                        k = get_key(key=key, dct=keys)
+                        keys[k] = (key, j)
+                        data_merged[k] = [data[j][key]]*2
+                        attrs_merged[k] = (attrs[j][key],)
+                    elif ds_type == ds_types['txt']:
+                        keys[key] = (key,)
+                        data_merged[key] = [d[key] for d in data]
+                        attrs_merged[key] = [a[key] for a in attrs]
+                    elif ds_type == ds_types['view']:
+                        keys[key] = (key, )
+                        data_merged[key] = (data[j][key], )
+                        if j == 0:
+                            attrs_merged[key] = [dict(attrs[j][key])]*2
+                        else:
+                            for k, v in dict(attrs[j][key]).items():
+                                # increase X of 'xy_X' and its values to the nex possible
+                                if 'xy_' in k and '_filter' not in k:
+                                    new_key = get_key(key=k, dct=attrs_merged[key][0])
+                                    attrs_merged[key][0][new_key] = ':'.join(['_'.join([new_key.strip('xy_') if s.isdigit() else s for s in ulr.split('_')]) for ulr in str(v, encoding='utf-8').split(':')]).encode()
+                                # increase X of 'xy_X_filter' to the nex possible
+                                elif 'xy_' in k and '_filter' in k:
+                                    attrs_merged[key][0][get_key(key=k, dct=attrs_merged[key][0])] = v
+        else:
+            keys = {key: (key, ) for key in data[0].keys()}
+            data_merged = merge_dict(data)
+            attrs_merged = merge_dict(attrs)
+        ''' write data to new file '''
+        # create new file
+        qkit.cfg['run_id'], qkit.cfg['user'] = np.squeeze(np.vstack({tuple(row) for row in run_user}))
+        _data_file = hdf.Data(name='+'.join(uuids), mode='a')
+        # create and write measurement, settings and coordinates
+        ds = {}
+        for key, val in data_merged.items():
+            name = key.split('/')[1]
+            attr = dict(attrs_merged[key][0])
+            ds_type = attr['ds_type']
+            if ds_type == ds_types['txt']:  # measurement, settings
+                txt_merged = merge_dict(json.loads(d[0], cls=QkitJSONDecoder) for d in val)
+                ds[key] = _data_file.add_textlist(name)
+                if 'settings' in key:
+                    ds[key].append({kk: {k: remove_duplicates(map(lambda x: x[k], dic)) for k in dic[0]}
+                                    for kk, dic in dict(txt_merged).items()})
+                elif 'measurement' in key:
+                    if set(scan_dim) == {1}:
+                        # merge sweeps in sample object
+                        for k, v in txt_merged.items():
+                            if np.iterable(v) and type(v[0]) is dict:
+                                txt_merged[k] = [{k: np.vstack(v) if 'sweeps' in k else remove_duplicates(v) for k, v in merge_dict(v).items()}]*2
+                    ds[key].append({k: remove_duplicates(v) for k, v in txt_merged.items()})
+            elif ds_type == ds_types['coordinate']:
+                ds[key] = _data_file.add_coordinate(name=name,
+                                                    unit=str(dict(attrs_merged[keys[key][0]][0])['unit'], encoding='utf-8'))
+                if np.array_equal(*np.array(val)):
+                    ds[key].add(val[0])
+                else:
+                    ds[key].add(np.concatenate(val))
+        # create datasets
+        for key, val in data_merged.items():
+            name = key.split('/')[1]
+            attr = dict(attrs_merged[key][0])
+            ds_type = attr['ds_type']
+            folder = key.split('0/')[0]
+            if ds_type == ds_types['vector']:
+                ds[key] = _data_file.add_value_vector(name=name,
+                                                      x=ds[str(attr['x_ds_url'], encoding='utf-8').strip('/entry')],
+                                                      unit=str(attr['unit'], encoding='utf-8'),
+                                                      folder=folder,
+                                                      save_timestamp=False)
+            elif ds_type == ds_types['matrix']:
+                ds[key] = _data_file.add_value_matrix(name=name,
+                                                      x=ds[str(attr['x_ds_url'], encoding='utf-8').strip('/entry')],
+                                                      y=ds[str(attr['y_ds_url'], encoding='utf-8').strip('/entry')],
+                                                      unit=str(attr['unit'], encoding='utf-8'),
+                                                      folder=folder,
+                                                      save_timestamp=False)
+            elif ds_type == ds_types['box']:
+                ds[key] = _data_file.add_value_box(name=name,
+                                                   x=ds[str(attr['x_ds_url'], encoding='utf-8').strip('/entry')],
+                                                   y=ds[str(attr['y_ds_url'], encoding='utf-8').strip('/entry')],
+                                                   z=ds[str(attr['z_ds_url'], encoding='utf-8').strip('/entry')],
+                                                   unit=str(attr['unit'], encoding='utf-8'),
+                                                   folder=folder,
+                                                   save_timestamp=False)
+        # write values to datasets and create and write views
+        for key, val in data_merged.items():
+            name = key.split('/')[1]
+            attr = dict(attrs_merged[key][0])
+            ds_type = attr['ds_type']
+            if ds_type == ds_types['vector']:
+                ds[key].append(val[0])
+            elif ds_type == ds_types['matrix']:
+                [ds[key].append(x) for x in np.concatenate(val)]
+            elif ds_type == ds_types['box']:
+                for xs in np.concatenate(val):
+                    [ds[key].append(x) for x in xs]
+                    ds[key].next_matrix()
+            elif ds_type == ds_types['view']:
+                if np.array_equal(*list(map(list, attrs_merged[key]))):
+                    for j, xy in enumerate(filter(lambda k: 'xy_' in k and '_filter' not in k, dict(attrs_merged[key][0]).keys())):
+                        x, y = [i.strip('/entry') for i in str(dict(attrs_merged[key][0])[xy], encoding='utf-8').split(':')]
+                        if j == 0:
+                            ds[key] = _data_file.add_view(name=name, x=ds[x], y=ds[y],
+                                                          view_params=json.loads(dict(attrs_merged[key][0])['view_params']))
+                        else:
+                            ds[key].add(x=ds[x], y=ds[y])
+        # close new file
+        _data_file.close_file()
+        return _data_file.__dict__['_uuid']
 
     def save(self, filename, params=None):
         """
@@ -640,6 +834,138 @@ class IV_curve3(object):
         else:
             raise ValueError('Scan dimension must be in {1, 2, 3}')
 
+    def get_Rn(self, I=None, V=None, dVdI=None, mode=sig.savgol_filter, peak_finder=sig.find_peaks, **kwargs):
+        """
+        Get normal state resistance of over critical range. Therefore the curvature d^2V/dI^2 is computed using the second order derivation function <mode> and analysing peaks in it with <peak_finder>.
+        The ohmic range is considered to range from the outermost tail of the peaks in the curvature to the start/end of the sweep and the resistance is calculated as mean of the differential resistance values <dVdI> within this range.
+
+        Parameters
+        ----------
+        I: numpy.array (optional)
+            An N-dimensional array containing current values. Default is None that means self.I.
+        V: numpy.array (optional)
+            An N-dimensional array containing voltage values. Default is None that means self.V.
+        dVdI: numpy.array (optional)
+            An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means self.dVdI.
+        mode: function (optional)
+            Function that calculates the numerical gradient dx from a given array x. Default is scipy.signal.savgol_filter (Savitzky Golay filter).
+        peak_finder: function (optional)
+            Peak finding algorithm. Default is scipy.signal.find_peaks.
+        kwargs:
+            Keyword arguments forwarded to the function <mode> and the peak finding algorithm <peak_finder>. Default for scipy.signal.savgol_filter are {'window_length': 15, 'polyorder': 3, 'deriv': 2}, for numpy.diff {'n': 2, 'axis': self.scan_dim} and for scipy.signal.find_peaks {'prominence': np.max(np.abs(d2VdI2))/1e2)}
+
+        Returns
+        -------
+        Rn: numpy.array
+            Average normal state resistance
+        """
+        def _peak_finder(x, **_kwargs):
+            ans = peak_finder(x, **_kwargs)
+            if np.array_equal(ans[0], []):  # no peaks found
+                return [np.array([False]), {}]
+            else:
+                return ans
+        if I is None:
+            I = self.I
+        if V is None:
+            V = self.V
+        if dVdI is None:
+            dVdI = self.dVdI
+        if mode == sig.savgol_filter:
+            kwargs_deriv = {'deriv': 2, 'window_length': kwargs.get('window_length', 15), 'polyorder': kwargs.get('polyorder', 3)}
+        elif mode == np.diff:
+            kwargs_deriv = {'n': 2, 'axis': kwargs.get('axis', self.scan_dim)}
+        else:
+            kwargs_deriv = {}
+        ''' second derivative d^2V/dI^2 '''
+        self.d2VdI2 = self.get_dydx(x=I, y=V, mode=mode, **kwargs_deriv)
+        ''' peak detection in d^2V/dI^2 '''
+        if len(V.shape)-1 == 1:
+            if peak_finder == sig.find_peaks:
+                kwargs_peak_finder = list(map(lambda d2VdI21D:
+                                              {'prominence': kwargs.get('prominence', np.max(np.abs(d2VdI21D))/1e2)},
+                                              self.d2VdI2))
+            peaks = list(map(lambda j, d2VdI21D:
+                             _peak_finder(d2VdI21D*np.sign(max(d2VdI21D.min(), d2VdI21D.max(), key=abs)),
+                                          **kwargs_peak_finder[j]),  # sign, so that extremum is positiv
+                             *zip(*enumerate(self.d2VdI2))))
+            slcs = np.array(list(map(lambda peak1D, d2VdI21D:
+                                     np.array((slice(0, np.min(peak1D[1]['left_bases'])),
+                                               slice(max(peak1D[1]['right_bases']), d2VdI21D.size))),
+                                     peaks, self.d2VdI2)))
+            Rn = np.array([np.nanmean(np.concatenate([self.dVdI[k][s]
+                                                      for k, s in enumerate(slc)]))
+                           for j, slc in enumerate(np.transpose(slcs, axes=(1, 0)))])
+            """
+            popts, pcovs = np.ones(shape=(len(self.d2VdI2), 2)), np.ones(shape=(len(self.d2VdI2), 2, 2))
+            for j in range(2):
+                V_ohm = np.concatenate([V[k][slc] for k, slc in enumerate(slcs.T[j])])
+                I_ohm = np.concatenate([I[k][slc] for k, slc in enumerate(slcs.T[j])])
+                popts[j], pcovs[j] = np.polyfit(x=V_ohm,
+                                                y=I_ohm,
+                                                deg=1,
+                                                cov=True
+                                                )
+            Rn = 1/np.mean(popts[:,0])
+            """
+        elif len(V.shape)-1 == 2:
+            if peak_finder == sig.find_peaks:
+                kwargs_peak_finder = list(map(lambda d2VdI22D:
+                                              list(map(lambda d2VdI21D:
+                                                       {'prominence': kwargs.get('prominence', np.max(np.abs(d2VdI21D))/1e2)},
+                                                       d2VdI22D)),
+                                              self.d2VdI2))
+            peaks = list(map(lambda j, d2VdI22D:
+                             list(map(lambda k, d2VdI21D:
+                                      _peak_finder(d2VdI21D * np.sign(max(d2VdI21D.min(), d2VdI21D.max(), key=abs)),
+                                                   **kwargs_peak_finder[j][k]),  # sign, so that extremum is positiv
+                                      *zip(*enumerate(d2VdI22D)))),
+                             *zip(*enumerate(self.d2VdI2))))
+            slcs = np.array(list(map(lambda peak2D, d2VdI22D:
+                                     list(map(lambda peak1D, d2VdI21D:
+                                              np.array((slice(0, np.min(peak1D[1]['left_bases'])),
+                                                        slice(max(peak1D[1]['right_bases']), d2VdI21D.size))),
+                                              peak2D, d2VdI22D)),
+                                     peaks, self.d2VdI2)))
+            Rn = np.array([[np.nanmean(np.concatenate([self.dVdI[k][x][s]
+                                                       for k, s in enumerate(slc)]))
+                            for j, slc in enumerate(slcs1D)]
+                           for x, slcs1D in enumerate(np.transpose(slcs, axes=(1, 2, 0)))])
+        elif len(V.shape)-1 == 3:
+            if peak_finder == sig.find_peaks:
+                kwargs_peak_finder = list(map(lambda d2VdI23D:
+                                              list(map(lambda d2VdI22D:
+                                                       list(map(lambda d2VdI21D:
+                                                                {'prominence': kwargs.get('prominence', np.max(np.abs(d2VdI21D))/1e2)},
+                                                                d2VdI22D)),
+                                                       d2VdI23D)),
+                                              self.d2VdI2))
+            peaks = list(map(lambda i, d2VdI23D:
+                             list(map(lambda j, d2VdI22D:
+                                      list(map(lambda k, d2VdI21D:
+                                               _peak_finder(d2VdI21D * np.sign(max(d2VdI21D.min(), d2VdI21D.max(), key=abs)),
+                                                            **kwargs_peak_finder[i][j][k]),  # sign, so that extremum is positiv
+                                               *zip(*enumerate(d2VdI22D)))),
+                                      *zip(*enumerate(d2VdI23D)))),
+                             *zip(*enumerate(self.d2VdI2))))
+            slcs = np.array(list(map(lambda peak3D, d2VdI23D:
+                                     list(map(lambda peak2D, d2VdI22D:
+                                              list(map(lambda peak1D, d2VdI21D:
+                                                       np.array((slice(0, np.min(peak1D[1]['left_bases'])),
+                                                                 slice(max(peak1D[1]['right_bases']), d2VdI21D.size)
+                                                                 )),
+                                                       peak2D, d2VdI22D)),
+                                              peak3D, d2VdI23D)),
+                                     peaks, self.d2VdI2)))
+            Rn = np.array([[[np.nanmean(np.concatenate([self.dVdI[k][x][y][s]
+                                                        for k, s in enumerate(slc)]))
+                             for j, slc in enumerate(slcs1D)]
+                            for y, slcs1D in enumerate(slcs2D)]
+                           for x, slcs2D in enumerate(np.transpose(slcs, axes=(1, 2, 3, 0)))])
+        else:
+            raise ValueError('Scan dimension must be in {1, 2, 3}')
+        return np.nanmean(Rn, axis=self.scan_dim-1)
+
     def get_Ic_threshold(self, I=None, V=None, dVdI=None, threshold=20e-6, offset=None, Ir=False):
         """
         Get critical current values. These are considered as currents, where the voltage jumps beyond threshold ± <threshold> - <offset>.
@@ -650,6 +976,8 @@ class IV_curve3(object):
             An N-dimensional array containing current values. Default is None that means self.I.
         V: numpy.array (optional)
             An N-dimensional array containing voltage values. Default is None that means self.V.
+        dVdI: numpy.array (optional)
+            An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means self.dVdI.
         threshold: float (optional)
             Threshold voltage that limits the superconducting branch. Default is 20e-6.
         offset: float (optional)
@@ -773,19 +1101,16 @@ class IV_curve3(object):
             except IndexError:  # if no peak found return np.nan
                 return np.nan
         ''' peak detection in dV/dI '''
-        #if self.scan_dim == 1:
         if len(V.shape)-1 == 1:
             peaks = np.array(list(map(lambda dVdI1D:
                                       _peak_finder(dVdI1D, **kwargs),
                                       dVdI)))
-        #elif self.scan_dim == 2:
         elif len(V.shape)-1 == 2:
             peaks = np.array(list(map(lambda dVdI2D:
                                       list(map(lambda dVdI1D:
                                                _peak_finder(dVdI1D, **kwargs),
                                                dVdI2D)),
                                       dVdI)))
-        #elif self.scan_dim == 3:
         elif len(V.shape)-1 == 3:
             peaks = np.array(list(map(lambda dVdI3D:
                                       list(map(lambda dVdI2D:
@@ -810,6 +1135,8 @@ class IV_curve3(object):
             An N-dimensional array containing current values. Default is None that means self.I.
         V: numpy.array (optional)
             An N-dimensional array containing voltage values. Default is None that means self.V.
+        dVdI: numpy.array (optional)
+            An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means self.dVdI.
         s: float (optional)
             Smoothing factor of the derivative. Default is 10.
         Ir: bool (optional)
@@ -883,7 +1210,7 @@ class IV_curve3(object):
             V_corr = V - np.linspace(start=V[:, :, :, 0], stop=V[:, :, :, -1], num=V.shape[-1], axis=3)  # adjust offset slope
         else:
             raise ValueError('Scan dimension must be in {1, 2, 3}')
-        dV_smooth = _get_deriv_dft()
+        dV_smooth = _get_deriv_dft(V_corr=V_corr)
         ''' peak detection '''
         if self.scan_dim == 1:
             peaks = np.array(list(map(lambda dV_smooth1D:
