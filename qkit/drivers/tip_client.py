@@ -150,11 +150,11 @@ class tip_client(Instrument):
 
         Ts = ones(20)
         settling_time = time.time()
-        print "T set to ", T,
+        print("T set to ", T)
         self.r_set_T(T)
 
         T_current = self.r_get_T()
-        print T_current
+        print(T_current)
         # qkit.flow.sleep(15)
         # print T_current
         while (True):
@@ -163,11 +163,11 @@ class tip_client(Instrument):
             rmsTs = rms(Ts)
 
             if abs(rmsTs - T) > dT_max:
-                print "dT > dT_max(%.5f): %.5f at Tctl: %.5f Curr T: %.5f" % (dT_max, rmsTs - T, T, T_current)
+                print("dT > dT_max(%.5f): %.5f at Tctl: %.5f Curr T: %.5f" % (dT_max, rmsTs - T, T, T_current))
                 qkit.flow.sleep(2)
             else:
                 break
-        print "settling time:", time.time() - settling_time
+        print("settling time:", time.time() - settling_time)
 
     def close(self):
         self.sock.close()
@@ -279,8 +279,8 @@ class tip_client(Instrument):
             if (y['last_Res'] / RANGE[y['range']]) < 0.01 or (y['last_Res'] / RANGE[y['range']]) > 50:
                 newrange = max(4, RANGE.keys()[
                     argmin(abs(y['last_Res'] / array(RANGE.values()) - 1))])  # we take a minimum RANGE setting of 4
-                print "%s has a R_meas/R_ref value of %.4f and is set to range %i but I would set it to %i." % (
-                    y['name'], y['last_Res'] / RANGE[y['range']], y['range'], newrange)
+                print("%s has a R_meas/R_ref value of %.4f and is set to range %i but I would set it to %i." % (
+                    y['name'], y['last_Res'] / RANGE[y['range']], y['range'], newrange))
                 self.do_set_range(newrange, y['channel'])
 
     def set_interval_scanning(self):
