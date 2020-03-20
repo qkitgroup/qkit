@@ -21,6 +21,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal as sig
 from collections import defaultdict
+from uncertainties import ufloat, unumpy as unp
 # TODO: uncertainty analysis probably using import uncertainties
 
 import qkit
@@ -89,7 +90,7 @@ class IV_curve3(object):
         self.settings = None
         self.mo = mc.Measurement()  # qkit-sample object
         self.m_type, self.scan_dim, self.sweeptype, self.sweeps, self.bias = None, None, None, None, None
-        self.I, self.V, self.V_corr, self.dVdI, self.d2VdI2 = None, None, None, None, None
+        self.I, self.V, self.V_corr, self.dVdI, self.R_n, self.d2VdI2 = None, None, None, None, None, None
         self.I_offsets, self.V_offsets, self.I_offset, self.V_offset = None, None, None, None
         self.x_ds, self.x_coordname, self.x_unit, self.x_vec = None, None, None, None
         self.y_ds, self.y_coordname, self.y_unit, self.y_vec = None, None, None, None
@@ -219,30 +220,32 @@ class IV_curve3(object):
         --------
         >>> ivc.merge(uuid=['XXXXXX', 'YYYYYY'], order=[-1, 1])
         """
-        def get_key(key, dct):
+        def get_key(_key, _dict):
             """
             Check if key already exists and increases counter by one if so.
             """
-            if key in dct.keys():
-                parts = key.split('_')
-                key = '_'.join([str(int(part)+1) if part.isdigit() else part for j, part in enumerate(parts)])
-                return get_key(key, dct)
+            if _key in _dict.keys():
+                _parts = _key.split('_')
+                _key = '_'.join([str(int(_part)+1) if _part.isdigit() else _part for _part in _parts])
+                return get_key(_key, _dict)
             else:
-                return key
-        def remove_duplicates(lst):
-            res = []
-            for x in lst:
-                if x not in res:
-                    res.append(x)
-            if len(res) == 1:
-                return res[0]
+                return _key
+
+        def remove_duplicates(_list):
+            _res = []
+            for _elem in _list:
+                if _elem not in _res:
+                    _res.append(_elem)
+            if len(_res) == 1:
+                return _res[0]
             else:
-                return res
-        def merge_dict(lstdct):
+                return _res
+
+        def merge_dict(_listdict):
             dict_merged = defaultdict(list)
-            for dct in lstdct:
-                for key, val in dct.items():
-                    dict_merged[key].append(val)
+            for _dict in _listdict:
+                for _key, _val in _dict.items():
+                    dict_merged[_key].append(_val)
             return dict_merged
 
         #TODO: write additional files and plots
@@ -468,7 +471,7 @@ class IV_curve3(object):
             ds = [ds]
         else:
             raise ValueError('Argument <ds> needs to be set properly.')
-        qviewkit.plot(df.get_filepath(), datasets=ds)  # opens IV-view by default
+        qviewkit.plot(df.get_filepath(), datasets=ds, live=False)  # opens IV-view by default
 
     def get_bias(self, df=None):
         """
@@ -600,7 +603,7 @@ class IV_curve3(object):
             if 'axis' not in kwargs.keys():
                 kwargs['axis'] = self.scan_dim
         if x is None:
-            if np.isnan(x).any():
+            if np.isnan(y).any():
                 y_nans = np.isnan(y)
                 dy = mode(np.nan_to_num(y, copy=True, nan=0.0), **kwargs)
                 np.place(dy, y_nans, np.nan)
@@ -655,38 +658,57 @@ class IV_curve3(object):
         np.place(y_const, np.logical_not(mask), np.nan)
         if self.sweeptype == 0:  # halfswing
             ''' get x offset (for JJ voltage offset)'''
-            x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
+            #x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
+            x_offsets = np.nanmean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
+                                              std_devs=np.nanstd(x_const, axis=self.scan_dim)),
+                                   axis=0)
             ''' get y offset (for JJ current offset) '''
             if yr:  # retrapping y (for JJ retrapping current)
                 y_rs = np.array([np.nanmax(y_const[0], axis=(self.scan_dim-1)),
                                  np.nanmin(y_const[1], axis=(self.scan_dim-1))])
-                y_offsets = np.mean(y_rs, axis=0)
+                #y_offsets = np.mean(y_rs, axis=0)
+                y_offsets = unp.uarray(nominal_values=np.nanmean(y_rs, axis=0),
+                                       std_devs=np.nanstd(y_rs, axis=0))
             else:  # critical y (for JJ critical current)
                 y_cs = np.array([np.nanmin(y_const[0], axis=(self.scan_dim-1)),
                                  np.nanmax(y_const[1], axis=(self.scan_dim-1))])
-                y_offsets = np.mean(y_cs, axis=0)
+                #y_offsets = np.mean(y_cs, axis=0)
+                y_offsets = unp.uarray(nominal_values=np.nanmean(y_cs, axis=0),
+                                       std_devs=np.nanstd(y_cs, axis=0))
         elif self.sweeptype == 1:  # 4 quadrants
             ''' get x offset '''
-            x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
+            #x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
+            x_offsets = np.nanmean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
+                                              std_devs=np.nanstd(x_const, axis=self.scan_dim)),
+                                   axis=0)
             ''' get y offset '''
             if yr:  # retrapping y (for JJ retrapping current)
                 y_rs = np.array([np.nanmax(y_const[1], axis=(self.scan_dim-1)),
                                  np.nanmin(y_const[3], axis=(self.scan_dim-1))])
-                y_offsets = np.mean(y_rs, axis=0)
+                #y_offsets = np.mean(y_rs, axis=0)
+                y_offsets = unp.uarray(nominal_values=np.nanmean(y_rs, axis=0),
+                                       std_devs=np.nanstd(y_rs, axis=0))
             else:  # critical y (for JJ critical current)
                 y_cs = np.array([np.nanmax(y_const[0], axis=(self.scan_dim-1)),
                                  np.nanmin(y_const[2], axis=(self.scan_dim-1))])
-                y_offsets = np.mean(y_cs, axis=0)
+                #y_offsets = np.mean(y_cs, axis=0)
+                y_offsets = unp.uarray(nominal_values=np.nanmean(y_cs, axis=0),
+                                       std_devs=np.nanstd(y_cs, axis=0))
         else:  # custom sweeptype
             ''' get x offset '''
-            x_offsets = np.nanmean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
+            #x_offsets = np.nanmean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
+            x_offsets = np.nanmean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
+                                              std_devs=np.nanstd(x_const, axis=self.scan_dim)),
+                                   axis=0)
             ''' get y offset '''
             if yr:  # retrapping y (for JJ retrapping current)
                 raise NotImplementedError('No algorithm implemented for custom sweeptype')
             else:
                 y_cs = np.array([np.nanmax(y_const, axis=(self.scan_dim-1)),
                                  np.nanmin(y_const, axis=(self.scan_dim-1))])
-                y_offsets = np.mean(y_cs, axis=0)
+                #y_offsets = np.mean(y_cs, axis=0)
+                y_offsets = unp.uarray(nominal_values=np.nanmean(y_cs, axis=0),
+                                       std_devs=np.nanstd(y_cs, axis=0))
         self.I_offsets, self.V_offsets = [x_offsets, y_offsets][::int(np.sign(self.bias - .5))]
         return self.I_offsets, self.V_offsets
 
@@ -714,7 +736,7 @@ class IV_curve3(object):
         V_offsets: numpy.array
             Voltage offsets of the whole data set.
         """
-        self.I_offset, self.V_offset = np.fromiter(map(np.nanmean, self.get_offsets(*args, **kwargs)), dtype=float)
+        self.I_offset, self.V_offset = list(map(np.nanmean, self.get_offsets(*args, **kwargs)))
         return self.I_offset, self.V_offset
 
     def get_2wire_slope_correction(self, I=None, V=None, dVdI=None, peak_finder=sig.find_peaks, **kwargs):
@@ -740,6 +762,7 @@ class IV_curve3(object):
         V_corr: numpy.array
             Ohmic slope corrected voltage values
         """
+        #TODO: uncertainties
         def lin_fit(x, y):
             X = np.stack((x, np.ones(len(x)))).T
             q, r = np.linalg.qr(X)
@@ -761,7 +784,7 @@ class IV_curve3(object):
                         peak_finder(dVdI1D, **kwargs),
                         dVdI)
             slices = map(lambda peaks1D:
-                         slice(*np.sort(peaks1D[0][peaks1D[1]['prominences'].argsort()[-2:][::-1]])),
+                         slice(*np.sort(peaks1D[0][peaks1D[1]['prominences'].argsort()[-2:][::-1]])+np.array((1, -1))),  # overcome poss. jitter by +np.array((1, -1))
                          peaks)
             popts = map(lambda I1D, V1D, s1D:
                         lin_fit(I1D[s1D], V1D[s1D]),
@@ -828,9 +851,9 @@ class IV_curve3(object):
         else:
             raise ValueError('Scan dimension must be in {1, 2, 3}')
 
-    def get_Rn(self, I=None, V=None, dVdI=None, mode=sig.savgol_filter, peak_finder=sig.find_peaks, **kwargs):
+    def get_Rn(self, I=None, V=None, dVdI=None, deriv_func=sig.savgol_filter, peak_finder=sig.find_peaks, mode=0, **kwargs):
         """
-        Get normal state resistance of over critical range. Therefore the curvature d^2V/dI^2 is computed using the second order derivation function <mode> and analysing peaks in it with <peak_finder>.
+        Get normal state resistance of over critical range. Therefore the curvature d^2V/dI^2 is computed using the second order derivation function <deriv_func> and analysing peaks in it with <peak_finder>.
         The ohmic range is considered to range from the outermost tail of the peaks in the curvature to the start/end of the sweep and the resistance is calculated as mean of the differential resistance values <dVdI> within this range.
 
         Parameters
@@ -841,10 +864,12 @@ class IV_curve3(object):
             An N-dimensional array containing voltage values. Default is None that means self.V.
         dVdI: numpy.array (optional)
             An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means self.dVdI.
-        mode: function (optional)
+        deriv_func: function (optional)
             Function that calculates the numerical gradient dx from a given array x. Default is scipy.signal.savgol_filter (Savitzky Golay filter).
         peak_finder: function (optional)
             Peak finding algorithm. Default is scipy.signal.find_peaks.
+        mode: int (optional)
+            Mode how Rn is determined from the ohmic range found. Must be 0 (slope of linear fit) or 1 (average of dV/dI).
         kwargs:
             Keyword arguments forwarded to the function <mode> and the peak finding algorithm <peak_finder>. Default for scipy.signal.savgol_filter are {'window_length': 15, 'polyorder': 3, 'deriv': 2}, for numpy.diff {'n': 2, 'axis': self.scan_dim} and for scipy.signal.find_peaks {'prominence': np.max(np.abs(d2VdI2))/1e2)}
 
@@ -865,83 +890,112 @@ class IV_curve3(object):
             V = self.V
         if dVdI is None:
             dVdI = self.dVdI
-        if mode == sig.savgol_filter:
+        if deriv_func == sig.savgol_filter:
             kwargs_deriv = {'deriv': 2, 'window_length': kwargs.get('window_length', 15), 'polyorder': kwargs.get('polyorder', 3)}
-        elif mode == np.diff:
+        elif deriv_func == np.diff:
             kwargs_deriv = {'n': 2, 'axis': kwargs.get('axis', self.scan_dim)}
         else:
             kwargs_deriv = {}
         ''' second derivative d^2V/dI^2 '''
-        self.d2VdI2 = self.get_dydx(x=I, y=V, mode=mode, **kwargs_deriv)
+        self.d2VdI2 = self.get_dydx(x=I, y=V, mode=deriv_func, **kwargs_deriv)
         ''' peak detection in d^2V/dI^2 '''
         if len(V.shape)-1 == 1:
             if peak_finder == sig.find_peaks:
-                kwargs_peak_finder = list(map(lambda d2VdI21D:
-                                              {'prominence': kwargs.get('prominence', np.max(np.abs(d2VdI21D))/1e2)},
-                                              self.d2VdI2))
-            peaks = list(map(lambda j, d2VdI21D:
-                             _peak_finder(d2VdI21D*np.sign(max(d2VdI21D.min(), d2VdI21D.max(), key=abs)),
-                                          **kwargs_peak_finder[j]),  # sign, so that extremum is positiv
-                             *zip(*enumerate(self.d2VdI2))))
+                kwargs_peak_finder = np.array(list(map(lambda d2VdI21D:
+                                                       {'prominence': kwargs.get('prominence', np.max(np.abs(d2VdI21D))/1e2)},
+                                                       self.d2VdI2)))
+            peaks = map(lambda j, d2VdI21D:
+                        _peak_finder(d2VdI21D*np.sign(max(d2VdI21D.min(), d2VdI21D.max(), key=abs)),
+                                     **kwargs_peak_finder[j]),  # sign, so that extremum is positiv
+                        *zip(*enumerate(self.d2VdI2)))
             slcs = np.array(list(map(lambda peak1D, d2VdI21D:
                                      np.array((slice(0, np.min(peak1D[1]['left_bases'])),
                                                slice(max(peak1D[1]['right_bases']), d2VdI21D.size))),
                                      peaks, self.d2VdI2)))
-            Rn = np.array([np.nanmean(np.concatenate([self.dVdI[k][s]
-                                                      for k, s in enumerate(slc)]))
-                           for j, slc in enumerate(np.transpose(slcs, axes=(1, 0)))])
-            """
-            popts, pcovs = np.ones(shape=(len(self.d2VdI2), 2)), np.ones(shape=(len(self.d2VdI2), 2, 2))
-            for j in range(2):
-                V_ohm = np.concatenate([V[k][slc] for k, slc in enumerate(slcs.T[j])])
-                I_ohm = np.concatenate([I[k][slc] for k, slc in enumerate(slcs.T[j])])
-                popts[j], pcovs[j] = np.polyfit(x=V_ohm,
-                                                y=I_ohm,
-                                                deg=1,
-                                                cov=True
-                                                )
-            Rn = 1/np.mean(popts[:,0])
-            """
+            if mode == 0:
+                popts, pcovs = np.ones(shape=(len(self.d2VdI2), 2)), np.ones(shape=(len(self.d2VdI2), 2, 2))
+                for j in range(2):
+                    V_ohm = np.concatenate([V[k, slc] for k, slc in enumerate(slcs.T[j])])
+                    I_ohm = np.concatenate([I[k, slc] for k, slc in enumerate(slcs.T[j])])
+                    popts[j], pcovs[j] = np.polyfit(x=I_ohm,
+                                                    y=V_ohm,
+                                                    deg=1,
+                                                    cov=True)
+                #self.R_n = np.mean(popts[:, 0])
+                self.R_n = np.nanmean(unp.uarray(nominal_values=popts,
+                                                 std_devs=np.array(list(map(lambda pcov:
+                                                                            np.sqrt(np.diagonal(pcov)),
+                                                                            pcovs))))[:, 0])
+            elif mode == 1:
+                #self.R_n = np.array([np.nanmean(np.concatenate([dVdI[k, x, y, s] for k, s in enumerate(slc)]))
+                #                     for j, slc in enumerate(np.transpose(slcs, axes=(1, 0)))])
+                self.R_n = np.array([ufloat(nominal_value=np.nanmean(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])),
+                                            std_dev=np.nanstd(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])))
+                                     for j, slc in enumerate(np.transpose(slcs, axes=(1, 0)))])
+                self.R_n = np.nanmean(self.R_n, axis=self.scan_dim - 1)
         elif len(V.shape)-1 == 2:
             if peak_finder == sig.find_peaks:
-                kwargs_peak_finder = list(map(lambda d2VdI22D:
-                                              list(map(lambda d2VdI21D:
-                                                       {'prominence': kwargs.get('prominence', np.max(np.abs(d2VdI21D))/1e2)},
-                                                       d2VdI22D)),
-                                              self.d2VdI2))
-            peaks = list(map(lambda j, d2VdI22D:
-                             list(map(lambda k, d2VdI21D:
-                                      _peak_finder(d2VdI21D * np.sign(max(d2VdI21D.min(), d2VdI21D.max(), key=abs)),
-                                                   **kwargs_peak_finder[j][k]),  # sign, so that extremum is positiv
-                                      *zip(*enumerate(d2VdI22D)))),
-                             *zip(*enumerate(self.d2VdI2))))
+                kwargs_peak_finder = np.array(list(map(lambda d2VdI22D:
+                                                       list(map(lambda d2VdI21D:
+                                                                {'prominence': kwargs.get('prominence', np.max(np.abs(d2VdI21D))/1e2)},
+                                                                d2VdI22D)),
+                                                       self.d2VdI2)))
+            peaks = map(lambda j, d2VdI22D:
+                        list(map(lambda k, d2VdI21D:
+                                 _peak_finder(d2VdI21D * np.sign(max(d2VdI21D.min(), d2VdI21D.max(), key=abs)),
+                                              **kwargs_peak_finder[j, k]),  # sign, so that extremum is positiv
+                                 *zip(*enumerate(d2VdI22D)))),
+                        *zip(*enumerate(self.d2VdI2)))
             slcs = np.array(list(map(lambda peak2D, d2VdI22D:
                                      list(map(lambda peak1D, d2VdI21D:
                                               np.array((slice(0, np.min(peak1D[1]['left_bases'])),
                                                         slice(max(peak1D[1]['right_bases']), d2VdI21D.size))),
                                               peak2D, d2VdI22D)),
                                      peaks, self.d2VdI2)))
-            Rn = np.array([[np.nanmean(np.concatenate([self.dVdI[k][x][s]
-                                                       for k, s in enumerate(slc)]))
-                            for j, slc in enumerate(slcs1D)]
-                           for x, slcs1D in enumerate(np.transpose(slcs, axes=(1, 2, 0)))])
+            if mode == 0:
+                popts, pcovs = np.ones(shape=(len(self.x_vec), len(self.d2VdI2), 2)), np.ones(shape=(len(self.x_vec), len(self.d2VdI2), 2, 2))
+                for x, slcs1D in enumerate(np.transpose(slcs, axes=(1, 0, 2))):
+                    for j in range(2):
+                        V_ohm = np.concatenate([V[k, x, slc] for k, slc in enumerate(slcs1D.T[j])])
+                        I_ohm = np.concatenate([I[k, x, slc] for k, slc in enumerate(slcs1D.T[j])])
+                        popts[x, j], pcovs[x, j] = np.polyfit(x=I_ohm,
+                                                              y=V_ohm,
+                                                              deg=1,
+                                                              cov=True)
+                #self.R_n = np.nanmean(popts[:, :, 0], axis=1)
+                self.R_n = np.nanmean(unp.uarray(nominal_values=popts,
+                                                 std_devs=np.array(list(map(lambda pcov1D:
+                                                                            list(map(lambda pcov:
+                                                                                     np.sqrt(np.diagonal(pcov)),
+                                                                                     pcov1D)),
+                                                                            pcovs))))[:, :, 0],
+                                      axis=1)
+            elif mode == 1:
+                #self.R_n = np.array([[np.nanmean(np.concatenate([dVdI[k, x, y, s] for k, s in enumerate(slc)]))
+                #                      for j, slc in enumerate(slcs1D)]
+                #                     for x, slcs1D in enumerate(np.transpose(slcs, axes=(1, 2, 0)))])
+                self.R_n = np.array([[ufloat(nominal_value=np.nanmean(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])),
+                                             std_dev=np.nanstd(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])))
+                                      for j, slc in enumerate(slcs1D)]
+                                     for x, slcs1D in enumerate(np.transpose(slcs, axes=(1, 2, 0)))])
+                self.R_n = np.nanmean(self.R_n, axis=self.scan_dim - 1)
         elif len(V.shape)-1 == 3:
             if peak_finder == sig.find_peaks:
-                kwargs_peak_finder = list(map(lambda d2VdI23D:
-                                              list(map(lambda d2VdI22D:
-                                                       list(map(lambda d2VdI21D:
-                                                                {'prominence': kwargs.get('prominence', np.max(np.abs(d2VdI21D))/1e2)},
-                                                                d2VdI22D)),
-                                                       d2VdI23D)),
-                                              self.d2VdI2))
-            peaks = list(map(lambda i, d2VdI23D:
-                             list(map(lambda j, d2VdI22D:
-                                      list(map(lambda k, d2VdI21D:
-                                               _peak_finder(d2VdI21D * np.sign(max(d2VdI21D.min(), d2VdI21D.max(), key=abs)),
-                                                            **kwargs_peak_finder[i][j][k]),  # sign, so that extremum is positiv
-                                               *zip(*enumerate(d2VdI22D)))),
-                                      *zip(*enumerate(d2VdI23D)))),
-                             *zip(*enumerate(self.d2VdI2))))
+                kwargs_peak_finder = np.array(list(map(lambda d2VdI23D:
+                                                       list(map(lambda d2VdI22D:
+                                                                list(map(lambda d2VdI21D:
+                                                                         {'prominence': kwargs.get('prominence', np.max(np.abs(d2VdI21D))/1e2)},
+                                                                         d2VdI22D)),
+                                                                d2VdI23D)),
+                                                       self.d2VdI2)))
+            peaks = map(lambda i, d2VdI23D:
+                        list(map(lambda j, d2VdI22D:
+                                 list(map(lambda k, d2VdI21D:
+                                          _peak_finder(d2VdI21D * np.sign(max(d2VdI21D.min(), d2VdI21D.max(), key=abs)),
+                                                       **kwargs_peak_finder[i, j, k]),  # sign, so that extremum is positiv
+                                          *zip(*enumerate(d2VdI22D)))),
+                                 *zip(*enumerate(d2VdI23D)))),
+                        *zip(*enumerate(self.d2VdI2)))
             slcs = np.array(list(map(lambda peak3D, d2VdI23D:
                                      list(map(lambda peak2D, d2VdI22D:
                                               list(map(lambda peak1D, d2VdI21D:
@@ -951,14 +1005,41 @@ class IV_curve3(object):
                                                        peak2D, d2VdI22D)),
                                               peak3D, d2VdI23D)),
                                      peaks, self.d2VdI2)))
-            Rn = np.array([[[np.nanmean(np.concatenate([self.dVdI[k][x][y][s]
-                                                        for k, s in enumerate(slc)]))
-                             for j, slc in enumerate(slcs1D)]
-                            for y, slcs1D in enumerate(slcs2D)]
-                           for x, slcs2D in enumerate(np.transpose(slcs, axes=(1, 2, 3, 0)))])
+            if mode == 0:
+                popts, pcovs = np.ones(shape=(len(self.x_vec), len(self.y_vec), len(self.d2VdI2), 2)), np.ones(shape=(len(self.x_vec), len(self.y_vec), len(self.d2VdI2), 2, 2))
+                for x, slcs2D in enumerate(np.transpose(slcs, axes=(1, 2, 0, 3))):
+                    for y, slcs1D in enumerate(slcs2D):
+                        for j in range(2):
+                            V_ohm = np.concatenate([V[k, x, y, slc] for k, slc in enumerate(slcs1D.T[j])])
+                            I_ohm = np.concatenate([I[k, x, y, slc] for k, slc in enumerate(slcs1D.T[j])])
+                            popts[x, y, j], pcovs[x, y, j] = np.polyfit(x=I_ohm,
+                                                                        y=V_ohm,
+                                                                        deg=1,
+                                                                        cov=True)
+                #self.R_n = np.nanmean(popts[:, :, :, 0], axis=2)
+                self.R_n = np.nanmean(unp.uarray(nominal_values=popts,
+                                                 std_devs=np.array(list(map(lambda pcov2D:
+                                                                            list(map(lambda pcov1D:
+                                                                                     list(map(lambda pcov:
+                                                                                              np.sqrt(np.diagonal(pcov)),
+                                                                                              pcov1D)),
+                                                                                     pcov2D)),
+                                                                            pcovs))))[:, :, :, 0],
+                                      axis=2)
+            elif mode == 1:
+                #self.R_n = np.array([[[np.nanmean(np.concatenate([dVdI[k, x, y, s] for k, s in enumerate(slc)]))
+                #                       for j, slc in enumerate(slcs1D)]
+                #                      for y, slcs1D in enumerate(slcs2D)]
+                #                     for x, slcs2D in enumerate(np.transpose(slcs, axes=(1, 2, 3, 0)))])
+                self.R_n = np.array([[[ufloat(nominal_value=np.nanmean(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])),
+                                              std_dev=np.nanstd(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])))
+                                       for j, slc in enumerate(slcs1D)]
+                                      for y, slcs1D in enumerate(slcs2D)]
+                                     for x, slcs2D in enumerate(np.transpose(slcs, axes=(1, 2, 3, 0)))])
+                self.R_n = np.nanmean(self.R_n, axis=self.scan_dim - 1)
         else:
             raise ValueError('Scan dimension must be in {1, 2, 3}')
-        return np.nanmean(Rn, axis=self.scan_dim-1)
+        return self.R_n
 
     def get_Ic_threshold(self, I=None, V=None, dVdI=None, threshold=20e-6, offset=None, Ir=False):
         """
@@ -986,6 +1067,7 @@ class IV_curve3(object):
         I_rs: numpy.array (optional)
             Retrapping current values.
         """
+        #TODO: uncertainties
         if V is None:
             V = self.V
         if I is None:
@@ -1029,7 +1111,7 @@ class IV_curve3(object):
         else:
             return I_cs
 
-    def get_Ic_deriv(self, I=None, V=None, dVdI=None, Ir=False, tol_offset=20e-6, window=5, peak_finder=sig.find_peaks, **kwargs):
+    def get_Ic_deriv(self, I=None, V=None, dVdI=None, Ir=False, Vg=False, tol_offset=20e-6, window=5, peak_finder=sig.find_peaks, **kwargs):
         """
         Gets critical current values using the numerical derivative dV/dI.
         Peaks in these data correspond to voltage jumps, are detected with a peak finding algorithm <peak_finder> and checked, whether the corresponding voltage jumps out or in the superconducting branch, that is identified as critical or retrapping current, respectively. Therefore the average of half the window below and above the peak is considered. The superconducting branch, in turn, is assumed as the voltage offset <self.V_offset> within the tolerance <tol_offset>.
@@ -1044,6 +1126,8 @@ class IV_curve3(object):
             An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means self.dVdI.
         Ir: bool (optional)
             Condition, if retrapping currents are returned, too. Default is False
+        Vg: bool (optional)
+            Condition, if gap voltages are returned, too. Default is False
         tol_offset: float (optional)
             Voltage offset tolerance that limits the superconducting branch around the voltage offset <self.V_offset>. Default is 20e-6.
         window: int (optional)
@@ -1115,9 +1199,9 @@ class IV_curve3(object):
                                       dVdI)))
         else:
             raise ValueError('Scan dimension must be in {1, 2, 3}')
-        return self._classify_jump(I=I, V=V, Y=dVdI, peaks=peaks, tol_offset=tol_offset, window=window, Ir=Ir)
+        return self._classify_jump(I=I, V=V, Y=dVdI, peaks=peaks, tol_offset=tol_offset, window=window, Ir=Ir, Vg=Vg)
 
-    def get_Ic_dft(self, I=None, V=None, dVdI=None, s=10, Ir=False, tol_offset=20e-6, window=5, peak_finder=sig.find_peaks, **kwargs):
+    def get_Ic_dft(self, I=None, V=None, dVdI=None, s=10, Ir=False, Vg=False, tol_offset=20e-6, window=5, peak_finder=sig.find_peaks, **kwargs):
         """
         Gets critical current values using a discrete Fourier transform, a smoothed derivation in the frequency domain and an inverse Fourier transform.
         Therefore the voltage values are corrected by the linear offset slope, fast Fourier transformed to the frequency domain, multiplied with a Gaussian smoothed derivation function if*exp(-s*f^2) in the frequency domain and inversely fast Fourier transformed to the time domain. This corresponds to the convolution of the voltage values with the Gaussian smoothed derivation function in the time domain.
@@ -1135,6 +1219,8 @@ class IV_curve3(object):
             Smoothing factor of the derivative. Default is 10.
         Ir: bool (optional)
             Condition, if retrapping currents are returned, too. Default is False.
+        Vg: bool (optional)
+            Condition, if gap voltages are returned, too. Default is False
         tol_offset: float (optional)
             Voltage offset tolerance that limits the superconducting branch around the voltage offset <self.V_offset>. Default is 20e-6.
         window: int (optional)
@@ -1163,13 +1249,12 @@ class IV_curve3(object):
         >>> elif ivc.scan_dim == 3:
         >>>     Is = np.array(list(map(lambda p3D: list(map(lambda p2D: list(map(lambda p1D: p1D['I'], p2D)), p3D)), props)))  # has shape (number of sweeps, number of y-values, number of x-values, number of peaks)
         """
-        def _get_deriv_dft(V_corr):
-            V_fft = np.fft.fft(V_corr)  # Fourier transform of V from time to frequency domain
-            f = np.fft.fftfreq(V.shape[-1])  # frequency values
+        def _get_deriv_dft(_V):
+            V_fft = np.fft.fft(_V)  # Fourier transform of V from time to frequency domain
+            f = np.fft.fftfreq(_V.shape[-1])  # frequency values
             kernel = 1j * np.fft.fft(f * np.exp(-s * f ** 2))  # smoothed derivation function, how it would look like in time domain (with which V is convolved in the time domain)
             V_fft_smooth = 1j * f * np.exp(-s * f ** 2) * V_fft  # Fourier transform of a Gaussian smoothed derivation of V in the frequency domain
-            dV_smooth = np.fft.ifft(V_fft_smooth)  # inverse Fourier transform of the smoothed derivation of V from reciprocal to time domain
-            return dV_smooth
+            return np.fft.ifft(V_fft_smooth)  # inverse Fourier transform of the smoothed derivation of V from reciprocal to time domain
 
         def _peak_finder(x, **_kwargs):
             ans = peak_finder(x, **_kwargs)
@@ -1188,7 +1273,7 @@ class IV_curve3(object):
             kwargs['widths'] = np.arange(10)
         if len(V.shape)-1 == 0:  # single trace used for in situ fit
             V_corr = V - np.linspace(start=V[0], stop=V[-1], num=V.shape[-1], axis=0)  # adjust offset slope
-            dV_smooth = _get_deriv_dft(V_corr)
+            dV_smooth = _get_deriv_dft(_V=V_corr)
             peaks = _peak_finder(dV_smooth, **kwargs)
             try:
                 return I[peaks[0]]
@@ -1203,7 +1288,7 @@ class IV_curve3(object):
             V_corr = V - np.linspace(start=V[:, :, :, 0], stop=V[:, :, :, -1], num=V.shape[-1], axis=3)  # adjust offset slope
         else:
             raise ValueError('Scan dimension must be in {1, 2, 3}')
-        dV_smooth = _get_deriv_dft(V_corr=V_corr)
+        dV_smooth = _get_deriv_dft(_V=V_corr)
         ''' peak detection '''
         if self.scan_dim == 1:
             peaks = np.array(list(map(lambda dV_smooth1D:
@@ -1225,9 +1310,9 @@ class IV_curve3(object):
                                       dV_smooth)))
         else:
             raise ValueError('Scan dimension must be in {1, 2, 3}')
-        return self._classify_jump(I=I, V=V, Y=dV_smooth, peaks=peaks, tol_offset=tol_offset, window=window, Ir=Ir)
+        return self._classify_jump(I=I, V=V, Y=dV_smooth, peaks=peaks, tol_offset=tol_offset, window=window, Ir=Ir, Vg=Vg)
 
-    def _classify_jump(self, I, V, Y, peaks, tol_offset=20e-6, window=5, Ir=False):
+    def _classify_jump(self, I, V, Y, peaks, tol_offset=20e-6, window=5, Ir=False, Vg=False):
         """
         Classifies voltage jumps as critical currents, retrapping currents of none of those.
 
@@ -1243,6 +1328,8 @@ class IV_curve3(object):
             An N-dimensional array containing indices and properties of peaks that are already determined, as obtained by e.g. scipy.signal.find_peaks()
         Ir: bool (optional)
             Condition, if retrapping currents are returned, too. Default is False
+        Vg: bool (optional)
+            Condition, if gap voltages are returned, too. Default is False
         tol_offset: float (optional)
             Voltage offset tolerance that limits the superconducting branch around the voltage offset <self.V_offset>. Default is 20e-6.
         window: int (optional)
@@ -1257,6 +1344,16 @@ class IV_curve3(object):
         properties: dict
             Properties of all found peaks (not only I_c and I_r, but also further jumps), such as corresponding currents, voltages, differential resistances, indices as well as returns of the used peak finding algorithm.
         """
+        def get_fwhm(y, peak, mask):
+            """ Get bounds of full width at half maximum """
+            left, right = peak[1]['left_bases'][mask].item(), peak[1]['right_bases'][mask].item()
+            y = y[slice(left, right)] - np.nanmean(y)  # use left and right bases as bounds and subtract floor (mean(y))
+            hm = np.max(y) / 2  # half maximum
+            max_idx = np.argmax(y)  # index of maximum
+            d = np.sign(hm - y[:-1]) - np.sign(hm - y[1:])
+            left_idx = np.argwhere(d[:max_idx] > 0)[-1]
+            right_idx = max_idx + np.argwhere(d[max_idx:] < 0)[0] + 1
+            return np.concatenate((left_idx, right_idx)) + left
         Y_name = [key for key, val in sys._getframe().f_back.f_locals.items() if np.array_equal(val, Y)][0]
         if self.V_offset is None and self.sweeptype in [0, 1]:  # voltage offset to identify superconducting branch
             self.get_offset(x=V, y=I)
@@ -1297,33 +1394,51 @@ class IV_curve3(object):
                 raise NotImplementedError('No algorithm implemented for custom sweeptype and scan_dim > 3.')
         if self.scan_dim == 1:
             ''' critical current '''
-            masks_c = map(lambda V_c1D, peak1D:
-                          np.logical_and(np.logical_and((-tol_offset+self.V_offset) <= np.mean(V_c1D[peak1D[0]-np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0),
-                                                        np.mean(V_c1D[peak1D[0]-np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0) <= (+tol_offset+self.V_offset)),
-                                         np.logical_not(np.logical_and((-tol_offset+self.V_offset) <= np.mean(V_c1D[peak1D[0]+np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0),
-                                                                       np.mean(V_c1D[peak1D[0]+np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0) <= (+tol_offset+self.V_offset)))),
-                          V_c, peaks_c)
-            I_cs = np.array(list(map(lambda I_c1D, peak1D, masks_c1D:
-                                     I_c1D[peak1D[0][masks_c1D][0]],
-                                     I_c, peaks_c, masks_c)),
-                            dtype=float)
+            masks_c = list(map(lambda V_c1D, peak1D:
+                               np.logical_and(np.logical_and((-tol_offset+self.V_offset) <= np.mean(V_c1D[peak1D[0]-np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0),
+                                                             np.mean(V_c1D[peak1D[0]-np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0) <= (+tol_offset+self.V_offset)),
+                                              np.logical_not(np.logical_and((-tol_offset+self.V_offset) <= np.mean(V_c1D[peak1D[0]+np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0),
+                                                                            np.mean(V_c1D[peak1D[0]+np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0) <= (+tol_offset+self.V_offset)))),
+                               V_c, peaks_c))
+            #return I_c, peaks_c, masks_c
+            #I_cs = np.array(list(map(lambda I_c1D, peak1D, masks_c1D:
+            #                         I_c1D[peak1D[0][masks_c1D][0]],
+            #                         I_c, peaks_c, masks_c)),
+            #                dtype=float)
+            I_cs = np.array(list(map(lambda I_c1D, Y1D, peak1D, masks_c1D:
+                                     ufloat(nominal_value=I_c1D[peak1D[0][masks_c1D][0]],
+                                            std_dev=np.abs(np.diff(I_c1D[get_fwhm(Y1D, peak1D, masks_c1D)])).item()/2),  # half width half maximum
+                                     I_c, Y, peaks_c, masks_c)),
+                            dtype=object)
             ''' retrapping current '''
-            masks_r = map(lambda V_r1D, peak1D:
-                          np.logical_and(np.logical_not(np.logical_and((-tol_offset+self.V_offset) <= np.mean(V_r1D[peak1D[0]-np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0),
-                                                                       np.mean(V_r1D[peak1D[0]-np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0) <= (+tol_offset+self.V_offset))),
-                                         np.logical_and((-tol_offset+self.V_offset) <= np.mean(V_r1D[peak1D[0]+np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0),
-                                                        np.mean(V_r1D[peak1D[0]+np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0) <= (+tol_offset+self.V_offset))),
-                          V_r, peaks_r)
-            I_rs = np.array(list(map(lambda I_r1D, peak1D, masks_r1D:
-                                     I_r1D[peak1D[0][masks_r1D][0]+1],
-                                     I_r, peaks_r, masks_r)),
-                            dtype=float)
+            masks_r = list(map(lambda V_r1D, peak1D:
+                               np.logical_and(np.logical_not(np.logical_and((-tol_offset+self.V_offset) <= np.mean(V_r1D[peak1D[0]-np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0),
+                                                                            np.mean(V_r1D[peak1D[0]-np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0) <= (+tol_offset+self.V_offset))),
+                                              np.logical_and((-tol_offset+self.V_offset) <= np.mean(V_r1D[peak1D[0]+np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0),
+                                                             np.mean(V_r1D[peak1D[0]+np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0) <= (+tol_offset+self.V_offset))),
+                               V_r, peaks_r))
+            #I_rs = np.array(list(map(lambda I_r1D, peak1D, masks_r1D:
+            #                         I_r1D[peak1D[0][masks_r1D][0]+1],
+            #                         I_r, peaks_r, masks_r)),
+            #                dtype=float)
+            I_rs = np.array(list(map(lambda I_r1D, Y1D, peak1D, masks_r1D:
+                                     ufloat(nominal_value=I_r1D[peak1D[0][masks_r1D][0]],
+                                            std_dev=np.abs(np.diff(I_r1D[get_fwhm(Y1D, peak1D, masks_r1D)])).item()/2),  # half width half maximum
+                                     I_r, Y, peaks_r, masks_r)),
+                            dtype=object)
             ''' properties '''
             properties = np.array(list(map(lambda ind1D, prop1D, I1D, V1D, Y1D:
                                            {**prop1D,
                                             **{k: v for k, v in zip(('I', 'V', Y_name, 'index'),
                                                                     (I1D[ind1D], V1D[ind1D], Y1D[ind1D], ind1D))}},
                                            *list(zip(*peaks)), I, V, Y)))
+            ''' gap voltage '''
+            if Vg:
+                slcs_g = list(map(lambda j, m:
+                                  slice(-peaks[int(not j)][0][m[0]].item() - 1, peaks[j][0][m[1]].item()),
+                                  *zip(*enumerate(zip(*(masks_c, masks_r))))))
+                V_gs = unp.uarray(nominal_values=[np.nanmean(V[j][slc]) for j, slc in enumerate(slcs_g)],
+                                  std_devs=[np.nanstd(V[j][slc]) for j, slc in enumerate(slcs_g)])
         elif self.scan_dim == 2:
             ''' critical current '''
             masks_c = map(lambda V_c2D, peaks_c2D:
@@ -1333,12 +1448,19 @@ class IV_curve3(object):
                                                                                                  np.mean(V_c1D[peak1D[0]+np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0) <= (+tol_offset+self.V_offset)))),
                               V_c2D, peaks_c2D),
                           V_c, peaks_c)
-            I_cs = np.array(list(map(lambda I_c2D, peaks_c2D, masks_c2D:
-                                     list(map(lambda I_c1D, peak1D, masks_c1D:
-                                              I_c1D[peak1D[0][masks_c1D][0]],
-                                              I_c2D, peaks_c2D, masks_c2D)),
-                                     I_c, peaks_c, masks_c)),
-                            dtype=float)
+            #I_cs = np.array(list(map(lambda I_c2D, peaks_c2D, masks_c2D:
+            #                         list(map(lambda I_c1D, peak1D, masks_c1D:
+            #                                  I_c1D[peak1D[0][masks_c1D][0]],
+            #                                  I_c2D, peaks_c2D, masks_c2D)),
+            #                         I_c, peaks_c, masks_c)),
+            #                dtype=float)
+            I_cs = np.array(list(map(lambda I_c2D, Y2D, peaks_c2D, masks_c2D:
+                                     list(map(lambda I_c1D, Y1D, peak1D, masks_c1D:
+                                              ufloat(nominal_value=I_c1D[peak1D[0][masks_c1D][0]],
+                                                     std_dev=np.abs(np.diff(I_c1D[get_fwhm(Y1D, peak1D, masks_c1D)])).item()/2),  # half width half maximum
+                                              I_c2D, Y2D, peaks_c2D, masks_c2D)),
+                                     I_c, Y, peaks_c, masks_c)),
+                            dtype=object)
             ''' retrapping current '''
             masks_r = map(lambda V_r2D, peaks_r2D:
                           map(lambda V_r1D, peak1D: np.logical_and(np.logical_not(np.logical_and((-tol_offset+self.V_offset) <= np.mean(V_r1D[peak1D[0]-np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0),
@@ -1347,12 +1469,19 @@ class IV_curve3(object):
                                                                                   np.mean(V_r1D[peak1D[0]+np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0) <= (+tol_offset+self.V_offset))),
                               V_r2D, peaks_r2D),
                           V_r, peaks_r)
-            I_rs = np.array(list(map(lambda I_r2D, peaks_r2D, masks_r2D:
-                                     list(map(lambda I_r1D, peaks_r1D, masks_r1D:
-                                              I_r1D[peaks_r1D[0][masks_r1D][0]+1],
-                                              I_r2D, peaks_r2D, masks_r2D)),
-                                     I_r, peaks_r, masks_r)),
-                            dtype=float)
+            #I_rs = np.array(list(map(lambda I_r2D, peaks_r2D, masks_r2D:
+            #                         list(map(lambda I_r1D, peaks_r1D, masks_r1D:
+            #                                  I_r1D[peaks_r1D[0][masks_r1D][0]+1],
+            #                                  I_r2D, peaks_r2D, masks_r2D)),
+            #                         I_r, peaks_r, masks_r)),
+            #                dtype=float)
+            I_rs = np.array(list(map(lambda I_r2D, Y2D, peaks_r2D, masks_r2D:
+                                     list(map(lambda I_r1D, Y1D, peak1D, masks_r1D:
+                                              ufloat(nominal_value=I_r1D[peak1D[0][masks_r1D][0]],
+                                                     std_dev=np.abs(np.diff(I_r1D[get_fwhm(Y1D, peak1D, masks_r1D)])).item()/2),  # half width half maximum
+                                              I_r2D, Y2D, peaks_r2D, masks_r2D)),
+                                     I_r, Y, peaks_r, masks_r)),
+                            dtype=object)
             ''' properties '''
             properties = np.array(list(map(lambda peaks2D, I2D, V2D, Y2D:
                                            list(map(lambda ind1D, prop1D, I1D, V1D, Y1D:
@@ -1372,14 +1501,23 @@ class IV_curve3(object):
                                   V_c2D, peaks_c2D),
                               V_c3D, peaks_c3D),
                           V_c, peaks_c)
-            I_cs = np.array(list(map(lambda I_c3D, peaks_c3D, masks_c3D:
-                                     list(map(lambda I_c2D, peaks_c2D, masks_c2D:
-                                              list(map(lambda I_c1D, peak1D, masks_c1D:
-                                                       I_c1D[peak1D[0][masks_c1D][0]],
-                                                       I_c2D, peaks_c2D, masks_c2D)),
-                                              I_c3D, peaks_c3D, masks_c3D)),
-                                     I_c, peaks_c, masks_c)),
-                            dtype=float)
+            #I_cs = np.array(list(map(lambda I_c3D, peaks_c3D, masks_c3D:
+            #                         list(map(lambda I_c2D, peaks_c2D, masks_c2D:
+            #                                  list(map(lambda I_c1D, peak1D, masks_c1D:
+            #                                           I_c1D[peak1D[0][masks_c1D][0]],
+            #                                           I_c2D, peaks_c2D, masks_c2D)),
+            #                                  I_c3D, peaks_c3D, masks_c3D)),
+            #                         I_c, peaks_c, masks_c)),
+            #                dtype=float)
+            I_cs = np.array(list(map(lambda I_c3D, Y3D, peaks_c3D, masks_c3D:
+                                     list(map(lambda I_c2D, Y2D, peaks_c2D, masks_c2D:
+                                              list(map(lambda I_c1D, Y1D, peak1D, masks_c1D:
+                                                       ufloat(nominal_value=I_c1D[peak1D[0][masks_c1D][0]],
+                                                              std_dev=np.abs(np.diff(I_c1D[get_fwhm(Y1D, peak1D, masks_c1D)])).item()/2),  # half width half maximum
+                                                       I_c2D, Y2D, peaks_c2D, masks_c2D)),
+                                              I_c3D, Y3D, peaks_c3D, masks_c3D)),
+                                     I_c, Y, peaks_c, masks_c)),
+                            dtype=object)
             ''' retrapping current '''
             masks_r = map(lambda V_r3D, peaks_r3D:
                           map(lambda V_r2D, peaks_r2D:
@@ -1390,14 +1528,23 @@ class IV_curve3(object):
                                   V_r2D, peaks_r2D),
                               V_r3D, peaks_r3D),
                           V_r, peaks_r)
-            I_rs = np.array(list(map(lambda I_r3D, peaks_r3D, masks_r3D:
-                                     list(map(lambda I_r2D, peaks_r2D, masks_r2D:
-                                              list(map(lambda I_r1D, peak1D, masks_r1D:
-                                                       I_r1D[peak1D[0][masks_r1D][0]],
-                                                       I_r2D, peaks_r2D, masks_r2D)),
-                                              I_r3D, peaks_r3D, masks_r3D)),
-                                     I_r, peaks_r, masks_r)),
-                            dtype=float)
+            #I_rs = np.array(list(map(lambda I_r3D, peaks_r3D, masks_r3D:
+            #                         list(map(lambda I_r2D, peaks_r2D, masks_r2D:
+            #                                  list(map(lambda I_r1D, peak1D, masks_r1D:
+            #                                           I_r1D[peak1D[0][masks_r1D][0]],
+            #                                           I_r2D, peaks_r2D, masks_r2D)),
+            #                                  I_r3D, peaks_r3D, masks_r3D)),
+            #                         I_r, peaks_r, masks_r)),
+            #                dtype=float)
+            I_rs = np.array(list(map(lambda I_r3D, Y3D, peaks_r3D, masks_r3D:
+                                     list(map(lambda I_r2D, Y2D, peaks_r2D, masks_r2D:
+                                              list(map(lambda I_r1D, Y1D, peak1D, masks_r1D:
+                                                       ufloat(nominal_value=I_r1D[peak1D[0][masks_r1D][0]],
+                                                              std_dev=np.abs(np.diff(I_r1D[get_fwhm(Y1D, peak1D, masks_r1D)])).item()/2),  # half width half maximum
+                                                       I_r2D, Y2D, peaks_r2D, masks_r2D)),
+                                              I_r3D, Y3D, peaks_r3D, masks_r3D)),
+                                     I_r, Y, peaks_r, masks_r)),
+                            dtype=object)
             properties = np.array(list(map(lambda peaks3D, I3D, V3D, Y3D:
                                            list(map(lambda peaks2D, I2D, V2D, Y2D:
                                                     list(map(lambda ind1D, prop1D, I1D, V1D, Y1D:
@@ -1409,10 +1556,24 @@ class IV_curve3(object):
                                            peaks, I, V, Y)))
         else:
             raise ValueError('Scan dimension must be in {1, 2, 3}')
+        """
+        ans = {'I_c': I_cs, 'prop': properties}
         if Ir:
-            return I_cs, I_rs, properties
+            ans['I_r'] = I_rs
+        if Vg:
+            ans['V_g': V_gs]
+        return dict2obj(ans)
+        """
+        if Ir:
+            if Vg:
+                return I_cs, I_rs, V_gs, properties
+            else:
+                return I_cs, I_rs, properties
         else:
-            return I_cs, properties
+            if Vg:
+                return I_cs, V_gs, properties
+            else:
+                return I_cs, properties
 
     class switching_current(object):
         """ This is an analysis class for switching current measurements """
@@ -1422,7 +1583,7 @@ class IV_curve3(object):
             self.P, self.P_fit, self.edges, self.bins = None, None, None, None
             self.Delta_I, self.Delta_I_fit, self.dIdt = None, None, None
             self.Gamma, self.Gamma_fit, self.x, self.x_fit, self.y, self.y_fit = None, None, None, None, None, None
-            self.popt, self.pcov, self.I_c = None, None, None
+            self.popt, self.pcov, self.fit_res, self.I_c = None, None, None, None
             self.fig, self.ax1, self.ax2, self.ax3 = None, None, None, None
 
         def fit(self, I_0, omega_0, dIdt=None, **kwargs):
@@ -1436,7 +1597,7 @@ class IV_curve3(object):
             omega_0: float
                 Plasma frequency used for fit.
             dIdt: float (optional)
-                Sweep rate (in A/s). Default is sweeps stepwidth*nplc/plc.
+                Sweep rate (in A/s). Default is sweeps step width * nplc / plc.
             kwargs:
                 Keyword arguments forwarded to numpy.histogram. Defaults are bins=10, range=(min(I_0), max(I_0)), normed=None, weights=None, density=None.
 
@@ -1461,50 +1622,55 @@ class IV_curve3(object):
             --------
             >>> ivc.scm.fit(I_0=I_0*1e6, omega_0=14e9, bins=50);
             """
-            def get_P(Gamma, Delta_I, dIdt, norm):
-                P = np.array([gamma/dIdt*np.exp(-np.sum(Gamma[:k+1])*Delta_I/dIdt) for k, gamma in enumerate(Gamma)])
-                return P/np.sum(P)*norm
+            def get_P(_Gamma, _Delta_I, _dIdt, _norm):
+                _P = np.array([_gamma/_dIdt*unp.exp(-np.sum(_Gamma[:k+1])*_Delta_I/_dIdt) for k, _gamma in enumerate(_Gamma)])
+                return _P/np.sum(_P)*_norm
 
             ''' histogram '''
             if 'range' not in kwargs:
                 kwargs['range'] = (np.nanmin(I_0), np.nanmax(I_0))
             if 'weights' not in kwargs:
                 kwargs['weights'] = np.ones_like(I_0)/I_0.size  # normed to 1
-            self.P, self.edges = np.histogram(a=I_0, **kwargs)
+            with np.errstate(invalid='ignore'):
+                self.P, self.edges = np.histogram(a=I_0, **kwargs)
             self.bins = np.convolve(self.edges, np.ones((2,))/2, mode='valid')  # center of bins by moving average with window length 2
             ''' escape rate '''
-            self.Delta_I = np.mean(np.gradient(self.bins))  # np.abs(np.max(self.bins)-np.min(self.bins))/(self.bins.size-1) #
+            self.Delta_I = np.nanmean(np.gradient(self.bins))
             if dIdt is None:
                 self.dIdt = self.sweeps[0][2]*self.settings.IVD.sense_nplc[0]/self.settings.IVD.plc
             else:
                 self.dIdt = dIdt
-            self.Gamma = self.dIdt/self.Delta_I*np.array([np.log(np.sum(self.P[j:])/np.sum(self.P[j+1:])) for j, _ in enumerate(self.P)])
+            with np.errstate(divide='ignore'):  # raises warning due divide by zero
+                self.Gamma = self.dIdt/self.Delta_I*np.array([np.log(np.sum(self.P[j:])/np.sum(self.P[j+1:])) for j, _ in enumerate(self.P)])
             ''' fit norm. escape rate '''
             self.x = self.bins
-            self.y = np.log(omega_0/(2*np.pi*self.Gamma))**(2/3)
+            with np.errstate(divide='ignore'):  # raises warning due divide by zero
+                self.y = np.log(unp.nominal_values(omega_0)/(2*np.pi*self.Gamma))**(2/3)
             self.popt, self.pcov = np.polyfit(x=self.x[np.isfinite(self.y)],
                                               y=self.y[np.isfinite(self.y)],
                                               deg=1,
                                               cov=True)
-            self.I_c = -self.popt[1]/self.popt[0]
+            self.fit_res = unp.uarray(nominal_values=self.popt,
+                                      std_devs=np.sqrt(np.diagonal(self.pcov)))
+            self.I_c = -self.fit_res[1]/self.fit_res[0]
             ''' calculate fitted escape rate and fitted switching current distribution '''
             alpha = 1  # factor for number of points of fit: nop = a*bins.size # FIXME: if e.g. alpha=10 fit shifts in x-direction
             self.x_fit = np.linspace(np.min(self.edges), np.max(self.edges), (self.edges.size-1)*alpha+1)
-            self.y_fit = self.popt[0]*self.x_fit+self.popt[1]
+            self.y_fit = self.fit_res[0]*self.x_fit+self.fit_res[1]
             self.Delta_I_fit = np.mean(np.gradient(self.x_fit))  # np.abs(np.max(self.x_fit)-np.min(self.x_fit))/(self.x_fit.size-1) #
-            self.Gamma_fit = omega_0/(2*np.pi*np.exp((self.popt[0]*self.x_fit+self.popt[1])**(3/2)))  # np.sum([p*self.x_fit**i for i, p in enumerate(self.popt[::-1])], axis=0)
+            self.Gamma_fit = omega_0/(2*np.pi*unp.exp((self.fit_res[0]*self.x_fit+self.fit_res[1])**(3/2)))  # np.sum([p*self.x_fit**i for i, p in enumerate(self.popt[::-1])], axis=0)
             self.P_fit = get_P(Gamma=self.Gamma_fit,
                                Delta_I=self.Delta_I_fit,
                                dIdt=self.dIdt,
                                norm=alpha)
-            return {'P': self.P,
-                    'P_fit': self.P_fit,
-                    'Gamma': self.Gamma,
-                    'Gamma_fit': self.Gamma_fit,
-                    'popt': self.popt,
-                    'pcov': self.pcov,
-                    'I_c': self.I_c,
-                    }
+            return dict2obj({'P': self.P,
+                             'P_fit': self.P_fit,
+                             'Gamma': self.Gamma,
+                             'Gamma_fit': self.Gamma_fit,
+                             'popt': self.popt,
+                             'pcov': self.pcov,
+                             'I_c': self.I_c,
+                             })
 
         def plot(self,
                  xlabel='escape current $ I_{esc}~(A) $',
@@ -1546,6 +1712,7 @@ class IV_curve3(object):
             --------
             >>> ivc.scm.plot()
             """
+            #TODO: uncertainties
             ''' plot '''
             self.fig, (self.ax1, self.ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(6, 6))
             self.ax3 = plt.twinx(self.ax2)
@@ -1554,35 +1721,61 @@ class IV_curve3(object):
             self.ax2.set_ylabel(y2label)
             self.ax3.set_ylabel(y3label)
             ''' histogram '''
-            self.ax1.bar(x=self.bins,
-                         height=self.P,
-                         width=np.mean(np.gradient(self.edges)),
-                         label='data'
-                    )
-            self.ax1.plot(self.x_fit,
-                          self.P_fit,
-                          label='fit',
-                          ls='-',
-                          color='black')
-            self.ax1.legend(loc='upper left')
+            lgd11 = self.ax1.bar(x=self.bins,
+                                 height=self.P,
+                                 width=np.mean(np.gradient(self.edges)))
+            #self.ax1.plot(self.x_fit,
+            #              self.P_fit,
+            #              label='fit',
+            #              ls='-',
+            #              color='black')
+            lgd12, = self.ax1.plot(self.x_fit,
+                                   unp.nominal_values(self.P_fit),
+                                   ls='-',
+                                   color='black')
+            self.ax1.fill_between(x=self.x_fit,
+                                  y1=(unp.nominal_values(self.P_fit)-unp.std_devs(self.P_fit)).clip(0),  # replace negative values by 0
+                                  y2=unp.nominal_values(self.P_fit)+unp.std_devs(self.P_fit),
+                                  color='black', alpha=0.2)
+            lgd13, = self.ax1.fill(np.NaN, np.NaN, 'black', alpha=0.2)  # dummy for legend
+            #self.ax1.legend(loc='upper left')
+            self.ax1.legend(((lgd11, ), (lgd12, lgd13)), ('data', 'fit'), loc='upper left')
             ''' escape rate '''
             lgd21, = self.ax2.semilogy(self.bins,
                                        self.Gamma,
                                        'b.',
                                        label='$ \Gamma $')
+            #lgd22, = self.ax2.semilogy(self.x_fit,
+            #                           self.Gamma_fit,
+            #                           'b-',
+            #                           label='fit')
             lgd22, = self.ax2.semilogy(self.x_fit,
-                                      self.Gamma_fit,
-                                      'b-',
-                                      label='fit')
+                                       unp.nominal_values(self.Gamma_fit),
+                                       'b-',
+                                       label='fit')
+            self.ax2.fill_between(x=self.x_fit,
+                                  y1=unp.nominal_values(self.Gamma_fit)-unp.std_devs(self.Gamma_fit),
+                                  y2=unp.nominal_values(self.Gamma_fit)+unp.std_devs(self.Gamma_fit),
+                                  color='b', alpha=0.2)
+            lgd23, = self.ax2.fill(np.NaN, np.NaN, 'b', alpha=0.2)  # dummy for legend
             ''' normalized escape rate '''
             lgd31, = self.ax3.plot(self.x,
-                                  self.y,
-                                  'r.',
-                                  label='$ \ln(\omega_0/2\pi\Gamma) $')
+                                   self.y,
+                                   'r.',
+                                   label='$ \ln(\omega_0/2\pi\Gamma) $')
+            #lgd32, = self.ax3.plot(self.x_fit,
+            #                       self.y_fit,
+            #                       'r-',
+            #                       label='fit')
             lgd32, = self.ax3.plot(self.x_fit,
-                                  self.y_fit,
-                                  'r-',
-                                  label='fit')
-            self.ax2.legend(((lgd21, lgd22), (lgd31, lgd32)), ('$ \Gamma $', '$ \ln(\omega_0/2\pi\Gamma) $'), loc='upper center')
+                                   unp.nominal_values(self.y_fit),
+                                   'r-',
+                                   label='fit')
+            self.ax3.fill_between(x=self.x_fit,
+                                  y1=unp.nominal_values(self.y_fit)-unp.std_devs(self.y_fit),
+                                  y2=unp.nominal_values(self.y_fit)+unp.std_devs(self.y_fit),
+                                  color='r', alpha=0.2)
+            lgd33, = self.ax3.fill(np.NaN, np.NaN, 'r', alpha=0.2)  # dummy for legend
+            self.ax2.legend(((lgd21, lgd22, lgd23), (lgd31, lgd32, lgd33)), ('$ \Gamma $', '$ \ln(\omega_0/2\pi\Gamma) $'), loc='upper center')
             plt.subplots_adjust(hspace=0)
             plt.show()
