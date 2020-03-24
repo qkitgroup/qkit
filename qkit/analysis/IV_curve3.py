@@ -659,9 +659,9 @@ class IV_curve3(object):
         if self.sweeptype == 0:  # halfswing
             ''' get x offset (for JJ voltage offset)'''
             #x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
-            x_offsets = np.nanmean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
-                                              std_devs=np.nanstd(x_const, axis=self.scan_dim)),
-                                   axis=0)
+            x_offsets = np.mean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
+                                           std_devs=np.nanstd(x_const, axis=self.scan_dim)),
+                                axis=0)
             ''' get y offset (for JJ current offset) '''
             if yr:  # retrapping y (for JJ retrapping current)
                 y_rs = np.array([np.nanmax(y_const[0], axis=(self.scan_dim-1)),
@@ -678,9 +678,9 @@ class IV_curve3(object):
         elif self.sweeptype == 1:  # 4 quadrants
             ''' get x offset '''
             #x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
-            x_offsets = np.nanmean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
-                                              std_devs=np.nanstd(x_const, axis=self.scan_dim)),
-                                   axis=0)
+            x_offsets = np.mean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
+                                           std_devs=np.nanstd(x_const, axis=self.scan_dim)),
+                                axis=0)
             ''' get y offset '''
             if yr:  # retrapping y (for JJ retrapping current)
                 y_rs = np.array([np.nanmax(y_const[1], axis=(self.scan_dim-1)),
@@ -697,9 +697,9 @@ class IV_curve3(object):
         else:  # custom sweeptype
             ''' get x offset '''
             #x_offsets = np.nanmean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
-            x_offsets = np.nanmean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
-                                              std_devs=np.nanstd(x_const, axis=self.scan_dim)),
-                                   axis=0)
+            x_offsets = np.mean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
+                                           std_devs=np.nanstd(x_const, axis=self.scan_dim)),
+                                axis=0)
             ''' get y offset '''
             if yr:  # retrapping y (for JJ retrapping current)
                 raise NotImplementedError('No algorithm implemented for custom sweeptype')
@@ -1659,10 +1659,10 @@ class IV_curve3(object):
             self.y_fit = self.fit_res[0]*self.x_fit+self.fit_res[1]
             self.Delta_I_fit = np.mean(np.gradient(self.x_fit))  # np.abs(np.max(self.x_fit)-np.min(self.x_fit))/(self.x_fit.size-1) #
             self.Gamma_fit = omega_0/(2*np.pi*unp.exp((self.fit_res[0]*self.x_fit+self.fit_res[1])**(3/2)))  # np.sum([p*self.x_fit**i for i, p in enumerate(self.popt[::-1])], axis=0)
-            self.P_fit = get_P(Gamma=self.Gamma_fit,
-                               Delta_I=self.Delta_I_fit,
-                               dIdt=self.dIdt,
-                               norm=alpha)
+            self.P_fit = get_P(_Gamma=self.Gamma_fit,
+                               _Delta_I=self.Delta_I_fit,
+                               _dIdt=self.dIdt,
+                               _norm=alpha)
             return dict2obj({'P': self.P,
                              'P_fit': self.P_fit,
                              'Gamma': self.Gamma,
