@@ -159,7 +159,8 @@ class instrument(object):
                 break
         return response
 
-    def _recv(self):
+    def _recv(self, **kwargs):
+        bufflen = kwargs.get("bufflen", self.chunk_size)
         response=''
         while True:
             resp=self.sock.recv(bufflen)
@@ -170,7 +171,7 @@ class instrument(object):
                 break
         return response
 
-    
+
     def _open_connection(self,**kwargs):
         # these calls should not be used any more
         self.ip = kwargs.get("ip",self.ip)
@@ -182,17 +183,17 @@ class instrument(object):
 
     def _close_connection(self):
         self.sock.close()
-        
+
     def _set_read(self):
         self._send("++read eoi")
-        
+
     def _set_saveconfig(self,On=False):
         # should not be used very frequently
         if On:
             self._send("++savecfg 1")
         else:
             self._send("++savecfg 0")
-            
+
     def _set_gpib_address(self,**kwargs):
         # GET GPIB address
         self.gpib_addr = kwargs.get("gpib_addr",self.gpib_addr)
@@ -207,7 +208,7 @@ class instrument(object):
         else:
             # device mode
             self._send("++mode 0")
-            
+
     def _set_read_after_write(self, On=True):
         if On:
             # Turn on read-after-write
@@ -221,14 +222,14 @@ class instrument(object):
         if timeout > 3:
             timeout = 3
         self._send("++read_tmo_ms "+str(timeout*1000))
-        
+
     def _set_EOI_assert(self,On=True): #
         # Assert EOI signal line with last byte to indicate end of data
         if On:
             self._send("++eoi 1\n")
         else:
             self._send("++eoi 0\n")
-            
+
     def _set_GPIB_EOS(self,EOS='\n'): # end of signal/string
         EOSs={'\r\n':0,'\r':1,'\n':2,'':3}
         self.sock.send("++eos"+EOSs.get(EOS)+"\n")
@@ -252,69 +253,58 @@ class instrument(object):
         bufflen=kwargs.get("bufflen",self.chunk_size)
         cmd=cmd.rstrip()
         cmd+=self.term_char
-        
+
         self._send(cmd)
         #self._set_read()
         return self.sock.recv(bufflen)
+
     def _get_spoll(self):
         cmd="++spoll"
         cmd=cmd.rstrip()
         cmd+=self.term_char
         self._send(cmd)
         return self.sock.recv(self.chunk_size)
-    
+
     def _get_status(self):
         cmd="++status 48"
         #cmd=cmd.rstrip()
         cmd+=self.term_char
         self._send(cmd)
         return self.sock.recv(self.chunk_size)
-    
+
     def _set_reset(self):
         # Reset Device GPIB endpoint
-        self._send("++rst")        
-       
+        self._send("++rst")
+
     def _set_GPIB_dev_reset(self):
         # Reset Device GPIB endpoint
-        self._send("*RST")        
-        
+        self._send("*RST")
+
     def _get_idn(self):
         return self._send_recv("*IDN?")
-    
+
     def _dump_internal_vars(self):
-        print "timeout"+ str(self.timeout) 
-        print "chunk_size"+ str(self.chunk_size) 
-        print "values_format"+ str(self.values_format) 
-        print "term_char"+ str(self.term_char) 
-        print "send_end"+ str(self.send_end) 
-        print "delay"+ str(self.delay)
-        print "lock"+str(self.lock)
-        print "gpib_addr"+ str(self.gpib_addr)
-        print "ip"+ str(self.ip)
-        print "ethernet_port"+ str(self.ethernet_port) 
+        print("timeout"+ str(self.timeout))
+        print("chunk_size"+ str(self.chunk_size))
+        print("values_format"+ str(self.values_format))
+        print("term_char"+ str(self.term_char))
+        print("send_end"+ str(self.send_end))
+        print("delay"+ str(self.delay))
+        print("lock"+str(self.lock))
+        print("gpib_addr"+ str(self.gpib_addr))
+        print("ip"+ str(self.ip))
+        print("ethernet_port"+ str(self.ethernet_port))
 
-
-    # generic error class
-    class Error(Exception):
-        def __init__(self, value):
-            self.value = value
-        def __str__(self):
-            return repr(self.value)
-    
     def CheckError(self):
         # check for device error
         self.sock.send("SYST:ERR?\n")
         self.sock.send("++read eoi\n")
-
         s = None
-
         try:
             s = self.sock.recv(100)
         except socket.timeout:
-            print "socket timeout"
+            print("socket timeout")
             s = ""
-        
-        except socket.error, e:
+        except socket.error as e:
             pass
-            
-        print "Prologix CheckError():", s
+        print("Prologix CheckError():{}".format(s))
