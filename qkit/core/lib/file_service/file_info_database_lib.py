@@ -59,7 +59,7 @@ class UUID_base(object):
         """
         return time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(self.get_time(uuid)))
 
-import traceback
+
 class file_system_service(UUID_base):
     h5_db = {}
     set_db = {}
