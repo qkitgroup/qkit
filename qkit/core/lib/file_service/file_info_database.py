@@ -395,7 +395,7 @@ class fid(file_system_service):
         
         :return: list of UUIDs
         """
-        if found_qgrid:
+        if self.found_qgrid:
             if len(self._selected_df) > 1:
                 return list(self._selected_df.index)
             else:
