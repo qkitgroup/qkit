@@ -83,13 +83,8 @@ import logging
 import time
 import json
 import numpy as np
+from distutils.version import LooseVersion
 
-try:
-    import pandas as pd
-    import qgrid as qd
-    found_qgrid = True
-except ImportError:
-    found_qgrid = False
 
 from qkit.core.lib.file_service.file_info_database_lib import file_system_service
 
@@ -105,6 +100,12 @@ class fid(file_system_service):
         # create initial database in the background. This can take a while...
         self.create_database()
         self._selected_df = []
+        try:
+            import pandas as pd
+            import qgrid as qd
+            self.found_qgrid = True
+        except ImportError:
+            self.found_qgrid = False
 
     history = property(lambda self: sorted(self.h5_db.keys()))
     
@@ -348,7 +349,11 @@ class fid(file_system_service):
         :return: data frame as qgrid object or pandas object
         """
         self.wait()
-        if found_qgrid:
+        if self.found_qgrid:
+            if LooseVersion(qd.__version__) < LooseVersion("1.3.0") and LooseVersion(pd.__version__) <= LooseVersion("1.0"):
+                logging.warning("qgrid < v1.3 is incompatible with pandas > v1.0. Check for a new version of qgrid or downgrade pandas to v0.25.3")
+                self.found_qgrid=False
+        if self.found_qgrid:
             from IPython.display import display
             import ipywidgets as widgets
             rows = [d for d in self.column_sorting if d in list(self.df.keys()) and d not in self.columns_ignore]
