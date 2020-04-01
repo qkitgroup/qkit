@@ -33,7 +33,7 @@ class instrument(object):
         self.timeout = kwargs.get("timeout",5)
         self.chunk_size = kwargs.get("chunk_size",20*1024)
         self.values_format = kwargs.get("values_format",'ascii') # fixme: single, double
-        self.term_char = kwargs.get("term_char",None)
+        self.term_char = kwargs.get("term_char",'\n')
         self.send_end = kwargs.get("send_end",True)
         self.delay = kwargs.get("delay",0)
         self.lock = kwargs.get("lock",False)
@@ -137,7 +137,7 @@ class instrument(object):
         cmd=cmd.rstrip()
         cmd+=self.term_char
         #self._set_read_after_write(False)
-        self.sock.send(cmd)
+        self.sock.send(cmd.encode())
         time.sleep(self.delay)
         
     def _send_recv(self,cmd,**kwargs):
@@ -151,7 +151,7 @@ class instrument(object):
 
         response=''
         while True:
-            resp=self.sock.recv(bufflen)
+            resp=self.sock.recv(bufflen).decode()
             if resp == '':
                 raise RuntimeError("socket connection broken")
             response+=resp
@@ -163,7 +163,7 @@ class instrument(object):
         bufflen = kwargs.get("bufflen", self.chunk_size)
         response=''
         while True:
-            resp=self.sock.recv(bufflen)
+            resp=self.sock.recv(bufflen).decode()
             if resp == '':
                 raise RuntimeError("socket connection broken")
             response+=resp
@@ -212,10 +212,10 @@ class instrument(object):
     def _set_read_after_write(self, On=True):
         if On:
             # Turn on read-after-write
-            self.sock.send("++auto 1\r\n")
+            self.sock.send("++auto 1\r\n".encode())
         else:
             # Turn off read-after-write to avoid "Query Unterminated" errors
-            self.sock.send("++auto 0\r\n")
+            self.sock.send("++auto 0\r\n".encode())
 
     def _set_read_timeout(self,**kwargs):
         timeout = kwargs.get("timeout",self.timeout)
@@ -232,17 +232,17 @@ class instrument(object):
 
     def _set_GPIB_EOS(self,EOS='\n'): # end of signal/string
         EOSs={'\r\n':0,'\r':1,'\n':2,'':3}
-        self.sock.send("++eos"+EOSs.get(EOS)+"\n")
+        self.sock.send("++eos"+EOSs.get(EOS)+"\n".encode())
 
     def _set_GPIB_EOT(self,EOT=False):
         # send at EOI an EOT (end of transmission) character ?
         if EOT:
-            self.sock.send("++eot_enable 1\n")
+            self.sock.send("++eot_enable 1\n".encode())
         else:
-            self.sock.send("++eot_enable 0\n")
+            self.sock.send("++eot_enable 0\n".encode())
     def _set_GPIB_EOT_char(self,EOT_char=42):
         # set the EOT character
-        self.sock.send("++eot_char"+EOT_char+"\n")
+        self.sock.send("++eot_char"+EOT_char+"\n".encode())
 
     def _set_ifc(self):
         self._send("++ifc")
@@ -297,8 +297,9 @@ class instrument(object):
 
     def CheckError(self):
         # check for device error
-        self.sock.send("SYST:ERR?\n")
-        self.sock.send("++read eoi\n")
+        self.sock.send("SYST:ERR?\n".encode())
+        self.sock.send("++read eoi\n".encode())
+
         s = None
         try:
             s = self.sock.recv(100)
