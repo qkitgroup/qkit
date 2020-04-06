@@ -39,7 +39,7 @@ class hdf_dataset(object):
                  ds_type = ds_types['vector'],
                  **meta):
         """Init the dataset object with case sensitive arguments"""
-        name = name.lower()
+        name = name.lower().replace(" ","_")
         self.hf = hdf_file
         self.x_object = x
         self.y_object = y
