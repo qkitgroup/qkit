@@ -186,7 +186,7 @@ class spectrum(object):
         # ttip.get_temperature()
         self._nop = self.vna.get_nop()
         self._sweeptime_averages = self.vna.get_sweeptime_averages()
-        if not self.landscape.xzlandscape_func: # normal scan
+        if self._scan_1D or not self.landscape.xzlandscape_func: # normal scan
             self._freqpoints = self.vna.get_freqpoints()
         else:
             self._freqpoints = self.landscape.get_freqpoints_xz()
@@ -438,6 +438,8 @@ class spectrum(object):
         if len(self.x_vec) * len(self.y_vec) == 0:
             logging.error('No points to measure given. Check your x ad y vector... aborting')
             return
+        if self.landscape.xzlandscape_func:  # The vna limits need to be adjusted, happens in the frequency wrapper
+            self.x_set_obj = self.landscape.vna_frequency_wrapper(self.x_set_obj)
 
         self._scan_1D = False
         self._scan_2D = False
@@ -874,8 +876,8 @@ class Landscape:
         else:
             multiplier = 1
         if z_span is not None:
-            self.z_span = z_span*multiplier
-            self.vna.set_span(z_span*multiplier)
+            self.z_span = z_span
+            self.vna.set_span(z_span)
         else:
             self.z_span = self.vna.get_span()
         x_fit = np.array(curve_p[0])
@@ -896,7 +898,7 @@ class Landscape:
                 else:
                     print('function type not known...aborting')
                     raise ValueError
-                popt, pcov = curve_fit(fit_fct, x_fit, z_fit / multiplier, p0=p0)
+                popt, pcov = curve_fit(fit_fct, x_fit, z_fit/multiplier, p0=p0)
                 self.xzlandscape_func = lambda x: multiplier * fit_fct(x, *popt)
 
             self.xz_freqpoints = np.arange(self.xzlandscape_func(self.x_vec[0])-self.z_span/2,
@@ -995,9 +997,10 @@ class Landscape:
         :return: the wrapped function
         """
         def vna_wrapper(x):
-            start_freq = self.xz_freqpoints[np.argmin(np.abs(self.xz_freqpoints-self.xzlandscape_func(x)))]
+            start_freq = self.xz_freqpoints[np.argmin(np.abs(self.xz_freqpoints -
+                                                             (self.xzlandscape_func(x)-self.z_span/2)))]
             self.vna.set_startfreq(start_freq)
-            # no need to adjust the stopfreq as the span and nop are kept constant
+            self.vna.set_span(self.z_span)
             x_set_obj(x)
         return vna_wrapper
 
