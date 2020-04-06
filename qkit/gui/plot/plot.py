@@ -322,9 +322,6 @@ class h5plot(object):
         y_data = np.array(self.y_ds)*10.**-self.y_exp
         y_min, y_max = np.amin(y_data), np.amax(y_data)
         dy = self.y_ds.attrs.get('dy', (y_data[-1]-y_data[0])/(len(y_data)-1))
-        z_data = np.array(self.z_ds)*10.**-self.z_exp
-        z_min, z_max = np.amin(z_data), np.amax(z_data)
-        dz = self.z_ds.attrs.get('dz', (z_data[-1]-z_data[0])/(len(z_data)-1))
 
         # downsweeps in any direction have to be corrected
         # this is triggered by dx/dy values < 0
