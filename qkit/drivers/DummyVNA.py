@@ -30,7 +30,7 @@ class DummyVNA(Instrument):
     """
     def __init__(self, name):
         Instrument.__init__(self, name, tags=['virtual'])
-        self.nop = 1000
+        self.nop = 1001
         self.startfreq = 4e9
         self.stopfreq = 5e9
         self.sweeptime_averages = 1
@@ -45,15 +45,17 @@ class DummyVNA(Instrument):
         self.add_function('post_measurement')
 
     def set_startfreq(self, startfreq):
-        self.starfreq = startfreq
-        self.stopfreq = startfreq + self.span
+        self.startfreq = startfreq
+        self.span = self.stopfreq - self.startfreq
+        self.centerfreq = (self.stopfreq + self.startfreq) / 2
 
     def get_startfreq(self):
         return self.startfreq
 
     def set_stopfreq(self, stopfreq):
         self.stopfreq = stopfreq
-        self.startfreq = stopfreq - self.span
+        self.span = self.stopfreq - self.startfreq
+        self.centerfreq = (self.stopfreq + self.startfreq) / 2
 
     def get_stopfreq(self):
         return self.stopfreq
@@ -62,6 +64,9 @@ class DummyVNA(Instrument):
         self.centerfreq = centerfreq
         self.startfreq = centerfreq - self.span / 2
         self.stopfreq = centerfreq + self.span / 2
+
+    def get_centerfreq(self):
+        return self.centerfreq
 
     def get_span(self):
         return self.span
