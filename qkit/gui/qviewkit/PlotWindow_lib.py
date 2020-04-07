@@ -207,6 +207,10 @@ def _display_1D_view(self, graphicsView):
             mousePoint = plVi.mapSceneToView(mpos)
             xval = mousePoint.x()
             yval = mousePoint.y()
+            if plIt.ctrl.logXCheck.isChecked():  # logarithmic scale on x axis
+                xval = 10**xval
+            if plIt.ctrl.logYCheck.isChecked():  # logarithmic scale on x axis
+                yval = 10 ** yval
             self.PointX.setText("X: %.6e %s" % (xval, units[0]))
             self.PointY.setText("Y: %.6e %s" % (yval, units[1]))
             
@@ -371,7 +375,10 @@ def _display_1D_data(self, graphicsView):
             mousePoint = plVi.mapSceneToView(mpos)
             xval = mousePoint.x()
             yval = mousePoint.y()
-            
+            if plIt.ctrl.logXCheck.isChecked():  # logarithmic scale on x axis
+                xval = 10**xval
+            if plIt.ctrl.logYCheck.isChecked():  # logarithmic scale on x axis
+                yval = 10 ** yval
             self.PointX.setText("X: %.6e %s" % (xval, units[0]))
             self.PointY.setText("Y: %.6e %s" % (yval, units[1]))
             
