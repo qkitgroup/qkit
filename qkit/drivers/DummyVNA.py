@@ -36,6 +36,7 @@ class DummyVNA(Instrument):
         self.sweeptime_averages = 1
         self.span = self.stopfreq - self.startfreq
         self.centerfreq = (self.startfreq + self.stopfreq) / 2
+        self._ready = False
         self.add_function('get_freqpoints')
         self.add_function('get_tracedata')
         self.add_function('get_sweeptime_averages')
@@ -85,10 +86,10 @@ class DummyVNA(Instrument):
     def get_freqpoints(self):
         return np.linspace(self.startfreq, self.stopfreq, self.nop)
 
-    def get_sweeptime_averages(self):
+    def get_sweeptime_averages(self,query=True):
         return self.sweeptime_averages
 
-    def get_sweeptime(self):
+    def get_sweeptime(self,query=True):
         return 1
 
     def get_averages(self):
@@ -130,7 +131,8 @@ class DummyVNA(Instrument):
         pass
 
     def ready(self):
-        return True
+        self._ready = not self._ready
+        return self._ready
 
     def avg_clear(self):
         pass
