@@ -663,18 +663,19 @@ class IV_curve3(object):
                                            std_devs=np.nanstd(x_const, axis=self.scan_dim)),
                                 axis=0)
             ''' get y offset (for JJ current offset) '''
+            #TODO: calculate std_devs correct
             if yr:  # retrapping y (for JJ retrapping current)
                 y_rs = np.array([np.nanmax(y_const[0], axis=(self.scan_dim-1)),
                                  np.nanmin(y_const[1], axis=(self.scan_dim-1))])
                 #y_offsets = np.mean(y_rs, axis=0)
                 y_offsets = unp.uarray(nominal_values=np.nanmean(y_rs, axis=0),
-                                       std_devs=np.nanstd(y_rs, axis=0))
+                                       std_devs=np.nanstd(np.abs(y_rs), axis=0))
             else:  # critical y (for JJ critical current)
                 y_cs = np.array([np.nanmin(y_const[0], axis=(self.scan_dim-1)),
                                  np.nanmax(y_const[1], axis=(self.scan_dim-1))])
                 #y_offsets = np.mean(y_cs, axis=0)
                 y_offsets = unp.uarray(nominal_values=np.nanmean(y_cs, axis=0),
-                                       std_devs=np.nanstd(y_cs, axis=0))
+                                       std_devs=np.nanstd(np.abs(y_cs), axis=0))
         elif self.sweeptype == 1:  # 4 quadrants
             ''' get x offset '''
             #x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
@@ -682,33 +683,35 @@ class IV_curve3(object):
                                            std_devs=np.nanstd(x_const, axis=self.scan_dim)),
                                 axis=0)
             ''' get y offset '''
+            #TODO: calculate std_devs correct
             if yr:  # retrapping y (for JJ retrapping current)
                 y_rs = np.array([np.nanmax(y_const[1], axis=(self.scan_dim-1)),
                                  np.nanmin(y_const[3], axis=(self.scan_dim-1))])
                 #y_offsets = np.mean(y_rs, axis=0)
                 y_offsets = unp.uarray(nominal_values=np.nanmean(y_rs, axis=0),
-                                       std_devs=np.nanstd(y_rs, axis=0))
+                                       std_devs=np.nanstd(np.abs(y_rs), axis=0))
             else:  # critical y (for JJ critical current)
                 y_cs = np.array([np.nanmax(y_const[0], axis=(self.scan_dim-1)),
                                  np.nanmin(y_const[2], axis=(self.scan_dim-1))])
                 #y_offsets = np.mean(y_cs, axis=0)
                 y_offsets = unp.uarray(nominal_values=np.nanmean(y_cs, axis=0),
-                                       std_devs=np.nanstd(y_cs, axis=0))
+                                       std_devs=np.nanstd(np.abs(y_cs), axis=0))
         else:  # custom sweeptype
             ''' get x offset '''
             #x_offsets = np.nanmean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
-            x_offsets = np.mean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
-                                           std_devs=np.nanstd(x_const, axis=self.scan_dim)),
-                                axis=0)
+            x_offsets = np.nanmean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
+                                              std_devs=np.nanstd(x_const, axis=self.scan_dim)),
+                                   axis=0)
             ''' get y offset '''
+            #TODO: calculate std_devs correct
             if yr:  # retrapping y (for JJ retrapping current)
                 raise NotImplementedError('No algorithm implemented for custom sweeptype')
             else:
-                y_cs = np.array([np.nanmax(y_const, axis=(self.scan_dim-1)),
-                                 np.nanmin(y_const, axis=(self.scan_dim-1))])
+                y_cs = np.array([np.nanmax(np.nanmax(y_const, axis=0), axis=self.scan_dim-1),
+                                 np.nanmin(np.nanmin(y_const, axis=0), axis=self.scan_dim-1)])
                 #y_offsets = np.mean(y_cs, axis=0)
                 y_offsets = unp.uarray(nominal_values=np.nanmean(y_cs, axis=0),
-                                       std_devs=np.nanstd(y_cs, axis=0))
+                                       std_devs=np.nanstd(np.abs(y_cs), axis=0))
         self.I_offsets, self.V_offsets = [x_offsets, y_offsets][::int(np.sign(self.bias - .5))]
         return self.I_offsets, self.V_offsets
 
@@ -1400,7 +1403,9 @@ class IV_curve3(object):
                                               np.logical_not(np.logical_and((-tol_offset+self.V_offset) <= np.mean(V_c1D[peak1D[0]+np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0),
                                                                             np.mean(V_c1D[peak1D[0]+np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0) <= (+tol_offset+self.V_offset)))),
                                V_c, peaks_c))
-            #return I_c, peaks_c, masks_c
+            if not np.all(np.any(masks_c, axis=1)):
+                for i in np.argwhere(~np.any(masks_c, axis=1)):
+                    masks_c[i.item()][1] = True
             #I_cs = np.array(list(map(lambda I_c1D, peak1D, masks_c1D:
             #                         I_c1D[peak1D[0][masks_c1D][0]],
             #                         I_c, peaks_c, masks_c)),
@@ -1417,6 +1422,9 @@ class IV_curve3(object):
                                               np.logical_and((-tol_offset+self.V_offset) <= np.mean(V_r1D[peak1D[0]+np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0),
                                                              np.mean(V_r1D[peak1D[0]+np.tile([np.arange(int(window)//2)+1], [len(peak1D[0]), 1]).T], axis=0) <= (+tol_offset+self.V_offset))),
                                V_r, peaks_r))
+            if not np.all(np.any(masks_r, axis=1)):
+                for i in np.argwhere(~np.any(masks_r, axis=1)):
+                    masks_r[i.item()][0] = True
             #I_rs = np.array(list(map(lambda I_r1D, peak1D, masks_r1D:
             #                         I_r1D[peak1D[0][masks_r1D][0]+1],
             #                         I_r, peaks_r, masks_r)),
