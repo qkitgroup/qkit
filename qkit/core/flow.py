@@ -21,7 +21,6 @@
 
 import logging
 import time
-from gettext import gettext as _L
 from qkit.core.lib.misc import exact_time, get_traceback
 
 
@@ -223,7 +222,7 @@ class FlowControl(object):
             self._abort = False
             #self.emit('stop-request') 
             self.measurement_end(abort=True)
-            raise ValueError(_L('Human abort'))
+            raise ValueError('Human abort')
 
     def set_abort(self):
         '''Request an abort.'''

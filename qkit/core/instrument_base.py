@@ -24,7 +24,6 @@ import copy
 import time
 import math
 import inspect
-from gettext import gettext as _L
 from qkit.core.lib import calltimer
 
 import numpy as np
@@ -734,7 +733,7 @@ class Instrument(object):
 
         if Instrument.USE_ACCESS_LOCK:
             if not self._access_lock.acquire():
-                logging.warning(_L('Failed to acquire lock!'))
+                logging.warning('Failed to acquire lock!')
                 return None
 
         if fast:
@@ -993,7 +992,7 @@ class Instrument(object):
 
         if Instrument.USE_ACCESS_LOCK:
             if not self._access_lock.acquire():
-                logging.warning(_L('Failed to acquire lock!'))
+                logging.warning('Failed to acquire lock!')
                 return None
 
         result = True
