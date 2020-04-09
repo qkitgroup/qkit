@@ -18,14 +18,13 @@
 
 from qkit.core.instrument_base import Instrument
 import socket
-import dpkt
 import struct
 import threading
-import Queue
-#import numpy
-#import time
+try:
+    import Queue
+except ImportError:
+    import queue as Queue
 
-#import visa
 import types
 import logging
 

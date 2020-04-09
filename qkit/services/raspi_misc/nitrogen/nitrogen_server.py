@@ -42,7 +42,10 @@ GPIO.output(OUTPUT, GPIO.LOW)   #switch on by default THIS RELAY IS INVERSE!
 GPIO.setup(SWITCH, GPIO.OUT)
 GPIO.output(SWITCH, GPIO.LOW)   #manual switch is off per default
 
-import SocketServer
+try:
+    import SocketServer
+except ImportError:
+    import socketserver as SocketServer
 from threading import Thread
 from sendMail import *
 
