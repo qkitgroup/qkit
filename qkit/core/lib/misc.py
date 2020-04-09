@@ -1,12 +1,7 @@
 import numpy as np
-import types
 import sys
 import time
 
-try:
-    from StringIO import StringIO
-except ImportError:
-        from io import StringIO
 
 def dict_to_ordered_tuples(dic):
     '''Convert a dictionary to a list of tuples, sorted by key.'''
@@ -74,14 +69,6 @@ def exact_time():
             _time_func = time.time
 
     return _time_func()
-
-def usleep(usec):
-    '''
-    Sleep for usec microseconds.
-    '''
-    start = exact_time()
-    while (exact_time() - start) * 1e6 < usec:
-        pass
 
 def get_ipython():
     import IPython
