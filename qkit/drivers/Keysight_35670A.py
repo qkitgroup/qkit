@@ -43,8 +43,8 @@ class Keysight_35670A(instrument, Instrument):
         Instrument.__init__(self, name, tags=['physical'])
 
         self.data_type = {'power': 'XFR:POW', 'linear': 'XFR:POW:LIN',
-                     'coherence': 'XFR:POW:COH', 'cross': 'XFR:POW:CROS',
-                     'time': 'XTIM:VOLT'}
+                          'coherence': 'XFR:POW:COH', 'cross': 'XFR:POW:CROS',
+                          'time': 'XTIM:VOLT', 'histogram': 'XTIM:VOLT:HIST'}
         self.inv_data_type = {v: k for k, v in self.data_type.items()}
 
         # Implement parameters
@@ -360,16 +360,16 @@ class Keysight_35670A(instrument, Instrument):
             reply.append(self.ask('SENS:VOLT{}:DC:RANGE?'.format(i)))
         return reply
 
-    def set_autorange(self, mode, channel = [1,2]):
+    def set_autorange(self, mode, channel=[1,2]):
         """turns (1) on or off (0) the range of the chosen channel to auto"""
         for i in channel:
-            self.write('sens:volt{}:dc:range:auto {}'.format(i, mode))
+            self.write('sens:volt{}:dc:range:auto {}'.format(i, int(mode)))
 
     def get_autorange(self, channels=[1,2]):
         """gets the autorange for specified channel; 1 is on 0 is off"""
         reply = []
         for i in channels:
-            reply.append(self.ask('sens:volt[}:dc:range:auto?'.format(i)))
+            reply.append(bool(self.ask('sens:volt{}:dc:range:auto?'.format(i))[1]))  # remove newline and + before by[1]
         return reply
 
     def set_display_format(self, number):
@@ -398,7 +398,7 @@ class Keysight_35670A(instrument, Instrument):
         if you want the complex values [no power averaging here]), cross spectrum (i.e. FFT(covariance ch1/ch2)),
         time record. coherence (you have to look that up yourself). If you want to have the unfiltered timetrace,
         you have to set the instrument into histogram mode first.
-        :param option: (str) 'power', 'linear, 'coherence', 'cross', 'time'
+        :param option: (str) 'power', 'linear, 'coherence', 'cross', 'time', 'histogram'
         :param channel: input channel (1 or 2), for cross spectrum and coherence, both channels are used (input '1,2')
         :param trace: trace to be displayed (1 to 4)
         :return: None
@@ -501,20 +501,19 @@ class Keysight_35670A(instrument, Instrument):
                 self.set_averages(1)
                 self.do_set_repeat_averaging(0)
                 self.start_measurement()  # device only sets new x-axis when new measurement has ended
+                qkit.flow.sleep(0.05)
                 while not self.ready():  # but spectroscopy asks for x-values before meausurment is started
-                    pass
+                    qkit.flow.sleep(0.1)
             self.x_values=np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float16, sep=',')
             self.set_averages(self.averages)
             return self.x_values[0:self.get_nop()]
         elif self.instrument_mode == 'histogram':
             if self.frequency_changed:
-                self.set_averages(1)
-                self.do_set_repeat_averaging(0)
-                self.start_measurement() # device only sets new x-axis when new measurement has ended
-                while not self.ready(): # but spectroscopy asks for x-values before meausurment is started
-                    pass
+                self.start_measurement()  # device only sets new x-axis when new measurement has ended
+                qkit.flow.sleep(0.05)
+                while not self.ready():  # but spectroscopy asks for x-values before meausurment is started
+                    qkit.flow.sleep(0.1)
             self.x_values = np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float16, sep=',')
-            self.set_averages(self.averages)
             return self.x_values
         else:
             self.x_values = np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float16, sep=',')
