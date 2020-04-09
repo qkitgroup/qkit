@@ -104,11 +104,6 @@ cfg['stdout_log_level'] = 'WARNING'
 cfg['qtlab'] = False
 
 ##
-## Try to be compatible with QT lab 
-## (by default we try to be compatible for now)
-#cfg['qt_compatible'] = True 
-
-##
 ## To avoid huge log files, logfile maintainance is on per default.
 ## This keeps only the latest 10 logfiles in your logdir.
 #cfg['maintain_logiles'] = True
