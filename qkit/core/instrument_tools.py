@@ -26,6 +26,7 @@ import qkit.core.instrument_base as instrument
 
 #from qkit.core.insproxy import Proxy
 import importlib
+from imp import reload  # this is needed for py3
 
 
 from qkit.core.lib.misc import get_traceback
@@ -240,13 +241,7 @@ class Insttools(object):
         if module is None:
             return self._create_invalid_ins(name, instype, **kwargs)
             
-        # FIXME: Using reload() is a bad style in the orig. qt code. However lets bugfix it anyway
-        try:
-            reload(module)
-        except NameError as e:
-            # python 3.4+
-            from importlib import reload as localreload
-            localreload(module)
+        reload(module)
 
         insclass = getattr(module, instype, None)
         if insclass is None:

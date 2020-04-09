@@ -1148,17 +1148,16 @@ class Instrument(object):
 
     def reload(self):
         '''
-        Signal the Instruments collection object to reload this instrument.
-
-        Note that this function does not return anything! The preferred
-        function to use is Instruments.reload(ins); see that for more details.
+        Reloads the instrument. Make sure to only use the new instance
+        of the instrument, which is returned here!
 
         Input:
             None
         Output:
-            None
+            New instance of instrument
         '''
-        #self.emit('reload') # YS: try to get rid of 32bit gobject from pygtk
+        logging.warning("No warranty on reloads. Make sure to re-assign the instrument as \n %s = %s.reload()"%(self._name,self._name))
+        return qkit.instruments.reload(self)
 
     def _get_not_implemented(self, name):
         logging.warning('Get not implemented for %s.%s' % \
