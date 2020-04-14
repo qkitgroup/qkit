@@ -11,7 +11,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys, gc
 from copy import copy
-import logging
 
 
 class IQ_Mixer(Instrument):
@@ -221,14 +220,14 @@ class IQ_Mixer(Instrument):
             xold = x
             yold = y
             x = opt.minimize_scalar(lambda x: self.dcoptimize([x, y]), method='golden', tol=0.1).x
-            if (verbose): print " %.3f  (%.3f) %.2fdBm" % (x, y, self.dcoptimize([x, y]))
+            if (verbose): print(" %.3f  (%.3f) %.2fdBm" % (x, y, self.dcoptimize([x, y])))
             sys.stdout.flush()
             y = opt.minimize_scalar(lambda y: self.dcoptimize([x, y]), method='golden', tol=0.1).x
-            if (verbose): print "(%.3f)  %.3f  %.2fdBm" % (x, y, self.dcoptimize([x, y]))
+            if (verbose): print("(%.3f)  %.3f  %.2fdBm" % (x, y, self.dcoptimize([x, y])))
             sys.stdout.flush()
             if (np.around(xold - x, 3) == 0 and np.around(yold - y, 3) == 0):
-                if (verbose): print "Finished after %i iterations with delta x: %.5f delta y: %.5f" % (
-                i + 1, xold - x, yold - y)
+                if (verbose): print("Finished after %i iterations with delta x: %.5f delta y: %.5f" % (
+                    i + 1, xold - x, yold - y))
                 break
         return [x, y]
 
@@ -263,7 +262,7 @@ class IQ_Mixer(Instrument):
             The bounds are not really hard: if this function leaves your bounds, you should increase initial stepsize and initial averages
         '''
         if hardbounds:
-            print "HARDBOUNDS is no longer supported, use bounds=(lowe,upper) instead!"
+            print("HARDBOUNDS is no longer supported, use bounds=(lowe,upper) instead!")
         if confirmonly:
             stepsize = min_stepsize
             x = (start + stop) / 2
@@ -271,7 +270,7 @@ class IQ_Mixer(Instrument):
         else:
             stepsize = init_stepsize
             x = self.findmin(function, start, stop, stepsize, verbose, initial_averages)
-            if (verbose): print "stepsize was %f, minimum detected at %f" % (init_stepsize, x)
+            if (verbose): print("stepsize was %f, minimum detected at %f" % (init_stepsize, x))
             if (x == start):
                 x = start - 3 * stepsize
             elif (x == stop):
@@ -282,7 +281,7 @@ class IQ_Mixer(Instrument):
             xold = x
             x = self.findmin(function, max(bounds[0], x - 3 * stepsize), min(bounds[1], x + 3 * stepsize), stepsize,
                              verbose, initial_averages)
-            if (verbose): print "stepsize was %f, minimum detected at %f" % (stepsize, x)
+            if (verbose): print("stepsize was %f, minimum detected at %f" % (stepsize, x))
             if (x == xold - 3 * stepsize):
                 x -= 2 * stepsize
             elif (x == xold + 3 * stepsize):
@@ -293,7 +292,7 @@ class IQ_Mixer(Instrument):
                 if (stepsize == min_stepsize):
                     break
                 stepsize = max(stepsize / 5, min_stepsize)
-        if (verbose): print "Finishing with stepsize %f" % (stepsize)
+        if (verbose): print("Finishing with stepsize %f" % (stepsize))
         x = self.findmin(function, max(bounds[0], x - 2 * stepsize), min(bounds[1], x + 2 * stepsize), stepsize,
                          verbose, final_averages)
         return (x, function(x))
@@ -347,7 +346,7 @@ class IQ_Mixer(Instrument):
 
     def recalibrate(self, dcx, dcy, x, y, phaseoffset, relamp, relamp2):
         self.cache_valid = False
-        if self._swb != None:  # switching to fsup
+        if self._swb is not None:  # switching to fsup
             self._swb.set_position('2')
         else:
             logging.warning(
@@ -365,15 +364,15 @@ class IQ_Mixer(Instrument):
         self._sample.awg.set({'ch1_output': 0, 'ch2_output': 0, 'runmode': 'CONT'})
         self._sample.qubit_mw_src.set({'frequency': mw_freq, 'power': self._mw_power, 'status': 1})
 
-        print "Recalibrating %s for Frequency: %.2fGHz (MW-Freq: %.2fGHz), MW Power: %.2fdBm" % (
-        self.mixer_name, self._sideband_frequency / 1e9, mw_freq / 1e9, self._mw_power)
+        print("Recalibrating %s for Frequency: %.2fGHz (MW-Freq: %.2fGHz), MW Power: %.2fdBm" % (
+            self.mixer_name, self._sideband_frequency / 1e9, mw_freq / 1e9, self._mw_power))
         sys.stdout.flush()
         frequencies = [mw_freq - 3 * self._iq_frequency, mw_freq - 2 * self._iq_frequency, mw_freq - self._iq_frequency,
                        mw_freq, mw_freq + self._iq_frequency, mw_freq + 2 * self._iq_frequency,
                        mw_freq + 3 * self._iq_frequency]
         self.focus(mw_freq, 1)
         self.load_zeros()
-        print "Optimizing DC offsets to reduce leakage when there is no pulse"
+        print("Optimizing DC offsets to reduce leakage when there is no pulse")
         (xold, yold) = (np.inf, np.inf)
         while (np.all(np.around((dcx, dcy), 3) != np.around((xold, yold), 3))):
             (xold, yold) = (dcx, dcy)
@@ -387,7 +386,7 @@ class IQ_Mixer(Instrument):
             optimized = [(self.focus(frequencies[i], 1), self._fsup.get_marker_level(1))[1] for i in
                          range(len(frequencies))]
             optimized_old = [np.inf, np.inf, np.inf, np.inf]
-            print "iterating"
+            print("iterating")
             while (optimized_old[2] - optimized[2] > 1 or optimized_old[3] - optimized[3] > 1):
                 print ".",
                 sys.stdout.flush()
@@ -416,13 +415,14 @@ class IQ_Mixer(Instrument):
             optimized = [(self.focus(frequencies[i], 1),
                           np.mean([(self._fsup.sweep(), self._fsup.get_marker_level(1))[1] for j in range(5)]))[1] for i
                          in range(len(frequencies))]
-        print "Parameters: DC x: %.1fmV, DC y: %.1fmV AC x: %.1fmV, AC y: %.1fmV phase: %.1fdegree Amplitude: %.3fVpp/%.3fVpp" % (
-        dcx * 1e3, dcy * 1e3, x * 1e3, y * 1e3, phaseoffset * 180 / np.pi, relamp, relamp2)
-        print "Your Sideband has a power of %.3fdBm, Leakage is %.2fdB lower, other sideband is %.2fdB lower.\nThe largest of the higher harmonics is %.2fdB lower." % (
-        optimized[4], optimized[4] - optimized[3], optimized[4] - optimized[2], np.max((optimized[4] - optimized[0],
-                                                                                        optimized[4] - optimized[1],
-                                                                                        optimized[4] - optimized[4],
-                                                                                        optimized[5] - optimized[6])))
+        print("Parameters: DC x: %.1fmV, DC y: %.1fmV AC x: %.1fmV, AC y: %.1fmV phase: %.1fdegree Amplitude: %.3fVpp/%.3fVpp" % (
+            dcx * 1e3, dcy * 1e3, x * 1e3, y * 1e3, phaseoffset * 180 / np.pi, relamp, relamp2))
+        print(
+                "Your Sideband has a power of %.3fdBm, Leakage is %.2fdB lower, other sideband is %.2fdB lower.\nThe largest of the higher harmonics is %.2fdB lower." % (
+                    optimized[4], optimized[4] - optimized[3], optimized[4] - optimized[2], np.max((optimized[4] - optimized[0],
+                                                                                                    optimized[4] - optimized[1],
+                                                                                                    optimized[4] - optimized[4],
+                                                                                                    optimized[5] - optimized[6]))))
         data = np.array([np.append(
             (self._f_rounded, mw_freq, self._mw_power, time.time(), dcx, dcy, x, y, phaseoffset, relamp, relamp2),
             optimized)])
@@ -445,7 +445,7 @@ class IQ_Mixer(Instrument):
         plt.ylabel('Power (dBm)')
         plt.grid()
 
-        if self._swb != None:  # switching back
+        if self._swb is not None:  # switching back
             self._swb.set_position('1')
         # reset awg
         [self._sample.awg.set({'ch%i_amplitude' % i: 2, 'ch%i_offset' % i: 0}) for i in (1, 2)]
@@ -459,12 +459,13 @@ class IQ_Mixer(Instrument):
             for index, t in enumerate(storedvalues):
                 if t[0] == self._f_rounded and t[1] == mw_freq and t[2] == self._mw_power:
                     todelete = np.append(todelete, index)
-                    print "\nLast time (%s), there have been the following values:" % (time.ctime(t[3]))
-                    print "Parameters: DC x: %.1fmV, DC y: %.1fmV phase: %.1fdegree Amplitude: %.3fVpp/%.3fVpp" % (
-                    t[6] * 1e3, t[7] * 1e3, t[8] * 180 / np.pi, t[9], t[10])
-                    print "Your Sideband had a power of %.3fdBm, Leakage was %.2fdB lower, other sideband was %.2fdB lower.\nThe largest of the higher harmonics was %.2fdB lower." % (
-                    t[15], t[15] - t[14], t[15] - t[13],
-                    np.max((t[15] - t[11], t[15] - t[12], t[15] - t[16], t[15] - t[17])))
+                    print("\nLast time (%s), there have been the following values:" % (time.ctime(t[3])))
+                    print("Parameters: DC x: %.1fmV, DC y: %.1fmV phase: %.1fdegree Amplitude: %.3fVpp/%.3fVpp" % (
+                        t[6] * 1e3, t[7] * 1e3, t[8] * 180 / np.pi, t[9], t[10]))
+                    print(
+                            "Your Sideband had a power of %.3fdBm, Leakage was %.2fdB lower, other sideband was %.2fdB lower.\nThe largest of the higher harmonics was %.2fdB lower." % (
+                                t[15], t[15] - t[14], t[15] - t[13],
+                                np.max((t[15] - t[11], t[15] - t[12], t[15] - t[16], t[15] - t[17]))))
 
             storedvalues = np.delete(storedvalues, todelete, axis=0)
 
@@ -483,7 +484,7 @@ class IQ_Mixer(Instrument):
             raise ValueError((
                                  'FSUP is possibly not connected. \nIncrease trust_region and maxage to interpolate values or connect FSUP and execute connect_FSUP(fsup)'))
 
-        if self._swb != None:  # switching to fsup
+        if self._swb is not None:  # switching to fsup
             self._swb.set_position('2')
         else:
             logging.warning(
@@ -499,8 +500,8 @@ class IQ_Mixer(Instrument):
         self._sample.awg.set({'ch1_output': 0, 'ch2_output': 0, 'runmode': 'CONT'})
         self._sample.qubit_mw_src.set({'frequency': mw_freq, 'power': self._mw_power, 'status': 1})
 
-        print "Starting an initial calibration of %s for Frequency: %.2fGHz (MW-Freq: %.2fGHz), MW Power: %.2fdBm" % (
-        self.mixer_name, self._sideband_frequency / 1e9, mw_freq / 1e9, self._mw_power)
+        print("Starting an initial calibration of %s for Frequency: %.2fGHz (MW-Freq: %.2fGHz), MW Power: %.2fdBm" % (
+            self.mixer_name, self._sideband_frequency / 1e9, mw_freq / 1e9, self._mw_power))
         sys.stdout.flush()
         frequencies = [mw_freq - 3 * self._iq_frequency, mw_freq - 2 * self._iq_frequency, mw_freq - self._iq_frequency,
                        mw_freq, mw_freq + self._iq_frequency, mw_freq + 2 * self._iq_frequency,
@@ -508,7 +509,7 @@ class IQ_Mixer(Instrument):
         self.focus(mw_freq, 1)
         self.load_zeros()
         (xold, yold) = (np.inf, np.inf)
-        print "Finding initial values for DC offsets to reduce leakage when there is no pulse"
+        print("Finding initial values for DC offsets to reduce leakage when there is no pulse")
         dcx = self.minimize(self.xoptimize, -.02, .02, .01, 5e-3, final_averages=1)[0]
         dcy = self.minimize(self.yoptimize, -.02, .02, .01, 5e-3, final_averages=1)[0]
         while (np.all(np.around((dcx, dcy), 3) != np.around((xold, yold), 3))):
@@ -518,7 +519,7 @@ class IQ_Mixer(Instrument):
             dcy = self.minimize(self.yoptimize, dcy - .002, dcy + .002, .002, 1e-3, final_averages=3, confirmonly=True)[
                 0]
         if not self._iq_frequency == 0:
-            print "Finding initial values for Sine and Cosine waveform parameters"
+            print("Finding initial values for Sine and Cosine waveform parameters")
             self.load_wfm(sin_phase=phaseoffset, update_channels=(True, True), relamp=2, relamp2=2, init=True)
             self.focus(mw_freq, 1)
             (xold, yold) = (0, 0)
@@ -536,7 +537,7 @@ class IQ_Mixer(Instrument):
             phaseoffset = self.minimize(self.phaseoptimize, 0, 1, .2, 5e-3, final_averages=1)[0]
         else:
             x, y, phaseoffset, relamp, relamp2 = 0, 0, 0, 1, 1
-        print "Initial parameterset found, starting optimization..."
+        print("Initial parameterset found, starting optimization...")
         return self.recalibrate(dcx, dcy, x, y, phaseoffset, relamp, relamp2)
 
     def _validate_iq_setting(self):
@@ -551,7 +552,7 @@ class IQ_Mixer(Instrument):
             if np.abs(samples_per_1_iqfreq) < 4:
                 raise ValueError('samples per iq frequency too small')
             while round(self._sample.iq_frequency, -4) != self._sample.iq_frequency:
-                print self._sample.iq_frequency
+                print(self._sample.iq_frequency)
                 samples_per_1_iqfreq = float(self._sample.clock) / self._sample.iq_frequency - 1
                 if samples_per_1_iqfreq < 4:
                     raise ValueError('samples per iq frequency too small')
@@ -573,11 +574,11 @@ class IQ_Mixer(Instrument):
         interpol_freqspan = np.max(
             (self.interpol_freqspan, self.trust_region)) / 2  # Half of the span in each direction
 
-        if frequency == None:
+        if frequency is None:
             frequency = self._sample.f01
-        if power == None:
+        if power is None:
             power = self._sample.mw_power
-        if iq_frequency == None:
+        if iq_frequency is None:
             iq_frequency = self._sample.iq_frequency
         self.do_set_sideband_frequency(frequency)
         self.do_set_mw_power(power)
@@ -600,8 +601,8 @@ class IQ_Mixer(Instrument):
                 if t[0] == self._sideband_frequency and t[1] == self._sideband_frequency - self._iq_frequency and t[
                     2] == self._mw_power:
                     if time.time() - t[3] > self.maxage or recalibrate:  # Calibration is too old
-                        print "recalibrating because calibration is too old (%.2f days ago)" % (
-                                    (time.time() - t[3]) / 24 / 3600)
+                        print("recalibrating because calibration is too old (%.2f days ago)" % (
+                            (time.time() - t[3]) / 24 / 3600))
                         return self.recalibrate(t[4], t[5], t[6], t[7], t[8], t[9], t[10])
                     else:
                         # print "returning known values"
@@ -627,15 +628,15 @@ class IQ_Mixer(Instrument):
                         right_border = index
             if NeedForInterpolation:
                 if left_border == -np.inf:  # Within interpol_freqspan, only higher calibrated frequencies could be found
-                    print "initial calibration for this frequency required, because only higher frequencies are calibrated yet."
+                    print("initial calibration for this frequency required, because only higher frequencies are calibrated yet.")
                     self._f_rounded = np.floor(self._sideband_frequency / 1e4) * 1e4 - 100e6
-                    return self.initial_calibrate()
+                    return self.initial_calibrate
                 if right_border == +np.inf:  # same for lower frequencies
-                    print "initial calibration for this frequency required, because only lower frequencies are calibrated yet."
+                    print("initial calibration for this frequency required, because only lower frequencies are calibrated yet.")
                     self._f_rounded = np.ceil(self._sideband_frequency / 1e4) * 1e4 + 100e6
-                    return self.initial_calibrate()
+                    return self.initial_calibrate
                 if (left_border == right_border):
-                    print "Same frequency for different powers found"
+                    print("Same frequency for different powers found")
                     return self.recalibrate(storedvalues[left_border][4], storedvalues[left_border][5],
                                             storedvalues[left_border][6], storedvalues[left_border][7],
                                             storedvalues[left_border][8], storedvalues[left_border][9],
@@ -651,7 +652,7 @@ class IQ_Mixer(Instrument):
                     # print "using interpolated values"
                     return interpolated
                 else:
-                    print "recalibrate interpolated values"
+                    print("recalibrate interpolated values")
                     if storedvalues[right_border][0] - self._sideband_frequency > self._sideband_frequency - \
                             storedvalues[left_border][0]:  # sideband_frequency is closer to left border
                         self._f_rounded = np.ceil(self._sideband_frequency / 1e3) * 1e3
@@ -660,7 +661,7 @@ class IQ_Mixer(Instrument):
                     return self.recalibrate(interpolated[4], interpolated[5], interpolated[6], interpolated[7],
                                             interpolated[8], interpolated[9], interpolated[10])
             else:
-                print "initial calibration for this frequency required. Think about using the interpol_freqspan option!"
+                print("initial calibration for this frequency required. Think about using the interpol_freqspan option!")
                 return self.initial_calibrate()
 
         except IOError:
@@ -673,7 +674,7 @@ class IQ_Mixer(Instrument):
             if self._sideband_frequency != np.round(self._sideband_frequency,
                                                     -3):  # If we only calibrate the rounded frequency, we will get problems later, because there is nothing to interpolate against
                 self._f_rounded = np.floor(self._sideband_frequency / 1e3) * 1e3
-                dcx, dcy, x, y, phaseoffset, relamp, relamp2 = self.initial_calibrate()[4:11]
+                dcx, dcy, x, y, phaseoffset, relamp, relamp2 = self.initial_calibrate[4:11]
                 self._f_rounded = np.ceil(self._sideband_frequency / 1e3) * 1e3
             return self.recalibrate(dcx, dcy, x, y, phaseoffset, relamp, relamp2)
 
