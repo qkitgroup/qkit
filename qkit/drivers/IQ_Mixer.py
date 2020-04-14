@@ -8,7 +8,8 @@ import types
 import logging
 import os
 import numpy as np
-import matplotlib.pyplot as plt
+if qkit.module_available("matplotlib"):
+    import matplotlib.pyplot as plt
 import sys, gc
 from copy import copy
 
@@ -250,7 +251,7 @@ class IQ_Mixer(Instrument):
             for i in range(averages):
                 b[u] += function(v)
         b = b / averages
-        if (plot):
+        if plot and qkit.module_available("matplotlib"):
             plt.plot(a, b, "k*-")
             plt.show()
         return a[b.argmin()]
@@ -440,10 +441,11 @@ class IQ_Mixer(Instrument):
         sweeptime = self._fsup.get_sweeptime()
         self._fsup.sweep()
         qkit.flow.sleep(sweeptime)
-        plt.plot(self._fsup.get_frequencies() / 1e9, self._fsup.get_trace())
-        plt.xlabel('Frequency (GHz)')
-        plt.ylabel('Power (dBm)')
-        plt.grid()
+        if qkit.module_available("matplotlib"):
+            plt.plot(self._fsup.get_frequencies() / 1e9, self._fsup.get_trace())
+            plt.xlabel('Frequency (GHz)')
+            plt.ylabel('Power (dBm)')
+            plt.grid()
 
         if self._swb is not None:  # switching back
             self._swb.set_position('1')

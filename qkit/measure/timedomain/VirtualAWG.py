@@ -17,13 +17,15 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import numpy as np
-import matplotlib.pyplot as plt
 from ipywidgets import interact, widgets, Layout
 import logging
 
+import qkit
 import qkit.measure.timedomain.pulse_sequence as ps
 import qkit.measure.timedomain.awg.load_tawg as load_tawg
 
+if qkit.module_available("matplotlib"):
+    import matplotlib.pyplot as plt
 
 
 class TdChannel(object):
@@ -190,6 +192,9 @@ class TdChannel(object):
             x_unit: x_unit for the time axis
             bounds: boundaries for the plot (xmin, xmax, ymin, ymax)
         """
+        if not qkit.module_available("matplotlib"):
+            raise ImportError("matplotlib not found.")
+        
         if plot_readout:
             fig = plt.figure(figsize = (18, 6))
         xmin, xmax, ymin, ymax = bounds
@@ -442,6 +447,9 @@ class VirtualAWG(object):
             bounds:          boundaries of the plot (xmin, xmax, ymin, ymax)
             show_quadrature: set to "I" or "Q" if you want to display either quadrature instead of the amplitude
         """
+        if not qkit.module_available("matplotlib"):
+            raise ImportError("matplotlib not found.")
+
         fig = plt.figure(figsize=(18,6))
         xmin, xmax, ymin, ymax = bounds
         samplerate = self._sample.clock

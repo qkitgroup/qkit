@@ -38,7 +38,18 @@ usage:
 #\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=
 
 import numpy as np
-import matplotlib.pyplot as plt
+plot_enable = False
+try:
+    import qkit
+    if qkit.module_available("matplotlib"):
+        import matplotlib.pyplot as plt
+        plot_enable = True
+except (ImportError, AttributeError):
+    try:
+        import matplotlib.pyplot as plt
+        plot_enable = True
+    except ImportError:
+        plot_enable = False
 from scipy.optimize import curve_fit
 import scipy.interpolate
 import os, glob
@@ -107,6 +118,7 @@ class QFIT(object):
         except ImportError:
             logging.warning('Package store not found.')
             self.cfg['store'] = False
+        self.cfg['matplotlib'] = plot_enable
 
     # fit function definitions --------------------------------------------------------------------------------------
 
@@ -466,7 +478,7 @@ class QFIT(object):
             errs /= maxv
         
         #gauss plane plot
-        if self.cfg['show_complex_plot']:
+        if self.cfg['show_complex_plot'] and self.cfg['matplotlib']:
             if len(self.c_raw.shape) > 1:
                 plt.figure(figsize=(10,13))
                 ax1 = plt.subplot2grid((4, 1), (0, 0))
@@ -830,7 +842,7 @@ class QFIT(object):
 
             self.fvalues = self.fit_function(self.x_vec * self.freq_conversion_factor, *self.popt)
             #plot
-            if self.cfg['show_plot'] or self.cfg['save_png'] or self.cfg['save_pdf']:
+            if (self.cfg['show_plot'] or self.cfg['save_png'] or self.cfg['save_pdf']) and self.cfg['matplotlib']:
                 if self.fit_function == self.__f_exp:
                     #create pair of regular and logarithmic plot
                     self.fig, self.axes = plt.subplots(1, 2, figsize=(15,4))
@@ -860,11 +872,11 @@ class QFIT(object):
                     self.fig.suptitle(str(['{:s} = {:.4g}'.format(p, entry) for p, entry in zip(self.__get_parameters(self.fit_function), self.popt)]))
                     self.parameter_list = self.__get_parameters(self.fit_function)
                 self.fig.tight_layout(rect=[0, 0, 1, 0.95])
-        
-        if self.cfg['save_png']: plt.savefig(self.file_name.strip('.h5')+'.png', dpi=self.cfg.get('dpi',200))
-        if self.cfg['save_pdf']: plt.savefig(self.file_name.strip('.h5')+'.pdf', dpi=self.cfg.get('dpi',200))
-        if self.cfg['show_plot']: plt.show()
-        if self.cfg['show_plot'] or self.cfg['save_png'] or self.cfg['save_pdf']: plt.close(self.fig)
+        if self.cfg['matplotlib']:
+            if self.cfg['save_png']: plt.savefig(self.file_name.strip('.h5')+'.png', dpi=self.cfg.get('dpi',200))
+            if self.cfg['save_pdf']: plt.savefig(self.file_name.strip('.h5')+'.pdf', dpi=self.cfg.get('dpi',200))
+            if self.cfg['show_plot']: plt.show()
+            if self.cfg['show_plot'] or self.cfg['save_png'] or self.cfg['save_pdf']: plt.close(self.fig)
 
         if self.pcov is not None and self.urls is not None: #if fit successful and data based on h5 file
             self._store_fit_data(fit_params=self.popt, fit_covariance=np.sqrt(np.diag(self.pcov)))

@@ -14,7 +14,18 @@ import scipy.optimize as spopt
 from scipy import stats
 from scipy.interpolate import splrep, splev
 from scipy.ndimage.filters import gaussian_filter1d
-import matplotlib.pyplot as plt
+plot_enable = False
+try:
+    import qkit
+    if qkit.module_available("matplotlib"):
+        import matplotlib.pyplot as plt
+        plot_enable = True
+except (ImportError, AttributeError):
+    try:
+        import matplotlib.pyplot as plt
+        plot_enable = True
+    except ImportError:
+        plot_enable = False
 
 class circuit:
     """
@@ -521,6 +532,8 @@ class circuit:
     Functions for plotting results
     """
     def plotall(self):
+        if not plot_enable:
+            raise ImportError("matplotlib not found")
         real = self.z_data_raw.real
         imag = self.z_data_raw.imag
         real2 = self.z_data_sim.real
@@ -548,6 +561,8 @@ class circuit:
         plt.show()
         
     def plotcalibrateddata(self):
+        if not plot_enable:
+            raise ImportError("matplotlib not found")
         real = self.z_data_norm.real
         imag = self.z_data_norm.imag
         plt.subplot(221)
@@ -568,6 +583,8 @@ class circuit:
         plt.show()
         
     def plotrawdata(self):
+        if not plot_enable:
+            raise ImportError("matplotlib not found")
         real = self.z_data_raw.real
         imag = self.z_data_raw.imag
         plt.subplot(221)

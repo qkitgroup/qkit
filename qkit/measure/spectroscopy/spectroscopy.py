@@ -18,7 +18,6 @@
 
 import numpy as np
 import logging
-import matplotlib.pylab as plt
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d, UnivariateSpline
 from time import sleep, time
@@ -26,6 +25,8 @@ import sys
 import threading
 
 import qkit
+if qkit.module_available("matplotlib"):
+    import matplotlib.pylab as plt
 from qkit.storage import store as hdf
 from qkit.analysis.resonator import Resonator as resonator
 from qkit.gui.plot import plot as qviewkit
@@ -947,6 +948,9 @@ class Landscape:
         Plots the xy landscape(s) (for 3D scan, z-axis (vna) is not plotted
         :return:
         """
+        if not qkit.module_available("matplotlib"):
+            raise ImportError("matplotlib not found.")
+
         if self.xylandscapes:
             for i in self.xylandscapes:
                 try:
@@ -972,6 +976,9 @@ class Landscape:
         plots the xz landscape, i.e., how your vna frequency span changes with respect to the x vector
         :return: None
         """
+        if not qkit.module_available("matplotlib"):
+            raise ImportError("matplotlib not found.")
+
         if self.xzlandscape_func:
             y_values = self.xzlandscape_func(self.x_vec)
             plt.plot(self.x_vec, y_values, 'C1')

@@ -1,7 +1,18 @@
 """Module to provide a high-level possibility to arange pulses for an experiment."""
 
 import numpy as np
-import matplotlib.pyplot as plt
+plot_enable = False
+try:
+    import qkit
+    if qkit.module_available("matplotlib"):
+        import matplotlib.pyplot as plt
+        plot_enable = True
+except (ImportError, AttributeError):
+    try:
+        import matplotlib.pyplot as plt
+        plot_enable = True
+    except ImportError:
+        plot_enable = False
 from inspect import getargspec as getargspec
 from inspect import getsourcelines as getsourcelines
 import logging
@@ -375,7 +386,10 @@ class PulseSequence(object):
     def plot(self):
         """
         Plot a schematic of the stored pulses.
-        """        
+        """
+        if not plot_enable:
+            raise ImportError("matplotlib not found.")
+
         fig, ax = plt.subplots()
         i = -1
         amp = 1
