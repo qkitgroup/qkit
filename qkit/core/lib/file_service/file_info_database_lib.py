@@ -270,14 +270,14 @@ class file_system_service(UUID_base):
                 if attribute in h['analysis0'].attrs:
                     del h['analysis0'].attrs[attribute]
             else:
-                try:
+                if qkit.module_available['pandas']:
                     import pandas as pd
                     if pd.isnull(value):
                         if attribute in h['analysis0'].attrs:
                             del h['analysis0'].attrs[attribute]
                     else:
                         h['analysis0'].attrs[attribute] = value
-                except ImportError:
+                else:
                     h['analysis0'].attrs[attribute] = value
         finally:
             h.file.close()
