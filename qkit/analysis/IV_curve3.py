@@ -19,7 +19,7 @@
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy import signal as sig
+from scipy import stats, signal as sig, optimize as opt
 from collections import defaultdict
 from uncertainties import ufloat, unumpy as unp
 # TODO: uncertainty analysis probably using import uncertainties
@@ -787,7 +787,7 @@ class IV_curve3(object):
                         peak_finder(dVdI1D, **kwargs),
                         dVdI)
             slices = map(lambda peaks1D:
-                         slice(*np.sort(peaks1D[0][peaks1D[1]['prominences'].argsort()[-2:][::-1]])+np.array((1, -1))),  # overcome poss. jitter by +np.array((1, -1))
+                         slice(*np.sort(peaks1D[0][peaks1D[1]['prominences'].argsort()[-2:][::-1]])),
                          peaks)
             popts = map(lambda I1D, V1D, s1D:
                         lin_fit(I1D[s1D], V1D[s1D]),
@@ -1582,6 +1582,93 @@ class IV_curve3(object):
                 return I_cs, V_gs, properties
             else:
                 return I_cs, properties
+
+    def get_Vg(self, V=None, binwidth=2e-6, subgap=False):
+        """
+        Gets gap voltages. Therefore all measured voltages are collected in bins with binwidth <binwidth> and the 3 most prominent peaks are interpreted as superconducting branch (2nd) and gap (1st and 3rd). Each peak is fitted to a Gaussian distribution using a fine histogram ranging from `left_bases` to `right_bases` obtained from the peak finder `scipy.signal.find_peaks()`. The returned gap voltage equals the mean +/- std of the differences of the 3 peaks.
+        If wanted, the sub-gap voltage is calculated as maximal absolute voltage between two neighboring peaks, where outliers are removed by considering only the median +/- median absolute deviation. The returned sub-gap voltage equals the maximal absolute voltage and the error is estimated as difference of the two maximal absolute voltages.
+
+        Parameters
+        ----------
+        V: numpy.array (optional)
+            An N-dimensional array containing voltage values. Default is None that means self.V.
+        binwidth: float (optional)
+            Histograms binwidth in Volts. Default is 2e-6.
+        subgap: bool (optional)
+            Condition, if sub-gap voltages are returned, too. Default is False.
+
+        Returns
+        -------
+        V_g: numpy.array
+            Gap voltage.
+        V_sg: numpy.array (optional)
+            Sub-gap voltage.
+        """
+        def gaussian(x, A, mu, sigma, k):
+            return A * np.exp(-0.5 * ((x - mu) / sigma) ** 2) + k
+        if V is None:
+            V = self.V
+        ''' prepare numpy array of voltage values to handle different scan-dimensions '''
+        if len(V.shape)-1 == 1:
+            _V = V[:, np.newaxis, np.newaxis, :]  # insert dummy x- and y-axis
+        elif len(V.shape)-1 == 2:
+            _V = V[:, :, np.newaxis, :]  # insert dummy y-axis
+        elif len(V.shape)-1 == 3:
+            _V = V
+        else:
+            raise ValueError('Scan dimension must be in {1, 2, 3}')
+        ''' find gap (and sub-gap) voltages '''
+        nop = 3  # number of peaks to find
+        V_g = np.ones(shape=(*_V.shape[1:3], nop), dtype=object)*np.nan
+        V_sg = np.ones(shape=(*_V.shape[1:3], nop - 1), dtype=object)*np.nan
+        for x in range(_V.shape[1]):  # iterate x-values
+            for y in range(_V.shape[2]):  # iterate y-values
+                ''' raw histogram '''
+                p, edges = np.histogram(np.concatenate(_V[:, x, y]),
+                                        bins=int((np.nanmax(_V[:, x, y]) - np.nanmin(_V[:, x, y])) / binwidth))
+                # find <nop> peaks
+                prominence = np.max(p)
+                while True:
+                    peaks = sig.find_peaks(p, prominence=prominence)
+                    if peaks[0].size < nop:
+                        prominence /= 2
+                    elif peaks[0].size == nop:
+                        break
+                    else:
+                        raise ValueError('V_g: Too many peaks found. Probably adjust binwidth!')
+                ''' fine histogram '''
+                for i in range(nop):
+                    p1, edges1 = np.histogram(np.concatenate(_V[:, x, y]),
+                                              bins=100,
+                                              range=(edges[peaks[1]['left_bases'][i]],
+                                                     edges[peaks[1]['right_bases'][i] + 1]))
+                    bins1 = np.convolve(edges1, np.ones((2,)) / 2, mode='valid')
+                    p0 = [np.max(p1),
+                          np.median(list(filter(lambda val: edges[peaks[1]['left_bases'][i]] <= val <= edges[peaks[1]['right_bases'][i] + 1],
+                                                np.concatenate(_V[:, x, y])))),
+                          np.std(list(filter(lambda val: edges[peaks[1]['left_bases'][i]] <= val <= edges[peaks[1]['right_bases'][i] + 1],
+                                             np.concatenate(_V[:, x, y])))),
+                          0.]
+                    popt, pcov = opt.curve_fit(gaussian, bins1, p1, p0=p0, maxfev=1000)
+                    V_g[x, y, i] = ufloat(nominal_value=popt[1],
+                                          std_dev=np.sqrt(pcov[1, 1]) + np.abs(popt[2]))
+                if subgap:
+                    for i in range(nop - 1):
+                        sg = np.array(list(filter(lambda val: edges[peaks[1]['right_bases'][i]] <= val <= edges[peaks[1]['left_bases'][i + 1] + 1],
+                                                  np.concatenate(_V[:, x, y]))))
+                        # find outliers
+                        sg_median = ufloat(nominal_value=np.median(sg),
+                                           std_dev=stats.median_absolute_deviation(sg))
+                        V_sg[x, y, i] = ufloat(nominal_value=[np.nanmin, np.nanmax][i](sg[np.logical_and(sg_median.n - sg_median.s < sg,
+                                                                                                         sg < sg_median.n + sg_median.s)]),
+                                               std_dev=np.abs(np.diff(sorted(sg[np.logical_and(sg_median.n - sg_median.s < sg,
+                                                                                               sg < sg_median.n + sg_median.s)],
+                                                                             reverse=~bool(i))[-2:]).item()))
+        if subgap:
+            return np.squeeze(V_g), np.squeeze(V_sg)
+        else:
+            return np.squeeze(V_g)
+
 
     class switching_current(object):
         """ This is an analysis class for switching current measurements """
