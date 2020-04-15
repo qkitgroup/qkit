@@ -103,15 +103,6 @@ def ipython_is_newer(vin):
 def is_ipython():
     return get_ipython() != None
 
-def exit_shell():
-    if is_ipython():
-        ip = get_ipython()
-        if ipython_is_newer((0, 11)):
-            ip.exit() # FIXME This gives annoying request for y/n when called
-        else:
-            ip.magic('Exit')
-    sys.exit()
-
 def register_exit(func):
     if is_ipython():
         ip = get_ipython()
