@@ -1,28 +1,5 @@
 import numpy as np
-import sys
-import time
 
-
-def dict_to_ordered_tuples(dic):
-    '''Convert a dictionary to a list of tuples, sorted by key.'''
-    if dic is None:
-        return []
-    keys = dic.keys()
-    keys.sort()
-    ret = [(key, dic[key]) for key in keys]
-    return ret
-
-def remove_dict_keys(dic, keys):
-    for key in keys:
-        if key in dic:
-            del dic[key]
-
-def get_dict_keys(dic, keys):
-    ret = {}
-    for key in keys:
-        if key in dic:
-            ret[key] = dic[key]
-    return ret
 
 def seconds_to_str(secs):
     '''Convert a number of seconds to hh:mm:ss string.'''
@@ -31,44 +8,6 @@ def seconds_to_str(secs):
     mins = np.floor(secs / 60)
     secs = np.floor(secs - mins * 60)
     return '%02d:%02d:%02d' % (hours, mins, secs)
-
-
-def sign(val):
-    '''Return the sign of a value.'''
-    if val < 0:
-        return -1
-    else:
-        return 1
-
-def get_arg_type(args, kwargs, checktypes, name=None):
-    '''
-    Get first argument of a type in 'checktypes' (single type or list/tuple).
-    If a specific name is specified, the kwargs dictionary is checked first.
-    '''
-
-    if name is not None and name in kwargs:
-        return kwargs[name]
-
-    if type(checktypes) not in (list, tuple):
-        checktypes = [checktypes]
-
-    for arg in args:
-        for checktype in checktypes:
-            if isinstance(arg, checktype):
-                return arg
-
-    return None
-
-_time_func = None
-def exact_time():
-    global _time_func
-    if _time_func is None:
-        if sys.platform in ['win32', 'cygwin']:
-            _time_func = time.clock
-        else:
-            _time_func = time.time
-
-    return _time_func()
 
 def get_ipython():
     import IPython

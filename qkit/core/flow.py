@@ -21,8 +21,8 @@
 
 import logging
 import time
-from qkit.core.lib.misc import exact_time, get_traceback
-
+import qkit
+from qkit.core.lib.misc import get_traceback
 
 AutoFormattedTB = get_traceback()
 
@@ -60,7 +60,6 @@ class FlowControl(object):
         self._measurements_running += 1
         if self._measurements_running == 1:
             self._set_status('running')
-            #self.emit('measurement-start')
 
             # Handle callbacks
             self.run_mainloop(1, wait=False)
@@ -83,70 +82,48 @@ class FlowControl(object):
 
         if self._measurements_running == 0:
             self._set_status('stopped')
-            #self.emit('measurement-end') 
 
             # Handle callbacks
             self.run_mainloop(1, wait=False)
 
-    def run_mainloop(self, delay, wait=True, exact=False):
+    def run_mainloop(self, delay, wait=True):
         '''
         Run mainloop for a maximum of <delay> seconds.
         If wait is True (default), sleep until <delay> seconds have passed.
         '''
-        start = exact_time()
-        dt = 0
-    # TODO possibly this implementation of event handling using threads
-    # can be done in a better way using ipython-0.11 inputhook support?
-        #gtk.gdk.threads_enter()
-        #while gtk.events_pending() and (not exact or (dt + 0.001) < delay):
-        #    gtk.main_iteration_do(False)
-        #    dt = exact_time() - start
-        #gtk.gdk.threads_leave() # YS: try to get rid of GTK
-        
-        # YS: in the current version no events are expected since we don't use the GTK gui
+        if wait and delay > 0:
+            time.sleep(delay)
 
-        if delay > dt and wait:
-            time.sleep(delay - dt)
-
-    def measurement_idle(self, delay=0.0, exact=False, emit_interval=1):
+    def measurement_idle(self, delay=0.0):
         '''
         Indicate that the measurement is idle and handle events.
 
         This function will check whether an abort has been requested and
         handle queued events for a time up to 'delay' (in seconds).
+        
+        Be aware that both time.time and time.sleep have a granularity of around 15ms on windows.
+        However, this should not be limiting.
 
         It starts by emitting the 'measurement-idle' signal to allow callbacks
         to be executed by the time this function handles the event queue.
         After that it handles events and sleeps for periods of 10msec. Every
         <emit_interval> seconds it will emit another measurement-idle signal.
-
-        If exact=True, timing should be a bit more precise, but in this case
-        a delay <= 1msec will result in NO gui interaction.
         '''
-
-        start = exact_time()
-
-        #self.emit('measurement-idle') 
-        lastemit = exact_time()
+        start = time.time()
 
         while self._pause:
             self.check_abort()
-            self.run_mainloop(0.01)
+            self.run_mainloop(0.01,wait=True)
 
         while True:
             self.check_abort()
 
-            curtime = exact_time()
-            if curtime - lastemit > emit_interval:
-                #self.emit('measurement-idle') 
-                lastemit = curtime
+            dt = time.time() - start
+            self.run_mainloop(delay-dt, wait=False)
 
-            dt = exact_time() - start
-            self.run_mainloop(delay-dt, wait=False, exact=exact)
-
-            dt = exact_time() - start
-            if dt + 0.01 < delay:
-                time.sleep(0.01)
+            dt = time.time() - start
+            if dt + 0.02 < delay:
+                time.sleep(0.05)
             else:
                 time.sleep(max(0, delay - dt))
                 return
@@ -211,7 +188,7 @@ def exception_handler(self, etype, value, tb, tb_offset=None):
     # raises an error.
     TB = AutoFormattedTB(mode='Context', color_scheme='Linux', tb_offset=1)
 
-    fc = get_flowcontrol()
+    fc = qkit.flow
 
     # for the unlikely event that an error occured after pushing the
     # stop button
@@ -222,15 +199,6 @@ def exception_handler(self, etype, value, tb, tb_offset=None):
         fc.measurement_end(abort=True)
 
     TB(etype, value, tb)
-
-try:
-    _flowcontrol
-except NameError:
-    _flowcontrol = FlowControl()
-
-def get_flowcontrol():
-    global _flowcontrol
-    return _flowcontrol
 
 def qtlab_exit():
     print("Closing QKIT...")
