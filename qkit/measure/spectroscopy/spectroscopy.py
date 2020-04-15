@@ -18,8 +18,6 @@
 
 import numpy as np
 import logging
-from scipy.optimize import curve_fit
-from scipy.interpolate import interp1d, UnivariateSpline
 from time import sleep, time
 import sys
 import threading
@@ -27,6 +25,9 @@ import threading
 import qkit
 if qkit.module_available("matplotlib"):
     import matplotlib.pylab as plt
+if qkit.module_available("scipy"):
+    from scipy.optimize import curve_fit
+    from scipy.interpolate import interp1d, UnivariateSpline
 from qkit.storage import store as hdf
 from qkit.analysis.resonator import Resonator as resonator
 from qkit.gui.plot import plot as qviewkit
@@ -832,6 +833,9 @@ class Landscape:
         The hyperbolic function takes the form y = sqrt[ a*(x-b)**2 + c ], where (a,b,c) = p0
 
         """
+        if not qkit.module_available("scipy"):
+            raise ImportError('scipy not available.')
+
         if units == 'Hz':
             multiplier = 1e9
         else:
@@ -888,6 +892,9 @@ class Landscape:
         :param p0: intial fit parameters
         :return:
         """
+        if not qkit.module_available("scipy"):
+            raise ImportError('scipy not available.')
+        
         if curve_p[1][-1] > 1e6:  # test if z_values are given in Hz or GHz
             multiplier = 1e9
         else:
