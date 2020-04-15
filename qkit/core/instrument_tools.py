@@ -90,10 +90,6 @@ class Insttools(object):
         self._instruments[ins.get_name()] = ins
 
         info = {'create_args': create_args}
-        #info['changed_hid'] = ins.connect('changed', self._instrument_changed_cb) # YS: not available anymore, gui related
-        #info['removed_hid'] = ins.connect('removed', self._instrument_removed_cb) # YS: not available anymore, gui related
-        #info['reload_hid'] = ins.connect('reload', self._instrument_reload_cb) # YS: not available anymore, gui related
-        #info['proxy'] = Proxy(ins.get_name()) # YS: not available anymore, gui related?
         self._instruments_info[ins.get_name()] = info
 
         newtags = []
@@ -101,8 +97,6 @@ class Insttools(object):
             if tag not in self._tags:
                 self._tags.append(tag)
                 newtags.append(tag)
-        #if len(newtags) > 0:
-            #self.emit('tags-added', newtags) # YS: try to get rid of 32bit gobject from pygtk
 
     def get(self, name, proxy=False): # YS: proxy deactivated
         '''
@@ -112,7 +106,7 @@ class Insttools(object):
         Output: Instrument object
         '''
 
-        if isinstance(name, instrument.Instrument):# or isinstance(name, Proxy):
+        if isinstance(name, instrument.Instrument):
             return name
 
         if type(name) == tuple:
@@ -129,8 +123,6 @@ class Insttools(object):
             return None
 
     def get_instrument_names(self):
-        #keys = self._instruments.keys()
-        #keys.sort()
         return sorted(self._instruments.keys())
 
     def get_instruments(self):
@@ -213,7 +205,6 @@ class Insttools(object):
     def _create_invalid_ins(self, name, instype, **kwargs):
         ins = instrument.InvalidInstrument(name, instype, **kwargs)
         self.add(ins, create_args=kwargs)
-        #self.emit('instrument-added', name) # YS: try to get rid of 32bit gobject from pygtk
         return self.get(name)
 
     def create(self, name, instype, **kwargs):
@@ -256,7 +247,6 @@ class Insttools(object):
             return self._create_invalid_ins(name, instype, **kwargs)
 
         self.add(ins, create_args=kwargs)
-        #self.emit('instrument-added', name) # YS: try to get rid of 32bit gobject from pygtk
         return self.get(name)
 
     def reload_module(self, instype):
@@ -333,8 +323,6 @@ class Insttools(object):
             del self._instruments[name]
             del self._instruments_info[name]
 
-        #self.emit('instrument-removed', name) # YS: try to get rid of 32bit gobject from pygtk
-
     def _instrument_removed_cb(self, sender, name):
         self.remove(name)
 
@@ -364,15 +352,6 @@ class Insttools(object):
         '''
         #self.emit('instrument-changed', sender.get_name(), changes) # YS: try to get rid of 32bit gobject from pygtk
         pass
-
-
-
-#_instruments = None
-#def get_instruments():
-#    global _instruments
-#    if _instruments is None:
-#        _instruments = Instruments()
-#    return _instruments
 
 if __name__ == '__main__':
     i = Insttools()

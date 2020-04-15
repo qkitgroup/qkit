@@ -169,34 +169,6 @@ class FlowControl(object):
             except Exception as e:
                 print('Error in func %s: %s' % (func.__name__, str(e)))
 
-#    def register_callback(self, time_msec, func, handle=None):
-#        '''
-#        Register a function to be called every time_msec miliseconds.
-#
-#        <handle> is a name you can use to refer to it when removing the
-#        callback using 'remove_callback'. If you don't specify a specific
-#       name, a handle will be generated.
-#
-#        Returns: callback handle
-#        '''
-#
-#        hid = gobject.timeout_add(time_msec, func)
-#        if handle is None:
-#            handle = hid
-#        self._callbacks[handle] = hid
-#        return handle
-#
-#    def remove_callback(self, handle):
-#        '''
-#        Remove a callback that was created with 'register_callback'
-#        '''
-#        if handle not in self._callbacks:
-#            logging.warning('Callback %s not found')
-#            return False
-#
-#        #gobject.source_remove(self._callbacks[handle])
-#        del self._callbacks[handle]
-#        return True
 
     ############
     ### status
@@ -220,7 +192,6 @@ class FlowControl(object):
 
         if self._abort:
             self._abort = False
-            #self.emit('stop-request') 
             self.measurement_end(abort=True)
             raise ValueError('Human abort')
 
@@ -247,9 +218,6 @@ def exception_handler(self, etype, value, tb, tb_offset=None):
     fc._abort = False
 
     if fc.is_measuring():
-        # make sure that open objects get closed properly (like files)
-        #fc.emit('stop-request') # YS: try to get rid of 32bit gobject from pygtk
-
         # put qtlab back in 'stopped' state
         fc.measurement_end(abort=True)
 
@@ -266,7 +234,3 @@ def get_flowcontrol():
 
 def qtlab_exit():
     print("Closing QKIT...")
-
-    #from . import qt
-    #qt.flow.exit_request()
-

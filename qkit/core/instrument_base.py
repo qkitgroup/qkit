@@ -179,7 +179,6 @@ class Instrument(object):
         '''
 
         self._remove_parameters()
-        #self.emit('removed', self.get_name()) # YS: try to get rid of 32bit gobject from pygtk
 
     def is_initialized(self):
         '''
@@ -367,8 +366,6 @@ class Instrument(object):
 
         if 'probe_interval' in options:
             interval = int(options['probe_interval'])
-            #self._probe_ids.append(gobject.timeout_add(interval,
-            #    lambda: self.get(name)))
 
         if 'listen_to' in options:
             insset = set([])
@@ -385,8 +382,6 @@ class Instrument(object):
                 self._parameter_groups[g] = [name]
             else:
                 self._parameter_groups[g].append(name)
-
-        #self.emit('parameter-added', name) # YS: try to get rid of 32bit gobject from pygtk
 
     def _remove_parameters(self):
         '''
@@ -409,7 +404,6 @@ class Instrument(object):
                 delattr(self, func)
 
         del self._parameters[name]
-        #self.emit('parameter-removed', name) # YS: try to get rid of 32bit gobject from pygtk
 
     def has_parameter(self, name):
         '''
@@ -460,8 +454,6 @@ class Instrument(object):
 
         for key, val in kwargs.items():
             self._parameters[name][key] = val
-
-        #self.emit('parameter-changed', name) # YS: try to get rid of 32bit gobject from pygtk
 
     def get_parameter_tags(self, name):
         '''
@@ -1175,16 +1167,13 @@ class Instrument(object):
         update_func()
 
     def _do_emit_changed(self):
-        # was this a bug?
-        #self.emit('changed', self._changed) # YS: try to get rid of 32bit gobject from pygtk
         self._changed = {}
         self._changed_hid = None
 
     def _queue_changed(self, changed):
         self._changed.update(changed)
         if self._changed_hid is None:
-            #self._changed_hid = gobject.idle_add(self._do_emit_changed) # YS: try to get rid of 32bit gobject from pygtk
-            self._do_emit_changed() # YS: try to get rid of 32bit gobject from pygtk
+            self._do_emit_changed()
 
 class InvalidInstrument(Instrument):
     '''
