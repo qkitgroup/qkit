@@ -18,13 +18,11 @@
 import qkit
 
 import inspect
-import types
 import os
 import logging
 import sys
 import qkit.core.instrument_base as instrument
 
-#from qkit.core.insproxy import Proxy
 import importlib
 from imp import reload  # this is needed for py3
 
@@ -37,7 +35,6 @@ def _get_driver_module(name, do_reload=False):
     if name in sys.modules and not do_reload:
         return sys.modules[name]
 
-    
     try:
         mod = importlib.import_module(name)
         if do_reload:
@@ -58,6 +55,7 @@ def _get_driver_module(name, do_reload=False):
         return sys.modules[name]
 
     return None
+
 
 class Insttools(object):
 
@@ -98,7 +96,7 @@ class Insttools(object):
                 self._tags.append(tag)
                 newtags.append(tag)
 
-    def get(self, name, proxy=False): # YS: proxy deactivated
+    def get(self, name):
         '''
         Return Instrument object with name 'name'.
 
@@ -115,10 +113,7 @@ class Insttools(object):
             name = name[0]
 
         if name in self._instruments:
-            if proxy:
-                return self._instruments_info[name]['proxy']
-            else:
-                return self._instruments[name]
+            return self._instruments[name]
         else:
             return None
 
@@ -140,7 +135,7 @@ class Insttools(object):
         for path_fn in filelist:
             path, fn = os.path.split(path_fn)
             name, ext = os.path.splitext(fn)
-            if ext == '.py' and name != "__init__" and name[0] != '_':
+            if ext == '.py' and name[0] != '_':
                 ret.append(name)
                 
         if self._user_instdir:
@@ -148,9 +143,8 @@ class Insttools(object):
             for path_fn in filelist:
                 path, fn = os.path.split(path_fn)
                 name, ext = os.path.splitext(fn)
-                if ext == '.py' and name != "__init__" and name[0] != '_' and not ret.count(name) > 0:
+                if ext == '.py' and name[0] != '_' and not ret.count(name) > 0:
                     ret.append(name)
-
         ret.sort()
         return ret
 
@@ -323,34 +317,8 @@ class Insttools(object):
             del self._instruments[name]
             del self._instruments_info[name]
 
-    def _instrument_removed_cb(self, sender, name):
-        self.remove(name)
-
-    def _instrument_reload_cb(self, sender):
-        '''
-        Reload instrument and emit instrument-changed signal.
-
-        Input:
-            sender (instrument): instrument to be reloaded
-
-        Output:
-            None
-        '''
-        newins = self.reload(sender)
-        #self.emit('instrument-changed', newins.get_name(), {}) # YS: try to get rid of 32bit gobject from pygtk
-
-    def _instrument_changed_cb(self, sender, changes):
-        '''
-        Emit signal when values of an Instrument change.
-
-        Input:
-            sender (Instrument): sender of message
-            changes (dict): dictionary of changed parameters
-
-        Output:
-            None
-        '''
-        #self.emit('instrument-changed', sender.get_name(), changes) # YS: try to get rid of 32bit gobject from pygtk
+    class InstrumentBoundsError(ValueError):
+        "Base Error to raise when instrument is out of bounds"
         pass
 
 if __name__ == '__main__':

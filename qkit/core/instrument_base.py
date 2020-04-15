@@ -17,17 +17,14 @@
 
 from __future__ import print_function
 
-import qkit
-
-
 import copy
-import time
-import math
 import inspect
-from qkit.core.lib import calltimer
+import logging
+import time
 
 import numpy as np
-import logging
+
+import qkit
 
 
 class Instrument(object):
@@ -53,23 +50,13 @@ class Instrument(object):
                                 # e.g. an internally stored value is returned.
                                 # Only use for parameters that cannot be read
                                 # back from a device.
-    FLAG_PERSIST = 0x10         # Write parameter to config file if it is set,
-                                # try to read again for a new instance
-
-    USE_ACCESS_LOCK = False     # For now
 
     RESERVED_NAMES = ('name', 'type')
-
-    _lock_classes = {}
 
     def __init__(self, name, **kwargs):
 
         self._name = name
         self._initialized = False
-        self._locked = False
-
-        self._changed = {}
-        self._changed_hid = None
 
         self._options = kwargs
         if 'tags' not in self._options:
@@ -80,16 +67,6 @@ class Instrument(object):
         self._functions = {}
         self._added_methods = []
         self._probe_ids = []
-
-        self._default_read_var = None
-        self._default_write_var = None
-
-        self._lock_class = kwargs.get('lockclass', name)
-        if self._lock_class in Instrument._lock_classes:
-            self._access_lock = Instrument._lock_classes[self._lock_class]
-        else:
-            self._access_lock = calltimer.TimedLock(2.0)
-            self._lock_classes[self._lock_class] = self._access_lock
 
     def __str__(self):
         return "Instrument '%s'" % (self.get_name())
@@ -128,7 +105,6 @@ class Instrument(object):
         Input: None
         Output: array of strings
         '''
-
         return self._options['tags']
 
     def add_tag(self, tag):
@@ -138,7 +114,6 @@ class Instrument(object):
         Input: tag (string)
         Output: None
         '''
-
         self._options['tags'].append(tag)
 
     def has_tag(self, tags):
@@ -189,21 +164,6 @@ class Instrument(object):
         '''
         return self._initialized
 
-    def _add_options_to_doc(self, options):
-        doc = options.get('doc', '')
-
-        if 'option_list' in options:
-            doc += '\n\nAllowed parameters:\n'
-            for fmtval in options['option_list']:
-                doc += '    %s\n' % str(fmtval)
-        if 'format_map' in options:
-            doc += '\n\nAllowed parameters:\n'
-            for fmtkey, fmtval in options['format_map'].items():
-                doc += '    %s or %s\n' % (fmtkey, fmtval)
-
-        if doc != '':
-            options['doc'] = doc
-
     def add_parameter(self, name, **kwargs):
         '''
         Create an instrument 'parameter' that is known by the whole
@@ -228,11 +188,6 @@ class Instrument(object):
                 stepdelay (float): delay when setting steps (in milliseconds)
                 tags (array): tags for this parameter
                 doc (string): documentation string to add to get/set functions
-                format_map (dict): map describing allowed options and the
-                    formatted (mostly GUI) representation
-                option_list (array/tuple): allowed options
-                persist (bool): if true load/save values in config file
-                probe_interval (int): interval in ms between automatic gets
                 listen_to (list of (ins, param) tuples): list of parameters
                     to watch. If any of them changes, execute a get for this
                     parameter. Useful for a parameter that depends on one
@@ -297,7 +252,6 @@ class Instrument(object):
                 func = lambda query=True, **lopts: \
                     self.get(name, query=query, **lopts)
 
-            self._add_options_to_doc(options)
             func.__doc__ = 'Get variable %s' % name
             if 'doc' in options:
                 func.__doc__ += '\n%s' % options['doc']
@@ -357,15 +311,6 @@ class Instrument(object):
 
 #        setattr(self, name,
 #            property(lambda: self.get(name), lambda x: self.set(name, x)))
-
-        if options['flags'] & self.FLAG_PERSIST:
-            val = qkit.cfg.get('persist_%s_%s' % (self._name, name))
-            options['value'] = val
-        else:
-            options['value'] = None
-
-        if 'probe_interval' in options:
-            interval = int(options['probe_interval'])
 
         if 'listen_to' in options:
             insset = set([])
@@ -561,90 +506,6 @@ class Instrument(object):
         '''
         return self._parameter_groups
 
-    def format_parameter_value(self, param, val):
-        opt = self.get_parameter_options(param)
-
-        try:
-            if 'format_function' in opt:
-                valstr = opt['format_function'](val)
-            elif 'format_map' in opt:
-                valstr = opt['format_map'][val]
-            else:
-                if 'format' in opt:
-                    format = opt['format']
-                else:
-                    format = '%s'
-
-                if type(val) in (list, tuple):
-                    val = tuple(val)
-
-                elif type(val) is dict:
-                    fmt = ""
-                    first = True
-                    for k in val.keys():
-                        if first:
-                            fmt += '%s: %s' % (k, format)
-                            first = False
-                        else:
-                            fmt += ', %s: %s' % (k, format)
-                    format = fmt
-                    val = tuple(val.values())
-
-                elif val is None:
-                    val = ''
-
-                valstr = format % (val)
-
-        except Exception as e:
-            valstr = str(val)
-
-        if 'units' in opt:
-            unitstr = ' %s' % opt['units']
-        else:
-            unitstr = ''
-
-        return '%s%s' % (valstr, unitstr)
-
-    def format_range(self, param):
-        '''
-        Format the range allowed for parameter <param>
-        '''
-
-        popts = self.get_parameter_options(param)
-        text = ''
-        if 'minval' in popts or 'maxval' in popts:
-
-            if 'format' in popts:
-                format = popts['format']
-            else:
-                format = '%s'
-
-            text = '['
-            if 'minval' in popts:
-                text += format % popts['minval']
-            text += ' : '
-            if 'maxval' in popts:
-                text += format % popts['maxval']
-            text += ']'
-
-        return text
-
-    def format_rate(self, param):
-        '''
-        Format the rate allowed for parameter <param>
-        '''
-
-        popts = self.get_parameter_options(param)
-        text = ''
-        if 'maxstep' in popts and popts['maxstep'] is not None:
-            text += '%s' % popts['maxstep']
-            if 'stepdelay' in popts and popts['stepdelay'] is not None:
-                text += ' / %sms' % popts['stepdelay']
-            else:
-                text += ' / 100ms'
-
-        return text
-
     def _get_value(self, name, query=True, **kwargs):
         '''
         Private wrapper function to get a value.
@@ -672,35 +533,24 @@ class Instrument(object):
                 else:
                     return p['value']
             else:
-#                logging.debug('Trying to access cached value, but none available')
-                return None
+                logging.error('Trying to access cached value %s, but none available'%name)
+                return False
 
         # Check this here; getting of cached values should work
         if not flags & 1: #Instrument.FLAG_GET:
             print('Instrument does not support getting of %s' % name)
             return None
 
-        if 'base_name' in p:
-            base_name = p['base_name']
-        else:
-            base_name = name
-
         func = p['get_func']
         value = func(**kwargs)
         if 'type' in p and value is not None:
             try:
-                if p['type'] == int:
-                    value = int(value)
-                elif p['type'] == float:
-                    value = float(value)
-                elif p['type'] == bytes:
-                    pass
-                elif p['type'] == bool:
-                    value = bool(value)
-                elif p['type'] == type(None):
+                if p['type'] == bytes or p['type'] == type(None):
                     pass
                 elif p['type'] == np.ndarray:
                     value = np.array(value)
+                else:
+                    value = p['type'](value)
             except:
                 logging.warning('Unable to cast value "%s" to %s', value, p['type'])
 
@@ -715,112 +565,26 @@ class Instrument(object):
             name (string or list/tuple of strings): name of parameter(s)
             query (bool): whether to query the instrument or return the
                 last stored value
-            fast (bool): if True perform as fast as possible, e.g. don't
-                emit a signal to update the GUI.
+            fast (bool): legacy from qtlab
             kwargs: Optional keyword args that will be passed on.
 
         Output: Single value, or dictionary of parameter -> values
                 Type is whatever the instrument driver returns.
         '''
-
-        if Instrument.USE_ACCESS_LOCK:
-            if not self._access_lock.acquire():
-                logging.warning('Failed to acquire lock!')
-                return None
-
-        if fast:
-            ret = self._get_value(name, query, **kwargs)
-            if Instrument.USE_ACCESS_LOCK:
-                self._access_lock.release()
-            return ret
-
         if type(name) in (list, tuple):
-            changed = {}
             result = {}
             for key in name:
                 val = self._get_value(key, query, **kwargs)
                 if val is not None:
                     result[key] = val
-                    changed[key] = val
-
         else:
             result = self._get_value(name, query, **kwargs)
-            changed = {name: result}
-
-        if Instrument.USE_ACCESS_LOCK:
-            self._access_lock.release()
-
-        if len(changed) > 0 and query:
-            self._queue_changed(changed)
         qkit.flow.sleep()
         return result
 
     def get_threaded(self, *args, **kwargs):
-        '''
-        Perform a get in a separate thread. Run gobject main loop while
-        executing and return when the get finishes.
-        '''
-
-        if qkit.cfg.get('threading_warning', True):
-            logging.warning('Using threading functions could result in QTLab becoming unstable!')
-
-        thread = calltimer.ThreadCall(self.get, *args, **kwargs)
-
-        # In python 2.6 the function is called is_alive
-        try:
-            isalive = thread.is_alive
-        except:
-            isalive = thread.isAlive
-
-        while isalive():
-            qkit.flow.run_mainloop(0.005)
-
-        return thread.get_return_value()
-
-    def _key_from_format_map_val(self, dic, value):
-        for key, val in dic.items():
-            if val == value:
-                return key
-        return None
-
-    def _val_from_option_list(self, opts, value):
-        if type(opts[0]) is not type(value):
-            return None
-        if type(value) is bytes:
-            value = value.upper()
-
-        match = None
-        matches = 0
-        for val in opts:
-            if type(val) is bytes:
-                val = val.upper()
-                if val.startswith(value):
-                    matches += 1
-                    match = val.upper()
-
-            if val == value:
-                return val
-
-        if matches == 1:
-            return match
-        else:
-            return None
-
-    def _val_from_option_dict(self, opts, value):
-        if value in opts:
-            return value
-
-        try:
-            v = eval(value)
-            if v in opts:
-                return v
-        except:
-            pass
-
-        for k, v in opts.items():
-            if v == value:
-                return k
-        return None
+        logging.error('Using threading functions is not supported. Redirecting to normal get')
+        return self.get(*args, **kwargs)
 
     _CONVERT_MAP = {
             int: int,
@@ -836,20 +600,16 @@ class Instrument(object):
     def _convert_value(self, value, ttype):
         if type(value) is bool and \
                 ttype is not bool:
-            logging.warning('Setting a boolean, but that is not the expected type')
-            raise ValueError()
+            raise ValueError('Setting a boolean, but that is not the expected type')
 
         if ttype not in self._CONVERT_MAP:
-            logging.warning('Unsupported type %s', ttype)
-            raise ValueError()
+            raise ValueError('Unsupported type %s', ttype)
 
         try:
             func = self._CONVERT_MAP[ttype]
             value = func(value)
         except:
-            logging.warning('Conversion of %r to type %s failed',
-                    value, ttype)
-            raise ValueError()
+            raise ValueError('Conversion of %r to type %s failed',value, ttype)
 
         return value
 
@@ -867,7 +627,7 @@ class Instrument(object):
         if name in self._parameters:
             p = self._parameters[name]
         else:
-            return None
+            raise ValueError("Parameter %s not known"%name)
 
         if not p['flags'] & Instrument.FLAG_SET:
             print('Instrument does not support setting of %s' % name)
@@ -876,42 +636,14 @@ class Instrument(object):
         if 'channel' in p and 'channel' not in kwargs:
             kwargs['channel'] = p['channel']
 
-        # If a format map is available the key should be found.
-        if 'format_map' in p:
-            newval = self._val_from_option_dict(p['format_map'], value)
-            if newval is None:
-                logging.error('Value %s is not a valid option for "%s", valid options: %r',
-                    value, name, repr(p['format_map']))
-                return
-            value = newval
-
-        # If an option list is available check whether the value is in there
-        if 'option_list' in p:
-            newval = self._val_from_option_list(p['option_list'], value)
-            if newval is None:
-                logging.error('Value %s is not a valid option for "%s", valid: %r',
-                    value, name, repr(p['option_list']))
-                return
-            value = newval
-
         if 'type' in p:
-            try:
-                value = self._convert_value(value, p['type'])
-            except:
-                return None
+            value = self._convert_value(value, p['type'])
 
         if 'minval' in p and value < p['minval']:
-            print('Trying to set too small value: %s' % value)
-            return None
+            raise qkit.instruments.InstrumentBoundsError('Can not set %s on instrument %s to %s: value too small' % (self._name,name,value))
 
         if 'maxval' in p and value > p['maxval']:
-            print('Trying to set too large value: %s' % value)
-            return None
-
-        if 'base_name' in p:
-            base_name = p['base_name']
-        else:
-            base_name = name
+            raise qkit.instruments.InstrumentBoundsError('Can not set %s on instrument %s to %s: value too small' % (self._name, name, value))
 
         func = p['set_func']
         if 'maxstep' in p and p['maxstep'] is not None:
@@ -920,40 +652,18 @@ class Instrument(object):
                 logging.warning('Current value not available, ignoring maxstep')
                 curval = value + 0.01 * p['maxstep']
 
-            delta = curval - value
-            if delta < 0:
-                sign = 1
-            else:
-                sign = -1
+            sign = np.sign(value - curval)
+            for v in np.arange(curval, value, sign * np.abs(p['maxstep'])):
+                func(v, **kwargs)  # execute the set function
+                time.sleep(p.get('stepdelay', 50) / 1000.)
 
-            if 'stepdelay' in p:
-                delay = p['stepdelay']
-            else:
-                delay = 50
-
-            while math.fabs(delta) > 0:
-                if math.fabs(delta) > p['maxstep']:
-                    curval += sign * p['maxstep']
-                    delta += sign * p['maxstep']
-                else:
-                    curval = value
-                    delta = 0
-
-                ret = func(curval, **kwargs)
-
-                if delta != 0:
-                    time.sleep(delay / 1000.0)
-
-        else:
-            ret = func(value, **kwargs)
+        func(value, **kwargs)  # execute the set function to get the final value
 
         if p['flags'] & self.FLAG_GET_AFTER_SET:
-            value = self._get_value(name, **kwargs)
-
-        if p['flags'] & self.FLAG_PERSIST:
-            #qkit.cfg.set('persist_%s_%s' % (self._name, name), value)
-            #_config.save()
-            pass
+            newvalue = self._get_value(name, **kwargs)
+            if newvalue != value:
+                logging.warning("%s.%s: actual value (%s) differs from set value (%s)"%(self._name,name,newvalue,value))
+            value = newvalue
 
         p['value'] = value
         return value
@@ -977,16 +687,6 @@ class Instrument(object):
                 For multiple sets return False if any of the parameters failed.
         '''
 
-        if self._locked:
-            logging.warning('Trying to set value of locked instrument (%s)',
-                    self.get_name())
-            return False
-
-        if Instrument.USE_ACCESS_LOCK:
-            if not self._access_lock.acquire():
-                logging.warning('Failed to acquire lock!')
-                return None
-
         result = True
         changed = {}
         if type(name) == dict:
@@ -1004,28 +704,8 @@ class Instrument(object):
             else:
                 result = False
 
-        if Instrument.USE_ACCESS_LOCK:
-            self._access_lock.release()
-
-        if not fast and len(changed) > 0:
-            self._queue_changed(changed)
         qkit.flow.sleep()
         return result
-
-    def update_value(self, name, value):
-        '''
-        Update a parameter value if new information is obtained.
-        Barely any checking is performed and no type conversions,
-        so use with caution.
-        '''
-
-        if name in self._parameters:
-            p = self._parameters[name]
-        else:
-            return None
-
-        p['value'] = value
-        self._queue_changed({name: value})
 
     def get_argspec_dict(self, a):
         return dict(args=a[0], varargs=a[1], keywords=a[2], defaults=a[3])
@@ -1100,43 +780,6 @@ class Instrument(object):
         f = getattr(self, funcname)
         f(**kwargs)
 
-    def lock(self):
-        '''
-        Lock the instrument; no parameters can be changed until the Instrument
-        is unlocked.
-
-        Input: None
-        Output: None
-        '''
-        self._locked = True
-
-    def unlock(self):
-        '''
-        Unlock the instrument; parameters can be changed.
-
-        Input: None
-        Output: None
-        '''
-        self._locked = False
-
-    def set_default_read_var(self, name):
-        '''
-        For future use.
-
-        Input: name of variable (string)
-        Output: None
-        '''
-        self._default_read_var = name
-
-    def set_default_write_var(self, name):
-        '''
-        For future use.
-
-        Input: name of variable (string)
-        Output: None
-        '''
-        self._default_write_var = name
-
     def reload(self):
         '''
         Reloads the instrument. Make sure to only use the new instance
@@ -1158,22 +801,13 @@ class Instrument(object):
         logging.warning('Set not implemented for %s.%s' % \
             (Instrument.get_type(self), name))
 
-    def _listen_parameter_changed_cb(self, sender, changed, \
-            listen_param, update_func):
-
+    def _listen_parameter_changed_cb(self, sender, changed,listen_param, update_func):
+        # ToDo this has to be correctly implemented!
+        # Cross-related parameters are probably a good thing to have
+        # i.e. one parameter is "getted" if another one is set
         if listen_param not in changed:
             return
-
         update_func()
-
-    def _do_emit_changed(self):
-        self._changed = {}
-        self._changed_hid = None
-
-    def _queue_changed(self, changed):
-        self._changed.update(changed)
-        if self._changed_hid is None:
-            self._do_emit_changed()
 
 class InvalidInstrument(Instrument):
     '''
