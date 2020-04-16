@@ -1023,7 +1023,7 @@ class Landscape:
             start_freq = self.xz_freqpoints[np.argmin(np.abs(self.xz_freqpoints -
                                                              (self.xzlandscape_func(x)-self.z_span/2)))]
             self.vna.set_startfreq(start_freq)
-            self.vna.set_span(self.z_span)
+            self.vna.set_stopfreq(start_freq + self.z_span)
             x_set_obj(x)
         return vna_wrapper
 

@@ -206,14 +206,14 @@ class spectrum(object):
                 fit_fct = self.f_lin
                 p0 = p0[:2]
             else:
-                print 'function type not known...aborting'
+                print('function type not known...aborting')
                 raise ValueError
 
             popt, pcov = curve_fit(fit_fct, x_fit, y_fit, p0=p0)
             self.landscape.append(multiplier * fit_fct(self.x_vec, *popt))
 
         except Exception as message:
-            print 'fit not successful:', message
+            print('fit not successful:', message)
             popt = p0
 
     def _prepare_measurement_sig_analyzer(self):
@@ -331,7 +331,7 @@ class spectrum(object):
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         if self.open_qviewkit:
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=self.traces_names)
-        print 'recording trace...'
+        print('recording trace...')
         sys.stdout.flush()
 
         qkit.flow.start()
@@ -546,7 +546,7 @@ class spectrum(object):
         '''
         the data file is closed and filepath is printed
         '''
-        print self._data_file.get_filepath()
+        print(self._data_file.get_filepath())
         # qviewkit.save_plots(self._data_file.get_filepath(),comment=self._plot_comment) #old version where we have to wait for the plots
         t = threading.Thread(target=qviewkit.save_plots, args=[self._data_file.get_filepath(), self._plot_comment])
         t.start()
@@ -583,11 +583,11 @@ class spectrum(object):
                     plt.plot(self.x_vec, trace)
                     plt.fill_between(self.x_vec, trace + float(self.span) / 2, trace - float(self.span) / 2, alpha=0.5)
                 except Exception:
-                    print 'invalid trace...skip'
+                    print('invalid trace...skip')
             plt.axhspan(self.y_vec[0], self.y_vec[-1], facecolor='0.5', alpha=0.5)
             plt.show()
         else:
-            print 'No trace generated.'
+            print('No trace generated.')
 
     def set_span(self, span):
         self.span = span
