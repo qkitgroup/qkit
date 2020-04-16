@@ -180,7 +180,6 @@ class QFIT(object):
             self.data = kwargs['data']
             self.amplitude = None
             self.phase = None
-            self.file_name = None
             self.urls = None
             self.file_name = 'data_import'
             self.coordinate_label = ''
@@ -507,27 +506,28 @@ class QFIT(object):
         '''
         Saves optimized data in the h5 file and a respective view.
         '''
-        self.hf = store.Data(self.file_name)
-
-        hdf_data_opt = self.hf.add_value_vector(self.data_label+'_data_opt', folder=self.cfg['analysis_folder'], x = self.hf.get_dataset(self.urls[0]))
-        hdf_data_opt.append(np.array(self.data))
-        self.optimized = True
-        
-        try:
-            self.errors
-            if self.errors is None: raise NameError
-        except NameError: #no errors
-            pass
-        else:
-            #write errors
-            hdf_error = self.hf.add_value_vector(self.data_label+'_errors', folder=self.cfg['analysis_folder'])
-            hdf_error.append(np.array(self.errors))
-
-            #error plot view
-            joint_error_view = self.hf.add_view(self.data_label+'_err_plot', x = self.hf.get_dataset(self.urls[0]),
-                y = hdf_data_opt, error = hdf_error)
-        
-        self.hf.close_file()
+        if self.urls is not None:
+            self.hf = store.Data(self.file_name)
+    
+            hdf_data_opt = self.hf.add_value_vector(self.data_label+'_data_opt', folder=self.cfg['analysis_folder'], x = self.hf.get_dataset(self.urls[0]))
+            hdf_data_opt.append(np.array(self.data))
+            self.optimized = True
+            
+            try:
+                self.errors
+                if self.errors is None: raise NameError
+            except NameError: #no errors
+                pass
+            else:
+                #write errors
+                hdf_error = self.hf.add_value_vector(self.data_label+'_errors', folder=self.cfg['analysis_folder'])
+                hdf_error.append(np.array(self.errors))
+    
+                #error plot view
+                joint_error_view = self.hf.add_view(self.data_label+'_err_plot', x = self.hf.get_dataset(self.urls[0]),
+                    y = hdf_data_opt, error = hdf_error)
+            
+            self.hf.close_file()
 
     #\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=
     
@@ -842,7 +842,12 @@ class QFIT(object):
 
             self.fvalues = self.fit_function(self.x_vec * self.freq_conversion_factor, *self.popt)
             #plot
-            if (self.cfg['show_plot'] or self.cfg['save_png'] or self.cfg['save_pdf']) and self.cfg['matplotlib']:
+            create_plots = self.cfg['matplotlib'] and (
+                self.cfg['show_plot'] or (
+                    (self.cfg['save_png'] or self.cfg['save_pdf']) and self.file_name != "data_import"
+                )
+            )
+            if create_plots:
                 if self.fit_function == self.__f_exp:
                     #create pair of regular and logarithmic plot
                     self.fig, self.axes = plt.subplots(1, 2, figsize=(15,4))
@@ -872,11 +877,11 @@ class QFIT(object):
                     self.fig.suptitle(str(['{:s} = {:.4g}'.format(p, entry) for p, entry in zip(self.__get_parameters(self.fit_function), self.popt)]))
                     self.parameter_list = self.__get_parameters(self.fit_function)
                 self.fig.tight_layout(rect=[0, 0, 1, 0.95])
-        if self.cfg['matplotlib']:
-            if self.cfg['save_png']: plt.savefig(self.file_name.strip('.h5')+'.png', dpi=self.cfg.get('dpi',200))
-            if self.cfg['save_pdf']: plt.savefig(self.file_name.strip('.h5')+'.pdf', dpi=self.cfg.get('dpi',200))
-            if self.cfg['show_plot']: plt.show()
-            if self.cfg['show_plot'] or self.cfg['save_png'] or self.cfg['save_pdf']: plt.close(self.fig)
+                
+                if self.cfg['save_png'] and self.file_name != "data_import": plt.savefig(self.file_name.strip('.h5')+'.png', dpi=self.cfg.get('dpi',200))
+                if self.cfg['save_pdf'] and self.file_name != "data_import": plt.savefig(self.file_name.strip('.h5')+'.pdf', dpi=self.cfg.get('dpi',200))
+                if self.cfg['show_plot']: plt.show()
+                plt.close(self.fig)
 
         if self.pcov is not None and self.urls is not None: #if fit successful and data based on h5 file
             self._store_fit_data(fit_params=self.popt, fit_covariance=np.sqrt(np.diag(self.pcov)))
