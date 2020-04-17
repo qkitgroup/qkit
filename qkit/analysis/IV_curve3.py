@@ -21,8 +21,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats, signal as sig, optimize as opt
 from collections import defaultdict
-from uncertainties import ufloat, unumpy as unp
-# TODO: uncertainty analysis probably using import uncertainties
 
 import qkit
 from qkit.storage.store import Data
@@ -32,6 +30,153 @@ from qkit.storage import store as hdf
 from qkit.storage.hdf_constants import ds_types
 import json
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
+
+""" Error calculations with uncertainties package """
+import uncertainties as uncert
+from uncertainties import ufloat, unumpy as unp
+
+def sem(a, **kwargs):
+    """
+    Compute the standard error of the mean along the specified axis.
+
+    Returns the standard error of the mean, that is per definition the standard deviation divided by sqrt(n-1). The standard error of the mean is computed for the
+    flattened array by default, otherwise over the specified axis.
+
+    Parameters
+    ----------
+    a : array_like
+        Calculate the standard error of the mean of these values.
+    axis : None or int or tuple of ints, optional
+        Axis or axes along which the standard error of the mean is computed. The default is to compute the standard error of the mean of the flattened array.
+
+        If this is a tuple of ints, a standard error of the mean is performed over multiple axes, instead of a single axis or all the axes as before.
+    dtype : dtype, optional
+        Type to use in computing the standard error of the mean. For arrays of integer type the default is float64, for arrays of float types it is the same as the array type.
+    out : ndarray, optional
+        Alternative output array in which to place the result. It must have the same shape as the expected output but the type (of the calculated values) will be cast if necessary.
+    ddof : int, optional
+        Means Delta Degrees of Freedom.  The divisor used in calculations is ``N - ddof``, where ``N`` represents the number of elements. By default `ddof` is zero.
+    keepdims : bool, optional
+        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this option, the result will broadcast correctly against the input array.
+
+        If the default value is passed, then `keepdims` will not be passed through to the `std` method of sub-classes of `ndarray`, however any non-default value will be.  If the sub-class' method does not implement `keepdims` any exceptions will be raised.
+
+    Returns
+    -------
+    sem : ndarray, see dtype parameter above.
+        If `out` is None, return a new array containing the standard error of the mean, otherwise return a reference to the output array.
+    """
+    n = a.shape[kwargs['axis']] if 'axis' in kwargs else np.prod(a.shape)
+    return np.std(unp.nominal_values(a), **kwargs)/np.sqrt(n-1)
+
+def nansem(a, **kwargs):
+    """
+    Compute the standard error of the mean along the specified axis, while ignoring NaNs.
+
+    Returns the standard error of the mean, that is per definition the standard deviation divided by sqrt(n-1), of the non-NaN array elements. The standard error of the mean is computed for the flattened array by default, otherwise over the specified axis.
+
+    For all-NaN slices or slices with zero degrees of freedom, NaN is returned and a `RuntimeWarning` is raised.
+
+    Parameters
+    ----------
+    a : array_like
+        Calculate the standard error of the mean of the non-NaN values.
+    axis : {int, tuple of int, None}, optional
+        Axis or axes along which the standard error of the mean is computed. The default is to compute the standard error of the mean of the flattened array.
+    dtype : dtype, optional
+        Type to use in computing the standard error of the mean. For arrays of integer type the default is float64, for arrays of float types it is the same as the array type.
+    out : ndarray, optional
+        Alternative output array in which to place the result. It must have the same shape as the expected output but the type (of the calculated values) will be cast if necessary.
+    ddof : int, optional
+        Means Delta Degrees of Freedom.  The divisor used in calculations is ``N - ddof``, where ``N`` represents the number of non-NaN elements.  By default `ddof` is zero.
+
+    keepdims : bool, optional
+        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this option, the result will broadcast correctly against the original `a`.
+
+        If this value is anything but the default it is passed through as-is to the relevant functions of the sub-classes. If these functions do not have a `keepdims` kwarg, a RuntimeError will be raised.
+
+    Returns
+    -------
+    sem : ndarray, see dtype parameter above.
+        If `out` is None, return a new array containing the standard error of the mean, otherwise return a reference to the output array. If ddof is >= the number of non-NaN elements in a slice or the slice contains only NaNs, then the result for that slice is NaN.
+    """
+    n = a.shape[kwargs['axis']] if 'axis' in kwargs else np.prod(a.shape)
+    return np.nanstd(unp.nominal_values(a), **kwargs)/np.sqrt(n-1)
+
+def umean(a, **kwargs):
+    """
+    Compute the arithmetic mean and its uncertainties of numbers with uncertainties along the specified axis.
+
+    Returns the average and its uncertainty of the array elements. The average is taken over the flattened array by default, otherwise over the specified axis.
+    The uncertainty is calculated as standard error of the mean as well as the error propagated uncertainties of the input array.
+    `float64` intermediate and return values are used for integer inputs.
+
+    Parameters
+    ----------
+    a : array_like
+        Array containing numbers with uncertainties whose mean is desired. If `a` is not an array, a conversion is attempted.
+    axis : None or int or tuple of ints, optional
+        Axis or axes along which the means are computed. The default is to compute the mean of the flattened array.
+
+        If this is a tuple of ints, a mean is performed over multiple axes, instead of a single axis or all the axes as before.
+    dtype : data-type, optional
+        Type to use in computing the mean. For integer inputs, the default is `float64`; for floating point inputs, it is the same as the input dtype.
+    out : ndarray, optional
+        Alternate output array in which to place the result. The default is ``None``; if provided, it must have the same shape as the expected output, but the type will be cast if necessary.
+        See `ufuncs-output-type` for more details.
+
+    keepdims : bool, optional
+        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this option, the result will broadcast correctly against the input array.
+
+        If the default value is passed, then `keepdims` will not be passed through to the `mean` method of sub-classes of `ndarray`, however any non-default value will be. If the sub-class' method does not implement `keepdims` any exceptions will be raised.
+
+    Returns
+    -------
+    m : ndarray, see dtype parameter above
+        If `out=None`, returns a new array containing the mean values and its uncertainties, otherwise a reference to the output array is returned.
+    """
+    return np.squeeze(unp.uarray(nominal_values=unp.nominal_values(np.mean(a, **kwargs)),
+                                 std_devs=np.sqrt(unp.std_devs(np.mean(a, **kwargs))**2
+                                                  +sem(unp.nominal_values(a), **kwargs)**2)))
+
+def unanmean(a, **kwargs):
+    """
+    Compute the arithmetic mean and its uncertainties of numbers with uncertainties along the specified axis, ignoring NaNs.
+
+    Returns the average and its uncertainty of the array elements. The average is taken over the flattened array by default, otherwise over the specified axis.
+    The uncertainty is calculated as standard error of the mean as well as the error propagated uncertainties of the input array.
+    `float64` intermediate and return values are used for integer inputs.
+
+	For all-NaN slices, NaN is returned and a `RuntimeWarning` is raised.
+
+    Parameters
+    ----------
+    a : array_like
+        Array containing numbers with uncertainties whose mean is desired. If `a` is not an array, a conversion is attempted.
+    axis : {int, tuple of int, None}, optional
+	    Axis or axes along which the means are computed. The default is to compute the mean of the flattened array.
+    dtype : data-type, optional
+        Type to use in computing the mean. For integer inputs, the default is `float64`; for inexact inputs, it is the same as the input dtype.
+    out : ndarray, optional
+        Alternate output array in which to place the result. The default is ``None``; if provided, it must have the same shape as the expected output, but the type will be cast if necessary.
+        See `ufuncs-output-type` for more details.
+
+    keepdims : bool, optional
+        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this option, the result will broadcast correctly against the original `a`..
+
+        If the value is anything but the default, then `keepdims` will be passed through to the `mean` or `sum` methods of sub-classes of `ndarray`.  If the sub-classes methods does not implement `keepdims` any exceptions will be raised.
+
+    Returns
+    -------
+    m : ndarray, see dtype parameter above
+        If `out=None`, returns a new array containing the mean values and its uncertainties, otherwise a reference to the output array is returned. Nan is returned for slices that contain only NaNs.
+    """
+    return np.squeeze(unp.uarray(nominal_values=unp.nominal_values(np.nanmean(a, **kwargs)),
+                                 std_devs=np.sqrt(unp.std_devs(np.nanmean(a, **kwargs))**2
+                                                  +nansem(unp.nominal_values(a), **kwargs)**2)))
+
+np.sem, np.nansem = sem, nansem
+uncert.umean, uncert.unanmean = umean, unanmean
 
 
 class dict2obj(object):
@@ -660,7 +805,7 @@ class IV_curve3(object):
             ''' get x offset (for JJ voltage offset)'''
             #x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
             x_offsets = np.mean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
-                                           std_devs=np.nanstd(x_const, axis=self.scan_dim)),
+                                           std_devs=np.nansem(x_const, axis=self.scan_dim)),
                                 axis=0)
             ''' get y offset (for JJ current offset) '''
             #TODO: calculate std_devs correct
@@ -669,18 +814,18 @@ class IV_curve3(object):
                                  np.nanmin(y_const[1], axis=(self.scan_dim-1))])
                 #y_offsets = np.mean(y_rs, axis=0)
                 y_offsets = unp.uarray(nominal_values=np.nanmean(y_rs, axis=0),
-                                       std_devs=np.nanstd(np.abs(y_rs), axis=0))
+                                       std_devs=np.nansem(np.abs(y_rs), axis=0))
             else:  # critical y (for JJ critical current)
                 y_cs = np.array([np.nanmin(y_const[0], axis=(self.scan_dim-1)),
                                  np.nanmax(y_const[1], axis=(self.scan_dim-1))])
                 #y_offsets = np.mean(y_cs, axis=0)
                 y_offsets = unp.uarray(nominal_values=np.nanmean(y_cs, axis=0),
-                                       std_devs=np.nanstd(np.abs(y_cs), axis=0))
+                                       std_devs=np.nansem(np.abs(y_cs), axis=0))
         elif self.sweeptype == 1:  # 4 quadrants
             ''' get x offset '''
             #x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
             x_offsets = np.mean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
-                                           std_devs=np.nanstd(x_const, axis=self.scan_dim)),
+                                           std_devs=np.nansem(x_const, axis=self.scan_dim)),
                                 axis=0)
             ''' get y offset '''
             #TODO: calculate std_devs correct
@@ -689,18 +834,18 @@ class IV_curve3(object):
                                  np.nanmin(y_const[3], axis=(self.scan_dim-1))])
                 #y_offsets = np.mean(y_rs, axis=0)
                 y_offsets = unp.uarray(nominal_values=np.nanmean(y_rs, axis=0),
-                                       std_devs=np.nanstd(np.abs(y_rs), axis=0))
+                                       std_devs=np.nansem(np.abs(y_rs), axis=0))
             else:  # critical y (for JJ critical current)
                 y_cs = np.array([np.nanmax(y_const[0], axis=(self.scan_dim-1)),
                                  np.nanmin(y_const[2], axis=(self.scan_dim-1))])
                 #y_offsets = np.mean(y_cs, axis=0)
                 y_offsets = unp.uarray(nominal_values=np.nanmean(y_cs, axis=0),
-                                       std_devs=np.nanstd(np.abs(y_cs), axis=0))
+                                       std_devs=np.nansem(np.abs(y_cs), axis=0))
         else:  # custom sweeptype
             ''' get x offset '''
             #x_offsets = np.nanmean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
             x_offsets = np.nanmean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
-                                              std_devs=np.nanstd(x_const, axis=self.scan_dim)),
+                                              std_devs=np.nansem(x_const, axis=self.scan_dim)),
                                    axis=0)
             ''' get y offset '''
             #TODO: calculate std_devs correct
@@ -711,7 +856,7 @@ class IV_curve3(object):
                                  np.nanmin(np.nanmin(y_const, axis=0), axis=self.scan_dim-1)])
                 #y_offsets = np.mean(y_cs, axis=0)
                 y_offsets = unp.uarray(nominal_values=np.nanmean(y_cs, axis=0),
-                                       std_devs=np.nanstd(np.abs(y_cs), axis=0))
+                                       std_devs=np.nansem(np.abs(y_cs), axis=0))
         self.I_offsets, self.V_offsets = [x_offsets, y_offsets][::int(np.sign(self.bias - .5))]
         return self.I_offsets, self.V_offsets
 
@@ -933,7 +1078,7 @@ class IV_curve3(object):
                 #self.R_n = np.array([np.nanmean(np.concatenate([dVdI[k, x, y, s] for k, s in enumerate(slc)]))
                 #                     for j, slc in enumerate(np.transpose(slcs, axes=(1, 0)))])
                 self.R_n = np.array([ufloat(nominal_value=np.nanmean(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])),
-                                            std_dev=np.nanstd(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])))
+                                            std_dev=np.nansem(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])))
                                      for j, slc in enumerate(np.transpose(slcs, axes=(1, 0)))])
                 self.R_n = np.nanmean(self.R_n, axis=self.scan_dim - 1)
         elif len(V.shape)-1 == 2:
@@ -978,7 +1123,7 @@ class IV_curve3(object):
                 #                      for j, slc in enumerate(slcs1D)]
                 #                     for x, slcs1D in enumerate(np.transpose(slcs, axes=(1, 2, 0)))])
                 self.R_n = np.array([[ufloat(nominal_value=np.nanmean(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])),
-                                             std_dev=np.nanstd(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])))
+                                             std_dev=np.nansem(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])))
                                       for j, slc in enumerate(slcs1D)]
                                      for x, slcs1D in enumerate(np.transpose(slcs, axes=(1, 2, 0)))])
                 self.R_n = np.nanmean(self.R_n, axis=self.scan_dim - 1)
@@ -1035,7 +1180,7 @@ class IV_curve3(object):
                 #                      for y, slcs1D in enumerate(slcs2D)]
                 #                     for x, slcs2D in enumerate(np.transpose(slcs, axes=(1, 2, 3, 0)))])
                 self.R_n = np.array([[[ufloat(nominal_value=np.nanmean(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])),
-                                              std_dev=np.nanstd(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])))
+                                              std_dev=np.nansem(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])))
                                        for j, slc in enumerate(slcs1D)]
                                       for y, slcs1D in enumerate(slcs2D)]
                                      for x, slcs2D in enumerate(np.transpose(slcs, axes=(1, 2, 3, 0)))])
@@ -1446,7 +1591,7 @@ class IV_curve3(object):
                                   slice(-peaks[int(not j)][0][m[0]].item() - 1, peaks[j][0][m[1]].item()),
                                   *zip(*enumerate(zip(*(masks_c, masks_r))))))
                 V_gs = unp.uarray(nominal_values=[np.nanmean(V[j][slc]) for j, slc in enumerate(slcs_g)],
-                                  std_devs=[np.nanstd(V[j][slc]) for j, slc in enumerate(slcs_g)])
+                                  std_devs=[np.nansem(V[j][slc]) for j, slc in enumerate(slcs_g)])
         elif self.scan_dim == 2:
             ''' critical current '''
             masks_c = map(lambda V_c2D, peaks_c2D:
