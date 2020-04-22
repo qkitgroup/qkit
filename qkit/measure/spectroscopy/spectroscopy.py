@@ -61,7 +61,7 @@ class spectrum(object):
             __name__ + ': With your VNA instrument driver (' + self.vna.get_type() + '), I can not see when a measurement is complete. So I only wait for a specific time and hope the VNA has finished. Please consider implemeting the necessary functions into your driver.')
         self.exp_name = exp_name
         self._sample = sample
-        self.landscape = Landscape(vna)
+        self.landscape = Landscape(vna=vna,spec=self)
         self.tdx = 0.002  # [s]
         self.tdy = 0.002  # [s]
 
@@ -72,8 +72,6 @@ class spectrum(object):
         self.y_set_obj = None
         self.x_vec = None
         self.y_vec = None
-        self.landscape.x_vec=self.x_vec
-        self.landscape.y_vec=self.y_vec
 
         self.progress_bar = True
         self._fit_resonator = False
@@ -135,7 +133,7 @@ class spectrum(object):
                 self.log_unit.append(unit[i])
                 self.log_dtype.append(log_dtype[i])
 
-    def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit="", delete_landscape=True):
+    def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit=""):
         """
         Sets parameters for sweep. In a 3D measurement, the x-parameters will be the "outer" sweep.
         For every x value all y values are swept
@@ -144,20 +142,17 @@ class spectrum(object):
         x_coordname (string)
         x_instrument (obj): callable object to execute with x_vec-values (i.e. vna.set_power())
         x_unit (string): optional
-        delete_landscape: True (default) if previously generated landscape should be deleted
         """
         self.x_vec = x_vec
-        self.landscape.x_vec = x_vec
         self.x_coordname = x_coordname
         self.x_unit = x_unit
         self.x_set_obj = x_set_obj
-        if self.landscape.xylandscapes and delete_landscape:
+        if self.landscape.xylandscapes:
             self.landscape.delete_landscape_function_xy()
             logging.warning('xy landscape has been deleted')
-        if self.landscape.xzlandscape_func and delete_landscape:
+        if self.landscape.xzlandscape_func:
             self.landscape.delete_landscape_function_xz()
             logging.warning('xz landscape has been deleted')
-
 
     def set_y_parameters(self, y_vec, y_coordname, y_set_obj, y_unit="", delete_landscape=True):
         """
@@ -168,16 +163,18 @@ class spectrum(object):
         y_coordname (string)
         y_instrument (obj): callable object to execute with x_vec-values (i.e. vna.set_power())
         y_unit (string): optional
-        delete_landscape: True (default) if previously generated landscape should be deleted
+        delete_landscape: True (default) if previously generated xz-landscape should be deleted
         """
         self.y_vec = y_vec
-        self.landscape.y_vec = y_vec
         self.y_coordname = y_coordname
         self.y_set_obj = y_set_obj
         self.y_unit = y_unit
-        if self.landscape.xylandscapes and delete_landscape:
+        if self.landscape.xylandscapes:
             self.landscape.delete_landscape_function_xy()
             logging.warning('xy landscape has been deleted')
+        if self.landscape.xzlandscape_func and delete_landscape:
+            self.landscape.delete_landscape_function_xz()
+            logging.warning('xz landscape has been deleted. You can switch this off if you whish.')
 
     def _prepare_measurement_vna(self):
         '''
@@ -802,10 +799,9 @@ class Landscape:
     Instance stores the landscape(functions), lets you plot them, checks if points are to be measured and adjusts
     the vna frequencies.
     """
-    def __init__(self, vna):
+    def __init__(self, vna, spec):
         self.vna = vna
-        self.x_vec = None
-        self.y_vec = None
+        self.spec = spec # The spectroscopy object
         self.xylandscapes = []  # List containing dicts
         self.xzlandscape_func = None
         self.xz_freqpoints = None
@@ -843,7 +839,7 @@ class Landscape:
         x_fit = np.array(curve_p[0])
         y_fit = np.array(curve_p[1])
         if x_range is None:
-            x_range = [self.x_vec[0], self.x_vec[-1]]
+            x_range = [self.spec.x_vec[0], self.spec.x_vec[-1]]
         if y_span is None:
             y_span = self.y_span_default
         if y_span < 0:
@@ -854,9 +850,9 @@ class Landscape:
         try:
             if curve_f == 'lin_spline':
                 f = interp1d(x_fit, y_fit)
-                center_points = f(self.x_vec)
+                center_points = f(self.spec.x_vec)
             elif curve_f == 'spline':
-                center_points =  UnivariateSpline(x_fit, y_fit)(self.x_vec)
+                center_points =  UnivariateSpline(x_fit, y_fit)(self.spec.x_vec)
             else:  # curve_fit procedure differs from splines
                 if curve_f == 'parab':
                     fit_fct = self.f_parab
@@ -870,7 +866,7 @@ class Landscape:
                 else:
                     raise ValueError('function type not known...aborting')
                 popt, pcov = curve_fit(fit_fct, x_fit, y_fit / multiplier, p0=p0)
-                center_points = multiplier * fit_fct(self.x_vec, *popt)
+                center_points = multiplier * fit_fct(self.spec.x_vec, *popt)
         except Exception as message:
             print('fit not successful:', message)
         else:
@@ -924,8 +920,8 @@ class Landscape:
                 popt, pcov = curve_fit(fit_fct, x_fit, z_fit/multiplier, p0=p0)
                 self.xzlandscape_func = lambda x: multiplier * fit_fct(x, *popt)
 
-            self.xz_freqpoints = np.arange(self.xzlandscape_func(self.x_vec[0])-self.z_span/2,
-                                           self.xzlandscape_func(self.x_vec[-1])+self.z_span/2,
+            self.xz_freqpoints = np.arange(self.xzlandscape_func(self.spec.x_vec[0])-self.z_span/2,
+                                           self.xzlandscape_func(self.spec.x_vec[-1])+self.z_span/2,
                                            self.vna.get_span()/self.vna.get_nop())
         except Exception as message:
             print('fit not successful:', message)
@@ -961,8 +957,8 @@ class Landscape:
         if self.xylandscapes:
             for i in self.xylandscapes:
                 try:
-                    arg = np.where((i['x_range'][0] <= self.x_vec) & (self.x_vec <= i['x_range'][1]))
-                    x = self.x_vec[arg]
+                    arg = np.where((i['x_range'][0] <= self.spec.x_vec) & (self.spec.x_vec <= i['x_range'][1]))
+                    x = self.spec.x_vec[arg]
                     t = i['center_points'][arg]
                     plt.plot(x, t, color='C1')
                     if i['blacklist']:
@@ -972,8 +968,8 @@ class Landscape:
                 except Exception as e:
                     print(e)
                     print('invalid trace...skip')
-            plt.axhspan(np.min(self.y_vec), np.max(self.y_vec), facecolor='0.5', alpha=0.5)
-            plt.xlim(np.min(self.x_vec), np.max(self.x_vec))
+            plt.axhspan(np.min(self.spec.y_vec), np.max(self.spec.y_vec), facecolor='0.5', alpha=0.5)
+            plt.xlim(np.min(self.spec.x_vec), np.max(self.spec.x_vec))
             plt.show()
         else:
             print('No trace generated. Use landscape.generate_xy_function')
@@ -987,10 +983,10 @@ class Landscape:
             raise ImportError("matplotlib not found.")
 
         if self.xzlandscape_func:
-            y_values = self.xzlandscape_func(self.x_vec)
-            plt.plot(self.x_vec, y_values, 'C1')
-            plt.fill_between(self.x_vec, y_values+self.z_span/2., y_values-self.z_span/2., color='C0', alpha=0.5)
-            plt.xlim((self.x_vec[0], self.x_vec[-1]))
+            y_values = self.xzlandscape_func(self.spec.x_vec)
+            plt.plot(self.spec.x_vec, y_values, 'C1')
+            plt.fill_between(self.spec.x_vec, y_values+self.z_span/2., y_values-self.z_span/2., color='C0', alpha=0.5)
+            plt.xlim((self.spec.x_vec[0], self.spec.x_vec[-1]))
             plt.ylim((self.xz_freqpoints[0], self.xz_freqpoints[-1]))
             plt.show()
         else:
