@@ -247,7 +247,7 @@ class fid(file_system_service):
             data and allows to extract import values from h5-files
             """
         
-            if len(self.h5_info_db) is 0:  # necessary if a data directory is chosen without any h5 file
+            if len(self.h5_info_db) == 0:  # necessary if a data directory is chosen without any h5 file
                 self.df = pd.DataFrame(columns=['datetime', 'name', 'run', 'user'])
             else:
                 self.df = pd.DataFrame(self.h5_info_db).T

@@ -181,7 +181,7 @@ class file_system_service(UUID_base):
                 run = j_split[-4]
             else:
                 tm = uuid
-                if j_split[-3][0:3] is not 201:  # not really a measurement file then
+                if j_split[-3][0:3] != 201:  # not really a measurement file then
                     dt = None
                 else:
                     dt = '{}-{}-{} {}:{}:{}'.format(j_split[-3][:4], j_split[-3][4:6], j_split[-3][6:], tm[:2], tm[2:4], tm[4:])
