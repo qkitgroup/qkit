@@ -21,6 +21,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats, signal as sig, optimize as opt
 from collections import defaultdict
+import itertools
 
 import qkit
 from qkit.storage.store import Data
@@ -39,7 +40,8 @@ def sem(a, **kwargs):
     """
     Compute the standard error of the mean along the specified axis.
 
-    Returns the standard error of the mean, that is per definition the standard deviation divided by sqrt(n-1). The standard error of the mean is computed for the
+    Returns the standard error of the mean, that is per definition the standard deviation divided by sqrt(n-1). The
+    standard error of the mean is computed for the
     flattened array by default, otherwise over the specified axis.
 
     Parameters
@@ -47,24 +49,33 @@ def sem(a, **kwargs):
     a : array_like
         Calculate the standard error of the mean of these values.
     axis : None or int or tuple of ints, optional
-        Axis or axes along which the standard error of the mean is computed. The default is to compute the standard error of the mean of the flattened array.
+        Axis or axes along which the standard error of the mean is computed. The default is to compute the standard
+        error of the mean of the flattened array.
 
-        If this is a tuple of ints, a standard error of the mean is performed over multiple axes, instead of a single axis or all the axes as before.
+        If this is a tuple of ints, a standard error of the mean is performed over multiple axes, instead of a single
+        axis or all the axes as before.
     dtype : dtype, optional
-        Type to use in computing the standard error of the mean. For arrays of integer type the default is float64, for arrays of float types it is the same as the array type.
+        Type to use in computing the standard error of the mean. For arrays of integer type the default is float64, for
+        arrays of float types it is the same as the array type.
     out : ndarray, optional
-        Alternative output array in which to place the result. It must have the same shape as the expected output but the type (of the calculated values) will be cast if necessary.
+        Alternative output array in which to place the result. It must have the same shape as the expected output but
+        the type (of the calculated values) will be cast if necessary.
     ddof : int, optional
-        Means Delta Degrees of Freedom.  The divisor used in calculations is ``N - ddof``, where ``N`` represents the number of elements. By default `ddof` is zero.
+        Means Delta Degrees of Freedom.  The divisor used in calculations is ``N - ddof``, where ``N`` represents the
+        number of elements. By default `ddof` is zero.
     keepdims : bool, optional
-        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this option, the result will broadcast correctly against the input array.
+        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this
+        option, the result will broadcast correctly against the input array.
 
-        If the default value is passed, then `keepdims` will not be passed through to the `std` method of sub-classes of `ndarray`, however any non-default value will be.  If the sub-class' method does not implement `keepdims` any exceptions will be raised.
+        If the default value is passed, then `keepdims` will not be passed through to the `std` method of sub-classes of
+        `ndarray`, however any non-default value will be.  If the sub-class' method does not implement `keepdims` any
+        exceptions will be raised.
 
     Returns
     -------
     sem : ndarray, see dtype parameter above.
-        If `out` is None, return a new array containing the standard error of the mean, otherwise return a reference to the output array.
+        If `out` is None, return a new array containing the standard error of the mean, otherwise return a reference to
+        the output array.
     """
     n = a.shape[kwargs['axis']] if 'axis' in kwargs else np.prod(a.shape)
     return np.std(unp.nominal_values(a), **kwargs)/np.sqrt(n-1)
@@ -73,7 +84,9 @@ def nansem(a, **kwargs):
     """
     Compute the standard error of the mean along the specified axis, while ignoring NaNs.
 
-    Returns the standard error of the mean, that is per definition the standard deviation divided by sqrt(n-1), of the non-NaN array elements. The standard error of the mean is computed for the flattened array by default, otherwise over the specified axis.
+    Returns the standard error of the mean, that is per definition the standard deviation divided by sqrt(n-1), of the
+    non-NaN array elements. The standard error of the mean is computed for the flattened array by default, otherwise
+    over the specified axis.
 
     For all-NaN slices or slices with zero degrees of freedom, NaN is returned and a `RuntimeWarning` is raised.
 
@@ -82,23 +95,31 @@ def nansem(a, **kwargs):
     a : array_like
         Calculate the standard error of the mean of the non-NaN values.
     axis : {int, tuple of int, None}, optional
-        Axis or axes along which the standard error of the mean is computed. The default is to compute the standard error of the mean of the flattened array.
+        Axis or axes along which the standard error of the mean is computed. The default is to compute the standard
+        error of the mean of the flattened array.
     dtype : dtype, optional
-        Type to use in computing the standard error of the mean. For arrays of integer type the default is float64, for arrays of float types it is the same as the array type.
+        Type to use in computing the standard error of the mean. For arrays of integer type the default is float64, for
+        arrays of float types it is the same as the array type.
     out : ndarray, optional
-        Alternative output array in which to place the result. It must have the same shape as the expected output but the type (of the calculated values) will be cast if necessary.
+        Alternative output array in which to place the result. It must have the same shape as the expected output but
+        the type (of the calculated values) will be cast if necessary.
     ddof : int, optional
-        Means Delta Degrees of Freedom.  The divisor used in calculations is ``N - ddof``, where ``N`` represents the number of non-NaN elements.  By default `ddof` is zero.
+        Means Delta Degrees of Freedom.  The divisor used in calculations is ``N - ddof``, where ``N`` represents the
+        number of non-NaN elements.  By default `ddof` is zero.
 
     keepdims : bool, optional
-        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this option, the result will broadcast correctly against the original `a`.
+        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this
+        option, the result will broadcast correctly against the original `a`.
 
-        If this value is anything but the default it is passed through as-is to the relevant functions of the sub-classes. If these functions do not have a `keepdims` kwarg, a RuntimeError will be raised.
+        If this value is anything but the default it is passed through as-is to the relevant functions of the
+        sub-classes. If these functions do not have a `keepdims` kwarg, a RuntimeError will be raised.
 
     Returns
     -------
     sem : ndarray, see dtype parameter above.
-        If `out` is None, return a new array containing the standard error of the mean, otherwise return a reference to the output array. If ddof is >= the number of non-NaN elements in a slice or the slice contains only NaNs, then the result for that slice is NaN.
+        If `out` is None, return a new array containing the standard error of the mean, otherwise return a reference to
+        the output array. If ddof is >= the number of non-NaN elements in a slice or the slice contains only NaNs, then
+        the result for that slice is NaN.
     """
     n = a.shape[kwargs['axis']] if 'axis' in kwargs else np.prod(a.shape)
     return np.nanstd(unp.nominal_values(a), **kwargs)/np.sqrt(n-1)
@@ -107,76 +128,222 @@ def umean(a, **kwargs):
     """
     Compute the arithmetic mean and its uncertainties of numbers with uncertainties along the specified axis.
 
-    Returns the average and its uncertainty of the array elements. The average is taken over the flattened array by default, otherwise over the specified axis.
-    The uncertainty is calculated as standard error of the mean as well as the error propagated uncertainties of the input array.
+    Returns the average and its uncertainty of the array elements. The average is taken over the flattened array by
+    default, otherwise over the specified axis.
+    The uncertainty is calculated as standard error of the mean as well as the error propagated uncertainties of the
+    input array.
     `float64` intermediate and return values are used for integer inputs.
 
     Parameters
     ----------
-    a : array_like
-        Array containing numbers with uncertainties whose mean is desired. If `a` is not an array, a conversion is attempted.
+    a : uncertainties.unumpy.ndarray
+        Array containing numbers with uncertainties whose mean is desired. If `a` is not an array, a conversion is
+        attempted.
     axis : None or int or tuple of ints, optional
         Axis or axes along which the means are computed. The default is to compute the mean of the flattened array.
 
-        If this is a tuple of ints, a mean is performed over multiple axes, instead of a single axis or all the axes as before.
+        If this is a tuple of ints, a mean is performed over multiple axes, instead of a single axis or all the axes as
+        before.
     dtype : data-type, optional
-        Type to use in computing the mean. For integer inputs, the default is `float64`; for floating point inputs, it is the same as the input dtype.
+        Type to use in computing the mean. For integer inputs, the default is `float64`; for floating point inputs, it
+        is the same as the input dtype.
     out : ndarray, optional
-        Alternate output array in which to place the result. The default is ``None``; if provided, it must have the same shape as the expected output, but the type will be cast if necessary.
+        Alternate output array in which to place the result. The default is ``None``; if provided, it must have the same
+        shape as the expected output, but the type will be cast if necessary.
         See `ufuncs-output-type` for more details.
 
     keepdims : bool, optional
-        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this option, the result will broadcast correctly against the input array.
+        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this
+        option, the result will broadcast correctly against the input array.
 
-        If the default value is passed, then `keepdims` will not be passed through to the `mean` method of sub-classes of `ndarray`, however any non-default value will be. If the sub-class' method does not implement `keepdims` any exceptions will be raised.
+        If the default value is passed, then `keepdims` will not be passed through to the `mean` method of sub-classes
+        of `ndarray`, however any non-default value will be. If the sub-class' method does not implement `keepdims` any
+        exceptions will be raised.
 
     Returns
     -------
-    m : ndarray, see dtype parameter above
-        If `out=None`, returns a new array containing the mean values and its uncertainties, otherwise a reference to the output array is returned.
+    m : uncertainties.unumpy.ndarray
+        If `out=None`, returns a new array containing the mean values and its uncertainties, otherwise a reference to
+        the output array is returned.
     """
-    return np.squeeze(unp.uarray(nominal_values=unp.nominal_values(np.mean(a, **kwargs)),
-                                 std_devs=np.sqrt(unp.std_devs(np.mean(a, **kwargs))**2
-                                                  +sem(unp.nominal_values(a), **kwargs)**2)))
+    avg = np.float64(np.squeeze(unp.nominal_values(np.mean(a, **kwargs))),
+                     dtype=np.float64)
+    std = np.float64(np.squeeze(np.sqrt(unp.std_devs(np.mean(a, **kwargs))**2
+                                        +sem(unp.nominal_values(a), **kwargs)**2)),
+                     dtype=np.float64)
+    if isinstance(avg, np.floating) and isinstance(std, np.floating):
+        return ufloat(nominal_value=avg,
+                      std_dev=std)
+    elif isinstance(avg, np.ndarray) and isinstance(std, np.ndarray):
+        return unp.uarray(nominal_values=avg,
+                          std_devs=std)
+    else:
+        raise TypeError('average value and standard deviation do not have compatible dtypes.')
 
 def unanmean(a, **kwargs):
     """
-    Compute the arithmetic mean and its uncertainties of numbers with uncertainties along the specified axis, ignoring NaNs.
+    Compute the arithmetic mean and its uncertainties of numbers with uncertainties along the specified axis, ignoring
+    NaNs.
 
-    Returns the average and its uncertainty of the array elements. The average is taken over the flattened array by default, otherwise over the specified axis.
-    The uncertainty is calculated as standard error of the mean as well as the error propagated uncertainties of the input array.
+    Returns the average and its uncertainty of the array elements. The average is taken over the flattened array by
+    default, otherwise over the specified axis. The uncertainty is calculated as standard error of the mean as well as
+    the error propagated uncertainties of the input array.
     `float64` intermediate and return values are used for integer inputs.
 
 	For all-NaN slices, NaN is returned and a `RuntimeWarning` is raised.
 
     Parameters
     ----------
-    a : array_like
-        Array containing numbers with uncertainties whose mean is desired. If `a` is not an array, a conversion is attempted.
+    a : uncertainties.unumpy.ndarray
+        Array containing numbers with uncertainties whose mean is desired. If `a` is not an array, a conversion is
+        attempted.
     axis : {int, tuple of int, None}, optional
 	    Axis or axes along which the means are computed. The default is to compute the mean of the flattened array.
     dtype : data-type, optional
-        Type to use in computing the mean. For integer inputs, the default is `float64`; for inexact inputs, it is the same as the input dtype.
+        Type to use in computing the mean. For integer inputs, the default is `float64`; for inexact inputs, it is the
+        same as the input dtype.
     out : ndarray, optional
-        Alternate output array in which to place the result. The default is ``None``; if provided, it must have the same shape as the expected output, but the type will be cast if necessary.
+        Alternate output array in which to place the result. The default is ``None``; if provided, it must have the same
+        shape as the expected output, but the type will be cast if necessary.
         See `ufuncs-output-type` for more details.
 
     keepdims : bool, optional
-        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this option, the result will broadcast correctly against the original `a`..
+        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this
 
-        If the value is anything but the default, then `keepdims` will be passed through to the `mean` or `sum` methods of sub-classes of `ndarray`.  If the sub-classes methods does not implement `keepdims` any exceptions will be raised.
+        option, the result will broadcast correctly against the original `a`..
+
+        If the value is anything but the default, then `keepdims` will be passed through to the `mean` or `sum` methods
+        of sub-classes of `ndarray`.  If the sub-classes methods does not implement `keepdims` any exceptions will be raised.
 
     Returns
     -------
-    m : ndarray, see dtype parameter above
-        If `out=None`, returns a new array containing the mean values and its uncertainties, otherwise a reference to the output array is returned. Nan is returned for slices that contain only NaNs.
+    retval : uncertainties.unumpy.ndarray, see dtype parameter above
+        If `out=None`, returns a new array containing the mean values and its uncertainties, otherwise a reference to
+        the output array is returned. Nan is returned for slices that contain only NaNs.
     """
-    return np.squeeze(unp.uarray(nominal_values=unp.nominal_values(np.nanmean(a, **kwargs)),
-                                 std_devs=np.sqrt(unp.std_devs(np.nanmean(a, **kwargs))**2
-                                                  +nansem(unp.nominal_values(a), **kwargs)**2)))
+    avg = np.float64(np.squeeze(unp.nominal_values(np.nanmean(a, **kwargs))),
+                     dtype=np.float64)
+    std = np.float64(np.squeeze(np.sqrt(unp.std_devs(np.nanmean(a, **kwargs))**2
+                                        +nansem(unp.nominal_values(a), **kwargs)**2)),
+                     dtype=np.float64)
+    if isinstance(avg, np.floating) and isinstance(std, np.floating):
+        return ufloat(nominal_value=avg,
+                      std_dev=std)
+    elif isinstance(avg, np.ndarray) and isinstance(std, np.ndarray):
+        return unp.uarray(nominal_values=avg,
+                          std_devs=std)
+    else:
+        raise TypeError('average value and standard deviation do not have compatible dtypes.')
+
+
+def uaverage(a, axis=None):
+    """
+    Computes the average and its uncertainties of numbers with uncertainties along the specified axis considering the
+    uncertainties of each input value.
+
+    Returns the average and its uncertainty of the array elements weighted by the inverse variance of each input value
+    [1]_ that results from the maximum likelihood estimator applied to aGaussian distribution. The average is calculated
+    as weighted arithmetic mean [2]_ and the uncertainty is calculated as square root of the weighted sample variance of
+    the input array [3]_.
+    Both weighted arithmetic mean and weighted sample variance is taken over the flattened array by default, otherwise
+    over the specified axis.
+
+    Parameters
+    ----------
+    a : uncertainties.unumpy.ndarray
+        Array containing data with uncertainties to be averaged. If `a` is not an array, a conversion is attempted.
+    axis : None or int or tuple of ints, optional
+        Axis or axes along which to average `a`.  The default, axis=None, will average over all of the elements of the
+        input array.
+        If axis is negative it counts from the last to the first axis.
+        If axis is a tuple of ints, averaging is performed on all of the axes specified in the tuple instead of a single
+        axis or all the axes as before.
+
+    Returns
+    -------
+    retval : uncertainties.unumpy.ndarray or uncertainties.ufloat
+        Returns the averagea and its uncertainty along the specified axis weighted by the inverse variance of each input
+        value.
+        The result dtype follows a general pattern and is uncertainties.ufloat if `axis` is None or else
+        uncertainties.unumpy.ndarray.
+
+    References
+    ----------
+    [1] Guide to the expression of uncertainty in measurement: https://www.bipm.org/utils/common/documents/jcgm/JCGM_100_2008_E.pdf
+    [2] Wikipedia page about weighted arithmetic mean: https://en.wikipedia.org/wiki/Weighted_arithmetic_mean
+    [3] Wikipedia page about weighted sample variance: https://en.wikipedia.org/wiki/Weighted_arithmetic_mean#Weighted_sample_variance
+    """
+    w = 1 / unp.std_devs(a) ** 2
+    avg = np.sum(w *unp.nominal_values(a), axis=axis, keepdims=True) / np.sum(w, axis=axis, keepdims=True)
+    var = np.sum(w * np.subtract(avg, unp.nominal_values(a)) ** 2, axis=axis) / np.sum(w, axis=axis)
+    avg = np.float64(np.squeeze(avg), dtype=np.float64)
+    if isinstance(avg, np.floating) and isinstance(var, np.floating):
+        return ufloat(nominal_value=avg,
+                      std_dev=np.sqrt(var))
+    elif isinstance(avg, np.ndarray) and isinstance(var, np.ndarray):
+        return unp.uarray(nominal_values=avg,
+                          std_devs=np.sqrt(var))
+    else:
+        raise TypeError('average value and variance do not have compatible dtypes.')
+
+def unanaverage(a, axis=None):
+    """
+    Computes the average and its uncertainties of numbers with uncertainties along the specified axis considering the
+    uncertainties of each input value, ignoring NaNs.
+
+    Returns the average and its uncertainty of the array elements weighted by the inverse variance of each input value
+    [1]_ that results from the maximum likelihood estimator applied to aGaussian distribution. The average is calculated
+    as weighted arithmetic mean [2]_ and the uncertainty is calculated as square root of the weighted sample variance of
+    the input array [3]_.
+    Both weighted arithmetic mean and weighted sample variance is taken over the flattened array by default, otherwise
+    over the specified axis.
+
+    Parameters
+    ----------
+    a : uncertainties.unumpy.ndarray
+        Array containing data with uncertainties to be averaged. If `a` is not an array, a conversion is attempted.
+    axis : None or int or tuple of ints, optional
+        Axis or axes along which to average `a`.  The default, axis=None, will average over all of the elements of the
+        input array.
+        If axis is negative it counts from the last to the first axis.
+        If axis is a tuple of ints, averaging is performed on all of the axes specified in the tuple instead of a single
+        axis or all the axes as before.
+
+    Returns
+    -------
+    retval : uncertainties.unumpy.ndarray or uncertainties.ufloat
+        Returns the averagea and its uncertainty along the specified axis weighted by the inverse variance of each input
+        value.
+        The result dtype follows a general pattern and is uncertainties.ufloat if `axis` is None or else
+
+    See Also
+    --------
+    uaverage : weighted uncertainty average across array propagating NaNs.
+    numpy.isnan : Show which elements are NaN.
+    numpy.isfinite: Show which elements are not NaN or +/-inf.
+
+    References
+    ----------
+    [1] Guide to the expression of uncertainty in measurement: https://www.bipm.org/utils/common/documents/jcgm/JCGM_100_2008_E.pdf
+    [2] Wikipedia page about weighted arithmetic mean: https://en.wikipedia.org/wiki/Weighted_arithmetic_mean
+    [3] Wikipedia page about weighted sample variance: https://en.wikipedia.org/wiki/Weighted_arithmetic_mean#Weighted_sample_variance
+    """
+    w = 1 / unp.std_devs(a) ** 2
+    avg = np.nansum(w *unp.nominal_values(a), axis=axis, keepdims=True) / np.nansum(w, axis=axis, keepdims=True)
+    var = np.nansum(w * np.subtract(avg, unp.nominal_values(a)) ** 2, axis=axis) / np.nansum(w, axis=axis)
+    avg = np.float64(np.squeeze(avg), dtype=np.float64)
+    if isinstance(avg, np.floating) and isinstance(var, np.floating):
+        return ufloat(nominal_value=avg,
+                      std_dev=np.sqrt(var))
+    elif isinstance(avg, np.ndarray) and isinstance(var, np.ndarray):
+        return unp.uarray(nominal_values=avg,
+                          std_devs=np.sqrt(var))
+    else:
+        raise TypeError('average value and variance do not have compatible dtypes.')
 
 np.sem, np.nansem = sem, nansem
 uncert.umean, uncert.unanmean = umean, unanmean
+uncert.uaverage, uncert.unanaverage = uaverage, unanaverage
 
 
 class dict2obj(object):
@@ -230,7 +397,7 @@ class IV_curve3(object):
         >>> ivc = IVC()
         Initialized the file info database (qkit.fid) in 0.000 seconds.
         """
-        qkit.fid.update_file_db()  # update file database
+        #qkit.fid.update_file_db()  # update file database
         self.uuid, self.path, self.df = None, None, None
         self.settings = None
         self.mo = mc.Measurement()  # qkit-sample object
@@ -298,9 +465,13 @@ class IV_curve3(object):
         if self.m_type == 'transport':
             self.scan_dim = self.df.data.i_0.attrs['ds_type']  # scan dimension (1D, 2D, ...)
             self.bias = self.get_bias()
-            self.sweeps = self.mo.sample.sweeps  # sweeps (start, stop, step)
+            try:
+                self.sweeps = self.mo.sample.sweeps  # sweeps (start, stop, step)
+                self.sweeptype = self.get_sweeptype()
+            except AttributeError:
+                self.sweeps = [sample.sweeps for sample in self.mo.sample]
+                self.sweeptype = [self.get_sweeptype(sweeps=sweep) for sweep in self.sweeps]
             self.scm.sweeps = self.sweeps
-            self.sweeptype = self.get_sweeptype()
             shape = np.concatenate([[len(self.sweeps)], np.max([self.df['entry/data0/i_{:d}'.format(j)].shape for j in range(len(self.sweeps))], axis=0)])  # (number of sweeps, eventually len y-values, eventually len x-values, maximal number of sweep points)
             self.I, self.V, self.dVdI = np.empty(shape=shape), np.empty(shape=shape), np.empty(shape=shape)
             for j in range(shape[0]):
@@ -418,7 +589,7 @@ class IV_curve3(object):
                 for key, val in d.items():
                     ds_type = dict(attrs[j][key])['ds_type']
                     if ds_type < 5:  # coordinate, vector, matrix or box
-                        k = get_key(key=key, dct=keys)
+                        k = get_key(_key=key, _dict=keys)
                         keys[k] = (key, j)
                         data_merged[k] = [data[j][key]]*2
                         attrs_merged[k] = (attrs[j][key],)
@@ -435,15 +606,15 @@ class IV_curve3(object):
                             for k, v in dict(attrs[j][key]).items():
                                 # increase X of 'xy_X' and its values to the nex possible
                                 if 'xy_' in k and '_filter' not in k:
-                                    new_key = get_key(key=k, dct=attrs_merged[key][0])
+                                    new_key = get_key(_key=k, _dict=attrs_merged[key][0])
                                     attrs_merged[key][0][new_key] = ':'.join(['_'.join([new_key.strip('xy_') if s.isdigit() else s for s in ulr.split('_')]) for ulr in str(v, encoding='utf-8').split(':')]).encode()
                                 # increase X of 'xy_X_filter' to the nex possible
                                 elif 'xy_' in k and '_filter' in k:
-                                    attrs_merged[key][0][get_key(key=k, dct=attrs_merged[key][0])] = v
+                                    attrs_merged[key][0][get_key(_key=k, _dict=attrs_merged[key][0])] = v
         else:
             keys = {key: (key, ) for key in data[0].keys()}
-            data_merged = merge_dict(data)
-            attrs_merged = merge_dict(attrs)
+            data_merged = merge_dict(_listdict=data)
+            attrs_merged = merge_dict(_listdict=attrs)
         ''' write data to new file '''
         # create new file
         qkit.cfg['run_id'], qkit.cfg['user'] = np.squeeze(np.vstack({tuple(row) for row in run_user}))
@@ -455,22 +626,23 @@ class IV_curve3(object):
             attr = dict(attrs_merged[key][0])
             ds_type = attr['ds_type']
             if ds_type == ds_types['txt']:  # measurement, settings
-                txt_merged = merge_dict(json.loads(d[0], cls=QkitJSONDecoder) for d in val)
+                txt_merged = merge_dict(_listdict=[json.loads(d[0], cls=QkitJSONDecoder) for d in val])
                 ds[key] = _data_file.add_textlist(name)
                 if 'settings' in key:
-                    ds[key].append({kk: {k: remove_duplicates(map(lambda x: x[k], dic)) for k in dic[0]}
+                    ds[key].append({kk: {k: remove_duplicates(_list=map(lambda x: x[k], dic)) for k in dic[0]}
                                     for kk, dic in dict(txt_merged).items()})
                 elif 'measurement' in key:
                     if set(scan_dim) == {1}:
                         # merge sweeps in sample object
                         for k, v in txt_merged.items():
                             if np.iterable(v) and type(v[0]) is dict:
-                                txt_merged[k] = [{k: np.vstack(v) if 'sweeps' in k else remove_duplicates(v) for k, v in merge_dict(v).items()}]*2
-                    ds[key].append({k: remove_duplicates(v) for k, v in txt_merged.items()})
+                                txt_merged[k] = [{k: np.vstack(v) if 'sweeps' in k else remove_duplicates(_list=v) for k, v in merge_dict(_listdict=v).items()}]*2
+                    ds[key].append({k: remove_duplicates(_list=v) for k, v in txt_merged.items()})
             elif ds_type == ds_types['coordinate']:
                 ds[key] = _data_file.add_coordinate(name=name,
                                                     unit=str(dict(attrs_merged[keys[key][0]][0])['unit'], encoding='utf-8'))
-                if np.array_equal(*np.array(val)):
+                if np.array([np.array_equal(p[0], p[1])
+                             for p in itertools.combinations(np.array(list(itertools.zip_longest(*val, fillvalue=np.nan))).T, 2)]).all():
                     ds[key].add(val[0])
                 else:
                     ds[key].add(np.concatenate(val))
@@ -515,7 +687,7 @@ class IV_curve3(object):
                     [ds[key].append(x) for x in xs]
                     ds[key].next_matrix()
             elif ds_type == ds_types['view']:
-                if np.array_equal(*list(map(list, attrs_merged[key]))):
+                if np.array([np.array_equal(p[0], p[1]) for p in itertools.combinations(list(map(list, attrs_merged[key])), 2)]).all():
                     for j, xy in enumerate(filter(lambda k: 'xy_' in k and '_filter' not in k, dict(attrs_merged[key][0]).keys())):
                         x, y = [i.strip('/entry') for i in str(dict(attrs_merged[key][0])[xy], encoding='utf-8').split(':')]
                         if j == 0:
