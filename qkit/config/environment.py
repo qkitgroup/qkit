@@ -42,7 +42,7 @@ cfg['user_instruments_dir'] = None
 ## Which version of datafolder structuring do you want?
 ##  1 = YYYYMMDD/HHMMSS_NAME
 ##  2 = RUN_ID/USERNAME/UUID_NAME
-cfg['datafolder_structure'] = 1
+cfg['datafolder_structure'] = 2
 
 ##
 ## Create a database of all measurement-.h5 files with entries {uuid:abspath}
