@@ -14,24 +14,20 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+import qkit
 from qkit.core.instrument_base import Instrument
-import types
-import logging
 import time
 import numpy as np
-import math
-from qkit.instruments.visa_prologix import instrument
+from qkit.drivers.visa_prologix import instrument
 
-class Keysight_35670A(instrument, Instrument): # insert Instrument
+
+class Keysight_35670A(instrument, Instrument):
     """
     This is the python driver for the Keysight 35670A signal analyzer
-
     Usage:
     Initialise with
     <name> = instruments.create('<name>', address='<GPIB address>', reset=<bool>)
-    
     """
-
     def __init__(self, name, address, reset=False, **kwargs):
         """
         Initializes 
@@ -41,10 +37,15 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
             address (string) : GPIB address
         """
 
-        print 'Initialization will take some seconds... Do not worry'
+        print('Initialization will take some seconds... Do not worry')
         self.ip = kwargs.get("ip", "10.22.197.155")
-        super(Keysight_35670A, self).__init__(address, timeout=10, chunk_size=4096, delay=0.05, ip=self.ip)
+        super(Keysight_35670A, self).__init__(address, timeout=10, chunk_size=int(4096), delay=1e-3, ip=self.ip)
         Instrument.__init__(self, name, tags=['physical'])
+
+        self.data_type = {'power': 'XFR:POW', 'linear': 'XFR:POW:LIN',
+                          'coherence': 'XFR:POW:COH', 'cross': 'XFR:POW:CROS',
+                          'time': 'XTIM:VOLT', 'histogram': 'XTIM:VOLT:HIST'}
+        self.inv_data_type = {v: k for k, v in self.data_type.items()}
 
         # Implement parameters
         # ToDO: insert all parameters and function from the script below, check how to deal with channels
@@ -57,7 +58,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         self.add_parameter('stopfreq', type=float, flags=Instrument.FLAG_GETSET, minval=0, maxval=51.2e3, units='Hz', tags=['sweep'])
         self.add_parameter('span', type=float, flags=Instrument.FLAG_GETSET, minval=0, maxval=51.2e3, units='Hz')
         self.add_parameter('frequency_resolution', type=int, flags=Instrument.FLAG_GETSET, minval=100, maxval=800)
-        self.add_parameter('sweeptime', type=float, flags=Instrument.FLAG_GET, minval=0, maxval=10000, units='s')
+        self.add_parameter('sweeptime', type=float, flags=Instrument.FLAG_GETSET, minval=0, maxval=10000, units='s')
         self.add_parameter('sweeptime_averages', type=float, flags=Instrument.FLAG_GET, minval=0, maxval=1e-3, units='s')
         self.add_parameter('window_type', type=str, flags=Instrument.FLAG_GETSET)
         self.add_parameter('active_traces', type=int, flags=Instrument.FLAG_GETSET)
@@ -84,12 +85,14 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
 
         self.frequency_changed = True
         self.device_type='signal_analyzer'
+        self.instrument_mode = None
         self.set_instrument_mode('FFT')
         self.set_return_format()
+        qkit.flow.sleep(1)
         self.get_all()
 
     def get_all(self):
-        if self.instrument_mode is 'FFT':
+        if self.instrument_mode == 'FFT':
             self.get_centerfreq()
             self.get_span()
             self.get_frequency_resolution()
@@ -105,10 +108,9 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         self.y_unit_c1=self.get_y_unit(1)
         self.y_unit_c2=self.get_y_unit(2)
 
-
     def ready(self):
         """This is a proxy function, returning True when the signal analyzer has finished measuring / averaging."""
-        if (self._read_operation_status_register() & 256) is 0:
+        if (self._read_operation_status_register() & 256) == 0:
             return True
         else:
             return False
@@ -120,7 +122,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
     def calibration(self):
         reply=self.ask('*cal?')
         if reply is not 0:
-            print "calibration error!"
+            print("calibration error!")
 
     def auto_calibration(self, status):
         self.write('calibration:auto {}'.format(status))
@@ -178,9 +180,9 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         :return: None
         """
         if status == 0 and channel == 1 :
-            print "channel 1 must always be on"
+            print("channel 1 must always be on")
             return
-        state=['OFF', 'ON']
+        state = ['OFF', 'ON']
         self.write(':inp{} {}'.format(channel, state[status]))
 
     def set_ac_coupling(self, channels=[1,2], val=[True, True]):
@@ -239,7 +241,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
     def do_set_frequency_resolution(self, resolution):
         """sets the frequency resolution in lines (unitless)"""
         if resolution not in [100, 200, 400, 800]:
-            print 'only 100, 200, 400, 800 are allowed values'
+            print('only 100, 200, 400, 800 are allowed values')
         else:
             self.write("Freq:Res {}".format(resolution))
             self._nop=resolution+1
@@ -252,8 +254,8 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         """proxy function for spectroscopy script"""
         if self.instrument_mode == 'FFT':
             self._nop= self.get_frequency_resolution()+1
-        if self.instrument_mode == 'histogram':
-            self._nop = 1 # for pseudo_vna_scan with spectroscopy scrpit
+        elif self.instrument_mode == 'histogram':
+            pass  # maybe sth must go in here
         return self._nop
 
     def do_set_stopfreq(self, stop):
@@ -266,13 +268,9 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         self.stopfreq=float(self.ask("Freq:Stop?")[:-1])
         return self.stopfreq
 
-    ### time trace options ###
-
     def set_frequency_bins(self):
-        '''sets frequency bin in histogram mode'''
-        self.write("")
-
-    '''def set_measurement_time'''
+        '''sets frequency bin in histogram mode, not yet written'''
+        pass
 
     def do_set_instrument_mode(self, mode):
         """sets the instrument mode, expects string: 'FFT', 'histogram', 'correlation' """
@@ -283,27 +281,26 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         elif mode == 'correlation':
             mode_number = 5
         else:
-            print 'wrong input'
+            print('wrong input')
             return
+        if self.do_get_instrument_mode() != mode:
+            self.frequency_changed = True  # new x-Axis when instrument mode is changed
         self.instrument_mode = mode
         self.write('INST:NSEL {}'.format(mode_number))
 
-
     def do_get_instrument_mode(self):
         """returns the instrument mode"""
-        mode_number=int(self.ask('INST:NSEL?')[1:-1])
+        mode_number = int(self.ask('INST:NSEL?')[1:-1])
         if mode_number == 0:
             self.instrument_mode = 'FFT'
         elif mode_number == 4:
             self.instrument_mode = 'histogram'
-        elif mode_number == 5:
-            self.instrument_mode = 'correlation'
         return self.instrument_mode
 
     def do_set_sweep_mode(self, mode):
         """sets sweepmode to mode='AUTO' or 'MAN' """
         if mode not in ['AUTO', 'MAN']:
-            print 'wrong input only AUTO and MAN are valid'
+            print('wrong input only AUTO and MAN are valid')
         else:
             self.write('swe:mode '+mode)
 
@@ -318,13 +315,16 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         return self.sweeptime
 
     def do_get_sweeptime_averages(self):
-        self.sweeptime_averages = self.get_sweeptime()*self.get_averages()
+        self.sweeptime_averages = self.do_get_sweeptime()*self.do_get_averages()
         return self.sweeptime_averages
 
     def do_set_window_type(self, type):
-        """sets the window type, expects string either 'HANN', 'FLAT' or 'UNIF'"""
+        """sets the window type, expects string either 'HANN', 'FLAT' or 'UNIF'
+            HANN smears least but might be unprecise in amplitude, the opposite
+            is the case for FLAT
+        """
         if type not in ['HANN', 'FLAT', 'UNIF']:
-            print "wrong input only HANN, FLAT, UNIF are allowed"
+            print("wrong input only HANN, FLAT, UNIF are allowed")
         else:
             self.write('WINDOW '+type)
 
@@ -348,44 +348,67 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         """ returns the input shield of the chosen channel"""
         return self.ask('INP{}:LOW?'.format(channel))[:-1]
 
-    def set_range(self, channel, value):
-        """sets a fixed autorange, expects channel as list and an input value in Volts and converts it to dBV"""
-        dbV=20*np.log(value)
+    def set_range(self, value, channel=[1,2]):
+        """sets a fixed autorange, expects channel as list and an input value in Volts peak"""
         for i in channel:
-            self.write('SENS:VOLT{}:DC:RANGE {}'.format(i, value))
+            self.write('SENS:VOLT{}:DC:RANGE {} VPK'.format(i, value))
 
-    def set_autorange(self, mode, channel = [1,2]):
+    def get_range(self, channel=[1,2]):
+        """returns the specified range (Vpk) as a list for the chosen channels"""
+        reply = []
+        for i in channel:
+            reply.append(self.ask('SENS:VOLT{}:DC:RANGE?'.format(i)))
+        return reply
+
+    def set_autorange(self, mode, channel=[1,2]):
         """turns (1) on or off (0) the range of the chosen channel to auto"""
         for i in channel:
-            self.write('sens:volt{}:dc:range:auto {}'.format(i, mode))
+            self.write('sens:volt{}:dc:range:auto {}'.format(i, int(mode)))
+
+    def get_autorange(self, channels=[1,2]):
+        """gets the autorange for specified channel; 1 is on 0 is off"""
+        reply = []
+        for i in channels:
+            reply.append(bool(self.ask('sens:volt{}:dc:range:auto?'.format(i))[1]))  # remove newline and + before by[1]
+        return reply
 
     def set_display_format(self, number):
-        """selects the number of traces to be displayed"""
+        """selects the number of traces [1,2,4] to be displayed (3 is not possible)"""
         option={1: 'SINGLE', 2: 'ULOWER', 4:'QUAD'}
         self.write('DISPLAY:FORM ' + option[number])
 
     def set_trace_format(self, trace, option):
-        """selects the display format for the specified trace, i.e.,
-         linear, phase, real, imag, NYQuist, UPHase, GDElay, POLAR"""
+        """selects the display format for the specified trace, i.e., how it is displayed and to be collected from the
+        signal analyzer options: linear, phase, real, imag, NYQuist, UPHase, GDElay, POLAR. Don't confuse linear here
+        with the chosen power spectrum in meas datatype. It means that it's not logarithmic"""
         self.write('calc{}:format {}'.format(trace, option))
 
     def get_trace_format(self, trace):
         """
-        gets the trace format of the selected trace
+        gets the trace format of the selected trace, ie. the format how the data is diplayed and will be collected
+        from the signal analyzer
         :param trace: 1 to 4
         :return: trace format (string)
         """
-        return self.ask('calc{}:format?'.format(trace))[0:-1]
+        return self.ask('calc{}:format?'.format(trace))[0:-1].lower()
 
-    def set_meas_data_type(self, channel, trace, option):
+    def set_meas_data_type(self, option, channel, trace):
         """
-        sets the datatype that is measured, i.e, lin spec or power spec
-        :param channel: channel to choose (1 or 2)
-        :param trace: trace to choose (1 to 4)
-        :param option: ' ' - power spectrum , ':lin' - linear spectrum TODO: implement coherence and cross coherence
+        sets the datatype that is measured. You can choose between power spectrum, linear spectrum (interesting
+        if you want the complex values [no power averaging here]), cross spectrum (i.e. FFT(covariance ch1/ch2)),
+        time record. coherence (you have to look that up yourself). If you want to have the unfiltered timetrace,
+        you have to set the instrument into histogram mode first.
+        :param option: (str) 'power', 'linear, 'coherence', 'cross', 'time', 'histogram'
+        :param channel: input channel (1 or 2), for cross spectrum and coherence, both channels are used (input '1,2')
+        :param trace: trace to be displayed (1 to 4)
         :return: None
         """
-        reply = self.write("CALC{}:FEED 'XFR:POW{} {}'".format(trace, option, channel))
+        if option in ['coherence', 'cross']:
+            channel = '1,2'  # This is channel 1 and 2. Device expects a string
+        if trace > 2:
+            self.set_display_format(4)
+        message= "CALC{}:FEED '{} {}'".format(trace, self.data_type[option], channel)
+        self.write(message)
 
     def get_meas_data_type(self, trace):
         """
@@ -393,30 +416,28 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         :return: the type of measurement data i.e. lin spec or power spec
         """
         reply = self.ask("CALC{}:FEED?".format(trace))
-        if 'LIN' in reply:
-            return 'lin_spec_ch_'+reply[-3]
-        else:
-            return 'power_spec_ch_'+reply[-3]
+        meas_data = self.inv_data_type[reply.split()[0][1:]]+'_ch_'+reply.split()[1][:-1]  # removing the ' in the reply
+        return meas_data
 
     ########## AVERAGING ##############
 
     def do_set_Average(self, status):
         """turns averagin off/on"""
         if status not in [0,1]:
-            print "wrong input 0=off, 1=on"
+            print("wrong input 0=off, 1=on")
         else:
-            self.set_measurement_continous(0) # pauses measurement so that new sequence does not start automatically
+            self.set_measurement_continous(0)  # pauses measurement so that new sequence does not start automatically
             self.write('AVER {}'.format(int(status)))
 
     def do_get_Average(self):
-        return bool(self.ask('AVER?')[1:-1])
+        return bool(int(self.ask('AVER?')[1:-1]))
 
     def fast_averaging(self, status, displaynumber=None):
         """turns on fast averaging, i.e., display is only updated at the chosen displaynumber"""
         if status not in [0,1]:
-            print "wrong input 0=off, 1=on"
+            print("wrong input 0=off, 1=on")
             return
-        if status is 1:
+        if status == 1:
             self.write('AVERAGE:IRES:RATE {}'.format(displaynumber))
             self.write('Average:IRES:Stat {}'.format(status))
         else:
@@ -428,7 +449,7 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
 
     def do_get_averages(self):
         """gets the numbers of averages"""
-        if self.instrument_mode is 'histogram':
+        if self.instrument_mode == 'histogram':
             self.averages = 1
         else:
             self.averages = int(float(self.ask('AVER:COUN?')[:-1]))
@@ -436,18 +457,18 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
 
     def do_set_repeat_averaging(self, status):
         """specify what happens after average_number is reached, i.e., repeat measurements or wait"""
-        if status is 0:
+        if status == 0:
             self.write('AVERAGE:TCON FREEZE')
-        elif status is 1:
+        elif status == 1:
             self.write('AVERAGE:TCON REPEAT')
         else:
-            print "wrong input 0=HOLD, 1=REPEAT"
+            print("wrong input 0=HOLD, 1=REPEAT")
 
     def do_get_repeat_averaging(self):
         repeat_aver=self.ask('AVER:TCON?')[:-1]
-        if repeat_aver is 'FRE':
+        if repeat_aver == 'FRE':
             return False
-        if repeat_aver[:3] is 'REP':
+        if repeat_aver[:3] == 'REP':
             return True
 
    ########## MATH-OPTIONS #########
@@ -475,50 +496,50 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
 
     def get_freqpoints(self):
         """returns the x_values of a trace as numpy-array"""
-        if self.instrument_mode is 'FFT':
+        if self.instrument_mode == 'FFT':
             if self.frequency_changed:
                 self.set_averages(1)
-                self.start_measurement() # device only sets new x-axis when new measurement has ended
-                while not self.ready(): # but spectroscopy asks for x-values before meausurment is started
-                    pass
-                self.set_averages(self.averages)
-            self.x_values=np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float, sep=',')
+                self.do_set_repeat_averaging(0)
+                self.start_measurement()  # device only sets new x-axis when new measurement has ended
+                qkit.flow.sleep(0.05)
+                while not self.ready():  # but spectroscopy asks for x-values before meausurment is started
+                    qkit.flow.sleep(0.1)
+            self.x_values=np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float16, sep=',')
+            self.set_averages(self.averages)
             return self.x_values[0:self.get_nop()]
-        elif self.instrument_mode is 'histogram':
+        elif self.instrument_mode == 'histogram':
             if self.frequency_changed:
-                self.start_measurement() # device only sets new x-axis when new measurement has ended
-                while not self.ready(): # but spectroscopy asks for x-values before meausurment is started
-                    pass
-            self.x_values = np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float, sep=',')
+                self.start_measurement()  # device only sets new x-axis when new measurement has ended
+                qkit.flow.sleep(0.05)
+                while not self.ready():  # but spectroscopy asks for x-values before meausurment is started
+                    qkit.flow.sleep(0.1)
+            self.x_values = np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float16, sep=',')
             return self.x_values
         else:
-            self.x_values=np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float, sep=',')
+            self.x_values = np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float16, sep=',')
             return self.x_values
 
     def get_single_trace(self, trace):
         """returns the trace of trace 1,2,3,4"""
-        trace_values=np.fromstring(self.ask("CALC{}:DATA?".format(trace)), dtype=np.float, sep=',')
+        trace_values=np.fromstring(self.ask("CALC{}:DATA?".format(trace)), dtype=np.float16, sep=',')
         return trace_values
 
     def get_tracedata(self, trace, type='AmpPha'):
         return self.get_single_trace(trace)
-
 
     def get_tracedata_pseudo_vna_scan(self):
         """
         This is a function to perform a pseudo vna scan with the spectrums analyzer using the timetrace (histogram)
         mode.
         :return: amplitude, phase, I and Q data (one single point)
-
-        if self.instrument_mode != 'histogram':
-            raise TypeError('Signal analyzer must be in histogram mode!')
-        I_max=(self.x_values[np.argmax(I)])
-        Q_max=(self.x_values[np.argmax(Q)])
+        """
+        I = self.get_single_trace(1)
+        Q = self.get_single_trace(2)
+        I_max = (self.x_values[np.argmax(I)])
+        Q_max = (self.x_values[np.argmax(Q)])
         amp = np.absolute(I_max + 1j * Q_max)
         pha = np.angle(I_max + 1j * Q_max)
-        return [amp],[pha],[I_max],[Q_max]
-        """
-
+        return [amp], [pha], [I_max], [Q_max]
 
     def set_y_unit(self, unit, channel):
         """sets the y-unit (string), can also be used for PSD calucalation"""
@@ -527,13 +548,13 @@ class Keysight_35670A(instrument, Instrument): # insert Instrument
         if channel in [1, 2, 3, 4]:  # implement string for unit
             self.write('calculate{}:unit:voltage '.format(channel) + unit)
 
-    def get_y_unit(self, channel):
-        """gets the y-unit"""
-        if channel in [1,2,3,4]:
-            y_unit=self.ask('CALCulate{}:UNIT:VOLTage?'.format(channel))[:-1]
+    def get_y_unit(self, trace):
+        """gets the y-unit of the selected trace"""
+        if trace in [1,2,3,4]:
+            y_unit=self.ask('CALCulate{}:UNIT:VOLTage?'.format(trace))[:-1]
             return y_unit.strip('"')
         else:
-            print 'wrong input'
+            print('wrong input')
 
     def measure_PSD(self, channel):
         """proxy funciton for set y-unit with unit = "V2/Hz" """

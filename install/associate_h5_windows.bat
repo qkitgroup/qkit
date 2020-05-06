@@ -19,8 +19,10 @@ goto check_Permissions
 
 
 :admin
+	cd %~dp0
+	cd ..
 	FTYPE h5_file=
 	ASSOC .h5=
-	FTYPE h5_file="%~dp0qkit\gui\qviewkit\qviewkit.bat" "%%1"
+	FTYPE h5_file="%cd%\qkit\gui\qviewkit\qviewkit.bat" "%%1"
 	ASSOC .h5=h5_file
 	pause

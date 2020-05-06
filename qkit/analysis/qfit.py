@@ -116,6 +116,9 @@ class QFIT(object):
     def __f_Lorentzian(self, f, f0, k, a, offs):
         return a*k/(2*np.pi)/((k/2)**2+(f-f0)**2)+offs
 
+    def __f_Skewed_Lorentzian(self, f, f0, k, a, offs, tilt, skew):
+        return (a + skew * (f - f0)) * k / (2 * np.pi) / ((k / 2) ** 2 + (f - f0) ** 2) + offs + tilt * (f - f0)
+
     #def __f_general_reflection(f, f0, kc, ki, a, offs):
     #    return a*(4*kc*(4*(f-f0)**2+kc**2-ki**2))/(16*(f-f0)**4+8*(f-f0)**2*kc**2+8*(f-f0)**2*ki**2+kc**4-2*kc**2*ki**2+ki**4)+offs
         
@@ -142,7 +145,7 @@ class QFIT(object):
         '''
         return {self.__f_Lorentzian_sqrt: ['f0','k','a','offs'],
             self.__f_Lorentzian: ['f0','k','a','offs'],
-            self.__f_damped_sine: ['f','Td','a','offs','ph'],
+            self.__f_Skewed_Lorentzian:['f0','k','a','offs','tilt','skew'],
             self.__f_sine: ['f','a','offs','ph'],
             self.__f_exp: ['Td','a','offs'],
             self.__f_damped_sine: ['f','Td','a','offs','ph','d']
@@ -695,6 +698,10 @@ class QFIT(object):
         self.fit_function = self.__f_Lorentzian
         self.fit(p0=p0)
 
+    def fit_Skewed_Lorentzian(self, p0=None):
+        self.fit_function = self.__f_Skewed_Lorentzian
+        self.fit(p0=p0)
+    
     def fit_Lorentzian_sqrt(self, p0=None):
         '''
         Square root of a Lorentzian fit e.g. for resonator magnitude data (since only the squared linear magnitude data 
@@ -795,6 +802,16 @@ class QFIT(object):
             #calculate gradient at t=0 which is equal to (+-)a/T
             s_Td = np.abs(float(s_a)/np.mean(np.gradient(self.data,self.coordinate[1]-self.coordinate[0])[:5]))
             self.guesses = [s_Td, s_a, s_offs]
+        elif self.fit_function == self.__f_Skewed_Lorentzian:
+            self.guesses = np.append(self._guess_lorentzian_parameters(), [1e-3, 1e-2]).tolist()
+            self.p0 = _fill_p0(self.guesses, p0)
+            try:
+                self.popt, self.pcov = curve_fit(self.__f_Lorentzian, self.coordinate * self.freq_conversion_factor, self.data, p0=self.p0[:4], maxfev=10000)
+            except Exception as e:
+                logging.warning('Fit not successful.' + str(e))
+                self.popt = self.p0[:4]
+                self.pcov = None
+            self.p0[:4] = self.popt
         else:
             self.guesses = None
             logging.warning('Fit function unknown. No guesses available but I will continue with the specified fit function.')

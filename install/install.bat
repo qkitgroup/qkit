@@ -1,7 +1,9 @@
 @echo Addig the QKIT folder to your PYTHONPATH variable (for the local user)
 @echo.
 
-@set dir=%~dp0
+@cd %~dp0
+@cd ..
+@set dir=%cd%
 @if %dir:~-1%==\ set dir=%dir:~0,-1%
 
 
@@ -21,6 +23,7 @@ if not errorlevel 1 (
 	) else (
 		setx PYTHONPATH %PYTHONPATH%%dir%;
 	)
+	echo.qkit successfully installed in %dir%
 )
 @pause
 @echo.

@@ -293,7 +293,7 @@ class Tektronix_PWS4205(Instrument):
             target (float) : target current in amps
             step (float) : current steps in amps
             wait (floa) : waiting time in sec
-            showvalue (bool) : print values
+            showvalue (bool) : print(values)
 
         Output:
             None
@@ -304,6 +304,6 @@ class Tektronix_PWS4205(Instrument):
         for i in a:
             volt = self.get_voltage()
             if showvalue: 
-                print self._name+":  I="+str(i) + "A  " + "V=" + str(volt) + "V" 
+                print(self._name+":  I="+str(i) + "A  " + "V=" + str(volt) + "V")
             self.set_current(i)
             time.sleep(wait)

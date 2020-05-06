@@ -73,12 +73,14 @@ class Data(object):
         
         a = group()
         for n, o in self.hf.hf['/entry/analysis0'].items():
+            n = n.replace(" ","_")
             a.__dict__[n] = o
             for nn, oo in o.attrs.items():
                 o.__dict__[nn] = oo
         a.__dict__['comment'] = self.hf.agrp.attrs.get('comment', '')
         d = group()
         for n, o in self.hf.hf['/entry/data0'].items():
+            n = n.replace(" ","_")
             d.__dict__[n] = o
             for nn, oo in o.attrs.items():
                 o.__dict__[nn] = oo

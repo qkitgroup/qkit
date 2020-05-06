@@ -870,7 +870,7 @@ class Keysight_VNA_E5080B(Instrument):
         """
         Bring the VNA back to a mode where it can be easily used by the operator.
         """
-        self.set_sweep_mode("cont")
+        self.set_sweep_mode("hold")
 
     def start_measurement(self):
         """

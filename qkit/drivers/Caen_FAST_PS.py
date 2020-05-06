@@ -80,6 +80,8 @@ class Caen_FAST_PS(Instrument):
 
         self.add_parameter('voltage_ramp_rate',
             flags=Instrument.FLAG_GETSET, units='A/s', minval=-10, maxval=10, type=float)
+
+        self.add_parameter('floating_mode', flags=Instrument.FLAG_GETSET, type=str)
         
         self.add_function('ramp_current')
         self.add_function('ramp_voltage')
@@ -305,6 +307,39 @@ class Caen_FAST_PS(Instrument):
         if recv == self._ak_str: return True
         else: return 'ERROR: ' + error_msg[recv.split(':')[1]]
         
+    def do_set_floating_mode(self, mode):
+        """
+        Enables(Deables) the floating mode. However, earth fuse must be removed (inserted.)
+        Input:
+            mode (str) : 'N' = non floating, 'F' = floating
+        Output:
+            None
+        """
+        logging.debug(__name__ + ' : set floating mode to {}'.format(mode))
+        if mode == 'N':
+            print("WARNING: Earth fuse has to be inserted")
+        elif mode == 'F':
+            print("WARNING: Earth fuse has to be removed")
+        else:
+            print('wrong input')
+            return
+        recv = self._ask('SETFLOAT:{}'.format(mode))
+        if recv == self._ak_str:
+            return True
+        else:
+            return 'ERROR: ' + error_msg[recv.split(':')[1]]
+
+    def do_get_floating_mode(self):
+        """
+        returns the floating mode
+        Input: None
+        Output (STR): F = floating, N = non-floating
+        """
+        logging.debug(__name__ + ' : get floating mode')
+        recv = self._ask('SETFLOAT:?')
+        ret = recv.split(':')[1]
+        return ret
+
     # shortcuts
     def off(self):
         '''

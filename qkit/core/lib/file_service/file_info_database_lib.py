@@ -286,6 +286,7 @@ class file_system_service(UUID_base):
     def wait(self):
         with self.lock:
             pass
+        qkit.flow.sleep(.1) #to prevent timing issues
         if self.lock.locked():
             self.wait()
         return True

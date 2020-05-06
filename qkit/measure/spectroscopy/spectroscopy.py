@@ -20,6 +20,7 @@ import numpy as np
 import logging
 import matplotlib.pylab as plt
 from scipy.optimize import curve_fit
+from scipy.interpolate import interp1d, UnivariateSpline
 from time import sleep, time
 import sys
 import threading
@@ -36,18 +37,19 @@ import qkit.measure.write_additional_files as waf
 ##################################################################
 
 class spectrum(object):
-    '''
+    """
+    Class for spectroscopy measurements with a VNA
     usage:
-
     m = spectrum(vna = vna1)
 
-    m.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current',coil.set_current, unit = 'mA')
+    m.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current',coil.set_current, unit = 'mA')  outer scan in 3D
     m.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency',mw_src1.set_frequency, unit = 'Hz')
 
-    m.gen_fit_function(...)      several times
+    m.landscape.generate_fit_function_xy(...) for 3D scan, can be called several times and appends the current landscape
+    m.landscape.generate_fit_function_xz(...) for 2D or 3D scan, adjusts the vna freqs with respect to x
 
     m.measure_XX()
-    '''
+    """
 
     def __init__(self, vna, exp_name='', sample=None):
 
@@ -57,11 +59,7 @@ class spectrum(object):
             __name__ + ': With your VNA instrument driver (' + self.vna.get_type() + '), I can not see when a measurement is complete. So I only wait for a specific time and hope the VNA has finished. Please consider implemeting the necessary functions into your driver.')
         self.exp_name = exp_name
         self._sample = sample
-
-        self.landscape = None
-        self.span_list = None
-        self.x_range = None
-        self.span = 200e6  # [Hz]
+        self.landscape = Landscape(vna)
         self.tdx = 0.002  # [s]
         self.tdy = 0.002  # [s]
 
@@ -70,6 +68,10 @@ class spectrum(object):
 
         self.x_set_obj = None
         self.y_set_obj = None
+        self.x_vec = None
+        self.y_vec = None
+        self.landscape.x_vec=self.x_vec
+        self.landscape.y_vec=self.y_vec
 
         self.progress_bar = True
         self._fit_resonator = False
@@ -90,8 +92,8 @@ class spectrum(object):
 
     def set_log_function(self, func=None, name=None, unit=None, log_dtype=None):
         '''
-        A function (object) can be passed to the measurement loop which is excecuted before every x iteration 
-        but after executing the x_object setter in 2D measurements and before every line (but after setting 
+        A function (object) can be passed to the measurement loop which is excecuted before every x iteration
+        but after executing the x_object setter in 2D measurements and before every line (but after setting
         the x value) in 3D measurements.
         The return value of the function of type float or similar is stored in a value vector in the h5 file.
 
@@ -131,8 +133,8 @@ class spectrum(object):
                 self.log_unit.append(unit[i])
                 self.log_dtype.append(log_dtype[i])
 
-    def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit=""):
-        '''
+    def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit="", delete_landscape=True):
+        """
         Sets parameters for sweep. In a 3D measurement, the x-parameters will be the "outer" sweep.
         For every x value all y values are swept
         Input:
@@ -140,15 +142,23 @@ class spectrum(object):
         x_coordname (string)
         x_instrument (obj): callable object to execute with x_vec-values (i.e. vna.set_power())
         x_unit (string): optional
-        '''
+        delete_landscape: True (default) if previously generated landscape should be deleted
+        """
         self.x_vec = x_vec
+        self.landscape.x_vec = x_vec
         self.x_coordname = x_coordname
-        self.x_set_obj = x_set_obj
-        self.delete_fit_function()
         self.x_unit = x_unit
+        self.x_set_obj = x_set_obj
+        if self.landscape.xylandscapes and delete_landscape:
+            self.landscape.delete_landscape_function_xy()
+            logging.warning('xy landscape has been deleted')
+        if self.landscape.xzlandscape_func and delete_landscape:
+            self.landscape.delete_landscape_function_xz()
+            logging.warning('xz landscape has been deleted')
 
-    def set_y_parameters(self, y_vec, y_coordname, y_set_obj, y_unit=""):
-        '''
+
+    def set_y_parameters(self, y_vec, y_coordname, y_set_obj, y_unit="", delete_landscape=True):
+        """
         Sets parameters for sweep. In a 3D measurement, the x-parameters will be the "outer" sweep.
         For every x value all y values are swept
         Input:
@@ -156,90 +166,16 @@ class spectrum(object):
         y_coordname (string)
         y_instrument (obj): callable object to execute with x_vec-values (i.e. vna.set_power())
         y_unit (string): optional
-        '''
+        delete_landscape: True (default) if previously generated landscape should be deleted
+        """
         self.y_vec = y_vec
+        self.landscape.y_vec = y_vec
         self.y_coordname = y_coordname
         self.y_set_obj = y_set_obj
-        self.delete_fit_function()
         self.y_unit = y_unit
-
-    def gen_fit_function(self, curve_f, curve_p, x_range=None, span=-1, p0=[-1, 0.1, 7], units=''):
-        '''
-        curve_f: 'spline', '2pt' 'lin, 'parab', 'hyp', specifies the fit function to be employed
-        curve_p: set of points that are the basis for the fit in the format [[x1,x2,x3,...],[y1,y2,y3,...]], frequencies in Hz
-        span: specify span for the generated fit_function, if not given default of self.span is used
-        x_range: specify x_range for the function in the format [x_min, x_max]
-        p0 (optional): start parameters for the fit, must be an 1D array of length 3 ([a,b,c,d]), 
-           where for the parabula p0[3] will be ignored 
-        units: set this to 'Hz' in order to avoid large values that cause the fit routine to diverge
-
-        The parabolic function takes the form  y = a*(x-b)**2 + c , where (a,b,c) = p0
-        The hyperbolic function takes the form y = sqrt[ a*(x-b)**2 + c ], where (a,b,c) = p0
-        
-        adds a trace to landscape
-        '''
-
-        if not self.landscape:
-            self.landscape = []
-            self.span_list = []
-            self.x_range = []
-
-        x_fit = curve_p[0]
-        if units == 'Hz':
-            y_fit = np.array(curve_p[1]) * 1e-9
-        else:
-            y_fit = np.array(curve_p[1])
-
-        if not x_range:
-            x_range = [self.x_vec[0], self.x_vec[-1]]
-
-        self.x_range.append([np.min(x_range), np.max(x_range)])
-
-        if span == -1:
-            span = self.span
-
-        try:
-            multiplier = 1
-            if units == 'Hz':
-                multiplier = 1e9
-
-            fit_fct = None
-            if curve_f == 'lin_spline':
-
-                from scipy.interpolate import interp1d
-
-                f = interp1d(curve_p[0], curve_p[1])
-                self.landscape.append(f(self.x_vec))
-                self.span_list.append(span)
-
-            elif curve_f == 'spline':
-                import scipy.interpolate
-                self.landscape.append(scipy.interpolate.UnivariateSpline(curve_p[0], curve_p[1])(self.x_vec))
-                self.span_list.append(span)
-            elif curve_f == '2pt':
-                m = (y_fit[-1] - y_fit[0]) / (x_fit[-1] - x_fit[0])
-                b = y_fit[0] - m * x_fit[0]
-                self.landscape.append(m * self.x_vec + b)
-                self.span_list.append(span)
-            else:
-                if curve_f == 'parab':
-                    fit_fct = self.f_parab
-                elif curve_f == 'hyp':
-                    fit_fct = self.f_hyp
-                elif curve_f == 'lin':
-                    fit_fct = self.f_lin
-                    p0 = p0[:2]
-                else:
-                    print('function type not known...aborting')
-                    raise ValueError
-
-                popt, pcov = curve_fit(fit_fct, x_fit, y_fit, p0=p0)
-                self.landscape.append(multiplier * fit_fct(self.x_vec, *popt))
-                self.span_list.append(span)
-
-        except Exception as message:
-            print('fit not successful:', message)
-            popt = p0
+        if self.landscape.xylandscapes and delete_landscape:
+            self.landscape.delete_landscape_function_xy()
+            logging.warning('xy landscape has been deleted')
 
     def _prepare_measurement_vna(self):
         '''
@@ -250,8 +186,10 @@ class spectrum(object):
         # ttip.get_temperature()
         self._nop = self.vna.get_nop()
         self._sweeptime_averages = self.vna.get_sweeptime_averages()
-        self._freqpoints = self.vna.get_freqpoints()
-
+        if self._scan_1D or not self.landscape.xzlandscape_func: # normal scan
+            self._freqpoints = self.vna.get_freqpoints()
+        else:
+            self._freqpoints = self.landscape.get_freqpoints_xz()
         if self.averaging_start_ready: self.vna.pre_measurement()
 
     def _prepare_measurement_file(self):
@@ -362,7 +300,7 @@ class spectrum(object):
     def measure_1D(self, rescan=True, web_visible=True):
         '''
         measure method to record a single (averaged) VNA trace, S11 or S21 according to the setting on the VNA
-        rescan: If True (default), the averages on the VNA are cleared and a new measurement is started. 
+        rescan: If True (default), the averages on the VNA are cleared and a new measurement is started.
                 If False, it will directly take the data from the VNA without waiting.
         '''
         self._scan_1D = True
@@ -447,6 +385,8 @@ class spectrum(object):
         if not self.x_set_obj:
             logging.error('axes parameters not properly set...aborting')
             return
+        if self.landscape.xzlandscape_func:  # The vna limits need to be adjusted, happens in the frequency wrapper
+            self.x_set_obj = self.landscape.vna_frequency_wrapper(self.x_set_obj)
         if len(self.x_vec) == 0:
             logging.error('No points to measure given. Check your x vector... aborting')
             return
@@ -498,6 +438,8 @@ class spectrum(object):
         if len(self.x_vec) * len(self.y_vec) == 0:
             logging.error('No points to measure given. Check your x ad y vector... aborting')
             return
+        if self.landscape.xzlandscape_func:  # The vna limits need to be adjusted, happens in the frequency wrapper
+            self.x_set_obj = self.landscape.vna_frequency_wrapper(self.x_set_obj)
 
         self._scan_1D = False
         self._scan_2D = False
@@ -525,17 +467,23 @@ class spectrum(object):
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath())
 
-        if self.landscape:
-            self.center_freqs = np.array(self.landscape)
-        else:
-            self.center_freqs = []  # load default sequence
-            for i in range(len(self.x_vec)):
-                self.center_freqs.append([0])
-
         if self.progress_bar:
-            if self.landscape:
-                points = np.sum(
-                    np.min(np.abs(self.y_vec[:, np.newaxis, np.newaxis] - self.center_freqs), axis=2) <= self.span / 2)
+            if self.landscape.xylandscapes:
+                truth = np.full((len(self.y_vec), len(self.x_vec)), False)  # first, nothing is selected:
+                for e in self.landscape.xylandscapes:
+                    if not e['blacklist']:
+                        truth = np.logical_or(truth,
+                                              (np.abs(self.y_vec[:, np.newaxis] - e['center_points']) <= e['y_span'] / 2) *  # check y span
+                                              (e['x_range'][0] <= self.x_vec) * (self.x_vec <= e['x_range'][1])) # check x range
+    
+                for e in self.landscape.xylandscapes:
+                    if e['blacklist']:  # exclude blacklisted areas
+                        truth = np.logical_and(truth,
+                                               np.logical_not(
+                                                  (np.abs(self.y_vec[:, np.newaxis] - e['center_points']) <= e['y_span'] / 2) *
+                                                  (e['x_range'][0] <= self.x_vec) * (self.x_vec <= e['x_range'][1]))
+                                               )
+                points = np.sum(truth)
             else:
                 points = len(self.x_vec) * len(self.y_vec)
             self._p = Progress_Bar(points, '3D VNA sweep ' + self.dirname, self.vna.get_sweeptime_averages())
@@ -647,29 +595,11 @@ class spectrum(object):
 
                 if self._scan_3D:
                     for y in self.y_vec:
-                        """
-                        loop: y_obj with parameters from y_vec (only 3D measurement)
-                        """
-
-                        measure_bool = True
-
-                        if self.landscape:
-
-                            for i in range(len(self.center_freqs)):
-
-                                if self.span_list[i] < 0 and np.abs(self.center_freqs[i, ix] - y) <= np.abs(self.span_list[i] / 2) and x >= self.x_range[i][0] and x <= self.x_range[i][1]:
-                                    measure_bool = False
-
-                            if measure_bool:
-                                measure_bool = False
-                                for i in range(len(self.center_freqs)):
-
-                                    if self.span_list[i] > 0 and np.abs(self.center_freqs[i, ix] - y) <= self.span_list[i] / 2 and x >= self.x_range[i][0] and x <= self.x_range[i][1]:
-                                        measure_bool = True
-
-                        if not measure_bool and self.landscape:  # if point is not of interest (not close to one of the functions)
-                            data_amp = np.zeros(int(self._nop))
-                            data_pha = np.zeros(int(self._nop))  # fill with zeros
+                        # loop: y_obj with parameters from y_vec (only 3D measurement)
+                        if self.landscape.xylandscapes and not self.landscape.perform_measurement_at_point(x, y, ix):
+                            # if point is not of interest (not close to one of the functions)
+                            data_amp = np.full(int(self._nop), np.NaN, dtype=np.float16)
+                            data_pha = np.full(int(self._nop), np.NaN, dtype=np.float16)  # fill with NaNs
                         else:
                             self.y_set_obj(y)
                             sleep(self.tdy)
@@ -691,7 +621,10 @@ class spectrum(object):
                             #            qkit.flow.sleep(.2) #maybe one would like to adjust this at a later point
 
                             """ measurement """
-                            data_amp, data_pha = self.vna.get_tracedata()
+                            if not self.landscape.xzlandscape_func:  # normal scan
+                                data_amp, data_pha = self.vna.get_tracedata()
+                            else:
+                                data_amp, data_pha = self.landscape.get_tracedata_xz(x)
                             if self.progress_bar:
                                 self._p.iterate()
 
@@ -725,9 +658,13 @@ class spectrum(object):
                         self.vna.avg_clear()
                         qkit.flow.sleep(self._sweeptime_averages)
                     """ measurement """
-                    data_amp, data_pha = self.vna.get_tracedata()
+                    if not self.landscape.xzlandscape_func:  # normal scan
+                        data_amp, data_pha = self.vna.get_tracedata()
+                    else:
+                        data_amp, data_pha = self.landscape.get_tracedata_xz(x)
                     self._data_amp.append(data_amp)
                     self._data_pha.append(data_pha)
+
                     if self._nop < 10:
                         # print(data_amp[self._nop/2])
                         self._data_amp_mid.append(float(data_amp[self._nop / 2]))
@@ -800,73 +737,6 @@ class spectrum(object):
         # if self._fit_function == 5: #all fits
         # self._resonator.fit_all_fits(f_min=self._f_min, f_max = self._f_max)
 
-    def delete_fit_function(self, n=-1):
-        '''
-        delete single fit function n (with 0 being the first one generated) or the complete landscape for n not specified
-        '''
-
-        if n > -1:
-            del self.landscape[n]
-            del self.span_list[n]
-        else:
-            self.landscape = None
-
-    def plot_fit_function(self, num_points=100):
-        '''
-        try:
-            x_coords = np.linspace(self.x_vec[0], self.x_vec[-1], num_points)
-        except Exception as message:
-            print('no x axis information specified', message)
-            return
-        '''
-        if self.landscape:
-
-            for it, trace in enumerate(self.landscape):
-                try:
-                    # plt.clear()
-
-                    arg = np.where((self.x_range[it][0] <= self.x_vec) & (self.x_vec <= self.x_range[it][1]))
-
-                    x = self.x_vec[arg]
-                    t = trace[arg]
-
-                    plt.plot(x, t)
-                    if self.span_list[it] > 0:
-                        plt.fill_between(x, t + self.span_list[it] / 2., t - self.span_list[it] / 2., color='b',
-                                         alpha=0.5)
-                    else:
-                        plt.fill_between(x, t + self.span_list[it] / 2., t - self.span_list[it] / 2., color='r',
-                                         alpha=0.5)
-
-
-                except Exception as e:
-                    print(e)
-                    print('invalid trace...skip')
-
-            plt.axhspan(np.min(self.y_vec), np.max(self.y_vec), facecolor='0.5', alpha=0.5)
-            plt.xlim(np.min(self.x_vec), np.max(self.x_vec))
-            plt.show()
-        else:
-            print('No trace generated.')
-
-    def set_span(self, span, n=-1):
-
-        if not self.span_list:
-            self.span = span
-        else:
-
-            if n > -1:
-                self.span_list[n] = span
-            else:
-                for i in range(len(self.span_list)):
-                    self.span_list[i] = span
-
-    def get_span(self):
-        return self.span_list
-
-    def get_span_list(self):
-        return self.span_list
-
     def set_tdx(self, tdx):
         self.tdx = tdx
 
@@ -878,6 +748,307 @@ class spectrum(object):
 
     def get_tdy(self):
         return self.tdy
+
+    def set_plot_comment(self, comment):
+        '''
+        Small comment to add at the end of plot pics for more information i.e. good for wiki entries.
+        '''
+        self._plot_comment = comment
+
+    def gen_fit_function(self, curve_f, curve_p, x_range=None, span=None, p0=[-1, 0.1, 7], units=''):
+        """
+        Generates an xy landscape fit for 3D scan. Function is deprecated and calls landscape.generate_fit_function
+        curve_f: 'spline', '2pt' 'lin, 'parab', 'hyp', specifies the fit function to be employed
+        curve_p: set of points that are the basis for the fit in the format [[x1,x2,x3,...],[y1,y2,y3,...]], frequencies in Hz
+        span: specify span for the generated fit_function, if not given default of self.span is used
+        x_range: specify x_range for the function in the format [x_min, x_max]
+        p0 (optional): start parameters for the fit, must be an 1D array of length 3 ([a,b,c,d]),
+           where for the parabula p0[3] will be ignored
+        units: set this to 'Hz' in order to avoid large values that cause the fit routine to diverge
+        The parabolic function takes the form  y = a*(x-b)**2 + c , where (a,b,c) = p0
+        The hyperbolic function takes the form y = sqrt[ a*(x-b)**2 + c ], where (a,b,c) = p0
+
+        adds a trace to landscape
+        """
+        logging.warning("This function is deprecated. Better to use landscape.generate_fit_function_xy")
+        self.landscape.generate_fit_function_xy(curve_f=curve_f, curve_p=curve_p, x_range=x_range, y_span=span, p0=p0, units=units)
+
+    def delete_fit_function(self, n=None):
+        """
+        legacy support for delete_xy_landscape_function. Please use the other function in the future
+        delete single fit function n (with 0 being the first one generated) or the complete landscape for n not specified
+        :param n: index of single fit function to be deleted
+        :return:
+        """
+        logging.warning('This function is deprecated for clarity purposes.'
+                        ' Please use delete_xy_landscape_function in the future')
+        self.landscape.delete_landscape_function_xy(n=n)
+
+    def plot_fit_function(self):
+        """
+        legeacy support for landscape.plot_fit_function_xy. Please use the other function in the future.
+        Plots the landscape
+        :return:
+        """
+        self.landscape.plot_xy_landscape()
+
+
+class Landscape:
+    """
+    Class for landscape scans in combination with spectroscopy. spectrum gnerates an instance of Landscape in __init__
+    Use this instance to generate your fit_functions/landscape for your measurement.
+    Instance stores the landscape(functions), lets you plot them, checks if points are to be measured and adjusts
+    the vna frequencies.
+    """
+    def __init__(self, vna):
+        self.vna = vna
+        self.x_vec = None
+        self.y_vec = None
+        self.xylandscapes = []  # List containing dicts
+        self.xzlandscape_func = None
+        self.xz_freqpoints = None
+        self.y_span_default = 200e6  # this is for the xy landscape scan, i.e., span of your y_parameter, e.g, mw_frequency
+        self.z_span = self.vna.get_span()  # This is for the xz landscape scan i.e. span of vna is adjusted w/ resp to x
+
+    def generate_fit_function_xy(self, curve_f, curve_p, x_range=None, y_span=None, blacklist=False, p0=[-1, 0.1, 7], units=''):
+        """
+        Use this function if you keep your vna span fixed but want to add a landscape to your x and y parameter.
+        I.e., for given x parameter not all y parameters are swept but only those that lie within the specified y-span
+        around the fit function.
+        Adds a trace to landscape
+        curve_f: 'spline', 'lin_spline' 'lin, 'parab', 'hyp', 'transmon' specifies the fit function to be employed
+        curve_p: set of points that are the basis for the fit in the format [[x1,x2,x3,...],[y1,y2,y3,...]], frequencies in Hz
+        x_range: specify x_range for the function in the format [x_min, x_max]
+        y_span: specify the span of your y_axis for the generated fit_function,
+                if not given default of self.span is used, if negative the span will be excluded from the measurement
+                interesting for overlaping regions
+        blacklist: Use this parameter to explicitly exclude a section from the measurement (previously done by negative span)
+        p0 (optional): start parameters for the fit, must be an 1D array of length 3 ([a,b,c,d]),
+           where for the parabula p0[3] will be ignored
+        units: set this to 'Hz' in order to avoid large values that cause the fit routine to diverge
+
+        The parabolic function takes the form  y = a*(x-b)**2 + c , where (a,b,c) = p0
+        The hyperbolic function takes the form y = sqrt[ a*(x-b)**2 + c ], where (a,b,c) = p0
+
+        """
+        if units == 'Hz':
+            multiplier = 1e9
+        else:
+            multiplier = 1
+        x_fit = np.array(curve_p[0])
+        y_fit = np.array(curve_p[1])
+        if x_range is None:
+            x_range = [self.x_vec[0], self.x_vec[-1]]
+        if y_span is None:
+            y_span = self.y_span_default
+        if y_span < 0:
+            y_span = -y_span
+            blacklist = True
+            logging.warning('Using a negative span in generate_fit_function_xy is deprecated. Please use blacklist = True instead for more clarity.')
+
+        try:
+            if curve_f == 'lin_spline':
+                f = interp1d(x_fit, y_fit)
+                center_points = f(self.x_vec)
+            elif curve_f == 'spline':
+                center_points =  UnivariateSpline(x_fit, y_fit)(self.x_vec)
+            else:  # curve_fit procedure differs from splines
+                if curve_f == 'parab':
+                    fit_fct = self.f_parab
+                elif curve_f == 'hyp':
+                    fit_fct = self.f_hyp
+                elif curve_f == 'lin':
+                    fit_fct = self.f_lin
+                    p0 = p0[:2]
+                elif curve_f == 'transmon':
+                    fit_fct = self.f_transmon
+                else:
+                    raise ValueError('function type not known...aborting')
+                popt, pcov = curve_fit(fit_fct, x_fit, y_fit / multiplier, p0=p0)
+                center_points = multiplier * fit_fct(self.x_vec, *popt)
+        except Exception as message:
+            print('fit not successful:', message)
+        else:
+            self.xylandscapes.append({
+                'center_points':center_points,
+                'y_span':y_span,
+                'x_range':[np.min(x_range), np.max(x_range)],
+                'blacklist':blacklist
+                })
+        
+    def generate_fit_function_xz(self, curve_f, curve_p, z_span=None, p0=[-1, 0.1, 7]):
+        """
+        Use this function if you want to adjust your vna span with respect to your x-values, useful if you want to
+        track your fresonator, e.g., shifting resonance due qubit resonator coupling or fmr measurements. It works
+        in a 2d and 3d scan.
+        :param curve_f: fit_function (str) such as 'lin_spline', 'spline', 'parab', 'hyp', 'lin'
+        :param curve_p: Valeus to fit in the form [[x0,x1,..xn],[z0,z1,..zn]]
+        :param z_span: If None, span from VNA is used. If specified, vna span will be updated.
+        :param p0: intial fit parameters
+        :return:
+        """
+        if curve_p[1][-1] > 1e6:  # test if z_values are given in Hz or GHz
+            multiplier = 1e9
+        else:
+            multiplier = 1
+        if z_span is not None:
+            self.z_span = z_span
+            self.vna.set_span(z_span)
+        else:
+            self.z_span = self.vna.get_span()
+        x_fit = np.array(curve_p[0])
+        z_fit = np.array(curve_p[1])
+        try:
+            if curve_f == 'lin_spline':
+                self.xzlandscape_func = interp1d(x_fit, z_fit)
+            elif curve_f == 'spline':
+                self.xzlandscape_func = UnivariateSpline(x_fit, z_fit)
+            else:  # curve_fit procedure differs from splines
+                if curve_f == 'parab':
+                    fit_fct = self.f_parab
+                elif curve_f == 'hyp':
+                    fit_fct = self.f_hyp
+                elif curve_f == 'lin':
+                    fit_fct = self.f_lin
+                    p0 = p0[:2]
+                else:
+                    raise ValueError('function type not known...aborting')
+                popt, pcov = curve_fit(fit_fct, x_fit, z_fit/multiplier, p0=p0)
+                self.xzlandscape_func = lambda x: multiplier * fit_fct(x, *popt)
+
+            self.xz_freqpoints = np.arange(self.xzlandscape_func(self.x_vec[0])-self.z_span/2,
+                                           self.xzlandscape_func(self.x_vec[-1])+self.z_span/2,
+                                           self.vna.get_span()/self.vna.get_nop())
+        except Exception as message:
+            print('fit not successful:', message)
+
+    def delete_landscape_function_xy(self, n=None):
+        """
+        delete single xy landscape function n (with 0 being the first one generated)
+        or the complete landscape for n not specified
+        """
+        if n is not None:
+            del self.xylandscapes[n]
+        else:
+            self.xylandscapes = []
+
+
+    def delete_landscape_function_xz(self):
+        """
+        delets the xz_landscape_function incl. the xz_freqpoints
+        :return: None
+        """
+        self.xzlandscape_func = None
+        self.xz_freqpoints = None
+        print('xz_landscape deleted')
+
+    def plot_xy_landscape(self):
+        """
+        Plots the xy landscape(s) (for 3D scan, z-axis (vna) is not plotted
+        :return:
+        """
+        if self.xylandscapes:
+            for i in self.xylandscapes:
+                try:
+                    arg = np.where((i['x_range'][0] <= self.x_vec) & (self.x_vec <= i['x_range'][1]))
+                    x = self.x_vec[arg]
+                    t = i['center_points'][arg]
+                    plt.plot(x, t, color='C1')
+                    if i['blacklist']:
+                        plt.fill_between(x, t + i['y_span'] / 2., t - i['y_span'] / 2., color='C3', alpha=0.5)
+                    else:
+                        plt.fill_between(x, t + i['y_span'] / 2., t - i['y_span'] / 2., color='C0', alpha=0.5)
+                except Exception as e:
+                    print(e)
+                    print('invalid trace...skip')
+            plt.axhspan(np.min(self.y_vec), np.max(self.y_vec), facecolor='0.5', alpha=0.5)
+            plt.xlim(np.min(self.x_vec), np.max(self.x_vec))
+            plt.show()
+        else:
+            print('No trace generated. Use landscape.generate_xy_function')
+
+    def plot_xz_landscape(self):
+        """
+        plots the xz landscape, i.e., how your vna frequency span changes with respect to the x vector
+        :return: None
+        """
+        if self.xzlandscape_func:
+            y_values = self.xzlandscape_func(self.x_vec)
+            plt.plot(self.x_vec, y_values, 'C1')
+            plt.fill_between(self.x_vec, y_values+self.z_span/2., y_values-self.z_span/2., color='C0', alpha=0.5)
+            plt.xlim((self.x_vec[0], self.x_vec[-1]))
+            plt.ylim((self.xz_freqpoints[0], self.xz_freqpoints[-1]))
+            plt.show()
+        else:
+            print('No xz funcion generated. Use landscape.generate_xz_function')
+
+    def set_y_span(self, y_span, n=None):
+        if not self.xylandscapes:
+            self.y_span_default = y_span
+        else:
+            if n is not None:
+                self.xylandscapes[n]['y_span'] = y_span
+            else:
+                for e in self.xylandscapes:
+                    e['y_span'] = y_span
+
+    def get_y_span(self):
+        return self.y_span_default
+
+    def get_y_span_list(self):
+        return [e['y_span'] for e in self.xylandscapes]
+
+    def vna_frequency_wrapper(self, x_set_obj):
+        """
+        Function wraps the x_set_obj function for a landscape_xy scan such that the vna frequencies are automatically
+        adjusted
+        :param x_set_obj: as given by the user
+        :return: the wrapped function
+        """
+        def vna_wrapper(x):
+            start_freq = self.xz_freqpoints[np.argmin(np.abs(self.xz_freqpoints -
+                                                             (self.xzlandscape_func(x)-self.z_span/2)))]
+            self.vna.set_startfreq(start_freq)
+            self.vna.set_stopfreq(start_freq + self.z_span)
+            x_set_obj(x)
+        return vna_wrapper
+
+    def perform_measurement_at_point(self, x, y, ix):
+        """
+        Looks if the point is of interest and returns True or False
+        :param x: point in the x-vector
+        :param y: point in the y-vector
+        :param ix: index of x-vector
+        :return: measure_bool, whether or not the point should be measured
+        """
+        # looks strange but works
+        measure = False
+        for e in self.xylandscapes:
+            if np.abs(e['center_points'][ix] - y) <= e['y_span'] / 2 \
+            and e['x_range'][0] <= x <= e['x_range'][1]:  # The point is covered by this span
+                if e['blacklist']:
+                    return False  # if the point is blacklisted anywhere, we don't need to look further
+                else:
+                    measure = True
+        return measure
+
+    def get_tracedata_xz(self, x):
+        """
+        Function to fill the tracedata with NaNs outside the scan region
+        :param x: x_value where we perform the scan
+        :return:
+        """
+        amp = np.full_like(self.xz_freqpoints, np.NaN, dtype=np.float16)
+        pha = np.full_like(self.xz_freqpoints, np.NaN, dtype=np.float16)
+        startarg = np.argmin(np.abs(self.xz_freqpoints-(self.xzlandscape_func(x)-self.z_span/2)))
+        stoparg = startarg+ self.vna.get_nop()
+        a, p = self.vna.get_tracedata()
+        amp[startarg:stoparg] = a
+        pha[startarg:stoparg] = p
+        return amp, pha
+
+    def get_freqpoints_xz(self):
+        return self.xz_freqpoints
 
     def f_parab(self, x, a, b, c):
         return a * (x - b) ** 2 + c
@@ -899,15 +1070,9 @@ class spectrum(object):
             L:     Oscillation period in current/x-value.
             I_ext: Offset current/x offset.
             djj:   Josephson junction asymmetry (Ic1 - Ic2)/(Ic1 + Ic2)
-        
+
         Returns:
             Primal transition frequency of a transmon qubit.
         """
         return w_max * (np.abs(np.cos(np.pi / L * (x - I_ext))) * (
-                    1 + djj ** 2 * np.tan(np.pi / L * (x - I_ext)) ** 2) ** .5) ** 0.5
-
-    def set_plot_comment(self, comment):
-        '''
-        Small comment to add at the end of plot pics for more information i.e. good for wiki entries.
-        '''
-        self._plot_comment = comment
+                1 + djj ** 2 * np.tan(np.pi / L * (x - I_ext)) ** 2) ** .5) ** 0.5
