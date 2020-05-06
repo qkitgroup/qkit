@@ -532,6 +532,10 @@ class Instrument(object):
                     return np.array(p['value'])
                 else:
                     return p['value']
+            elif not query:
+                # if this value is not stored but gettable, don't throw an error but just get it.
+                logging.debug("%s.%s value not cached. I try getting it with query=True."%(self.name,name))
+                return self._get_value(name,query=True,**kwargs)
             else:
                 logging.error('Trying to access cached value %s, but none available'%name)
                 return False
@@ -640,10 +644,10 @@ class Instrument(object):
             value = self._convert_value(value, p['type'])
 
         if 'minval' in p and value < p['minval']:
-            raise qkit.instruments.InstrumentBoundsError('Can not set %s on instrument %s to %s: value too small' % (self._name,name,value))
+            raise qkit.instruments.InstrumentBoundsError('Cannot set %s.%s to %s: value too small (Minimum: %g)' % (self._name, name,value, p['minval']))
 
         if 'maxval' in p and value > p['maxval']:
-            raise qkit.instruments.InstrumentBoundsError('Can not set %s on instrument %s to %s: value too small' % (self._name, name, value))
+            raise qkit.instruments.InstrumentBoundsError('Cannot set %s.%s to %s: value too large (Maximum: %g)' % (self._name, name, value, p['maxval']))
 
         func = p['set_func']
         if 'maxstep' in p and p['maxstep'] is not None:
