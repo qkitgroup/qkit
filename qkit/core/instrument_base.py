@@ -534,7 +534,7 @@ class Instrument(object):
                     return p['value']
             elif not query:
                 # if this value is not stored but gettable, don't throw an error but just get it.
-                logging.debug("%s.%s value not cached. I try getting it with query=True."%(self.name,name))
+                logging.debug("%s.%s value not cached. I try getting it with query=True."%(self._name,name))
                 return self._get_value(name,query=True,**kwargs)
             else:
                 logging.error('Trying to access cached value %s, but none available'%name)
