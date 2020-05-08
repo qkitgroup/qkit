@@ -235,6 +235,8 @@ class Insttools(object):
 
         try:
             ins = insclass(name, **kwargs)
+            for param_name in ins.get_parameter_names():
+                ins.get(param_name)  # Get all device parameters. This ensures that all get functions are working.
         except Exception as e:
             TB()
             logging.error('Error creating instrument %s: %s', name,e)
