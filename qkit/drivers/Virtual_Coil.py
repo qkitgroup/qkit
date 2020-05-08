@@ -74,7 +74,7 @@ class Virtual_Coil(Instrument):
                 logging.error('dacranges not specified properly')
         limits_dict = {'bi':[-2000,2000],'pos':[0,4000],'neg':[-4000,0]}
         self.range_limits = [limits_dict[dacranges[i]] for i in range(self.channels)]
-        # print self.range_limits
+        # print(self.range_limits)
         if self.channels == 1:
             self.add_parameter('current', type=float, flags=Instrument.FLAG_GETSET, units='mA')
             self.add_parameter('range', type=str, flags=Instrument.FLAG_GETSET)
@@ -144,7 +144,7 @@ class Virtual_Coil(Instrument):
         """
         val = float(self.IVVI.get_dac(self.dacs[channel - 1]) + 0.5 * (
                     self.range_limits[channel - 1][0] + self.range_limits[channel - 1][-1])) / 1000  # dac value in mV
-        # print val
+        # print(val)
         try:
             return val * np.power(10., dac_val[self.c_ranges[channel - 1]])
         except IndexError as detail:

@@ -92,7 +92,7 @@ class IVVIDIG_main_eth(Instrument):
         '''
         
         self.context = zmq.Context(1)
-        print "Connecting to Raspberry Pi"
+        print("Connecting to Raspberry Pi")
         self.client = self.context.socket(zmq.REQ)
         self.client.connect("tcp://%s:%s"%(self._address,self._port)) # raspi address
 
@@ -164,7 +164,7 @@ class IVVIDIG_main_eth(Instrument):
             mvoltage = self._bytes_to_mvoltage(bytes, dacrange)
             return mvoltage
         except IndexError as detail:
-            print 'Error. Device might be disconnected: ',detail
+            print('Error. Device might be disconnected: ',detail)
     
     def get_dac_raw(self):
         '''
@@ -180,7 +180,7 @@ class IVVIDIG_main_eth(Instrument):
             allbytes = self._get_dac_bytes()
             return numpy.array(allbytes)
         except IndexError as detail:
-            print 'Error. Device might be disconnected: ',detail
+            print('Error. Device might be disconnected: ',detail)
     
     def get_dac_all(self, dacrange=(-2000, 2000)):
         '''
@@ -200,7 +200,7 @@ class IVVIDIG_main_eth(Instrument):
                 mvoltage[channel-1] = self._bytes_to_mvoltage(bytes, dacrange)
             return mvoltage
         except IndexError as detail:
-            print 'Error. Device might be disconnected: ',detail
+            print('Error. Device might be disconnected: ',detail)
 
     def set_dac(self, channel, mvoltage, dacrange=(-2000, 2000)):
         '''
@@ -217,12 +217,12 @@ class IVVIDIG_main_eth(Instrument):
             (channel, mvoltage))
         (DataH, DataL) = self._mvoltage_to_bytes(mvoltage, dacrange)
         ###message = "%c%c%c%c%c%c%c%c" % (8, 0, 2, 1, 3, sl_ch, DataH, DataL)
-        #print DataH,DataL
+        #print(DataH,DataL)
         message = "%s %s %s %s %s %s %s" % (7, 0, 2, 1, channel, DataH, DataL)
         try:
             reply = self._send_and_read(message)
         except IndexError as detail:
-            print 'Error. Device might be disconnected: ',detail
+            print('Error. Device might be disconnected: ',detail)
             
         return reply
     
@@ -245,7 +245,7 @@ class IVVIDIG_main_eth(Instrument):
                 reply = self._send_and_read(message)
             return reply
         except IndexError as detail:
-            print 'Error. Device might be disconnected: ',detail
+            print('Error. Device might be disconnected: ',detail)
 
     def _get_dac_bytes(self):
         '''
@@ -295,16 +295,16 @@ class IVVIDIG_main_eth(Instrument):
                         expect_reply = False
                         
                 else:
-                    print "No response from server, retrying"
+                    print("No response from server, retrying")
                     # Socket is confused. Close and remove it.
                     self.client.setsockopt(zmq.LINGER, 0)
                     self.client.close()
                     self.poll.unregister(self.client)
                     retries_left -= 1
                     if retries_left == 0:
-                        print "Server seems to be offline, abandoning"
+                        print("Server seems to be offline, abandoning")
                         break
-                    print "Reconnecting and resending " + message
+                    print("Reconnecting and resending " + message)
                     # Create new connection
                     self._open_zmq_connection()
 
