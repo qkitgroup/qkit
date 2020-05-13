@@ -68,10 +68,12 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
     
     if echo:
         print("Qviewkit open cmd: "+ str(cmd))
+        os.putenv("HDF5_USE_FILE_LOCKING",'FALSE')
         P = Popen(cmd, shell=False, stdout=PIPE)
         print(P.stdout.read())
         return P
     else:
+        os.putenv("HDF5_USE_FILE_LOCKING", 'FALSE')
         return Popen(cmd, shell=False)
 
 
