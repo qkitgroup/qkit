@@ -504,7 +504,7 @@ class Keysight_35670A(instrument, Instrument):
                 qkit.flow.sleep(0.05)
                 while not self.ready():  # but spectroscopy asks for x-values before meausurment is started
                     qkit.flow.sleep(0.1)
-            self.x_values=np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float16, sep=',')
+            self.x_values=np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float32, sep=',')
             self.set_averages(self.averages)
             return self.x_values[0:self.get_nop()]
         elif self.instrument_mode == 'histogram':
@@ -513,15 +513,15 @@ class Keysight_35670A(instrument, Instrument):
                 qkit.flow.sleep(0.05)
                 while not self.ready():  # but spectroscopy asks for x-values before meausurment is started
                     qkit.flow.sleep(0.1)
-            self.x_values = np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float16, sep=',')
+            self.x_values = np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float32, sep=',')
             return self.x_values
         else:
-            self.x_values = np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float16, sep=',')
+            self.x_values = np.fromstring(self.ask("CALC:X:DATA?"), dtype=np.float32, sep=',')
             return self.x_values
 
     def get_single_trace(self, trace):
         """returns the trace of trace 1,2,3,4"""
-        trace_values=np.fromstring(self.ask("CALC{}:DATA?".format(trace)), dtype=np.float16, sep=',')
+        trace_values=np.fromstring(self.ask("CALC{}:DATA?".format(trace)), dtype=np.float32, sep=',')
         return trace_values
 
     def get_tracedata(self, trace, type='AmpPha'):
