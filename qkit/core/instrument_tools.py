@@ -250,7 +250,7 @@ class Insttools(object):
         except:
             idn = "__none__"
         descr = str(name)+"#"+str(instype)+"#"+idn+"#"+str(kwargs)+"\r\n"
-        fname = os.path.join(qkit.cfg['logdir'], "instrument.txt")
+        fname = os.path.join(qkit.cfg['datadir'], "instrument.txt")  # save to datadir, because this is synced to backup server
         open(fname, "a").close() #create file if not existing
         with open(fname, "r+") as f:
             if not descr.strip() in [r.strip() for r in f.readlines()]:
