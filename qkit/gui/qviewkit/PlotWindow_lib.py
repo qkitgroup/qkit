@@ -790,10 +790,7 @@ def _do_data_manipulation(x_data, y_data, unit, ds_type, manipulation, manipulat
         dimension as the input array and a string of the data unit after the 
         manipulation.
     """
-    # set the y data  to the decibel scale 
-    if manipulation & manipulations['dB']:
-        y_data = 20 * np.log10(y_data)
-        unit = 'dB'
+    # set the y data  to the decibel scale
     
     # unwrap the phase
     if manipulation & manipulations['wrap']:
@@ -825,6 +822,10 @@ def _do_data_manipulation(x_data, y_data, unit, ds_type, manipulation, manipulat
         old_warn = np.seterr(divide='print')
         np.seterr(**old_warn)
         y_data = y_data / np.nanmean(y_data, axis=0, keepdims=True)
+
+    if manipulation & manipulations['dB']:
+        y_data = 20 * np.log10(y_data)
+        unit = 'dB'
 
     if manipulation & manipulations['histogram']:
         y_data, x_data = np.histogram(y_data[~np.isnan(y_data)], bins='auto')  # FIXME: axis labels not correct (MMW)
