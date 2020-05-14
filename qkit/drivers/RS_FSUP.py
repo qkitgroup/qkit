@@ -61,7 +61,7 @@ class RS_FSUP(Instrument):
             minval=0, maxval=26.5e9,
             tags=['sweep'])
 
-        self.add_parameter('nop', type=float,
+        self.add_parameter('nop', type=int,
             flags=Instrument.FLAG_GETSET,
             minval=155, maxval=30001,
             tags=['sweep'])
@@ -92,7 +92,7 @@ class RS_FSUP(Instrument):
         self.add_parameter('sweeptime_auto', type=float,
             flags=Instrument.FLAG_GETSET,tags=['sweep'])    
 
-        self.add_parameter('freqpoints', type=float,
+        self.add_parameter('freqpoints', type=numpy.ndarray,
             flags=Instrument.FLAG_GET,tags=['sweep'])    
 
         self.add_parameter('active_traces', type=int, flags=Instrument.FLAG_GET)    
@@ -129,9 +129,9 @@ class RS_FSUP(Instrument):
             None
         '''
 
-        self._visainstrument.write('AVER ON')
-        self._visainstrument.write('AVER:AUTO OFF')
-        self._visainstrument.write('AVER:COUN %i' % (av))
+        self.write('AVER ON')
+        self.write('AVER:AUTO OFF')
+        self.write('AVER:COUN %i' % (av))
   
 
 
@@ -145,7 +145,7 @@ class RS_FSUP(Instrument):
             number of averages
         '''
         
-        return int(self._visainstrument.ask('AVER:COUN?')) 
+        return int(self.ask('AVER:COUN?'))
     
     def do_get_freqpoints(self):
         '''
@@ -165,13 +165,13 @@ class RS_FSUP(Instrument):
         '''
         sets the resolution bandwidth
         '''
-        self._visainstrument.write('band %e'%(BW))
+        self.write('band %e'%(BW))
 
     def do_get_resolutionBW(self):
         '''
         gets the resolution bandwidth
         '''
-        return float(self._visainstrument.ask('band?'))
+        return float(self.ask('band?'))
 
 
     def get_y_unit(self, channel):
@@ -185,39 +185,39 @@ class RS_FSUP(Instrument):
         '''
         sets the video bandwidth
         '''
-        self._visainstrument.write('band:vid %e'%(BW))
+        self.write('band:vid %e'%(BW))
 
     def do_get_videoBW(self):
         '''
         gets the video bandwidth
         '''
-        return float(self._visainstrument.ask('band:vid?'))
+        return float(self.ask('band:vid?'))
 
     def do_set_sweeptime(self, sweeptime):
         '''
         sets the sweeptime
         sweeptime in seconds (e.g. 3s) or milliseconds (e.g. 50ms)
         '''
-        self._visainstrument.write('swe:time %s'%sweeptime)
+        self.write('swe:time %s'%sweeptime)
         
     def do_get_sweeptime(self):
         '''
         gets the sweeptime
         '''
-        return float(self._visainstrument.ask('swe:time?'))
+        return float(self.ask('swe:time?'))
 
     def do_set_sweeptime_auto(self, autosweep):
         '''
         sets the sweeptime
         sweeptime in seconds (e.g. 3s) or milliseconds (e.g. 50ms)
         '''
-        self._visainstrument.write('SWE:TIME:AUTO %s'%autosweep)
+        self.write('SWE:TIME:AUTO %s'%autosweep)
         
     def do_get_sweeptime_auto(self):
         '''
         gets the sweeptime
         '''
-        return float(self._visainstrument.ask('SWE:TIME:AUTO?'))
+        return float(self.ask('SWE:TIME:AUTO?'))
     
 
     def do_get_sweeptime_averages(self):
@@ -244,49 +244,49 @@ class RS_FSUP(Instrument):
         '''
         sets the center frequency
         '''
-        self._visainstrument.write('freq:cent %e'%(centerfreq))
+        self.write('freq:cent %e'%(centerfreq))
 
     def do_get_centerfreq(self):
         '''
         gets the center frequency
         '''
-        return float(self._visainstrument.ask('freq:cent?'))
+        return float(self.ask('freq:cent?'))
 
     def do_set_freqspan(self, freqspan):
         '''
         sets the frequency span
         '''
-        self._visainstrument.write('freq:span %e'%(freqspan))
+        self.write('freq:span %e'%(freqspan))
     
     def do_get_freqspan(self):
         '''
         get the frequency span
         '''
-        return float(self._visainstrument.ask('freq:span?'))
+        return float(self.ask('freq:span?'))
 
     def do_set_startfreq(self, freq):
-        self._visainstrument.write('freq:start %e'%(freq))
+        self.write('freq:start %e'%(freq))
 
     def do_get_startfreq(self):
-        return float(self._visainstrument.ask('freq:start?'))
+        return float(self.ask('freq:start?'))
 
     def do_set_stopfreq(self, freq):
-        self._visainstrument.write('freq:stop %e'%(freq))
+        self.write('freq:stop %e'%(freq))
 
     def do_get_stopfreq(self):
-        return float(self._visainstrument.ask('freq:stop?'))        
+        return float(self.ask('freq:stop?'))
         
     def do_set_nop(self, nop):
-        self._visainstrument.write('swe:poin %i'%(nop))
+        self.write('swe:poin %i'%(nop))
 
     def do_get_nop(self):
-        return int(self._visainstrument.ask('swe:poin?'))   
+        return int(self.ask('swe:poin?'))
 
     def ready(self):
         '''
         This is a proxy function, returning True when the VNA has finished the required number of averages.
         '''
-        status = int(self._visainstrument.ask('STAT:OPER:COND?')[0:-1])
+        status = int(self.ask('STAT:OPER:COND?')[0:-1])
         if status  == 0:
             return True
         else:
@@ -297,20 +297,20 @@ class RS_FSUP(Instrument):
         sets the unit for powers
         provide unit as a string! ("DBm")
         '''
-        self._visainstrument.write('unit:pow %s'%(unit))
+        self.write('unit:pow %s'%(unit))
         
     def do_get_powerunit(self):
         '''
         gets the power unit for powers
         '''
-        return self._visainstrument.ask('unit:pow')
+        return self.ask('unit:pow?').strip()
     
     def set_marker(self,marker,frequency):
         '''
         sets marker number marker to frequency
         
         '''
-        self._visainstrument.write('calc:mark%i:x %e'%(marker, frequency))
+        self.write('calc:mark%i:x %e'%(marker, frequency))
         self.enable_marker(marker)
         
     def get_marker(self,marker):
@@ -318,21 +318,21 @@ class RS_FSUP(Instrument):
         gets frequency of marker
         
         '''
-        return float(self._visainstrument.ask('calc:mark%i:x?'%(marker)))
+        return float(self.ask('calc:mark%i:x?'%(marker)))
     
     def get_marker_level(self,marker):
         '''
         gets power level of indicated marker
         
         '''
-        return float(self._visainstrument.ask('calc:mark%i:y?'%(marker)))
+        return float(self.ask('calc:mark%i:y?'%(marker)))
         
     def set_continuous_sweep_mode(self,value):
         '''
         value='ON' Continuous sweep
         value='OFF' Single sweep
         '''
-        self._visainstrument.write('INIT:CONT %s'%(value))  
+        self.write('INIT:CONT %s'%(value))
     
     def get_frequencies(self):
         '''
@@ -345,22 +345,22 @@ class RS_FSUP(Instrument):
         '''
         ON or OFF
         '''
-        self._visainstrument.write('CALC:MARK%i %s'%(marker,state)) 
+        self.write('CALC:MARK%i %s'%(marker,state))
     
     def sweep(self):
         '''
         perform a sweep and wait for it to finish
         '''
-        self._visainstrument.write('INIT; *WAI')    
+        self.write('INIT; *WAI')
     
     def get_trace(self, tracenumber=1):
         return self._visainstrument.query_ascii_values('trac:data? trace%i'%tracenumber)
 
     def start_measurement(self):
         """starts a new measurement"""
-        self._visainstrument.write("INIT:CONT OFF")
-        self._visainstrument.write("*CLS")
-        self._visainstrument.write("INIT:IMM; *OPC")
+        self.write("INIT:CONT OFF")
+        self.write("*CLS")
+        self.write("INIT:IMM; *OPC")
         
     def get_tracedata(self,tracenumber=1):
 
@@ -375,10 +375,10 @@ class RS_FSUP(Instrument):
         return numpy.linspace(self.get_startfreq(),self.get_stopfreq(),self.get_nop())
     
     def write(self, command):
-        self._visainstrument.write(command) 
+        self.write(command)
     
     def ask(self,command):
-        return self._visainstrument.ask(command)    
+        return self._visainstrument.query(command)
 
     def pre_measurement(self):
         pass
