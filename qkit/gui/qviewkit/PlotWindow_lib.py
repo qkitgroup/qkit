@@ -71,7 +71,9 @@ def _display_1D_view(self, graphicsView):
             if err_url:
                 ds_urls.append(err_url)
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ds_urls)
-            
+            if dss[0] is None or dss[1] is None:
+                print("Could not load view xy_%i: "%i + str(xyurls)+" : Datasets not found.")
+                continue
             ## retrieve the data type and store it in  x_ds_type, y_ds_type
             x_ds_type = dss[0].attrs.get('ds_type', ds_types['coordinate'])
             y_ds_type = dss[1].attrs.get('ds_type', ds_types['coordinate'])
