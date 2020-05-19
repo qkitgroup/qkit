@@ -356,7 +356,10 @@ def _display_1D_data(self, graphicsView):
     # if only one entry in the dataset --> point-style
     if y_data.shape[-1] == 1:
         self.plot_style = self.plot_styles['point']
-    
+        self.linestyle_selector.point.setChecked(True)
+    else:
+        self.linestyle_selector.line.setChecked(True)
+
     if self.plot_style == self.plot_styles['line']:
         graphicsView.plot(y=y_data, x=x_data, clear=True, pen=(200, 200, 100), connect='finite')
     elif self.plot_style == self.plot_styles['linepoint']:
