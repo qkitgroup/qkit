@@ -71,7 +71,9 @@ def _display_1D_view(self, graphicsView):
             if err_url:
                 ds_urls.append(err_url)
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ds_urls)
-            
+            if dss[0] is None or dss[1] is None:
+                print("Could not load view xy_%i: "%i + str(xyurls)+" : Datasets not found.")
+                continue
             ## retrieve the data type and store it in  x_ds_type, y_ds_type
             x_ds_type = dss[0].attrs.get('ds_type', ds_types['coordinate'])
             y_ds_type = dss[1].attrs.get('ds_type', ds_types['coordinate'])
@@ -358,7 +360,10 @@ def _display_1D_data(self, graphicsView):
     # if only one entry in the dataset --> point-style
     if y_data.shape[-1] == 1:
         self.plot_style = self.plot_styles['point']
-    
+        self.linestyle_selector.point.setChecked(True)
+    else:
+        self.linestyle_selector.line.setChecked(True)
+
     if self.plot_style == self.plot_styles['line']:
         graphicsView.plot(y=y_data, x=x_data, clear=True, pen=(200, 200, 100), connect='finite')
     elif self.plot_style == self.plot_styles['linepoint']:
@@ -796,10 +801,7 @@ def _do_data_manipulation(x_data, y_data, unit, ds_type, manipulation, manipulat
         dimension as the input array and a string of the data unit after the 
         manipulation.
     """
-    # set the y data  to the decibel scale 
-    if manipulation & manipulations['dB']:
-        y_data = 20 * np.log10(y_data)
-        unit = 'dB'
+    # set the y data  to the decibel scale
     
     # unwrap the phase
     if manipulation & manipulations['wrap']:
@@ -831,6 +833,10 @@ def _do_data_manipulation(x_data, y_data, unit, ds_type, manipulation, manipulat
         old_warn = np.seterr(divide='print')
         np.seterr(**old_warn)
         y_data = y_data / np.nanmean(y_data, axis=0, keepdims=True)
+
+    if manipulation & manipulations['dB']:
+        y_data = 20 * np.log10(y_data)
+        unit = 'dB'
 
     if manipulation & manipulations['histogram']:
         y_data, x_data = np.histogram(y_data[~np.isnan(y_data)], bins='auto')  # FIXME: axis labels not correct (MMW)
