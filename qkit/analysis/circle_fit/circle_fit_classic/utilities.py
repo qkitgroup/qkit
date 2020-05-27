@@ -1,6 +1,17 @@
 import warnings
 import numpy as np
-import matplotlib.pyplot as plt
+plot_enable = False
+try:
+    import qkit
+    if qkit.module_available("matplotlib"):
+        import matplotlib.pyplot as plt
+        plot_enable = True
+except (ImportError, AttributeError):
+    try:
+        import matplotlib.pyplot as plt
+        plot_enable = True
+    except ImportError:
+        plot_enable = False
 
 def Watt2dBm(x):
     '''
@@ -19,6 +30,8 @@ class plotting(object):
     some helper functions for plotting
     '''
     def plotall(self):
+        if not plot_enable:
+            raise ImportError("matplotlib not found")
         real = self.z_data_raw.real
         imag = self.z_data_raw.imag
         real2 = self.z_data_sim.real
@@ -44,6 +57,8 @@ class plotting(object):
         plt.show()
         
     def plotcalibrateddata(self):
+        if not plot_enable:
+            raise ImportError("matplotlib not found")
         real = self.z_data.real
         imag = self.z_data.imag
         plt.subplot(221)
@@ -64,6 +79,8 @@ class plotting(object):
         plt.show()
         
     def plotrawdata(self):
+        if not plot_enable:
+            raise ImportError("matplotlib not found")
         real = self.z_data_raw.real
         imag = self.z_data_raw.imag
         plt.subplot(221)

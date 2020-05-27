@@ -38,7 +38,10 @@ GPIO.output(SWITCH2, GPIO.LOW)   #set off
 
 switch_position = 0
 
-import SocketServer
+try:
+    import SocketServer
+except ImportError:
+    import socketserver as SocketServer
 from threading import Thread
 
 #import os,sys

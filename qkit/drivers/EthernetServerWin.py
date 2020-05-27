@@ -48,7 +48,7 @@ import dpkt
 import struct
 import winpcapy as capy
 import ctypes
-import Queue
+
 # ip filter
 import re
 

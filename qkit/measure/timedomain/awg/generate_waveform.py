@@ -17,14 +17,15 @@ M. Jerger, S. Probst, A. Schneider (04/2015), J. Braumueller (04/2016)
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-#import qt
 import numpy as np
 #import os.path
 import time
 import logging
 import numpy
 import sys
-import scipy.special
+import qkit
+if qkit.module_available("scipy"):
+    import scipy.special
 
 # creates dummy objects to have everything well-defined.
 #global sample
@@ -63,6 +64,8 @@ def erf(pulse, attack, decay, sample, length=None, position = None, low=0, high=
             tstart, tstop - erf(-2) times
             attack, decay - attack/decay times
     '''
+    if not qkit.module_available("scipy"):
+        raise ImportError('scipy not available. scipy is needed for erf.')
     if(clock == None): clock = sample.clock
     if(length == None): length = sample.exc_T
     if position == None:   #automatically correct overlap only when position argument not explicitly given

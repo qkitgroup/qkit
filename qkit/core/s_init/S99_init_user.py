@@ -30,16 +30,8 @@ if qkit.cfg.get('exitscript',False):
         else:
             logging.warning('Did not find exitscript "%s", will not be executed', _s)
 
-# Add script directories. Read index and put in namespace
-#if qt.config['scriptdirs'] is not None:
-#    for dirname in qt.config['scriptdirs']:
-#        qt.scripts.add_directory(dirname)
-#    qt.scripts.scripts_to_namespace(globals()) # YS: routine no longer available
-
 # Start IPython command logging if requested
 if qkit.cfg.get('ipython_logfile',None):
-#if qt.config['ipython_logfile'] not in (None, ''):
     from IPython import get_ipython
     _ip = get_ipython()
     _ip.IP.logger.logstart(logfname=qkit.cfg.get('ipython_logfile'), logmode='append')
-

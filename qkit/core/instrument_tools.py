@@ -18,14 +18,13 @@
 import qkit
 
 import inspect
-import types
 import os
 import logging
 import sys
 import qkit.core.instrument_base as instrument
 
-#from qkit.core.insproxy import Proxy
 import importlib
+from imp import reload  # this is needed for py3
 
 
 from qkit.core.lib.misc import get_traceback
@@ -36,7 +35,6 @@ def _get_driver_module(name, do_reload=False):
     if name in sys.modules and not do_reload:
         return sys.modules[name]
 
-    
     try:
         mod = importlib.import_module(name)
         if do_reload:
@@ -57,6 +55,7 @@ def _get_driver_module(name, do_reload=False):
         return sys.modules[name]
 
     return None
+
 
 class Insttools(object):
 
@@ -89,10 +88,6 @@ class Insttools(object):
         self._instruments[ins.get_name()] = ins
 
         info = {'create_args': create_args}
-        #info['changed_hid'] = ins.connect('changed', self._instrument_changed_cb) # YS: not available anymore, gui related
-        #info['removed_hid'] = ins.connect('removed', self._instrument_removed_cb) # YS: not available anymore, gui related
-        #info['reload_hid'] = ins.connect('reload', self._instrument_reload_cb) # YS: not available anymore, gui related
-        #info['proxy'] = Proxy(ins.get_name()) # YS: not available anymore, gui related?
         self._instruments_info[ins.get_name()] = info
 
         newtags = []
@@ -100,10 +95,8 @@ class Insttools(object):
             if tag not in self._tags:
                 self._tags.append(tag)
                 newtags.append(tag)
-        #if len(newtags) > 0:
-            #self.emit('tags-added', newtags) # YS: try to get rid of 32bit gobject from pygtk
 
-    def get(self, name, proxy=False): # YS: proxy deactivated
+    def get(self, name):
         '''
         Return Instrument object with name 'name'.
 
@@ -111,7 +104,7 @@ class Insttools(object):
         Output: Instrument object
         '''
 
-        if isinstance(name, instrument.Instrument):# or isinstance(name, Proxy):
+        if isinstance(name, instrument.Instrument):
             return name
 
         if type(name) == tuple:
@@ -120,16 +113,11 @@ class Insttools(object):
             name = name[0]
 
         if name in self._instruments:
-            if proxy:
-                return self._instruments_info[name]['proxy']
-            else:
-                return self._instruments[name]
+            return self._instruments[name]
         else:
             return None
 
     def get_instrument_names(self):
-        #keys = self._instruments.keys()
-        #keys.sort()
         return sorted(self._instruments.keys())
 
     def get_instruments(self):
@@ -147,7 +135,7 @@ class Insttools(object):
         for path_fn in filelist:
             path, fn = os.path.split(path_fn)
             name, ext = os.path.splitext(fn)
-            if ext == '.py' and name != "__init__" and name[0] != '_':
+            if ext == '.py' and name[0] != '_':
                 ret.append(name)
                 
         if self._user_instdir:
@@ -155,9 +143,8 @@ class Insttools(object):
             for path_fn in filelist:
                 path, fn = os.path.split(path_fn)
                 name, ext = os.path.splitext(fn)
-                if ext == '.py' and name != "__init__" and name[0] != '_' and not ret.count(name) > 0:
+                if ext == '.py' and name[0] != '_' and not ret.count(name) > 0:
                     ret.append(name)
-
         ret.sort()
         return ret
 
@@ -212,7 +199,6 @@ class Insttools(object):
     def _create_invalid_ins(self, name, instype, **kwargs):
         ins = instrument.InvalidInstrument(name, instype, **kwargs)
         self.add(ins, create_args=kwargs)
-        #self.emit('instrument-added', name) # YS: try to get rid of 32bit gobject from pygtk
         return self.get(name)
 
     def create(self, name, instype, **kwargs):
@@ -240,13 +226,7 @@ class Insttools(object):
         if module is None:
             return self._create_invalid_ins(name, instype, **kwargs)
             
-        # FIXME: Using reload() is a bad style in the orig. qt code. However lets bugfix it anyway
-        try:
-            reload(module)
-        except NameError as e:
-            # python 3.4+
-            from importlib import reload as localreload
-            localreload(module)
+        reload(module)
 
         insclass = getattr(module, instype, None)
         if insclass is None:
@@ -255,13 +235,26 @@ class Insttools(object):
 
         try:
             ins = insclass(name, **kwargs)
+            for param_name in ins.get_parameter_names():
+                ins.get(param_name)  # Get all device parameters. This ensures that all get functions are working.
         except Exception as e:
             TB()
             logging.error('Error creating instrument %s: %s', name,e)
             return self._create_invalid_ins(name, instype, **kwargs)
 
         self.add(ins, create_args=kwargs)
-        #self.emit('instrument-added', name) # YS: try to get rid of 32bit gobject from pygtk
+        
+        # Create a file where all created instruments with all parameters are stored once
+        try:
+            idn = ins.ask("*IDN?").strip()
+        except:
+            idn = "__none__"
+        descr = str(name)+"#"+str(instype)+"#"+idn+"#"+str(kwargs)+"\r\n"
+        fname = os.path.join(qkit.cfg['datadir'], "instrument.txt")  # save to datadir, because this is synced to backup server
+        open(fname, "a").close() #create file if not existing
+        with open(fname, "r+") as f:
+            if not descr.strip() in [r.strip() for r in f.readlines()]:
+                f.write(descr)
         return self.get(name)
 
     def reload_module(self, instype):
@@ -338,46 +331,9 @@ class Insttools(object):
             del self._instruments[name]
             del self._instruments_info[name]
 
-        #self.emit('instrument-removed', name) # YS: try to get rid of 32bit gobject from pygtk
-
-    def _instrument_removed_cb(self, sender, name):
-        self.remove(name)
-
-    def _instrument_reload_cb(self, sender):
-        '''
-        Reload instrument and emit instrument-changed signal.
-
-        Input:
-            sender (instrument): instrument to be reloaded
-
-        Output:
-            None
-        '''
-        newins = self.reload(sender)
-        #self.emit('instrument-changed', newins.get_name(), {}) # YS: try to get rid of 32bit gobject from pygtk
-
-    def _instrument_changed_cb(self, sender, changes):
-        '''
-        Emit signal when values of an Instrument change.
-
-        Input:
-            sender (Instrument): sender of message
-            changes (dict): dictionary of changed parameters
-
-        Output:
-            None
-        '''
-        #self.emit('instrument-changed', sender.get_name(), changes) # YS: try to get rid of 32bit gobject from pygtk
+    class InstrumentBoundsError(ValueError):
+        "Base Error to raise when instrument is out of bounds"
         pass
-
-
-
-#_instruments = None
-#def get_instruments():
-#    global _instruments
-#    if _instruments is None:
-#        _instruments = Instruments()
-#    return _instruments
 
 if __name__ == '__main__':
     i = Insttools()

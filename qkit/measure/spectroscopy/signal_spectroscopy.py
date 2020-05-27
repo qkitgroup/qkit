@@ -19,13 +19,15 @@
 
 import numpy as np
 import logging
-import matplotlib.pylab as plt
-from scipy.optimize import curve_fit
 from time import sleep,time
 import sys
 import threading
 
 import qkit
+if qkit.module_available("matplotlib"):
+    import matplotlib.pylab as plt
+if qkit.module_available("scipy"):
+    from scipy.optimize import curve_fit
 from qkit.storage import store as hdf
 from qkit.gui.plot import plot as qviewkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
@@ -178,6 +180,8 @@ class spectrum(object):
 
         adds a trace to landscape
         '''
+        if not qkit.module_available("scipy"):
+            raise ImportError('scipy not available.')
 
         if not self.landscape:
             self.landscape = []
@@ -570,6 +574,8 @@ class spectrum(object):
             print 'no x axis information specified', message
             return
         '''
+        if not qkit.module_available("matplotlib"):
+            raise ImportError("matplotlib not found.")
         if self.landscape:
             for trace in self.landscape:
                 try:

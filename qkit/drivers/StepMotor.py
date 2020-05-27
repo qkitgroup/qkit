@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 import zerorpc
-from instrument import Instrument
+from qkit.core.instrument_base import Instrument
 import logging
 import types
 from qkit.gui.notebook.Progress_Bar import Progress_Bar

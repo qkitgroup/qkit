@@ -7,7 +7,7 @@ import sys, gc
 #from gui.notebook.Progress_Bar import Progress_Bar
 import qkit.measure.timedomain.awg.load_awg as load_awg
 import qkit.measure.timedomain.awg.generate_waveform as gwf
-import matplotlib.pyplot as plt
+
 
 
 iq = qkit.instruments.get('iq')

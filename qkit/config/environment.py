@@ -42,7 +42,7 @@ cfg['user_instruments_dir'] = None
 ## Which version of datafolder structuring do you want?
 ##  1 = YYYYMMDD/HHMMSS_NAME
 ##  2 = RUN_ID/USERNAME/UUID_NAME
-cfg['datafolder_structure'] = 1
+cfg['datafolder_structure'] = 2
 
 ##
 ## Create a database of all measurement-.h5 files with entries {uuid:abspath}
@@ -102,11 +102,6 @@ cfg['stdout_log_level'] = 'WARNING'
 ## 
 # we don't use qtlab anymore
 cfg['qtlab'] = False
-
-##
-## Try to be compatible with QT lab 
-## (by default we try to be compatible for now)
-#cfg['qt_compatible'] = True 
 
 ##
 ## To avoid huge log files, logfile maintainance is on per default.

@@ -252,6 +252,8 @@ def _display_1D_data(self, graphicsView):
             x_data = dss[0][()][:dss[1].shape[-1]]  # x_data gets truncated to y_data shape if neccessary
         except:
             x_data = [i for i in range(dss[1].shape[-1])]
+            units[0] = "#"
+            names[0] = "data point number"
         y_data = dss[1][()]
     
     elif self.ds_type == ds_types['coordinate']:
@@ -762,10 +764,14 @@ def _get_all_ds_names_units_scales(ds, ds_urls=[]):
     units = []
     scales = []
     for ds in dss:
-        names.append(_get_name(ds))
-        units.append(_get_unit(ds))
-        scales.append(_get_axis_scale(ds))
-    
+        if ds is None:
+            names.append('_none_')
+            units.append('_none_')
+            scales.append('_none_')
+        else:
+            names.append(_get_name(ds))
+            units.append(_get_unit(ds))
+            scales.append(_get_axis_scale(ds))
     return dss, names, units, scales
 
 

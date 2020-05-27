@@ -1,9 +1,4 @@
 from qkit.core.instrument_base import Instrument
-import instruments
-import types
-import logging
-import numpy as np
-from time import sleep
 
 class virtual_step_attenuator(Instrument):
     '''

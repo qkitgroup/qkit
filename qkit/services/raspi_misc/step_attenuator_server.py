@@ -35,7 +35,10 @@ attenuation = sum(A)
 A.reverse() #this is needed for the loop later
 #P.reverse() #now they correspond to each other again
 
-import SocketServer
+try:
+    import SocketServer
+except ImportError:
+    import socketserver as SocketServer
 from threading import Thread
 from time import sleep
 

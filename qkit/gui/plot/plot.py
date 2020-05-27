@@ -13,9 +13,10 @@ import qkit
 from qkit.storage import store
 from qkit.storage.hdf_constants import ds_types
 
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+if qkit.module_available("matplotlib"):
+    import matplotlib.pyplot as plt
+    from matplotlib.figure import Figure
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 # this is for live-plots
 def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
@@ -67,10 +68,12 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
     
     if echo:
         print("Qviewkit open cmd: "+ str(cmd))
+        os.putenv("HDF5_USE_FILE_LOCKING",'FALSE')
         P = Popen(cmd, shell=False, stdout=PIPE)
         print(P.stdout.read())
         return P
     else:
+        os.putenv("HDF5_USE_FILE_LOCKING", 'FALSE')
         return Popen(cmd, shell=False)
 
 
@@ -103,6 +106,9 @@ class h5plot(object):
         """Inits h5plot with a h5_filepath (string, absolute path), optional 
         comment string, and optional save_pdf boolean.
         """
+        if not qkit.module_available("matplotlib"):
+            logging.warning("matplotlib not installed. I can not save your measurement files as png. I will disable this function.")
+            qkit.cfg['save_png'] = False
         if not qkit.cfg.get('save_png',True):
             return False
         self.comment = comment
