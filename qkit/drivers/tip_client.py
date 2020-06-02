@@ -7,6 +7,7 @@ import time
 import types
 from numpy import arange, size, linspace, sqrt, ones, delete, append, argmin, array, abs
 import logging
+import six
 
 try:
     import cPickle as pickle
@@ -22,6 +23,11 @@ class Error(Exception):
 
 # zero.1 version of a remote tip command
 
+def loads(i):
+    if six.PY2:
+        return pickle.loads(i)
+    else:
+        return pickle.loads(i,encoding='latin1')
 
 RANGE = {0: 0.02,
          1: 0.2,
@@ -123,13 +129,14 @@ class tip_client(Instrument):
     # generic com comands
 
     def send(self, send_cmd):
-        self.sock.send(send_cmd + "\n")
+        self.sock.send((send_cmd + "\n").encode('latin1'))
 
-    def recv(self):
+    def recv(self,bytes=False):
         # Receive data from the server and shut down
         rdata = self.sock.recv(8192 * 10)
-        string = rdata
-        return string.strip()
+        if bytes:
+            return rdata
+        return rdata.decode('latin1').strip()
 
     # get and set Temperature
 
@@ -191,7 +198,7 @@ class tip_client(Instrument):
 
     def get_PID_params(self):
         self.send("GET/PID/ALL")
-        return pickle.loads(self.recv())
+        return loads(self.recv(bytes=True))
 
     def do_get_P(self):
         self.send("GET/PID/P")
@@ -274,15 +281,23 @@ class tip_client(Instrument):
         '''
         self.send('G/T/:/ALL')
         time.sleep(.1)
-        x = pickle.loads(self.recv())
+        x = loads(self.recv(bytes=True))
         for y in x:
-            if (y['last_Res'] / RANGE[y['range']]) < 0.01 or (y['last_Res'] / RANGE[y['range']]) > 50:
-                newrange = max(4, RANGE.keys()[
-                    argmin(abs(y['last_Res'] / array(RANGE.values()) - 1))])  # we take a minimum RANGE setting of 4
+            if (y['last_Res'] / RANGE[y['range']]) < 0.1 or (y['last_Res'] / RANGE[y['range']]) > 2:
+                newrange = max(4,
+                    argmin(abs(y['last_Res'] / array(list(RANGE.values())) - 1)))  # we take a minimum RANGE setting of 4
                 print("%s has a R_meas/R_ref value of %.4f and is set to range %i but I would set it to %i." % (
                     y['name'], y['last_Res'] / RANGE[y['range']], y['range'], newrange))
                 self.do_set_range(newrange, y['channel'])
 
+    def set_range_cold(self):
+        for i,v in enumerate([6,7,7,8,8]):
+            self.do_set_range(v,i+1)
+            
+    def set_range_warm(self):
+        for i,v in enumerate([4,4,5,5,6]):
+            self.do_set_range(v,i+1)
+            
     def set_interval_scanning(self):
         '''
         Sets the measurement intervals to repeatedly scan through all channels.
