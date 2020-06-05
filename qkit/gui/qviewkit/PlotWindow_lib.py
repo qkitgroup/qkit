@@ -103,16 +103,36 @@ def _display_1D_view(self, graphicsView):
                             y_data = y_data[:x_data_len]
                 
                 elif y_ds_type == ds_types['matrix']:
-                    self.VTraceXSelector.setEnabled(True)
-                    range_max = dss[1].shape[0]
-                    self.VTraceXSelector.setRange(-1 * range_max, range_max - 1)
-                    self.VTraceXValue.setText(self._getXValueFromTraceNum(dss[1], self.VTraceXNum))
-                    self.VTraceYSelector.setEnabled(False)
-                    
-                    x_data = dss[0][()]
-                    y_data = dss[1][()][self.VTraceXNum]
-                    if err_url:
-                        err_data = dss[2][()][self.VTaceXNum]
+                    if view_params.get('transpose',False):
+                        self.VTraceYSelector.setEnabled(True)
+                        range_max = dss[1].shape[1]
+                        if self.VTraceXSelector.isEnabled(): #Hack to see if the window is freshly generated
+                            self.VTraceXSelector.setEnabled(False)
+                            self.VTraceYSelector.setValue(view_params.get('default_trace',range_max //2))
+                        self.VTraceYSelector.setRange(-1 * range_max, range_max - 1)
+                        self.VTraceYValue.setText(self._getYValueFromTraceNum(dss[1], self.VTraceYNum))
+                        x_data = dss[0][()]
+                        y_data = dss[1][:,self.VTraceYNum]
+                        if err_url:
+                            err_data = dss[2][:,self.VTraceYNum]
+                    else:
+                        self.VTraceXSelector.setEnabled(True)
+                        range_max = dss[1].shape[0]
+                        self.VTraceXSelector.setRange(-1 * range_max, range_max - 1)
+                        self.VTraceXValue.setText(self._getXValueFromTraceNum(dss[1], self.VTraceXNum))
+                        self.VTraceYSelector.setEnabled(False)
+                        
+                        x_data = dss[0][()]
+                        y_data = dss[1][()][self.VTraceXNum]
+                        if err_url:
+                            err_data = dss[2][()][self.VTraceXNum]
+                    x_data_len = len(x_data)
+                    y_data_len = len(y_data)
+                    if x_data_len != y_data_len:
+                        if x_data_len > y_data_len:
+                            x_data = x_data[:y_data_len]
+                        else:
+                            y_data = y_data[:x_data_len]
                 
                 elif y_ds_type == ds_types['box']:
                     self.VTraceXSelector.setEnabled(True)
@@ -129,7 +149,7 @@ def _display_1D_view(self, graphicsView):
                     if err_url:
                         err_data = dss[2][()][self.VTraceXNum, self.VTraceYNum, :]
             
-            ## This is in our case used so far only for IQ plots. The 
+            ## This is in our case used so far only for IQ plots. The
             ## functionality derives from this application.
             elif x_ds_type == ds_types['matrix']:
                 self.VTraceXSelector.setEnabled(True)
@@ -172,6 +192,7 @@ def _display_1D_view(self, graphicsView):
                     # if bgcolor:
                     #    print tuple(bgcolor)
                     #    graphicsView.setBackgroundColor(tuple(bgcolor))
+                
             
             try:
                 graphicsView.plotItem.legend.removeItem(names[1])
@@ -181,11 +202,15 @@ def _display_1D_view(self, graphicsView):
             if not self.user_setting_changed:
                 self.plot_style = view_params.get('plot_style', 0)
             self.markersize = view_params.get('markersize', 5)
+            try:
+                linecolor = view_params['linecolors'][i]
+            except (KeyError,IndexError):
+                linecolor = (i,4)
             if self.plot_style == self.plot_styles['line']:
-                graphicsView.plot(y=y_data, x=x_data, pen=(i, 4), name=names[1], connect='finite')
+                graphicsView.plot(y=y_data, x=x_data, pen=linecolor, name=names[1], connect='finite')
             elif self.plot_style == self.plot_styles['linepoint']:
                 symbols = ['+', 'o', 's', 't', 'd']
-                graphicsView.plot(y=y_data, x=x_data, pen=(i, 4), name=names[1], connect='finite', symbol=symbols[i % len(symbols)], symbolSize=self.markersize)
+                graphicsView.plot(y=y_data, x=x_data, pen=linecolor, name=names[1], connect='finite', symbol=symbols[i % len(symbols)], symbolSize=self.markersize)
             elif self.plot_style == self.plot_styles['point']:
                 symbols = ['+', 'o', 's', 'd', 't']
                 graphicsView.plot(y=y_data, x=x_data, name=names[1], pen=None, symbol=symbols[i % len(symbols)], symbolSize=self.markersize)

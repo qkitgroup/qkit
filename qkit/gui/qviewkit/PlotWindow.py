@@ -94,8 +94,12 @@ class PlotWindow(QWidget,Ui_Form):
             No return variable. The function operates on the given object.
         """
         #print "PWL update_plots:", self.obj_parent.h5file
-
-        self.ds = self.obj_parent.h5file[self.dataset_url]
+        
+        try:
+            self.ds = self.obj_parent.h5file[self.dataset_url]
+        except ValueError as e:
+            print(str(self.dataset_url)+": "+str(e))
+            return
         self.ds_type = self.ds.attrs.get('ds_type', -1)
         
         # The axis names are parsed to plot_view's Ui_Form class to label the UI selectors 
