@@ -168,9 +168,11 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                 s = ""
                 try:
                     s="shape\t"+str(self.h5file[tree_key].shape)+"\n"
-                    for k in list(self.h5file[tree_key].attrs.keys()): 
-                        s += k + "\t" + str(self.h5file[tree_key].attrs[k],"utf-8") + "\n"
-
+                    for k in list(self.h5file[tree_key].attrs.keys()):
+                        try:
+                            s += k + "\t" + self.h5file[tree_key].attrs[k].decode("utf-8") + "\n"
+                        except AttributeError:
+                            s += k + "\t" + str(self.h5file[tree_key].attrs[k]) + "\n"
                 except TypeError:
                     s="shape\t"+str(self.h5file[tree_key].shape)+"\n"
                     for k in list(self.h5file[tree_key].attrs.keys()): 

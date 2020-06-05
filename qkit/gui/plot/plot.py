@@ -110,7 +110,7 @@ class h5plot(object):
             logging.warning("matplotlib not installed. I can not save your measurement files as png. I will disable this function.")
             qkit.cfg['save_png'] = False
         if not qkit.cfg.get('save_png',True):
-            return False
+            return
         self.comment = comment
         self.save_pdf = save_pdf
         self.path = h5_filepath

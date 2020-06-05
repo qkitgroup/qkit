@@ -517,6 +517,8 @@ class PlotWindow(QWidget,Ui_Form):
 
     def _getXValueFromTraceNum(self,ds,num):
         x_ds = _get_ds(ds, ds.attrs.get('x_ds_url'))
+        if x_ds is None:
+            return "__none__"
         if ds.attrs.get('ds_type') == ds_types['box']:
             x_data = np.array(x_ds)[:ds.attrs.get('fill')[0]]
         else:
