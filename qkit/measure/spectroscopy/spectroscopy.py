@@ -415,11 +415,12 @@ class spectrum(object):
 
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         if self._nop < 10:
-            if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(),
-                                                                     datasets=['views/amplitude_midpoint', 'views/phase_midpoint'])
+            self._data_file.hf.hf.attrs['default_ds'] =['views/amplitude_midpoint', 'views/phase_midpoint']
         else:
-            if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(),
-                                                                     datasets=['amplitude', 'phase'])
+            self._data_file.hf.hf.attrs['default_ds'] = ['data0/amplitude_midpoint', 'data0/phase_midpoint']
+        
+        if self.open_qviewkit:
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(),datasets=list(self._data_file.hf.hf.attrs['default_ds']))
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath())
         self._measure()
