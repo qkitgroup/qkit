@@ -98,7 +98,7 @@ class Windfreaktech_SynthHD(Instrument):
         reloads power calibration from file Windfreaktech_SynthHD.cal in instruments folder.
         '''
         try:
-            data = np.loadtxt(qkit.cfg.get('user_insdir') + '/Windfreaktech_SynthHD.cal')
+            data = np.loadtxt(qkit.cfg.get('instruments_dir') + '/Windfreaktech_SynthHD.cal')
             f = data[1:, 0]
             p = data[0, 1:]
             values = data[1:, 1:]

@@ -61,8 +61,6 @@ class Yokogawa_GS200(Instrument):
             self._visainstrument.write_termination = ''
 
         # Add parameters to wrapper
-        
-        
 
 #        self.add_parameter('source_function',
 #            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
@@ -104,9 +102,6 @@ class Yokogawa_GS200(Instrument):
 #        self.add_parameter('ramp_wait_time', 
 #            flags=Instrument.FLAG_GET,
 #            type=float, units = 's')
-          
-
-
 
         # Add functions to wrapper
         
@@ -537,7 +532,7 @@ class Yokogawa_GS200(Instrument):
         Output:
             ans (str)
         '''
-        return self._visainstrument.ask(msg).rstrip()
+        return self._visainstrument.query(msg).rstrip()
         
         
         
