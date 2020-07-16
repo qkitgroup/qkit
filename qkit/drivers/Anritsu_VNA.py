@@ -201,7 +201,7 @@ class Anritsu_VNA(Instrument):
             logging.warning('invalid mode')
     
     def do_get_sweep_mode(self):
-        return self.ask(':SENS:HOLD:FUNC ?')
+        return self.ask(':SENS:HOLD:FUNC?')
     
     def do_set_nop(self, nop):
         """
