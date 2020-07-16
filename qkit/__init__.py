@@ -35,6 +35,14 @@ class ConfClass(dict):
                 print("Please set a valid data directory! (datadir)")
         if verbose:
             print ("Starting the info_service, ri_service and visa.")
+            
+    def get(self, item,default=None):
+        try:
+            return self[item]
+        except KeyError:
+            if default is not None:
+                self[item]=default
+            return default
 cfg = ConfClass()
 
 # load configuration from $QKITDIR/config/*
@@ -67,10 +75,11 @@ print ("QKIT configuration initialized -> available as qkit.cfg[...]")
 startup functions
 """
 # start initialization (qkit/core/init)
-def start():
-    print("Starting QKIT framework ... -> qkit.core.startup")
+def start(silent=False):
+    if not silent:
+        print("Starting QKIT framework ... -> qkit.core.startup")
     import qkit.core.startup
-    qkit.core.startup.start()
+    qkit.core.startup.start(silent=silent)
 
 
 """

@@ -239,11 +239,12 @@ class spectrum(object):
 
             if self._nop < 10:
                 """creates view: plot middle point vs x-parameter, for qubit measurements"""
-                self._data_amp_mid = self._data_file.add_value_vector('amplitude_midpoint', unit='arb. unit',
-                                                                      x=self._data_x, save_timestamp=True)
-                self._data_pha_mid = self._data_file.add_value_vector('phase_midpoint', unit='rad', x=self._data_x,
-                                                                      save_timestamp=True)
-                # self._view = self._data_file.add_view("amplitude vs. " + self.x_coordname, x = self._data_x, y = self._data_amp[self._nop/2])
+                self._views = [
+                    self._data_file.add_view("amplitude_midpoint",x=self._data_x,y=self._data_amp,
+                                             view_params=dict(transpose=True,default_trace=self._nop // 2,linecolors=[(200,200,100)])),
+                    self._data_file.add_view("phase_midpoint", x=self._data_x, y=self._data_pha,
+                                             view_params=dict(transpose=True, default_trace=self._nop // 2, linecolors=[(200, 200, 100)]))
+                ]
 
         if self._scan_3D:
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit=self.x_unit)
@@ -414,11 +415,12 @@ class spectrum(object):
 
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         if self._nop < 10:
-            if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(),
-                                                                     datasets=['amplitude_midpoint', 'phase_midpoint'])
+            self._data_file.hf.hf.attrs['default_ds'] =['views/amplitude_midpoint', 'views/phase_midpoint']
         else:
-            if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(),
-                                                                     datasets=['amplitude', 'phase'])
+            self._data_file.hf.hf.attrs['default_ds'] = ['data0/amplitude_midpoint', 'data0/phase_midpoint']
+        
+        if self.open_qviewkit:
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(),datasets=list(self._data_file.hf.hf.attrs['default_ds']))
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath())
         self._measure()
@@ -663,11 +665,6 @@ class spectrum(object):
                         data_amp, data_pha = self.landscape.get_tracedata_xz(x)
                     self._data_amp.append(data_amp)
                     self._data_pha.append(data_pha)
-
-                    if self._nop < 10:
-                        # print(data_amp[self._nop/2])
-                        self._data_amp_mid.append(float(data_amp[self._nop / 2]))
-                        self._data_pha_mid.append(float(data_pha[self._nop / 2]))
 
                     if self._fit_resonator:
                         self._do_fit_resonator()

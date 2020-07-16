@@ -53,3 +53,8 @@ def register_exit(func):
         import atexit
         atexit.register(func)
 
+def str3(string,encoding='UTF-8'):
+    try:
+        return string.decode(encoding)
+    except AttributeError:
+        return str(string)

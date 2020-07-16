@@ -71,7 +71,9 @@ def _display_1D_view(self, graphicsView):
             if err_url:
                 ds_urls.append(err_url)
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ds_urls)
-            
+            if dss[0] is None or dss[1] is None:
+                print("Could not load view xy_%i: "%i + str(xyurls)+" : Datasets not found.")
+                continue
             ## retrieve the data type and store it in  x_ds_type, y_ds_type
             x_ds_type = dss[0].attrs.get('ds_type', ds_types['coordinate'])
             y_ds_type = dss[1].attrs.get('ds_type', ds_types['coordinate'])
@@ -101,16 +103,36 @@ def _display_1D_view(self, graphicsView):
                             y_data = y_data[:x_data_len]
                 
                 elif y_ds_type == ds_types['matrix']:
-                    self.VTraceXSelector.setEnabled(True)
-                    range_max = dss[1].shape[0]
-                    self.VTraceXSelector.setRange(-1 * range_max, range_max - 1)
-                    self.VTraceXValue.setText(self._getXValueFromTraceNum(dss[1], self.VTraceXNum))
-                    self.VTraceYSelector.setEnabled(False)
-                    
-                    x_data = dss[0][()]
-                    y_data = dss[1][()][self.VTraceXNum]
-                    if err_url:
-                        err_data = dss[2][()][self.VTaceXNum]
+                    if view_params.get('transpose',False):
+                        self.VTraceYSelector.setEnabled(True)
+                        range_max = dss[1].shape[1]
+                        if self.VTraceXSelector.isEnabled(): #Hack to see if the window is freshly generated
+                            self.VTraceXSelector.setEnabled(False)
+                            self.VTraceYSelector.setValue(view_params.get('default_trace',range_max //2))
+                        self.VTraceYSelector.setRange(-1 * range_max, range_max - 1)
+                        self.VTraceYValue.setText(self._getYValueFromTraceNum(dss[1], self.VTraceYNum))
+                        x_data = dss[0][()]
+                        y_data = dss[1][:,self.VTraceYNum]
+                        if err_url:
+                            err_data = dss[2][:,self.VTraceYNum]
+                    else:
+                        self.VTraceXSelector.setEnabled(True)
+                        range_max = dss[1].shape[0]
+                        self.VTraceXSelector.setRange(-1 * range_max, range_max - 1)
+                        self.VTraceXValue.setText(self._getXValueFromTraceNum(dss[1], self.VTraceXNum))
+                        self.VTraceYSelector.setEnabled(False)
+                        
+                        x_data = dss[0][()]
+                        y_data = dss[1][()][self.VTraceXNum]
+                        if err_url:
+                            err_data = dss[2][()][self.VTraceXNum]
+                    x_data_len = len(x_data)
+                    y_data_len = len(y_data)
+                    if x_data_len != y_data_len:
+                        if x_data_len > y_data_len:
+                            x_data = x_data[:y_data_len]
+                        else:
+                            y_data = y_data[:x_data_len]
                 
                 elif y_ds_type == ds_types['box']:
                     self.VTraceXSelector.setEnabled(True)
@@ -127,7 +149,7 @@ def _display_1D_view(self, graphicsView):
                     if err_url:
                         err_data = dss[2][()][self.VTraceXNum, self.VTraceYNum, :]
             
-            ## This is in our case used so far only for IQ plots. The 
+            ## This is in our case used so far only for IQ plots. The
             ## functionality derives from this application.
             elif x_ds_type == ds_types['matrix']:
                 self.VTraceXSelector.setEnabled(True)
@@ -170,6 +192,7 @@ def _display_1D_view(self, graphicsView):
                     # if bgcolor:
                     #    print tuple(bgcolor)
                     #    graphicsView.setBackgroundColor(tuple(bgcolor))
+                
             
             try:
                 graphicsView.plotItem.legend.removeItem(names[1])
@@ -179,11 +202,15 @@ def _display_1D_view(self, graphicsView):
             if not self.user_setting_changed:
                 self.plot_style = view_params.get('plot_style', 0)
             self.markersize = view_params.get('markersize', 5)
+            try:
+                linecolor = view_params['linecolors'][i]
+            except (KeyError,IndexError):
+                linecolor = (i,4)
             if self.plot_style == self.plot_styles['line']:
-                graphicsView.plot(y=y_data, x=x_data, pen=(i, 4), name=names[1], connect='finite')
+                graphicsView.plot(y=y_data, x=x_data, pen=linecolor, name=names[1], connect='finite')
             elif self.plot_style == self.plot_styles['linepoint']:
                 symbols = ['+', 'o', 's', 't', 'd']
-                graphicsView.plot(y=y_data, x=x_data, pen=(i, 4), name=names[1], connect='finite', symbol=symbols[i % len(symbols)], symbolSize=self.markersize)
+                graphicsView.plot(y=y_data, x=x_data, pen=linecolor, name=names[1], connect='finite', symbol=symbols[i % len(symbols)], symbolSize=self.markersize)
             elif self.plot_style == self.plot_styles['point']:
                 symbols = ['+', 'o', 's', 'd', 't']
                 graphicsView.plot(y=y_data, x=x_data, name=names[1], pen=None, symbol=symbols[i % len(symbols)], symbolSize=self.markersize)
@@ -358,7 +385,10 @@ def _display_1D_data(self, graphicsView):
     # if only one entry in the dataset --> point-style
     if y_data.shape[-1] == 1:
         self.plot_style = self.plot_styles['point']
-    
+        self.linestyle_selector.point.setChecked(True)
+    else:
+        self.linestyle_selector.line.setChecked(True)
+
     if self.plot_style == self.plot_styles['line']:
         graphicsView.plot(y=y_data, x=x_data, clear=True, pen=(200, 200, 100), connect='finite')
     elif self.plot_style == self.plot_styles['linepoint']:
@@ -796,10 +826,7 @@ def _do_data_manipulation(x_data, y_data, unit, ds_type, manipulation, manipulat
         dimension as the input array and a string of the data unit after the 
         manipulation.
     """
-    # set the y data  to the decibel scale 
-    if manipulation & manipulations['dB']:
-        y_data = 20 * np.log10(y_data)
-        unit = 'dB'
+    # set the y data  to the decibel scale
     
     # unwrap the phase
     if manipulation & manipulations['wrap']:
@@ -831,6 +858,10 @@ def _do_data_manipulation(x_data, y_data, unit, ds_type, manipulation, manipulat
         old_warn = np.seterr(divide='print')
         np.seterr(**old_warn)
         y_data = y_data / np.nanmean(y_data, axis=0, keepdims=True)
+
+    if manipulation & manipulations['dB']:
+        y_data = 20 * np.log10(y_data)
+        unit = 'dB'
 
     if manipulation & manipulations['histogram']:
         y_data, x_data = np.histogram(y_data[~np.isnan(y_data)], bins='auto')  # FIXME: axis labels not correct (MMW)

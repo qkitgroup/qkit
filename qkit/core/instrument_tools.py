@@ -243,6 +243,18 @@ class Insttools(object):
             return self._create_invalid_ins(name, instype, **kwargs)
 
         self.add(ins, create_args=kwargs)
+        
+        # Create a file where all created instruments with all parameters are stored once
+        try:
+            idn = ins.ask("*IDN?").strip()
+        except:
+            idn = "__none__"
+        descr = str(name)+"#"+str(instype)+"#"+idn+"#"+str(kwargs)+"\r\n"
+        fname = os.path.join(qkit.cfg['datadir'], "instrument.txt")  # save to datadir, because this is synced to backup server
+        open(fname, "a").close() #create file if not existing
+        with open(fname, "r+") as f:
+            if not descr.strip() in [r.strip() for r in f.readlines()]:
+                f.write(descr)
         return self.get(name)
 
     def reload_module(self, instype):

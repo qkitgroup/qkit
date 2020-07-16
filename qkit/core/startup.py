@@ -7,7 +7,7 @@ import importlib
 import logging
 from time import time
 
-def start():
+def start(silent=False):
     #print('Starting the core of the Qkit framework...')
     initdir_name = 's_init'
     initdir = os.path.join(qkit.cfg.get('coredir'),initdir_name)
@@ -19,7 +19,8 @@ def start():
         starttime = time()
         if not module.startswith('S') or module[-3:] != '.py':
             continue
-        print("Loading module ... "+module)
+        if not silent:
+            print("Loading module ... "+module)
         importlib.import_module("."+module[:-3],package='qkit.core.'+initdir_name)
         logging.debug("Loading module "+str(module)+" took  {:.1f}s.".format(time()-starttime))
     del module,starttime

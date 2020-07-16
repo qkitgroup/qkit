@@ -68,10 +68,12 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
     
     if echo:
         print("Qviewkit open cmd: "+ str(cmd))
+        os.putenv("HDF5_USE_FILE_LOCKING",'FALSE')
         P = Popen(cmd, shell=False, stdout=PIPE)
         print(P.stdout.read())
         return P
     else:
+        os.putenv("HDF5_USE_FILE_LOCKING", 'FALSE')
         return Popen(cmd, shell=False)
 
 
@@ -108,7 +110,7 @@ class h5plot(object):
             logging.warning("matplotlib not installed. I can not save your measurement files as png. I will disable this function.")
             qkit.cfg['save_png'] = False
         if not qkit.cfg.get('save_png',True):
-            return False
+            return
         self.comment = comment
         self.save_pdf = save_pdf
         self.path = h5_filepath
