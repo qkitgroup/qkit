@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+import qkit
 from qkit.core.instrument_base import Instrument
 from qkit import visa
 import types
@@ -210,28 +211,28 @@ class Anritsu_VNA(Instrument):
     
     def init(self):
         if self._zerospan:
-          self._visainstrument.write('INIT1;*wai')
+          self.write('INIT1;*wai')
         else:
           if self.get_Average():
             for i in range(self.get_averages()):            
-              self._visainstrument.write('INIT1;*wai')
+              self.write('INIT1;*wai')
           else:
-              self._visainstrument.write('INIT1;*wai')
+              self.write('INIT1;*wai')
 
     def hold(self, status):
         if status:
-            self._visainstrument.write(':SENS:HOLD:FUNC HOLD')
+            self.write(':SENS:HOLD:FUNC HOLD')
         else:
-            self._visainstrument.write(':SENS:HOLD:FUNC CONT')
+            self.write(':SENS:HOLD:FUNC CONT')
         
     def avg_clear(self):
-        self._visainstrument.write(':SENS%i:AVER:CLE' %(self._ci))
+        self.write(':SENS%i:AVER:CLE' %(self._ci))
     
     def returnToLocal(self):
-        self._visainstrument.write('RTL')
+        self.write('RTL')
     
     def avg_status(self):
-        return int(self._visainstrument.ask(':SENS%i:AVER:SWE?' %(self._ci)))   
+        return int(self.ask(':SENS%i:AVER:SWE?' %(self._ci)))   
         
     def get_tracedata(self, format = 'AmpPha', single=False):
         '''
@@ -243,8 +244,7 @@ class Anritsu_VNA(Instrument):
         Output:
             'AmpPha':_ Amplitude and Phase
         '''
-        #data = self._visainstrument.ask_for_values(':FORMAT REAL,32;*CLS;CALC1:DATA:NSW? SDAT,1;*OPC',format=1)      
-        data = self._visainstrument.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; CALC%i:SEL:DATA:SDAT?'%(self._ci), fmt = visa.double)      
+        data = self.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; CALC%i:SEL:DATA:SDAT?'%(self._ci),fmt=visa.double)
         data_size = numpy.size(data)
         datareal = numpy.array(data[0:data_size:2])
         dataimag = numpy.array(data[1:data_size:2])
@@ -270,10 +270,8 @@ class Anritsu_VNA(Instrument):
       
     def get_freqpoints(self, query = False):      
       if query == True:        
-        self._freqpoints = self._visainstrument.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; :SENS%i:FREQ:DATA?'%(self._ci), fmt = visa.double)
+        self._freqpoints = self.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; :SENS%i:FREQ:DATA?'%(self._ci), fmt = visa.double)
       
-        #self._freqpoints = numpy.array(self._visainstrument.ask_for_values('SENS%i:FREQ:DATA:SDAT?'%self._ci,format=1)) / 1e9
-        #self._freqpoints = numpy.array(self._visainstrument.ask_for_values(':FORMAT REAL,32;*CLS;CALC1:DATA:STIM?;*OPC',format=1)) / 1e9
       else:
         self._freqpoints = numpy.linspace(self._start,self._stop,self._nop)
       return self._freqpoints
@@ -299,16 +297,16 @@ class Anritsu_VNA(Instrument):
         '''
         logging.debug(__name__ + ' : setting Number of Points to %s ' % (nop))
         if self._zerospan:
-          print 'in zerospan mode, nop is 1'
+          print('in zerospan mode, nop is 1')
         else:
           cw = self.get_cw()
           if(nop == 1) and (not cw):
               logging.info(__name__ + 'nop == 1 is only supported in CW mode.')
               self.set_cw(True)
           if(cw):
-            self._visainstrument.write(':SENS%i:SWE:CW:POIN %i' %(self._ci,nop))
+            self.write(':SENS%i:SWE:CW:POIN %i' %(self._ci,nop))
           else:
-            self._visainstrument.write(':SENS%i:SWE:POIN %i' %(self._ci,nop))
+            self.write(':SENS%i:SWE:POIN %i' %(self._ci,nop))
           self._nop = nop
           self.get_freqpoints() #Update List of frequency points  
         
@@ -326,9 +324,9 @@ class Anritsu_VNA(Instrument):
           return 1
         else:
           if(self.get_cw()):
-            self._nop = int(self._visainstrument.ask(':SENS%i:SWE:CW:POIN?' %(self._ci)))
+            self._nop = int(self.ask(':SENS%i:SWE:CW:POIN?' %(self._ci)))
           else:
-            self._nop = int(self._visainstrument.ask(':SENS%i:SWE:POIN?' %(self._ci)))
+            self._nop = int(self.ask(':SENS%i:SWE:POIN?' %(self._ci)))
           return self._nop 
     
     def do_set_Average(self, status):
@@ -343,10 +341,10 @@ class Anritsu_VNA(Instrument):
         '''
         logging.debug(__name__ + ' : setting Average to "%s"' % (status))
         if status:
-            self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,'1'))
-            self._visainstrument.write('SENS%i:AVER:TYP SWE' % (self._ci))
+            self.write('SENS%i:AVER:STAT %s' % (self._ci,'1'))
+            self.write('SENS%i:AVER:TYP SWE' % (self._ci))
         else:
-            self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,'0'))             
+            self.write('SENS%i:AVER:STAT %s' % (self._ci,'0'))             
     def do_get_Average(self):
         '''
         Get status of Average
@@ -358,7 +356,7 @@ class Anritsu_VNA(Instrument):
             Status of Averaging (bool)
         '''
         logging.debug(__name__ + ' : getting average status')
-        return bool(int(self._visainstrument.ask('SENS%i:AVER:STAT?' %(self._ci))))
+        return bool(int(self.ask('SENS%i:AVER:STAT?' %(self._ci))))
         
         
     
@@ -374,9 +372,9 @@ class Anritsu_VNA(Instrument):
         '''
         if self._zerospan == False:
             logging.debug(__name__ + ' : setting Number of averages to %i ' % (av))
-            self._visainstrument.write('SENS%i:AVER:COUN %i' % (self._ci,av))
+            self.write('SENS%i:AVER:COUN %i' % (self._ci,av))
         else:
-            self._visainstrument.write('SWE:POIN %.1f' % (self._ci,av))
+            self.write('SWE:POIN %.1f' % (self._ci,av))
 
 
     def do_get_averages(self):
@@ -390,9 +388,9 @@ class Anritsu_VNA(Instrument):
         '''
         logging.debug(__name__ + ' : getting Number of Averages')
         if self._zerospan:
-          return int(self._visainstrument.ask('SWE%i:POIN?' % self._ci))
+          return int(self.ask('SWE%i:POIN?' % self._ci))
         else:
-          return int(self._visainstrument.ask('SENS%i:AVER:COUN?' % self._ci))
+          return int(self.ask('SENS%i:AVER:COUN?' % self._ci))
                 
     def do_set_power(self,pow):
         '''
@@ -405,7 +403,7 @@ class Anritsu_VNA(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting power to %s dBm' % pow)
-        self._visainstrument.write('SOUR%i:POW:PORT1:LEV:IMM:AMP %.2f' % (self._ci,pow))    
+        self.write('SOUR%i:POW:PORT1:LEV:IMM:AMP %.2f' % (self._ci,pow))    
     def do_get_power(self):
         '''
         Get probe power
@@ -417,7 +415,7 @@ class Anritsu_VNA(Instrument):
             pow (float) : Power in dBm
         '''
         logging.debug(__name__ + ' : getting power')
-        return float(self._visainstrument.ask('SOUR%i:POW:PORT1:LEV:IMM:AMP?' % (self._ci)))
+        return float(self.ask('SOUR%i:POW:PORT1:LEV:IMM:AMP?' % (self._ci)))
                 
     def do_set_centerfreq(self,cf):
         '''
@@ -430,7 +428,7 @@ class Anritsu_VNA(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting center frequency to %s' % cf)
-        self._visainstrument.write('SENS%i:FREQ:CENT %f' % (self._ci,cf))
+        self.write('SENS%i:FREQ:CENT %f' % (self._ci,cf))
         self.get_startfreq();
         self.get_stopfreq();
         self.get_span();
@@ -445,15 +443,15 @@ class Anritsu_VNA(Instrument):
             cf (float) :Center Frequency in Hz
         '''
         logging.debug(__name__ + ' : getting center frequency')
-        return  float(self._visainstrument.ask('SENS%i:FREQ:CENT?'%(self._ci)))
+        return  float(self.ask('SENS%i:FREQ:CENT?'%(self._ci)))
     
     def do_set_cwfreq(self, cf):
         ''' set cw frequency '''
-        self._visainstrument.write('SENS%i:FREQ:CW %f' % (self._ci,cf))
+        self.write('SENS%i:FREQ:CW %f' % (self._ci,cf))
     
     def do_get_cwfreq(self):
         ''' get cw frequency '''
-        return float(self._visainstrument.ask('SENS%i:FREQ:CW?'%(self._ci)))
+        return float(self.ask('SENS%i:FREQ:CW?'%(self._ci)))
     
     def do_set_span(self,span):
         '''
@@ -466,7 +464,7 @@ class Anritsu_VNA(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting span to %s Hz' % span)
-        self._visainstrument.write('SENS%i:FREQ:SPAN %i' % (self._ci,span))   
+        self.write('SENS%i:FREQ:SPAN %i' % (self._ci,span))   
         self.get_startfreq();
         self.get_stopfreq();
         self.get_centerfreq();   
@@ -481,7 +479,7 @@ class Anritsu_VNA(Instrument):
             span (float) : Span in Hz
         '''
         #logging.debug(__name__ + ' : getting center frequency')
-        span = self._visainstrument.ask('SENS%i:FREQ:SPAN?' % (self._ci) ) #float( self.ask('SENS1:FREQ:SPAN?'))
+        span = self.ask('SENS%i:FREQ:SPAN?' % (self._ci) ) #float( self.ask('SENS1:FREQ:SPAN?'))
         return span
 
     def do_set_startfreq(self,val):
@@ -495,7 +493,7 @@ class Anritsu_VNA(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting start freq to %s Hz' % val)
-        self._visainstrument.write('SENS%i:FREQ:STAR %f' % (self._ci,val))   
+        self.write('SENS%i:FREQ:STAR %f' % (self._ci,val))   
         self._start = val
         self.get_centerfreq();
         self.get_stopfreq();
@@ -511,7 +509,7 @@ class Anritsu_VNA(Instrument):
             span (float) : Start Frequency in Hz
         '''
         logging.debug(__name__ + ' : getting start frequency')
-        self._start = float(self._visainstrument.ask('SENS%i:FREQ:STAR?' % (self._ci)))
+        self._start = float(self.ask('SENS%i:FREQ:STAR?' % (self._ci)))
         return  self._start
 
     def do_set_stopfreq(self,val):
@@ -525,7 +523,7 @@ class Anritsu_VNA(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting stop freq to %s Hz' % val)
-        self._visainstrument.write('SENS%i:FREQ:STOP %f' % (self._ci,val))  
+        self.write('SENS%i:FREQ:STOP %f' % (self._ci,val))  
         self._stop = val
         self.get_startfreq();
         self.get_centerfreq();
@@ -541,7 +539,7 @@ class Anritsu_VNA(Instrument):
             val (float) : Start Frequency in Hz
         '''
         logging.debug(__name__ + ' : getting stop frequency')
-        self._stop = float(self._visainstrument.ask('SENS%i:FREQ:STOP?' %(self._ci) ))
+        self._stop = float(self.ask('SENS%i:FREQ:STOP?' %(self._ci) ))
         return  self._stop
         
     def do_get_sweeptime_averages(self):
@@ -569,7 +567,7 @@ class Anritsu_VNA(Instrument):
 
         '''
         logging.debug(__name__ + ' : getting electrical delay')
-        self._edel = float(self._visainstrument.ask('SENS%i:CORR:EXT:PORT1?'% (self._ci)))
+        self._edel = float(self.ask('SENS%i:CORR:EXT:PORT1?'% (self._ci)))
         return  self._edel   
         
     
@@ -580,7 +578,7 @@ class Anritsu_VNA(Instrument):
 
         '''
         logging.debug(__name__ + ' : setting electrical delay to %s sec' % val)
-        self._visainstrument.write('SENS%i:CORR:EXT:PORT1  %.12f' % (self._ci, val))
+        self.write('SENS%i:CORR:EXT:PORT1  %.12f' % (self._ci, val))
                
                
     def do_set_bandwidth(self,band):
@@ -594,7 +592,7 @@ class Anritsu_VNA(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting bandwidth to %s Hz' % (band))
-        self._visainstrument.write('SENS%i:BWID:RES %i' % (self._ci,band))
+        self.write('SENS%i:BWID:RES %i' % (self._ci,band))
     def do_get_bandwidth(self):
         '''
         Get Bandwidth
@@ -607,21 +605,21 @@ class Anritsu_VNA(Instrument):
         '''
         logging.debug(__name__ + ' : getting bandwidth')
         # getting value from instrument
-        return  float(self._visainstrument.ask('SENS%i:BWID:RES?'%self._ci))                
+        return  float(self.ask('SENS%i:BWID:RES?'%self._ci))                
 
     def do_set_cw(self, val):
         '''
         Set instrument to CW (single frequency) mode and back
         '''
         state = 1 if val == True else 0
-        self._visainstrument.write(':SENS%i:SWE:CW %d'%(self._ci, state))
+        self.write(':SENS%i:SWE:CW %d'%(self._ci, state))
         self._cw = val
         
     def do_get_cw(self):
         '''
         retrieve CW mode status from device
         '''
-        self._cw = bool(int(self._visainstrument.ask(':SENS%i:SWE:CW?'%(self._ci))))
+        self._cw = bool(int(self.ask(':SENS%i:SWE:CW?'%(self._ci))))
         return self._cw
 
     def do_set_zerospan(self,val):
@@ -684,7 +682,7 @@ class Anritsu_VNA(Instrument):
         '''
         logging.debug(__name__ + ' : setting trigger source to "%s"' % source)
         if source.upper() in [AUTO, MAN, EXT, REM]:
-            self._visainstrument.write('TRIG:SOUR %s' % source.upper())        
+            self.write('TRIG:SOUR %s' % source.upper())        
         else:
             raise ValueError('set_trigger_source(): must be AUTO | MANual | EXTernal | REMote')
     def do_get_trigger_source(self):
@@ -698,7 +696,7 @@ class Anritsu_VNA(Instrument):
             source (string) : AUTO | MANual | EXTernal | REMote
         '''
         logging.debug(__name__ + ' : getting trigger source')
-        return self._visainstrument.ask('TRIG:SOUR?')        
+        return self.ask('TRIG:SOUR?')        
         
 
     def do_set_channel_index(self,val):
@@ -712,7 +710,7 @@ class Anritsu_VNA(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting channel index to "%i"' % int)
-        nop = self._visainstrument.read('DISP:COUN?')
+        nop = self.read('DISP:COUN?')
         if val < nop:
             self._ci = val 
         else:
@@ -743,7 +741,7 @@ class Anritsu_VNA(Instrument):
         '''
         
         logging.debug(__name__ + ' : getting attenuation status')
-        return int(self._visainstrument.ask('SOUR%i:POW:PORT%i:ATT?' %(self._ci,channel)))
+        return int(self.ask('SOUR%i:POW:PORT%i:ATT?' %(self._ci,channel)))
     
     def do_set_source_attenuation(self, att,channel):
         '''
@@ -758,7 +756,7 @@ class Anritsu_VNA(Instrument):
         '''
         if att in (0,10,20,30,40,50,60):
             logging.debug(__name__ + ' : setting attenuation on port %i to %idB ' % (channel,att))
-            self._visainstrument.write('SOUR%i:POW:PORT%i:ATT %i' % (self._ci,channel,att))
+            self.write('SOUR%i:POW:PORT%i:ATT %i' % (self._ci,channel,att))
         else:
             logging.debug(__name__ + ' : cannot set attenuation to %i ' % (att))
     
@@ -774,7 +772,7 @@ class Anritsu_VNA(Instrument):
         '''
         
         logging.debug(__name__ + ' : getting starting power')
-        return float(self._visainstrument.ask('SOUR%i:POW:PORT%i:LIN:POW:STAR?' %(self._ci,channel)))
+        return float(self.ask('SOUR%i:POW:PORT%i:LIN:POW:STAR?' %(self._ci,channel)))
                     
     def do_set_source_power_start(self, pow,channel):
         '''
@@ -788,7 +786,7 @@ class Anritsu_VNA(Instrument):
         '''
         
         logging.debug(__name__ + ' : setting starting power on port %i to %.2f dBm ' % (channel,pow))
-        self._visainstrument.write('SOUR%i:POW:PORT%i:LIN:POW:STAR %.2f' % (self._ci,channel,pow))
+        self.write('SOUR%i:POW:PORT%i:LIN:POW:STAR %.2f' % (self._ci,channel,pow))
         
     def do_get_source_power_stop(self,channel):
         '''
@@ -802,7 +800,7 @@ class Anritsu_VNA(Instrument):
         '''
         
         logging.debug(__name__ + ' : getting stopping power')
-        return float(self._visainstrument.ask('SOUR%i:POW:PORT%i:LIN:POW:STOP?' %(self._ci,channel)))
+        return float(self.ask('SOUR%i:POW:PORT%i:LIN:POW:STOP?' %(self._ci,channel)))
                     
     def do_set_source_power_stop(self, pow,channel):
         '''
@@ -816,7 +814,7 @@ class Anritsu_VNA(Instrument):
         '''
         
         logging.debug(__name__ + ' : setting stopping power on port %i to %.2f dBm ' % (channel,pow))
-        self._visainstrument.write('SOUR%i:POW:PORT%i:LIN:POW:STOP %.2f' % (self._ci,channel,pow))
+        self.write('SOUR%i:POW:PORT%i:LIN:POW:STOP %.2f' % (self._ci,channel,pow))
         
       
     def do_set_calibration_state(self, status):
@@ -832,10 +830,10 @@ class Anritsu_VNA(Instrument):
         
         if status:
             logging.debug(__name__ + ' : Turning on calibration ')
-            self._visainstrument.write('SENS%i:CORR:STAT ON' % (self._ci))
+            self.write('SENS%i:CORR:STAT ON' % (self._ci))
         else:
             logging.debug(__name__ + ' : Turning off calibration ')
-            self._visainstrument.write('SENS%i:CORR:STAT OFF' % (self._ci))
+            self.write('SENS%i:CORR:STAT OFF' % (self._ci))
         
     def do_get_calibration_state(self):
         '''
@@ -848,7 +846,7 @@ class Anritsu_VNA(Instrument):
             Status of Calibration (bool)
         '''
         logging.debug(__name__ + ' : getting calibration state status')
-        return bool(int(self._visainstrument.ask('SENS%i:CORR:STAT?' %(self._ci))))
+        return bool(int(self.ask('SENS%i:CORR:STAT?' %(self._ci))))
     
     def do_get_sweep_type(self):
         '''
@@ -869,7 +867,7 @@ class Anritsu_VNA(Instrument):
         '''
         logging.debug(__name__ + ' : getting sweep type')
         
-        return str(self._visainstrument.ask('SENS%i:SWE:TYP?' %(self._ci)))
+        return str(self.ask('SENS%i:SWE:TYP?' %(self._ci)))
     
     def do_set_sweep_type(self,swtype):
         '''
@@ -890,7 +888,7 @@ class Anritsu_VNA(Instrument):
         if swtype in ('LIN','LOG','FSEG','ISEG','POW','MFGC'):
             
             logging.debug(__name__ + ' : Setting sweep type to %s'%(swtype))
-            return self._visainstrument.write('SENS%i:SWE:TYP %s' %(self._ci,swtype))
+            return self.write('SENS%i:SWE:TYP %s' %(self._ci,swtype))
             
         else:
             logging.debug(__name__ + ' : Illegal argument %s'%(swtype))
@@ -908,7 +906,7 @@ class Anritsu_VNA(Instrument):
         '''
         
         logging.debug(__name__ + ' : getting power nop')
-        return int(self._visainstrument.ask(':SOUR%i:POW:PORT%i:LIN:POW:POIN?' %(self._ci,channel)))
+        return int(self.ask(':SOUR%i:POW:PORT%i:LIN:POW:POIN?' %(self._ci,channel)))
     
 
 
@@ -925,7 +923,7 @@ class Anritsu_VNA(Instrument):
         '''
         
         logging.debug(__name__ + ' : setting number of power sweep points on channel %i to %i ' % (channel,n))
-        self._visainstrument.write(':SOUR%i:POW:PORT%i:LIN:POW:POIN %i' % (self._ci,channel,n))
+        self.write(':SOUR%i:POW:PORT%i:LIN:POW:POIN %i' % (self._ci,channel,n))
         
     def do_get_avg_type(self):
         '''
@@ -942,7 +940,7 @@ class Anritsu_VNA(Instrument):
         '''
         logging.debug(__name__ + ' : getting averaging type')
         
-        return str(self._visainstrument.ask('SENS%i:AVER:TYP?' %(self._ci)))
+        return str(self.ask('SENS%i:AVER:TYP?' %(self._ci)))
     
     def do_set_avg_type(self,avgtype):
         '''
@@ -958,18 +956,29 @@ class Anritsu_VNA(Instrument):
         if avgtype in ('POIN','SWE'):
             
             logging.debug(__name__ + ' : Setting avg type to %s'%(avgtype))
-            return self._visainstrument.write('SENS%i:AVER:TYP %s' %(self._ci,avgtype))
+            return self.write('SENS%i:AVER:TYP %s' %(self._ci,avgtype))
             
         else:
             logging.debug(__name__ + ' : Illegal argument %s'%(swtype))
 
-
     def read(self, msg):
         return self._visainstrument.read(msg)
+    
     def write(self,msg):
-        return self._visainstrument.write(msg)    
-    def ask(self,msg):
-        return self._visainstrument.ask(msg)
+        return self._visainstrument.write(msg)
+
+    if qkit.visa.qkit_visa_version == 1:
+        def ask(self, msg):
+            return self._visainstrument.ask(msg)
+
+        def ask_for_values(self, msg, format=None, fmt=None):
+            return self._visainstrument.ask_for_values(msg,fmt)
+    else:
+        def ask(self, msg):
+            return self._visainstrument.query(msg)
+
+        def ask_for_values(self, msg, format=None, fmt=None):
+            return self._visainstrument.query_binary_values(msg,fmt)
         
     def pre_measurement(self):
         '''
