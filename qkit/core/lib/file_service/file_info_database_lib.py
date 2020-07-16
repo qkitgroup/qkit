@@ -181,10 +181,13 @@ class file_system_service(UUID_base):
                 run = j_split[-4]
             else:
                 tm = uuid
-                if j_split[-3][0:3] != 201:  # not really a measurement file then
+                try:
+                    if j_split[-3][0:3] is not 201:  # not really a measurement file then
+                        dt = None
+                    else:
+                        dt = '{}-{}-{} {}:{}:{}'.format(j_split[-3][:4], j_split[-3][4:6], j_split[-3][6:], tm[:2], tm[2:4], tm[4:])
+                except IndexError:
                     dt = None
-                else:
-                    dt = '{}-{}-{} {}:{}:{}'.format(j_split[-3][:4], j_split[-3][4:6], j_split[-3][6:], tm[:2], tm[2:4], tm[4:])
                 user = None
                 run = None
             h5_info_db = {'time': tm, 'datetime': dt, 'run': run, 'name': name, 'user': user}
@@ -270,14 +273,14 @@ class file_system_service(UUID_base):
                 if attribute in h['analysis0'].attrs:
                     del h['analysis0'].attrs[attribute]
             else:
-                if qkit.module_available['pandas']:
+                try:
                     import pandas as pd
                     if pd.isnull(value):
                         if attribute in h['analysis0'].attrs:
                             del h['analysis0'].attrs[attribute]
                     else:
                         h['analysis0'].attrs[attribute] = value
-                else:
+                except ImportError:
                     h['analysis0'].attrs[attribute] = value
         finally:
             h.file.close()
