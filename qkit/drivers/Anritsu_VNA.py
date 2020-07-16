@@ -153,7 +153,10 @@ class Anritsu_VNA(Instrument):
             flags=Instrument.FLAG_GET,
             minval=0, maxval=1e-3,
             units='s', tags=['sweep'])
-                    
+            
+        self.add_parameter('sweep_mode', type=str,
+            flags=Instrument.FLAG_GETSET,tags=['sweep'])
+            
         #Triggering Stuff
         self.add_parameter('trigger_source', type=str,
             flags=Instrument.FLAG_GETSET)
@@ -169,11 +172,6 @@ class Anritsu_VNA(Instrument):
         self.add_function('post_measurement')
         self.add_function('avg_clear')
         self.add_function('avg_status')
-        
-        #self._oldspan = self.get_span()
-        #self._oldnop = self.get_nop()
-        #if self._oldspan==0.002:
-        #  self.set_zerospan(True)
         
         self.get_all()
     
@@ -221,9 +219,9 @@ class Anritsu_VNA(Instrument):
 
     def hold(self, status):
         if status:
-            self.write(':SENS:HOLD:FUNC HOLD')
+            self.set_sweep_mode("HOLD")
         else:
-            self.write(':SENS:HOLD:FUNC CONT')
+            self.set_sweep_mode("CONT")
         
     def avg_clear(self):
         self.write(':SENS%i:AVER:CLE' %(self._ci))
@@ -284,6 +282,18 @@ class Anritsu_VNA(Instrument):
     ###
     # SET and GET functions
     ###
+    
+    def do_set_sweep_mode(self, mode):
+        '''
+        select the sweep mode from 'HOLD', 'CONT', SING'
+        '''
+        if mode.upper() in ["HOLD","CONT","SING"]:
+            self.write(':SENS:HOLD:FUNC '+mode.upper())
+        else:
+            logging.warning('invalid mode')
+            
+    def do_get_sweep_mode(self):
+        return self.ask(':SENS:HOLD:FUNC ?')
     
     def do_set_nop(self, nop):
         '''
@@ -357,8 +367,6 @@ class Anritsu_VNA(Instrument):
         '''
         logging.debug(__name__ + ' : getting average status')
         return bool(int(self.ask('SENS%i:AVER:STAT?' %(self._ci))))
-        
-        
     
     def do_set_averages(self, av):
         '''
@@ -375,7 +383,6 @@ class Anritsu_VNA(Instrument):
             self.write('SENS%i:AVER:COUN %i' % (self._ci,av))
         else:
             self.write('SWE:POIN %.1f' % (self._ci,av))
-
 
     def do_get_averages(self):
         '''
@@ -429,9 +436,10 @@ class Anritsu_VNA(Instrument):
         '''
         logging.debug(__name__ + ' : setting center frequency to %s' % cf)
         self.write('SENS%i:FREQ:CENT %f' % (self._ci,cf))
-        self.get_startfreq();
-        self.get_stopfreq();
-        self.get_span();
+        self.get_startfreq()
+        self.get_stopfreq()
+        self.get_span()
+        
     def do_get_centerfreq(self):
         '''
         Get the center frequency
@@ -465,9 +473,10 @@ class Anritsu_VNA(Instrument):
         '''
         logging.debug(__name__ + ' : setting span to %s Hz' % span)
         self.write('SENS%i:FREQ:SPAN %i' % (self._ci,span))   
-        self.get_startfreq();
-        self.get_stopfreq();
-        self.get_centerfreq();   
+        self.get_startfreq()
+        self.get_stopfreq()
+        self.get_centerfreq()
+        
     def do_get_span(self):
         '''
         Get Span
@@ -495,9 +504,10 @@ class Anritsu_VNA(Instrument):
         logging.debug(__name__ + ' : setting start freq to %s Hz' % val)
         self.write('SENS%i:FREQ:STAR %f' % (self._ci,val))   
         self._start = val
-        self.get_centerfreq();
-        self.get_stopfreq();
-        self.get_span();
+        self.get_centerfreq()
+        self.get_stopfreq()
+        self.get_span()
+        
     def do_get_startfreq(self):
         '''
         Get Start frequency
@@ -525,9 +535,10 @@ class Anritsu_VNA(Instrument):
         logging.debug(__name__ + ' : setting stop freq to %s Hz' % val)
         self.write('SENS%i:FREQ:STOP %f' % (self._ci,val))  
         self._stop = val
-        self.get_startfreq();
-        self.get_centerfreq();
-        self.get_span();
+        self.get_startfreq()
+        self.get_centerfreq()
+        self.get_span()
+        
     def do_get_stopfreq(self):
         '''
         Get Stop frequency
@@ -569,7 +580,6 @@ class Anritsu_VNA(Instrument):
         logging.debug(__name__ + ' : getting electrical delay')
         self._edel = float(self.ask('SENS%i:CORR:EXT:PORT1?'% (self._ci)))
         return  self._edel   
-        
     
     def do_set_edel(self,val):   # added by MW
 
@@ -579,8 +589,17 @@ class Anritsu_VNA(Instrument):
         '''
         logging.debug(__name__ + ' : setting electrical delay to %s sec' % val)
         self.write('SENS%i:CORR:EXT:PORT1  %.12f' % (self._ci, val))
-               
-               
+        
+    def set_edel_auto(self):
+        
+        '''
+        Uses the VNA auto edel function for trace 1 and returns it.
+        '''
+        
+        logging.debug(__name__ + ' : setting electrical delay to auto')
+        self.write(":CALC1:PAR1:REF:EXT:AUTO")
+        return self.get_edel()
+        
     def do_set_bandwidth(self,band):
         '''
         Set Bandwidth
@@ -593,6 +612,7 @@ class Anritsu_VNA(Instrument):
         '''
         logging.debug(__name__ + ' : setting bandwidth to %s Hz' % (band))
         self.write('SENS%i:BWID:RES %i' % (self._ci,band))
+        
     def do_get_bandwidth(self):
         '''
         Get Bandwidth
@@ -604,8 +624,7 @@ class Anritsu_VNA(Instrument):
             band (float) : Bandwidth in Hz
         '''
         logging.debug(__name__ + ' : getting bandwidth')
-        # getting value from instrument
-        return  float(self.ask('SENS%i:BWID:RES?'%self._ci))                
+        return  float(self.ask('SENS%i:BWID:RES?'%self._ci))
 
     def do_set_cw(self, val):
         '''
@@ -784,7 +803,6 @@ class Anritsu_VNA(Instrument):
         Output:
             None
         '''
-        
         logging.debug(__name__ + ' : setting starting power on port %i to %.2f dBm ' % (channel,pow))
         self.write('SOUR%i:POW:PORT%i:LIN:POW:STAR %.2f' % (self._ci,channel,pow))
         
@@ -959,7 +977,7 @@ class Anritsu_VNA(Instrument):
             return self.write('SENS%i:AVER:TYP %s' %(self._ci,avgtype))
             
         else:
-            logging.debug(__name__ + ' : Illegal argument %s'%(swtype))
+            logging.debug(__name__ + ' : Illegal argument %s'%(avgtype))
 
     def read(self, msg):
         return self._visainstrument.read(msg)
