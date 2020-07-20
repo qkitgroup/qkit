@@ -182,7 +182,7 @@ class file_system_service(UUID_base):
             else:
                 tm = uuid
                 try:
-                    if j_split[-3][0:3] is not 201:  # not really a measurement file then
+                    if j_split[-3][0:3] != 201:  # not really a measurement file then
                         dt = None
                     else:
                         dt = '{}-{}-{} {}:{}:{}'.format(j_split[-3][:4], j_split[-3][4:6], j_split[-3][6:], tm[:2], tm[2:4], tm[4:])
@@ -273,14 +273,14 @@ class file_system_service(UUID_base):
                 if attribute in h['analysis0'].attrs:
                     del h['analysis0'].attrs[attribute]
             else:
-                try:
+                if qkit.module_available['pandas']:
                     import pandas as pd
                     if pd.isnull(value):
                         if attribute in h['analysis0'].attrs:
                             del h['analysis0'].attrs[attribute]
                     else:
                         h['analysis0'].attrs[attribute] = value
-                except ImportError:
+                else:
                     h['analysis0'].attrs[attribute] = value
         finally:
             h.file.close()
