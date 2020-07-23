@@ -339,7 +339,7 @@ class RS_FSUP(Instrument):
         returns an array with the frequencies of the points returned by get_trace()
         ideally suitable as x-axis for plots
         '''
-        return linspace(self.get_startfreq(),self.get_stopfreq(),self.get_nop())
+        return numpy.linspace(self.get_startfreq(),self.get_stopfreq(),self.get_nop())
     
     def enable_marker(self,marker,state='ON'):
         '''

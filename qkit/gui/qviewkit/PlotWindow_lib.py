@@ -642,7 +642,7 @@ def _display_text(self, graphicsView):
         PlotWindow class.
     """
     try:
-        json_dict = json.loads(self.ds.value[0])
+        json_dict = json.loads(self.ds[()][0])
     except ValueError:
         txt = _display_string(self.ds)
     else:

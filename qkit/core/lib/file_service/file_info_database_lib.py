@@ -181,10 +181,13 @@ class file_system_service(UUID_base):
                 run = j_split[-4]
             else:
                 tm = uuid
-                if j_split[-3][0:3] != 201:  # not really a measurement file then
+                try:
+                    if j_split[-3][0:3] != 201:  # not really a measurement file then
+                        dt = None
+                    else:
+                        dt = '{}-{}-{} {}:{}:{}'.format(j_split[-3][:4], j_split[-3][4:6], j_split[-3][6:], tm[:2], tm[2:4], tm[4:])
+                except IndexError:
                     dt = None
-                else:
-                    dt = '{}-{}-{} {}:{}:{}'.format(j_split[-3][:4], j_split[-3][4:6], j_split[-3][6:], tm[:2], tm[2:4], tm[4:])
                 user = None
                 run = None
             h5_info_db = {'time': tm, 'datetime': dt, 'run': run, 'name': name, 'user': user}

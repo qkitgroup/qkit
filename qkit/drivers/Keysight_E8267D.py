@@ -18,7 +18,7 @@
 
 from qkit.core.instrument_base import Instrument
 from qkit import visa
-import types
+
 import logging
 import numpy
 
@@ -109,7 +109,7 @@ class Keysight_E8267D(Instrument):
             ampl (?) : power in ?
         '''
         logging.debug(__name__ + ' : get power')
-        return float(self._visainstrument.ask('POW:AMPL?'))
+        return float(self._visainstrument.query('POW:AMPL?'))
 
     def do_set_power(self, amp):
         '''
@@ -135,7 +135,7 @@ class Keysight_E8267D(Instrument):
             phase (float) : Phase in radians
         '''
         logging.debug(__name__ + ' : get phase')
-        return float(self._visainstrument.ask('PHASE?'))
+        return float(self._visainstrument.query('PHASE?'))
 
     def do_set_phase(self, phase):
         '''
@@ -161,7 +161,7 @@ class Keysight_E8267D(Instrument):
             freq (float) : Frequency in Hz
         '''
         logging.debug(__name__ + ' : get frequency')
-        return float(self._visainstrument.ask('FREQ:CW?'))
+        return float(self._visainstrument.query('FREQ:CW?'))
 
     def do_set_frequency(self, freq):
         '''
@@ -187,7 +187,7 @@ class Keysight_E8267D(Instrument):
             status (string) : 'On' or 'Off'
         '''
         logging.debug(__name__ + ' : get status')
-        return bool(int(self._visainstrument.ask('OUTP?')))
+        return bool(int(self._visainstrument.query('OUTP?')))
 
 
     def do_set_status(self, status):
