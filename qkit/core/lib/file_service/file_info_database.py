@@ -80,8 +80,9 @@ import threading
 from distutils.version import LooseVersion
 
 import numpy as np
-
+import os
 import qkit
+import qkit.storage.hdf_DateTimeGenerator as dtg
 
 found_qgrid = False
 if qkit.module_available['pandas']:
@@ -105,9 +106,20 @@ class fid(file_system_service):
         self.create_database()
         self._selected_df = []
         self.found_qgrid = found_qgrid
+        if "fid_datadir" not in qkit.cfg:
+            qkit.cfg['fid_datadir'] = qkit.cfg['datadir']
+        elif qkit.cfg['fid_datadir'] is True:
+            self.restrict_to_userdir(True)
+        
         
 
     history = property(lambda self: sorted(self.h5_db.keys()))
+    
+    def restrict_to_userdir(self,restrict=True):
+        if restrict:
+            qkit.cfg['fid_datadir'] = os.path.split(dtg.DateTimeGenerator().new_filename()['_folder'])[0]
+        else:
+            qkit.cfg['fid_datadir'] = qkit.cfg['datadir']
     
     def get_last(self):
         return sorted(self.h5_db.keys())[-1]

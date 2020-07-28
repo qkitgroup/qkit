@@ -118,7 +118,7 @@ class file_system_service(UUID_base):
             if qkit.cfg.get('fid_scan_datadir',True):
                 qkit.cfg['fid_scan_datadir'] = True
                 logging.debug("file info database: Start to update database.")
-                for root, _ , files in os.walk(qkit.cfg['datadir']): # root, dirs, files
+                for root, _ , files in os.walk(qkit.cfg['fid_datadir']): # root, dirs, files
                     for f in files:
                         self._inspect_and_add_Leaf(f,root)
                 logging.debug("file info database: Updating database done.")
