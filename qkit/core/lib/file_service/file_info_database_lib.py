@@ -175,10 +175,12 @@ class file_system_service(UUID_base):
                 try:
                     tm = self.get_time(uuid)
                     dt = self.get_date(uuid)
+                    user = j_split[-3]
+                    run = j_split[-4]
                 except ValueError as e:
+                    user = None
+                    run = None
                     logging.info(e)
-                user = j_split[-3]
-                run = j_split[-4]
             else:
                 tm = uuid
                 try:
