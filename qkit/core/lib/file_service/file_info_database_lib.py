@@ -113,7 +113,7 @@ class file_system_service(UUID_base):
             pickle.dump(self.h5_info_db,f,protocol=write_protocol)
 
     def _get_datadir(self):
-        if qkit.cfg['fid_restrict_to_userdir']:
+        if qkit.cfg.get('fid_restrict_to_userdir',False):
             return os.path.split(dtg.DateTimeGenerator().new_filename()['_folder'])[0]
         else:
             return qkit.cfg['datadir']
