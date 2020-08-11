@@ -32,7 +32,7 @@ class Keithley_2000(Instrument):
 
     Usage:
     Initialize with
-    <name> = qkit.instruments.create('<name>', 'Keithley', address='<GBIP address>', reset=<bool>)
+    <name> = qkit.instruments.create('<name>', 'Keithley_2000', address='<GBIP address>', reset=<bool>)
     '''
 
     def __init__(self, name, address, reset=False):
@@ -49,7 +49,9 @@ class Keithley_2000(Instrument):
         Instrument.__init__(self, name, tags=['physical'])
         #self._address = address
         
-        self.four_wire=False
+        self._rvol = 1
+        self.rvc_mode   = False
+        self.four_wire  = False
         self.setup(address)
 
     def setup(self, device="/dev/ttyUSB7"):
@@ -82,20 +84,31 @@ class Keithley_2000(Instrument):
         #print(retval)
         return retval #str(retval)#.strip('\r')
     
-    def get_current_dc(self):
+    def get_current_dc(self):   #Return DC Current in auto-range
         value = self.remote_cmd(":MEAS:CURR:DC?")
         try:
             return float(value)
         except Exception as m:
             print(m)
-            return 0
+            return 
 
     def get_resistance(self):
-        if self.four_wire:
-            return self.get_resistance_4W()
+        if self.rvc_mode:
+            return self._rvol/self.get_data()
         else:
-            return self.get_resistance_2W()
-            
+            if self.four_wire:
+                return self.get_resistance_4W()
+            else:
+                return self.get_resistance_2W()
+                
+    def get_data(self):
+        try:
+            ret = self.remote_cmd(":DATA?")
+            return float(ret)
+        except ValueError as e:
+            print(e)
+            print(ret)
+            return numpy.NaN        
 
     def get_resistance_2W(self):
         try:
@@ -116,9 +129,23 @@ class Keithley_2000(Instrument):
             return numpy.NaN
 
     def set_measure_4W(self,four_wire):
-        " sets 2 or 4 wire measurement mode "
+        ''' Sets 2 or 4 wire measurement mode '''
         self.four_wire = four_wire
+        
+    def set_resistance_via_current(self, status):
+        self.rvc_mode = status
+        self.ser.write(str.encode(":FUNC 'CURR:DC' \r"))
+        self.ser.write(str.encode(":CURR:DC:RANG:AUTO OFF \r"))
+        self.ser.write(str.encode(":CURR:DC:RANG 1e-3 \r"))
 
+    def set_reverence_voltage(self, voltage):
+        self._rvol = voltage
+        
+    def set_current_range(self, range_value):
+        if 1e-3 <= range_value <= 1:
+            self.ser.write(str.encode(":CURR:DC:RANG %.04f \r"%(range_value)))
+        else:
+            print("Range must be decimal power of 10 between 1A and 10mA")
 
 if __name__ == "__main__":
     KEITH = Keithley_2000(name = "Keithley_2000", address="COM6")
