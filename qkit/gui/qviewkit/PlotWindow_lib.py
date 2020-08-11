@@ -381,8 +381,9 @@ def _display_1D_data(self, graphicsView):
 
     if _axis_timestamp_formatting(graphicsView, x_data, units[0], names[0], "bottom") or \
             _axis_timestamp_formatting(graphicsView, y_data, units[1], names[1],"left"):
-        self.plot_style = self.plot_styles['linepoint']
-        self.linestyle_selector.pointLine.setChecked(True)
+        if not self.user_setting_changed:
+            self.plot_style = self.plot_styles['linepoint']
+            self.linestyle_selector.pointLine.setChecked(True)
     
     # if only one entry in the dataset --> point-style
     elif y_data.shape[-1] == 1:
