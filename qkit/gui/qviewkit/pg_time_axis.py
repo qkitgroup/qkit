@@ -166,7 +166,6 @@ class DateAxisItem(AxisItem):
         else:
             # less than 2s (show microseconds)
             fmt = '[+%fus]'  # explicitly relative to last second
-
         for x in values:
             try:
                 t = datetime.fromtimestamp(x)
@@ -181,13 +180,15 @@ class DateAxisItem(AxisItem):
         :param plotItem: (PlotItem)
         """
         self.setParentItem(plotItem)
-        viewBox = plotItem.getViewBox()
-        self.linkToView(viewBox)
         self._oldAxis = plotItem.axes[self.orientation]['item']
-        self._oldAxis.hide()
-        plotItem.axes[self.orientation]['item'] = self
-        pos = plotItem.axes[self.orientation]['pos']
-        old_item = plotItem.layout.itemAt(*pos)
-        plotItem.layout.removeItem(old_item)
-        plotItem.layout.addItem(self, *pos)
-        self.setZValue(-1000)
+        if type(self._oldAxis) != type(self):
+            viewBox = plotItem.getViewBox()
+            self.linkToView(viewBox)
+            
+            self._oldAxis.hide()
+            plotItem.axes[self.orientation]['item'] = self
+            pos = plotItem.axes[self.orientation]['pos']
+            old_item = plotItem.layout.itemAt(*pos)
+            plotItem.layout.removeItem(old_item)
+            plotItem.layout.addItem(self, *pos)
+            self.setZValue(-1000)
