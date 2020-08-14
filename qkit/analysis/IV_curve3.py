@@ -416,6 +416,7 @@ class IV_curve3(object):
                           'm': 1e-3,  # milli
                           'c': 1e-2,  # centi
                           'd': 1e-1,  # deci
+                          '':  1e0,
                           'k': 1e3,  # kilo
                           'M': 1e6,  # mega
                           'G': 1e9,  # giga
@@ -470,7 +471,7 @@ class IV_curve3(object):
                 self.sweeptype = self.get_sweeptype()
             except AttributeError:
                 self.sweeps = [sample.sweeps for sample in self.mo.sample]
-                self.sweeptype = [self.get_sweeptype(sweeps=sweep) for sweep in self.sweeps]
+                self.sweeptype = np.unique([self.get_sweeptype(sweeps=sweep) for sweep in self.sweeps])
             self.scm.sweeps = self.sweeps
             shape = np.concatenate([[len(self.sweeps)], np.max([self.df['entry/data0/i_{:d}'.format(j)].shape for j in range(len(self.sweeps))], axis=0)])  # (number of sweeps, eventually len y-values, eventually len x-values, maximal number of sweep points)
             self.I, self.V, self.dVdI = np.empty(shape=shape), np.empty(shape=shape), np.empty(shape=shape)
@@ -939,7 +940,7 @@ class IV_curve3(object):
             else:
                 return mode(y, **kwargs)/mode(x, **kwargs)
 
-    def get_offsets(self, x=None, y=None, threshold=20e-6, offset=0, yr=False):
+    def get_offsets(self, x=None, y=None, threshold=20e-6, offset=0, yr=False, keepdims=np._NoValue):
         """
         Calculates x- and y-offset for every trace. Therefore the branch where the y-values are nearly constant are evaluated. The average of all corresponding x-values is considered to be the x-offset and the average of the extreme y-values are considered as y-offset.
 
@@ -976,9 +977,9 @@ class IV_curve3(object):
         if self.sweeptype == 0:  # halfswing
             ''' get x offset (for JJ voltage offset)'''
             #x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
-            x_offsets = np.mean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
-                                           std_devs=np.nansem(x_const, axis=self.scan_dim)),
-                                axis=0)
+            x_offsets = np.atleast_1d(uncert.uaverage(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
+                                                                 std_devs=np.nansem(x_const, axis=self.scan_dim)),
+                                                      axis=0))
             ''' get y offset (for JJ current offset) '''
             #TODO: calculate std_devs correct
             if yr:  # retrapping y (for JJ retrapping current)
@@ -996,9 +997,9 @@ class IV_curve3(object):
         elif self.sweeptype == 1:  # 4 quadrants
             ''' get x offset '''
             #x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
-            x_offsets = np.mean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
-                                           std_devs=np.nansem(x_const, axis=self.scan_dim)),
-                                axis=0)
+            x_offsets = np.atleast_1d(uncert.uaverage(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
+                                                                 std_devs=np.nansem(x_const, axis=self.scan_dim)),
+                                                      axis=0))
             ''' get y offset '''
             #TODO: calculate std_devs correct
             if yr:  # retrapping y (for JJ retrapping current)
@@ -1016,9 +1017,9 @@ class IV_curve3(object):
         else:  # custom sweeptype
             ''' get x offset '''
             #x_offsets = np.nanmean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
-            x_offsets = np.nanmean(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
-                                              std_devs=np.nansem(x_const, axis=self.scan_dim)),
-                                   axis=0)
+            x_offsets = np.atleast_1d(uncert.unanaverage(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
+                                                                    std_devs=np.nansem(x_const, axis=self.scan_dim)),
+                                                         axis=0))
             ''' get y offset '''
             #TODO: calculate std_devs correct
             if yr:  # retrapping y (for JJ retrapping current)
@@ -1030,6 +1031,16 @@ class IV_curve3(object):
                 y_offsets = unp.uarray(nominal_values=np.nanmean(y_cs, axis=0),
                                        std_devs=np.nansem(np.abs(y_cs), axis=0))
         self.I_offsets, self.V_offsets = [x_offsets, y_offsets][::int(np.sign(self.bias - .5))]
+        if keepdims is not np._NoValue:
+            if self.scan_dim == 1:
+                self.I_offsets = self.I_offsets[np.newaxis]
+                self.V_offsets = self.V_offsets[np.newaxis]
+            elif self.scan_dim == 2:
+                self.I_offsets = self.I_offsets[np.newaxis, :, np.newaxis]
+                self.V_offsets = self.V_offsets[np.newaxis, :, np.newaxis]
+            elif self.scan_dim == 3 :
+                self.I_offsets = self.I_offsets[np.newaxis, :, :, np.newaxis]
+                self.V_offsets = self.V_offsets[np.newaxis, :, :, np.newaxis]
         return self.I_offsets, self.V_offsets
 
     def get_offset(self, *args, **kwargs):
@@ -2017,12 +2028,8 @@ class IV_curve3(object):
             -------
             P: np.array
                 Probability distribution
-            P_fit: np.array
-                Fitted probability distribution
             Gamma: np.array
                 Escape rate
-            Gamma_fit: np.array
-                Fitted escape rate
             popt: list
                 Optimal fit parameters
             pcov: list
@@ -2034,10 +2041,7 @@ class IV_curve3(object):
             --------
             >>> ivc.scm.fit(I_0=I_0*1e6, omega_0=14e9, bins=50);
             """
-            def get_P(_Gamma, _Delta_I, _dIdt, _norm):
-                _P = np.array([_gamma/_dIdt*unp.exp(-np.sum(_Gamma[:k+1])*_Delta_I/_dIdt) for k, _gamma in enumerate(_Gamma)])
-                return _P/np.sum(_P)*_norm
-
+            self.omega_0 = omega_0
             ''' histogram '''
             if 'range' not in kwargs:
                 kwargs['range'] = (np.nanmin(I_0), np.nanmax(I_0))
@@ -2047,38 +2051,26 @@ class IV_curve3(object):
                 self.P, self.edges = np.histogram(a=I_0, **kwargs)
             self.bins = np.convolve(self.edges, np.ones((2,))/2, mode='valid')  # center of bins by moving average with window length 2
             ''' escape rate '''
-            self.Delta_I = np.nanmean(np.gradient(self.bins))
+            self.Delta_I = np.nanmean(np.diff(self.edges))
             if dIdt is None:
-                self.dIdt = self.sweeps[0][2]*self.settings.IVD.sense_nplc[0]/self.settings.IVD.plc
+                self.dIdt = self.sweeps[0][2]*np.squeeze(np.unique(self.settings.IVD.sense_nplc))/self.settings.IVD.plc
             else:
                 self.dIdt = dIdt
             with np.errstate(divide='ignore'):  # raises warning due divide by zero
-                self.Gamma = self.dIdt/self.Delta_I*np.array([np.log(np.sum(self.P[j:])/np.sum(self.P[j+1:])) for j, _ in enumerate(self.P)])
+                self.Gamma = self.dIdt/self.Delta_I*np.array([np.log(np.sum(self.P[k:])/np.sum(self.P[k+1:])) for k, _ in enumerate(self.P)])
             ''' fit norm. escape rate '''
             self.x = self.bins
             with np.errstate(divide='ignore'):  # raises warning due divide by zero
-                self.y = np.log(unp.nominal_values(omega_0)/(2*np.pi*self.Gamma))**(2/3)
+                self.y = np.log(unp.nominal_values(self.omega_0)/(2*np.pi*self.Gamma))**(2/3)
             self.popt, self.pcov = np.polyfit(x=self.x[np.isfinite(self.y)],
                                               y=self.y[np.isfinite(self.y)],
-                                              deg=1,
-                                              cov=True)
+                                              cov=True,
+                                              deg=1)
             self.fit_res = unp.uarray(nominal_values=self.popt,
                                       std_devs=np.sqrt(np.diagonal(self.pcov)))
             self.I_c = -self.fit_res[1]/self.fit_res[0]
-            ''' calculate fitted escape rate and fitted switching current distribution '''
-            alpha = 1  # factor for number of points of fit: nop = a*bins.size # FIXME: if e.g. alpha=10 fit shifts in x-direction
-            self.x_fit = np.linspace(np.min(self.edges), np.max(self.edges), (self.edges.size-1)*alpha+1)
-            self.y_fit = self.fit_res[0]*self.x_fit+self.fit_res[1]
-            self.Delta_I_fit = np.mean(np.gradient(self.x_fit))  # np.abs(np.max(self.x_fit)-np.min(self.x_fit))/(self.x_fit.size-1) #
-            self.Gamma_fit = omega_0/(2*np.pi*unp.exp((self.fit_res[0]*self.x_fit+self.fit_res[1])**(3/2)))  # np.sum([p*self.x_fit**i for i, p in enumerate(self.popt[::-1])], axis=0)
-            self.P_fit = get_P(_Gamma=self.Gamma_fit,
-                               _Delta_I=self.Delta_I_fit,
-                               _dIdt=self.dIdt,
-                               _norm=alpha)
             return dict2obj({'P': self.P,
-                             'P_fit': self.P_fit,
                              'Gamma': self.Gamma,
-                             'Gamma_fit': self.Gamma_fit,
                              'popt': self.popt,
                              'pcov': self.pcov,
                              'I_c': self.I_c,
@@ -2088,7 +2080,9 @@ class IV_curve3(object):
                  xlabel='escape current $ I_{esc}~(A) $',
                  y1label='escape probability $ P $',
                  y2label='escape rate $ \Gamma_{esc}~(s^{-1}) $',
-                 y3label='norm. escape rate $ \ln(\omega_0/2\pi\Gamma) $'):
+                 y3label='norm. escape rate $ \ln(\omega_0/2\pi\Gamma) $',
+                 errors=False,
+                 alpha=1):
             """
             Plots switching current histogram, escape rate and normalized escape rate as well as their fits
 
@@ -2102,29 +2096,50 @@ class IV_curve3(object):
                 Y-axis label of escape rate. Default is 'escape rate $ \Gamma_{esc}~(s^{-1}) $'.
             y3label: str
                 Y-axis label of normalized escape rate. Default is 'norm. escape rate $ \ln(\omega_0/2\pi\Gamma) $'.
+            errors: bool
+                If this is set to True, error bands are plotted.
+            alpha: int
+                Multiplier for nop of fit. Default is 1, which uses histogram bins for the fit.
+                Note that alpha > 1 shifts the fit in x-direction for unknown reasons, which is corrected in the plot
 
             Returns
             -------
-            P: np.array
-                Probability distribution
-            P_fit: np.array
-                Fitted probability distribution
-            Gamma: np.array
-                Escape rate
-            Gamma_fit: np.array
-                Fitted escape rate
-            popt: list
-                Optimal fit parameters
-            pcov: list
-                Covariance matrix
-            I_c: float
-                Fitted critical current
+            fig: matplotlib.figure.Figure
+                Plot figure, which shows the data and the fit of the  switching current distribution.
+            ax: matplotlib.axes._subplots.AxesSubplot array of Axes objects
+                ax[0], ax[1] and ax[2] contains switching current distribution, escape rate and normalized escape rate,  respectively.
 
             Examples
             --------
             >>> ivc.scm.plot()
             """
-            #TODO: uncertainties
+            ''' calculate fitted escape rate and fitted switching current distribution '''
+            def get_P(_Gamma, _Delta_I, _dIdt, _norm):
+                _P = np.array([_gamma/_dIdt*unp.exp(-np.sum(_Gamma[:k+1])*_Delta_I/_dIdt) for k, _gamma in enumerate(_Gamma)])
+                return _P/np.sum(_P)*_norm
+            """
+            self.x_fit = np.convolve(np.linspace(np.min(self.edges), np.max(self.edges), self.bins.size*alpha+1), np.ones((2,))/2, mode='valid')  # center of bins by moving average with window length 2
+            self.y_fit = self.fit_res[0]*self.x_fit+self.fit_res[1]
+            self.Delta_I_fit = np.mean(np.diff(self.x_fit))  # np.abs(np.max(self.x_fit)-np.min(self.x_fit))/(self.x_fit.size-1) #
+            self.Gamma_fit = self.omega_0/(2*np.pi*unp.exp(self.y_fit**(3/2)))  # np.sum([p*self.x_fit**i for i, p in enumerate(self.popt[::-1])], axis=0)
+            self.P_fit = get_P(_Gamma=self.Gamma_fit,
+                               _Delta_I=self.Delta_I_fit,
+                               _dIdt=self.dIdt,
+                               _norm=alpha)
+            """
+            self.edges_fit = np.linspace(np.min(self.edges), np.max(self.edges), self.bins.size*alpha+1)
+            self.bins_fit = np.convolve(self.edges_fit, np.ones((2,))/2, mode='valid')
+            self.Delta_I_fit = np.nanmean(np.diff(self.edges_fit))
+            self.x_fit = self.bins_fit
+            if errors:  # this woks also for errors=False, but is much slower
+                self.y_fit = self.fit_res[0]*self.x_fit+self.fit_res[1]
+                self.Gamma_fit = self.omega_0/(2*np.pi)*unp.exp(-self.y_fit ** (3/2))
+                self.P_fit = np.array([self.Gamma_fit[k]/self.dIdt*unp.exp(-np.sum(self.Gamma_fit[:k+1])*self.Delta_I_fit/self.dIdt) for k, _ in enumerate(self.x_fit)])
+            else:
+                self.y_fit = self.popt[0]*self.x_fit+self.popt[1]
+                self.Gamma_fit = self.omega_0/(2*np.pi)*np.exp(-self.y_fit**(3/2))
+                self.P_fit = np.array([self.Gamma_fit[k]/self.dIdt*np.exp(-np.sum(self.Gamma_fit[:k+1])*self.Delta_I_fit/self.dIdt) for k, _ in enumerate(self.x_fit)])
+            self.P_fit /= np.sum(self.P_fit)/alpha
             ''' plot '''
             self.fig, (self.ax1, self.ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(6, 6))
             self.ax3 = plt.twinx(self.ax2)
@@ -2141,19 +2156,22 @@ class IV_curve3(object):
             #              label='fit',
             #              ls='-',
             #              color='black')
-            lgd12, = self.ax1.plot(self.x_fit,
+            lgd12, = self.ax1.plot(self.x_fit-self.Delta_I/2,
                                    unp.nominal_values(self.P_fit),
                                    ls='-',
                                    color='black')
-            self.ax1.fill_between(x=self.x_fit,
-                                  y1=(unp.nominal_values(self.P_fit)-unp.std_devs(self.P_fit)).clip(0),  # replace negative values by 0
-                                  y2=unp.nominal_values(self.P_fit)+unp.std_devs(self.P_fit),
-                                  color='black', alpha=0.2)
-            lgd13, = self.ax1.fill(np.NaN, np.NaN, 'black', alpha=0.2)  # dummy for legend
+            if errors:
+                self.ax1.fill_between(x=self.x_fit,
+                                      y1=(unp.nominal_values(self.P_fit)-unp.std_devs(self.P_fit)).clip(0),  # replace negative values by 0
+                                      y2=unp.nominal_values(self.P_fit)+unp.std_devs(self.P_fit),
+                                      color='black', alpha=0.2)
+                lgd13, = self.ax1.fill(np.NaN, np.NaN, 'black', alpha=0.2)  # dummy for legend
+                self.ax1.legend(((lgd11, ), (lgd12, lgd13)), ('data', 'fit'), loc='upper left')
+            else:
+                self.ax1.legend(((lgd11, ), (lgd12, )), ('data', 'fit'), loc='upper left')
             #self.ax1.legend(loc='upper left')
-            self.ax1.legend(((lgd11, ), (lgd12, lgd13)), ('data', 'fit'), loc='upper left')
             ''' escape rate '''
-            lgd21, = self.ax2.semilogy(self.bins,
+            lgd21, = self.ax2.semilogy(self.x,
                                        self.Gamma,
                                        'b.',
                                        label='$ \Gamma $')
@@ -2165,11 +2183,12 @@ class IV_curve3(object):
                                        unp.nominal_values(self.Gamma_fit),
                                        'b-',
                                        label='fit')
-            self.ax2.fill_between(x=self.x_fit,
-                                  y1=unp.nominal_values(self.Gamma_fit)-unp.std_devs(self.Gamma_fit),
-                                  y2=unp.nominal_values(self.Gamma_fit)+unp.std_devs(self.Gamma_fit),
-                                  color='b', alpha=0.2)
-            lgd23, = self.ax2.fill(np.NaN, np.NaN, 'b', alpha=0.2)  # dummy for legend
+            if errors:
+                self.ax2.fill_between(x=self.x_fit,
+                                      y1=unp.nominal_values(self.Gamma_fit)-unp.std_devs(self.Gamma_fit),
+                                      y2=unp.nominal_values(self.Gamma_fit)+unp.std_devs(self.Gamma_fit),
+                                      color='b', alpha=0.2)
+                #lgd23, = self.ax2.fill(np.NaN, np.NaN, 'b', alpha=0.2)  # dummy for legend
             ''' normalized escape rate '''
             lgd31, = self.ax3.plot(self.x,
                                    self.y,
@@ -2183,11 +2202,17 @@ class IV_curve3(object):
                                    unp.nominal_values(self.y_fit),
                                    'r-',
                                    label='fit')
-            self.ax3.fill_between(x=self.x_fit,
-                                  y1=unp.nominal_values(self.y_fit)-unp.std_devs(self.y_fit),
-                                  y2=unp.nominal_values(self.y_fit)+unp.std_devs(self.y_fit),
-                                  color='r', alpha=0.2)
-            lgd33, = self.ax3.fill(np.NaN, np.NaN, 'r', alpha=0.2)  # dummy for legend
-            self.ax2.legend(((lgd21, lgd22, lgd23), (lgd31, lgd32, lgd33)), ('$ \Gamma $', '$ \ln(\omega_0/2\pi\Gamma) $'), loc='upper center')
+            if errors:
+                pass
+                self.ax3.fill_between(x=self.x_fit,
+                                      y1=unp.nominal_values(self.y_fit)-unp.std_devs(self.y_fit),
+                                      y2=unp.nominal_values(self.y_fit)+unp.std_devs(self.y_fit),
+                                      color='r', alpha=0.2)
+                #lgd33, = self.ax3.fill(np.NaN, np.NaN, 'r', alpha=0.2)  # dummy for legend
+                #self.ax2.legend(((lgd21, lgd22, lgd23), (lgd31, lgd32, lgd33)), ('$ \Gamma $', '$ \ln(\omega_0/2\pi\Gamma) $'), loc='upper center')
+            else:
+                self.ax2.legend(((lgd21, lgd22), (lgd31, lgd32)), ('$ \Gamma $', '$ \ln(\omega_0/2\pi\Gamma) $'), loc='upper center')
             plt.subplots_adjust(hspace=0)
             plt.show()
+
+            return self.fig, (self.ax1, self.ax2, self.ax3)
