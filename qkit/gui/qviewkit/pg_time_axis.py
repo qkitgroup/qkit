@@ -149,7 +149,7 @@ class DateAxisItem(AxisItem):
             fmt = "%Y"
 
         elif spacing >= 2678400:  # 31 days
-            fmt = "%-m.%Y"
+            fmt = "%m.%Y"
 
         elif spacing >= 86400:  # = 1 day
             fmt = "%d.%m.%y"

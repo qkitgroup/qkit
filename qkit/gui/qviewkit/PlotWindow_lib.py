@@ -875,9 +875,10 @@ def _do_data_manipulation(x_data, y_data, unit, ds_type, manipulation, manipulat
 def _axis_timestamp_formatting(graphicsView,data,unit,name,orientation):
     if unit=="s" and data[tuple(-1 for x in data.shape)] > 9.4e8: # about the year 2000 in unixtime
         from .pg_time_axis import DateAxisItem
-        axis = DateAxisItem(orientation=orientation)
-        axis.attachToPlotItem(graphicsView.getPlotItem())
-        axis.enableAutoSIPrefix(False)
+        if type(graphicsView.getPlotItem().axes[orientation]['item']) != DateAxisItem:
+            axis = DateAxisItem(orientation=orientation)
+            axis.attachToPlotItem(graphicsView.getPlotItem())
+            axis.enableAutoSIPrefix(False)
         graphicsView.setLabel(orientation, name)
         return True
     else:
