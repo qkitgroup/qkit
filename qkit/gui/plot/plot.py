@@ -13,10 +13,20 @@ import qkit
 from qkit.storage import store
 from qkit.storage.hdf_constants import ds_types
 
-if qkit.module_available("matplotlib"):
-    import matplotlib.pyplot as plt
-    from matplotlib.figure import Figure
-    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+try:
+    if qkit.module_available("matplotlib"):
+        import matplotlib.pyplot as plt
+        from matplotlib.figure import Figure
+        from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+        plot_enable = True
+except AttributeError:
+    try:
+        import matplotlib.pyplot as plt
+        from matplotlib.figure import Figure
+        from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+        plot_enable = True
+    except ImportError:
+        plot_enable = False
 
 # this is for live-plots
 def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
@@ -106,7 +116,7 @@ class h5plot(object):
         """Inits h5plot with a h5_filepath (string, absolute path), optional 
         comment string, and optional save_pdf boolean.
         """
-        if not qkit.module_available("matplotlib"):
+        if not plot_enable or not qkit.module_available("matplotlib"):
             logging.warning("matplotlib not installed. I can not save your measurement files as png. I will disable this function.")
             qkit.cfg['save_png'] = False
         if not qkit.cfg.get('save_png',True):
