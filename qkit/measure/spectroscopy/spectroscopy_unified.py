@@ -49,9 +49,9 @@ class spectrum(MeasureBase):
 
     m.measure_XX()
     """
-    
-    def __init__(self, vna, exp_name='', sample=None):
-        super(spectrum, self).__init__(exp_name, sample)
+
+    def __init__(self, vna, sample=None):
+        super(spectrum, self).__init__(sample)
         
         self.vna = vna
         self.averaging_start_ready = "start_measurement" in self.vna.get_function_names() and "ready" in self.vna.get_function_names()
@@ -120,7 +120,7 @@ class spectrum(MeasureBase):
         if self.landscape.xylandscapes:
             self.landscape.delete_landscape_function_xy()
             logging.warning('xy landscape has been deleted')
-        if self.landscape.xzlandscape_func and delete_landscape:
+        if self.landscape.xzlandscape_func:
             self.landscape.delete_landscape_function_xz()
             logging.warning('xz landscape has been deleted. You can switch this off if you whish.')
     
@@ -131,33 +131,33 @@ class spectrum(MeasureBase):
         self.vna.get_all()
         self._nop = self.vna.get_nop()
         self._sweeptime_averages = self.vna.get_sweeptime_averages()
-        if self._dims == 1 or not self.landscape.xzlandscape_func:  # normal scan
+        if self._dim == 1 or not self.landscape.xzlandscape_func:  # normal scan
             self._freqpoints = self.vna.get_freqpoints()
         else:
             self._freqpoints = self.landscape.get_freqpoints_xz()
         if self.averaging_start_ready:
             self.vna.pre_measurement()
-    
-    def _prepare_measurement_file_(self):
-        
-        if not self._scan_time:
-            self._data_freq = self._data_file.add_coordinate('frequency', unit='Hz')
-            self._data_freq.add(self._freqpoints)
-        
-        if self._scan_2D:
-            if self._nop < 10:
-                """creates view: plot middle point vs x-parameter, for qubit measurements"""
-                self._views = [self._data_file.add_view("amplitude_midpoint", x=self._data_x, y=self._data_amp,
-                                                        view_params=dict(transpose=True, default_trace=self._nop // 2, linecolors=[(200, 200, 100)])),
-                               self._data_file.add_view("phase_midpoint", x=self._data_x, y=self._data_pha,
-                                                        view_params=dict(transpose=True, default_trace=self._nop // 2, linecolors=[(200, 200, 100)]))]
-        
-        if self._scan_time:
-            self._data_x = self._data_file.add_coordinate('trace_number', unit='')
-            self._data_x.add(np.arange(0, self.number_of_timetraces, 1))
-            
-            self._data_amp = self._data_file.add_value_matrix('amplitude', x=self._data_x, y=self._data_time, unit='lin. mag.', save_timestamp=False)
-            self._data_pha = self._data_file.add_value_matrix('phase', x=self._data_x, y=self._data_time, unit='rad.', save_timestamp=False)
+
+    # def _prepare_measurement_file_(self):
+    #
+    #     if not self._scan_time:
+    #         self._data_freq = self._data_file.add_coordinate('frequency', unit='Hz')
+    #         self._data_freq.add(self._freqpoints)
+    #
+    #     if self._scan_2D:
+    #         if self._nop < 10:
+    #             """creates view: plot middle point vs x-parameter, for qubit measurements"""
+    #             self._views = [self._data_file.add_view("amplitude_midpoint", x=self._data_x, y=self._data_amp,
+    #                                                     view_params=dict(transpose=True, default_trace=self._nop // 2, linecolors=[(200, 200, 100)])),
+    #                            self._data_file.add_view("phase_midpoint", x=self._data_x, y=self._data_pha,
+    #                                                     view_params=dict(transpose=True, default_trace=self._nop // 2, linecolors=[(200, 200, 100)]))]
+    #
+    #     if self._scan_time:
+    #         self._data_x = self._data_file.add_coordinate('trace_number', unit='')
+    #         self._data_x.add(np.arange(0, self.number_of_timetraces, 1))
+    #
+    #         self._data_amp = self._data_file.add_value_matrix('amplitude', x=self._data_x, y=self._data_time, unit='lin. mag.', save_timestamp=False)
+    #         self._data_pha = self._data_file.add_value_matrix('phase', x=self._data_x, y=self._data_time, unit='rad.', save_timestamp=False)
     
     def measure_1D(self, rescan=True):
         """
@@ -233,18 +233,17 @@ class spectrum(MeasureBase):
         
         self._measurement_object.measurement_func = 'measure_2D'
         
-        if not self.dirname:
-            self.dirname = self.x_coordname
-        self._file_name = '2D_' + self.dirname.replace(' ', '').replace(',', '_')
-        if self.exp_name:
-            self._file_name += '_' + self.exp_name
-        
-        self._pb = Progress_Bar(len(self.x_vec), '2D VNA sweep ' + self.dirname, self.vna.get_sweeptime_averages(), dummy=not self.progress_bar)
-        
         self._prepare_measurement_devices()
-        data = [dict(name='amplitude', unit='arb. unit', save_timestamp=True), dict(name='phase', unit='rad', save_timestamp=True)]
         y = self.Coordinate('frequency', unit='Hz', values=self._freqpoints)
-        self._prepare_measurement_file(data, self._x_parameter, y)
+
+        data = [self.Data("amplitude", [self._x_parameter, y], "arb. unit", save_timestamp=True),
+                self.Data("phase", [self._x_parameter, y], "rad", save_timestamp=True)]
+        self._prepare_measurement_file(data)
+
+        # ToDo: create views
+
+        self._pb = Progress_Bar(len(self._x_parameter.values), '2D VNA sweep ' + self.measurement_name, self.vna.get_sweeptime_averages(),
+                                dummy=not self.progress_bar)
         
         if self._nop < 10:
             self._open_qviewkit(['views/amplitude_midpoint', 'views/phase_midpoint'])
@@ -268,16 +267,11 @@ class spectrum(MeasureBase):
         
         self._measurement_object.measurement_func = 'measure_3D'
         
-        if not self.dirname:
-            self.dirname = self._x_parameter.name + ', ' + self._y_parameter.name
-        self._file_name = '3D_' + self.dirname.replace(' ', '').replace(',', '_')
-        if self.exp_name:
-            self._file_name += '_' + self.exp_name
-        
         self._prepare_measurement_devices()
-        data = [dict(name='amplitude', unit='arb. unit', save_timestamp=True), dict(name='phase', unit='rad', save_timestamp=True)]
         z = self.Coordinate('frequency', unit='Hz', values=self._freqpoints)
-        self._prepare_measurement_file(data, self._x_parameter, self._y_parameter, z)
+        data = [self.Data("amplitude", [self._x_parameter, self._y_parameter, z], "arb. unit", save_timestamp=True),
+                self.Data("phase", [self._x_parameter, self._y_parameter, z], "rad", save_timestamp=True)]
+        self._prepare_measurement_file(data)
         
         self._open_qviewkit()
         
@@ -300,7 +294,7 @@ class spectrum(MeasureBase):
                 points = np.sum(truth)
             else:
                 points = len(self._x_parameter.values) * len(self._y_parameter.values)
-            self._pb = Progress_Bar(points, '3D VNA sweep ' + self.dirname, self.vna.get_sweeptime_averages())
+            self._pb = Progress_Bar(points, '3D VNA sweep ' + self.measurement_name, self.vna.get_sweeptime_averages())
         else:
             self._pb = Progress_Bar(1, dummy=True)
         
@@ -379,7 +373,7 @@ class spectrum(MeasureBase):
         if not self.landscape.xzlandscape_func:  # normal scan
             return self.vna.get_tracedata()
         else:
-            return self.landscape.get_tracedata_xz(x)
+            return self.landscape.get_tracedata_xz(x)  # ToDo: implement landscape checking
     
     def _measure(self):
         """
@@ -391,22 +385,22 @@ class spectrum(MeasureBase):
             """
             loop: x_obj with parameters from x_vec
             """
-            for ix, x in enumerate(self._coord[0].values):
-                self._coord[0].set_function(x)
-                qkit.flow.sleep(self._coord[0].wait_time)
+            for ix, x in enumerate(self._x_parameter.values):
+                self._x_parameter.set_function(x)
+                qkit.flow.sleep(self._x_parameter.wait_time)
                 
                 self._acquire_log_functions()
-                
-                if self._dims == 3:
-                    for y in self._coord[1].values:
+    
+                if self._dim == 3:
+                    for y in self._y_parameter.values:
                         # loop: y_obj with parameters from y_vec (only 3D measurement)
                         if self.landscape.xylandscapes and not self.landscape.perform_measurement_at_point(x, y, ix):
                             # if point is not of interest (not close to one of the functions)
                             data_amp = np.full(int(self._nop), np.NaN, dtype=np.float16)
                             data_pha = np.full(int(self._nop), np.NaN, dtype=np.float16)  # fill with NaNs
                         else:
-                            self._coord[1].set_function(x)
-                            qkit.flow.sleep(self._coord[1].wait_time)
+                            self._y_parameter.set_function(x)
+                            qkit.flow.sleep(self._y_parameter.wait_time)
                             data_amp, data_pha = self._acquire_vna_data()
                             self._pb.iterate()
                         self._datasets['amplitude'].append(data_amp)
@@ -420,8 +414,8 @@ class spectrum(MeasureBase):
                     """
                     self._datasets['amplitude'].next_matrix()
                     self._datasets['phase'].next_matrix()
-                
-                if self._dims == 2:
+    
+                if self._dim == 2:
                     data_amp, data_pha = self._acquire_vna_data()
                     self._datasets['amplitude'].append(data_amp)
                     self._datasets['phase'].append(data_pha)

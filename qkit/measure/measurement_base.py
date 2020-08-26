@@ -35,15 +35,14 @@ class MeasureBase(object):
     """
     Baseclass for measurements.
     """
-    
-    def __init__(self, exp_name='', sample=None):
-        self.exp_name = exp_name
+
+    def __init__(self, sample=None):
         self._sample = sample
         self._x_dt = 0.002  # [s]
         self._y_dt = 0.002  # [s]
         
         self.comment = ''
-        self.dirname = None
+        self.measurement_name = None
         
         self._x_parameter = None
         self._y_parameter = None
@@ -131,11 +130,63 @@ class MeasureBase(object):
             else:
                 raise TypeError('{:s}:  Cannot set {!s} as wait time for coordinate {!s}: float needed'.format(__name__, self.wait_time, self.name))
             return True
-        
-        def create_dataset(self, hdf):
-            self.validate_parameters()
-            self.hdf_dataset = hdf.add_coordinate(self.name, unit=self.unit)
-            self.hdf_dataset.add(self.values)
+
+        def create_dataset(self, hdf_file):
+            if self.hdf_dataset is not None:
+                self.validate_parameters()
+                self.hdf_dataset = hdf_file.add_coordinate(self.name, unit=self.unit)
+                self.hdf_dataset.add(self.values)
+            else:
+                logging.info(__name__ * ": Dataset for coordinate '{}' was already created.".format(self.name))
+            return self.hdf_dataset
+
+    class Data:
+        def __init__(self, name, coords, unit="", save_timestamp=False, average_over=None, **kwargs):
+            if type(name) is not str:
+                raise TypeError('{:s}: Cannot set {!s} as name for Data: string needed'.format(__name__, name))
+            if type(coords) not in (list, tuple):
+                raise TypeError('{:s}: Cannot set {!s} as coordinates for data {!s}: list or tuple of Coordinates needed'.format(__name__, coords, name))
+            for c in coords:
+                if type(c) is not MeasureBase.Coordinate:
+                    raise TypeError(
+                            '{:s}: Cannot set {!s} as coordinate for data {!s}: Please use the qkit.measure.MeasureBase.Coordinate type'.format(__name__, c,
+                                                                                                                                                name))
+            self.name = name
+            self.coordinates = coords
+            self.dim = len(coords)
+            self.unit = unit
+            self.kwargs = kwargs
+            self.kwargs.update({"save_timestamp": save_timestamp, "average_over": average_over})
+            self.hdf_dataset = None
+    
+        def validate_parameters(self):
+            if type(self.name) is not str:
+                raise TypeError('{:s}: Cannot set {!s} as name for Data: string needed'.format(__name__, self.name))
+            if type(self.coordinates) not in (list, tuple):
+                raise TypeError(
+                        '{:s}: Cannot set {!s} as coordinates for data {!s}: list or tuple of Coordinates needed'.format(__name__, self.coordinates, self.name))
+            for c in self.coordinates:
+                if type(c) is not MeasureBase.Coordinate:
+                    raise TypeError(
+                            '{:s}: Cannot set {!s} as coordinate for data {!s}: Please use the qkit.measure.MeasureBase.Coordinate type'.format(__name__, c,
+                                                                                                                                                self.name))
+            self.dim = len(self.coordinates)
+            if type(self.unit) is not str:
+                raise TypeError('{:s}: Cannot set {!s} as unit for data {!s}: string needed'.format(__name__, self.unit, self.name))
+            return True
+    
+        def create_dataset(self, hdf_file):
+            if self.hdf_dataset is not None:
+                self.validate_parameters()
+                c = [co.create_dataset() for co in self.coordinates]
+                if self.dim == 1:
+                    self.hdf_dataset = hdf_file.add_value_vector(x=c[0], **self.kwargs)
+                elif self.dim == 2:
+                    self.hdf_dataset = hdf_file.add_value_matrix(x=c[0], y=c[1], **self.kwargs)
+                elif self.dim == 3:
+                    self.hdf_dataset = hdf_file.add_value_box(x=c[0], y=c[1], z=c[2], **self.kwargs)
+            else:
+                logging.info(__name__ * ": Dataset for coordinate '{}' was already created.".format(self.name))
             return self.hdf_dataset
     
     def set_x_parameters(self, vec, coordname, set_obj, unit, dt=None):
@@ -204,64 +255,58 @@ class MeasureBase(object):
         This is a placeholder function and should be overwritten in the individual measurement scripts.
         """
         pass
-    
-    def _prepare_measurement_file(self, data, x_coord, y_coord=None, z_coord=None):
+
+    def _create_file_name(self, data):
+        coordinates = set()
+        self._dim = 0
+        for d in data:
+            for c in d.coordinates:
+                coordinates.add(c.name)
+            self._dim = max(self._dim, len(d.coordinates))  # if you have several 2D scans, the dimension is still 2D
+        if not self.measurement_name:
+            self.measurement_name = ", ".join(coordinates)
+        self._file_name = '{}D_'.format(self._dim) + self.measurement_name.replace(' ', '').replace(',', '_')
+
+    def _prepare_measurement_file(self, data, coords=()):
         """
         creates the output .h5-file with distinct dataset structures for each measurement type.
         at this point all measurement parameters are known and put in the output file
+        All nacessary coordinates are alread included in the data instances, but you can supply a list of additional coords, which will be created.
         """
-        self._coord = (x_coord,)
-        if y_coord is None:
-            self._dims = 1
-        elif z_coord is None:
-            self._dims = 2
-            self._coord = (x_coord, y_coord)
-        else:
-            self._dims = 3
-            self._coord = (x_coord, y_coord, z_coord)
-        
-        for coord in self._coord:
-            if not isinstance(coord, self.Coordinate):
-                raise TypeError('{:s}:  {!s} is no valid coordinate object'.format(__name__, coord))
+        for c in coords:
+            if not isinstance(c, self.Coordinate):
+                raise TypeError('{:s}:  {!s} is no valid coordinate object'.format(__name__, c))
+        self._create_file_name(data)
         
         self._data_file = hdf.Data(name=self._file_name, mode='a')
         self._datasets = {}
-        
-        self._measurement_object.x_axis = x_coord.name if self._dims >= 1 else "__none__"
-        self._measurement_object.y_axis = y_coord.name if self._dims >= 2 else "__none__"
-        self._measurement_object.z_axis = z_coord.name if self._dims >= 3 else "__none__"
+        self._coordinates = {}
+        for d in data:
+            self._datasets[d.name] = d.create_dataset(self._data_file)
+            for c in d.coordinates:
+                self._coordinates[c.name] = c.create_dataset(self._data_file)  # it doesn't matter if you call create_dataset multiple times.
+        for c in coords:
+            self._coordinates[c.name] = c.create_dataset(self._data_file)  # the additional coordinates
+
+        self._measurement_object.coordinates = list(self._coordinates.keys())
+        self._measurement_object.data = list(self._datasets.keys())
         self._measurement_object.web_visible = self.web_visible
         
-        self._measurement_object.uuid = self._data_file._uuid
-        self._measurement_object.hdf_relpath = self._data_file._relpath
         self._measurement_object.instruments = qkit.instruments.get_instrument_names()
         self._measurement_object.sample = self._sample
+        self._measurement_object.write_to_hdf(self._data_file)
         self._measurement_object.save()
-        self._mo = self._data_file.add_textlist('measurement')
-        self._mo.append(self._measurement_object.get_JSON())
         
         # write logfile and instrument settings
         self._settings = self._data_file.add_textlist('settings')
         settings = waf.get_instrument_settings(self._data_file.get_filepath())
         self._settings.append(settings)
         self._log = waf.open_log_file(self._data_file.get_filepath())
-        
-        self._coordinates = [c.create_dataset() for c in self._coord]
-        
-        for d in data:
-            if type(d) is not dict or 'name' not in d:
-                raise ValueError('{:s}:  Cannot create dataset from entry {!s}. Dict with entry "name" is required.'.format(__name__, d))
-            if self._dims == 1:
-                self._datasets.update({d['name']: self._data_file.add_value_vector(x=self._coordinates[0], **d)})
-            elif self._dims == 2:
-                self._datasets.update({d['name']: self._data_file.add_value_matrix(x=self._coordinates[0], y=self._coordinates[1], **d)})
-            elif self._dims == 3:
-                self._datasets.update({d['name']: self._data_file.add_value_box(x=self._coordinates[0], y=self._coordinates[1], z=self._coordinates[2], **d)})
-        
-        if self._dims > 1:
+
+        if self._dim > 1:
             self._log_datasets = []
             for [func, name, unit, log_dtype] in self.log_functions:
-                self._log_datasets.append([self._data_file.add_value_vector(name, x=self._coordinates[0], unit=unit, dtype=log_dtype), func])
+                self._log_datasets.append([self._data_file.add_value_vector(name, x=data[0].coordinates[0].create_dataset(), unit=unit, dtype=log_dtype), func])
         
         if self.comment:
             self._data_file.add_comment(self.comment)
@@ -296,5 +341,5 @@ class MeasureBase(object):
         threading.Thread(target=qviewkit.save_plots, args=[self._data_file.get_filepath()]).start()
         self._data_file.close_file()
         waf.close_log_file(self._log)
-        self.dirname = None
+        self.measurement_name = None
         qkit.flow.end()
