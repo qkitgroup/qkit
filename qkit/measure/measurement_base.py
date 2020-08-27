@@ -37,7 +37,7 @@ class MeasureBase(object):
     """
 
     def __init__(self, sample=None):
-        self._sample = sample
+        self.set_sample(sample)
         self._x_dt = 0.002  # [s]
         self._y_dt = 0.002  # [s]
         
@@ -50,6 +50,8 @@ class MeasureBase(object):
         self.progress_bar = True
         self._pb = Progress_Bar(0, dummy=True)
         
+        self._file_name = ""
+        
         self.log_functions = []
         
         self.open_qviewkit = True
@@ -59,6 +61,13 @@ class MeasureBase(object):
         self._measurement_object = Measurement()
         self._measurement_object.measurement_type = 'defaultMeasurement'
         self.web_visible = True
+    
+    def set_sample(self,sample):
+        if sample is None:
+            self._sample = None
+        elif not isinstance(sample,qkit.measure.samples_class.Sample):
+            raise ValueError(__name__ + ": The given sample '{!s}' is not a qkit sample object.".format(sample))
+        self._sample = sample
     
     def add_log_function(self, func, name, unit="", log_dtype=float):
         """
@@ -105,7 +114,7 @@ class MeasureBase(object):
                 self.set_function = set_function
             else:
                 self.set_function = lambda x: True
-            self.wait_time = wait_time
+            self.wait_time = wait_time if wait_time is not None else 0
             self.hdf_dataset = None
         
         def validate_parameters(self):
@@ -132,12 +141,12 @@ class MeasureBase(object):
             return True
 
         def create_dataset(self, hdf_file):
-            if self.hdf_dataset is not None:
+            if self.hdf_dataset is None:
                 self.validate_parameters()
                 self.hdf_dataset = hdf_file.add_coordinate(self.name, unit=self.unit)
                 self.hdf_dataset.add(self.values)
             else:
-                logging.info(__name__ * ": Dataset for coordinate '{}' was already created.".format(self.name))
+                logging.info(__name__ + ": Dataset for coordinate '{}' was already created.".format(self.name))
             return self.hdf_dataset
 
     class Data:
@@ -176,17 +185,17 @@ class MeasureBase(object):
             return True
     
         def create_dataset(self, hdf_file):
-            if self.hdf_dataset is not None:
+            if self.hdf_dataset is None:
                 self.validate_parameters()
-                c = [co.create_dataset() for co in self.coordinates]
+                c = [co.create_dataset(hdf_file) for co in self.coordinates]
                 if self.dim == 1:
-                    self.hdf_dataset = hdf_file.add_value_vector(x=c[0], **self.kwargs)
+                    self.hdf_dataset = hdf_file.add_value_vector(self.name, x=c[0], **self.kwargs)
                 elif self.dim == 2:
-                    self.hdf_dataset = hdf_file.add_value_matrix(x=c[0], y=c[1], **self.kwargs)
+                    self.hdf_dataset = hdf_file.add_value_matrix(self.name, x=c[0], y=c[1], **self.kwargs)
                 elif self.dim == 3:
-                    self.hdf_dataset = hdf_file.add_value_box(x=c[0], y=c[1], z=c[2], **self.kwargs)
+                    self.hdf_dataset = hdf_file.add_value_box(self.name, x=c[0], y=c[1], z=c[2], **self.kwargs)
             else:
-                logging.info(__name__ * ": Dataset for coordinate '{}' was already created.".format(self.name))
+                logging.info(__name__ + ": Dataset for coordinate '{}' was already created.".format(self.name))
             return self.hdf_dataset
     
     def set_x_parameters(self, vec, coordname, set_obj, unit, dt=None):
@@ -306,7 +315,8 @@ class MeasureBase(object):
         if self._dim > 1:
             self._log_datasets = []
             for [func, name, unit, log_dtype] in self.log_functions:
-                self._log_datasets.append([self._data_file.add_value_vector(name, x=data[0].coordinates[0].create_dataset(), unit=unit, dtype=log_dtype), func])
+                self._log_datasets.append([self._data_file.add_value_vector(name, x=data[0].coordinates[0].create_dataset(self._data_file), unit=unit,
+                                                                            dtype=log_dtype), func])
         
         if self.comment:
             self._data_file.add_comment(self.comment)

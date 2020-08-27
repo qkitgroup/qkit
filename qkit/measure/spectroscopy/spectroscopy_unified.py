@@ -62,6 +62,7 @@ class spectrum(MeasureBase):
         self._fit_resonator = False
         self._measurement_object.measurement_type = 'SpectroscopyMeasurement'
         self._views = []
+        self._scan_time = False
     
     def set_x_parameters(self, vec, coordname, set_obj, unit, dt=None):
         """
@@ -164,6 +165,7 @@ class spectrum(MeasureBase):
         rescan: If True (default), the averages on the VNA are cleared and a new measurement is started.
                 If False, it will directly take the data from the VNA without waiting.
         """
+        self._dim =1
         self._measurement_object.measurement_func = 'measure_1D'
         
         self._prepare_measurement_devices()
@@ -224,6 +226,7 @@ class spectrum(MeasureBase):
         if self.landscape.xzlandscape_func:  # The vna limits need to be adjusted, happens in the frequency wrapper
             self._x_parameter.set_function = self.landscape.vna_frequency_wrapper(self._x_parameter.set_function)
         
+        self._dim = 2
         self._measurement_object.measurement_func = 'measure_2D'
         
         self._prepare_measurement_devices()
@@ -260,7 +263,8 @@ class spectrum(MeasureBase):
         """
         if self.landscape.xzlandscape_func:  # The vna limits need to be adjusted, happens in the frequency wrapper
             self._x_parameter.set_function = self.landscape.vna_frequency_wrapper(self._x_parameter.set_function)
-        
+
+        self._dim = 3
         self._measurement_object.measurement_func = 'measure_3D'
         
         self._prepare_measurement_devices()
@@ -342,6 +346,7 @@ class spectrum(MeasureBase):
                 self._pb.iterate()
         finally:
             self._end_measurement()
+            self._scan_time = False
     
     def _acquire_vna_data(self):
         if self.averaging_start_ready:
@@ -385,7 +390,7 @@ class spectrum(MeasureBase):
                             data_amp = np.full(int(self._nop), np.NaN, dtype=np.float16)
                             data_pha = np.full(int(self._nop), np.NaN, dtype=np.float16)  # fill with NaNs
                         else:
-                            self._y_parameter.set_function(x)
+                            self._y_parameter.set_function(y)
                             qkit.flow.sleep(self._y_parameter.wait_time)
                             if not self.landscape.xzlandscape_func:  # normal scan
                                 data_amp, data_pha = self._acquire_vna_data()
