@@ -4,11 +4,12 @@ Created 2015
 
 @author: hrotzing
 """
-import logging
-import qkit
-from qkit.storage.hdf_constants import ds_types, view_types
 import json
-from qkit.core.lib.misc import  str3
+
+from qkit.core.lib.misc import str3
+from qkit.storage.hdf_constants import ds_types, view_types
+
+
 class dataset_view(object):
     """This class describes a view on one or two datasets.        
     
@@ -27,8 +28,8 @@ class dataset_view(object):
         self.ds_url = "/entry/" + folder + "/" + name
         self.ds_type = ds_type
         self.filter = filter
-        if not x or not y: 
-            logging.ERROR("View: Please supply a x and y dataset.")
+        if not x or not y:
+            raise ValueError(__name__ + ": Error creating view '{!s}' in file {!s}: x or y axis not given.".format(name, hdf_file.hf.attrs['_filepath']))
         self.x_object = str3(x.ds_url)
         self.y_object = str3(y.ds_url)
         self.error_object = None
