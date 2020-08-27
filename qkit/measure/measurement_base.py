@@ -38,8 +38,6 @@ class MeasureBase(object):
 
     def __init__(self, sample=None):
         self.set_sample(sample)
-        self._x_dt = 0.002  # [s]
-        self._y_dt = 0.002  # [s]
         
         self.comment = ''
         self.measurement_name = None
