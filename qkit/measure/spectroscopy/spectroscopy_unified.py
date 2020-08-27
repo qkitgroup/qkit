@@ -39,10 +39,10 @@ class spectrum(MeasureBase):
     """
     Class for spectroscopy measurements with a VNA
     usage:
-    m = spectrum(vna = vna1)
+    m = spectrum(vna=vna1, sample=yoursample)
 
-    m.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current',coil.set_current, unit = 'mA')  outer scan in 3D
-    m.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency',mw_src1.set_frequency, unit = 'Hz')
+    m.set_x_parameters(arange(-0.05,0.05,0.01),'flux_coil_current',coil.set_current, unit = 'mA')  outer scan in 3D
+    m.set_y_parameters(arange(4e9,7e9,10e6),'excitation_frequency',mw_src1.set_frequency, unit = 'Hz')
 
     m.landscape.generate_fit_function_xy(...) for 3D scan, can be called several times and appends the current landscape
     m.landscape.generate_fit_function_xz(...) for 2D or 3D scan, adjusts the vna freqs with respect to x
@@ -60,9 +60,8 @@ class spectrum(MeasureBase):
         
         self.landscape = Landscape(vna=vna, spec=self)
         self._fit_resonator = False
-        self.number_of_timetraces = 1  # relevant in time domain mode
         self._measurement_object.measurement_type = 'SpectroscopyMeasurement'
-        self._scan_time = False
+        self._views = []
     
     def set_x_parameters(self, vec, coordname, set_obj, unit, dt=None):
         """
@@ -97,7 +96,7 @@ class spectrum(MeasureBase):
     def set_y_parameters(self, vec, coordname, set_obj, unit, dt=None):
         """
         Sets y-parameters for 2D and 3D scan.
-        In a 3D measurement, the y-parameters will be the "outer" sweep meaning for every y value all y values are swept and for each (y,y) value the bias is swept according to the set sweep parameters.
+        In a 3D measurement, the y-parameters will be the "inner" sweep meaning for every x value all y values are swept
 
         Parameters
         ----------
@@ -167,24 +166,20 @@ class spectrum(MeasureBase):
         """
         self._measurement_object.measurement_func = 'measure_1D'
         
-        if not self.dirname:
-            self.dirname = 'VNA_tracedata'
-        self._file_name = self.dirname.replace(' ', '').replace(',', '_')
-        if self.exp_name:
-            self._file_name += '_' + self.exp_name
         self._prepare_measurement_devices()
-        data = [dict(name='real', unit='', save_timestamp=True), dict(name='imag', unit='', save_timestamp=True),
-                dict(name='amplitude', unit='arb. unit', save_timestamp=True), dict(name='phase', unit='rad', save_timestamp=True)]
-        x = self.Coordinate('frequency', unit='Hz', values=self._freqpoints)
-        self._prepare_measurement_file(data, x)
+        f = self.Coordinate('frequency', unit='Hz', values=self._freqpoints)
+
+        self._prepare_measurement_file([self.Data("real", [f], ""), self.Data("imag", [f], ""), self.Data("amplitude", [f], "arb. unit", save_timestamp=True),
+            self.Data("phase", [f], "rad")])
+        
         self._open_qviewkit()
         
         qkit.flow.start()
         if rescan:
+            self._pb = Progress_Bar(self.vna.get_averages(), self.measurement_name, self.vna.get_sweeptime(), dummy=not self.progress_bar)
             if self.averaging_start_ready:
                 self.vna.start_measurement()
                 ti = time()
-                self._pb = Progress_Bar(self.vna.get_averages(), self.dirname, self.vna.get_sweeptime(), dummy=not self.progress_bar)
                 qkit.flow.sleep(.2)
                 while not self.vna.ready():
                     if time() - ti > self.vna.get_sweeptime(query=False):
@@ -196,11 +191,9 @@ class spectrum(MeasureBase):
             else:
                 self.vna.avg_clear()
                 if self.vna.get_averages() == 1 or self.vna.get_Average() == False:  # no averaging
-                    self._pb = Progress_Bar(1, self.dirname, self.vna.get_sweeptime(), dummy=not self.progress_bar)
                     qkit.flow.sleep(self.vna.get_sweeptime())  # wait single sweep
                     self._pb.iterate()
                 else:  # with averaging
-                    self._pb = Progress_Bar(self.vna.get_averages(), self.dirname, self.vna.get_sweeptime(), dummy=not self.progress_bar)
                     if "avg_status" in self.vna.get_function_names():
                         for a in range(self.vna.get_averages()):
                             while self.vna.avg_status() <= a:
@@ -229,25 +222,28 @@ class spectrum(MeasureBase):
         """
         
         if self.landscape.xzlandscape_func:  # The vna limits need to be adjusted, happens in the frequency wrapper
-            self.x_set_obj = self.landscape.vna_frequency_wrapper(self.x_set_obj)
+            self._x_parameter.set_function = self.landscape.vna_frequency_wrapper(self._x_parameter.set_function)
         
         self._measurement_object.measurement_func = 'measure_2D'
         
         self._prepare_measurement_devices()
-        y = self.Coordinate('frequency', unit='Hz', values=self._freqpoints)
+        f = self.Coordinate('frequency', unit='Hz', values=self._freqpoints)
 
-        data = [self.Data("amplitude", [self._x_parameter, y], "arb. unit", save_timestamp=True),
-                self.Data("phase", [self._x_parameter, y], "rad", save_timestamp=True)]
-        self._prepare_measurement_file(data)
-
-        # ToDo: create views
-
+        self._prepare_measurement_file(
+                [self.Data("amplitude", [self._x_parameter, f], "arb. unit", save_timestamp=True), self.Data("phase", [self._x_parameter, f], "rad")])
+       
         self._pb = Progress_Bar(len(self._x_parameter.values), '2D VNA sweep ' + self.measurement_name, self.vna.get_sweeptime_averages(),
                                 dummy=not self.progress_bar)
         
         if self._nop < 10:
+            # creates view: plot middle point vs x-parameter, for qubit measurements
+            self._views = [self._data_file.add_view("amplitude_midpoint", x=self._x_parameter.hdf_dataset, y=self._datasets['amplitude'],
+                                                    view_params=dict(transpose=True, default_trace=self._nop // 2, linecolors=[(200, 200, 100)])),
+                self._data_file.add_view("phase_midpoint", x=self._x_parameter.hdf_dataset, y=self._datasets['phase'],
+                                         view_params=dict(transpose=True, default_trace=self._nop // 2, linecolors=[(200, 200, 100)]))]
             self._open_qviewkit(['views/amplitude_midpoint', 'views/phase_midpoint'])
         else:
+            self._views = []
             self._open_qviewkit(['data0/amplitude_midpoint', 'data0/phase_midpoint'])
         
         if self._fit_resonator:
@@ -263,15 +259,14 @@ class spectrum(MeasureBase):
         note: make sure to have properly set x,y vectors before generating traces
         """
         if self.landscape.xzlandscape_func:  # The vna limits need to be adjusted, happens in the frequency wrapper
-            self.x_set_obj = self.landscape.vna_frequency_wrapper(self.x_set_obj)
+            self._x_parameter.set_function = self.landscape.vna_frequency_wrapper(self._x_parameter.set_function)
         
         self._measurement_object.measurement_func = 'measure_3D'
         
         self._prepare_measurement_devices()
-        z = self.Coordinate('frequency', unit='Hz', values=self._freqpoints)
-        data = [self.Data("amplitude", [self._x_parameter, self._y_parameter, z], "arb. unit", save_timestamp=True),
-                self.Data("phase", [self._x_parameter, self._y_parameter, z], "rad", save_timestamp=True)]
-        self._prepare_measurement_file(data)
+        f = self.Coordinate('frequency', unit='Hz', values=self._freqpoints)
+        self._prepare_measurement_file([self.Data("amplitude", [self._x_parameter, self._y_parameter, f], "arb. unit", save_timestamp=True),
+            self.Data("phase", [self._x_parameter, self._y_parameter, f], "rad")])
         
         self._open_qviewkit()
         
@@ -279,7 +274,7 @@ class spectrum(MeasureBase):
             self._resonator = resonator(self._data_file.get_filepath())
         
         if self.progress_bar:
-            if self.landscape.xylandscapes:
+            if self.landscape.xylandscapes:  # ToDo: This part could be part of the Landscape class
                 truth = np.full((len(self._y_parameter.values), len(self._x_parameter.values)), False)  # first, nothing is selected:
                 for e in self.landscape.xylandscapes:
                     if not e['blacklist']:
@@ -306,6 +301,7 @@ class spectrum(MeasureBase):
         tested only with KEYSIGHT E5071C ENA and its corresponding qkit driver
         LGruenhaupt 11/2016
         """
+        #ToDo: move this to regular sweeps
         if self.vna.get_span() > 0:
             raise ValueError(__name__ + ': For timetrace scans, VNA span needs to be 0 Hz')
         if self.vna.get_Average():
@@ -315,33 +311,27 @@ class spectrum(MeasureBase):
         
         self._measurement_object.measurement_func = 'measure_timetrace'
         
-        if not self.dirname:
-            self.dirname = 'VNA_timetrace'
-        self._file_name = self.dirname.replace(' ', '').replace(',', '_')
-        if self.exp_name:
-            self._file_name += '_' + self.exp_name
         self._prepare_measurement_devices()
         
         t = self.Coordinate('time', unit='s', values=np.arange(0, self._nop, 1) * self.vna.get_sweeptime() / (self._nop - 1))
-        iteration = self.Coordinate("trace_number", unit="", values=np.arange(0, self.number_of_timetraces, 1))
-        data = [dict(name='amplitude', unit='arb. unit', save_timestamp=True), dict(name='phase', unit='rad', save_timestamp=True)]
-        
-        self._prepare_measurement_file(data, x_coord=iteration, y_coord=t)
-        
         f = self.Coordinate('frequency', unit='Hz', values=[self.vna.get_centerfreq()])
-        f.create_dataset(self._data_file)  # this is a dummy dataset, just to have the centerfreq stored as dataset.
-        
-        self._pb = Progress_Bar(self.number_of_timetraces, 'VNA timetrace ' + self.dirname, self.vna.get_sweeptime_averages(), dummy=not self.progress_bar)
+        iteration = self.Coordinate("trace_number", unit="", values=np.arange(0, self.number_of_timetraces, 1))
+
+        self._prepare_measurement_file([self.Data("amplitude", [iteration, t], "arb. unit", save_timestamp=True), self.Data("phase", [iteration, t], "rad")],
+                coords=f)
+
+        self._pb = Progress_Bar(self.number_of_timetraces, 'VNA timetrace ' + self.measurement_name, self.vna.get_sweeptime_averages(),
+                                dummy=not self.progress_bar)
         
         qkit.flow.start()
         try:
             """
             loop: x_obj with parameters from x_vec
             """
-            
-            for i, x in enumerate(self._coord[0].values):
-                self._coord[0].set_function(x)
-                qkit.flow.sleep(self._coord[0].wait_time)
+
+            for i, x in enumerate(self._x_parameter.values):
+                self._x_parameter.set_function(x)
+                qkit.flow.sleep(self._x_parameter.wait_time)
                 
                 self._acquire_log_functions()
                 
@@ -354,7 +344,6 @@ class spectrum(MeasureBase):
             self._end_measurement()
     
     def _acquire_vna_data(self):
-        # TODO: check landscapes
         if self.averaging_start_ready:
             self.vna.start_measurement()
             if self._scan_time:
@@ -370,10 +359,7 @@ class spectrum(MeasureBase):
             qkit.flow.sleep(self._sweeptime_averages)
         
         """ measurement """
-        if not self.landscape.xzlandscape_func:  # normal scan
-            return self.vna.get_tracedata()
-        else:
-            return self.landscape.get_tracedata_xz(x)  # ToDo: implement landscape checking
+        return self.vna.get_tracedata()
     
     def _measure(self):
         """
@@ -401,7 +387,10 @@ class spectrum(MeasureBase):
                         else:
                             self._y_parameter.set_function(x)
                             qkit.flow.sleep(self._y_parameter.wait_time)
-                            data_amp, data_pha = self._acquire_vna_data()
+                            if not self.landscape.xzlandscape_func:  # normal scan
+                                data_amp, data_pha = self._acquire_vna_data()
+                            else:
+                                data_amp, data_pha = self.landscape.get_tracedata_xz(x)
                             self._pb.iterate()
                         self._datasets['amplitude'].append(data_amp)
                         self._datasets['phase'].append(data_pha)
@@ -773,7 +762,7 @@ class Landscape:
         pha = np.full_like(self.xz_freqpoints, np.NaN, dtype=np.float16)
         startarg = np.argmin(np.abs(self.xz_freqpoints - (self.xzlandscape_func(x) - self.z_span / 2)))
         stoparg = startarg + self.vna.get_nop()
-        a, p = self.vna.get_tracedata()
+        a, p = self.spec._acquire_vna_data()
         amp[startarg:stoparg] = a
         pha[startarg:stoparg] = p
         return amp, pha
