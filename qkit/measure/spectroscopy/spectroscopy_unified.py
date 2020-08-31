@@ -247,7 +247,7 @@ class spectrum(MeasureBase):
             self._open_qviewkit(['views/amplitude_midpoint', 'views/phase_midpoint'])
         else:
             self._views = []
-            self._open_qviewkit(['data0/amplitude_midpoint', 'data0/phase_midpoint'])
+            self._open_qviewkit(['data0/amplitude', 'data0/phase'])
         
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath())
