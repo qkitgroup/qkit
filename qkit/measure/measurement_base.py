@@ -154,7 +154,7 @@ class MeasureBase(object):
             if type(coords) not in (list, tuple):
                 raise TypeError('{:s}: Cannot set {!s} as coordinates for data {!s}: list or tuple of Coordinates needed'.format(__name__, coords, name))
             for c in coords:
-                if type(c) is not MeasureBase.Coordinate:
+                if not isinstance(c,MeasureBase.Coordinate):
                     raise TypeError(
                             '{:s}: Cannot set {!s} as coordinate for data {!s}: Please use the qkit.measure.MeasureBase.Coordinate type'.format(__name__, c,
                                                                                                                                                 name))
@@ -173,7 +173,7 @@ class MeasureBase(object):
                 raise TypeError(
                         '{:s}: Cannot set {!s} as coordinates for data {!s}: list or tuple of Coordinates needed'.format(__name__, self.coordinates, self.name))
             for c in self.coordinates:
-                if type(c) is not MeasureBase.Coordinate:
+                if not isinstance(c,MeasureBase.Coordinate):
                     raise TypeError(
                             '{:s}: Cannot set {!s} as coordinate for data {!s}: Please use the qkit.measure.MeasureBase.Coordinate type'.format(__name__, c,
                                                                                                                                                 self.name))
