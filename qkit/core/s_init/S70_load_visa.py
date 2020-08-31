@@ -35,6 +35,12 @@ def _load_visa():
                 def instrument(resource_name, **kwargs):
                     return rm.open_resource(resource_name, **kwargs)
                 qkit.visa.instrument = instrument
+                # define data types:
+                qkit.visa.double = "d"
+                qkit.visa.single = "f"
+                qkit.visa.dtypes = {1:qkit.visa.single,
+                                    3:qkit.visa.double,
+                                    "d":"d","f":"f"}
             except OSError:
                 raise OSError('Failed creating ResourceManager. Check if you have NI VISA or pyvisa-py installed.')
 
