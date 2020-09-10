@@ -535,7 +535,7 @@ def _display_2D_data(self, graphicsView):
         self.TraceYValue.setText(self._getYValueFromTraceNum(self.ds, self.TraceYNum))
         self.TraceZValue.setText(self._getZValueFromTraceNum(self.ds, self.TraceZNum))
 
-    _, data, _, _, _, units[2] = _do_data_manipulation(None, data, None, None, None, units[2], ds_types['vector'], self.manipulation, self.manipulations)
+    _, data, _, _, _, units[2] = _do_data_manipulation(None, data, None, None, None, units[2], ds_types['vector'], self.manipulation, self.manipulations, colorplot=True)
 
     graphicsView.clear()
     graphicsView.view.setLabel('left', names[1], units=units[1])
