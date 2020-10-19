@@ -52,7 +52,7 @@ class Keysight_E8267D(Instrument):
         self.add_parameter('phase',
             flags=Instrument.FLAG_GETSET, units='rad', minval=-numpy.pi, maxval=numpy.pi, type=float)
         self.add_parameter('frequency',
-            flags=Instrument.FLAG_GETSET, units='Hz', minval=1e5, maxval=13e9, type=float)
+            flags=Instrument.FLAG_GETSET, units='Hz', minval=1e5, maxval=20e9, type=float)
         self.add_parameter('status',
             flags=Instrument.FLAG_GETSET, type=bool)
 

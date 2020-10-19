@@ -595,9 +595,14 @@ class transport(object):
             raise ValueError('{:s}: Cannot set {!s} as y-unit: string of iterable object of strings needed'.format(__name__, y_unit))
         # y-kwargs
         if type(y_kwargs) is dict:
+            self._y_kwargs = [y_kwargs]
+        elif np.iterable(y_kwargs):
+            for kwargs in y_kwargs:
+                if type(kwargs) is not dict:
+                    raise ValueError('{:s}: Cannot set {!s} as y-kwargs: dict needed'.format(__name__, kwargs))
             self._y_kwargs = y_kwargs
         else:
-            raise ValueError('{:s}: Cannot set {!s} as y-kwargs: dict needed'.format(__name__, y_kwargs))
+            raise ValueError('{:s}: Cannot set {!s} as y-kwargs: dict of iterable object of dicts needed'.format(__name__, y_kwargs))
         # x-dt
         self._x_dt = x_dt
         return
@@ -1111,9 +1116,9 @@ class transport(object):
         qkit.flow.start()
         try:
             if self._scan_dim == 0:  # single data points
-                for x_val, x_kwargs in zip(self._x_vec, self._x_kwargs):
+                for x_val in self._x_vec:
                     self._hdf_x.add(x_val)
-                    self._x_func(x_val)
+                    self._x_func(x_val, **self._x_kwargs)
                     for func, kwargs, lst in zip(self._y_func, self._y_kwargs, self._hdf_y):
                         lst.add(func(**kwargs))
                     # iterate progress bar

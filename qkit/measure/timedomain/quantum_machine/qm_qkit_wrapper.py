@@ -2,6 +2,7 @@
 # started by M. Spiecker, 06.2020
 
 
+import inspect
 import time
 import threading
 
@@ -16,19 +17,20 @@ class QmQkitWrapper:
 
     def __init__(self):
 
-        self.dirname = ""
-        self.comment = ""
-        self.sample = None
         self.exp_name = None
+        self.dirname = ""  # TODO new name
+        self.comment = ""
+        self.sourcecode = ""
+        self.sample = None
 
         self._measurement_object = Measurement()
         self._measurement_object.measurement_type = 'TimeDomain'
         self._measurement_object.sample = self.sample
 
-        # qkit
+        # data
         self.coords = {}
         self.values = {}
-        self.sourcecode = ""
+
 
     # Decorator to start qkit
     def measure(func):
@@ -51,10 +53,23 @@ class QmQkitWrapper:
                     self._file_name = 'QM_experiment_' + self.exp_name
                 self._file_name = self._file_name.replace(' ', '').replace(',', '_')
 
-                self.comment = "hallo" + "\n\n\n" + "vier Lienien weiter"
+                # Save function arguments and qm program
+                astring = ""
+                for value in args:
+                    astring += "{}, ".format(value)
+
+                kstring = ""
+                for key, value in kwargs.items():
+                    kstring += "{} = {}, ".format(key, value)
+
+                self.sourcecode = astring + kstring + "\n\n\n" + inspect.getsource(func)
 
                 self._prepare_measurement_file()
                 self.store_data()
+
+                qkit.flow.end()
+
+                self.close_files()
 
                 print('Measurement complete: {:s}'.format(self._data_file.get_filepath()))
 
@@ -85,6 +100,22 @@ class QmQkitWrapper:
         self._settings.append(settings)
 
         self._log_file = waf.open_log_file(self._data_file.get_filepath())
+
+
+    def close_files(self):
+
+        # save plots and close files
+        # t = threading.Thread(target=qviewkit.save_plots, args=[self._data_file.get_filepath()])
+        # t.start()
+
+        self._data_file.flush()
+        self._data_file.close_file()
+        waf.close_log_file(self._log_file)
+
+        # TODO open qkit
+        # if self.qviewkit_singleInstance and self.open_qviewkit and self._qvk_process:
+        #    self._qvk_process.terminate()  # terminate an old qviewkit instance
+
 
     def store_data(self):
         """
@@ -123,19 +154,13 @@ class QmQkitWrapper:
             value_file.ds.resize(values.shape)
             value_file.ds[:] = values
 
+        # source code
+        sourcecode_file = self._data_file.add_textlist('sourcecode')
+        sourcecode_file.append(self.sourcecode)
+
+        # comment
         if self.comment:
             self._data_file.add_comment(self.comment)
 
-        qkit.flow.end()
 
-        # save plots and close files
-        # t = threading.Thread(target=qviewkit.save_plots, args=[self._data_file.get_filepath()])
-        # t.start()
 
-        self._data_file.flush()
-        self._data_file.close_file()
-        waf.close_log_file(self._log_file)
-
-        # TODO open qkit
-        # if self.qviewkit_singleInstance and self.open_qviewkit and self._qvk_process:
-        #    self._qvk_process.terminate()  # terminate an old qviewkit instance

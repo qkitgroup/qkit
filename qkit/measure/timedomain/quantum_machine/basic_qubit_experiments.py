@@ -3,19 +3,12 @@
 #
 # TODO add text
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+# HOW TO USE IT:
+# Since the quantum machines card is a very versatile machine,
+# the setup and the experiments will be very different.
+# Thus use this file as template and look up for your experiments.
+
 
 import inspect
 import time
@@ -62,6 +55,22 @@ class BasicQubitExperiments(QmQkitWrapper):
         self.ax = ax
 
     # Experiments
+
+    @QmQkitWrapper.measure
+    def adc_data_test(self, f_list, avg=1000):
+
+        self.I = np.zeros((avg, f_list.size))
+        self.Q = np.zeros((avg, f_list.size))
+        self.I_avg = np.mean(self.I, axis=0)
+        self.Q_avg = np.mean(self.Q, axis=0)
+
+        # qkit data storage
+        # qkit data storage
+        self.exp_name = "qubit_spectroscopy"
+        self.coords = {"QB_IF_freq": [f_list, "Hz"], "avg": [np.arange(avg), "#"]}
+        self.values = {"I": [self.I.T, ["QB_IF_freq", "avg"], "V"], "Q": [self.Q.T, ["QB_IF_freq", "avg"], "V"],
+                       "I_avg": [self.I_avg, ["QB_IF_freq"], "V"], "Q_avg": [self.Q_avg, ["QB_IF_freq"], "V"]}
+
 
     @QmQkitWrapper.measure
     def adc_data(self, plot=True):
@@ -150,7 +159,6 @@ class BasicQubitExperiments(QmQkitWrapper):
         self.coords = {"QB_IF_freq": [f_list, "Hz"], "avg": [np.arange(avg), "#"]}
         self.values = {"I": [self.I.T, ["QB_IF_freq", "avg"], "V"], "Q": [self.Q.T, ["QB_IF_freq", "avg"], "V"],
                        "I_avg": [self.I_avg, ["QB_IF_freq"], "V"], "Q_avg": [self.Q_avg, ["QB_IF_freq"], "V"]}
-        self.logs = {}
 
         if plot:
             self.ax.clear()
@@ -282,7 +290,7 @@ class BasicQubitExperiments(QmQkitWrapper):
         self.qm_config.set_theta(0.0)
         self.wait_before = 250   # make sure the resonator rings down
         self.iq_clouds(50000, plot=False)
-        iqcloud.analyse_IQ_data(self.I, self.Q, fq=1.174679e9)
+        iqcloud.analyse_qubit_clouds(self.I, self.Q)
 
         if output:
             print("theta = {}".format(iqcloud.theta))
@@ -408,21 +416,21 @@ class BasicQubitExperiments(QmQkitWrapper):
             self.ax.plot(np.arange(0, n_pulses, dn), self.I_avg)
             self.ax.plot(np.arange(0, n_pulses, dn), self.Q_avg)
 
-    def check_timing_list(self, t_vec):
+    def prepare_waiting_list(self, t_vec):
 
         t_vec = t_vec.astype(int)
 
         if np.min(t_vec) < 4:
             b = t_vec < 4
             t_vec[b] = 4
-            print("Minimum waiting time 4, which corresponds to 16ns. \nWaiting time vector was adjusted")
+            print("Minimum waiting time 4 clock cycles, which corresponds to 16ns. \nWaiting time vector was adjusted")
 
         return t_vec
 
     @QmQkitWrapper.measure
     def t1(self, t_vec, n_pulses, t_wait=-1, active_reset=False, start_state=True, threshold=0.0, avg=100, plot=True):
 
-        t_vec = self.check_timing_list(t_vec)
+        t_vec = self.prepare_waiting_list(t_vec)
         t_list = t_vec.tolist()
 
         with program() as measureT1:
@@ -510,28 +518,27 @@ class BasicQubitExperiments(QmQkitWrapper):
 
     @QmQkitWrapper.measure
     def t2(self, t_vec, echo=0, avg=100, plot=True):
-        """ Time between pi/2 pulses is held constant.
-            Echo must be odd
+        """ Simple Hahn echo experiment with constant number of pi-pulses
+        If echo = 0 a normal ramsey experiment is performed
         """
+        if echo > 0:
+            t_vec_half = t_vec / (2 * echo)
 
-        #if not echo < 0:
+            t_vec_half = self.prepare_waiting_list(t_vec_half)
+            t_vec = 2 * t_vec_half
+            t_mat = np.column_stack((t_vec_half, t_vec))
+            t_list = t_mat.tolist()
 
-        t_vec = t_vec / (echo + 1)
-
-        t_vec = self.check_timing_list(t_vec)
-        t_list = t_vec.tolist()
-
-        t_vec = t_vec * (echo + 1)
-
-        #else:
-        #    t = - echo
-        #    n = int(t_vec / (2 * t))  # echo in 4ns
-        #    dt = t_vec - n * 2 * echo
-        #    t_list = np.columnstack((n, dt / 2))
+            t_vec = t_vec * echo
+        else:
+            t_vec = self.prepare_waiting_list(t_vec)
+            t_mat = np.column_stack((t_vec, t_vec))  # needed for qua loop
+            t_list = t_mat.tolist()
 
         with program() as measureT2:
 
             N = declare(int)
+            t2 = declare(int)
             t = declare(int)
             Is = declare(fixed)
             Qs = declare(fixed)
@@ -543,49 +550,24 @@ class BasicQubitExperiments(QmQkitWrapper):
 
             with for_(N, 0, N < avg, N + 1):
 
-                    #if echo < 0:  # constant filter function
-
-                    # with for_each_((n, dt), t_list):
-                    #
-                    #     wait(self.wait_before, "qubit")
-                    #
-                    #     # control block
-                    #     play("pi/2_pulse", "qubit")
-                    #     wait(dt, "qubit")
-                    #     with for_(i, 0, i < n, i + 1):
-                    #         play("pi_pulse", "qubit")
-                    #         wait(t, "qubit")
-                    #     play("pi_pulse", "qubit")
-                    #     wait(dt, "qubit")
-                    #     play("pi/2_pulse", "qubit")
-                    #
-                    #     # measurement block:
-                    #     align("qubit", "signal", "reference")
-                    #     measure("readout_sig", "signal", None, ("integW_Is", Is), ("integW_Qs", Qs))
-                    #     measure("readout_ref", "reference", None, ("integW_Ir", Ir), ("integW_Qr", Qr))
-                    #
-                    #     # calculations:
-                    #     assign(I, (Is << bit_shift) * (Ir << bit_shift) + (Qs << bit_shift) * (Qr << bit_shift))
-                    #     assign(Q, (Is << bit_shift) * (Qr << bit_shift) - (Qs << bit_shift) * (Ir << bit_shift))
-                    #
-                    #     # save to client:
-                    #
-                    #     save(I, "I")
-                    #     save(Q, "Q")
-
-                #else:  # constant pulses
-
-                with for_each_(t, t_list):
+                with for_each_((t2, t), t_list):
 
                     wait(self.wait_before, "qubit")
 
                     # control block
-                    play("pi/2_pulse", "qubit")
-                    wait(t, "qubit")
-                    with for_(i, 0, i < echo, i + 1):
-                        play("pi_pulse", "qubit")
+                    if echo == 0:
+                        play("pi/2_pulse", "qubit")
                         wait(t, "qubit")
-                    play("pi/2_pulse", "qubit")
+                        play("pi/2_pulse", "qubit")
+                    else:
+                        play("pi/2_pulse", "qubit")
+                        wait(t2, "qubit")
+                        with for_(i, 0, i < echo - 1, i + 1):
+                            play("pi_pulse", "qubit")
+                            wait(t, "qubit")
+                        play("pi_pulse", "qubit")
+                        wait(t2, "qubit")
+                        play("pi/2_pulse", "qubit")
 
                     # measurement block:
                     align("qubit", "signal", "reference")
@@ -630,9 +612,91 @@ class BasicQubitExperiments(QmQkitWrapper):
             self.ax.set_xlabel('t (us)')
 
     @QmQkitWrapper.measure
+    def t2_cpmg(self, t, dt2, zrot=np.pi / 2, n_points=100, avg=100, plot=True):
+        """ Time between pi/2 pulses is held constant.
+            dt2 must be larger than 4
+        """
+
+        dt = 2 * dt2
+        n = int(np.ceil(t / dt))  # make sure t is reached
+
+        dn = int(np.ceil(n / n_points))  # make sure n_points is not exceeded
+        n_pulses = np.arange(1, n + 1, dn)
+        t_vec = dt * n_pulses
+
+        n_list = n_pulses.tolist()
+
+        with program() as measureT2:
+
+            N = declare(int)
+            n = declare(int)
+            Is = declare(fixed)
+            Qs = declare(fixed)
+            Ir = declare(fixed)
+            Qr = declare(fixed)
+            I = declare(fixed)
+            Q = declare(fixed)
+            i = declare(int)
+
+            with for_(N, 0, N < avg, N + 1):
+
+                with for_each_(n, n_list):
+
+                    wait(self.wait_before, "qubit")
+
+                    # control block
+                    play("pi/2_pulse", "qubit")
+                    z_rot(zrot, "qubit")
+                    wait(dt2, "qubit")
+                    with for_(i, 0, i < n - 1, i + 1):
+                        play("pi_pulse", "qubit")
+                        wait(dt, "qubit")
+                    play("pi_pulse", "qubit")
+                    wait(dt2, "qubit")
+                    z_rot(- zrot, "qubit")
+                    play("pi/2_pulse", "qubit")
+
+                    # measurement block:
+                    align("qubit", "signal", "reference")
+                    measure("readout_sig", "signal", None, ("integW_Is", Is), ("integW_Qs", Qs))
+                    measure("readout_ref", "reference", None, ("integW_Ir", Ir), ("integW_Qr", Qr))
+
+                    # calculations:
+                    assign(I, (Is << bit_shift) * (Ir << bit_shift) + (Qs << bit_shift) * (Qr << bit_shift))
+                    assign(Q, (Is << bit_shift) * (Qr << bit_shift) - (Qs << bit_shift) * (Ir << bit_shift))
+
+                    # save to client:
+                    save(I, "I")
+                    save(Q, "Q")
+
+        self.program = measureT2
+        job = self.qm_config.qm.execute(self.program, duration_limit=0, data_limit=0)
+        job.wait_for_all_results()
+        res = job.get_results()
+
+        self.I = np.reshape(res.variable_results.I.values, (avg, t_vec.size))
+        self.Q = np.reshape(res.variable_results.Q.values, (avg, t_vec.size))
+        self.I_avg = np.mean(self.I, axis=0)
+        self.Q_avg = np.mean(self.Q, axis=0)
+
+        # qkit data storage
+        self.exp_name = "T2_cpmg_{:.3f}us".format(4 * dt / 1000).replace(".", "p")
+        self.coords = {"t_wait": [4 * t_vec / 1000, "us"], "avg": [np.arange(avg), "#"]}
+        self.values = {"I": [self.I.T, ["t_wait", "avg"], "V"], "Q": [self.Q.T, ["t_wait", "avg"], "V"],
+                       "I_avg": [self.I_avg, ["t_wait"], "V"], "Q_avg": [self.Q_avg, ["t_wait"], "V"]}
+
+        if plot:
+            t_us = t_vec * 4 / 1000
+
+            self.ax.clear()
+            self.ax.plot(t_us, self.I_avg, marker='x')
+            self.ax.plot(t_us, self.Q_avg, marker='x')
+            self.ax.set_xlabel('t (us)')
+
+    @QmQkitWrapper.measure
     def t1_qndness(self, n_measure, t_vec, avg=100, plot=True):
 
-        t_vec = self.check_timing_list(t_vec)
+        t_vec = self.prepare_waiting_list(t_vec)
         t_list = t_vec.tolist()
 
         with program() as T1measure:
@@ -784,9 +848,9 @@ class BasicQubitExperiments(QmQkitWrapper):
             self.ax.axis("equal")
 
     @QmQkitWrapper.measure
-    def t1_stabilized_V2(self, t_vec, n_stab, threshold, stab_state=False, start_state=False, avg=1000, plot=True):
+    def t1_stabilized_V2(self, t_vec, n_stab, threshold, stab_state=False, start_state=False, t_wait=25, avg=1000, plot=True):
 
-        t_vec = self.check_timing_list(t_vec)
+        t_vec = self.prepare_waiting_list(t_vec)
         t_list = t_vec.tolist()
 
         with program() as T1_stab:
@@ -794,6 +858,7 @@ class BasicQubitExperiments(QmQkitWrapper):
             N = declare(int)
             t = declare(int)
             i = declare(int)
+            iter_done = declare(int, value=-1)
 
             Is = declare(fixed)
             Qs = declare(fixed)
@@ -805,25 +870,13 @@ class BasicQubitExperiments(QmQkitWrapper):
             with for_(N, 0, N < avg, N + 1):
                 with for_each_(t, t_list):
 
-                    ### fast thermal state preperation ####
-
-                    # align("qubit", "signal", "reference")
-                    # with for_(i, 0, i < 200, i + 1):
-                    #    # measurement block:
-                    #    measure("readout_sig", "signal", None, ("integW_Is", Is), ("integW_Qs", Qs))
-                    #    measure("readout_ref", "reference", None, ("integW_Ir", Ir), ("integW_Qr", Qr))
-                    #
-                    #    wait(50, "signal")  # such that repition corresponds to 1 us
-                    #
-                    # align("qubit", "signal", "reference")
-
                     wait(self.wait_before, "qubit")
 
                     ###################################
 
                     with for_(i, 0, i < n_stab, i + 1):  # stabilization for n_stab
 
-                        wait(25, "qubit")  # wait between measurements
+                        wait(t_wait, "qubit")  # wait between measurements
 
                         # measurement block:
                         align("qubit", "signal", "reference")
@@ -869,12 +922,13 @@ class BasicQubitExperiments(QmQkitWrapper):
                     # save to client:
                     save(I, "I")
                     save(Q, "Q")
+                    save(iter_done, "flip")
 
-        job = self.qm_config.qm.execute(T1_stab, duration_limit=0, data_limit=0)
+        self.program = T1_stab
+        job = self.qm_config.qm.execute(self.program, duration_limit=0, data_limit=0)
         job.wait_for_all_results()
         res = job.get_results()
 
-        self.program = T1_stab
         self.I = np.reshape(res.variable_results.I.values, (avg, t_vec.size))
         self.Q = np.reshape(res.variable_results.Q.values, (avg, t_vec.size))
         flip = res.variable_results.flip.values
@@ -884,16 +938,15 @@ class BasicQubitExperiments(QmQkitWrapper):
         self.Q_avg = np.mean(self.Q, axis=0)
         flip_hist, _ = np.histogram(flip, bins=np.arange(n_stab + 1) - 0.5)
 
-        self.data = (flip, t_flip, flip_hist)
-
         # qkit data storage
-        self.exp_name = "T1_stabilized_{}_{}_{}".format(n_stab, stab_state, start_state)
+        self.exp_name = "T1_stabilized_{}_{}_{}_{}us".format(n_stab, stab_state, start_state, 4 * t_wait / 1000).replace('.', 'p')
         self.coords = {"t_wait": [4 * t_vec / 1000, "us"], "avg": [np.arange(avg), "#"],
-                       "flip index": [np.arange(n_stab), "#"]}
+                       "flip_index": [np.arange(n_stab), "#"],
+                       "flip": [flip, "1"],
+                       "t_flip": [t_flip / 1000, "ns"]}
         self.values = {"I": [self.I.T, ["t_wait", "avg"], "V"], "Q": [self.Q.T, ["t_wait", "avg"], "V"],
                        "I_avg": [self.I_avg, ["t_wait"], "V"], "Q _avg": [self.Q_avg, ["t_wait"], "V"],
-                       "flip_hist": [flip_hist, ["flip index"], "1"]}
-        self.log = {"flip": flip, "t_flip": t_flip}
+                       "flip_hist": [flip_hist, ["flip_index"], "1"]}
 
         if plot:
             t_us = t_vec * 4 / 1000
@@ -911,7 +964,7 @@ class BasicQubitExperiments(QmQkitWrapper):
     @QmQkitWrapper.measure
     def t1_measurement_heat(self, t_vec, n_stab, threshold, start_state=False, avg=1000, plot=True):
 
-        t_vec = self.check_timing_list(t_vec)
+        t_vec = self.prepare_waiting_list(t_vec)
         t_list = t_vec.tolist()
 
         with program() as T1_stab:

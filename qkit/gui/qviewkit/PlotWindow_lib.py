@@ -178,10 +178,10 @@ def _display_1D_view(self, graphicsView):
                 return
             
             ## Any data manipulation (dB <-> lin scale, etc) is done here
-            x_data, y_data, units[1] = _do_data_manipulation(x_data, y_data, units[1], ds_types['vector'], self.manipulation, self.manipulations)
-            
-            graphicsView.setLabel('left', names[1], units=units[1])
-            graphicsView.setLabel('bottom', names[0], units=units[0])
+            x_data, y_data, names[0], names[1], units[0], units[1] = _do_data_manipulation(x_data, y_data, names[0], names[1], units[0], units[1], ds_types['vector'], self.manipulation, self.manipulations)
+
+            _axis_timestamp_formatting(graphicsView, x_data, units[0], names[0], "bottom")
+            _axis_timestamp_formatting(graphicsView, y_data, units[1],names[1], "left")
             
             # this allows to set a couple of plot related settings
             if view_params:
@@ -274,7 +274,7 @@ def _display_1D_data(self, graphicsView):
         # timestamps do (not?) have a x_ds_url in the 1d case. This is more a bug to be fixed in the
         # timstamp_ds part of qkit the resulting error is fixed here for now.
         try:
-            x_data = dss[0][()][:dss[1].shape[-1]]  # x_data gets truncated to y_data shape if neccessary
+            x_data = dss[0][()][:dss[1].shape[-1]]  # x_data gets truncated to y_data shape if necessarry
         except:
             x_data = [i for i in range(dss[1].shape[-1])]
             units[0] = "#"
@@ -377,13 +377,16 @@ def _display_1D_data(self, graphicsView):
         y_data = dss[1][()][self.TraceXNum, self.TraceYNum, :]
     
     ## Any data manipulation (dB <-> lin scale, etc) is done here
-    x_data, y_data, units[1] = _do_data_manipulation(x_data, y_data, units[1], self.ds_type, self.manipulation, self.manipulations)
-    
-    graphicsView.setLabel('left', names[1], units=units[1])
-    graphicsView.setLabel('bottom', names[0], units=units[0])
+    x_data, y_data, names[0], names[1], units[0], units[1] = _do_data_manipulation(x_data, y_data, names[0], names[1], units[0], units[1], ds_types['vector'], self.manipulation, self.manipulations)
+
+    if _axis_timestamp_formatting(graphicsView, x_data, units[0], names[0], "bottom") or \
+            _axis_timestamp_formatting(graphicsView, y_data, units[1], names[1],"left"):
+        if not self.user_setting_changed:
+            self.plot_style = self.plot_styles['linepoint']
+            self.linestyle_selector.pointLine.setChecked(True)
     
     # if only one entry in the dataset --> point-style
-    if y_data.shape[-1] == 1:
+    elif y_data.shape[-1] == 1:
         self.plot_style = self.plot_styles['point']
         self.linestyle_selector.point.setChecked(True)
     else:
@@ -531,9 +534,9 @@ def _display_2D_data(self, graphicsView):
         self.TraceXValue.setText(self._getXValueFromTraceNum(self.ds, self.TraceXNum))
         self.TraceYValue.setText(self._getYValueFromTraceNum(self.ds, self.TraceYNum))
         self.TraceZValue.setText(self._getZValueFromTraceNum(self.ds, self.TraceZNum))
-    
-    _, data, units[2] = _do_data_manipulation(None, data, units[2], self.ds_type, self.manipulation, self.manipulations, colorplot=True) # FIXME
-    
+
+    _, data, _, _, _, units[2] = _do_data_manipulation(None, data, None, None, None, units[2], ds_types['vector'], self.manipulation, self.manipulations, colorplot=True)
+
     graphicsView.clear()
     graphicsView.view.setLabel('left', names[1], units=units[1])
     graphicsView.view.setLabel('bottom', names[0], units=units[0])
@@ -803,7 +806,7 @@ def _get_all_ds_names_units_scales(ds, ds_urls=[]):
 """ Unify the data manipulation to share code """
 
 
-def _do_data_manipulation(x_data, y_data, unit, ds_type, manipulation, manipulations, colorplot=False):
+def _do_data_manipulation(x_data, y_data, x_name, y_name, x_unit, y_unit, ds_type, manipulation, manipulations, colorplot=False):
     """Data manipulation for display gets done here.
     
     This function gathers all the needed metadata to correctly display the
@@ -861,10 +864,31 @@ def _do_data_manipulation(x_data, y_data, unit, ds_type, manipulation, manipulat
 
     if manipulation & manipulations['dB']:
         y_data = 20 * np.log10(y_data)
-        unit = 'dB'
+        y_unit = 'dB'
 
     if manipulation & manipulations['histogram']:
-        y_data, x_data = np.histogram(y_data[~np.isnan(y_data)], bins='auto')  # FIXME: axis labels not correct (MMW)
-        x_data = x_data[:-1]+(x_data[1]-x_data[0])/2.
+        if y_data.ndim == 1:
+            y_data, x_data = np.histogram(y_data[~np.isnan(y_data)], bins='auto')
+            x_data = x_data[:-1]+(x_data[1]-x_data[0])/2.
+            x_name = y_name
+            x_unit = y_unit
+            y_name = 'counts'
+            y_unit = ''
+        elif y_data.ndim == 2:
+            print('2D histogram not yet impemented')  # FIXME: np.histogram2d (MMW)
+
     
-    return x_data, y_data, unit
+    return x_data, y_data, x_name, y_name, x_unit, y_unit
+
+def _axis_timestamp_formatting(graphicsView,data,unit,name,orientation):
+    if unit=="s" and data[tuple(-1 for x in data.shape)] > 9.4e8: # about the year 2000 in unixtime
+        from .pg_time_axis import DateAxisItem
+        if type(graphicsView.getPlotItem().axes[orientation]['item']) != DateAxisItem:
+            axis = DateAxisItem(orientation=orientation)
+            axis.attachToPlotItem(graphicsView.getPlotItem())
+            axis.enableAutoSIPrefix(False)
+        graphicsView.setLabel(orientation, name)
+        return True
+    else:
+        graphicsView.setLabel(orientation, name, units=unit)
+        return False
