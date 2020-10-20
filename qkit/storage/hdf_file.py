@@ -164,7 +164,7 @@ class H5_file(object):
         self.flush()
         return ds
         
-    def append(self,ds,data, next_matrix=False, reset = False):
+    def append(self,ds,data, next_matrix=False, reset=False, pointwise=False):
         """Method for appending hdf5 data. 
         
         A simple append method for data traces.
@@ -176,12 +176,11 @@ class H5_file(object):
             hdf_dataset 'ds'
             numpy array 'data'
             boolean 'next_matrix'
-            
+            pointwise (Boolean): if True, the data is appended pointwise, i.e. to the innermost dimension
         Returns:
             The function operates on the given variables.
         """
         # it gets a little ugly with all the different user-cases here ...
-        
         if len(ds.shape) == 1:
             ## 1dim dataset (text, coordinate, vector)
             ## multiple inputs: text, scalar (not needed?), list/np.array with one or multiple entries
@@ -224,7 +223,7 @@ class H5_file(object):
             ## multiple inputs: list/np.array with one or multiple entries
             fill = ds.attrs.get('fill')
             dim1 = ds.shape[1]
-            if len(data) == 1:
+            if len(data) == 1 and pointwise:
                 dim0 = max(1, ds.shape[0])
                 ## single entry; sorting like in the 'len(ds.shape) == 3' case
                 if next_matrix:
