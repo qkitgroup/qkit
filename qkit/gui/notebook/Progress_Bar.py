@@ -4,6 +4,7 @@
 # import Progress_Bar
 # initialize and create empty progress bar by instantiating, passing the number of iterations: e.g. p = Progress_Bar.Progress_Bar(100)
 # to iterate the progress bar call p.iterate()
+# pass _dummy=True to initialize a _dummy progressbar if you don't want to see it.
 
 
 
@@ -29,9 +30,12 @@ try:
     from ipywidgets import IntProgress, HTML
     from IPython.display import display
     class Progress_Bar(object):
-        def __init__(self,max_it,name= 'Progress:',est_cycle_time=None):
+        def __init__(self,max_it,name= 'Progress:',est_cycle_time=None,dummy=False):
             if debug:
                 print("new style progress bar")
+            self._dummy=dummy
+            if self._dummy:
+                return
             self.starttime = time.time()
             self.start_eta_time = self.starttime
             
@@ -68,6 +72,8 @@ try:
             display(self.pb)            
             
         def reset(self,max_it=None,name=None):
+            if self._dummy:
+                return
             if max_it is not None:
                 self.max_it = max_it
             if name is not None:
@@ -82,14 +88,20 @@ try:
             self._update()
                     
         def set(self,iteration,param=""):
+            if self._dummy:
+                return
             self.progr = iteration
             self._update(param)
         
         def iterate(self, param="", addend=1):
+            if self._dummy:
+                return
             self.progr += addend
             self._update(param)
         
         def _update(self,param=""):
+            if self._dummy:
+                return
             progr_info = "<table style='width:100%%'><tr><td>%s (%i/%i) </td><td>&#9992; %s    </td><td>&#128336;  %s   (estimated)</td><td>&#10010;  %s (elapsed) </td><td>&#9866;  %s (remaining)</td></tr></table>"%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
                     self.progr,
                     self.max_it,
@@ -116,6 +128,13 @@ try:
                 #    #time.strftime('%H:%M:%S', time.gmtime(float(time.time()-self.start_eta_time)/self.progr * (self.max_it - 1  - self.progr))))
                 #self.pi.value = progr_info
             
+        def abort(self):
+            if self._dummy:
+                return
+            self.pb.color = "red"
+            self.pb.bar_style = "danger"
+            pb_list.append([self.name, self.pb, self.pi])  # append to the list of done PBs
+            
                     
 except ImportError as e:
     if debug:
@@ -128,11 +147,13 @@ except ImportError as e:
 
     class Progress_Bar(object):
 
-        def __init__(self, max_it, name = 'Progress:',est_cycle_time=None):
+        def __init__(self, max_it, name = 'Progress:',est_cycle_time=None,dummy=False):
             if debug:
                 print("old style progress bar")
             #create HTML progress bar
-
+            self._dummy = dummy
+            if self._dummy:
+                return
             self.divid = str(uuid.uuid4())
             self.max_it = max_it
             self.name = name
@@ -165,9 +186,14 @@ except ImportError as e:
             self.start_eta_time = time.time()
 
         def iterate(self,param=""):
+            if self._dummy:
+                return
             self.progr += 1
+            self._update(param)
             
         def _update(self,param=""):
+            if self._dummy:
+                return
             display(Javascript("$('div#%s0').width('%i%%');" % (self.divid, 100*self.progr/self.max_it)))
             outp = "<table style='width:100%%;border:none'><tr style='border:none'><td style='border:none'>%s (%i/%i) </td><td style='border:none'>&#9992; %s    </td><td style='border:none'>&#128336;  %s   (estimated)</td><td style='border:none'>&#10010;  %s (elapsed) </td><td style='border:none'>&#9866;  %s (remaining)</td></tr></table>"%(param,     #"%s (%i/%i) &#10148;  ETA: %s &#10148; Time elapsed: %s" %(param,
                     self.progr,
@@ -200,6 +226,8 @@ except ImportError as e:
                 display(self.pb)
         
         def reset(self,max_it=None,name=None):
+            if self._dummy:
+                return
             if max_it is not None:
                 self.max_it = max_it
             if name is not None:
@@ -211,5 +239,12 @@ except ImportError as e:
             self._update()
                     
         def set(self,iteration,param=""):
+            if self._dummy:
+                return
             self.progr = iteration
             self._update(param)
+            
+        def abort(self):
+            if self._dummy:
+                return
+            display(Javascript("$('div#%s0').css('background-color', 'red');" % (self.divid)))

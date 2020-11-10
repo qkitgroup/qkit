@@ -10,8 +10,8 @@ import sys
 try:
     from PyQt5 import QtCore
     from PyQt5.QtCore import Qt,QObject,pyqtSlot
-    from PyQt5.QtWidgets import QWidget,QPlainTextEdit,QMenu,QAction, QWidgetAction, QLabel
-    from PyQt5.QtGui import QBrush, QPainter, QPixmap
+    from PyQt5.QtWidgets import QWidget,QPlainTextEdit,QMenu,QAction, QWidgetAction, QLabel, QActionGroup
+    from PyQt5.QtGui import QBrush, QPainter, QPixmap, QFont
     #from PyQt5 import Qt
     in_pyqt5 = True
 except ImportError as e:
@@ -20,7 +20,7 @@ if not in_pyqt5:
     try:
         from PyQt4 import QtCore
         from PyQt4.QtCore import Qt,QObject,pyqtSlot
-        from PyQt4.QtGui import QWidget,QPlainTextEdit,QMenu,QAction, QWidgetAction, QLabel, QBrush, QPainter, QPixmap
+        from PyQt4.QtGui import QWidget,QPlainTextEdit,QMenu,QAction, QWidgetAction, QLabel, QBrush, QPainter, QPixmap, QActionGroup, QFont
     except ImportError:
         print("import of PyQt5 and PyQt4 failed. Install one of those.")
         sys.exit(-1)
@@ -94,18 +94,25 @@ class PlotWindow(QWidget,Ui_Form):
             No return variable. The function operates on the given object.
         """
         #print "PWL update_plots:", self.obj_parent.h5file
-
-        self.ds = self.obj_parent.h5file[self.dataset_url]
+        
+        try:
+            self.ds = self.obj_parent.h5file[self.dataset_url]
+        except ValueError as e:
+            print(str(self.dataset_url)+": "+str(e))
+            return
         self.ds_type = self.ds.attrs.get('ds_type', -1)
         
         # The axis names are parsed to plot_view's Ui_Form class to label the UI selectors 
         x_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('x_ds_url', '')))
         y_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('y_ds_url', '')))
         z_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('z_ds_url', '')))
-        if self.ds.attrs.get('xy_0', ''):
-            x_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').decode().split(':')[1]).attrs.get('x_ds_url', '')))
-            y_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').decode().split(':')[1]).attrs.get('y_ds_url', '')))
-        else:
+        try:
+            if self.ds.attrs.get('xy_0', ''):
+                x_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').decode().split(':')[1]).attrs.get('x_ds_url', '')))
+                y_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').decode().split(':')[1]).attrs.get('y_ds_url', '')))
+            else:
+                raise AttributeError
+        except AttributeError:
             x_ds_name_view = '_none_'
             y_ds_name_view = '_none_'
 
@@ -145,7 +152,8 @@ class PlotWindow(QWidget,Ui_Form):
                     self._onPlotTypeChanged = False
                     self.graphicsView = pg.PlotWidget(name=self.dataset_url)
                     self.graphicsView.setObjectName(self.dataset_url)
-                    self.addQvkMenu(self.graphicsView.plotItem.getMenu())
+                    self.addQvkMenu()
+                    self.graphicsView.sceneObj.contextMenu[:0] = [self.qvkMenu]
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 _display_1D_view(self,self.graphicsView)
 
@@ -154,7 +162,8 @@ class PlotWindow(QWidget,Ui_Form):
                     self._onPlotTypeChanged = False
                     self.graphicsView = pg.PlotWidget(name=self.dataset_url)
                     self.graphicsView.setObjectName(self.dataset_url)
-                    self.addQvkMenu(self.graphicsView.plotItem.getMenu())
+                    self.addQvkMenu()
+                    self.graphicsView.sceneObj.contextMenu[:0] = [self.qvkMenu]
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                 _display_1D_data(self,self.graphicsView)
 
@@ -163,9 +172,11 @@ class PlotWindow(QWidget,Ui_Form):
                     self._onPlotTypeChanged = False
                     self.graphicsView = ImageViewMplColorMaps(self.obj_parent, view = pg.PlotItem())
                     self.graphicsView.setObjectName(self.dataset_url)
-                    self.addQvkMenu(self.graphicsView.view.getMenu())
+                    self.addQvkMenu()
+                    self.graphicsView.scene.contextMenu[:0] = [self.qvkMenu]
                     self.graphicsView.view.setAspectLocked(False)
                     self.gridLayout.addWidget(self.graphicsView,0,0)
+                    self.linestyle_selector.setDisabled(True)
                 _display_2D_data(self,self.graphicsView)
 
             elif self.view_type == view_types['table']:
@@ -510,6 +521,8 @@ class PlotWindow(QWidget,Ui_Form):
 
     def _getXValueFromTraceNum(self,ds,num):
         x_ds = _get_ds(ds, ds.attrs.get('x_ds_url'))
+        if x_ds is None:
+            return "__none__"
         if ds.attrs.get('ds_type') == ds_types['box']:
             x_data = np.array(x_ds)[:ds.attrs.get('fill')[0]]
         else:
@@ -535,7 +548,7 @@ class PlotWindow(QWidget,Ui_Form):
         zval = z_data[num]
         return str(zval)+" "+str(zunit)
 
-    def addQvkMenu(self,menu):        
+    def addQvkMenu(self,menu=None):
         """Add custom entry in the right-click menu.
         
         The data manipulation option are displayed in the menu. Each entry is
@@ -551,43 +564,61 @@ class PlotWindow(QWidget,Ui_Form):
     
         self.qvkMenu = QMenu("Qviewkit")
 
-        point = QAction('Point', self.qvkMenu)
-        self.qvkMenu.addAction(point)
-        point.triggered.connect(self.setPointMode)
+        self.linestyle_selector = QActionGroup(self.qvkMenu)
+        self.linestyle_selector.setExclusive(True)
 
-        line = QAction('Line', self.qvkMenu)
-        self.qvkMenu.addAction(line)
-        line.triggered.connect(self.setLineMode)
+        self.linestyle_selector.point = QAction('Point', self.qvkMenu, checkable=True)
+        self.qvkMenu.addAction(self.linestyle_selector.point)
+        self.linestyle_selector.point.triggered.connect(self.setPointMode)
+        self.linestyle_selector.addAction(self.linestyle_selector.point)
 
-        pointLine = QAction('Point+Line', self.qvkMenu)
-        self.qvkMenu.addAction(pointLine)
-        pointLine.triggered.connect(self.setPointLineMode)
+        self.linestyle_selector.line = QAction('Line', self.qvkMenu, checkable=True)
+        self.qvkMenu.addAction(self.linestyle_selector.line)
+        self.linestyle_selector.line.triggered.connect(self.setLineMode)
+        self.linestyle_selector.addAction(self.linestyle_selector.line)
 
-        dB_scale = QAction('dB / linear', self.qvkMenu)
-        self.qvkMenu.addAction(dB_scale)
-        dB_scale.triggered.connect(self.setdBScale)
+        self.linestyle_selector.pointLine = QAction('Point+Line', self.qvkMenu, checkable=True)
+        self.qvkMenu.addAction(self.linestyle_selector.pointLine)
+        self.linestyle_selector.pointLine.triggered.connect(self.setPointLineMode)
+        self.linestyle_selector.addAction(self.linestyle_selector.pointLine)
         
-        phase_wrap = QAction('(un)wrap phase data', self.qvkMenu)
+        self.qvkMenu.addSeparator()
+        
+        phase_wrap = QAction('(un)wrap phase data', self.qvkMenu, checkable=True)
         self.qvkMenu.addAction(phase_wrap)
         phase_wrap.triggered.connect(self.setPhaseWrap)
         
-        linear_correction = QAction('linearly correct data', self.qvkMenu)
+        linear_correction = QAction('linearly correct data', self.qvkMenu, checkable=True)
         self.qvkMenu.addAction(linear_correction)
         linear_correction.triggered.connect(self.setLinearCorrection)
         
-        offset_correction = QAction('data-<data:y>', self.qvkMenu)
+        offset_correction = QAction('data-<data:y>', self.qvkMenu, checkable=True)
         self.qvkMenu.addAction(offset_correction)
         offset_correction.triggered.connect(self.setOffsetCorrection)
         
-        norm_correction = QAction('data/<data:x>', self.qvkMenu)
+        norm_correction = QAction('data/<data:x>', self.qvkMenu, checkable=True)
         self.qvkMenu.addAction(norm_correction)
         norm_correction.triggered.connect(self.setNormDataCorrection)
 
-        histogram = QAction('Histogram', self.qvkMenu)
+        dB_scale = QAction('dB / linear', self.qvkMenu, checkable=True)
+        self.qvkMenu.addAction(dB_scale)
+        dB_scale.triggered.connect(self.setdBScale)
+
+        histogram = QAction('Histogram', self.qvkMenu, checkable=True)
         self.qvkMenu.addAction(histogram)
         histogram.triggered.connect(self.setHistogram)
-
-        menu.addMenu(self.qvkMenu)
+        
+        self.qvkMenu.addSeparator()
+        
+        notefont = QFont("Helvetica",7,12)
+        note = QAction("Manipulations are executed in the order shown here.",self.qvkMenu,enabled=False,font=notefont)
+        self.qvkMenu.addAction(note)
+        
+        self.qvkMenu.setTearOffEnabled(True)
+        self.qvkMenu.setWindowTitle("Qviewkit "+str(self.dataset_url.split('/')[-1]) +" "+ str(self.DATA.filename))
+        
+        if menu is not None:
+            menu.addMenu(self.qvkMenu)
 
     @pyqtSlot()
     def setPointMode(self):

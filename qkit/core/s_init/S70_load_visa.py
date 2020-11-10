@@ -11,8 +11,8 @@ def _load_visa():
     try:
         import visa
     except Exception as e:
-        raise type(e)('Failed loading visa. Check if you have NI VISA or pyvisa-py installed. Original error: ' + str(e))
         qkit.cfg['load_visa'] = False
+        raise type(e)('Failed loading visa. Check if you have NI VISA or pyvisa-py installed. Original error: ' + str(e))
     else:
         from pkg_resources import get_distribution
         from distutils.version import LooseVersion

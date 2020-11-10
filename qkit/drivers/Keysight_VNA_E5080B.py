@@ -54,6 +54,10 @@ class Keysight_VNA_E5080B(Instrument):
         self._stop = 0
         self._nop = 0
         self._cwfreq = None #MK This parameter tracks the center-freq when switching to nop=1 (cw mode)
+        self._hold = None
+        self._sweep = None
+        self._edel = None
+        self._active_trace = None
 
         # Implement parameters
         self.add_parameter('nop', type=int,
@@ -403,7 +407,7 @@ class Keysight_VNA_E5080B(Instrument):
             Count number
         """
         logging.debug(__name__ + ' : getting count number')
-        return int(self._visainstrument.query('SENS%i:SWE:GRO:COUN?' % (self._ci)))
+        return int(self._visainstrument.query('SENS%i:SWE:GRO:COUN?' % self._ci))
 
     def do_set_power(self,pow,port=1):
         """
@@ -870,7 +874,7 @@ class Keysight_VNA_E5080B(Instrument):
         """
         Bring the VNA back to a mode where it can be easily used by the operator.
         """
-        self.set_sweep_mode("cont")
+        self.set_sweep_mode("hold")
 
     def start_measurement(self):
         """

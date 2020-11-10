@@ -29,6 +29,7 @@ if not in_pyqt5:
 
 import h5py
 from qkit.gui.qviewkit.main_view import Ui_MainWindow
+from qkit.core.lib.misc import  str3
 
 class DatasetsWindow(QMainWindow, Ui_MainWindow):
     """DatasetsWindow fills the frame of the Ui_MainWindow.
@@ -150,7 +151,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             else:
                 parent = self.DATA.ds_tree_items[tree_key]
                 
-            s= "comment:\t"+str(self.h5file[tree_key].attrs.get('comment',""))+"\n"
+            s= "comment:\t"+str3(self.h5file[tree_key].attrs.get('comment',""))+"\n"
             self.DATA.dataset_info[tree_key] = s
             
             for j,centry in enumerate(self.h5file[tree_key].keys()):
@@ -168,9 +169,8 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                 s = ""
                 try:
                     s="shape\t"+str(self.h5file[tree_key].shape)+"\n"
-                    for k in list(self.h5file[tree_key].attrs.keys()): 
-                        s += k + "\t" + str(self.h5file[tree_key].attrs[k],"utf-8") + "\n"
-
+                    for k in list(self.h5file[tree_key].attrs.keys()):
+                        s += k + "\t" + str3(self.h5file[tree_key].attrs[k]) + "\n"
                 except TypeError:
                     s="shape\t"+str(self.h5file[tree_key].shape)+"\n"
                     for k in list(self.h5file[tree_key].attrs.keys()): 

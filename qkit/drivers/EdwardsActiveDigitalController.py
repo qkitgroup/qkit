@@ -3,15 +3,7 @@
 # model: D39591000 (enhanced)
 
 from qkit.core.instrument_base import Instrument
-import instruments
-import types
-import logging
-#import numpy as np
-import time,sys
-#import atexit
-#import serial
 import socket
-import sys
 
 class EdwardsActiveDigitalController(Instrument):
 

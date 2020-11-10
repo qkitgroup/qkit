@@ -1,7 +1,5 @@
+import qkit
 from qkit.core.instrument_base import Instrument
-import instruments
-import types
-import logging
 import numpy as np
 from time import sleep
 
@@ -9,7 +7,7 @@ class virtual_magnet(Instrument):
 
     def __init__(self, name, source=None, channel = 0, stepsize = 2e-9, stepdelay=1, multiplier = 1, range = 1e-3, old = 0):
         Instrument.__init__(self, name, tags=['virtual'])
-        self._instruments = instruments.get_instruments()
+        self._instruments = qkit.instruments.get_instruments()
         self._source= self._instruments.get(source)
         self._channel = channel        
         # Add parameters        

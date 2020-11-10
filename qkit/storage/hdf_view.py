@@ -8,6 +8,7 @@ import logging
 import qkit
 from qkit.storage.hdf_constants import ds_types, view_types
 import json
+from qkit.core.lib.misc import  str3
 class dataset_view(object):
     """This class describes a view on one or two datasets.        
     
@@ -28,11 +29,11 @@ class dataset_view(object):
         self.filter = filter
         if not x or not y: 
             logging.ERROR("View: Please supply a x and y dataset.")
-        self.x_object = str(x.ds_url)
-        self.y_object = str(y.ds_url)
+        self.x_object = str3(x.ds_url)
+        self.y_object = str3(y.ds_url)
         self.error_object = None
         if error:
-            self.error_object = str(error.ds_url)
+            self.error_object = str3(error.ds_url)
         
         self.ds = self.hf.create_dataset(self.name,0,folder=self.folder,dim=1)
         self.view_params = json.dumps(view_params)

@@ -1,7 +1,5 @@
+import qkit
 from qkit.core.instrument_base import Instrument
-import instruments
-import types
-import logging
 import numpy as np
 from time import sleep
 
@@ -12,7 +10,7 @@ class virtual_yokomagnet(Instrument):
             virtual magnet built upon yokogawa source
         '''
         Instrument.__init__(self, name, tags=['virtual'])
-        self._instruments = instruments.get_instruments()
+        self._instruments = qkit.instruments.get_instruments()
         self._source= self._instruments.get(source)
         self._channel = channel        
         # Add parameters        

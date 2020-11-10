@@ -38,7 +38,18 @@ usage:
 #\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=
 
 import numpy as np
-import matplotlib.pyplot as plt
+plot_enable = False
+try:
+    import qkit
+    if qkit.module_available("matplotlib"):
+        import matplotlib.pyplot as plt
+        plot_enable = True
+except (ImportError, AttributeError):
+    try:
+        import matplotlib.pyplot as plt
+        plot_enable = True
+    except ImportError:
+        plot_enable = False
 from scipy.optimize import curve_fit
 import scipy.interpolate
 import os, glob
@@ -107,6 +118,7 @@ class QFIT(object):
         except ImportError:
             logging.warning('Package store not found.')
             self.cfg['store'] = False
+        self.cfg['matplotlib'] = plot_enable
 
     # fit function definitions --------------------------------------------------------------------------------------
 
@@ -115,6 +127,9 @@ class QFIT(object):
         
     def __f_Lorentzian(self, f, f0, k, a, offs):
         return a*k/(2*np.pi)/((k/2)**2+(f-f0)**2)+offs
+
+    def __f_Skewed_Lorentzian(self, f, f0, k, a, offs, tilt, skew):
+        return (a + skew * (f - f0)) * k / (2 * np.pi) / ((k / 2) ** 2 + (f - f0) ** 2) + offs + tilt * (f - f0)
 
     #def __f_general_reflection(f, f0, kc, ki, a, offs):
     #    return a*(4*kc*(4*(f-f0)**2+kc**2-ki**2))/(16*(f-f0)**4+8*(f-f0)**2*kc**2+8*(f-f0)**2*ki**2+kc**4-2*kc**2*ki**2+ki**4)+offs
@@ -142,7 +157,7 @@ class QFIT(object):
         '''
         return {self.__f_Lorentzian_sqrt: ['f0','k','a','offs'],
             self.__f_Lorentzian: ['f0','k','a','offs'],
-            self.__f_damped_sine: ['f','Td','a','offs','ph'],
+            self.__f_Skewed_Lorentzian:['f0','k','a','offs','tilt','skew'],
             self.__f_sine: ['f','a','offs','ph'],
             self.__f_exp: ['Td','a','offs'],
             self.__f_damped_sine: ['f','Td','a','offs','ph','d']
@@ -165,7 +180,6 @@ class QFIT(object):
             self.data = kwargs['data']
             self.amplitude = None
             self.phase = None
-            self.file_name = None
             self.urls = None
             self.file_name = 'data_import'
             self.coordinate_label = ''
@@ -463,7 +477,7 @@ class QFIT(object):
             errs /= maxv
         
         #gauss plane plot
-        if self.cfg['show_complex_plot']:
+        if self.cfg['show_complex_plot'] and self.cfg['matplotlib']:
             if len(self.c_raw.shape) > 1:
                 plt.figure(figsize=(10,13))
                 ax1 = plt.subplot2grid((4, 1), (0, 0))
@@ -492,27 +506,28 @@ class QFIT(object):
         '''
         Saves optimized data in the h5 file and a respective view.
         '''
-        self.hf = store.Data(self.file_name)
-
-        hdf_data_opt = self.hf.add_value_vector(self.data_label+'_data_opt', folder=self.cfg['analysis_folder'], x = self.hf.get_dataset(self.urls[0]))
-        hdf_data_opt.append(np.array(self.data))
-        self.optimized = True
-        
-        try:
-            self.errors
-            if self.errors is None: raise NameError
-        except NameError: #no errors
-            pass
-        else:
-            #write errors
-            hdf_error = self.hf.add_value_vector(self.data_label+'_errors', folder=self.cfg['analysis_folder'])
-            hdf_error.append(np.array(self.errors))
-
-            #error plot view
-            joint_error_view = self.hf.add_view(self.data_label+'_err_plot', x = self.hf.get_dataset(self.urls[0]),
-                y = hdf_data_opt, error = hdf_error)
-        
-        self.hf.close_file()
+        if self.urls is not None:
+            self.hf = store.Data(self.file_name)
+    
+            hdf_data_opt = self.hf.add_value_vector(self.data_label+'_data_opt', folder=self.cfg['analysis_folder'], x = self.hf.get_dataset(self.urls[0]))
+            hdf_data_opt.append(np.array(self.data))
+            self.optimized = True
+            
+            try:
+                self.errors
+                if self.errors is None: raise NameError
+            except NameError: #no errors
+                pass
+            else:
+                #write errors
+                hdf_error = self.hf.add_value_vector(self.data_label+'_errors', folder=self.cfg['analysis_folder'])
+                hdf_error.append(np.array(self.errors))
+    
+                #error plot view
+                joint_error_view = self.hf.add_view(self.data_label+'_err_plot', x = self.hf.get_dataset(self.urls[0]),
+                    y = hdf_data_opt, error = hdf_error)
+            
+            self.hf.close_file()
 
     #\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=\./=
     
@@ -695,6 +710,10 @@ class QFIT(object):
         self.fit_function = self.__f_Lorentzian
         self.fit(p0=p0)
 
+    def fit_Skewed_Lorentzian(self, p0=None):
+        self.fit_function = self.__f_Skewed_Lorentzian
+        self.fit(p0=p0)
+    
     def fit_Lorentzian_sqrt(self, p0=None):
         '''
         Square root of a Lorentzian fit e.g. for resonator magnitude data (since only the squared linear magnitude data 
@@ -795,6 +814,16 @@ class QFIT(object):
             #calculate gradient at t=0 which is equal to (+-)a/T
             s_Td = np.abs(float(s_a)/np.mean(np.gradient(self.data,self.coordinate[1]-self.coordinate[0])[:5]))
             self.guesses = [s_Td, s_a, s_offs]
+        elif self.fit_function == self.__f_Skewed_Lorentzian:
+            self.guesses = np.append(self._guess_lorentzian_parameters(), [1e-3, 1e-2]).tolist()
+            self.p0 = _fill_p0(self.guesses, p0)
+            try:
+                self.popt, self.pcov = curve_fit(self.__f_Lorentzian, self.coordinate * self.freq_conversion_factor, self.data, p0=self.p0[:4], maxfev=10000)
+            except Exception as e:
+                logging.warning('Fit not successful.' + str(e))
+                self.popt = self.p0[:4]
+                self.pcov = None
+            self.p0[:4] = self.popt
         else:
             self.guesses = None
             logging.warning('Fit function unknown. No guesses available but I will continue with the specified fit function.')
@@ -813,7 +842,12 @@ class QFIT(object):
 
             self.fvalues = self.fit_function(self.x_vec * self.freq_conversion_factor, *self.popt)
             #plot
-            if self.cfg['show_plot'] or self.cfg['save_png'] or self.cfg['save_pdf']:
+            create_plots = self.cfg['matplotlib'] and (
+                self.cfg['show_plot'] or (
+                    (self.cfg['save_png'] or self.cfg['save_pdf']) and self.file_name != "data_import"
+                )
+            )
+            if create_plots:
                 if self.fit_function == self.__f_exp:
                     #create pair of regular and logarithmic plot
                     self.fig, self.axes = plt.subplots(1, 2, figsize=(15,4))
@@ -843,11 +877,11 @@ class QFIT(object):
                     self.fig.suptitle(str(['{:s} = {:.4g}'.format(p, entry) for p, entry in zip(self.__get_parameters(self.fit_function), self.popt)]))
                     self.parameter_list = self.__get_parameters(self.fit_function)
                 self.fig.tight_layout(rect=[0, 0, 1, 0.95])
-        
-        if self.cfg['save_png']: plt.savefig(self.file_name.strip('.h5')+'.png', dpi=self.cfg.get('dpi',200))
-        if self.cfg['save_pdf']: plt.savefig(self.file_name.strip('.h5')+'.pdf', dpi=self.cfg.get('dpi',200))
-        if self.cfg['show_plot']: plt.show()
-        if self.cfg['show_plot'] or self.cfg['save_png'] or self.cfg['save_pdf']: plt.close(self.fig)
+                
+                if self.cfg['save_png'] and self.file_name != "data_import": plt.savefig(self.file_name.strip('.h5')+'.png', dpi=self.cfg.get('dpi',200))
+                if self.cfg['save_pdf'] and self.file_name != "data_import": plt.savefig(self.file_name.strip('.h5')+'.pdf', dpi=self.cfg.get('dpi',200))
+                if self.cfg['show_plot']: plt.show()
+                plt.close(self.fig)
 
         if self.pcov is not None and self.urls is not None: #if fit successful and data based on h5 file
             self._store_fit_data(fit_params=self.popt, fit_covariance=np.sqrt(np.diag(self.pcov)))

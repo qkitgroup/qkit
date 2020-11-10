@@ -66,7 +66,7 @@ class pointtracker():
         
         try: self.data
         except AttributeError:
-            print "Please run set_data first"
+            print("Please run set_data first")
             return
         
         # if dips are searched invert the dataset
@@ -139,7 +139,7 @@ class pointtracker():
         # Test if still in data
         if (search_indices[0]<0 or search_indices[0]>=len(self.xdata) or
             search_indices[1]-self.span/2<0 or search_indices[1]+self.span/2>=len(self.ydata)):
-            print "Reached boundary of dataset"
+            print("Reached boundary of dataset")
             return
         
         search_data = self._sig * self.data[int(search_indices[0]), int(search_indices[1]-self.span/2) : int(search_indices[1]+self.span/2)]
@@ -154,12 +154,12 @@ class pointtracker():
             
             # If more than one peak found, print it and take the first one
             if indexes_found.size>1:
-                print "Found more than one peak in trace " + str(search_indices[0])
-                print "First found peak added"
+                print("Found more than one peak in trace " + str(search_indices[0]))
+                print("First found peak added")
                 
-        # If no peak found, print it and continue with next current trace        
+        # If no peak found, print it and continue with next current trace
         else:
-            print "No peak found in trace " + str(search_indices[0])
+            print("No peak found in trace " + str(search_indices[0]))
             # Add distance between two last found peaks to shift
             if len(self._points_y) >= 2:
                 y_new = self._points_y[-1] + (self._points_y[-1] - self._points_y[-2])

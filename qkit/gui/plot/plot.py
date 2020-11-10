@@ -13,9 +13,20 @@ import qkit
 from qkit.storage import store
 from qkit.storage.hdf_constants import ds_types
 
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+try:
+    if qkit.module_available("matplotlib"):
+        import matplotlib.pyplot as plt
+        from matplotlib.figure import Figure
+        from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+        plot_enable = True
+except AttributeError:
+    try:
+        import matplotlib.pyplot as plt
+        from matplotlib.figure import Figure
+        from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+        plot_enable = True
+    except ImportError:
+        plot_enable = False
 
 # this is for live-plots
 def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
@@ -67,10 +78,12 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
     
     if echo:
         print("Qviewkit open cmd: "+ str(cmd))
+        os.putenv("HDF5_USE_FILE_LOCKING",'FALSE')
         P = Popen(cmd, shell=False, stdout=PIPE)
         print(P.stdout.read())
         return P
     else:
+        os.putenv("HDF5_USE_FILE_LOCKING", 'FALSE')
         return Popen(cmd, shell=False)
 
 
@@ -103,8 +116,11 @@ class h5plot(object):
         """Inits h5plot with a h5_filepath (string, absolute path), optional 
         comment string, and optional save_pdf boolean.
         """
+        if not plot_enable or not qkit.module_available("matplotlib"):
+            logging.warning("matplotlib not installed. I can not save your measurement files as png. I will disable this function.")
+            qkit.cfg['save_png'] = False
         if not qkit.cfg.get('save_png',True):
-            return False
+            return
         self.comment = comment
         self.save_pdf = save_pdf
         self.path = h5_filepath
@@ -322,9 +338,6 @@ class h5plot(object):
         y_data = np.array(self.y_ds)*10.**-self.y_exp
         y_min, y_max = np.amin(y_data), np.amax(y_data)
         dy = self.y_ds.attrs.get('dy', (y_data[-1]-y_data[0])/(len(y_data)-1))
-        z_data = np.array(self.z_ds)*10.**-self.z_exp
-        z_min, z_max = np.amin(z_data), np.amax(z_data)
-        dz = self.z_ds.attrs.get('dz', (z_data[-1]-z_data[0])/(len(z_data)-1))
 
         # downsweeps in any direction have to be corrected
         # this is triggered by dx/dy values < 0

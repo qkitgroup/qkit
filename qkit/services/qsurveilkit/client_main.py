@@ -29,7 +29,10 @@ from PyQt4.QtGui import QMainWindow, QApplication
 from plasma1_gui import Ui_MainWindow
 
 import argparse
-import ConfigParser
+try:
+    from ConfigParser import RawConfigParser
+except ImportError:
+    from configparser import RawConfigParser
 import time
 from math import log10
 
@@ -249,7 +252,7 @@ def main(argv):
                         help='Configuration file name')
     args=parser.parse_args()
     
-    Conf = ConfigParser.RawConfigParser()
+    Conf = RawConfigParser()
     Conf.read(args.ConfigFile)
     
     data = DATA(Conf)

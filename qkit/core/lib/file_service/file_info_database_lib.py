@@ -6,6 +6,7 @@ import logging
 import time
 import json
 import numpy as np
+import qkit.storage.hdf_DateTimeGenerator as dtg
 import h5py
 
 try:
@@ -111,6 +112,12 @@ class file_system_service(UUID_base):
         with open(self._h5_info_cache_path,'wb+') as f:
             pickle.dump(self.h5_info_db,f,protocol=write_protocol)
 
+    def _get_datadir(self):
+        if qkit.cfg.get('fid_restrict_to_userdir',False):
+            return os.path.split(dtg.DateTimeGenerator().new_filename()['_folder'])[0]
+        else:
+            return qkit.cfg['datadir']
+
     def update_file_db(self):
         with self.lock:
             start_time = time.time()
@@ -118,7 +125,7 @@ class file_system_service(UUID_base):
             if qkit.cfg.get('fid_scan_datadir',True):
                 qkit.cfg['fid_scan_datadir'] = True
                 logging.debug("file info database: Start to update database.")
-                for root, _ , files in os.walk(qkit.cfg['datadir']): # root, dirs, files
+                for root, _ , files in os.walk(self._get_datadir()): # root, dirs, files
                     for f in files:
                         self._inspect_and_add_Leaf(f,root)
                 logging.debug("file info database: Updating database done.")
@@ -175,16 +182,21 @@ class file_system_service(UUID_base):
                 try:
                     tm = self.get_time(uuid)
                     dt = self.get_date(uuid)
+                    user = j_split[-3]
+                    run = j_split[-4]
                 except ValueError as e:
+                    user = None
+                    run = None
                     logging.info(e)
-                user = j_split[-3]
-                run = j_split[-4]
             else:
                 tm = uuid
-                if j_split[-3][0:3] is not 201:  # not really a measurement file then
+                try:
+                    if j_split[-3][0:3] != 201:  # not really a measurement file then
+                        dt = None
+                    else:
+                        dt = '{}-{}-{} {}:{}:{}'.format(j_split[-3][:4], j_split[-3][4:6], j_split[-3][6:], tm[:2], tm[2:4], tm[4:])
+                except IndexError:
                     dt = None
-                else:
-                    dt = '{}-{}-{} {}:{}:{}'.format(j_split[-3][:4], j_split[-3][4:6], j_split[-3][6:], tm[:2], tm[2:4], tm[4:])
                 user = None
                 run = None
             h5_info_db = {'time': tm, 'datetime': dt, 'run': run, 'name': name, 'user': user}
@@ -270,14 +282,14 @@ class file_system_service(UUID_base):
                 if attribute in h['analysis0'].attrs:
                     del h['analysis0'].attrs[attribute]
             else:
-                try:
+                if qkit.module_available['pandas']:
                     import pandas as pd
                     if pd.isnull(value):
                         if attribute in h['analysis0'].attrs:
                             del h['analysis0'].attrs[attribute]
                     else:
                         h['analysis0'].attrs[attribute] = value
-                except ImportError:
+                else:
                     h['analysis0'].attrs[attribute] = value
         finally:
             h.file.close()
@@ -286,6 +298,7 @@ class file_system_service(UUID_base):
     def wait(self):
         with self.lock:
             pass
+        qkit.flow.sleep(.1) #to prevent timing issues
         if self.lock.locked():
             self.wait()
         return True

@@ -218,7 +218,7 @@ class Agilent_VNA_E5071C(Instrument):
         
         
         if single==True:        #added MW July. 
-            #print 'single shot readout'
+            #print('single shot readout')
             self._visainstrument.write('TRIG:SOUR INT') #added MW July 2013. start single sweep.
             self._visainstrument.write('INIT%i:CONT ON'%(self._ci)) #added MW July 2013. start single sweep.
             self.hold(True)
@@ -292,7 +292,7 @@ class Agilent_VNA_E5071C(Instrument):
         '''
         logging.debug(__name__ + ' : setting Number of Points to %s ' % (nop))
         if self._zerospan:
-          print 'in zerospan mode, nop is 1'
+          print('in zerospan mode, nop is 1')
         else:
           self._visainstrument.write(':SENS%i:SWE:POIN %i' %(self._ci,nop))
           self._nop = nop

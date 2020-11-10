@@ -55,6 +55,13 @@ class Data(object):
             self.hf = H5_file(self._filepath, mode)
         except IOError:
             raise IOError('File does not exist. Use argument \"mode=\'a\'\" to create a new h5 file.')
+        if self.__dict__.get('_uuid',False):
+            tags = ["_unix_timestamp","_localtime","_timestamp","_timemark","_datemark","_uuid","_filename","_folder","_relpath","_filepath"]
+            self.hf.hf.attrs.update({a:self.__dict__.get(a) for a in tags})
+        if "user" in qkit.cfg:
+            self.hf.hf.attrs['_user'] = qkit.cfg.get('user')
+        if "user" in qkit.cfg:
+            self.hf.hf.attrs['_run_id'] = qkit.cfg.get('run_id')
         self._mapH5PathToObject()
         self.hf.flush()
 
@@ -73,18 +80,23 @@ class Data(object):
         
         a = group()
         for n, o in self.hf.hf['/entry/analysis0'].items():
+            n = n.replace(" ","_")
             a.__dict__[n] = o
             for nn, oo in o.attrs.items():
                 o.__dict__[nn] = oo
         a.__dict__['comment'] = self.hf.agrp.attrs.get('comment', '')
         d = group()
         for n, o in self.hf.hf['/entry/data0'].items():
+            n = n.replace(" ","_")
             d.__dict__[n] = o
             for nn, oo in o.attrs.items():
                 o.__dict__[nn] = oo
         d.__dict__['comment'] = self.hf.dgrp.attrs.get('comment', '')
         self.__dict__.update({'analysis':a})
         self.__dict__.update({'data':d})
+        v = {a: self.hf.hf.attrs.get(a) for a in self.hf.hf.attrs.keys()}
+        del v['NeXus_version'], v['qkit']
+        self.__dict__.update(v)
 
     def _generate_file_name(self):
         """Generate new file name using hdf_DateTimeGenerator.

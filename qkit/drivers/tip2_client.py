@@ -36,13 +36,13 @@ RANGE = {0: 0.02,
 
 
 class tip2_client(Instrument):
-    '''
+    """
         This is the remote tip client to connect to the TIP2 temperature control program
 
         Usage:
         Initialize with
         <name> = instruments.create('<name>', 'tip2_client', url = "tcp://localhost:5000")
-    '''
+    """
 
     def __init__(self, name, url = "tcp://localhost:5000"):
         
@@ -119,12 +119,12 @@ class tip2_client(Instrument):
     def set_param(self,device, param, value):
         self.socket.send_string("set/"+device+"/"+param+"/"+str(value))
         message = self.socket.recv_string()
-        return (message)
+        return message
 
     def get_param(self,device, param):
         self.socket.send_string("get/"+device+"/"+param)
         message = self.socket.recv_string()
-        return (message)
+        return message
 
     def get_device(self,device):
         self.socket.send_string("get/"+device+"/:")
@@ -186,7 +186,7 @@ class tip2_client(Instrument):
         print (T_current)
         # qkit.flow.sleep(15)
         # print T_current
-        while (True):
+        while True:
             T_current = self.r_get_T()
             Ts = delete(append(Ts, T_current), 0)
             rmsTs = rms(Ts)
@@ -220,7 +220,7 @@ class tip2_client(Instrument):
 
     def do_set_P(self, P,thermometer = None):
         if thermometer is None: thermometer = self.default_device
-        return float(self.set_param(thermometer,'control_I',P))
+        return float(self.set_param(thermometer,'control_P',P))
 
     def do_get_I(self,thermometer = None): 
         if thermometer is None: thermometer = self.default_device       
@@ -236,7 +236,7 @@ class tip2_client(Instrument):
 
     def do_set_D(self, D,thermometer = None):
         if thermometer is None: thermometer = self.default_device
-        return float(self.set_param(thermometer,'control_I',D))
+        return float(self.set_param(thermometer,'control_D',D))
 
     # bridge settings for different channels
 
@@ -245,9 +245,9 @@ class tip2_client(Instrument):
         return float(self.get_param(thermometer,'interval'))
 
     def do_set_interval(self, interval, thermometer = None):
-        '''
+        """
         set the measurement interval of the specified channel. Unit is seconds.
-        '''
+        """
         if thermometer is None: thermometer = self.default_device
         return float(self.set_param(thermometer,'interval',interval))
 
@@ -256,9 +256,9 @@ class tip2_client(Instrument):
         return float(self.get_param(thermometer,'device_range'))
 
     def do_set_range(self, range, thermometer = None):
-        '''
+        """
         Set the resistance range of the specified channel. Check RANGE dict for help.
-        '''
+        """
         if thermometer is None: thermometer = self.default_device
         self.send("SET/T/%i/Range/%i" % (channel, range))
         return bool(self.recv())
@@ -268,7 +268,7 @@ class tip2_client(Instrument):
         return float(self.get_param(thermometer,'device_excitation'))
 
     def do_set_excitation(self, excitation, thermometer = None):
-        '''
+        """
         set the measurement excitation of the specified channel.
         -1: Excitation off
         -1: (excitation off)
@@ -281,7 +281,7 @@ class tip2_client(Instrument):
         6:3 mV
         7:10 mV
         8:30 mV
-        '''
+        """
         if thermometer is None: thermometer = self.default_device
         self.send("SET/T/%i/EX/%i" % (channel, excitation))
         return bool(self.recv())

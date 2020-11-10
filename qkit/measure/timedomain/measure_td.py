@@ -423,6 +423,8 @@ class Measure_td(object):
         
         if self.comment:
             self._hdf.add_comment(self.comment)
+        self._hdf.hf.hf.attrs['default_ds'] = ['data0/amplitude_%i' % i for i in range(min(5,self.ndev))] +\
+                                              ['data0/phase_%i' % i for i in range(min(5,self.ndev))]
         if self.qviewkit_singleInstance and self.open_qviewkit and self._qvk_process:
             self._qvk_process.terminate()  # terminate an old qviewkit instance
         if self.open_qviewkit:
