@@ -6,4 +6,5 @@ qkit/config/local.py
 qkit/config/services.py
 qkit/logs/qkit.log
 
-.vscode
+.vscode/
+.mypy_cache/
