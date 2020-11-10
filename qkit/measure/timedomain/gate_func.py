@@ -116,7 +116,7 @@ class Gate_Func(object):
             time.sleep(0.05*seq_it)
 
         if tries > 4:
-            print 'Tektronix AWG reached first waveform after %d iterations.'%tries
+            print('Tektronix AWG reached first waveform after %d iterations.'%tries)
                 
     def _reset_tabor(self):
         """
