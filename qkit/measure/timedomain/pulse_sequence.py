@@ -297,7 +297,12 @@ class PulseSequence(object):
             PulseType.Wait: "w"
         }
 
-    def __call__(self, IQ_mixing: bool = False, **variables: Any) -> Union[Tuple[np.ndarray, int], None]:
+    def __call__(
+        self,
+        IQ_mixing: bool = False,
+        include_readout: bool = False,
+        **variables: Any
+    ) -> Union[Tuple[np.ndarray, int], None]:
         """
         Returns the envelope of the whole pulse sequence for the input time.
         Also returns the index where the readout pulse starts.
@@ -305,6 +310,7 @@ class PulseSequence(object):
 
         Args:
             IQ_mixing:   returns complex valued sequence if IQ_mixing is True (real part encodes I, imaginary part encodes Q)
+            include_readout:   If the readout pulse should be included in the resulting waveform
             **variables:    function arguments for time dependent pulse lengths/wait times. Parameter names need to match time function parameters.
 
 
@@ -348,15 +354,9 @@ class PulseSequence(object):
                 # Store index if this pulse is a readout pulse (will have the last one at the end)
                 if pulse.type == PulseType.Readout:
                     readout_index = position_of_next_slice
-                    # Readout pulses are not taken into account here
-                    # FIXME: As this is device specific, this should probably not be handled here
-                    #   or at least there should be an option to enable/disable readout pulses?
-                    if pulse.shape is not ShapeLib.zero or pulse.amplitude != 0:
+                    if not include_readout:
+                        # Readout pulses are not taken into account here
                         wfm[:] = 0
-                        logging.warning(
-                            "The readout pulse is just symbolic and has no impact on the waveform, " +
-                            "its amplitude was thus changed to 0."
-                        )
 
                 # Store the size of the last waveform in a slice
                 # This waveform has skip=False and thus the next slice will start when this pulse is finished
