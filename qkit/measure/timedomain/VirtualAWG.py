@@ -33,10 +33,12 @@ def all_are_same(array):
     """Check if all elements of a list are the same."""
     return all(item == array[0] for item in array)
 
+def _vars_len(variables: Dict[str, List[float]]):
+    return len(list(variables.values())[0])
 
 def dictify_variable_lists(variables):
     # type: (Dict[List[float]]) -> Generator[Dict[float]]
-    for i in range(len(variables.values()[0])):
+    for i in range(_vars_len(variables)):
         single_variables = {}
         for key in variables.keys():
             single_variables[key] = variables[key][i]
@@ -80,8 +82,7 @@ class TdChannel(object):
         """The number of loaded sequences."""
         return len(self._sequences)
 
-    def add_sequence(self, sequence, **variables):
-        # type: (ps.PulseSequence, **List[float]) -> bool
+    def add_sequence(self, sequence: ps.PulseSequence, **variables: List[float]) -> bool:
         """
         Append sequence to sequences currently stored in channel.
 
@@ -100,7 +101,7 @@ class TdChannel(object):
         if not all_are_same([len(v) for v in variables.values()]):
             logging.error("Length of variable lists do not match.")
             return False
-        elif len(variables.values()[0]) == 0:
+        elif _vars_len(variables) == 0:
             logging.error(
                 "The lists containing values of the variables must not be empty.")
             return False
@@ -190,7 +191,7 @@ class TdChannel(object):
 
         # Check if all variable vectors have same length
         # (Only need to check first variable of each vector, as within we already checked during add procedure)
-        if not all_are_same([len(vs.values()[0]) for vs in self._variables]):
+        if not all_are_same([_vars_len(vs) for vs in self._variables]):
             logging.error(
                 "Only sequences that have the same number of variables can be interleaved.")
             return False
@@ -309,7 +310,7 @@ class TdChannel(object):
         if self._interleave:
             seqs_temp = []
             ro_inds_temp = []
-            time_dim = len(self._variables[0].values()[0])
+            time_dim = _vars_len(self._variables[0])
             for i in range(time_dim):
                 seqs_temp += seq_list[i::time_dim]
                 ro_inds_temp += ro_inds[i::time_dim]
