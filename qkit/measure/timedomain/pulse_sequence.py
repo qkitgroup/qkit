@@ -215,9 +215,16 @@ class Pulse(object):
 
             return np.zeros(0)
 
-        time_fractions = np.arange(0, length, timestep) / length
-        envelope = amplitude * self.shape(time_fractions)
         time = np.arange(0, length, timestep)
+        time_fractions = time / length
+
+        if time_fractions[-1] >= 1.0:
+            # This can happen due to float rounding error -> cut it away
+            # (the shapes are only defined on [0,1) where 1 is not included)
+            time = time[:-1]
+            time_fractions = time_fractions[:-1]
+
+        envelope = amplitude * self.shape(time_fractions)
         if not heterodyne or envelope.size == 0 or self.iq_frequency == 0:
             return envelope
         # Empty envelope needs no IQ modulation and
