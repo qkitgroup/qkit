@@ -212,9 +212,9 @@ class TdChannel(object):
             show_iq = True
         sequences, readout_indices = self._get_sequences(IQ_mixing=show_iq)
         seq_max = len(readout_indices) - 1
-        if show_quadrature is "I":
+        if show_quadrature == "I":
             sequences = [np.real(seq) for seq in sequences]
-        elif show_quadrature is "Q":
+        elif show_quadrature == "Q":
             sequences = [np.imag(seq) for seq in sequences]
 
         bounds = self._get_boundaries(sequences, readout_indices, x_unit)
@@ -471,9 +471,9 @@ class VirtualAWG(object):
 
         for chan in self.channels[1:]:
             sequences, readout_indices = chan._get_sequences(IQ_mixing=show_iq)
-            if show_quadrature is "I":
+            if show_quadrature == "I":
                 sequences = [np.real(seq) for seq in sequences]
-            elif show_quadrature is "Q":
+            elif show_quadrature == "Q":
                 sequences = [np.imag(seq) for seq in sequences]
 
             seq_max = max(seq_max, len(readout_indices) - 1)
@@ -583,7 +583,7 @@ class VirtualAWG(object):
         Currently only enabled for the tabor awg.
         """
         # Case discrimination:
-        if self._sample.awg.get_name() is "tawg":
+        if self._sample.awg.get_name() == "tawg":
             sequences, readout_inds = self._sync()
             load_tawg.load_tabor(
                 sequences, readout_inds, self._sample, show_progress_bar=show_progress_bar)

@@ -141,13 +141,13 @@ def spinecho(sample, n_pi=1, pulse_shape=ps.ShapeLib.rect, amplitude=1, iq_frequ
 
     sequence = ps.PulseSequence(sample)
     sequence.add(pi2_pulse)
-    if n_pi is 0:
+    if n_pi == 0:
         sequence.add_wait(lambda t: t)
     else:
         sequence.add_wait(lambda t: t/(2*n_pi))
         for i in range(n_pi):
             sequence.add(pi_pulse)
-            if i + 1 is not n_pi:
+            if i + 1 != n_pi:
                 sequence.add_wait(lambda t: t/n_pi)
         sequence.add_wait(lambda t: t/(2*n_pi))
     sequence.add(pi2_pulse)
