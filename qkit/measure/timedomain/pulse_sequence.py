@@ -1,7 +1,10 @@
 """Module to provide a high-level possibility to arange pulses for an experiment."""
-
 from enum import Enum
 import numpy as np
+import inspect
+from typing import Dict, Set, List, Union, Callable, Any, Tuple
+import logging
+
 plot_enable = False
 try:
     import qkit
@@ -14,10 +17,6 @@ except (ImportError, AttributeError):
         plot_enable = True
     except ImportError:
         plot_enable = False
-from inspect import getargspec as getargspec
-from inspect import getsourcelines as getsourcelines
-from typing import Dict, Set
-import logging
 
 
 class Shape(np.vectorize):
@@ -26,7 +25,7 @@ class Shape(np.vectorize):
     defined on the standardized interval [0,1).
     """
 
-    def __init__(self, name, func, *args, **kwargs):
+    def __init__(self, name: str, func: Callable[[float], float], *args: Any, **kwargs: Any):
         self.name = name
         super(Shape, self).__init__(func, *args, **kwargs)
 
@@ -34,7 +33,7 @@ class Shape(np.vectorize):
         return Shape(self.name, lambda x: self.pyfunc(x) * other.pyfunc(x))
 
 
-class ShapeLib(object):
+class ShapeLibClass(object):
     """
     Object containing pre-defined pulse shapes.
     Currently implemented: rect, gauss
@@ -49,7 +48,7 @@ class ShapeLib(object):
 
 
 # Make ShapeLib a singleton:
-ShapeLib = ShapeLib()
+ShapeLib = ShapeLibClass()
 
 
 class PulseType(Enum):
@@ -59,18 +58,111 @@ class PulseType(Enum):
     Readout = 3
 
 
+class ParametrizedValue:
+    """
+    class for calculating the value of a lambda expression
+    value: Type lambda or float
+    """
+
+    Type = Union[float, Callable[..., float]]
+    """The type of the parametrized values as given by the user."""
+
+    def __init__(self, value: Type, name: str = ""):
+        if isinstance(value, int):
+            value = float(value)
+        self.name = name
+        self.value = value
+        self._variables: Set[str] = set()
+        if callable(value):
+            self._variables.update(inspect.getfullargspec(self.value).args)
+
+    def __call__(self, **kwargs: Any) -> float:
+        if self.is_parametrized:
+            useful_variables: Dict = {}
+            for key, value in kwargs.items():
+                if key in self.variables:
+                    useful_variables[key] = value
+            return self.value(**useful_variables)
+        else:
+            return self.value
+
+    def crop_string(self, function: str) -> str:
+        function = function[function.find(':')+1:]
+        output = function[:function.find(',')]
+        output = output.strip(' )\\n\']')
+        return output
+
+    def __str__(self) -> str:
+        if isinstance(self.value, float):
+            return str(self.value)
+        if self.value.__name__ != '<lambda>':
+            function_line = inspect.getsourcelines(self.value)
+            function_line_start = str(function_line).find(':')+1
+            return str(function_line)[6:function_line_start-1].strip()
+        else:
+            function = str(inspect.getsourcelines(self.value)[0])
+            counter = str(function).count(':')
+            if counter == 1:
+                return self.crop_string(function)
+            elif counter == 2:
+                if self.name == 'length':
+                    if 'length' in function:
+                        function_start = function.find('length')
+                        function = function[function_start:]
+                        return self.crop_string(function)
+                    else:
+                        return self.crop_string(function)
+                elif self.name == "amplitude":
+                    if 'amplitude' in function:
+                        function_start = function.find('amplitude')
+                        function = function[function_start:]
+                        return self.crop_string(function)
+                    else:
+                        cutting_point = function.find('lambda')
+                        function = function[cutting_point+6:]
+                        function_start = function.find('lambda')
+                        function = function[function_start:]
+                        return self.crop_string(function)
+                else:
+                    raise Exception(
+                        'unknown Parameter only length and amplitude are supportet')
+            else:
+                raise Exception(
+                    'too many lambda functions. Only length and amplitude can be lambda functions')
+
+    @property
+    def variables(self) -> Set[str]:
+        return self._variables
+
+    @property
+    def is_parametrized(self) -> bool:
+        return callable(self.value)
+
+
 class Pulse(object):
     """
     Class to describe a single pulse.
     """
 
-    def __init__(self, length, shape=ShapeLib.rect, name=None, amplitude=1., phase=0., iq_frequency=0., iq_dc_offset=0., iq_angle=90., q_rel=1., ptype=PulseType.Pulse):
+    def __init__(
+        self,
+        length: ParametrizedValue.Type,
+        shape: Shape = ShapeLib.rect,
+        name: str = None,
+        amplitude: ParametrizedValue.Type = 1.,
+        phase: float = 0.,
+        iq_frequency: float = 0.,
+        iq_dc_offset: float = 0.,
+        iq_angle: float = 90.,
+        q_rel: float = 1.,
+        ptype=PulseType.Pulse
+    ):
         """
         Inits a pulse with:
             length:       length of the pulse. This can also be a (lambda) function for variable pulse lengths.
             shape:        pulse shape (i.e. rect, gauss, ...)
             name:         name you want to give your pulse (i.e. pi-pulse, ...)
-            amplitude:    relative amplitude of your pulse
+            amplitude:    relative amplitude of your pulse. This can also be a (lambda) function for variable pulse amplitudes.
             phase:        phase of the pulse in deg. (i.e. 90 for pulse around y-axis of the bloch sphere)
             iq_frequency: IQ-frequency of your pulse for heterodyne mixing (if 0 homodyne mixing is employed)
             iq_dc_offset: complex dc offset for calibrating the IQ-mixer (real part for dc offset of I, imaginary part is dc offset of Q)
@@ -78,57 +170,39 @@ class Pulse(object):
             q_rel:        relative amplitude of Q in respect to I. This is needed for mixer calibration. If q_rel > 1 make sure you are still within the limits of your device.
             type:         The type of the created pulse (from enum PulseType: can be Pulse, Wait or Readout)
         """
-        if isinstance(length, float):
-            self.length = length  # type: float
-            self._variables = set()
 
-        elif callable(length):
-            self.length = length  # type: lambda
-            self._variables = set(getargspec(self.length).args)
-        else:
-            raise ValueError(
-                "Pulse length is not understood. Only floats and functions returning floats are allowed.")
-
-        self.shape = shape  # type: Shape
-        self.name = name  # type: string
-        self.amplitude = amplitude  # type: float
-        self.phase = phase  # type: float
-        self.iq_frequency = iq_frequency  # type: float
+        self.shape = shape
+        self.name = name or ""
+        self.amplitude = ParametrizedValue(amplitude, name="amplitude")
+        self.length = ParametrizedValue(length, name="length")
+        self.phase = phase
+        self.iq_frequency = iq_frequency
         self.iq_dc_offset = iq_dc_offset
         self.iq_angle = iq_angle
         self.q_rel = q_rel
-        self.type = ptype  # type: PulseType
+        self.type = ptype
 
-    def __call__(self, time_fractions):
-        """
-        Returns the envelope of the pulse as array for a given array of timesteps.
-
-        Args:
-            time_fractions: normalized time for the shape of the pulse
-
-        Returns:
-            envelope of the pulse as numpy array.
-        """
-        # Pulse class can be called like a vectorized function!
-        return self.amplitude * self.shape(time_fractions)
-
-    @property
-    def variable_names(self):
-        """A set with the names of all variables necessary to calculate the pulse length."""
-        return self._variables
-
-    def get_envelope(self, samplerate, **variables):
+    def __call__(
+        self,
+        samplerate: float,
+        heterodyne: bool = False,
+        start_phase: float = 0,
+        **variables: Any
+    ) -> np.ndarray:
         """
         Returns the pulse envelope for a given frequency and, if length is a function, with given variables as kwargs
 
         Args:
-            samplerate: sample rate for calculating the envelope
-            **variables: the variables for the length function, if any
+             samplerate: sample rate for calculating the envelope
+             heterodyne: Bool if True returns a complex envelope (defaults to False)
+             start_phase: the global phase at which the pulse should start (in rad, defaults to 0)
+            **variables: the variables for the length/amplitude function, if any
 
         Returns:
-            envelope of the pulse as numpy array
+            envelope of the pulse as numpy array.
         """
-        length = self.calculate_length(**variables)
+        length = self.length(**variables)
+        amplitude = self.amplitude(**variables)
         timestep = 1. / samplerate
 
         if length < timestep / 2.:
@@ -139,39 +213,20 @@ class Pulse(object):
                     )
                 )
 
-            # Return empty array
             return np.zeros(0)
 
         time_fractions = np.arange(0, length, timestep) / length
-        return self(time_fractions)
-
-    def get_complex_envelope(self, samplerate, start_phase=0, **variables):
-        """
-        Returns the envelope of the pulse as array with given time steps.
-
-        Args:
-            samplerate: samplerate for calculating the envelope
-            start_phase: the global phase at which the pulse should start (in rad, defaults to 0)
-            **variables: the variables for the length function, if any
-
-        Returns:
-            envelope of the pulse as numpy array
-        """
-        envelope = self.get_envelope(samplerate, **variables)
-
-        if not envelope or self.iq_frequency == 0:
-            # Empty envelope needs no IQ modulation and
-            # for homodyne mixing the envelope is real
-            return envelope
-        
-        length = self.calculate_length(**variables)
-        timestep = 1. / samplerate
+        envelope = amplitude * self.shape(time_fractions)
         time = np.arange(0, length, timestep)
-
-        envelope *= np.exp(1.j * (
-            start_phase - np.pi/180 * self.phase
-            + 2*np.pi * self.iq_frequency * time
-        ))
+        if not heterodyne or envelope.size == 0 or self.iq_frequency == 0:
+            return envelope
+        # Empty envelope needs no IQ modulation and
+        # for homodyne mixing the envelope is real
+        else:
+            envelope = envelope * np.exp(1.j * (
+                start_phase - np.pi/180 * self.phase
+                + 2*np.pi * self.iq_frequency * time
+            ))
 
         # account for mixer calibration i.e. dc offset and phase != 90deg between I and Q
         if self.iq_angle != 90 or self.q_rel != 1.:
@@ -183,28 +238,18 @@ class Pulse(object):
 
         return envelope
 
-    def calculate_length(self, **variables):
-        """Calculates the length of the pulse and takes variables given as kwargs into account.
+    @property
+    def variable_names(self) -> Set[str]:
+        """A set with the names of all variables necessary to calculate the pulse length and amplitude."""
+        return self.length.variables.union(
+            self.amplitude.variables)
 
-        Args:
-            **variables: the variables for the length function, if any
+    @property
+    def is_parametrized(self) -> bool:
+        """False if only fixed Values for length/amplitude
 
-        Returns:
-            The calculated length of the pulse
         """
-        if not callable(self.length):
-            return self.length
-
-        # Extract the given necessary variables (ignore other kwargs)
-        useful_variables = {
-            k: v for k, v in variables.items()
-            if k in self._variables
-        }
-        if self._variables != set(useful_variables.keys()):
-            raise ValueError("Given function arguments do not include all required ones. " +
-                             "The following keyword arguments are required: {}.".format(", ".join(self._variables)))
-
-        return self.length(**useful_variables)
+        return self.length.is_parametrized or self.amplitude.is_parametrized
 
 
 class PulseSequence(object):
@@ -222,7 +267,7 @@ class PulseSequence(object):
         get_pulses:  returns list of currently added pulses and their properties.
     """
 
-    def __init__(self, sample=None, samplerate=None, dc_corr=0):
+    def __init__(self, sample: Any = None, samplerate: float = None, dc_corr: float = 0):
         """
         Inits PulseSequence with sample and samplerate:
             sample:     Sample object
@@ -232,22 +277,27 @@ class PulseSequence(object):
                         The real part encodes the dc offset of I, the imaginary part is the dc offset of Q.
                         This correction is added to the dc offset during the pulse (i.e. of the pulse object).
         """
-        self._sequence = []  # type: List[List[Pulse]]
+        self._sequence: List[List[Pulse]] = []
         self._next_pulse_is_parallel = False
-        self._pulses = {}  # type: Dict[str, Pulse]
-        self._variables = set()  # type: Set[str]
+        self._pulses: Dict[str, Pulse] = {}
+        self._variables: Set[str] = set()
         self._sample = sample
-        self.dc_corr = dc_corr
+        self.dc_corr: float = dc_corr
         try:
             self.samplerate = self._sample.clock
         except AttributeError:
             self.samplerate = samplerate
 
-        self._color_palette = ["C0", "C1", "C2", "C3", "C4", "C5",
-                               "C6", "C8", "C9", "r", "g", "b", "y", "k", "m"]
-        self._pulse_cols = {PulseType.Readout: "C7", PulseType.Wait: "w"}
+        self._color_palette: List[str] = [
+            "C0", "C1", "C2", "C3", "C4", "C5",
+            "C6", "C8", "C9", "r", "g", "b", "y", "k", "m"
+        ]
+        self._pulse_cols: Dict[PulseType, str] = {
+            PulseType.Readout: "C7",
+            PulseType.Wait: "w"
+        }
 
-    def __call__(self, IQ_mixing=False, **variables):
+    def __call__(self, IQ_mixing: bool = False, **variables: Any) -> Union[Tuple[np.ndarray, int], None]:
         """
         Returns the envelope of the whole pulse sequence for the input time.
         Also returns the index where the readout pulse starts.
@@ -266,11 +316,11 @@ class PulseSequence(object):
         if self._variables != set(variables.keys()):
             logging.error("Given function arguments do not match with required ones. " +
                           "The following keyword arguments are required: {}.".format(", ".join(self._variables)))
-            return
+            return None
 
         if not self.samplerate:
             logging.error("Sequence call requires samplerate.")
-            return
+            return None
 
         # build the waveform of this sequence
         full_waveform = np.zeros(0)
@@ -284,13 +334,12 @@ class PulseSequence(object):
             last_wfm_length = 0
             for pulse in time_slice:
                 # create waveform array of the current pulse
-                if IQ_mixing:
-                    # adjust global phase relative to the beginning of the sequence
-                    start_phase = 2. * np.pi * pulse.iq_frequency * position_of_next_slice * timestep
-                    wfm = pulse.get_complex_envelope(
-                        self.samplerate, start_phase, **variables)
-                else:
-                    wfm = pulse.get_envelope(self.samplerate, **variables)
+                # adjust global phase relative to the beginning of the sequence
+                # (startphase is only relevant when IQ_mixing is True)
+                startphase = 2. * np.pi * pulse.iq_frequency * \
+                    position_of_next_slice * timestep  # zero for homodyne mixing
+                wfm = pulse(self.samplerate, start_phase=startphase,
+                            heterodyne=IQ_mixing, **variables)
 
                 # if (pulse_dict["pulse"].type == PulseType.Readout) and (i == len(self._sequence) - 1):
                 #     # if readout is last, omit the wfm (apart from a single digit)
@@ -299,6 +348,15 @@ class PulseSequence(object):
                 # Store index if this pulse is a readout pulse (will have the last one at the end)
                 if pulse.type == PulseType.Readout:
                     readout_index = position_of_next_slice
+                    # Readout pulses are not taken into account here
+                    # FIXME: As this is device specific, this should probably not be handled here
+                    #   or at least there should be an option to enable/disable readout pulses?
+                    if pulse.shape is not ShapeLib.zero or pulse.amplitude != 0:
+                        wfm[:] = 0
+                        logging.warning(
+                            "The readout pulse is just symbolic and has no impact on the waveform, " +
+                            "its amplitude was thus changed to 0."
+                        )
 
                 # Store the size of the last waveform in a slice
                 # This waveform has skip=False and thus the next slice will start when this pulse is finished
@@ -314,7 +372,7 @@ class PulseSequence(object):
                 wfm_slice += wfm
 
             # Resize waveform to be capable of holding current wfm_slice
-            new_waveform_length = max(
+            new_waveform_length: float = max(
                 len(full_waveform),
                 position_of_next_slice + len(wfm_slice)
             )
@@ -334,7 +392,7 @@ class PulseSequence(object):
 
         return full_waveform, readout_index + 1  # +1 due to leading 0
 
-    def add(self, pulse, skip=False):
+    def add(self, pulse: Pulse, skip: bool = False):
         """
         Append a pulse to the sequence.
 
@@ -347,18 +405,17 @@ class PulseSequence(object):
             logging.error(
                 "The pulse name has to be a string and must not be None.")
             return self
-        elif self._pulses.has_key(pulse.name) and not self._pulses[pulse.name] is pulse:
+        elif pulse.name in self._pulses and not self._pulses[pulse.name] is pulse:
             logging.error("Another pulse with the same name ({name}) is already present in the sequence!".format(
                 name=pulse.name))
             return self
 
         # Add the pulse to the pulse dictionary if it is not yet present
-        if not self._pulses.has_key(pulse.name):
+        if not pulse.name in self._pulses:
             self._pulses[pulse.name] = pulse
 
-        if callable(pulse.length):
             # Keep track of all variable names: Add them to a set of unique variable names
-            self._variables.update(getargspec(pulse.length).args)
+            self._variables.update(pulse.variable_names)
 
         if not self._next_pulse_is_parallel:
             # Add empty list for next pulse
@@ -371,22 +428,34 @@ class PulseSequence(object):
 
         return self
 
-    def add_wait(self, time, name=None):
+    def add_wait(self, time: ParametrizedValue.Type, name: str = None):
         """
         Add a wait time to the sequence.
         Use a (lambda) function for variable wait times.
 
-        Args:
-            time: float or function
-            name: A special name can be passed for this wait block (by default, wait[#] will be used)
+        Parameters
+        ----------
+        self : PulseSequence
+            the PulseSequence
+        time : ParametrizedValue.Type
+            the waiting period as float or function
+        name : str, optional
+            A special name can be passed for this wait block (by default, wait[#] will be used)
+        skip : bool, optional
+            if this wait should be parallel to the next item in the sequece, by default False
+
+        Returns
+        -------
+        PulseSequence
+            the PulsSequence with an added waiting period
         """
-        def compose_name(index):
+        def compose_name(index: int) -> str:
             return "wait[{}]".format(index)
 
         if name is None:
             # Find a unused name for the next wait "pulse"
             wait_index = 0
-            while self._pulses.has_key(compose_name(wait_index)):
+            while compose_name(wait_index) in self._pulses:
                 wait_index += 1
             name = compose_name(wait_index)
 
@@ -394,21 +463,29 @@ class PulseSequence(object):
                            name=name, ptype=PulseType.Wait)
         return self.add(wait_pulse)
 
-    def add_readout(self, skip=False, pulse=None):
+    def add_readout(self, pulse: Pulse = None, skip: bool = False):
         """
         Add a readout pulse to the sequence.
 
-        Args:
-            skip: If True the next pulse will follow at the same time as the readout.
-            pulse: A user-defined readout pulse can be specified if necessary.
+        Parameters
+        ----------
+        skip : bool, optional
+            If True the next pulse will follow at the same time as the readout, by default False.
+        pulse : Pulse, optional
+            pulse: A user-defined readout pulse can be specified if necessary, by default rectangular shaped Pulse with lengtht as specified in sample.
+
+        Returns
+        -------
+        PulseSequence
+            The PulseSequence with an added Readout
         """
-        def compose_name(index):
+        def compose_name(index: int) -> str:
             return "readout[{}]".format(index)
 
         if pulse is None:
             # Find a unused name for the next readout pulse
             readout_index = 0
-            while self._pulses.has_key(compose_name(readout_index)):
+            while compose_name(readout_index) in self._pulses:
                 readout_index += 1
             name = compose_name(readout_index)
 
@@ -418,36 +495,30 @@ class PulseSequence(object):
             except AttributeError:
                 readout_length = 0.
 
-            # Create the readout pulse (just a symbolic placeholder)
             readout_pulse = Pulse(
-                readout_length, shape=ShapeLib.zero, name=name, ptype=PulseType.Readout)
+                readout_length, name=name, ptype=PulseType.Readout)
         else:
             # If a special pulse is needed, user can add it
-            readout_pulse = pulse  # type: Pulse
+            readout_pulse = pulse
 
             if readout_pulse.type != PulseType.Readout:
                 readout_pulse.type = PulseType.Readout
                 logging.warning(
                     "The type of the added pulse has to be Readout and was changed accordingly.")
 
-            if readout_pulse.shape is not ShapeLib.zero or readout_pulse.amplitude != 0:
-                readout_pulse.amplitude = 0
-                logging.warning(
-                    "The readout pulse is just symbolic and has no impact on the waveform, its amplitude was thus changed to 0.")
-
-        return self.add(readout_pulse)
+        return self.add(readout_pulse, skip)
 
     @property
-    def variable_names(self):
+    def variable_names(self) -> Set[str]:
         """A set with the names of all variables present in this sequence."""
         return self._variables
 
-    def get_pulses(self):
+    def get_pulses(self) -> List[Dict[str, Any]]:
         """
-        Returns a list of all pulses and their properties. 
+        Returns a list of all pulses and their properties.
         The properties of each pulse are stored in a dictionary with keys: name, shape, length, skip value
         """
-        dict_list = []
+        dict_list: List[Dict[str, Any]] = []
         for time_slice in self._sequence:
             for i, pulse in enumerate(time_slice):
                 # This is more for legacy reasons
@@ -461,6 +532,16 @@ class PulseSequence(object):
                 })
         return dict_list
 
+    @property
+    def pulses(self) -> Dict[str, Pulse]:
+        """A dictionary containing pulse name as key and pulse as value"""
+        return self._pulses
+
+    @property
+    def sequence(self) -> List[List[Pulse]]:
+        """A List of Lists containing pulses. If pulses are paralles they will be in the same sublist"""
+        return self._sequence
+
     def plot(self):
         """
         Plot a schematic of the stored pulses.
@@ -472,7 +553,7 @@ class PulseSequence(object):
         amp = 1
         ampmax = 1
         remaining_colors = self._color_palette[:]
-        pulse_colors = {}  # type: Dict[str, str]
+        pulse_colors: Dict[str, str] = {}
 
         for i, time_slice in enumerate(self._sequence):
             for amp, pulse in enumerate(reversed(time_slice)):
@@ -483,7 +564,7 @@ class PulseSequence(object):
                     name=pulse.name,
                     shape=pulse.shape.name,
                     time=(
-                        self._pulselength_as_str(pulse.length)
+                        pulse.length
                         if pulse.type != PulseType.Readout else ""
                     )
                 )
@@ -518,11 +599,11 @@ class PulseSequence(object):
                         horizontalalignment="center", verticalalignment="center")
 
         # make sure plot looks nice and fits on the screen (max number of pulses before scaling down is 9)
-        size = 2.*min(1., 9./(i + 1))
+        size = 2.*min(1., 9./len(self._sequence))
         fig.set_figheight(size * ampmax)
-        fig.set_figwidth(size * i + 2.)
+        fig.set_figwidth(size * (len(self._sequence) - 1) + 2.)
         ax.set_xlabel("pulse number")
-        ax.set_xticks(np.arange(i + 1))
+        ax.set_xticks(np.arange(len(self._sequence)))
         plt.xlim(-0.05, )
         # hide y ticks
         ax.set_yticks([])
@@ -530,27 +611,3 @@ class PulseSequence(object):
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         return
-
-    def _pulselength_as_str(self, pulse_length):
-        """
-        Returns the pulse length as string.
-        For variable time pulses this is the function code.
-
-        Args:
-            pulse_length: length of the pulse (float or function)
-        """
-        length = None
-        if callable(pulse_length):
-            fct_code = getsourcelines(pulse_length)[0][0]
-            fct_start = fct_code.find(":") + 1
-            # find last bracket
-            fct_end = len(fct_code) - fct_code[::-1].find(")") - 1
-            length = fct_code[fct_start: fct_end]
-            fct_end = length.find(",")
-            if fct_end is not -1:
-                length = length[: fct_end]
-        elif isinstance(pulse_length, float):
-            length = str(pulse_length) + " s"
-        if length is None:
-            return ""
-        return str(length).strip()
