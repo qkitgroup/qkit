@@ -5,18 +5,13 @@ import inspect
 from typing import Dict, Set, List, Union, Callable, Any, Tuple
 import logging
 
+
 plot_enable = False
 try:
-    import qkit
-    if qkit.module_available("matplotlib"):
-        import matplotlib.pyplot as plt
-        plot_enable = True
-except (ImportError, AttributeError):
-    try:
-        import matplotlib.pyplot as plt
-        plot_enable = True
-    except ImportError:
-        plot_enable = False
+    import matplotlib.pyplot as plt
+    plot_enable = True
+except ImportError:
+    pass
 
 
 class Shape(np.vectorize):

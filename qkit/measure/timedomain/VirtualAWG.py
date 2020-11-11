@@ -25,8 +25,12 @@ import qkit
 import qkit.measure.timedomain.pulse_sequence as ps
 import qkit.measure.timedomain.awg.load_tawg as load_tawg
 
-if qkit.module_available("matplotlib"):
+PLOT_ENABLE = False
+try:
     import matplotlib.pyplot as plt
+    PLOT_ENABLE = True
+except ImportError:
+    pass
 
 # Helper functions
 def all_are_same(array):
@@ -239,7 +243,7 @@ class TdChannel(object):
             x_unit: x_unit for the time axis
             bounds: boundaries for the plot (xmin, xmax, ymin, ymax)
         """
-        if not qkit.module_available("matplotlib"):
+        if not PLOT_ENABLE:
             raise ImportError("matplotlib not found.")
         
         if plot_readout:
@@ -518,7 +522,7 @@ class VirtualAWG(object):
             bounds:          boundaries of the plot (xmin, xmax, ymin, ymax)
             show_quadrature: set to "I" or "Q" if you want to display either quadrature instead of the amplitude
         """
-        if not qkit.module_available("matplotlib"):
+        if not PLOT_ENABLE:
             raise ImportError("matplotlib not found.")
 
         try:
