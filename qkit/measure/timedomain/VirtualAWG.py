@@ -198,6 +198,11 @@ class TdChannel(object):
 
         self._interleave = True
         return True
+    
+    @property
+    def is_interleaved(self):
+        """If the sequences in this channel are to be played interleaved."""
+        return self._interleave
 
     def plot(self, show_quadrature="", x_unit="ns"):
         """
@@ -246,15 +251,21 @@ class TdChannel(object):
         # make sure last point of the waveform goes to zero
         seq = np.append(seq, 0)
 
+        try:
+            readout_tone = self._sample.rec_pulselength
+        except AttributeError:
+            readout_tone = self._sample.readout_tone_length
+
+
         # plot sequence
         plt.plot(time, seq, col)
         plt.fill(time, seq, color=col, alpha=0.2)
         # plot readout
         if plot_readout:
-            plt.fill([0, 0, - self._sample.readout_tone_length / self._x_unit[x_unit], - self._sample.readout_tone_length / self._x_unit[x_unit]],
+            plt.fill([0, 0, - readout_tone / self._x_unit[x_unit], - readout_tone / self._x_unit[x_unit]],
                      [0, ymax, ymax, 0], color="C7", alpha=0.3)
             # add label for readout
-            plt.text(-0.5*self._sample.readout_tone_length / self._x_unit[x_unit], ymax/2.,
+            plt.text(-0.5*readout_tone / self._x_unit[x_unit], ymax/2.,
                      "readout", horizontalalignment="center", verticalalignment="center", rotation=90, size=14)
         # adjust bounds
         plt.xlim(xmin + 0.005 * abs(xmax - xmin),
@@ -275,10 +286,15 @@ class TdChannel(object):
         Returns:
             List of boundaries (xmin, xmax, ymin, ymax)
         """
+        try:
+            readout_tone = self._sample.rec_pulselength
+        except AttributeError:
+            readout_tone = self._sample.readout_tone_length
+
         xmin = max(readout_indices) / \
             (self._x_unit[x_unit] * self._sample.clock)
         xmax = - (max(np.array([len(seq) for seq in sequences]) - np.array(readout_indices)) /
-                  self._sample.clock + self._sample.readout_tone_length)/self._x_unit[x_unit]
+                  self._sample.clock + readout_tone)/self._x_unit[x_unit]
         ymin = np.amin(np.concatenate(sequences))
         ymax = np.amax(np.concatenate(sequences))
         bounds = [xmin, xmax, ymin, ymax]
@@ -505,6 +521,11 @@ class VirtualAWG(object):
         if not qkit.module_available("matplotlib"):
             raise ImportError("matplotlib not found.")
 
+        try:
+            readout_tone = self._sample.rec_pulselength
+        except AttributeError:
+            readout_tone = self._sample.readout_tone_length
+
         fig = plt.figure(figsize=(18,6))
         xmin, xmax, ymin, ymax = bounds
         samplerate = self._sample.clock
@@ -515,10 +536,10 @@ class VirtualAWG(object):
                                     x_unit, bounds, col=self._chancols[i + 1], plot_readout=False)
 
             # plot readout
-        plt.fill([0, 0, - self._sample.readout_tone_length / self._x_unit[x_unit], - self._sample.readout_tone_length / self._x_unit[x_unit]],
+        plt.fill([0, 0, - readout_tone / self._x_unit[x_unit], - readout_tone / self._x_unit[x_unit]],
                  [0, ymax, ymax, 0], color="C7", alpha=0.3)
         # add label for readout
-        plt.text(-0.5*self._sample.readout_tone_length / self._x_unit[x_unit], ymax/2.,
+        plt.text(-0.5*readout_tone / self._x_unit[x_unit], ymax/2.,
                  "readout", horizontalalignment="center", verticalalignment="center", rotation=90, size=14)
 
         # adjust plot limits

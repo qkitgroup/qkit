@@ -498,9 +498,12 @@ class PulseSequence(object):
 
             # Try to determine useful readout tone length
             try:
-                readout_length = self._sample.readout_tone_length
+                readout_length = self._sample.rec_pulselength
             except AttributeError:
-                readout_length = 0.
+                try:
+                    readout_length = self._sample.readout_tone_length
+                except AttributeError:
+                    readout_length = 0.
 
             readout_pulse = Pulse(
                 readout_length, name=name, ptype=PulseType.Readout)
