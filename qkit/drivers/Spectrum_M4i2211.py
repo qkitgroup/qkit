@@ -134,6 +134,7 @@ class Spectrum_M4i2211(Instrument):
         #self.add_function('_set_param')
 
         self.reset()
+        self.init_channel01_multiple_recording()
 
     def __del__(self):
         '''
@@ -164,43 +165,66 @@ class Spectrum_M4i2211(Instrument):
         '''
         if platform.architecture()[0] == '64bit':
             pf_64Bit = True
+            drv_handle= POINTER(c_uint64)
         else:
             pf_64Bit = False
+            drv_handle = c_void_p
 
         if pf_64Bit:
             logging.debug(__name__ + ' : Loading spcm_win64.dll')
             self._spcm_win32 = windll.LoadLibrary('C:\\WINDOWS\\System32\\spcm_win64.dll')
 
             #function names are not decorated in the 64 bit version
-            self._spcm_win32.open           = self._spcm_win32["spcm_hOpen"]
-            self._spcm_win32.close          = self._spcm_win32["spcm_vClose"]
-            self._spcm_win32.SetParam32     = self._spcm_win32["spcm_dwSetParam_i32"]
-            self._spcm_win32.SetParam64m    = self._spcm_win32["spcm_dwSetParam_i64m"]
-            self._spcm_win32.SetParam64     = self._spcm_win32["spcm_dwSetParam_i64"]
-            self._spcm_win32.GetParam32     = self._spcm_win32["spcm_dwGetParam_i32"]
-            self._spcm_win32.GetParam64m    = self._spcm_win32["spcm_dwGetParam_i64m"]
-            self._spcm_win32.GetParam64     = self._spcm_win32["spcm_dwGetParam_i64"]
-            self._spcm_win32.DefTransfer64m = self._spcm_win32["spcm_dwDefTransfer_i64m"]
-            self._spcm_win32.DefTransfer64  = self._spcm_win32["spcm_dwDefTransfer_i64"]
-            self._spcm_win32.InValidateBuf  = self._spcm_win32["spcm_dwInvalidateBuf"]
-            self._spcm_win32.GetErrorInfo   = self._spcm_win32["spcm_dwGetErrorInfo_i32"]
+            self._spcm_win32.open           = getattr (self._spcm_win32, "spcm_hOpen")
+            self._spcm_win32.close          = getattr (self._spcm_win32, "spcm_vClose")
+            self._spcm_win32.SetParam32     = getattr (self._spcm_win32, "spcm_dwSetParam_i32")
+            self._spcm_win32.SetParam64m    = getattr (self._spcm_win32, "spcm_dwSetParam_i64m")
+            self._spcm_win32.SetParam64     = getattr (self._spcm_win32, "spcm_dwSetParam_i64")
+            self._spcm_win32.GetParam32     = getattr (self._spcm_win32, "spcm_dwGetParam_i32")
+            #self._spcm_win32.GetParam64m    = self._spcm_win32["spcm_dwGetParam_i64m"]
+            self._spcm_win32.GetParam64     = getattr (self._spcm_win32, "spcm_dwGetParam_i64")
+            #self._spcm_win32.DefTransfer64m = self._spcm_win32["spcm_dwDefTransfer_i64m"]
+            self._spcm_win32.DefTransfer64  = getattr (self._spcm_win32, "spcm_dwDefTransfer_i64")
+            self._spcm_win32.InValidateBuf  = getattr (self._spcm_win32, "spcm_dwInvalidateBuf")
+            self._spcm_win32.GetErrorInfo   = getattr (self._spcm_win32, "spcm_dwGetErrorInfo_i32")
 
         else:
             logging.debug(__name__ + ' : Loading spcm_win32.dll')
             self._spcm_win32 = windll.LoadLibrary('C:\\WINDOWS\\System32\\spcm_win32')
 
-            self._spcm_win32.open           = self._spcm_win32["_spcm_hOpen@4"]
-            self._spcm_win32.close          = self._spcm_win32["_spcm_vClose@4"]
-            self._spcm_win32.SetParam32     = self._spcm_win32["_spcm_dwSetParam_i32@12"]
-            self._spcm_win32.SetParam64m    = self._spcm_win32["_spcm_dwSetParam_i64m@16"]
-            self._spcm_win32.SetParam64     = self._spcm_win32["_spcm_dwSetParam_i64@16"]
-            self._spcm_win32.GetParam32     = self._spcm_win32["_spcm_dwGetParam_i32@12"]
-            self._spcm_win32.GetParam64m    = self._spcm_win32["_spcm_dwGetParam_i64m@16"]
-            self._spcm_win32.GetParam64     = self._spcm_win32["_spcm_dwGetParam_i64@12"]
-            self._spcm_win32.DefTransfer64m = self._spcm_win32["_spcm_dwDefTransfer_i64m@36"]
-            self._spcm_win32.DefTransfer64  = self._spcm_win32["_spcm_dwDefTransfer_i64@36"]
-            self._spcm_win32.InValidateBuf  = self._spcm_win32["_spcm_dwInvalidateBuf@8"]
-            self._spcm_win32.GetErrorInfo   = self._spcm_win32["_spcm_dwGetErrorInfo_i32@16"]
+            self._spcm_win32.open           = getattr (self._spcm_win32, "_spcm_hOpen@4")
+            self._spcm_win32.close          = getattr (self._spcm_win32, "_spcm_vClose@4")
+            self._spcm_win32.SetParam32     = getattr (self._spcm_win32, "_spcm_dwSetParam_i32@12")
+            self._spcm_win32.SetParam64m    = getattr (self._spcm_win32, "_spcm_dwSetParam_i64m@16")
+            self._spcm_win32.SetParam64     = getattr (self._spcm_win32, "_spcm_dwSetParam_i64@16")
+            self._spcm_win32.GetParam32     = getattr (self._spcm_win32, "_spcm_dwGetParam_i32@12")
+            #self._spcm_win32.GetParam64m    = self._spcm_win32["_spcm_dwGetParam_i64m@16"]
+            self._spcm_win32.GetParam64     = getattr (self._spcm_win32, "_spcm_dwGetParam_i64@12")
+            #self._spcm_win32.DefTransfer64m = self._spcm_win32["_spcm_dwDefTransfer_i64m@36"]
+            self._spcm_win32.DefTransfer64  = getattr (self._spcm_win32, "_spcm_dwDefTransfer_i64@36")
+            self._spcm_win32.InValidateBuf  = getattr (self._spcm_win32, "_spcm_dwInvalidateBuf@8")
+            self._spcm_win32.GetErrorInfo   = getattr (self._spcm_win32, "_spcm_dwGetErrorInfo_i32@16")
+
+        self._spcm_win32.open.argtype = [c_char_p]
+        self._spcm_win32.open.restype = drv_handle
+        self._spcm_win32.close.argtype = [drv_handle]
+        self._spcm_win32.close.restype = None
+        self._spcm_win32.SetParam32.argtype = [drv_handle, c_int32, c_int32]
+        self._spcm_win32.SetParam32.restype = c_uint32
+        self._spcm_win32.SetParam64m.argtype = [drv_handle, c_int32, c_int32, c_int32]
+        self._spcm_win32.SetParam64m.restype = c_uint32
+        self._spcm_win32.SetParam64.argtype = [drv_handle, c_int32, c_int64]
+        self._spcm_win32.SetParam64.restye = c_uint32
+        self._spcm_win32.GetParam32.argtype = [drv_handle, c_int32, POINTER (c_int32)]
+        self._spcm_win32.GetParam32.restype = c_uint32
+        self._spcm_win32.GetParam64.argtype = [drv_handle, c_int32, POINTER (c_int64)]
+        self._spcm_win32.GetParam64.restype = c_uint32
+        self._spcm_win32.DefTransfer64.argtype = [drv_handle, c_uint32, c_uint32, c_uint32, c_void_p, c_uint64, c_uint64]
+        self._spcm_win32.DefTransfer64.restype = c_uint32
+        self._spcm_win32.InValidateBuf.argtype = [drv_handle, c_uint32]
+        self._spcm_win32.InValidateBuf.restype = c_uint32
+        self._spcm_win32.GetErrorInfo.argtype = [drv_handle, POINTER (c_uint32), POINTER (c_int32), c_char_p]
+        self._spcm_win32.GetErrorInfo.restype = c_uint32
 
     def _open(self):
         '''
@@ -215,7 +239,7 @@ class Spectrum_M4i2211(Instrument):
         '''
         logging.debug(__name__ + ' : Try to open card')
         if ( not self._card_is_open):
-          self._spcm_win32.handel = self._spcm_win32.open('spcm0')
+          self._spcm_win32.handel = self._spcm_win32.open(create_string_buffer (b'spcm0'))
           self._card_is_open = True
         else:
           logging.warning(__name__ + ' : Card is already open !')
@@ -383,11 +407,11 @@ class Spectrum_M4i2211(Instrument):
 
         self._spcm_win32.GetErrorInfo(self._spcm_win32.handel, p_er1, p_er2, p_errortekst)
 
-        tekst = ""
+        tekst = b""
 
         for ii in range(200):
             tekst  = tekst + p_errortekst.contents[ii]
-        logging.error(__name__ + ' : ' + tekst)
+        logging.error(__name__ + ' : ' + str(tekst))
         return tekst
 
 
@@ -557,6 +581,7 @@ class Spectrum_M4i2211(Instrument):
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_TRIG_CH_ORMASK1,     0);
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_TRIG_CH_ANDMASK0,    0);
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_TRIG_CH_ANDMASK1,    0);
+
         self.set_trigger_ext0_level0(800)
         self.set_trigger_ext0_level1(200)
         self.set_clock_50Ohm()
@@ -617,10 +642,12 @@ class Spectrum_M4i2211(Instrument):
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_TRIG_CH_ORMASK1,     0);
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_TRIG_CH_ANDMASK0,    0);
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_TRIG_CH_ANDMASK1,    0);
+
         self.set_trigger_ext0_level0(800)
         self.set_trigger_ext0_level1(200)
         self.set_clock_50Ohm()
-        self.set_clockmode_ext()
+        #self.set_clockmode_ext()
+        self.set_clockmode_pll()
 
 #########################
 ### General
@@ -710,7 +737,7 @@ class Spectrum_M4i2211(Instrument):
         logging.debug(__name__ + ' : Card started with trigger')
         self._buffer_setup()
         self._set_param(_spcm_regs.SPC_M2CMD,
-            _spcm_regs.M2CMD_CARD_START | _spcm_regs.M2CMD_CARD_ENABLETRIGGER)
+            _spcm_regs.M2CMD_CARD_START | _spcm_regs.M2CMD_CARD_ENABLETRIGGER | _spcm_regs.M2CMD_DATA_STARTDMA)
 
     def start_with_trigger_and_waitready(self):
         '''
@@ -1363,7 +1390,6 @@ class Spectrum_M4i2211(Instrument):
         if data == 'timeout':
             return data
         data = numpy.array(data, numpy.float32)
-        data = []
         data = 2.0 * amp * (data / 255.0) + offset
         return data
 
@@ -1371,7 +1397,7 @@ class Spectrum_M4i2211(Instrument):
         lMemsize = self.get_memsize()
         lSegsize = self.get_segmentsize()
 
-        lnumber_of_segments = lMemsize / lSegsize
+        lnumber_of_segments = int(lMemsize / lSegsize)
 
         data = self.readout_raw_buffer()
         if data == 'timeout':
@@ -1386,7 +1412,7 @@ class Spectrum_M4i2211(Instrument):
         amp = float(self.get_input_amp_ch0())
         offset = float(self.get_input_offset_ch0())
 
-        lnumber_of_segments = lMemsize / lSegsize
+        lnumber_of_segments = int(lMemsize / lSegsize)
 
         data = self.readout_raw_buffer()
         if data == 'timeout':
@@ -1423,7 +1449,7 @@ class Spectrum_M4i2211(Instrument):
         lMemsize = self.get_memsize()
         lSegsize = self.get_segmentsize()
 
-        lnumber_of_segments = lMemsize / lSegsize
+        lnumber_of_segments = int(lMemsize / lSegsize)
 
         data = self.readout_raw_buffer(nr_of_channels=2)
         if data == 'timeout':
@@ -1441,7 +1467,7 @@ class Spectrum_M4i2211(Instrument):
         amp1 = float(self.get_input_amp_ch0())
         offset1 = float(self.get_input_offset_ch1())
 
-        lnumber_of_ssegments = lMemsize / lSegsize
+        lnumber_of_segments = int(lMemsize / lSegsize)
 
         data = self.readout_raw_buffer(nr_of_channels=2)
         if data == 'timeout':

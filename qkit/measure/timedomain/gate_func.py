@@ -67,9 +67,17 @@ class Gate_Func(object):
         self.selftriggered = (self.pulser == None and self.ni_daq == None)
         
         if self.selftriggered:
-            self._gate_low  =  lambda: self.awg.set({'trigger_time':2, 'p1_trigger_time':2})
-            self._gate_high = lambda: self.awg.set({'trigger_time':sample.T_rep, 'p1_trigger_time':sample.T_rep})
-        
+            if 'Tabor' in self.awg.get_type():
+                if (awg._numchannels == 4):
+                    self._gate_low  =  lambda: self.awg.set({'p1_trigger_time':2,'p2_trigger_time':2})
+                    self._gate_high =  lambda: self.awg.set({'p1_trigger_time':sample.T_rep, 'p2_trigger_time':sample.T_rep})
+                else:
+                    self._gate_low  =  lambda: self.awg.set({'trigger_time':2})
+                    self._gate_high =  lambda: self.awg.set({'trigger_time':sample.T_rep})
+            else:
+                self._gate_low  =  lambda: self.awg.set({'trigger_time':2,'p1_trigger_time':2})
+                self._gate_high =  lambda: self.awg.set({'trigger_time':sample.T_rep, 'p1_trigger_time':sample.T_rep})
+
         if self.selftriggered and not ('Tabor' in self.awg.get_type()):
             raise ValueError("selftriggered mode (without pulser and nidaq) is currently only available for Tabor AWGs.")
         self.ni_daq_ch = ni_daq_ch
@@ -113,10 +121,10 @@ class Gate_Func(object):
             self.awg.wait()
             self.awg.run()
             #self.awg.wait()
-            time.sleep(0.05*seq_it)
+            #time.sleep(0.05*seq_it)
 
         if tries > 4:
-            print 'Tektronix AWG reached first waveform after %d iterations.'%tries
+            print('Tektronix AWG reached first waveform after %d iterations.'%tries)
                 
     def _reset_tabor(self):
         """

@@ -53,6 +53,8 @@ class Keysight_VNA_E5071C(Instrument):
         self._start = 0
         self._stop = 0
         self._nop = 0
+        self._active_trace = None
+        self._visainstrument.timeout = 3500
 
         # Implement parameters
         self.add_parameter('nop', type=int,
@@ -263,7 +265,7 @@ class Keysight_VNA_E5071C(Instrument):
         self._visainstrument.write('FORM:DATA REAL')
         self._visainstrument.write('FORM:BORD SWAPPED') #SWAPPED
         #data = self._visainstrument.ask_for_values('CALC%d:SEL:DATA:SDAT?'%(self._ci), format = visa.double)              
-        data = self._visainstrument.ask_for_values('CALC%i:SEL:DATA:SDAT?'%(self._ci), fmt = 3)
+        data = self._visainstrument.query_binary_values('CALC%i:SEL:DATA:SDAT?'%(self._ci), datatype='d')
         data_size = numpy.size(data)
         datareal = numpy.array(data[0:data_size:2])
         dataimag = numpy.array(data[1:data_size:2])
@@ -287,7 +289,7 @@ class Keysight_VNA_E5071C(Instrument):
       
     def get_freqpoints(self, query = False):      
       if query == True:        
-        self._freqpoints = self._visainstrument.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; :SENS%i:FREQ:DATA?'%(self._ci), format = visa.double)
+        self._freqpoints = self._visainstrument.query_binary_values('FORM:DATA REAL; FORM:BORD SWAPPED; :SENS%i:FREQ:DATA?'%(self._ci), datatype='d')
       
         #self._freqpoints = numpy.array(self._visainstrument.ask_for_values('SENS%i:FREQ:DATA:SDAT?'%self._ci,format=1)) / 1e9
         #self._freqpoints = numpy.array(self._visainstrument.ask_for_values(':FORMAT REAL,32;*CLS;CALC1:DATA:STIM?;*OPC',format=1)) / 1e9
@@ -875,10 +877,10 @@ class Keysight_VNA_E5071C(Instrument):
 
     def do_get_active_trace(self):
         """
-        :return: the active trace on the VNA
+        :return: the active trace on the VNA formatted to log amplitude
         """
-        # TODO: ask device
-        return self._active_trace
+        self._active_trace = self._visainstrument.query_binary_values('CALC{}:DATA:FDAT?'.format(self._ci), datatype='d')[0::2]
+        #return self._active_trace
 
     def do_get_sweep_type(self):
         '''
@@ -897,7 +899,7 @@ class Keysight_VNA_E5071C(Instrument):
         '''
         logging.debug(__name__ + ' : getting sweep type')
         
-        return str(self._visainstrument.ask('SENS%i:SWE:TYPE?' %(self._ci))).rstrip()
+        return str(self._visainstrument.query('SENS%i:SWE:TYPE?' %(self._ci))).rstrip()
     
     def do_set_sweep_type(self,swtype):
         '''

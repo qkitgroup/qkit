@@ -195,7 +195,7 @@ class PulseSequence(object):
             logging.error("Sequence call requires samplerate.")
             return
         
-        if kwargs.has_key("IQ_mixing"):
+        if "IQ_mixing" in kwargs:
             IQ_mixing = kwargs["IQ_mixing"]
         else:
             IQ_mixing = False

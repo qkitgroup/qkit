@@ -53,10 +53,10 @@ class virtual_MultiplexingReadout(Instrument):
         #self._instruments = instruments.get_instruments()
 
         # Add parameters
-        self.add_parameter('LO',    type=float, flags=Instrument.FLAG_GETSET, units='Hz')
-        self.add_parameter('tone_freq', type=types.TupleType, flags=Instrument.FLAG_GETSET, units='Hz')
-        self.add_parameter('tone_relamp', type=types.TupleType, flags=Instrument.FLAG_GETSET, units='')
-        self.add_parameter('tone_pha', type=types.TupleType, flags=Instrument.FLAG_GETSET, units='rad')
+        self.add_parameter('LO', type=float, flags=Instrument.FLAG_GETSET, units='Hz')
+        self.add_parameter('tone_freq', type=list, flags=Instrument.FLAG_GETSET, units='Hz')
+        self.add_parameter('tone_relamp', type=tuple, flags=Instrument.FLAG_GETSET, units='')
+        self.add_parameter('tone_pha', type=tuple, flags=Instrument.FLAG_GETSET, units='rad')
         self.add_parameter('tone_amp', type=float, flags=Instrument.FLAG_GETSET, units='V')
         self.add_parameter('adc_clock',     type=float, flags=Instrument.FLAG_GET, units='Hz')
         self.add_parameter('dac_clock',     type=float, flags=Instrument.FLAG_SET, units='Hz')
@@ -81,30 +81,8 @@ class virtual_MultiplexingReadout(Instrument):
             self._awg = None
             logging.warning("You haven't provided a readout_awg. I can't set the readout pulse for you."
                             "Please also think of specifying the readout if-frequency.")
-        # check that awg name exists
         if self._awg:
-            try:
-                self._awg.get_type()
-            except AttributeError:
-                logging.error('Cannot resolve awg name. Provide name attribute in awg instrument driver.')
-            if "GHzDAC" == self._awg.get_type():   #Martinis board
-                self.do_set_dac_delay(0)
-                #self._dac_duration = 10e-9
-            elif "Tabor_WX1284C" == self._awg.get_type():   #Tabor AWG
-                self._awg.set_trigger_impedance(50)   #50 Ohms
-                self._awg.preset_readout()   #sets runmode = 'AUTO', trigger_mode='TRIG', starts with the end of the manipulation signal
-                self.do_set_dac_delay(-1)
-            elif "Tektronix" in self._awg.get_type():
-                self.do_set_dac_delay(0)
-                self._awg.set_ch1_status(True)
-                self._awg.set_ch2_status(True)
-                self._awg.run()
-                self._awg.wait(10,False)
-            else:
-                logging.error('Specified AWG unknown. Aborting.')
-                raise ImportError
             #default settings
-            
             try:
                 self._awg.set_clock(self.sample.readout_clock)
                 self._dac_clock = self._awg.get_clock()
@@ -119,9 +97,43 @@ class virtual_MultiplexingReadout(Instrument):
             except Exception as m:
                 logging.error('Defaults not set properly: '+str(m))
                 raise ImportError
+
+            #specific settings + check that awg name exists
+            try:
+                self._awg.get_type()
+            except AttributeError:
+                logging.error('Cannot resolve awg name. Provide name attribute in awg instrument driver.')
+            if "GHzDAC" == self._awg.get_type():   #Martinis board
+                self.do_set_dac_delay(0)
+                #self._dac_duration = 10e-9
+            elif "Tabor_WX1284C" == self._awg.get_type():   #Tabor AWG
+                self._awg.set_trigger_impedance(50)   #50 Ohms
+                self.do_set_dac_delay(-1)
+
+                if (self._awg._numchannels == 4):
+                    self._dac_channel_I = 3
+                    self._dac_channel_Q = 4
+                else:
+                    self._awg.preset_readout()   #sets runmode = 'USER', trigger_mode='EXT' 'TRIG', starts with the end of the manipulation signal
+                    self._dac_channel_I = 1
+                    self._dac_channel_Q = 2
+            elif "Tektronix" in self._awg.get_type():
+                self.do_set_dac_delay(0)
+                self._awg.set_ch1_status(True)
+                self._awg.set_ch2_status(True)
+                self._awg.run()
+                self._awg.wait(10,False)
+            else:
+                logging.error('Specified AWG unknown. Aborting.')
+                raise ImportError
+
         self._adc_channel_I = 1
         self._adc_channel_Q = 0
         self._phase = 0
+        self._LO = 0
+        self._tone_relamp = 1
+        self._tone_pha = 0
+        self._tone_amp = 1
         
         # used for DDC
         self.lowpass_order = 20
@@ -416,7 +428,7 @@ class virtual_MultiplexingReadout(Instrument):
         elif len(self._tone_relamp) == ntones:
             amplitudes = 1./ntones*self._tone_relamp
         else:
-            print "tone_relamp shape does not fit number of multiplexed frequencies. Setting tone_relamp to 1"
+            print("tone_relamp shape does not fit number of multiplexed frequencies. Setting tone_relamp to 1")
             amplitudes = 1./ntones*np.ones(ntones)
         if self._tone_pha is None:
             phases = np.zeros(ntones)
@@ -471,8 +483,17 @@ class virtual_MultiplexingReadout(Instrument):
                 self._awg.set_clock(self.sample.readout_clock)
             except:
                 logging.warning('Clock and amplitude settings not written.')
-            self._awg.wfm_send2(samples[0],samples[1],m1 = marker1[0],m2 = marker2[0],seg=1)
-            self._awg.define_sequence(1,1)
+
+            seg_n=0
+            for i in range (1,32000):
+                if int(self._awg.ask(":TRAC:DEF%i?"%i).split()[-1])==0:
+                    seg_n = i
+                    break
+            plt.plot(samples[0])
+            plt.plot(marker1[0])
+            self._awg.wfm_send2(samples[0],samples[1],m1 = marker1[0],m2 = marker2[0],channel=self._dac_channel_I, seg=seg_n)
+            self._awg.define_sequence(self._dac_channel_I,[seg_n,seg_n,seg_n])
+
         elif "Tektronix" in self._awg.get_type():   #Tektronix AWG
             try:
                 self._awg.set_clock(self.sample.readout_clock)

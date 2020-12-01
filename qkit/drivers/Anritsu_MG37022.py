@@ -58,10 +58,6 @@ class Anritsu_MG37022(Instrument):
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=20e9,
             units='Hz',tags=['sweep'])
-        self.add_parameter('phase_offset', type=float,
-            flags=Instrument.FLAG_GETSET,
-            minval=-360, maxval=360,
-            units='deg')
         self.add_parameter('slope', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=100,
@@ -74,6 +70,12 @@ class Anritsu_MG37022(Instrument):
             flags=Instrument.FLAG_GETSET)
         self.add_parameter('high_power', type=bool,
             flags=Instrument.FLAG_GETSET)
+
+        if ("MG3692C" not in self.ask("*IDN?").split(",")):
+            self.add_parameter('phase_offset', type=float,
+                flags=Instrument.FLAG_GETSET,
+                minval=-360, maxval=360,
+                units='deg')
         
         # Implement functions
         self.add_function('get_all')
@@ -96,7 +98,7 @@ class Anritsu_MG37022(Instrument):
         Output:
             microwave frequency (Hz)
         '''
-        self._frequency = float(self._visainstrument.ask('SOUR:FREQ:CW?'))
+        self._frequency = float(self._visainstrument.query('SOUR:FREQ:CW?'))
         return self._frequency
         
     def do_set_frequency(self, frequency):
@@ -148,7 +150,7 @@ class Anritsu_MG37022(Instrument):
         Output:
             microwave power (dBm)
         '''
-        self._power = float(self._visainstrument.ask('POW:LEV?'))
+        self._power = float(self._visainstrument.query('POW:LEV?'))
         return self._power
         
     def do_set_power(self,power = None):
@@ -183,7 +185,7 @@ class Anritsu_MG37022(Instrument):
         Output:
             True (on) or False (off)
         '''
-        stat = bool(int(self._visainstrument.ask('OUTP:STAT?')))
+        stat = bool(int(self._visainstrument.query('OUTP:STAT?')))
         return stat
         
     def do_set_status(self,status):
@@ -215,7 +217,7 @@ class Anritsu_MG37022(Instrument):
         Output:
             phase offset (deg)
         '''
-        return float(self._visainstrument.ask('PHAS:ADJ?'))
+        return float(self._visainstrument.query('PHAS:ADJ?'))
         
     def do_set_phase_offset(self, phase_offset):
         '''
@@ -280,4 +282,4 @@ class Anritsu_MG37022(Instrument):
     def write(self,msg):
       return self._visainstrument.write(msg)
     def ask(self,msg):
-      return self._visainstrument.ask(msg)
+      return self._visainstrument.query(msg)
