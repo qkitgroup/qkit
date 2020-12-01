@@ -489,8 +489,6 @@ class virtual_MultiplexingReadout(Instrument):
                 if int(self._awg.ask(":TRAC:DEF%i?"%i).split()[-1])==0:
                     seg_n = i
                     break
-            plt.plot(samples[0])
-            plt.plot(marker1[0])
             self._awg.wfm_send2(samples[0],samples[1],m1 = marker1[0],m2 = marker2[0],channel=self._dac_channel_I, seg=seg_n)
             self._awg.define_sequence(self._dac_channel_I,[seg_n,seg_n,seg_n])
 
