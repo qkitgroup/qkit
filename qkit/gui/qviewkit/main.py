@@ -5,6 +5,14 @@
          marco.pfirrmann@kit.edu / 2016, 2017
 @license: GPL
 """
+
+import platform
+if platform.system() == "Windows":
+    try:
+        import ctypes
+        ctypes.windll.shcore.SetProcessDpiAwareness(False) # Fix Bug on Windows when using multiple screens with different scaling
+    except:
+        pass
 import sys
 # support both PyQt4 and 5
 in_pyqt5 = False
