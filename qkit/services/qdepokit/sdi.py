@@ -233,6 +233,23 @@ class SputterMonitor(object):
             four_wire = False
         """
         self.ohmmeter.set_measure_4W(four_wire)
+    
+    def get_rate(test_thickness):
+        """
+        Tests deposition rate.
+
+        Args:
+            test_thickness (in nm)
+        """
+        self.quartz.set_timer_zero()
+        self.quartz.set_thickness_zero()
+        time.sleep(3)
+        while self.quartz.get_thickness()<test_thickness*1e-2:
+            time.sleep(1)
+        mins, secs = self.quartz.get_time().split(':')
+        time =  60*float(mins)+float(secs)
+        rate = test_thickness/time
+        return rate, time
 
     def _theory(self, thickness, thickness_start, conductivity, cond_per_layer):
         """
