@@ -2,8 +2,9 @@ import qkit
 from qkit.core.instrument_base import Instrument
 import logging
 import serial
-import time
+import time, numpy as np
 import threading
+
 
 class Faulhaber_3564K024B_C(Instrument):
     """
@@ -32,6 +33,7 @@ class Faulhaber_3564K024B_C(Instrument):
         timeout = 0.1
         self.ins = serial.Serial(address, baudrate, timeout=timeout)
         self.running = False
+        self.set_bounds(bounds=(-1, 1600000))
 
     def _write(self, cmd):
         """
@@ -48,6 +50,23 @@ class Faulhaber_3564K024B_C(Instrument):
         """
         return self.ins.write('{:s}\r'.format(cmd).encode())
 
+    def _query(self, cmd, size=100):
+        """
+        Sends a serial command <cmd> and returns the read answer <ans>.
+
+        Parameters
+        ----------
+        cmd: str
+            Command that is send to the instrument.
+
+        Returns
+        -------
+        answer: str
+            Answer that is returned at read after the sent <cmd>.
+        """
+        self.ins.write('{:s}\r'.format(cmd).encode())
+        return self.ins.read(size=size).decode().strip('\r\n')
+
     def set_status(self, status):
         """
         Sets motor status to <status>.
@@ -61,7 +80,7 @@ class Faulhaber_3564K024B_C(Instrument):
         -------
         None
         """
-        return self._write({True: 'EN', False: 'DI'}[status])
+        self._write({True: 'EN', False: 'DI'}[status])
 
     def set_direction(self, val):
         """
@@ -76,11 +95,26 @@ class Faulhaber_3564K024B_C(Instrument):
         -------
         None
         """
-        return self._write({0: 'ADR', 1: 'ADL'}[val])
+        self._write({0: 'ADR', 1: 'ADL'}[val])
 
-    def run(self):
+    def get_position(self):
         """
-        Runs alternating one turn to the right and to the left in an endless loop or until it is stoppen by 'self.stop()'
+        Gets the motor position <ans>.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        ans: int
+            Motor position.
+        """
+        return self._query('pos')
+
+    def set_zero_position(self):
+        """
+        Sets the motor's actual position to 0.
 
         Parameters
         ----------
@@ -90,14 +124,78 @@ class Faulhaber_3564K024B_C(Instrument):
         -------
         None
         """
+        self._write('HO')
+
+    def move_to(self, pos, t=1e-2):
+        """
+        Moves the motor to the positions <pos>.
+
+        Parameters
+        ----------
+        pos: int
+            Motor position.
+        t: float
+            Query interval for actual position.
+
+        Returns
+        -------
+        pos: int
+            Actual position
+        """
+        rel = int(np.sign(float(self._query('pos')) - pos))
+        self.set_direction({1: 1, -1: 0}[rel])
+        self.set_status(True)
+        while {1: float(self._query('POS')) > pos, -1: float(self._query('POS')) < pos}[rel]:
+            time.sleep(t)
+        self.set_status(False)
+        return self._query('pos')
+
+    def set_bounds(self, bounds=(0, 1510000)):
+        """
+        Sets the position range to <boudns>.
+
+        Parameters
+        ----------
+        bounds: tuple(int)
+            Motor position range.
+
+        Returns
+        -------
+        None
+        """
+        self._write('LL{:+d}'.format(bounds[0]))
+        self._write('LL{:+d}'.format(bounds[1]))
+        self._write('APL1')
+
+    def run(self, bounds=(0, 1500000), t=1e-2):
+        """
+        Runs alternating one turn to the right and to the left bound in an endless loop or until it is stopped by 'self.stop()'
+
+        Parameters
+        ----------
+        bounds: tuple
+            left and right bound
+
+        Returns
+        -------
+        None
+        """
+
         def run_endless():
-            self.set_status(True)
             while self.running:
                 self.set_direction(0)
-                time.sleep(25)
+                time.sleep(0.5)
+                self.set_status(True)
+                while float(self._query('POS')) < bounds[1]:
+                    time.sleep(t)
+                self.set_status(False)
                 self.set_direction(1)
-                time.sleep(25)
-            self.set_status(False)
+                time.sleep(0.5)
+                self.set_status(True)
+                while float(self._query('POS')) > bounds[0]:
+                    time.sleep(t)
+                self.set_status(False)
+                self.set_direction(1)
 
         self.running = True
         self.thread = threading.Thread(target=run_endless)
