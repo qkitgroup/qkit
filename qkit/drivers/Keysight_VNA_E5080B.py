@@ -816,7 +816,8 @@ class Keysight_VNA_E5080B(Instrument):
             logging.debug(__name__ + ' : Setting sweep type to %s' % swtype)
             return self._visainstrument.write('SENS%i:SWE:TYPE %s' %(self._ci,swtype))
         else:
-            logging.debug(__name__ + ' : Illegal argument %s' % swtype)
+            logging.error(__name__ + ' : Illegal argument %s' % swtype)
+            return False
 
     def do_set_trigger_source(self,source):
         """
@@ -888,4 +889,7 @@ class Keysight_VNA_E5080B(Instrument):
         """
         This is a proxy function, returning True when the VNA is on HOLD after finishing the required number of averages .
         """
-        return self.get_sweep_mode()=="HOLD"
+        try:  # the VNA sometimes throws an error here, we just ignore it
+            return self.get_sweep_mode() == "HOLD"
+        except:
+            return False
