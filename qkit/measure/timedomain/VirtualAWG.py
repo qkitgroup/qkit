@@ -24,9 +24,10 @@ import qkit
 import qkit.measure.timedomain.pulse_sequence as ps
 import qkit.measure.timedomain.awg.load_tawg as load_tawg
 
-if qkit.module_available("matplotlib"):
+try:
     import matplotlib.pyplot as plt
-
+except ImportError:
+    pass
 
 class TdChannel(object):
     """
