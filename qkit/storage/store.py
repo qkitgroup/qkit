@@ -55,13 +55,14 @@ class Data(object):
             self.hf = H5_file(self._filepath, mode)
         except IOError:
             raise IOError('File does not exist. Use argument \"mode=\'a\'\" to create a new h5 file.')
-        if self.__dict__.get('_uuid',False):
-            tags = ["_unix_timestamp","_localtime","_timestamp","_timemark","_datemark","_uuid","_filename","_folder","_relpath","_filepath"]
-            self.hf.hf.attrs.update({a:self.__dict__.get(a) for a in tags})
-        if "user" in qkit.cfg:
-            self.hf.hf.attrs['_user'] = qkit.cfg.get('user')
-        if "user" in qkit.cfg:
-            self.hf.hf.attrs['_run_id'] = qkit.cfg.get('run_id')
+        if self.hf.newfile:
+            if self.__dict__.get('_uuid', False):
+                tags = ["_unix_timestamp", "_localtime", "_timestamp", "_timemark", "_datemark", "_uuid", "_filename", "_folder", "_relpath", "_filepath"]
+                self.hf.hf.attrs.update({a: self.__dict__.get(a) for a in tags})
+            if "user" in qkit.cfg:
+                self.hf.hf.attrs['_user'] = qkit.cfg.get('user')
+            if "run_id" in qkit.cfg:
+                self.hf.hf.attrs['_run_id'] = qkit.cfg.get('run_id')
         self._mapH5PathToObject()
         self.hf.flush()
 

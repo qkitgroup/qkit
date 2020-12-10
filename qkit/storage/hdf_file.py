@@ -30,12 +30,14 @@ class H5_file(object):
         'mode'
         """
         self.create_file(output_file, mode)
+        self.newfile = False
         
         if self.hf.attrs.get("qt-file",None) or self.hf.attrs.get("qkit",None):
             "File existed before and was created by qkit."
             self.setup_required_groups()
         else:
             "new file or none qkit file"
+            self.newfile = True
             self.set_base_attributes()
         
             # set all standard attributes
