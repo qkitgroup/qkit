@@ -173,6 +173,7 @@ class Keysight_VNA_E5080B(Instrument):
         self.add_function('ready')
         self.add_function('post_measurement')
 
+        self.do_set_active_trace(1)
         self.get_all()
     
     def get_all(self):        
@@ -241,7 +242,7 @@ class Keysight_VNA_E5080B(Instrument):
 
         self._visainstrument.write('FORM:DATA REAL,32')
         self._visainstrument.write('FORM:BORD SWAPPED') #SWAPPED
-        data = self._visainstrument.query_binary_values('CALC%i:MEAS:DATA:SDAT?' % self._ci)
+        data = self._visainstrument.query_binary_values('CALC%i:MEAS%i:DATA:SDAT?' %( self._ci,self._active_trace))
         data_size = numpy.size(data)
         datareal = numpy.array(data[0:data_size:2])
         dataimag = numpy.array(data[1:data_size:2])
@@ -875,7 +876,7 @@ class Keysight_VNA_E5080B(Instrument):
         """
         Bring the VNA back to a mode where it can be easily used by the operator.
         """
-        self.set_sweep_mode("hold")
+        self.set_sweep_mode("cont")
 
     def start_measurement(self):
         """

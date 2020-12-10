@@ -9,7 +9,10 @@ from pkgutil import find_loader
 
 def _load_visa():
     try:
-        import visa
+        try:
+            import pyvisa as visa
+        except:
+            import visa
     except Exception as e:
         qkit.cfg['load_visa'] = False
         raise type(e)('Failed loading visa. Check if you have NI VISA or pyvisa-py installed. Original error: ' + str(e))
@@ -26,7 +29,7 @@ def _load_visa():
             # active py visa version
             logging.info("Modern pyvisa version loaded. Version %s" % visa.__version__)
             try:
-                rm = visa.ResourceManager()
+                rm = visa.ResourceManager(qkit.cfg.get('visa_backend'))
                 qkit.visa = rm
                 qkit.visa.__version__ = visa.__version__
                 qkit.visa.qkit_visa_version = 2
@@ -35,6 +38,12 @@ def _load_visa():
                 def instrument(resource_name, **kwargs):
                     return rm.open_resource(resource_name, **kwargs)
                 qkit.visa.instrument = instrument
+                # define data types:
+                qkit.visa.double = "d"
+                qkit.visa.single = "f"
+                qkit.visa.dtypes = {1:qkit.visa.single,
+                                    3:qkit.visa.double,
+                                    "d":"d","f":"f"}
             except OSError:
                 raise OSError('Failed creating ResourceManager. Check if you have NI VISA or pyvisa-py installed.')
 
