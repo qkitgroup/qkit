@@ -63,9 +63,11 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         
         self.refreshTime_value = 2000
         self.tree_refresh  = True
+        self._force_live_plot = False
         self._setup_signal_slots()        
         self.setup_timer()
         self.set_cmd_options()
+        
         
     def setup_timer(self):
         self.timer = QTimer()
@@ -120,15 +122,16 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                 
     def live_update_onoff(self):
         if self.liveCheckBox.isChecked():
-
             self.timer.start(self.refreshTime_value)
-            if self.heardBeat.isChecked() == False:
-                self.heardBeat.setChecked(True)
-            else:
-                self.heardBeat.setChecked(False)
+            self.heardBeat.click()
         else:
             self.timer.stop()
-            
+    
+    def _disable_live_update(self):
+        if not self._force_live_plot and not self.h5file['entry'].attrs.get('updating',True):
+            self.liveCheckBox.setChecked(False)
+            self._force_live_plot = True # don't disable the live plot if it is manually enabled again
+
     def _refresh_time_handler(self,refreshTime):
         self.refreshTime_value = refreshTime*1000 # ms -> s
         
@@ -236,6 +239,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             self.DATA.filename = self.h5file.filename.split(os.path.sep)[-1]
             self.populate_data_list()
             self.update_plots()
+            self._disable_live_update()
             self.h5file.close()
             
             s = (self.DATA.DataFilePath.split(os.path.sep)[-5:])
