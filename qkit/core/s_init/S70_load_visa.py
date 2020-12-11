@@ -29,7 +29,7 @@ def _load_visa():
             # active py visa version
             logging.info("Modern pyvisa version loaded. Version %s" % visa.__version__)
             try:
-                rm = visa.ResourceManager(qkit.cfg.get('visa_backend'))
+                rm = visa.ResourceManager(qkit.cfg.get('visa_backend',""))
                 qkit.visa = rm
                 qkit.visa.__version__ = visa.__version__
                 qkit.visa.qkit_visa_version = 2
