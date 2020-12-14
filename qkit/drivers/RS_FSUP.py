@@ -375,7 +375,7 @@ class RS_FSUP(Instrument):
         return numpy.linspace(self.get_startfreq(),self.get_stopfreq(),self.get_nop())
     
     def write(self, command):
-        self.write(command)
+        self._visainstrument.write(command)
     
     def ask(self,command):
         return self._visainstrument.query(command)
@@ -384,5 +384,5 @@ class RS_FSUP(Instrument):
         pass
 
     def post_measurement(self):
-        pass
+        self.write("INIT:CONT ON")
     
