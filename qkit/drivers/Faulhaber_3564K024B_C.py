@@ -32,7 +32,7 @@ class Faulhaber_3564K024B_C(Instrument):
         baudrate = 9600
         timeout = 0.1
         self.ins = serial.Serial(address, baudrate, timeout=timeout)
-        self.running = False
+        self.running, self.aborting = False, False
         self.set_bounds(bounds=(-1, 1600000))
 
     def _write(self, cmd):
@@ -65,7 +65,7 @@ class Faulhaber_3564K024B_C(Instrument):
             Answer that is returned at read after the sent <cmd>.
         """
         self.ins.write('{:s}\r'.format(cmd).encode())
-        return self.ins.read(size=size).decode().strip('\r\n')
+        return self.ins.read(size=size).decode().split('\r\n')[0] # strip('\r\n') # 
 
     def set_status(self, status):
         """
@@ -142,13 +142,17 @@ class Faulhaber_3564K024B_C(Instrument):
         pos: int
             Actual position
         """
-        rel = int(np.sign(float(self._query('pos')) - pos))
-        self.set_direction({1: 1, -1: 0}[rel])
-        self.set_status(True)
-        while {1: float(self._query('POS')) > pos, -1: float(self._query('POS')) < pos}[rel]:
-            time.sleep(t)
-        self.set_status(False)
-        return self._query('pos')
+        def _move_to():
+            rel = int(np.sign(float(self._query('pos')) - pos))
+            self.set_direction({1: 1, -1: 0}[rel])
+            self.set_status(True)
+            while {1: float(self._query('POS')) > pos, -1: float(self._query('POS')) < pos}[rel] and not self.aborting:
+                time.sleep(t)
+            self.set_status(False)
+        
+        self.aborting = False
+        self.thread = threading.Thread(target=_move_to)
+        self.thread.start()
 
     def set_bounds(self, bounds=(0, 1510000)):
         """
@@ -180,30 +184,30 @@ class Faulhaber_3564K024B_C(Instrument):
         -------
         None
         """
-
         def run_endless():
             while self.running:
                 self.set_direction(0)
                 time.sleep(0.5)
                 self.set_status(True)
-                while float(self._query('POS')) < bounds[1]:
+                while float(self._query('POS')) < bounds[1] and not self.aborting:
                     time.sleep(t)
                 self.set_status(False)
+                if self.aborting: break
                 self.set_direction(1)
                 time.sleep(0.5)
                 self.set_status(True)
-                while float(self._query('POS')) > bounds[0]:
+                while float(self._query('POS')) > bounds[0] and not self.aborting:
                     time.sleep(t)
                 self.set_status(False)
                 self.set_direction(1)
 
-        self.running = True
+        self.running, self.aborting = True, False
         self.thread = threading.Thread(target=run_endless)
         self.thread.start()
 
     def stop(self):
         """
-        Stops the endless loop initiated by 'self.run()'
+        Stops the endless loop initiated by 'self.run()' after the next cycle, when the motor is at its start position.
 
         Parameters
         ----------
@@ -214,6 +218,23 @@ class Faulhaber_3564K024B_C(Instrument):
         None
         """
         self.running = False
+    
+    def abort(self):
+        """
+        Stops 'self.move_to()' or the endless loop initiated by 'self.run()' immediately.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        self.running, self.aborting = False, True
+        time.sleep(0.5)
+        self.ins.read(size=100)
+        return float(self._query('pos'))
 
     def close(self):
         """
