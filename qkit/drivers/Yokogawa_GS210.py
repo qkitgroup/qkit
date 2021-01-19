@@ -78,7 +78,7 @@ class Yokogawa_GS210(Instrument):
             units='', type=str)
         
         self.add_parameter('level', 
-            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
+            flags=Instrument.FLAG_GETSET,
             type=float, units='')
 
         self.add_parameter('voltage_protection', 
