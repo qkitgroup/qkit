@@ -9,6 +9,7 @@ It can be used with or without the qtlab environment.
 """
 import logging
 import os
+import traceback
 
 import qkit
 from qkit.storage.hdf_file import H5_file
@@ -55,15 +56,31 @@ class Data(object):
             self.hf = H5_file(self._filepath, mode)
         except IOError:
             raise IOError('File does not exist. Use argument \"mode=\'a\'\" to create a new h5 file.')
-        if self.__dict__.get('_uuid',False):
-            tags = ["_unix_timestamp","_localtime","_timestamp","_timemark","_datemark","_uuid","_filename","_folder","_relpath","_filepath"]
-            self.hf.hf.attrs.update({a:self.__dict__.get(a) for a in tags})
-        if "user" in qkit.cfg:
-            self.hf.hf.attrs['_user'] = qkit.cfg.get('user')
-        if "user" in qkit.cfg:
-            self.hf.hf.attrs['_run_id'] = qkit.cfg.get('run_id')
+        if self.hf.newfile:
+            if self.__dict__.get('_uuid', False):
+                tags = ["_unix_timestamp", "_localtime", "_timestamp", "_timemark", "_datemark", "_uuid", "_filename", "_folder", "_relpath", "_filepath"]
+                self.hf.hf.attrs.update({a: self.__dict__.get(a) for a in tags})
+            if "user" in qkit.cfg:
+                self.hf.hf.attrs['_user'] = qkit.cfg.get('user')
+            if "run_id" in qkit.cfg:
+                self.hf.hf.attrs['_run_id'] = qkit.cfg.get('run_id')
         self._mapH5PathToObject()
         self.hf.flush()
+        
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.hf.newfile:
+            try:
+                if type is not None:
+                    s = "During creation of this file, the following error ocurred:\n"
+                    s += str(exc_type.__name__) + ": " + str(exc_val)+"\n"
+                    s += "".join(traceback.format_tb(exc_tb))
+                    self.hf.entry.attrs["error"] = s
+            except:
+                pass
+        self.close()
 
     def _mapH5PathToObject(self):
         """Function for automated data readout at Data object creation.

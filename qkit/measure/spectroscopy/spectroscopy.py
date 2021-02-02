@@ -85,10 +85,11 @@ class spectrum(object):
         self._measurement_object = Measurement()
         self._measurement_object.measurement_type = 'spectroscopy'
         self._measurement_object.sample = self._sample
+        self.measurement_object_axis_name = 'frequency'
 
         self._qvk_process = False
-
-        self.number_of_timetraces = 1  # relevant in time domain mode
+        self._scan_dim = None
+        self._scan_time = False
 
     def set_log_function(self, func=None, name=None, unit=None, log_dtype=None):
         '''
@@ -185,7 +186,7 @@ class spectrum(object):
         # ttip.get_temperature()
         self._nop = self.vna.get_nop()
         self._sweeptime_averages = self.vna.get_sweeptime_averages()
-        if self._scan_1D or not self.landscape.xzlandscape_func: # normal scan
+        if self._scan_dim == 1 or not self.landscape.xzlandscape_func: # normal scan
             self._freqpoints = self.vna.get_freqpoints()
         else:
             self._freqpoints = self.landscape.get_freqpoints_xz()
@@ -210,24 +211,30 @@ class spectrum(object):
         self._write_settings_dataset()
         self._log = waf.open_log_file(self._data_file.get_filepath())
 
+        self._data_freq = self._data_file.add_coordinate('frequency', unit='Hz')
         if not self._scan_time:
-            self._data_freq = self._data_file.add_coordinate('frequency', unit='Hz')
             self._data_freq.add(self._freqpoints)
+            sweep_vector = self._data_freq
+        else:
+            self._data_freq.add([self.vna.get_centerfreq()])
+            self._data_time = self._data_file.add_coordinate('time', unit='s')
+            self._data_time.add(np.arange(0, self._nop, 1) * self.vna.get_sweeptime() / (self._nop - 1))
+            sweep_vector = self._data_time
 
-        if self._scan_1D:
-            self._data_real = self._data_file.add_value_vector('real', x=self._data_freq, unit='', save_timestamp=True)
-            self._data_imag = self._data_file.add_value_vector('imag', x=self._data_freq, unit='', save_timestamp=True)
-            self._data_amp = self._data_file.add_value_vector('amplitude', x=self._data_freq, unit='arb. unit',
+        if self._scan_dim == 1:
+            self._data_real = self._data_file.add_value_vector('real', x=sweep_vector, unit='', save_timestamp=True)
+            self._data_imag = self._data_file.add_value_vector('imag', x=sweep_vector, unit='', save_timestamp=True)
+            self._data_amp = self._data_file.add_value_vector('amplitude', x=sweep_vector, unit='arb. unit',
                                                               save_timestamp=True)
-            self._data_pha = self._data_file.add_value_vector('phase', x=self._data_freq, unit='rad',
+            self._data_pha = self._data_file.add_value_vector('phase', x=sweep_vector, unit='rad',
                                                               save_timestamp=True)
 
-        if self._scan_2D:
+        if self._scan_dim == 2:
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit=self.x_unit)
             self._data_x.add(self.x_vec)
-            self._data_amp = self._data_file.add_value_matrix('amplitude', x=self._data_x, y=self._data_freq,
+            self._data_amp = self._data_file.add_value_matrix('amplitude', x=self._data_x, y=sweep_vector,
                                                               unit='arb. unit', save_timestamp=True)
-            self._data_pha = self._data_file.add_value_matrix('phase', x=self._data_x, y=self._data_freq, unit='rad',
+            self._data_pha = self._data_file.add_value_matrix('phase', x=self._data_x, y=sweep_vector, unit='rad',
                                                               save_timestamp=True)
 
             if self.log_function != None:  # use logging
@@ -246,7 +253,7 @@ class spectrum(object):
                                              view_params=dict(transpose=True, default_trace=self._nop // 2, linecolors=[(200, 200, 100)]))
                 ]
 
-        if self._scan_3D:
+        if self._scan_dim == 3:
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit=self.x_unit)
             self._data_x.add(self.x_vec)
             self._data_y = self._data_file.add_coordinate(self.y_coordname, unit=self.y_unit)
@@ -259,10 +266,10 @@ class spectrum(object):
                                                                   save_timestamp=False)
             else:
                 self._data_amp = self._data_file.add_value_box('amplitude', x=self._data_x, y=self._data_y,
-                                                               z=self._data_freq, unit='arb. unit',
+                                                               z=sweep_vector, unit='arb. unit',
                                                                save_timestamp=False)
                 self._data_pha = self._data_file.add_value_box('phase', x=self._data_x, y=self._data_y,
-                                                               z=self._data_freq, unit='rad', save_timestamp=False)
+                                                               z=sweep_vector, unit='rad', save_timestamp=False)
 
             if self.log_function != None:  # use logging
                 self._log_value = []
@@ -270,21 +277,6 @@ class spectrum(object):
                     self._log_value.append(
                         self._data_file.add_value_vector(self.log_name[i], x=self._data_x, unit=self.log_unit[i],
                                                          dtype=self.log_dtype[i]))
-
-        if self._scan_time:
-            self._data_freq = self._data_file.add_coordinate('frequency', unit='Hz')
-            self._data_freq.add([self.vna.get_centerfreq()])
-
-            self._data_time = self._data_file.add_coordinate('time', unit='s')
-            self._data_time.add(np.arange(0, self._nop, 1) * self.vna.get_sweeptime() / (self._nop - 1))
-
-            self._data_x = self._data_file.add_coordinate('trace_number', unit='')
-            self._data_x.add(np.arange(0, self.number_of_timetraces, 1))
-
-            self._data_amp = self._data_file.add_value_matrix('amplitude', x=self._data_x, y=self._data_time,
-                                                              unit='lin. mag.', save_timestamp=False)
-            self._data_pha = self._data_file.add_value_matrix('phase', x=self._data_x, y=self._data_time, unit='rad.',
-                                                              save_timestamp=False)
 
         if self.comment:
             self._data_file.add_comment(self.comment)
@@ -303,13 +295,10 @@ class spectrum(object):
         rescan: If True (default), the averages on the VNA are cleared and a new measurement is started.
                 If False, it will directly take the data from the VNA without waiting.
         '''
-        self._scan_1D = True
-        self._scan_2D = False
-        self._scan_3D = False
-        self._scan_time = False
+        self._scan_dim = 1
 
         self._measurement_object.measurement_func = 'measure_1D'
-        self._measurement_object.x_axis = 'frequency'
+        self._measurement_object.x_axis = self.measurement_object_axis_name
         self._measurement_object.y_axis = ''
         self._measurement_object.z_axis = ''
         self._measurement_object.web_visible = web_visible
@@ -390,14 +379,11 @@ class spectrum(object):
         if len(self.x_vec) == 0:
             logging.error('No points to measure given. Check your x vector... aborting')
             return
-        self._scan_1D = False
-        self._scan_2D = True
-        self._scan_3D = False
-        self._scan_time = False
+        self._scan_dim = 2
 
         self._measurement_object.measurement_func = 'measure_2D'
         self._measurement_object.x_axis = self.x_coordname
-        self._measurement_object.y_axis = 'frequency'
+        self._measurement_object.y_axis = self.measurement_object_axis_name
         self._measurement_object.z_axis = ''
         self._measurement_object.web_visible = web_visible
 
@@ -442,15 +428,12 @@ class spectrum(object):
         if self.landscape.xzlandscape_func:  # The vna limits need to be adjusted, happens in the frequency wrapper
             self.x_set_obj = self.landscape.vna_frequency_wrapper(self.x_set_obj)
 
-        self._scan_1D = False
-        self._scan_2D = False
-        self._scan_3D = True
-        self._scan_time = False
+        self._scan_dim = 3
 
         self._measurement_object.measurement_func = 'measure_3D'
         self._measurement_object.x_axis = self.x_coordname
         self._measurement_object.y_axis = self.y_coordname
-        self._measurement_object.z_axis = 'frequency'
+        self._measurement_object.z_axis = self.measurement_object_axis_name
         self._measurement_object.web_visible = web_visible
 
         if not self.dirname:
@@ -491,90 +474,24 @@ class spectrum(object):
 
         self._measure()
 
-    def measure_timetrace(self, web_visible=True):
-        '''
-        measure method to record a single VNA timetrace, this only makes sense when span is set to 0 Hz!,
-        tested only with KEYSIGHT E5071C ENA and its corresponding qkit driver
-        LGruenhaupt 11/2016
-        '''
-        if self.vna.get_span() > 0:
-            print('VNA span not set to 0 Hz... aborting')
-            return
+    def set_cw_time_measurement(self, status):
+        """
+        Activates or deactivates timetrace measurements. Sets the VNA in constant cw mode to measure over time
+        and adjusts the sweep vector name for the measurement object
+        :param status: (bool) True = timetrace active, False = timetrace inactive
+        :param web_visible:
+        :return:
+        """
 
-        self._scan_1D = False
-        self._scan_2D = False
-        self._scan_3D = False
-        self._scan_time = True
+        if status:
+            self.vna.set_sweep_type('CW')
+            self._scan_time = True
+            self.measurement_object_axis_name = 'time'
 
-        self._measurement_object.measurement_func = 'measure_timetrace'
-        self._measurement_object.x_axis = 'time'
-        self._measurement_object.y_axis = ''
-        self._measurement_object.z_axis = ''
-        self._measurement_object.web_visible = web_visible
-
-        if not self.dirname:
-            self.dirname = 'VNA_timetrace'
-        self._file_name = self.dirname.replace(' ', '').replace(',', '_')
-        if self.exp_name:
-            self._file_name += '_' + self.exp_name
-
-        self.x_vec = np.arange(0, self.number_of_timetraces, 1)
-
-        self._prepare_measurement_vna()
-        self._prepare_measurement_file()
-
-        if self.progress_bar: self._p = Progress_Bar(self.number_of_timetraces, 'VNA timetrace ' + self.dirname,
-                                                     self.vna.get_sweeptime_averages())
-
-        print('recording timetrace(s)...')
-        sys.stdout.flush()
-
-        qkit.flow.start()
-        try:
-            """
-            loop: x_obj with parameters from x_vec
-            """
-
-            for i, x in enumerate(self.x_vec):
-
-                if self.log_function != None:
-                    for i, f in enumerate(self.log_function):
-                        self._log_value[i].append(float(f()))
-
-                if self.averaging_start_ready:  # LG 11/2016
-                    self.vna.start_measurement()
-                    ti = time()  # changed from time.time() to time() - LGruenhaupt OCT_2016
-                    tp = time()  # added to enable use of progress bar
-                    # self._p = Progress_Bar(self.vna.get_averages(),self.dirname,self.vna.get_sweeptime_averages()) moved to line 303
-
-                    ''' This is to prevent the vna.ready() function from timing out. LG NOV/16 '''
-                    if self.vna.get_Average():
-                        print('this function only makes sense without averaging')
-                        qkit.flow.end()
-                        self._end_measuremt()
-                    else:
-                        # self._p = Progress_Bar(1,self.dirname,self.vna.get_sweeptime())
-                        qkit.flow.sleep(self.vna.get_sweeptime())
-                        # self._p.iterate()
-
-                        while not self.vna.ready(): qkit.flow.sleep(
-                            .2)  # this is just to check if the measurement has finished
-
-                        data_amp, data_pha = self.vna.get_tracedata()
-                        self._data_amp.append(data_amp)
-                        self._data_pha.append(data_pha)
-                qkit.flow.sleep()
-                if self.progress_bar:
-                    self._p.iterate()
-
-
-                else:
-                    print('not implemented for this VNA, only works with Keysight ENA 5071C')
-                    qkit.flow.end()
-                    self._end_measurement()
-        finally:
-            self._end_measurement()
-            qkit.flow.end()
+        if status is False:
+            self.vna.set_sweep_type('LIN')
+            self._scan_time = False
+            self.measurement_object_axis_name = 'frequency'
 
     def _measure(self):
         '''
@@ -594,7 +511,7 @@ class spectrum(object):
                     for i, f in enumerate(self.log_function):
                         self._log_value[i].append(float(f()))
 
-                if self._scan_3D:
+                if self._scan_dim == 3:
                     for y in self.y_vec:
                         # loop: y_obj with parameters from y_vec (only 3D measurement)
                         if self.landscape.xylandscapes and not self.landscape.perform_measurement_at_point(x, y, ix):
@@ -646,7 +563,7 @@ class spectrum(object):
                     self._data_amp.next_matrix()
                     self._data_pha.next_matrix()
 
-                if self._scan_2D:
+                if self._scan_dim == 2:
                     if self.averaging_start_ready:
                         self.vna.start_measurement()
                         if self.vna.ready():
@@ -787,6 +704,10 @@ class spectrum(object):
         :return:
         """
         self.landscape.plot_xy_landscape()
+
+    def measure_timetrace(self):
+        logging.error("This function does no longer exist. Use set_cw_time_mesurement() "
+                      "followed by the standard measure functions")
 
 
 class Landscape:

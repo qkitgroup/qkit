@@ -14,13 +14,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+import qkit
 from qkit.core.instrument_base import Instrument
 from qkit import visa
-import types
 import logging
 from time import sleep
 import numpy
-import math
+
 
 class Agilent_VNA_E5071C(Instrument):
     '''
@@ -47,6 +47,12 @@ class Agilent_VNA_E5071C(Instrument):
 
         self._address = address
         self._visainstrument = visa.instrument(self._address)
+        
+        if qkit.visa.qkit_visa_version > 1:
+            # we have to define the read termination chars manually for the newer version
+            idn = self._visainstrument.query('*IDN?')
+            self._visainstrument.read_termination = idn[len(idn.strip()):]
+        
         self._zerospan = False
         self._freqpoints = 0
         self._ci = channel_index 
@@ -115,7 +121,6 @@ class Agilent_VNA_E5071C(Instrument):
             
         self.add_parameter('sweeptime_averages', type=float,
             flags=Instrument.FLAG_GET,
-            minval=0, maxval=1e3,
             units='s', tags=['sweep'])
         self.add_parameter('sweep_mode', type=str,
             flags=Instrument.FLAG_GETSET,tags=['sweep']) 
@@ -161,13 +166,13 @@ class Agilent_VNA_E5071C(Instrument):
     
     def init(self):
         if self._zerospan:
-          self._visainstrument.write('INIT1;*wai')
+          self.write('INIT1;*wai')
         else:
           if self.get_Average():
             for i in range(self.get_averages()):
-              self._visainstrument.write('INIT1;*wai')
+              self.write('INIT1;*wai')
           else:
-              self._visainstrument.write('INIT1;*wai')
+              self.write('INIT1;*wai')
               
               
     def do_set_sweep_mode(self, mode):
@@ -177,31 +182,31 @@ class Agilent_VNA_E5071C(Instrument):
          larger than 1 and Average==True
         '''
         if mode == 'hold':
-            self._visainstrument.write(':INIT%i:CONT OFF'%(self._ci))
+            self.write(':INIT%i:CONT OFF'%(self._ci))
         elif mode == 'cont':
-            self._visainstrument.write(':INIT%i:CONT ON'%(self._ci))
+            self.write(':INIT%i:CONT ON'%(self._ci))
         elif mode == 'single':
-            self._visainstrument.write(':INIT%i:CONT ON'%(self._ci))
-            self._visainstrument.write(':INIT%i:CONT OFF'%(self._ci))
+            self.write(':INIT%i:CONT ON'%(self._ci))
+            self.write(':INIT%i:CONT OFF'%(self._ci))
         else:
             logging.warning('invalid mode')
             
     def do_get_sweep_mode(self):
-        return self._visainstrument.ask(':INIT%i:CONT?'%(self._ci))
+        return self.ask(':INIT%i:CONT?'%(self._ci))
 
     def def_trig(self):
-        self._visainstrument.write(':TRIG:AVER ON')
-        self._visainstrument.write(':TRIG:SOUR bus')
+        self.write(':TRIG:AVER ON')
+        self.write(':TRIG:SOUR bus')
         
     def avg_clear(self):
-        #self._visainstrument.write(':TRIG:SING')
-        #self._visainstrument.write(':SENSe%i:AVERage:CLEar'%(self._ci))
-        self._visainstrument.write(':SENS%i:AVER:CLE' %(self._ci))
+        #self.write(':TRIG:SING')
+        #self.write(':SENSe%i:AVERage:CLEar'%(self._ci))
+        self.write(':SENS%i:AVER:CLE' %(self._ci))
         
     """ not working
     def avg_status(self):
-        return 0 == (int(self._visainstrument.ask('STAT:OPER:COND?')) & (1<<4))
-        #return int(self._visainstrument.ask(':SENS%i:AVER:COUNT?' %(self._ci)))    
+        return 0 == (int(self.ask('STAT:OPER:COND?')) & (1<<4))
+        #return int(self.ask(':SENS%i:AVER:COUNT?' %(self._ci)))
     """
     def get_tracedata(self, format = 'AmpPha', single=False, averages=1.):
         
@@ -219,21 +224,21 @@ class Agilent_VNA_E5071C(Instrument):
         
         if single==True:        #added MW July. 
             #print('single shot readout')
-            self._visainstrument.write('TRIG:SOUR INT') #added MW July 2013. start single sweep.
-            self._visainstrument.write('INIT%i:CONT ON'%(self._ci)) #added MW July 2013. start single sweep.
+            self.write('TRIG:SOUR INT') #added MW July 2013. start single sweep.
+            self.write('INIT%i:CONT ON'%(self._ci)) #added MW July 2013. start single sweep.
             self.hold(True)
-            sleep(float(self._visainstrument.ask('SENS1:SWE:TIME?'))) 
+            sleep(float(self.ask('SENS1:SWE:TIME?')))
         
         sleep(0.1) # required to avoid timing issues    MW August 2013   ???
             
-        #self._visainstrument.write(':FORMAT REALform; FORMat:BORDer SWAP;')
-        #data = self._visainstrument.ask_for_values( "CALCulate:DATA? SDATA",format = visa.single)
-        #data = self._visainstrument.ask_for_values(':FORMAT REAL,32;*CLS;CALC1:DATA:NSW? SDAT,1;*OPC',format=1)      
-        #data = self._visainstrument.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; CALC%i:SEL:DATA:SDAT?'%(self._ci), format = visa.double)  
-        self._visainstrument.write('FORM:DATA REAL')
-        self._visainstrument.write('FORM:BORD SWAPPED') #SWAPPED
-        #data = self._visainstrument.ask_for_values('CALC%d:SEL:DATA:SDAT?'%(self._ci), format = visa.double)              
-        data = self._visainstrument.ask_for_values('CALC%i:SEL:DATA:SDAT?'%(self._ci), fmt = 3)
+        #self.write(':FORMAT REALform; FORMat:BORDer SWAP;')
+        #data = self.ask_for_values( "CALCulate:DATA? SDATA",format = visa.single)
+        #data = self.ask_for_values(':FORMAT REAL,32;*CLS;CALC1:DATA:NSW? SDAT,1;*OPC',format=1)
+        #data = self.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; CALC%i:SEL:DATA:SDAT?'%(self._ci), format = visa.double)
+        self.write('FORM:DATA REAL')
+        self.write('FORM:BORD SWAPPED') #SWAPPED
+        #data = self.ask_for_values('CALC%d:SEL:DATA:SDAT?'%(self._ci), format = visa.double)
+        data = self.ask_for_values('CALC%i:SEL:DATA:SDAT?'%(self._ci), fmt = 3)
         data_size = numpy.size(data)
         datareal = numpy.array(data[0:data_size:2])
         dataimag = numpy.array(data[1:data_size:2])
@@ -268,10 +273,10 @@ class Agilent_VNA_E5071C(Instrument):
       
     def get_freqpoints(self, query = False):      
       if query == True:        
-        self._freqpoints = self._visainstrument.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; :SENS%i:FREQ:DATA?'%(self._ci), fmt = visa.double)
+        self._freqpoints = self.ask_for_values('FORM:DATA REAL; FORM:BORD SWAPPED; :SENS%i:FREQ:DATA?'%(self._ci), fmt = visa.double)
       
-        #self._freqpoints = numpy.array(self._visainstrument.ask_for_values('SENS%i:FREQ:DATA:SDAT?'%self._ci,format=1)) / 1e9
-        #self._freqpoints = numpy.array(self._visainstrument.ask_for_values(':FORMAT REAL,32;*CLS;CALC1:DATA:STIM?;*OPC',format=1)) / 1e9
+        #self._freqpoints = numpy.array(self.ask_for_values('SENS%i:FREQ:DATA:SDAT?'%self._ci,format=1)) / 1e9
+        #self._freqpoints = numpy.array(self.ask_for_values(':FORMAT REAL,32;*CLS;CALC1:DATA:STIM?;*OPC',format=1)) / 1e9
       else:
         self._freqpoints = numpy.linspace(self._start,self._stop,self._nop)
       return self._freqpoints
@@ -294,7 +299,7 @@ class Agilent_VNA_E5071C(Instrument):
         if self._zerospan:
           print('in zerospan mode, nop is 1')
         else:
-          self._visainstrument.write(':SENS%i:SWE:POIN %i' %(self._ci,nop))
+          self.write(':SENS%i:SWE:POIN %i' %(self._ci,nop))
           self._nop = nop
           self.get_freqpoints() #Update List of frequency points  
         
@@ -311,7 +316,7 @@ class Agilent_VNA_E5071C(Instrument):
         if self._zerospan:
           return 1
         else:
-          self._nop = int(self._visainstrument.ask(':SENS%i:SWE:POIN?' %(self._ci)))    
+          self._nop = int(self.ask(':SENS%i:SWE:POIN?' %(self._ci)))
         return self._nop 
     
     def do_set_Average(self, status):
@@ -327,10 +332,10 @@ class Agilent_VNA_E5071C(Instrument):
         logging.debug(__name__ + ' : setting Average to "%s"' % (status))
         if status:
             status = 'ON'
-            self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,status))
+            self.write('SENS%i:AVER:STAT %s' % (self._ci,status))
         elif status == False:
             status = 'OFF'
-            self._visainstrument.write('SENS%i:AVER:STAT %s' % (self._ci,status))
+            self.write('SENS%i:AVER:STAT %s' % (self._ci,status))
         else:
             raise ValueError('set_Average(): can only set True or False')               
     def do_get_Average(self):
@@ -344,7 +349,7 @@ class Agilent_VNA_E5071C(Instrument):
             Status of Averaging (boolean)
         '''
         logging.debug(__name__ + ' : getting average status')
-        return bool(int(self._visainstrument.ask('SENS%i:AVER:STAT?' %(self._ci))))
+        return bool(int(self.ask('SENS%i:AVER:STAT?' %(self._ci))))
                     
     def do_set_averages(self, av):
         '''
@@ -358,9 +363,9 @@ class Agilent_VNA_E5071C(Instrument):
         '''
         if self._zerospan == False:
             logging.debug(__name__ + ' : setting Number of averages to %i ' % (av))
-            self._visainstrument.write('SENS%i:AVER:COUN %i' % (self._ci,av))
+            self.write('SENS%i:AVER:COUN %i' % (self._ci,av))
         else:
-            self._visainstrument.write('SWE:POIN %.1f' % (self._ci,av))
+            self.write('SWE:POIN %.1f' % (self._ci,av))
             
     def do_get_averages(self):
         '''
@@ -373,9 +378,9 @@ class Agilent_VNA_E5071C(Instrument):
         '''
         logging.debug(__name__ + ' : getting Number of Averages')
         if self._zerospan:
-          return int(self._visainstrument.ask('SWE%i:POIN?' % self._ci))
+          return int(self.ask('SWE%i:POIN?' % self._ci))
         else:
-          return int(self._visainstrument.ask('SENS%i:AVER:COUN?' % self._ci))
+          return int(self.ask('SENS%i:AVER:COUN?' % self._ci))
                 
     def do_set_power(self,pow):
         '''
@@ -388,7 +393,7 @@ class Agilent_VNA_E5071C(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting power to %s dBm' % pow)
-        self._visainstrument.write('SOUR%i:POW:PORT1:LEV:IMM:AMPL %.1f' % (self._ci,pow))    
+        self.write('SOUR%i:POW:PORT1:LEV:IMM:AMPL %.1f' % (self._ci,pow))
     def do_get_power(self):
         '''
         Get probe power
@@ -400,7 +405,7 @@ class Agilent_VNA_E5071C(Instrument):
             pow (float) : Power in dBm
         '''
         logging.debug(__name__ + ' : getting power')
-        return float(self._visainstrument.ask('SOUR%i:POW:PORT1:LEV:IMM:AMPL?' % (self._ci)))
+        return float(self.ask('SOUR%i:POW:PORT1:LEV:IMM:AMPL?' % (self._ci)))
                 
     def do_set_centerfreq(self,cf):
         '''
@@ -413,7 +418,7 @@ class Agilent_VNA_E5071C(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting center frequency to %s' % cf)
-        self._visainstrument.write('SENS%i:FREQ:CENT %f' % (self._ci,cf))
+        self.write('SENS%i:FREQ:CENT %f' % (self._ci,cf))
         self.get_startfreq();
         self.get_stopfreq();
         self.get_span();
@@ -428,7 +433,7 @@ class Agilent_VNA_E5071C(Instrument):
             cf (float) :Center Frequency in Hz
         '''
         logging.debug(__name__ + ' : getting center frequency')
-        return  float(self._visainstrument.ask('SENS%i:FREQ:CENT?'%(self._ci)))
+        return  float(self.ask('SENS%i:FREQ:CENT?'%(self._ci)))
         
     def do_set_span(self,span):
         '''
@@ -441,7 +446,7 @@ class Agilent_VNA_E5071C(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting span to %s Hz' % span)
-        self._visainstrument.write('SENS%i:FREQ:SPAN %i' % (self._ci,span))   
+        self.write('SENS%i:FREQ:SPAN %i' % (self._ci,span))
         self.get_startfreq();
         self.get_stopfreq();
         self.get_centerfreq();   
@@ -457,7 +462,7 @@ class Agilent_VNA_E5071C(Instrument):
             span (float) : Span in Hz
         '''
         #logging.debug(__name__ + ' : getting center frequency')
-        span = self._visainstrument.ask('SENS%i:FREQ:SPAN?' % (self._ci) ) #float( self.ask('SENS1:FREQ:SPAN?'))
+        span = self.ask('SENS%i:FREQ:SPAN?' % (self._ci) ) #float( self.ask('SENS1:FREQ:SPAN?'))
         return span
 
     def do_get_sweeptime_averages(self):###JB
@@ -483,7 +488,7 @@ class Agilent_VNA_E5071C(Instrument):
             sweep time (float) : sec
         '''
         logging.debug(__name__ + ' : getting sweep time')
-        self._sweep=float(self._visainstrument.ask('SENS1:SWE:TIME?'))
+        self._sweep=float(self.ask('SENS1:SWE:TIME?'))
         return self._sweep
 
 
@@ -494,7 +499,7 @@ class Agilent_VNA_E5071C(Instrument):
 
         '''
         logging.debug(__name__ + ' : setting electrical delay to %s sec' % val)
-        self._visainstrument.write('CALC%i:CORR:EDEL:TIME  %.12f' % (self._ci, val))
+        self.write('CALC%i:CORR:EDEL:TIME  %.12f' % (self._ci, val))
             
     
     def do_get_edel(self):   # added by MW
@@ -504,7 +509,7 @@ class Agilent_VNA_E5071C(Instrument):
 
         '''
         logging.debug(__name__ + ' : getting electrical delay')
-        self._edel = float(self._visainstrument.ask('CALC%i:CORR:EDEL:TIME?'% (self._ci)))
+        self._edel = float(self.ask('CALC%i:CORR:EDEL:TIME?'% (self._ci)))
         return  self._edel   
         
     def do_set_startfreq(self,val):
@@ -518,7 +523,7 @@ class Agilent_VNA_E5071C(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting start freq to %s Hz' % val)
-        self._visainstrument.write('SENS%i:FREQ:STAR %f' % (self._ci,val))   
+        self.write('SENS%i:FREQ:STAR %f' % (self._ci,val))
         self._start = val
         self.get_centerfreq();
         self.get_stopfreq();
@@ -535,7 +540,7 @@ class Agilent_VNA_E5071C(Instrument):
             span (float) : Start Frequency in Hz
         '''
         logging.debug(__name__ + ' : getting start frequency')
-        self._start = float(self._visainstrument.ask('SENS%i:FREQ:STAR?' % (self._ci)))
+        self._start = float(self.ask('SENS%i:FREQ:STAR?' % (self._ci)))
         return  self._start
 
     def do_set_stopfreq(self,val):
@@ -549,7 +554,7 @@ class Agilent_VNA_E5071C(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting stop freq to %s Hz' % val)
-        self._visainstrument.write('SENS%i:FREQ:STOP %f' % (self._ci,val))  
+        self.write('SENS%i:FREQ:STOP %f' % (self._ci,val))
         self._stop = val
         self.get_startfreq();
         self.get_centerfreq();
@@ -565,7 +570,7 @@ class Agilent_VNA_E5071C(Instrument):
             val (float) : Start Frequency in Hz
         '''
         logging.debug(__name__ + ' : getting stop frequency')
-        self._stop = float(self._visainstrument.ask('SENS%i:FREQ:STOP?' %(self._ci) ))
+        self._stop = float(self.ask('SENS%i:FREQ:STOP?' %(self._ci) ))
         return  self._stop
 
     def do_set_bandwidth(self,band):
@@ -579,7 +584,7 @@ class Agilent_VNA_E5071C(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting bandwidth to %s Hz' % (band))
-        self._visainstrument.write('SENS%i:BWID:RES %i' % (self._ci,band))
+        self.write('SENS%i:BWID:RES %i' % (self._ci,band))
     def do_get_bandwidth(self):
         '''
         Get Bandwidth
@@ -592,7 +597,7 @@ class Agilent_VNA_E5071C(Instrument):
         '''
         logging.debug(__name__ + ' : getting bandwidth')
         # getting value from instrument
-        return  float(self._visainstrument.ask('SENS%i:BWID:RES?'%self._ci))                
+        return  float(self.ask('SENS%i:BWID:RES?'%self._ci))
 
     def do_set_zerospan(self,val):
         '''
@@ -654,7 +659,7 @@ class Agilent_VNA_E5071C(Instrument):
         '''
         logging.debug(__name__ + ' : setting trigger source to "%s"' % source)
         if source.upper() in [AUTO, MAN, EXT, REM]:
-            self._visainstrument.write('TRIG:SOUR %s' % source.upper())        
+            self.write('TRIG:SOUR %s' % source.upper())
         else:
             raise ValueError('set_trigger_source(): must be AUTO | MANual | EXTernal | REMote')
     def do_get_trigger_source(self):
@@ -668,7 +673,7 @@ class Agilent_VNA_E5071C(Instrument):
             source (string) : AUTO | MANual | EXTernal | REMote
         '''
         logging.debug(__name__ + ' : getting trigger source')
-        return self._visainstrument.ask('TRIG:SOUR?')        
+        return self.ask('TRIG:SOUR?')
         
 
     def do_set_channel_index(self,val):
@@ -702,9 +707,21 @@ class Agilent_VNA_E5071C(Instrument):
           
     def write(self,msg):
         return self._visainstrument.write(msg)    
-    def ask(self,msg):
-        return self._visainstrument.ask(msg)
-
+    
+    if qkit.visa.qkit_visa_version == 1:
+        def ask(self,msg):
+            return self._visainstrument.ask(msg)
+        
+        def ask_for_values(self,msg,format=None,fmt=None):
+            return self._visainstrument.ask_for_values(msg)
+    else:
+        def ask(self, msg):
+            return self._visainstrument.query(msg)
+    
+        def ask_for_values(self, msg, format=None, fmt=None):
+            return self._visainstrument.query_binary_values(msg)
+    
+    
     def pre_measurement(self):
         '''
         Set everything needed for the measurement
@@ -724,15 +741,15 @@ class Agilent_VNA_E5071C(Instrument):
         This function is called at the beginning of each single measurement in the spectroscopy script.
         Here, it resets the averaging.  
         '''
-        self._visainstrument.write(':TRIG:AVER ON')
+        self.write(':TRIG:AVER ON')
         self.do_set_sweep_mode('single')
 
     def ready(self):
         '''
         This is a proxy function, returning True when the VNA has finished the required number of averages.
         '''
-        status=int(self._visainstrument.ask(':STAT:OPER:COND?'))
-        if status is 0:
+        status=int(self.ask(':STAT:OPER:COND?'))
+        if status == 0:
             return True
         else:
             return False

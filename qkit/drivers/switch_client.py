@@ -70,3 +70,7 @@ class switch_client(Instrument):
     def reset(self, switch):
         self.socket.send_string("reset/%i" % switch)
         return self.socket.recv_string()
+    
+    def get_position(self,switch):
+        self.socket.send_string("get/%i" % switch)
+        return self.socket.recv_string()

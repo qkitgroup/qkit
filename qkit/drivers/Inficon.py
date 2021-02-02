@@ -255,7 +255,8 @@ class Inficon(Instrument):
         materials={
             'Al': (('tooling-factor',72.0),('Z-ratio',1.080),('density',2.700)),
             #'AlO': (('tooling-factor',72.0),('Z-ratio',0.463),('density',3.340))
-            'AlO': (('tooling-factor',72.0),('Z-ratio',1.000),('density',1.548))
+            #'AlO': (('tooling-factor',72.0),('Z-ratio',1.000),('density',1.548)) #used before 01.2020
+            'AlO': (('tooling-factor',72.0),('Z-ratio',1.000),('density',2.322))
             }
         tooling = materials[material][0][1]
         zratio = materials[material][1][1]
