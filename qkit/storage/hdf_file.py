@@ -30,12 +30,14 @@ class H5_file(object):
         'mode'
         """
         self.create_file(output_file, mode)
+        self.newfile = False
         
         if self.hf.attrs.get("qt-file",None) or self.hf.attrs.get("qkit",None):
             "File existed before and was created by qkit."
             self.setup_required_groups()
         else:
             "new file or none qkit file"
+            self.newfile = True
             self.set_base_attributes()
         
             # set all standard attributes
@@ -58,6 +60,7 @@ class H5_file(object):
         self.entry.attrs.create("NX_class","NXentry".encode())
         self.entry.attrs.create("data_latest",0)
         self.entry.attrs.create("analysis_latest",0)
+        self.entry.attrs.create("updating",True)
         # create a nexus data group        
         self.dgrp = self.entry.require_group("data0")
         self.agrp = self.entry.require_group("analysis0")
@@ -277,7 +280,9 @@ class H5_file(object):
         self.hf.flush()
         
     def close_file(self):
-        # delegate close 
+        # delegate close
+        if self.newfile:
+            self.entry.attrs["updating"] = False
         self.hf.close()
         
     def __getitem__(self,s):

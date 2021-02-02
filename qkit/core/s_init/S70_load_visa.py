@@ -9,7 +9,10 @@ from pkgutil import find_loader
 
 def _load_visa():
     try:
-        import visa
+        try:
+            import pyvisa as visa
+        except:
+            import visa
     except Exception as e:
         qkit.cfg['load_visa'] = False
         raise type(e)('Failed loading visa. Check if you have NI VISA or pyvisa-py installed. Original error: ' + str(e))
@@ -26,7 +29,7 @@ def _load_visa():
             # active py visa version
             logging.info("Modern pyvisa version loaded. Version %s" % visa.__version__)
             try:
-                rm = visa.ResourceManager()
+                rm = visa.ResourceManager(qkit.cfg.get('visa_backend',""))
                 qkit.visa = rm
                 qkit.visa.__version__ = visa.__version__
                 qkit.visa.qkit_visa_version = 2

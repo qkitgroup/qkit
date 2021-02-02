@@ -56,6 +56,7 @@ class Keysight_VNA_E5071C(Instrument):
         self._freqpoints = 0
         self._ci = channel_index
         self._pi = 2 # port_index, similar to self._ci
+        self._active_trace = 0
         self._start = 0
         self._stop = 0
         self._nop = 0

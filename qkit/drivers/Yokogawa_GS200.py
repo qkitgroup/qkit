@@ -74,17 +74,17 @@ class Yokogawa_GS200(Instrument):
         self.add_parameter('source_mode',
             flags=Instrument.FLAG_GETSET,
             type=str, units='')
-#
-#        self.add_parameter('source_range',
-#            flags=Instrument.FLAG_GETSET ,
-#            units='', type=str)
-#            
+
+        self.add_parameter('source_range',
+            flags=Instrument.FLAG_GETSET ,
+            units='', type=str)
+           
         self.add_parameter('output',
             flags=Instrument.FLAG_GETSET ,
             units='', type=str)
         
         self.add_parameter('level', 
-            flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
+            flags=Instrument.FLAG_GETSET,
             type=float, units='')
 
 #        self.add_parameter('voltage_protection', 
@@ -108,16 +108,16 @@ class Yokogawa_GS200(Instrument):
         self.add_function('reset')
         self.add_function('get_all')
         #self.add_function('set_range_auto')
-        #self.add_function('set_defaults')
+        self.add_function('set_defaults')
         self.add_function('ramp_current')
         #self.add_function('ramp_ch2_current')
 
         
         if reset:
             self.reset()
-        #else:
-            #self.get_all()
-            #self.set_defaults()
+        else:
+            self.get_all()
+            self.set_defaults()
 
 # functions
             
@@ -232,12 +232,12 @@ class Yokogawa_GS200(Instrument):
         
         self._write(':syst:beep 0')
         self.set_source_mode('curr')
+        self.set('source_range', '10e-3')
         
         
 #        self.set('4W', 'off')
 
 #        self.set('sense_mode', 'volt')
-#        self.set('source_range', '200mV')
 #        self.set('sense_range', '200mV')
 #        self.set('source_delay', 15e-6)
 #        self.set('sense_delay', 0.3)
@@ -273,28 +273,28 @@ class Yokogawa_GS200(Instrument):
 #        else:
 #            return 'off'
 #
-#    def do_set_source_range(self, val, channel):
-#        '''
-#        sets source range to definite channel 
-#         
-#        Input:
-#            val (string)  :
-#            channel (int) : 
-#
-#        Output:
-#
-#        '''
-#        logging.debug('Set source range to %s' % val)
-#        self._set_func_par_value(channel, 'sour', 'rang', val)
-#        
-#        
-#
-#    def do_get_source_range(self, channel):
-#        '''
-#        Get source range 
-#        '''
-#        logging.debug('Get source range')
-#        return self._get_func_par(channel, 'sour', 'rang')
+    def do_set_source_range(self, val):
+        '''
+        sets source range to definite channel 
+         
+        Input:
+            val (string)  :
+            channel (int) : 
+        
+        Output:
+        
+        '''
+        logging.debug('Set source range to %s' % val)
+        self._set_func_par_value('sour', 'rang', val)
+       
+       
+
+    def do_get_source_range(self):
+        '''
+        Get source range 
+        '''
+        logging.debug('Get source range')
+        return self._get_func_par('sour', 'rang')
 #        
 #        
 #    def do_set_sense_range(self, val, channel):
@@ -536,42 +536,42 @@ class Yokogawa_GS200(Instrument):
         
         
         
-#    def _set_func_par_value(self, func, par, val):
-#        '''
-#        For internal use only!!
-#        Changes the value of the parameter for the function specified
-#
-#        Input:
-#            ch (int)
-#            func (string) :
-#            par (string)  :
-#            val (depends) :
-#
-#        Output:
-#            None
-#        '''
-#        string = ':%s:%s %s' %(func, par, val)
-#        logging.debug(__name__ + ' : Set instrument to %s' % string)
-#        self._visainstrument.write(string)
-#        
-#        
-#
-#    def _get_func_par(self, func, par):
-#        '''
-#        For internal use only!!
-#        Reads the value of the parameter for the function specified
-#        from the instrument
-#
-#        Input:
-#            ch (int)      :
-#            func (string) :
-#            par (string)  :
-#
-#        Output:
-#            val (string) :
-#        '''
-#        string = ':%s:%s?' %(func, par)
-#        ans = self._visainstrument.ask(string)
-#        logging.debug(__name__ + ' : ask instrument for %s (result %s)' % \
-#            (string, ans))
-#        return ans.lower()
+    def _set_func_par_value(self, func, par, val):
+        '''
+        For internal use only!!
+        Changes the value of the parameter for the function specified
+        
+        Input:
+            ch (int)
+            func (string) :
+            par (string)  :
+            val (depends) :
+        
+        Output:
+            None
+        '''
+        string = ':%s:%s %s' %(func, par, val)
+        logging.debug(__name__ + ' : Set instrument to %s' % string)
+        self._visainstrument.write(string)
+       
+       
+
+    def _get_func_par(self, func, par):
+        '''
+        For internal use only!!
+        Reads the value of the parameter for the function specified
+        from the instrument
+        
+        Input:
+            ch (int)      :
+            func (string) :
+            par (string)  :
+        
+        Output:
+            val (string) :
+        '''
+        string = ':%s:%s?' %(func, par)
+        ans = self._visainstrument.ask(string)
+        logging.debug(__name__ + ' : ask instrument for %s (result %s)' % \
+            (string, ans))
+        return ans.lower()

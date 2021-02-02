@@ -353,7 +353,7 @@ class QFIT(object):
         else:   #use specified entries
             entrytypes = self.hf['/entry/'].keys()
             try: entrytypes.remove('views')
-            except ValueError: pass
+            except (ValueError,AttributeError): pass
             for et in entrytypes:
                 for e in entries:
                     for k in self.hf['/entry/'+et].keys():

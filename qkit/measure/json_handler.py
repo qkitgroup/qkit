@@ -6,9 +6,16 @@ import types
 import numpy as np
 import logging
 import qkit
-if qkit.module_available('uncertainties'):
-    import uncertainties
-
+try:
+    if qkit.module_available('uncertainties'):
+        import uncertainties
+        uncertainties_enable = True
+except AttributeError:
+    try:
+        import uncertainties
+        uncertainties_enable = True
+    except ImportError:
+        uncertainties_enable = False
 
 class QkitJSONEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -16,7 +23,7 @@ class QkitJSONEncoder(json.JSONEncoder):
             return {'dtype': type(obj).__name__, 'content': obj.tolist()}
         # if type(obj) == types.InstanceType:  # no valid synatx in python 3 and probably not needed (MMW)
         #    return {'dtype' : type(obj).__name__, 'content': str(obj.get_name())}
-        if qkit.module_available('uncertainties'):
+        if uncertainties_enable or qkit.module_available('uncertainties'):
             if type(obj) in (uncertainties.core.Variable, uncertainties.core.AffineScalarFunc):
                 return {'dtype': 'ufloat',
                         'content': {'nominal_value': obj.nominal_value,
@@ -36,7 +43,7 @@ class QkitJSONDecoder(json.JSONDecoder):
             if obj['dtype'] == 'ndarray':
                 return np.array(obj['content'])
             if obj['dtype'] == 'ufloat':
-                if qkit.module_available('uncertainties'):
+                if uncertainties_enable or qkit.module_available('uncertainties'):
                     return uncertainties.ufloat(nominal_value=obj['content']['nominal_value'],
                                                 std_dev=obj['content']['std_dev'])
                 else:

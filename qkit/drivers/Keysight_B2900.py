@@ -573,11 +573,11 @@ class Keysight_B2900(Instrument):
         # Corresponding Command: [:SOURce[c]]:<CURRent|VOLTage>:RANGe range
         # Corresponding Command: [:SOURce[c]]:<CURRent|VOLTage>:RANGe:AUTO mode
         try:
-            logging.debug('{!s}: Set bias range{:s} to {:f}'.format(__name__, self._log_chans[self._channels][channel], val))
+            logging.debug('{!s}: Set bias range{:s} to {:g}'.format(__name__, self._log_chans[self._channels][channel], val))
             if val == -1:
                 self._write(':sour{:s}:{:s}:rang:auto 1'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode()]))
             else:
-                self._write(':sour{:s}:{:s}:rang {:f}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode()], val))
+                self._write(':sour{:s}:{:s}:rang {:g}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode()], val))
         except Exception as e:
             logging.error('{!s}: Cannot set bias range{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], val))
             raise type(e)('{!s}: Cannot set bias range{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], val, e))
@@ -624,18 +624,18 @@ class Keysight_B2900(Instrument):
         # Corresponding Command: :SENSe[c]:<CURRent[:DC]|RESistance|VOLTage[:DC]>:RANGe:UPPer range
         # Corresponding Command: :SENSe[c]:<CURRent[:DC]|RESistance|VOLTage[:DC]>:RANGe:AUTO mode
         try:
-            logging.debug('{!s}: Set sense range{:s} to {:f}'.format(__name__, self._log_chans[self._channels][channel], val))
+            logging.debug('{!s}: Set sense range{:s} to {:g}'.format(__name__, self._log_chans[self._channels][channel], val))
             if val == -1:
                 self._write(':sens{:s}:{:s}:rang:auto 1'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self._sense_mode[channel]]))
             else:
-                self._write(':sens{:s}:{:s}:rang:upp {:f}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self._sense_mode[channel]], val))
+                self._write(':sens{:s}:{:s}:rang:upp {:g}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self._sense_mode[channel]], val))
         except Exception as e:
             logging.error('{!s}: Cannot set sense range{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], val))
             raise type(e)('{!s}: Cannot set sense range{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], val, e))
 
     def get_sense_range(self, channel=1):
         """
-        Gets sense mode <val> of channel <channel>.
+        Gets sense range <val> of channel <channel>.
 
         Parameters
         ----------
@@ -655,6 +655,53 @@ class Keysight_B2900(Instrument):
         except Exception as e:
             logging.error('{!s}: Cannot get sense range{:s}'.format(__name__, self._log_chans[self._channels][channel]))
             raise type(e)('{!s}: Cannot get sense range{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], e))
+
+    def set_sense_limit(self, val, channel=1):
+        """
+        Sets sense compliance limit of channel <channel> to <val>.
+
+        Parameters
+        ----------
+        val: float
+           Sense compliance limit.
+        channel: int
+           Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels. Default is 1.
+
+        Returns
+        -------
+        None
+        """
+        # Corresponding Command: :SENS[c]:CURR[:DC]:PROT[:LEV][:BOTH] comp
+        # Corresponding Command: :SENS[c]:VOLT[:DC]:PROT[:LEV] comp
+        try:
+            logging.debug('{!s}: Set sense compliance limit{:s} to {:g}'.format(__name__, self._log_chans[self._channels][channel], val))
+            self._write(':sens{:s}:{:s}:prot {:g}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self._sense_mode[channel]], val))
+        except Exception as e:
+            logging.error('{!s}: Cannot set sense compliance limit{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], val))
+            raise type(e)('{!s}: Cannot set sense compliance limit{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], val, e))
+
+    def get_sense_limit(self, channel=1):
+        """
+        Gets sense compliance limit <val> of channel <channel>.
+
+        Parameters
+        ----------
+        channel: int
+            Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels. Default is 1.
+
+        Returns
+        -------
+        val: float
+            Sense compliance limit.
+        """
+        # Corresponding Command: :SENS[c]:CURR[:DC]:PROT[:LEV]? [DEFault | MINimum | MAXimum]
+        # Corresponding Command: :SENS[c]:VOLT[:DC]:PROT[:LEV]? [DEFault | MINimum | MAXimum]
+        try:
+            logging.debug('{!s}: Get sense compliance limit{:s}'.format(__name__, self._log_chans[self._channels][channel]))
+            return float(self._ask(':sens{:s}:{:s}:prot?'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self._sense_mode[channel]])))
+        except Exception as e:
+            logging.error('{!s}: Cannot get sense compliance limit{:s}'.format(__name__, self._log_chans[self._channels][channel]))
+            raise type(e)('{!s}: Cannot get sense compliance limit{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], e))
 
     def set_bias_trigger(self, mode, channel=1, **val):
         """
@@ -683,7 +730,7 @@ class Keysight_B2900(Instrument):
             self._write(':trig:tran:sour: {:s}'.format(mode))
             if 'time' in val:
                 logging.debug('{!s}: Set bias trigger timer{:s} to {:s}s'.format(__name__, self._log_chans[self._channels][channel], val.get('time', 50e-3)))
-                self._write(':trig:tran:{:s} {:f}'.format(mode, val.get('time', 50e-3)))
+                self._write(':trig:tran:{:s} {:g}'.format(mode, val.get('time', 50e-3)))
         except Exception as e:
             logging.error('{!s}: Cannot set bias trigger{:s} to {!s}{!s}'.format(__name__, self._log_chans[self._channels][channel], mode, val))
             raise type(e)('{!s}: Cannot set bias trigger{:s} to {!s}{!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], mode, val, e))
@@ -751,7 +798,7 @@ class Keysight_B2900(Instrument):
             self._write(':trig:acq:sour: {:s}'.format(mode))
             if 'time' in val:
                 logging.debug('{!s}: Set sense trigger timer{:s} to {:s}s'.format(__name__, self._log_chans[self._channels][channel], val.get('time', 50e-3)))
-                self._write(':trig:acq:{:s} {:f}'.format(mode, val.get('time', 50e-3)))
+                self._write(':trig:acq:{:s} {:g}'.format(mode, val.get('time', 50e-3)))
         except Exception as e:
             logging.error('{!s}: Cannot set sense trigger{:s} to {!s}{!s}'.format(__name__, self._log_chans[self._channels][channel], mode, val))
             raise type(e)('{!s}: Cannot set sense trigger{:s} to {!s}{!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], mode, val, e))
@@ -822,14 +869,14 @@ class Keysight_B2900(Instrument):
         # Corresponding Command: [:SOURce[c]]:WAIT:OFFSet offset
         # Corresponding Command: [:SOURce[c]]:WAIT[:STATe] 0|OFF|1|ON
         try:
-            logging.debug('{!s}: Set bias delay status{:s} to {:f}'.format(__name__, self._log_chans[self._channels][channel], status))
+            logging.debug('{!s}: Set bias delay status{:s} to {:g}'.format(__name__, self._log_chans[self._channels][channel], status))
             self._write(':sour{:s}:wait:stat {:d}'.format(self._cmd_chans[self._channels][channel], int(status)))
         except Exception as e:
             logging.error('{!s}: Cannot set bias delay status{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], status))
             raise type(e)('{!s}: Cannot set bias delay status{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], status, e))
         try:
-            logging.debug('{!s}: Set bias delay{:s} to {:f}'.format(__name__, self._log_chans[self._channels][channel], offset))
-            self._write(':sour{:s}:wait:offs {:f}'.format(self._cmd_chans[self._channels][channel], offset))
+            logging.debug('{!s}: Set bias delay{:s} to {:g}'.format(__name__, self._log_chans[self._channels][channel], offset))
+            self._write(':sour{:s}:wait:offs {:g}'.format(self._cmd_chans[self._channels][channel], offset))
         except Exception as e:
             logging.error('{!s}: Cannot set bias delay{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], offset))
             raise type(e)('{!s}: Cannot set bias delay{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], offset, e))
@@ -911,14 +958,14 @@ class Keysight_B2900(Instrument):
         # Corresponding Command: [:SENSe[c]]:WAIT:OFFSet offset
         # Corresponding Command: [:SENSe[c]]:WAIT[:STATe] 0|OFF|1|ON
         try:
-            logging.debug('{!s}: Set sense delay status{:s} to {:f}'.format(__name__, self._log_chans[self._channels][channel], status))
+            logging.debug('{!s}: Set sense delay status{:s} to {:g}'.format(__name__, self._log_chans[self._channels][channel], status))
             self._write(':sens{:s}:wait:stat {:d}'.format(self._cmd_chans[self._channels][channel], int(status)))
         except Exception as e:
             logging.error('{!s}: Cannot set sense delay status{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], status))
             raise type(e)('{!s}: Cannot set sense delay status{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], status, e))
         try:
-            logging.debug('{!s}: Set sense delay{:s} to {:f}'.format(__name__, self._log_chans[self._channels][channel], offset))
-            self._write(':sens{:s}:wait:offs {:f}'.format(self._cmd_chans[self._channels][channel], offset))
+            logging.debug('{!s}: Set sense delay{:s} to {:g}'.format(__name__, self._log_chans[self._channels][channel], offset))
+            self._write(':sens{:s}:wait:offs {:g}'.format(self._cmd_chans[self._channels][channel], offset))
         except Exception as e:
             logging.error('{!s}: Cannot set sense delay{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], offset))
             raise type(e)('{!s}: Cannot set sense delay{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], offset, e))
@@ -1126,7 +1173,7 @@ class Keysight_B2900(Instrument):
         # Corresponding Command: [:SOUR[c]]:VOLT: voltage
         # Corresponding Command: :DISPlay:VIEW mode
         try:
-            logging.debug('{!s}: Set bias value{:s} to {:f}'.format(__name__, self._log_chans[self._channels][channel], val))
+            logging.debug('{!s}: Set bias value{:s} to {:g}'.format(__name__, self._log_chans[self._channels][channel], val))
             self._write(':sour{:s}:{:s}:lev {:g}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode(channel=channel)], val))  # necessary to cast as scientific float! (otherwise only >= 1e-6 possible)
             self._write(':disp:view sing{:d}'.format(channel))
         except Exception as e:
@@ -1222,8 +1269,8 @@ class Keysight_B2900(Instrument):
         """
         # Corresponding Command: [:SOUR[c]]:VOLT: voltage
         try:
-            logging.debug('{:s}: Set voltage value{:s} to {:f}'.format(__name__, self._log_chans[self._channels][channel], val))
-            self._write(':sour{:s}:volt {:f}'.format(self._cmd_chans[self._channels][channel], val))
+            logging.debug('{:s}: Set voltage value{:s} to {:g}'.format(__name__, self._log_chans[self._channels][channel], val))
+            self._write(':sour{:s}:volt {:g}'.format(self._cmd_chans[self._channels][channel], val))
             self._write(':disp:view sing{:d}'.format(channel))
         except Exception as e:
             logging.error('{!s}: Cannot set voltage value{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], val))
@@ -1272,8 +1319,8 @@ class Keysight_B2900(Instrument):
         """
         # Corresponding Command: [:SOUR[c]]:CURR: current
         try:
-            logging.debug('{:s}: Set current value{:s} to {:f}'.format(__name__, self._log_chans[self._channels][channel], val))
-            self._write(':sour{:s}:curr {:f}'.format(self._cmd_chans[self._channels][channel], val))
+            logging.debug('{:s}: Set current value{:s} to {:g}'.format(__name__, self._log_chans[self._channels][channel], val))
+            self._write(':sour{:s}:curr {:g}'.format(self._cmd_chans[self._channels][channel], val))
             self._write(':disp:view sing{:d}'.format(channel))
         except Exception as e:
             logging.error('{!s}: Cannot set current value{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], val))
@@ -1509,8 +1556,8 @@ class Keysight_B2900(Instrument):
         """
         # Corresponding Command: [:SOURce[c]]:<CURRent|VOLTage>:<STARt|STOP> data
         try:
-            logging.debug('{!s}: Set sweep start{:s} to {:f}'.format(__name__, self._log_chans[self._channels][channel], val))
-            self._write(':sour{:s}:{:s}:star {:f}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode(channel)], val))
+            logging.debug('{!s}: Set sweep start{:s} to {:g}'.format(__name__, self._log_chans[self._channels][channel], val))
+            self._write(':sour{:s}:{:s}:star {:g}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode(channel)], val))
         except Exception as e:
             logging.error('{!s}: Cannot set sweep start{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], val))
             raise type(e)('{!s}: Cannot set sweep start{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], val, e))
@@ -1555,8 +1602,8 @@ class Keysight_B2900(Instrument):
         """
         # Corresponding Command: [:SOURce[c]]:<CURRent|VOLTage>:<STARt|STOP> data
         try:
-            logging.debug('{!s}: Set sweep stop{:s} to {:f}'.format(__name__, self._log_chans[self._channels][channel], val))
-            self._write(':sour{:s}:{:s}:stop {:f}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode(channel)], val))
+            logging.debug('{!s}: Set sweep stop{:s} to {:g}'.format(__name__, self._log_chans[self._channels][channel], val))
+            self._write(':sour{:s}:{:s}:stop {:g}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode(channel)], val))
         except Exception as e:
             logging.error('{!s}: Cannot set sweep stop{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], val))
             raise type(e)('{!s}: Cannot set sweep stop{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], val, e))
@@ -1601,8 +1648,8 @@ class Keysight_B2900(Instrument):
         """
         # Corresponding Command: [:SOURce[c]]:<CURRent|VOLTage>:STEP step
         try:
-            logging.debug('{!s}: Set sweep step{:s} to {:f}'.format(__name__, self._log_chans[self._channels][channel], val))
-            self._write(':sour{:s}:{:s}:step {:f}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode(channel)], val))
+            logging.debug('{!s}: Set sweep step{:s} to {:g}'.format(__name__, self._log_chans[self._channels][channel], val))
+            self._write(':sour{:s}:{:s}:step {:g}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode(channel)], val))
         except Exception as e:
             logging.error('{!s}: Cannot set sweep step{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], val))
             raise type(e)('{!s}: Cannot set sweep step{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], val, e))
@@ -2042,11 +2089,11 @@ class Keysight_B2900(Instrument):
         print('sense nplc         = {:f}'.format(self.get_sense_nplc()))
         print('status             = {!r}'.format(self.get_status()))
         if self.get_status():
-            print('bias value         = {:f}{:s}'.format(self.get_bias_value(), self._IV_units[self.get_bias_mode()]))
-            print('sense value        = {:f}{:s}'.format(self.get_sense_value(), self._IV_units[self.get_sense_mode()]))
-        print('sweep start        = {:f}{:s}'.format(self._get_sweep_start(), self._IV_units[self.get_bias_mode()]))
-        print('sweep stop         = {:f}{:s}'.format(self._get_sweep_stop(), self._IV_units[self.get_bias_mode()]))
-        print('sweep step         = {:f}{:s}'.format(self._get_sweep_step(), self._IV_units[self.get_bias_mode()]))
+            print('bias value         = {:g}{:s}'.format(self.get_bias_value(), self._IV_units[self.get_bias_mode()]))
+            print('sense value        = {:g}{:s}'.format(self.get_sense_value(), self._IV_units[self.get_sense_mode()]))
+        print('sweep start        = {:g}{:s}'.format(self._get_sweep_start(), self._IV_units[self.get_bias_mode()]))
+        print('sweep stop         = {:g}{:s}'.format(self._get_sweep_stop(), self._IV_units[self.get_bias_mode()]))
+        print('sweep step         = {:g}{:s}'.format(self._get_sweep_step(), self._IV_units[self.get_bias_mode()]))
         print('sweep nop          = {:d}'.format(self._get_sweep_nop()))
         for err in self.get_error():
             print('error              = {:d}\t{:s}'.format(err[0], err[1]))

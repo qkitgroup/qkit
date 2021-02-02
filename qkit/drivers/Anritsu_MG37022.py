@@ -20,6 +20,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+import qkit
 from qkit.core.instrument_base import Instrument
 from qkit import visa
 import types
@@ -96,7 +97,7 @@ class Anritsu_MG37022(Instrument):
         Output:
             microwave frequency (Hz)
         '''
-        self._frequency = float(self._visainstrument.ask('SOUR:FREQ:CW?'))
+        self._frequency = float(self.ask('SOUR:FREQ:CW?'))
         return self._frequency
         
     def do_set_frequency(self, frequency):
@@ -110,7 +111,7 @@ class Anritsu_MG37022(Instrument):
             None
         '''
         #logging.debug(__name__ + ' : setting frequency to %s Hz' % (frequency*1.0e9))
-        self._visainstrument.write('SOUR:FREQ:CW %i' % (int(frequency)))
+        self.write('SOUR:FREQ:CW %i' % (int(frequency)))
         self._frequency = float(frequency)
         if(self._slope != None): 
             self.do_set_power()
@@ -148,7 +149,7 @@ class Anritsu_MG37022(Instrument):
         Output:
             microwave power (dBm)
         '''
-        self._power = float(self._visainstrument.ask('POW:LEV?'))
+        self._power = float(self.ask('POW:LEV?'))
         return self._power
         
     def do_set_power(self,power = None):
@@ -171,7 +172,7 @@ class Anritsu_MG37022(Instrument):
         # compensate cables
         if(self._slope != None):
             power = power+self._slope*(math.sqrt(self._frequency/10.e9)-1)
-        self._visainstrument.write('POW:LEV %.2f' % power)
+        self.write('POW:LEV %.2f' % power)
             
     def do_get_status(self):
         '''
@@ -183,7 +184,7 @@ class Anritsu_MG37022(Instrument):
         Output:
             True (on) or False (off)
         '''
-        stat = bool(int(self._visainstrument.ask('OUTP:STAT?')))
+        stat = bool(int(self.ask('OUTP:STAT?')))
         return stat
         
     def do_set_status(self,status):
@@ -198,9 +199,9 @@ class Anritsu_MG37022(Instrument):
         '''
         logging.debug(__name__ + ' : setting status to "%s"' % status)
         if status == True:
-            self._visainstrument.write('OUTP:STAT ON')
+            self.write('OUTP:STAT ON')
         elif status == False:
-            self._visainstrument.write('OUTP:STAT OFF')
+            self.write('OUTP:STAT OFF')
         else:
             logging.error('set_status(): can only set True or False')
         
@@ -215,7 +216,7 @@ class Anritsu_MG37022(Instrument):
         Output:
             phase offset (deg)
         '''
-        return float(self._visainstrument.ask('PHAS:ADJ?'))
+        return float(self.ask('PHAS:ADJ?'))
         
     def do_set_phase_offset(self, phase_offset):
         '''
@@ -227,8 +228,8 @@ class Anritsu_MG37022(Instrument):
         Output:
             Nones
         '''
-        self._visainstrument.write('PHAS:ADJ %.1f DEG' %phase_offset)
-        self._visainstrument.write('PHAS:DISP ON')
+        self.write('PHAS:ADJ %.1f DEG' %phase_offset)
+        self.write('PHAS:DISP ON')
             
     def do_set_high_power(self, enabled):
         '''
@@ -279,5 +280,10 @@ class Anritsu_MG37022(Instrument):
     #sending customized messages
     def write(self,msg):
       return self._visainstrument.write(msg)
-    def ask(self,msg):
-      return self._visainstrument.ask(msg)
+    
+    if qkit.visa.qkit_visa_version == 1:
+        def ask(self,msg):
+            return self._visainstrument.ask(msg)
+    else:
+        def ask(self, msg):
+            return self._visainstrument.query(msg)

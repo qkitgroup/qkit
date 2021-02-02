@@ -16,11 +16,10 @@
 # along with this program; if not, query to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+import qkit
 from qkit.core.instrument_base import Instrument
 from qkit import visa
-import types
 import logging
-from time import sleep
 import numpy
 
 class Keysight_VNA_E5080B(Instrument):
@@ -46,7 +45,7 @@ class Keysight_VNA_E5080B(Instrument):
         Instrument.__init__(self, name, tags=['physical'])
 
         self._address = address
-        self._visainstrument = visa.instrument(self._address)
+        self.reconnect()
         self._freqpoints = 0
         self._ci = channel_index 
         self._pi = 2 # port_index, similar to self._ci
@@ -54,6 +53,10 @@ class Keysight_VNA_E5080B(Instrument):
         self._stop = 0
         self._nop = 0
         self._cwfreq = None #MK This parameter tracks the center-freq when switching to nop=1 (cw mode)
+        self._hold = None
+        self._sweep = None
+        self._edel = None
+        self._active_trace = None
 
         # Implement parameters
         self.add_parameter('nop', type=int,
@@ -169,6 +172,7 @@ class Keysight_VNA_E5080B(Instrument):
         self.add_function('ready')
         self.add_function('post_measurement')
 
+        self.do_set_active_trace(1)
         self.get_all()
     
     def get_all(self):        
@@ -237,7 +241,7 @@ class Keysight_VNA_E5080B(Instrument):
 
         self._visainstrument.write('FORM:DATA REAL,32')
         self._visainstrument.write('FORM:BORD SWAPPED') #SWAPPED
-        data = self._visainstrument.query_binary_values('CALC%i:MEAS:DATA:SDAT?' % self._ci)
+        data = self._visainstrument.query_binary_values('CALC%i:MEAS%i:DATA:SDAT?' %( self._ci,self._active_trace))
         data_size = numpy.size(data)
         datareal = numpy.array(data[0:data_size:2])
         dataimag = numpy.array(data[1:data_size:2])
@@ -403,7 +407,7 @@ class Keysight_VNA_E5080B(Instrument):
             Count number
         """
         logging.debug(__name__ + ' : getting count number')
-        return int(self._visainstrument.query('SENS%i:SWE:GRO:COUN?' % (self._ci)))
+        return int(self._visainstrument.query('SENS%i:SWE:GRO:COUN?' % self._ci))
 
     def do_set_power(self,pow,port=1):
         """
@@ -773,7 +777,7 @@ class Keysight_VNA_E5080B(Instrument):
         """
         :return: the active trace on the selected channel
         """
-        # TODO: ask device
+        self._active_trace = int(self._visainstrument.query('CALC%i:PAR:MNUM?'%(self._ci)).strip())
         return self._active_trace
 
     def do_get_sweep_type(self):
@@ -812,7 +816,24 @@ class Keysight_VNA_E5080B(Instrument):
             logging.debug(__name__ + ' : Setting sweep type to %s' % swtype)
             return self._visainstrument.write('SENS%i:SWE:TYPE %s' %(self._ci,swtype))
         else:
-            logging.debug(__name__ + ' : Illegal argument %s' % swtype)
+            logging.error(__name__ + ' : Illegal argument %s' % swtype)
+            return False
+            
+    def do_get_measurement_parameter(self):
+        """
+        Gets the measurement parameter, i.e. S11, S21, ...
+        Output:
+            Parameter as string "S11" ...
+        """
+        return self.query("CALC%i:MEAS:PAR?"%self._ci).strip()
+    
+    def do_set_measurement_parameter(self,mode):
+        """
+        Sets the measurement parameter, i.e. S11, S21, ...
+        Input:
+            mode: Parameter as string, e.g. "S11"
+        """
+        return self.write("CALC%i:MEAS:PAR %s"%(self._ci,mode))
 
     def do_set_trigger_source(self,source):
         """
@@ -870,13 +891,15 @@ class Keysight_VNA_E5080B(Instrument):
         """
         Bring the VNA back to a mode where it can be easily used by the operator.
         """
-        self.set_sweep_mode("hold")
+        self.set_sweep_mode("cont")
 
     def start_measurement(self):
         """
         This function is called at the beginning of each single measurement in the spectroscopy script.
         Here, it starts n sweeps, where n is the active channels trigger count.
+        Also, the averages need to be reset.
         """
+        self.avg_clear()
         self.set_sweep_mode("group")
 
     
@@ -884,4 +907,10 @@ class Keysight_VNA_E5080B(Instrument):
         """
         This is a proxy function, returning True when the VNA is on HOLD after finishing the required number of averages .
         """
-        return self.get_sweep_mode()=="HOLD"
+        try:  # the VNA sometimes throws an error here, we just ignore it
+            return self.get_sweep_mode() == "HOLD"
+        except:
+            return False
+    
+    def reconnect(self):
+        self._visainstrument = visa.instrument(self._address)

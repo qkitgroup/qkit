@@ -439,7 +439,10 @@ class h5plot(object):
     
                 elif y_ds.attrs.get('ds_type',0) == ds_types['matrix']:
                     x_data = np.array(x_ds)
-                    y_data = np.array(y_ds[-1])
+                    if "default_trace" in  view_params:
+                        y_data = np.array(y_ds[:,view_params.get("default_trace",-1)])
+                    else:
+                        y_data = np.array(y_ds[-1]) # The code was like this, but I believe the axis is wrong
                     if err_ds:
                         err_data = np.array(err_ds[-1])
     
