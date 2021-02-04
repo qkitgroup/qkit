@@ -40,7 +40,10 @@ def all_are_same(array):
 
 
 def _vars_len(variables: Dict[str, List[float]]):
-    return len(list(variables.values())[0])
+    if variables:
+        return len(list(variables.values())[0])
+    else:
+        return 0  # No variables in dictionary
 
 
 def dictify_variable_lists(variables):
@@ -101,24 +104,25 @@ class TdChannel(object):
                           In a T1 measurement this would be the wait time between pi-pulse and readout tone.
         """
         # Check that lists are given for all necessary variables
-        if not variables or sequence.variable_names != set(variables.keys()):
-            logging.error(
-                "Lists for the variables of the sequence have to be specified. Given variables do not match with required ones. "
-                + "The following keyword arguments are required: {}.".format(
-                    ", ".join(sequence.variable_names)
+        if sequence.variable_names:
+            if not variables or sequence.variable_names != set(variables.keys()):
+                logging.error(
+                    "Lists for the variables of the sequence have to be specified. Given variables do not match with required ones. "
+                    + "The following keyword arguments are required: {}.".format(
+                        ", ".join(sequence.variable_names)
+                    )
                 )
-            )
-            return False
+                return False
 
-        # Check if all variable lists have the same length and are non-empty
-        if not all_are_same([len(v) for v in variables.values()]):
-            logging.error("Length of variable lists do not match.")
-            return False
-        elif _vars_len(variables) == 0:
-            logging.error(
-                "The lists containing values of the variables must not be empty."
-            )
-            return False
+            # Check if all variable lists have the same length and are non-empty
+            if not all_are_same([len(v) for v in variables.values()]):
+                logging.error("Length of variable lists do not match.")
+                return False
+            elif _vars_len(variables) == 0:
+                logging.error(
+                    "The lists containing values of the variables must not be empty."
+                )
+                return False
 
         # Add sequence and variable lists to channel
         self._sequences.append(sequence)
@@ -161,12 +165,12 @@ class TdChannel(object):
             self._sequences = []
             self._variables = []
         else:
-            temp = self._sequences.pop(seq_nr)
-            temp = self._variables.pop(seq_nr)
+            self._sequences.pop(seq_nr)
+            self._variables.pop(seq_nr)
         return True
 
-    def get_sequence(self, num):
-        # type: (int) -> (PulseSequence, Dict[str, List[Any]])
+    def get_sequence(self, num: int):
+        # type: (int) -> Tuple[PulseSequence, Dict[str, List[Any]]]
         """Returns the PulseSequence object and variables for a given index."""
         return self._sequences[num], self._variables[num]
 
@@ -357,11 +361,25 @@ class TdChannel(object):
             List of waveform arrays.
             List of readout indices.
         """
+
+        try:
+            samplerate = self._sample.clock
+        except:
+            samplerate = None
+
         seq_list = []
         ro_inds = []
         for sequence, variables in zip(self._sequences, self._variables):
-            for single_variables in dictify_variable_lists(variables):
-                seq, ro_ind = sequence(IQ_mixing=IQ_mixing, **single_variables)
+            if variables:
+                for single_variables in dictify_variable_lists(variables):
+                    seq, ro_ind = sequence(
+                        IQ_mixing=IQ_mixing, samplerate=samplerate, **single_variables
+                    )
+                    seq_list.append(seq)
+                    ro_inds.append(ro_ind)
+            else:
+                # No variables
+                seq, ro_ind = sequence(IQ_mixing=IQ_mixing, samplerate=samplerate)
                 seq_list.append(seq)
                 ro_inds.append(ro_ind)
 

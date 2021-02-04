@@ -326,7 +326,11 @@ class PulseSequence(object):
         }
 
     def __call__(
-        self, IQ_mixing: bool = False, include_readout: bool = False, **variables: Any
+        self,
+        IQ_mixing: bool = False,
+        include_readout: bool = False,
+        samplerate: float = None,
+        **variables: Any
     ) -> Union[Tuple[np.ndarray, int], None]:
         """
         Returns the envelope of the whole pulse sequence for the input time.
@@ -344,7 +348,7 @@ class PulseSequence(object):
             readout_index: index of the readout tone
         """
 
-        if self._variables != set(variables.keys()):
+        if self._variables and self._variables != set(variables.keys()):
             logging.error(
                 "Given function arguments do not match with required ones. "
                 + "The following keyword arguments are required: {}.".format(
@@ -353,13 +357,14 @@ class PulseSequence(object):
             )
             return None
 
-        if not self.samplerate:
+        samplerate = samplerate or self.samplerate
+        if not samplerate:
             logging.error("Sequence call requires samplerate.")
             return None
 
         # build the waveform of this sequence
         full_waveform = np.zeros(0)
-        timestep = 1.0 / self.samplerate  # minimum time step
+        timestep = 1.0 / samplerate  # minimum time step
         readout_index = 0  # index of the readout in the waveform of the whole sequence
         position_of_next_slice = 0  # index where the next time slice will start
         for time_slice in self._sequence:
@@ -375,7 +380,7 @@ class PulseSequence(object):
                     2.0 * np.pi * pulse.iq_frequency * position_of_next_slice * timestep
                 )  # zero for homodyne mixing
                 wfm = pulse(
-                    self.samplerate,
+                    samplerate,
                     start_phase=startphase,
                     heterodyne=IQ_mixing,
                     **variables
