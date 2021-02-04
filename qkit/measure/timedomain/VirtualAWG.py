@@ -28,6 +28,7 @@ import qkit.measure.timedomain.awg.load_tawg as load_tawg
 PLOT_ENABLE = False
 try:
     import matplotlib.pyplot as plt
+
     PLOT_ENABLE = True
 except ImportError:
     pass
@@ -37,8 +38,10 @@ def all_are_same(array):
     """Check if all elements of a list are the same."""
     return all(item == array[0] for item in array)
 
+
 def _vars_len(variables: Dict[str, List[float]]):
     return len(list(variables.values())[0])
+
 
 def dictify_variable_lists(variables):
     # type: (Dict[List[float]]) -> Generator[Dict[float]]
@@ -86,7 +89,9 @@ class TdChannel(object):
         """The number of loaded sequences."""
         return len(self._sequences)
 
-    def add_sequence(self, sequence: ps.PulseSequence, **variables: List[float]) -> bool:
+    def add_sequence(
+        self, sequence: ps.PulseSequence, **variables: List[float]
+    ) -> bool:
         """
         Append sequence to sequences currently stored in channel.
 
@@ -97,8 +102,12 @@ class TdChannel(object):
         """
         # Check that lists are given for all necessary variables
         if not variables or sequence.variable_names != set(variables.keys()):
-            logging.error("Lists for the variables of the sequence have to be specified. Given variables do not match with required ones. " +
-                          "The following keyword arguments are required: {}.".format(", ".join(sequence.variable_names)))
+            logging.error(
+                "Lists for the variables of the sequence have to be specified. Given variables do not match with required ones. "
+                + "The following keyword arguments are required: {}.".format(
+                    ", ".join(sequence.variable_names)
+                )
+            )
             return False
 
         # Check if all variable lists have the same length and are non-empty
@@ -107,7 +116,8 @@ class TdChannel(object):
             return False
         elif _vars_len(variables) == 0:
             logging.error(
-                "The lists containing values of the variables must not be empty.")
+                "The lists containing values of the variables must not be empty."
+            )
             return False
 
         # Add sequence and variable lists to channel
@@ -117,8 +127,10 @@ class TdChannel(object):
         # Check if interleaving should be done and if so, if it is still possible
         if (len(self._sequences) >= 1) and self._interleave:
             if not self.set_interleave():
-                logging.error("Dimension of new time array does not fit previous inputs.\n" +
-                              "Interleaving no longer possible.")
+                logging.error(
+                    "Dimension of new time array does not fit previous inputs.\n"
+                    + "Interleaving no longer possible."
+                )
 
         return True
 
@@ -152,7 +164,7 @@ class TdChannel(object):
             temp = self._sequences.pop(seq_nr)
             temp = self._variables.pop(seq_nr)
         return True
-    
+
     def get_sequence(self, num):
         # type: (int) -> (PulseSequence, Dict[str, List[Any]])
         """Returns the PulseSequence object and variables for a given index."""
@@ -197,12 +209,13 @@ class TdChannel(object):
         # (Only need to check first variable of each vector, as within we already checked during add procedure)
         if not all_are_same([_vars_len(vs) for vs in self._variables]):
             logging.error(
-                "Only sequences that have the same number of variables can be interleaved.")
+                "Only sequences that have the same number of variables can be interleaved."
+            )
             return False
 
         self._interleave = True
         return True
-    
+
     @property
     def is_interleaved(self):
         """If the sequences in this channel are to be played interleaved."""
@@ -229,8 +242,14 @@ class TdChannel(object):
 
         bounds = self._get_boundaries(sequences, readout_indices, x_unit)
 
-        interact(lambda sequence: self._plot_sequence(sequences[sequence], readout_indices[sequence], x_unit, bounds),
-                 sequence=widgets.IntSlider(value=0, min=0, max=seq_max, layout=Layout(width="98%", height="50px")))
+        interact(
+            lambda sequence: self._plot_sequence(
+                sequences[sequence], readout_indices[sequence], x_unit, bounds
+            ),
+            sequence=widgets.IntSlider(
+                value=0, min=0, max=seq_max, layout=Layout(width="98%", height="50px")
+            ),
+        )
         return True
 
     def _plot_sequence(self, seq, ro_ind, x_unit, bounds, col="C0", plot_readout=True):
@@ -245,13 +264,14 @@ class TdChannel(object):
         """
         if not PLOT_ENABLE:
             raise ImportError("matplotlib not found.")
-        
+
         if plot_readout:
             fig = plt.figure(figsize=(18, 6))
         xmin, xmax, ymin, ymax = bounds
         samplerate = self._sample.clock
-        time = -(np.arange(0, len(seq) + 1, 1) - ro_ind) / \
-            (samplerate * self._x_unit[x_unit])
+        time = -(np.arange(0, len(seq) + 1, 1) - ro_ind) / (
+            samplerate * self._x_unit[x_unit]
+        )
         # make sure last point of the waveform goes to zero
         seq = np.append(seq, 0)
 
@@ -260,20 +280,34 @@ class TdChannel(object):
         except AttributeError:
             readout_tone = self._sample.readout_tone_length
 
-
         # plot sequence
         plt.plot(time, seq, col)
         plt.fill(time, seq, color=col, alpha=0.2)
         # plot readout
         if plot_readout:
-            plt.fill([0, 0, - readout_tone / self._x_unit[x_unit], - readout_tone / self._x_unit[x_unit]],
-                     [0, ymax, ymax, 0], color="C7", alpha=0.3)
+            plt.fill(
+                [
+                    0,
+                    0,
+                    -readout_tone / self._x_unit[x_unit],
+                    -readout_tone / self._x_unit[x_unit],
+                ],
+                [0, ymax, ymax, 0],
+                color="C7",
+                alpha=0.3,
+            )
             # add label for readout
-            plt.text(-0.5*readout_tone / self._x_unit[x_unit], ymax/2.,
-                     "readout", horizontalalignment="center", verticalalignment="center", rotation=90, size=14)
+            plt.text(
+                -0.5 * readout_tone / self._x_unit[x_unit],
+                ymax / 2.0,
+                "readout",
+                horizontalalignment="center",
+                verticalalignment="center",
+                rotation=90,
+                size=14,
+            )
         # adjust bounds
-        plt.xlim(xmin + 0.005 * abs(xmax - xmin),
-                 xmax - 0.006 * abs(xmax - xmin))
+        plt.xlim(xmin + 0.005 * abs(xmax - xmin), xmax - 0.006 * abs(xmax - xmin))
         plt.ylim(ymin, ymax + 0.025 * (ymax - ymin))
         plt.xlabel("time " + x_unit)
         return
@@ -295,10 +329,18 @@ class TdChannel(object):
         except AttributeError:
             readout_tone = self._sample.readout_tone_length
 
-        xmin = max(readout_indices) / \
-            (self._x_unit[x_unit] * self._sample.clock)
-        xmax = - (max(np.array([len(seq) for seq in sequences]) - np.array(readout_indices)) /
-                  self._sample.clock + readout_tone)/self._x_unit[x_unit]
+        xmin = max(readout_indices) / (self._x_unit[x_unit] * self._sample.clock)
+        xmax = (
+            -(
+                max(
+                    np.array([len(seq) for seq in sequences])
+                    - np.array(readout_indices)
+                )
+                / self._sample.clock
+                + readout_tone
+            )
+            / self._x_unit[x_unit]
+        )
         ymin = np.amin(np.concatenate(sequences))
         ymax = np.amax(np.concatenate(sequences))
         bounds = [xmin, xmax, ymin, ymax]
@@ -371,13 +413,13 @@ class VirtualAWG(object):
 
         self.channels = [None]  # type: List[TdChannel]
         self.channels.extend(
-            TdChannel(self._sample, "channel_%i" % (i + 1)) for i in range(channels))
+            TdChannel(self._sample, "channel_%i" % (i + 1)) for i in range(channels)
+        )
 
         # Dictionary for x-axis scaling
         self._x_unit = {"s": 1, "ms": 1e-3, "us": 1e-6, "ns": 1e-9}
         # Dictonary for channel colors
-        self._chancols = {1: "C0", 2: "C1", 3: "C2",
-                          4: "C3", 5: "C4", 6: "C5", 7: "C6"}
+        self._chancols = {1: "C0", 2: "C1", 3: "C2", 4: "C3", 5: "C4", 6: "C5", 7: "C6"}
 
     @property
     def channel_count(self):
@@ -396,8 +438,11 @@ class VirtualAWG(object):
 
         """
         if channel > self._num_chans:
-            print("Channel number {:d} is larger than total number of channels {:d}".format(
-                channel, self._num_chans))
+            print(
+                "Channel number {:d} is larger than total number of channels {:d}".format(
+                    channel, self._num_chans
+                )
+            )
             return False
         if channel is not None:
             self.channels[channel].add_sequence(sequence, **variables)
@@ -507,8 +552,14 @@ class VirtualAWG(object):
             ymin = min(ymin, bounds[2])
             ymax = max(ymax, bounds[3])
 
-        interact(lambda sequence: self._plot_sequences(sequence, seqs, ro_inds, x_unit, [xmin, xmax, ymin, ymax]),
-                 sequence=widgets.IntSlider(value=0, min=0, max=seq_max, layout=Layout(width="11in", height="50px")))
+        interact(
+            lambda sequence: self._plot_sequences(
+                sequence, seqs, ro_inds, x_unit, [xmin, xmax, ymin, ymax]
+            ),
+            sequence=widgets.IntSlider(
+                value=0, min=0, max=seq_max, layout=Layout(width="11in", height="50px")
+            ),
+        )
         return True
 
     def _plot_sequences(self, seq_ind, seqs, ro_inds, x_unit, bounds):
@@ -530,25 +581,46 @@ class VirtualAWG(object):
         except AttributeError:
             readout_tone = self._sample.readout_tone_length
 
-        fig = plt.figure(figsize=(18,6))
+        fig = plt.figure(figsize=(18, 6))
         xmin, xmax, ymin, ymax = bounds
         samplerate = self._sample.clock
         # plot sequence
         for i, chan in enumerate(self.channels[1:]):
             if len(ro_inds[i]) > seq_ind:
-                chan._plot_sequence(seqs[i][seq_ind], ro_inds[i][seq_ind],
-                                    x_unit, bounds, col=self._chancols[i + 1], plot_readout=False)
+                chan._plot_sequence(
+                    seqs[i][seq_ind],
+                    ro_inds[i][seq_ind],
+                    x_unit,
+                    bounds,
+                    col=self._chancols[i + 1],
+                    plot_readout=False,
+                )
 
             # plot readout
-        plt.fill([0, 0, - readout_tone / self._x_unit[x_unit], - readout_tone / self._x_unit[x_unit]],
-                 [0, ymax, ymax, 0], color="C7", alpha=0.3)
+        plt.fill(
+            [
+                0,
+                0,
+                -readout_tone / self._x_unit[x_unit],
+                -readout_tone / self._x_unit[x_unit],
+            ],
+            [0, ymax, ymax, 0],
+            color="C7",
+            alpha=0.3,
+        )
         # add label for readout
-        plt.text(-0.5*readout_tone / self._x_unit[x_unit], ymax/2.,
-                 "readout", horizontalalignment="center", verticalalignment="center", rotation=90, size=14)
+        plt.text(
+            -0.5 * readout_tone / self._x_unit[x_unit],
+            ymax / 2.0,
+            "readout",
+            horizontalalignment="center",
+            verticalalignment="center",
+            rotation=90,
+            size=14,
+        )
 
         # adjust plot limits
-        plt.xlim(xmin + 0.005 * abs(xmax - xmin),
-                 xmax - 0.006 * abs(xmax - xmin))
+        plt.xlim(xmin + 0.005 * abs(xmax - xmin), xmax - 0.006 * abs(xmax - xmin))
         plt.ylim(ymin, ymax + 0.025 * (ymax - ymin))
         plt.xlabel("time " + x_unit)
         return
@@ -594,8 +666,7 @@ class VirtualAWG(object):
             for i, seq in enumerate(seqs):
                 if seq:
                     s = seq.pop(0)
-                    temp = np.zeros(
-                        int(max(0, readout_indices[ind] - ro_inds[i][ind])))
+                    temp = np.zeros(int(max(0, readout_indices[ind] - ro_inds[i][ind])))
                     s = np.append(temp, s)
                 else:
                     s = np.zeros(0)
@@ -612,7 +683,11 @@ class VirtualAWG(object):
         if self._sample.awg.get_name() == "tawg":
             sequences, readout_inds = self._sync()
             load_tawg.load_tabor(
-                sequences, readout_inds, self._sample, show_progress_bar=show_progress_bar)
+                sequences,
+                readout_inds,
+                self._sample,
+                show_progress_bar=show_progress_bar,
+            )
         else:
             print("Unknown device type! Unable to load sequences.")
         return True

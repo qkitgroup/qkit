@@ -9,6 +9,7 @@ import logging
 plot_enable = False
 try:
     import matplotlib.pyplot as plt
+
     plot_enable = True
 except ImportError:
     pass
@@ -20,7 +21,9 @@ class Shape(np.vectorize):
     defined on the standardized interval [0,1).
     """
 
-    def __init__(self, name: str, func: Callable[[float], float], *args: Any, **kwargs: Any):
+    def __init__(
+        self, name: str, func: Callable[[float], float], *args: Any, **kwargs: Any
+    ):
         self.name = name
         super(Shape, self).__init__(func, *args, **kwargs)
 
@@ -37,9 +40,12 @@ class ShapeLibClass(object):
     def __init__(self):
         self.zero = Shape("", lambda x: 0)
         self.rect = Shape("rect", lambda x: np.where(x >= 0 and x < 1, 1, 0))
-        self.gauss = Shape("gauss", lambda x: np.exp(-0.5 * np.power((x - 0.5) / 0.166, 2.0))) * self.rect
+        self.gauss = (
+            Shape("gauss", lambda x: np.exp(-0.5 * np.power((x - 0.5) / 0.166, 2.0)))
+            * self.rect
+        )
         self.ramp = Shape("ramp", lambda x: x) * self.rect
-        self.sqrfct = Shape("sqrfct", lambda x: x**2) * self.rect
+        self.sqrfct = Shape("sqrfct", lambda x: x ** 2) * self.rect
 
 
 # Make ShapeLib a singleton:
@@ -48,6 +54,7 @@ ShapeLib = ShapeLibClass()
 
 class PulseType(Enum):
     """Type of Pulse object"""
+
     Pulse = 1
     Wait = 2
     Readout = 3
@@ -82,48 +89,50 @@ class ParametrizedValue:
             return self.value
 
     def crop_string(self, function: str) -> str:
-        function = function[function.find(':')+1:]
-        output = function[:function.find(',')]
-        output = output.strip(' )\\n\']')
+        function = function[function.find(":") + 1 :]
+        output = function[: function.find(",")]
+        output = output.strip(" )\\n']")
         return output
 
     def __str__(self) -> str:
         if isinstance(self.value, float):
             return str(self.value)
-        if self.value.__name__ != '<lambda>':
+        if self.value.__name__ != "<lambda>":
             function_line = inspect.getsourcelines(self.value)
-            function_line_start = str(function_line).find(':')+1
-            return str(function_line)[6:function_line_start-1].strip()
+            function_line_start = str(function_line).find(":") + 1
+            return str(function_line)[6 : function_line_start - 1].strip()
         else:
             function = str(inspect.getsourcelines(self.value)[0])
-            counter = str(function).count(':')
+            counter = str(function).count(":")
             if counter == 1:
                 return self.crop_string(function)
             elif counter == 2:
-                if self.name == 'length':
-                    if 'length' in function:
-                        function_start = function.find('length')
+                if self.name == "length":
+                    if "length" in function:
+                        function_start = function.find("length")
                         function = function[function_start:]
                         return self.crop_string(function)
                     else:
                         return self.crop_string(function)
                 elif self.name == "amplitude":
-                    if 'amplitude' in function:
-                        function_start = function.find('amplitude')
+                    if "amplitude" in function:
+                        function_start = function.find("amplitude")
                         function = function[function_start:]
                         return self.crop_string(function)
                     else:
-                        cutting_point = function.find('lambda')
-                        function = function[cutting_point+6:]
-                        function_start = function.find('lambda')
+                        cutting_point = function.find("lambda")
+                        function = function[cutting_point + 6 :]
+                        function_start = function.find("lambda")
                         function = function[function_start:]
                         return self.crop_string(function)
                 else:
                     raise Exception(
-                        'unknown Parameter only length and amplitude are supportet')
+                        "unknown Parameter only length and amplitude are supportet"
+                    )
             else:
                 raise Exception(
-                    'too many lambda functions. Only length and amplitude can be lambda functions')
+                    "too many lambda functions. Only length and amplitude can be lambda functions"
+                )
 
     @property
     def variables(self) -> Set[str]:
@@ -144,13 +153,13 @@ class Pulse(object):
         length: ParametrizedValue.Type,
         shape: Shape = ShapeLib.rect,
         name: str = None,
-        amplitude: ParametrizedValue.Type = 1.,
-        phase: float = 0.,
-        iq_frequency: float = 0.,
-        iq_dc_offset: float = 0.,
-        iq_angle: float = 90.,
-        q_rel: float = 1.,
-        ptype=PulseType.Pulse
+        amplitude: ParametrizedValue.Type = 1.0,
+        phase: float = 0.0,
+        iq_frequency: float = 0.0,
+        iq_dc_offset: float = 0.0,
+        iq_angle: float = 90.0,
+        q_rel: float = 1.0,
+        ptype=PulseType.Pulse,
     ):
         """
         Inits a pulse with:
@@ -198,13 +207,13 @@ class Pulse(object):
         """
         length = self.length(**variables)
         amplitude = self.amplitude(**variables)
-        timestep = 1. / samplerate
+        timestep = 1.0 / samplerate
 
-        if length < timestep / 2.:
+        if length < timestep / 2.0:
             if length != 0:
                 logging.warning(
                     "The pulse '{:}' is shorter than {:.2f} ns and thus is omitted.".format(
-                        self.name, timestep / 2. * 1e9
+                        self.name, timestep / 2.0 * 1e9
                     )
                 )
 
@@ -225,17 +234,22 @@ class Pulse(object):
         # Empty envelope needs no IQ modulation and
         # for homodyne mixing the envelope is real
         else:
-            envelope = envelope * np.exp(1.j * (
-                start_phase - np.pi/180 * self.phase
-                + 2*np.pi * self.iq_frequency * time
-            ))
+            envelope = envelope * np.exp(
+                1.0j
+                * (
+                    start_phase
+                    - np.pi / 180 * self.phase
+                    + 2 * np.pi * self.iq_frequency * time
+                )
+            )
 
         # account for mixer calibration i.e. dc offset and phase != 90deg between I and Q
-        if self.iq_angle != 90 or self.q_rel != 1.:
+        if self.iq_angle != 90 or self.q_rel != 1.0:
             envelope_i = np.real(envelope)
             envelope_q = self.q_rel * np.imag(
-                envelope * np.exp(1.j * np.pi / 180 * (90 - self.iq_angle)))
-            envelope = envelope_i + 1.j * envelope_q
+                envelope * np.exp(1.0j * np.pi / 180 * (90 - self.iq_angle))
+            )
+            envelope = envelope_i + 1.0j * envelope_q
         envelope[envelope != 0] += self.iq_dc_offset
 
         return envelope
@@ -243,14 +257,11 @@ class Pulse(object):
     @property
     def variable_names(self) -> Set[str]:
         """A set with the names of all variables necessary to calculate the pulse length and amplitude."""
-        return self.length.variables.union(
-            self.amplitude.variables)
+        return self.length.variables.union(self.amplitude.variables)
 
     @property
     def is_parametrized(self) -> bool:
-        """False if only fixed Values for length/amplitude
-
-        """
+        """False if only fixed Values for length/amplitude"""
         return self.length.is_parametrized or self.amplitude.is_parametrized
 
 
@@ -269,7 +280,9 @@ class PulseSequence(object):
         get_pulses:  returns list of currently added pulses and their properties.
     """
 
-    def __init__(self, sample: Any = None, samplerate: float = None, dc_corr: float = 0):
+    def __init__(
+        self, sample: Any = None, samplerate: float = None, dc_corr: float = 0
+    ):
         """
         Inits PulseSequence with sample and samplerate:
             sample:     Sample object
@@ -291,19 +304,29 @@ class PulseSequence(object):
             self.samplerate = samplerate
 
         self._color_palette: List[str] = [
-            "C0", "C1", "C2", "C3", "C4", "C5",
-            "C6", "C8", "C9", "r", "g", "b", "y", "k", "m"
+            "C0",
+            "C1",
+            "C2",
+            "C3",
+            "C4",
+            "C5",
+            "C6",
+            "C8",
+            "C9",
+            "r",
+            "g",
+            "b",
+            "y",
+            "k",
+            "m",
         ]
         self._pulse_cols: Dict[PulseType, str] = {
             PulseType.Readout: "C7",
-            PulseType.Wait: "w"
+            PulseType.Wait: "w",
         }
 
     def __call__(
-        self,
-        IQ_mixing: bool = False,
-        include_readout: bool = False,
-        **variables: Any
+        self, IQ_mixing: bool = False, include_readout: bool = False, **variables: Any
     ) -> Union[Tuple[np.ndarray, int], None]:
         """
         Returns the envelope of the whole pulse sequence for the input time.
@@ -322,8 +345,12 @@ class PulseSequence(object):
         """
 
         if self._variables != set(variables.keys()):
-            logging.error("Given function arguments do not match with required ones. " +
-                          "The following keyword arguments are required: {}.".format(", ".join(self._variables)))
+            logging.error(
+                "Given function arguments do not match with required ones. "
+                + "The following keyword arguments are required: {}.".format(
+                    ", ".join(self._variables)
+                )
+            )
             return None
 
         if not self.samplerate:
@@ -344,10 +371,15 @@ class PulseSequence(object):
                 # create waveform array of the current pulse
                 # adjust global phase relative to the beginning of the sequence
                 # (startphase is only relevant when IQ_mixing is True)
-                startphase = 2. * np.pi * pulse.iq_frequency * \
-                    position_of_next_slice * timestep  # zero for homodyne mixing
-                wfm = pulse(self.samplerate, start_phase=startphase,
-                            heterodyne=IQ_mixing, **variables)
+                startphase = (
+                    2.0 * np.pi * pulse.iq_frequency * position_of_next_slice * timestep
+                )  # zero for homodyne mixing
+                wfm = pulse(
+                    self.samplerate,
+                    start_phase=startphase,
+                    heterodyne=IQ_mixing,
+                    **variables
+                )
 
                 # if (pulse_dict["pulse"].type == PulseType.Readout) and (i == len(self._sequence) - 1):
                 #     # if readout is last, omit the wfm (apart from a single digit)
@@ -375,13 +407,13 @@ class PulseSequence(object):
 
             # Resize waveform to be capable of holding current wfm_slice
             new_waveform_length: float = max(
-                len(full_waveform),
-                position_of_next_slice + len(wfm_slice)
+                len(full_waveform), position_of_next_slice + len(wfm_slice)
             )
             full_waveform.resize(new_waveform_length)
             # Add current time slice to global waveform
-            full_waveform[position_of_next_slice:(
-                position_of_next_slice + len(wfm_slice))] += wfm_slice
+            full_waveform[
+                position_of_next_slice : (position_of_next_slice + len(wfm_slice))
+            ] += wfm_slice
 
             # Update position for next slice (the last waveform has no skip and thus decides the time)
             position_of_next_slice += last_wfm_length
@@ -404,12 +436,14 @@ class PulseSequence(object):
         """
         # Check if pulse name is valid and unique
         if pulse.name is None or not isinstance(pulse.name, str):
-            logging.error(
-                "The pulse name has to be a string and must not be None.")
+            logging.error("The pulse name has to be a string and must not be None.")
             return self
         elif pulse.name in self._pulses and not self._pulses[pulse.name] is pulse:
-            logging.error("Another pulse with the same name ({name}) is already present in the sequence!".format(
-                name=pulse.name))
+            logging.error(
+                "Another pulse with the same name ({name}) is already present in the sequence!".format(
+                    name=pulse.name
+                )
+            )
             return self
 
         # Add the pulse to the pulse dictionary if it is not yet present
@@ -451,6 +485,7 @@ class PulseSequence(object):
         PulseSequence
             the PulsSequence with an added waiting period
         """
+
         def compose_name(index: int) -> str:
             return "wait[{}]".format(index)
 
@@ -461,8 +496,7 @@ class PulseSequence(object):
                 wait_index += 1
             name = compose_name(wait_index)
 
-        wait_pulse = Pulse(time, shape=ShapeLib.zero,
-                           name=name, ptype=PulseType.Wait)
+        wait_pulse = Pulse(time, shape=ShapeLib.zero, name=name, ptype=PulseType.Wait)
         return self.add(wait_pulse)
 
     def add_readout(self, pulse: Pulse = None, skip: bool = False):
@@ -481,6 +515,7 @@ class PulseSequence(object):
         PulseSequence
             The PulseSequence with an added Readout
         """
+
         def compose_name(index: int) -> str:
             return "readout[{}]".format(index)
 
@@ -498,10 +533,9 @@ class PulseSequence(object):
                 try:
                     readout_length = self._sample.readout_tone_length
                 except AttributeError:
-                    readout_length = 0.
+                    readout_length = 0.0
 
-            readout_pulse = Pulse(
-                readout_length, name=name, ptype=PulseType.Readout)
+            readout_pulse = Pulse(readout_length, name=name, ptype=PulseType.Readout)
         else:
             # If a special pulse is needed, user can add it
             readout_pulse = pulse
@@ -509,7 +543,8 @@ class PulseSequence(object):
             if readout_pulse.type != PulseType.Readout:
                 readout_pulse.type = PulseType.Readout
                 logging.warning(
-                    "The type of the added pulse has to be Readout and was changed accordingly.")
+                    "The type of the added pulse has to be Readout and was changed accordingly."
+                )
 
         return self.add(readout_pulse, skip)
 
@@ -527,14 +562,16 @@ class PulseSequence(object):
         for time_slice in self._sequence:
             for i, pulse in enumerate(time_slice):
                 # This is more for legacy reasons
-                dict_list.append({
-                    "name": pulse.name,
-                    "shape": pulse.shape.name,
-                    "length": pulse.length,
-                    "iq_frequency": pulse.iq_frequency,
-                    "phase": pulse.phase,
-                    "skip": i != len(time_slice) - 1
-                })
+                dict_list.append(
+                    {
+                        "name": pulse.name,
+                        "shape": pulse.shape.name,
+                        "length": pulse.length,
+                        "iq_frequency": pulse.iq_frequency,
+                        "phase": pulse.phase,
+                        "skip": i != len(time_slice) - 1,
+                    }
+                )
         return dict_list
 
     @property
@@ -568,18 +605,13 @@ class PulseSequence(object):
                 text = "{name}\n{shape}\n{time}".format(
                     name=pulse.name,
                     shape=pulse.shape.name,
-                    time=(
-                        pulse.length
-                        if pulse.type != PulseType.Readout else ""
-                    )
+                    time=(pulse.length if pulse.type != PulseType.Readout else ""),
                 )
 
                 if pulse.iq_frequency not in [0, None]:
-                    text += "\n\n f_iq = {:.0f} MHz".format(
-                        pulse.iq_frequency / 1e6)
+                    text += "\n\n f_iq = {:.0f} MHz".format(pulse.iq_frequency / 1e6)
                     if pulse.phase != 0:
-                        text += "\n phase = {:.0f} deg".format(
-                            pulse.phase)
+                        text += "\n phase = {:.0f} deg".format(pulse.phase)
 
                 # Make sure pulse colors are unique
                 if not remaining_colors:
@@ -599,20 +631,29 @@ class PulseSequence(object):
                 ax.fill(
                     [i, i, i + 1, i + 1, i],
                     [amp, amp + 1, amp + 1, amp, amp],
-                    color=col, alpha=0.3)
-                ax.text(i + 0.5, amp + 0.5, text,
-                        horizontalalignment="center", verticalalignment="center")
+                    color=col,
+                    alpha=0.3,
+                )
+                ax.text(
+                    i + 0.5,
+                    amp + 0.5,
+                    text,
+                    horizontalalignment="center",
+                    verticalalignment="center",
+                )
 
         # make sure plot looks nice and fits on the screen (max number of pulses before scaling down is 9)
-        size = 2.*min(1., 9./len(self._sequence))
+        size = 2.0 * min(1.0, 9.0 / len(self._sequence))
         fig.set_figheight(size * ampmax)
-        fig.set_figwidth(size * (len(self._sequence) - 1) + 2.)
+        fig.set_figwidth(size * (len(self._sequence) - 1) + 2.0)
         ax.set_xlabel("pulse number")
         ax.set_xticks(np.arange(len(self._sequence)))
-        plt.xlim(-0.05, )
+        plt.xlim(
+            -0.05,
+        )
         # hide y ticks
         ax.set_yticks([])
         # hide top and right spines
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
         return
