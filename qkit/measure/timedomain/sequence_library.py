@@ -30,7 +30,8 @@ import qkit.measure.timedomain.pulse_sequence as ps
 TODO: How to implement the mixer calibration? Should it be stored in the sample object or in an external file where it can be acessed?
 """
 
-def rabi(sample, pulse_shape = ps.ShapeLib.rect, amplitude = 1, iq_frequency = None):
+
+def rabi(sample, pulse_shape=ps.ShapeLib.rect, amplitude=1, iq_frequency=None):
     """
         Generate sequence object for a rabi experiment (varying drive pulse lengths).
 
@@ -47,17 +48,20 @@ def rabi(sample, pulse_shape = ps.ShapeLib.rect, amplitude = 1, iq_frequency = N
     if iq_frequency is None:
         if hasattr(sample, "iq_frequency"):
             iq_frequency = sample.iq_frequency
-            print("IQ-frequency set to {:.0f} MHz.".format(iq_frequency /1e6))
+            print("IQ-frequency set to {:.0f} MHz.".format(iq_frequency / 1e6))
         else:
             iq_frequency = 0
-            print("Sample has no attribute iq_frequency.\n IQ-frequency set to 0 for homodyne mixing.")
-    rabi_tone = ps.Pulse(lambda t: t, shape = pulse_shape, name = "rabi-tone", amplitude = amplitude, iq_frequency = iq_frequency)
+            print(
+                "Sample has no attribute iq_frequency.\n IQ-frequency set to 0 for homodyne mixing.")
+    rabi_tone = ps.Pulse(lambda t: t, shape=pulse_shape, name="rabi-tone",
+                         amplitude=amplitude, iq_frequency=iq_frequency)
     sequence = ps.PulseSequence(sample)
     sequence.add(rabi_tone)
     sequence.add_readout()
     return sequence
 
-def t1(sample, pulse_shape = ps.ShapeLib.rect, amplitude = 1, iq_frequency = None):
+
+def t1(sample, pulse_shape=ps.ShapeLib.rect, amplitude=1, iq_frequency=None):
     """
         Generate a sequence with one pi pulse followed by a time delay.
 
@@ -74,18 +78,21 @@ def t1(sample, pulse_shape = ps.ShapeLib.rect, amplitude = 1, iq_frequency = Non
     if iq_frequency is None:
         if hasattr(sample, "iq_frequency"):
             iq_frequency = sample.iq_frequency
-            print("IQ-frequency set to {:.0f} MHz.".format(iq_frequency /1e6))
+            print("IQ-frequency set to {:.0f} MHz.".format(iq_frequency / 1e6))
         else:
             iq_frequency = 0
-            print("Sample has no attribute iq_frequency.\n IQ-frequency set to 0 for homodyne mixing.")
-    pi_pulse = ps.Pulse(sample.tpi, shape = pulse_shape, name = "pi", amplitude = amplitude, iq_frequency = iq_frequency)
+            print(
+                "Sample has no attribute iq_frequency.\n IQ-frequency set to 0 for homodyne mixing.")
+    pi_pulse = ps.Pulse(sample.tpi, shape=pulse_shape, name="pi",
+                        amplitude=amplitude, iq_frequency=iq_frequency)
     sequence = ps.PulseSequence(sample)
     sequence.add(pi_pulse)
     sequence.add_wait(lambda t: t)
     sequence.add_readout()
     return sequence
 
-def ramsey(sample, pulse_shape = ps.ShapeLib.rect, amplitude = 1, iq_frequency = None):
+
+def ramsey(sample, pulse_shape=ps.ShapeLib.rect, amplitude=1, iq_frequency=None):
     """
     Generate a sequence with two pi/2 pulses seperated by a time delay.
 
@@ -101,11 +108,12 @@ def ramsey(sample, pulse_shape = ps.ShapeLib.rect, amplitude = 1, iq_frequency =
     """
     return spinecho(sample, 0, pulse_shape, amplitude, iq_frequency)
 
-def spinecho(sample, n_pi = 1, pulse_shape = ps.ShapeLib.rect, amplitude = 1, iq_frequency = None):
+
+def spinecho(sample, n_pi=1, pulse_shape=ps.ShapeLib.rect, amplitude=1, iq_frequency=None):
     """
     Generate sequence with two pi/2 pulses at the ends and a number n_pi pi pulses inbetween
     pi2 - time/(2*n) - pi - time/n - pi - ... - pi - time/(2*n) - pi2
-    
+
 
     Args:
         sample:       sample object
@@ -121,22 +129,25 @@ def spinecho(sample, n_pi = 1, pulse_shape = ps.ShapeLib.rect, amplitude = 1, iq
     if iq_frequency is None:
         if hasattr(sample, "iq_frequency"):
             iq_frequency = sample.iq_frequency
-            print("IQ-frequency set to {:.0f} MHz.".format(iq_frequency /1e6))
+            print("IQ-frequency set to {:.0f} MHz.".format(iq_frequency / 1e6))
         else:
             iq_frequency = 0
-            print("Sample has no attribute iq_frequency.\n IQ-frequency set to 0 for homodyne mixing.")
-    pi_pulse = ps.Pulse(sample.tpi, shape = pulse_shape, name = "pi", amplitude = amplitude, iq_frequency = iq_frequency)
-    pi2_pulse = ps.Pulse(sample.tpi2, shape = pulse_shape, name = "pi/2", amplitude = amplitude, iq_frequency = iq_frequency)
-    
+            print(
+                "Sample has no attribute iq_frequency.\n IQ-frequency set to 0 for homodyne mixing.")
+    pi_pulse = ps.Pulse(sample.tpi, shape=pulse_shape, name="pi",
+                        amplitude=amplitude, iq_frequency=iq_frequency)
+    pi2_pulse = ps.Pulse(sample.tpi2, shape=pulse_shape, name="pi/2",
+                         amplitude=amplitude, iq_frequency=iq_frequency)
+
     sequence = ps.PulseSequence(sample)
     sequence.add(pi2_pulse)
-    if n_pi is 0:
+    if n_pi == 0:
         sequence.add_wait(lambda t: t)
     else:
         sequence.add_wait(lambda t: t/(2*n_pi))
         for i in range(n_pi):
             sequence.add(pi_pulse)
-            if i + 1 is not n_pi:
+            if i + 1 != n_pi:
                 sequence.add_wait(lambda t: t/n_pi)
         sequence.add_wait(lambda t: t/(2*n_pi))
     sequence.add(pi2_pulse)
@@ -144,7 +155,7 @@ def spinecho(sample, n_pi = 1, pulse_shape = ps.ShapeLib.rect, amplitude = 1, iq
     return sequence
 
 
-def spinlocking(sample, pi2sign = 1, add_pi = True, wait_time = 5e-9, pulse_shape = ps.ShapeLib.rect, amplitude = 1, iq_frequency = None):
+def spinlocking(sample, pi2sign=1, add_pi=True, wait_time=5e-9, pulse_shape=ps.ShapeLib.rect, amplitude=1, iq_frequency=None):
     """
     Generate sequence with two pi/2 pulses (around y-axis) at the ends and a drive in-between.
     The drive is phase shifted by 90 degrees in respect to the pi/2 pulses (rotates around x-axis).
@@ -167,21 +178,26 @@ def spinlocking(sample, pi2sign = 1, add_pi = True, wait_time = 5e-9, pulse_shap
     if iq_frequency is None:
         if hasattr(sample, "iq_frequency"):
             iq_frequency = sample.iq_frequency
-            print("IQ-frequency set to {:.0f} MHz.".format(iq_frequency /1e6))
+            print("IQ-frequency set to {:.0f} MHz.".format(iq_frequency / 1e6))
         else:
             iq_frequency = 0
-            print("Sample has no attribute iq_frequency.\n IQ-frequency set to 0 for homodyne mixing.")
+            print(
+                "Sample has no attribute iq_frequency.\n IQ-frequency set to 0 for homodyne mixing.")
     # check if pi/2-pulse needs to be flipped
     if pi2sign == -1:
         phase = 270
     else:
         phase = 90
-    
+
     # define pulses
-    pi_pulse = ps.Pulse(sample.tpi, shape = pulse_shape, name = "pi", amplitude = amplitude, iq_frequency = iq_frequency)
-    pi2_pulse1 = ps.Pulse(sample.tpi2, shape = pulse_shape, name = "pi/2", amplitude = amplitude, iq_frequency = iq_frequency, phase=phase)
-    pi2_pulse2 = ps.Pulse(sample.tpi2, shape = pulse_shape, name = "pi/2", amplitude = amplitude, iq_frequency = iq_frequency, phase=90)
-    locking_tone = ps.Pulse(lambda t: t, shape = ps.ShapeLib.rect, name = "locking-drive", amplitude = amplitude, iq_frequency = iq_frequency)
+    pi_pulse = ps.Pulse(sample.tpi, shape=pulse_shape, name="pi",
+                        amplitude=amplitude, iq_frequency=iq_frequency)
+    pi2_pulse1 = ps.Pulse(sample.tpi2, shape=pulse_shape, name="pi/2",
+                          amplitude=amplitude, iq_frequency=iq_frequency, phase=phase)
+    pi2_pulse2 = ps.Pulse(sample.tpi2, shape=pulse_shape, name="pi/2(Y)",
+                          amplitude=amplitude, iq_frequency=iq_frequency, phase=90)
+    locking_tone = ps.Pulse(lambda t: t, shape=ps.ShapeLib.rect,
+                            name="locking-drive", amplitude=amplitude, iq_frequency=iq_frequency)
 
     # add pulses to sequence
     sequence = ps.PulseSequence(sample)
