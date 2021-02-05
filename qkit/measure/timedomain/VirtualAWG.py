@@ -234,12 +234,13 @@ class TdChannel(object):
         Args:
             x_unit: unit of the x-axis in the plot. Options are "s", "ms", "us", "ns".
         """
-        show_iq = False
-        if show_quadrature in ["I", "Q"]:
-            show_iq = True
+        show_iq = show_quadrature in ["I", "Q"]
         sequences, readout_indices = self._get_sequences(IQ_mixing=show_iq)
         seq_max = len(readout_indices) - 1
-        if show_quadrature == "I":
+
+        # If there is no complex information in there, we just present the real part:
+        has_complex_values = any([any(np.iscomplex(seq)) for seq in sequences])
+        if show_quadrature == "I" or not has_complex_values:
             sequences = [np.real(seq) for seq in sequences]
         elif show_quadrature == "Q":
             sequences = [np.imag(seq) for seq in sequences]
@@ -549,13 +550,13 @@ class VirtualAWG(object):
         seq_max = 0
         xmin, xmax, ymin, ymax = 0, 0, 0, 0
 
-        show_iq = False
-        if show_quadrature in ["I", "Q"]:
-            show_iq = True
-
+        show_iq = show_quadrature in ["I", "Q"]
         for chan in self.channels[1:]:
             sequences, readout_indices = chan._get_sequences(IQ_mixing=show_iq)
-            if show_quadrature == "I":
+
+            # If there is no complex information in there, we just present the real part:
+            has_complex_values = any([any(np.iscomplex(seq)) for seq in sequences])
+            if show_quadrature == "I" or not has_complex_values:
                 sequences = [np.real(seq) for seq in sequences]
             elif show_quadrature == "Q":
                 sequences = [np.imag(seq) for seq in sequences]

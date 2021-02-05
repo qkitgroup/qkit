@@ -363,13 +363,13 @@ class PulseSequence(object):
             return None
 
         # build the waveform of this sequence
-        full_waveform = np.zeros(0)
+        full_waveform = np.zeros(0, dtype=np.complex128)
         timestep = 1.0 / samplerate  # minimum time step
         readout_index = 0  # index of the readout in the waveform of the whole sequence
         position_of_next_slice = 0  # index where the next time slice will start
         for time_slice in self._sequence:
             # holds all waveforms that start at the same time (within the same slice)
-            wfm_slice = np.zeros(0)
+            wfm_slice = np.zeros(0, dtype=np.complex128)
             # tracks the length of the last waveform in the slice as the next slice will start after that
             last_wfm_length = 0
             for pulse in time_slice:
@@ -428,6 +428,10 @@ class PulseSequence(object):
         # make sure first and last point of the waveform go to 0
         full_waveform = np.append(0, full_waveform)
         full_waveform = np.append(full_waveform, 0)
+
+        if not any(np.iscomplex(full_waveform)):
+            # No complex information in there, so just return the real part
+            full_waveform = np.real(full_waveform)
 
         return full_waveform, readout_index + 1  # +1 due to leading 0
 
