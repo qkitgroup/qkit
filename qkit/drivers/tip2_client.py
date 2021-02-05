@@ -73,36 +73,36 @@ class tip2_client(Instrument):
         self.add_function('close')
         
         
-        self.add_parameter('T',
-                           flags=Instrument.FLAG_GETSET,
-                           type=float,
-                           units='K'
-                           )
-        self.add_parameter('P',
-                           flags=Instrument.FLAG_GETSET,
-                           type=float,
-                           units=''
-                           )
-        self.add_parameter('I',
-                           flags=Instrument.FLAG_GETSET,
-                           type=float,
-                           units=''
-                           )
-        self.add_parameter('D',
-                           flags=Instrument.FLAG_GETSET,
-                           type=float,
-                           units=''
-                           )
-        self.add_parameter('interval', type=float,
-                           flags=Instrument.FLAG_GETSET, units="s")
-        self.add_parameter('range', type=int,
-                           flags=Instrument.FLAG_GETSET)
-        self.add_parameter('excitation', type=int,
-                           flags=Instrument.FLAG_GETSET)
-        self.add_parameter('temperature', type=float,
-                           flags=Instrument.FLAG_GET, units="K")
-        self.add_parameter('resistance', type=float,
-                           flags=Instrument.FLAG_GET, units="Ohm")
+        # self.add_parameter('T',
+        #                    flags=Instrument.FLAG_GETSET,
+        #                    type=float,
+        #                    units='K'
+        #                    )
+        # self.add_parameter('P',
+        #                    flags=Instrument.FLAG_GETSET,
+        #                    type=float,
+        #                    units=''
+        #                    )
+        # self.add_parameter('I',
+        #                    flags=Instrument.FLAG_GETSET,
+        #                    type=float,
+        #                    units=''
+        #                    )
+        # self.add_parameter('D',
+        #                    flags=Instrument.FLAG_GETSET,
+        #                    type=float,
+        #                    units=''
+        #                    )
+        # self.add_parameter('interval', type=float,
+        #                    flags=Instrument.FLAG_GETSET, units="s")
+        # self.add_parameter('range', type=int,
+        #                    flags=Instrument.FLAG_GETSET)
+        # self.add_parameter('excitation', type=int,
+        #                    flags=Instrument.FLAG_GETSET)
+        # self.add_parameter('temperature', type=float,
+        #                    flags=Instrument.FLAG_GET, units="K")
+        # self.add_parameter('resistance', type=float,
+        #                    flags=Instrument.FLAG_GET, units="Ohm")
 
         self.T = 0.0
         self.default_device = ""

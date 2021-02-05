@@ -319,4 +319,3 @@ class InitializeTimeDomain(object):
     def _load_awg_square(self, times):
         self._vawg.set_sequence(sl.rabi(self._sample, iq_frequency=0), times)
         self._vawg.load(show_progress_bar=False)
-        

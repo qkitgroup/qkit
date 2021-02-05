@@ -93,6 +93,12 @@ cfg['stdout_log_level'] = 'WARNING'
 #cfg['check_for_updates'] = False
 
 ##
+## Select which VISA library to use:
+#cfg['visa_backend'] = '@ivi' # Use NI-VISA
+#cfg['visa_backend'] = '@py' # Use pyvisa-py
+#cfg['visa_backend'] = '' # (default) use NI-VISA if available, otherwise pyvisa-py
+
+##
 ## Make png files at the end of the measurement
 ##
 #cfg['save_png'] = True

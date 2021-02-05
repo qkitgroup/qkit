@@ -1107,7 +1107,10 @@ class transport(object):
                 datasets = []
             else:
                 datasets = ['views/IV']
-                if self._scan_dim > 1:
+                if self._fit_name:
+                    for i in range(self.sweeps.get_nos()):
+                        datasets.append('analysis/{:s}_{:d}'.format(self._fit_name, i))
+                elif self._scan_dim > 1:
                     for i in range(self.sweeps.get_nos()):
                         datasets.append('{:s}_{:d}'.format(self._IV_modes[not self._bias].lower(), i))
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=datasets)  # opens IV-view by default
@@ -1250,12 +1253,12 @@ class transport(object):
                                                             x=self._hdf_x,
                                                             unit=self._y_unit[i],
                                                             save_timestamp=False)
-                           for i in range(len(self._y_func))]
+                           for i,_ in enumerate(self._y_func)]
             # add views
             if self._view_xy:
                 if self._view_xy is True:
                     self._view_xy = [(x, y) for i, x in enumerate(range(len(self._hdf_y)))
-                                     for y in range(len(self._hdf_y))[i+1::]]
+                                     for y, _ in enumerate(self._hdf_y)[i+1::]]
                 for view in self._view_xy:
                     self._data_file.add_view('{:s}_vs_{:s}'.format(*np.array(self._y_name)[np.array(view[::-1])]),
                                              x=self._hdf_y[view[0]],
@@ -1501,7 +1504,7 @@ class transport(object):
         if self.log_function != [None]:
             self._hdf_log = []
             self._data_log = []
-            for i in range(len(self.log_function)):
+            for i, _ in enumerate(self.log_function):
                 if self._scan_dim == 1:
                     self._hdf_log.append(self._data_file.add_coordinate(self.log_name[i],
                                                                         unit=self.log_unit[i]))

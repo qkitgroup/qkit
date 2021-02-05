@@ -12,6 +12,7 @@ from qkit.storage import store as hdf
 from qkit.gui.plot import plot as qviewkit
 import qkit.measure.write_additional_files as waf
 from qkit.measure.timedomain.initialize import InitializeTimeDomain as iniTD
+from qkit.measure.measurement_class import Measurement
 
 
 class Measure_td(object):
@@ -65,6 +66,11 @@ class Measure_td(object):
         self.multiplex_attribute = "readout_pulse_frequency"
         self.multiplex_unit = "Hz"
         self.init = iniTD(sample)
+
+        self._measurement_object = Measurement()
+        self._measurement_object.measurement_type = 'timedomain'
+        self._measurement_object.sample = self.sample
+        
     
     def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit=None):
         self.x_vec = x_vec
@@ -339,7 +345,15 @@ class Measure_td(object):
         self._hdf = hdf.Data(name=self.dirname, mode='a')
         self._hdf_x = self._hdf.add_coordinate(self.x_coordname, unit=self.x_unit)
         self._hdf_x.add(self.x_vec)
-        
+
+        self._measurement_object.uuid = self._hdf._uuid
+        self._measurement_object.hdf_relpath = self._hdf._relpath
+        self._measurement_object.instruments = qkit.instruments.get_instrument_names()
+
+        self._measurement_object.save()
+        self._mo = self._hdf.add_textlist('measurement')
+        self._mo.append(self._measurement_object.get_JSON())
+
         self._settings = self._hdf.add_textlist('settings')
         settings = waf.get_instrument_settings(self._hdf.get_filepath())
         self._settings.append(settings)
