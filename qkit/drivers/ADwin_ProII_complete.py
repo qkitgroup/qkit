@@ -80,7 +80,26 @@ class ADwin_ProII(Instrument):
         self.add_function("get_data_array")
         self.add_function("get_data_length")
         self.add_function("volt_to_digit")
+        self.add_function("digit_to_volt")
+        self.add_function("set_process_delay")
+        self.add_function("get_process_delay")
+        self.add_function("set_output_number")
+        self.add_function("get_output_number")
+        self.add_function("set_module_number")
+        self.add_function("get_module_number")
         self.add_function('individual_voltage_limits_setter_in_V')
+        self.add_function('set_individual_lower_voltage_limit_in_V')
+        self.add_function('get_individual_lower_voltage_limit_in_V')
+        self.add_function('set_individual_higher_voltage_limit_in_V')
+        self.add_function('get_individual_higher_voltage_limit_in_V')
+        self.add_function('set_number_of_gates')
+        self.add_function('get_number_of_gates')
+        self.add_function('set_ramping_time_in_s')
+        self.add_function('get_ramping_time_in_s')
+        self.add_function('set_out')
+        self.add_function('get_out')
+        
+        
 
         #implement parameters
 
