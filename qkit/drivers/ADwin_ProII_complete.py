@@ -96,7 +96,7 @@ class ADwin_ProII(Instrument):
         self.add_function('get_number_of_gates')
         self.add_function('set_ramping_time_in_s')
         self.add_function('get_ramping_time_in_s')
-        self.add_function('set_out')
+        self.add_function('set_out') 
         self.add_function('get_out')
         
         
@@ -584,7 +584,7 @@ class ADwin_ProII(Instrument):
 
     def _do_set_out(self,new,channel):
         """DOCUMENTATION
-        set_gateX_output_voltage_in_V(new): Set output voltage of gate 'X' (ADwin parameter: Data_200[X]). If not set using set_gateX_ramping_time(), default voltage ramping time is 1µs.
+        set_gateX_out(new): Set output voltage of gate 'X' (ADwin parameter: Data_200[X]). If not set using set_gateX_ramping_time(), default voltage ramping time is 1µs.
         parameters:
         new (FLOAT): new voltage in V (possible values: -10 to 10)
         channel (INT): gate index 'X'
@@ -604,7 +604,7 @@ class ADwin_ProII(Instrument):
 
     def _do_get_out(self,channel):
         """DOCUMENTATION
-        get_gateX_output_voltage_in_V(): Read out output voltage of gate 'X' (ADwin parameter: Data_200[X]).
+        get_gateX_out(): Read out output voltage of gate 'X' (ADwin parameter: Data_200[X]).
         return value (FLOAT): voltage in V (possible values: -10 to 10)
         """
         digitvalue=self.adw.GetData_Long(200, channel, 1)[0]
@@ -641,9 +641,9 @@ if __name__ == "__main__":
 
     qkit.start()
     #1)create instance - implement global voltage limits when creating instance
-    bill = qkit.instruments.create('bill', 'ADwin_ProII',processnumber=1, processpath='/V/GroupWernsdorfer/People/Sven/ramptest.TC1', devicenumber=3, global_lower_limit_in_V=-1, global_upper_limit_in_V=3, global_lower_limit_in_V_safe_port=-1, global_upper_limit_in_V_safe_port=3)
+    bill = qkit.instruments.create('bill', 'ADwin_ProII',processnumber=1, processpath='/V/GroupWernsdorfer/People/Sven/ramptest.TC1', devicenumber=1, global_lower_limit_in_V=-1, global_upper_limit_in_V=3, global_lower_limit_in_V_safe_port=-1, global_upper_limit_in_V_safe_port=3)
 
-    print(90*'*'+'Initialization complete'+90*'*')
+    print(10*'*'+'Initialization complete'+10*'*')
 #
 #
 #    #2)set number of gates
