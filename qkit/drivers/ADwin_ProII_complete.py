@@ -91,33 +91,9 @@ class ADwin_ProII_complete(Instrument):
         self.add_function('stop_process')
         self.add_function('load_process')
         self.add_function("digit_to_volt")
-        self.add_function("get_global_float_par_block")
-        self.add_function("get_global_float_par_all")
-        self.add_function("get_global_long_par_block")
-        self.add_function("get_global_long_par_all")
-        self.add_function("set_data_array")
-        self.add_function("get_data_array")
-        self.add_function("get_data_length")
         self.add_function("volt_to_digit")
         self.add_function("digit_to_volt")
-        self.add_function("set_process_delay")
-        self.add_function("get_process_delay")
-        self.add_function("set_output_number")
-        self.add_function("get_output_number")
-        self.add_function("set_module_number")
-        self.add_function("get_module_number")
-        self.add_function('individual_voltage_limits_setter_in_V')
-        self.add_function('set_individual_lower_voltage_limit_in_V')
-        self.add_function('get_individual_lower_voltage_limit_in_V')
-        self.add_function('set_individual_higher_voltage_limit_in_V')
-        self.add_function('get_individual_higher_voltage_limit_in_V')
-        self.add_function('set_number_of_gates')
-        self.add_function('get_number_of_gates')
-        self.add_function('set_ramping_time_in_s')
-        self.add_function('get_ramping_time_in_s')
-        self.add_function('set_out') 
-        self.add_function('get_out')
-        
+        self.add_function('individual_voltage_limits_setter_in_V')       
         
 
         #implement parameters
@@ -219,7 +195,7 @@ class ADwin_ProII_complete(Instrument):
             minval=1, maxval=8,
             tags=['sweep'])
 
-    def _start_process(self, process_number):
+    def start_process(self, process_number):
         """start process (done automatically when creating ADwin_ProII instance)
         """
         logging.debug(__name__+'process status: %d'%self.adw.Process_Status(process_number))
@@ -227,22 +203,24 @@ class ADwin_ProII_complete(Instrument):
         self.adw.Start_Process(process_number)
         logging.debug(__name__+'process status: %d'%self.adw.Process_Status(process_number))
 
-    def _stop_process(self, process_number):
+    def stop_process(self, process_number):
         logging.debug(__name__+': process status: %d'%self.adw.Process_Status(process_number))
         logging.info(__name__ +': stopping process')
         self.adw.Stop_Process(process_number)
         logging.debug(__name__+': process status: %d'%self.adw.Process_Status(process_number))
 
-    def _load_process(self, process, process_number):
+    def load_process(self, process, process_number):
         logging.debug(__name__+': process status: %d'%self.adw.Process_Status(process_number))
         logging.info(__name__ +': loading process')
         self.adw.Load_Process(process)
         logging.debug(__name__+': process status: %d'%self.adw.Process_Status(process_number))
         
-    def _do_set_data_array(self, channel, new, startindex, count, datatype=int):
+    def set_data_array(self, channel, new, startindex, count, datatype=int):
         """set data_array
         using SetData_Float or SetData_Int, see ADwin Driver Python documentation
-        input: channel, new: array to transmit to adwin, datatype: float or int 
+        input: channel
+        new: array to transmit to adwin
+        datatype: float or int 
         """
         logging.info(__name__ +': setting array variable Data_%d'%channel)
         _parametername='Data_%d_data_array'%channel
@@ -256,8 +234,8 @@ class ADwin_ProII_complete(Instrument):
         if datatype==int:
             logging.debug(__name__+': data type: int')
             self.adw.SetData_Long(new,channel, startindex,count)
-            
-    def _do_get_data_array(self, channel, startindex, count):
+          
+    def get_data_array(self, channel, startindex, count):   
         logging.info(__name__ +': reading array variable Data_%d'%channel)
         _parametername='Data_%d_data_array'%channel
         datatype=self.get_parameter_options(_parametername)['type']
@@ -331,7 +309,7 @@ class ADwin_ProII_complete(Instrument):
         logging.debug(__name__ +': reading process_delay of process Nr.%s : %d digits'% (self.processnumber,resultdigits))
         return result
 
-    def _digit_to_volt(self,digit, bit_format=16):
+    def digit_to_volt(self,digit, bit_format=16):
         """function to convert digits in voltage (input can be single value, python list of np.array)
         """
         logging.debug(__name__ + ' : converting digits to V, digit value: '+ str(digit))
@@ -352,7 +330,7 @@ class ADwin_ProII_complete(Instrument):
         logging.debug(__name__ + ' : converting digits to V, voltage value: '+ str(result)+'\n')
         return result
 
-    def _volt_to_digit(self,volt, bit_format=16):
+    def volt_to_digit(self,volt, bit_format=16):
         """function to convert voltage in digits (input can be single value, python list of np.array)
         """
         logging.debug(__name__ + ' : converting V to digits, voltage value: '+ str(volt))
@@ -576,6 +554,7 @@ class ADwin_ProII_complete(Instrument):
         parameters:
         value (INT): number of gates (possible values: 1 to 200)
         """
+        print("Please don't forget to define voltage limits for every gate! Otherwise setting output voltages won't work!")
         logging.info(__name__ + ': setting number of gates to %d'%(value))
         self.set_Par_75_global_long(value)
 
@@ -617,7 +596,7 @@ class ADwin_ProII_complete(Instrument):
         logging.info(__name__ + ': reading time to ramp for gate %d : %d s' %(channel,output))
         return output
 
-    def _do_set_out(self,new,channel):
+    def _do_set_output_voltage_in_V(self,new,channel):
         """Set output voltage of gate 'X' (ADwin parameter: Data_200[X]). 
         If not set using set_gateX_ramping_time(), default voltage ramping time is 1µs.
         
@@ -628,17 +607,18 @@ class ADwin_ProII_complete(Instrument):
         value=self.volt_to_digit(new)
         logging.info(__name__ +': setting output voltage gate %d to %f V'%(channel,new))
         self.adw.SetData_Long([value], 200, channel, 1)
-        #check if voltage limit is exceeded
+        #check if voltage limit is exceeded. 
+        var=1
         var=self.adw.GetData_Long(192,channel,1)[0]
         if var==1:
-            logging.warning(__name__+': voltage limit exceeded or individual voltage limit not set, output voltage will remain unchanged.')
+            logging.warning(__name__+': voltage limit exceeded or individual voltage limit not set, output voltage will remain unchanged.\nPLEASE RESET ALL VOLTAGE LIMITS IN ORDER TO CONTINUE!')
             input("Press Enter to continue.")
             sys.exit()
         else:
             #apply voltage and check write status
             self._apply_voltage_and_check_write_status()
 
-    def _do_get_out(self,channel):
+    def _do_get_output_voltage_in_V(self,channel):
         """Read out output voltage of gate 'X' (ADwin parameter: Data_200[X]).
         
         return value (FLOAT): voltage in V (possible values: -10 to 10)
@@ -667,8 +647,18 @@ class ADwin_ProII_complete(Instrument):
         logging.info(__name__ + ': reading if gate %d is a safe port (0: False, 1: True): %d'%(channel,value))
         return value
     
-    def _do_get_write_status(self):
+    def _do_get_write_status(self, **kwarg):
         pass
+        
+    def _do_get_data_array(self, **kwarg):
+        pass
+    
+    def _do_set_data_array(self, **kwarg):
+        pass
+    
+    def _do_get_output_voltage_in_V_with_given_ramping_speed_in_V_per_s(self, **kwarg):
+        value = 0
+        return value
 
 if __name__ == "__main__":
 
