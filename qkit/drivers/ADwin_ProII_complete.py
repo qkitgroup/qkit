@@ -44,18 +44,37 @@ import sys
 
 
 class ADwin_ProII_complete(Instrument):
-    """DOCUMENTATION
-    initialization parameters:
-    name (STRING): name of the device
-    processnumber (INT): number of the process 
-    processpath (STRING): path to the process file *.TC1
-    devicenumber (INT): device number, see adconfig to identify device
-    global_lower(upper)_limit_in_V(_safe_port) (INT): global voltage limits for (safe) ports work parameters 
-    (see methods descriptions for further information):
-    safe_port (INT), write_status (INT), output_voltage_in_V (FLOAT),
-    output_voltage_in_V_with_given_ramping_speed_in_V_per_s (FLOAT),
-    ramping_time_in_s (FLOAT), number_of_gates (INT), individual_lower_voltage_limit_in_V (INT),
-    individual_upper_voltage_limit_in_V (FLOAT), module_number (INT), output_number (INT)     
+    """
+           DOCUMENTATION
+
+           __init__: ADwin_ProII_SemiCon (parent class: ADwin_ProII)
+
+             initialization parameters:
+
+             name (STRING):
+                 name of the device 
+             processnumber (INT):
+                 number of the process 
+             processpath (STRING):
+                 path to the process file *.TC1
+             devicenumber (INT):
+                 device number, see adconfig to identify device
+             global_lower(upper)_limit_in_V(_safe_port) (INT):
+                 global voltage limits for (safe) ports
+
+             work parameters (see methods descriptions for further information):
+
+             safe_port (INT)
+#            write_status (INT)
+             output_voltage_in_V (FLOAT)
+             output_voltage_in_V_with_given_ramping_speed_in_V_per_s (FLOAT)
+             ramping_time_in_s (FLOAT)
+             number_of_gates (INT)
+             individual_lower_voltage_limit_in_V (INT)
+             individual_upper_voltage_limit_in_V (FLOAT)
+             module_number (INT)
+             output_number (INT)
+
     """
         
     def __init__(self, name, processnumber, processpath, devicenumber, global_lower_limit_in_V=0, 
@@ -119,29 +138,27 @@ class ADwin_ProII_complete(Instrument):
             minval=-3.402823e38, maxval=3.402823e38,
             tags=['sweep'])
         
-        '''
-        #data array, see ADwin Driver Python documentation
-        #fifo and string arrays not implemented
-        #NOT WORKING with _do_get and _do_set, see file adwin_proii_do_get_do_set 
-        self.add_parameter('data_array', type=int,
-            flags=Instrument.FLAG_GETSET,
-            channels=(1,200), channel_prefix='Data_%d_',
-            tags=['sweep'])
-        '''
+        
+#        #data array, see ADwin Driver Python documentation
+#        #fifo and string arrays not implemented
+#        #NOT WORKING with _do_get and _do_set, see file adwin_proii_do_get_do_set 
+#        self.add_parameter('data_array', type=int,
+#            flags=Instrument.FLAG_GETSET,
+#            channels=(1,200), channel_prefix='Data_%d_',
+#            tags=['sweep'])
+       
         
         #safe ports set via Data_199 array
         self.add_parameter('safe_port', type=int,
             flags=Instrument.FLAG_GETSET,
             channels=(1,200), channel_prefix='gate%d_',
             minval=0, maxval=1)
-
-        '''
-        #write status get via Data_198 array
-        self.add_parameter('write_status', type=int,
-            flags=Instrument.FLAG_GET,
-            channels=(1,200), channel_prefix='gate%d_',
-            minval=0, maxval=1)
-        '''
+        
+#        #write status get via Data_198 array
+#        self.add_parameter('write_status', type=int,
+#            flags=Instrument.FLAG_GET,
+#            channels=(1,200), channel_prefix='gate%d_',
+#            minval=0, maxval=1)
         
         #output voltage set via Data_200 array
         self.add_parameter('output_voltage_in_V', type=float,
@@ -219,38 +236,38 @@ class ADwin_ProII_complete(Instrument):
         self.adw.Load_Process(process)
         logging.debug(__name__+': process status: %d'%self.adw.Process_Status(process_number))
      
-    ''' 
-    def set_data_array(self, channel, new, startindex, count, datatype=int):
-        """set data_array
-        using SetData_Float or SetData_Int, see ADwin Driver Python documentation
-        input: channel
-        new: array to transmit to adwin
-        datatype: float or int 
-        """
-        logging.info(__name__ +': setting array variable Data_%d'%channel)
-        _parametername='Data_%d_data_array'%channel
-
-        self.set_parameter_options(_parametername,**{'type':datatype})
-
-        if datatype==float:
-            logging.debug(__name__+': data type: float')
-            self.adw.SetData_Float(new,channel,startindex,count)
-
-        if datatype==int:
-            logging.debug(__name__+': data type: int')
-            self.adw.SetData_Long(new,channel, startindex,count)
-          
-    def get_data_array(self, channel, startindex, count):   
-        logging.info(__name__ +': reading array variable Data_%d'%channel)
-        _parametername='Data_%d_data_array'%channel
-        datatype=self.get_parameter_options(_parametername)['type']
-
-        if datatype==float:
-            return self.adw.GetData_Float(channel,startindex,count)
-
-        if datatype==int:
-            return self.adw.GetData_Long(channel, startindex,count)
-    '''
+    
+#    def set_data_array(self, channel, new, startindex, count, datatype=int):
+#        """set data_array
+#        using SetData_Float or SetData_Int, see ADwin Driver Python documentation
+#        input: channel
+#        new: array to transmit to adwin
+#        datatype: float or int 
+#        """
+#        logging.info(__name__ +': setting array variable Data_%d'%channel)
+#        _parametername='Data_%d_data_array'%channel
+#
+#        self.set_parameter_options(_parametername,**{'type':datatype})
+#
+#        if datatype==float:
+#            logging.debug(__name__+': data type: float')
+#            self.adw.SetData_Float(new,channel,startindex,count)
+#
+#        if datatype==int:
+#            logging.debug(__name__+': data type: int')
+#            self.adw.SetData_Long(new,channel, startindex,count)
+#          
+#    def get_data_array(self, channel, startindex, count):   
+#        logging.info(__name__ +': reading array variable Data_%d'%channel)
+#        _parametername='Data_%d_data_array'%channel
+#        datatype=self.get_parameter_options(_parametername)['type']
+#
+#        if datatype==float:
+#            return self.adw.GetData_Float(channel,startindex,count)
+#
+#        if datatype==int:
+#            return self.adw.GetData_Long(channel, startindex,count)
+#   
     
     def _do_get_data_length(self,data_array_number):
         """Data_Length, see ADwin Driver Python documentation
@@ -653,21 +670,26 @@ class ADwin_ProII_complete(Instrument):
         logging.info(__name__ + ': reading if gate %d is a safe port (0: False, 1: True): %d'%(channel,value))
         return value
 
-'''
-    def _do_get_write_status(self, **kwarg):
-        pass
-        
-    def _do_get_data_array(self, **kwarg):
-        pass
-    
-    def _do_set_data_array(self, **kwarg):
-        pass
+#    def _do_get_write_status(self, **kwarg):
+#        pass
+#        
+#    def _do_get_data_array(self, **kwarg):
+#        pass
+#    
+#    def _do_set_data_array(self, **kwarg):
+#        pass
 
-    
-    def _do_get_output_voltage_in_V_with_given_ramping_speed_in_V_per_s(self, **kwarg):
-        value = 0
-        return value
-'''
+    def _do_get_output_voltage_in_V_with_given_ramping_speed_in_V_per_s(self, channel):
+        #code copy from _do_get_output_voltage_in_V()
+        """Read out output voltage of gate 'X' (ADwin parameter: Data_200[X]).
+        
+        return value (FLOAT): voltage in V (possible values: -10 to 10)
+        """
+        digitvalue=self.adw.GetData_Long(200, channel, 1)[0]
+        voltvalue=self.digit_to_volt(digitvalue)
+        logging.info(__name__ +': reading output voltage gate %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
+        return voltvalue
+
 
 
 if __name__ == "__main__":
