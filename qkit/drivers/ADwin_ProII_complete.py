@@ -118,7 +118,8 @@ class ADwin_ProII_complete(Instrument):
             channels=(1,80), channel_prefix='FPar_%d_',
             minval=-3.402823e38, maxval=3.402823e38,
             tags=['sweep'])
-
+        
+        '''
         #data array, see ADwin Driver Python documentation
         #fifo and string arrays not implemented
         #NOT WORKING with _do_get and _do_set, see file adwin_proii_do_get_do_set 
@@ -126,6 +127,7 @@ class ADwin_ProII_complete(Instrument):
             flags=Instrument.FLAG_GETSET,
             channels=(1,200), channel_prefix='Data_%d_',
             tags=['sweep'])
+        '''
         
         #safe ports set via Data_199 array
         self.add_parameter('safe_port', type=int,
@@ -133,12 +135,14 @@ class ADwin_ProII_complete(Instrument):
             channels=(1,200), channel_prefix='gate%d_',
             minval=0, maxval=1)
 
+        '''
         #write status get via Data_198 array
         self.add_parameter('write_status', type=int,
             flags=Instrument.FLAG_GET,
             channels=(1,200), channel_prefix='gate%d_',
             minval=0, maxval=1)
-
+        '''
+        
         #output voltage set via Data_200 array
         self.add_parameter('output_voltage_in_V', type=float,
             flags=Instrument.FLAG_GETSET,
@@ -214,7 +218,8 @@ class ADwin_ProII_complete(Instrument):
         logging.info(__name__ +': loading process')
         self.adw.Load_Process(process)
         logging.debug(__name__+': process status: %d'%self.adw.Process_Status(process_number))
-        
+     
+    ''' 
     def set_data_array(self, channel, new, startindex, count, datatype=int):
         """set data_array
         using SetData_Float or SetData_Int, see ADwin Driver Python documentation
@@ -245,7 +250,8 @@ class ADwin_ProII_complete(Instrument):
 
         if datatype==int:
             return self.adw.GetData_Long(channel, startindex,count)
-
+    '''
+    
     def _do_get_data_length(self,data_array_number):
         """Data_Length, see ADwin Driver Python documentation
         """
@@ -646,7 +652,8 @@ class ADwin_ProII_complete(Instrument):
         value=self.adw.GetData_Long(199, channel, 1)[0]
         logging.info(__name__ + ': reading if gate %d is a safe port (0: False, 1: True): %d'%(channel,value))
         return value
-    
+
+'''
     def _do_get_write_status(self, **kwarg):
         pass
         
@@ -655,10 +662,13 @@ class ADwin_ProII_complete(Instrument):
     
     def _do_set_data_array(self, **kwarg):
         pass
+
     
     def _do_get_output_voltage_in_V_with_given_ramping_speed_in_V_per_s(self, **kwarg):
         value = 0
         return value
+'''
+
 
 if __name__ == "__main__":
 
