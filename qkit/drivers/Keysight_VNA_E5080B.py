@@ -307,12 +307,9 @@ class Keysight_VNA_E5080B(Instrument):
             None
         """
         logging.debug(__name__ + ' : setting Number of Points to %s ' % nop)
-        if self.get_cw():
-          print('in cw mode, nop is 1')
-        else:
-            self._visainstrument.write(':SENS%i:SWE:POIN %i' %(self._ci,nop))
-            self._nop = nop
-            self.get_freqpoints() #Update List of frequency points
+        self._visainstrument.write(':SENS%i:SWE:POIN %i' %(self._ci,nop))
+        self._nop = nop
+        self.get_freqpoints() #Update List of frequency points
         
     def do_get_nop(self):
         """
