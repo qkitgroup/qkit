@@ -750,7 +750,7 @@ class ADwin_ProII_complete(Instrument):
       if gate > 3:
           self.set('gate%d_output_voltage_in_V'% gate, voltage)
       if gate <= 3:
-          logging.warning(__name__+': The gate is reserved for the current sources! Voltage not set!')
+          logging.warning(__name__+': This gate is reserved for the current sources! Voltage not set!')
           input("Press Enter to continue.")
           sys.exit()
 
@@ -813,7 +813,7 @@ class ADwin_ProII_complete(Instrument):
             
     #The following functions are for the use of current sources that are set with a voltage 
     #by the ADwin
-    def set_field_1d(self, direction, field):
+    def set_field_1d(self, direction, amplitude):
         '''Sets a magnetic field in a direction (1=x, 2=y, 3=z) in Tesla.
         This function is for current sources that adjust their current
         linearly to the output voltage that the ADwin gives out. The
@@ -839,7 +839,7 @@ class ADwin_ProII_complete(Instrument):
         
         #set  voltage 
         if direction == 1:
-            voltage_x = field / x_calib / translation_factor
+            voltage_x = amplitude / x_calib / translation_factor
             if abs(voltage_x) <=  10 and abs(voltage_x) <= (x_max_current / translation_factor):
                 self.set_gate1_output_voltage_in_V(voltage_x)
             else:
@@ -848,7 +848,7 @@ class ADwin_ProII_complete(Instrument):
                 sys.exit()
         
         if direction == 2:
-            voltage_y = field / y_calib / translation_factor
+            voltage_y = amplitude / y_calib / translation_factor
             if abs(voltage_y) <=  10 and abs(voltage_y) <= (y_max_current / translation_factor):
                 self.set_gate2_output_voltage_in_V(voltage_y)
             else:
@@ -857,7 +857,7 @@ class ADwin_ProII_complete(Instrument):
                 sys.exit()
         
         if direction == 3:
-            voltage_z = field / z_calib / translation_factor
+            voltage_z = amplitude / z_calib / translation_factor
             if abs(voltage_z) <=  10 and abs(voltage_z) <= (z_max_current / translation_factor):
                 self.set_gate3_output_voltage_in_V(voltage_z)
             else:
