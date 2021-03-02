@@ -49,35 +49,39 @@ class ADwin_ProII_complete(Instrument):
            __init__: ADwin_ProII_SemiCon (parent class: ADwin_ProII)
 
              initialization parameters:
-
-             name (STRING):
-                 name of the device 
-             processnumber (INT):
-                 number of the process 
-             processpath (STRING):
-                 path to the process file *.TC1
-             devicenumber (INT):
-                 device number, see adconfig to identify device
-             global_upper_limit_in_V (FLOAT):
-                 global voltage limit for normal ports
-                 normal ports are used for voltage gates
-             global_lower(upper)_limit_in_V_safe_port (FLOAT):
-                 global voltage limits for safe ports
-                 safe ports are used by the current sources 
+                 name (STRING):
+                     name of the device 
+                 processnumber (INT):
+                     number of the process 
+                 processpath (STRING):
+                     path to the process file *.TC1
+                 devicenumber (INT):
+                     device number, see adconfig to identify device
+                 global_upper_limit_in_V (FLOAT):
+                     global voltage limit for normal ports
+                     normal ports are used for voltage gates
+                 global_lower(upper)_limit_in_V_safe_port (FLOAT):
+                     global voltage limits for safe ports
+                     safe ports are used by the current sources 
 
              work parameters (see methods descriptions for further information):
-
-             safe_port (INT): safe ports have an inital ramping speed of 0.5V/s and 
-                 a lower and upper voltage limit of 0V 
-#            write_status (INT)
-             output_voltage_in_V (FLOAT)
-#            output_voltage_in_V_with_given_ramping_speed_in_V_per_s (FLOAT)
-             ramping_time_in_s (FLOAT)
-             number_of_gates (INT)
-             individual_lower_voltage_limit_in_V (INT)
-             individual_upper_voltage_limit_in_V (FLOAT)
-             module_number (INT)
-             output_number (INT)
+                 safe_port (INT): safe ports have an inital ramping speed of 0.5V/s and 
+                     a lower and upper voltage limit of 0V 
+    #            write_status (INT)
+                 output_voltage_in_V (FLOAT)
+    #            output_voltage_in_V_with_given_ramping_speed_in_V_per_s (FLOAT)
+                 ramping_time_in_s (FLOAT)
+                 number_of_gates (INT)
+                 individual_lower_voltage_limit_in_V (INT)
+                 individual_upper_voltage_limit_in_V (FLOAT)
+                 module_number (INT)
+                 output_number (INT)
+             
+             important functions:
+                 initialize_gates(number, lower_limit, upper_limit)
+                 set_out(gate, voltage)
+                 set_field_1d(direction, amplitude)
+                 set_field_3d(amplitude, theta, phi)
              
              'channel' and 'gate' stand for the same thing.
 
@@ -427,6 +431,7 @@ class ADwin_ProII_complete(Instrument):
             voltvalue=self.digit_to_volt(digitvalue)
             logging.info(__name__ +': reading output voltage gate %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
             return voltvalue
+        
     
     # def _do_set_output_voltage_in_V_with_given_ramping_speed_in_V_per_s(self, V_and_speed, channel):
     #     """ramp voltage with given speed in V/s, ramping time accuracy = +-1ms
@@ -737,16 +742,27 @@ class ADwin_ProII_complete(Instrument):
 #    def _do_set_data_array(self, **kwarg):
 #        pass
 
+    def set_out(self, gate, voltage):
+      '''Makes sure that voltages can only be set for gates > 3 since gates 1 to 3
+      are reserved for the current sources.
+      Allows easier access to set function for many gates.
+      '''
+      if gate > 3:
+          self.set('gate%d_output_voltage_in_V'% gate, voltage)
+      if gate <= 3:
+          logging.warning(__name__+': The gate is reserved for the current sources! Voltage not set!')
+          input("Press Enter to continue.")
+          sys.exit()
+
     def initialize_gates(self, number,  lower_limit=0, upper_limit=0):
         '''This function sets the number of  gates (including current sources)
-        and distributes them on the modules
-        starting at module 1 and filling up all 8 outputs. Then module 2 etc. is
-        filled up. The modules have to exist.
+        and distributes them on the modules starting at module 1 and filling up
+        all 8 outputs. Then module 2 etc. is filled up. The modules have to exist.
         Gates 1-3 are reserved for the current sources, meaning voltage gates 
         from 4 to n are initialized.
         
         parameters:
-            number: number of voltage gates NOT including current sources.
+            number: number of voltage gates including current sources.
             lower_limit: initializes voltage gates with given lower limit
             upper_limit: initializes voltage gates with given uppper limit
         '''
