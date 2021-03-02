@@ -42,7 +42,6 @@ import time
 import numpy as np
 import sys
 
-
 class ADwin_ProII_complete(Instrument):
     """
            DOCUMENTATION
@@ -59,8 +58,12 @@ class ADwin_ProII_complete(Instrument):
                  path to the process file *.TC1
              devicenumber (INT):
                  device number, see adconfig to identify device
-             global_lower(upper)_limit_in_V(_safe_port) (INT):
-                 global voltage limits for (safe) ports
+             global_upper_limit_in_V (FLOAT):
+                 global voltage limit for normal ports
+                 normal ports are used for voltage gates
+             global_lower(upper)_limit_in_V_safe_port (FLOAT):
+                 global voltage limits for safe ports
+                 safe ports are used by the current sources 
 
              work parameters (see methods descriptions for further information):
 
@@ -115,9 +118,9 @@ class ADwin_ProII_complete(Instrument):
         self.add_function("digit_to_volt")
         self.add_function("volt_to_digit")
         self.add_function("digit_to_volt")
-        self.add_function('individual_voltage_limits_setter_in_V')       
+        self.add_function('individual_voltage_limits_setter_in_V')     
         
-
+        
         #implement parameters
 
         #process delay
@@ -662,7 +665,6 @@ class ADwin_ProII_complete(Instrument):
         parameters:
         value (INT): number of gates (possible values: 1 to 200)
         """
-        print("Please don't forget to define voltage limits for every gate! Otherwise setting output voltages won't work!")
         logging.info(__name__ + ': setting number of gates to %d'%(value))
         self.set_Par_75_global_long(value)
 
@@ -735,7 +737,181 @@ class ADwin_ProII_complete(Instrument):
 #    def _do_set_data_array(self, **kwarg):
 #        pass
 
-   
+    def initialize_gates(self, number,  lower_limit=0, upper_limit=0):
+        '''This function sets the number of  gates (including current sources)
+        and distributes them on the modules
+        starting at module 1 and filling up all 8 outputs. Then module 2 etc. is
+        filled up. The modules have to exist.
+        Gates 1-3 are reserved for the current sources, meaning voltage gates 
+        from 4 to n are initialized.
+        
+        parameters:
+            number: number of voltage gates NOT including current sources.
+            lower_limit: initializes voltage gates with given lower limit
+            upper_limit: initializes voltage gates with given uppper limit
+        '''
+        #initailize gates 
+        if number < 0:
+            logging.warning(__name__+': number of gates must not be negative!')
+            input("Press Enter to continue.")
+            sys.exit()
+        else:
+            number = number 
+            self.set_number_of_gates(number)
+            rest = int(number % 8)
+            full_modules = int(np.trunc(number / 8))
+        
+            #fill up modules:
+            gate = 1  
+            #fill up full modules
+            for module in range(1,full_modules+1):
+                for output in range(1,8+1):
+                    self.set('gate%d_module_number'% gate, module)
+                    self.set('gate%d_output_number'% gate, output)
+                    if gate in [1, 2, 3]:
+                        self.set('gate%d_safe_port'% gate, 1)    
+                    gate = gate +1
+                
+            #fill up not full module:
+            for output in range(1, rest+1):
+                self.set('gate%d_module_number'% gate, full_modules+1)
+                self.set('gate%d_output_number'% gate, output)
+                if gate in [1, 2, 3]:
+                        self.set('gate%d_safe_port'% gate, 1) 
+                gate = gate +1
+                
+            if (gate-1) != (number):
+                logging.warning(__name__+': Error while initializing voltage gates!')
+                input("Press Enter to continue.")
+                sys.exit()
+       
+        #initialize voltage limits 
+        #limits for current sources:
+        for gate in range(1, 3+1):
+            self.individual_voltage_limits_setter_in_V(-10, 10, gate)
+            
+        #initialize voltage limits for votage gates:
+        for gate in range(4, number+1):
+            self.individual_voltage_limits_setter_in_V(lower_limit, upper_limit, gate)
+            
+            
+    #The following functions are for the use of current sources that are set with a voltage 
+    #by the ADwin
+    def set_field_1d(self, direction, field):
+        '''Sets a magnetic field in a direction (1=x, 2=y, 3=z) in Tesla.
+        This function is for current sources that adjust their current
+        linearly to the output voltage that the ADwin gives out. The
+        gates are initialized as safe ports.
+        Negative field values invert the direction.
+        DOES NOT OVERRIDE FIELD VALUES OF OTHER DIRECTIONS PREVIOUSLY SET!
+        
+        Gate 1 = x-direction
+        Gate 2= y-direction
+        Gate 3 = z-direction
+        
+        '''
+        translation_factor = 2 #factor (Ampere/Volts) that is used by the current sources from input to output
+        
+        #coil calibration parameters
+        x_calib = 1 #in Tesla/Amps
+        y_calib = 1 #in Tesla/Amps
+        z_calib = 1 #in Tesla/Amps
+        
+        x_max_current = 10 #maximal current in Amps through coil x
+        y_max_current = 10 #maximal current in Amps through coil y
+        z_max_current = 10 #maximal current in Amps through coil z
+        
+        #set  voltage 
+        if direction == 1:
+            voltage_x = field / x_calib / translation_factor
+            if abs(voltage_x) <=  10 and abs(voltage_x) <= (x_max_current / translation_factor):
+                self.set_gate1_output_voltage_in_V(voltage_x)
+            else:
+                logging.warning(__name__+': voltage in x-direction out of limits.')
+                input("Press Enter to continue.")
+                sys.exit()
+        
+        if direction == 2:
+            voltage_y = field / y_calib / translation_factor
+            if abs(voltage_y) <=  10 and abs(voltage_y) <= (y_max_current / translation_factor):
+                self.set_gate2_output_voltage_in_V(voltage_y)
+            else:
+                logging.warning(__name__+': voltage in y-direction out of limits.')
+                input("Press Enter to continue.")
+                sys.exit()
+        
+        if direction == 3:
+            voltage_z = field / z_calib / translation_factor
+            if abs(voltage_z) <=  10 and abs(voltage_z) <= (z_max_current / translation_factor):
+                self.set_gate3_output_voltage_in_V(voltage_z)
+            else:
+                logging.warning(__name__+': voltage in z-direction out of limits.')
+                input("Press Enter to continue.")
+                sys.exit()
+        
+        if direction < 1 or direction > 3:
+            logging.warning(__name__+': direction parameter has to be 1, 2, or 3.')
+            input("Press Enter to continue.")
+            sys.exit()
+              
+            
+    def set_field_3d(self, amplitude, theta, phi, theta_corr=0, phi_corr=0):
+        '''Sets a magnetic field using spherical coordinates in degrees.
+        Negative amplitudes invert the carthesian direction.
+        
+        Parameters:
+            amplitude: field strengh in Tesla
+            theta: azimuthal angle between 0 and 180°
+            phi: polar angle betweeen 0 and 360°
+            theta_corr: correction angle added to theta
+            phi_corr: correction angle added to phi
+        '''
+        translation_factor = 2 #factor (Ampere/Volts) that is used by the current sources from input to output
+        
+        #coil calibration parameters
+        x_calib = 1 #in Tesla/Amps
+        y_calib = 1 #in Tesla/Amps
+        z_calib = 1 #in Tesla/Amps
+        
+        x_max_current = 10 #maximal current in Amps through coil x
+        y_max_current = 10 #maximal current in Amps through coil y
+        z_max_current = 10 #maximal current in Amps through coil z
+        
+        #calculate field components in carthesian coordinates
+        amplitude_x = amplitude * np.sin(np.deg2rad(theta+theta_corr)) * np.cos(np.deg2rad(phi+phi_corr))
+        amplitude_y = amplitude * np.sin(np.deg2rad(theta+theta_corr)) * np.sin(np.deg2rad(phi+phi_corr))
+        amplitude_z = amplitude * np.cos(np.deg2rad(theta+theta_corr))
+        
+        #setting voltages
+        #set x voltage 
+        voltage_x = amplitude_x / x_calib / translation_factor
+        if abs(voltage_x) <=  10 and abs(voltage_x) <= (x_max_current / translation_factor):
+            self.set_gate1_output_voltage_in_V(voltage_x) 
+        else:
+            logging.warning(__name__+': voltage in x-direction out of limits.')
+            input("Press Enter to continue.")
+            sys.exit()
+            
+        #set y voltage 
+        voltage_y = amplitude_y / y_calib / translation_factor
+        if abs(voltage_y) <=  10 and abs(voltage_y) <= (y_max_current / translation_factor):
+            self.set_gate2_output_voltage_in_V(voltage_y)
+        else:
+            logging.warning(__name__+': voltage in y-direction out of limits.')
+            input("Press Enter to continue.")
+            sys.exit()
+            
+        #set z voltage 
+        voltage_z = amplitude_z / z_calib / translation_factor
+        if abs(voltage_z) <=  10 and abs(voltage_z) <= (z_max_current / translation_factor):
+            self.set_gate3_output_voltage_in_V(voltage_z)
+        else:
+            logging.warning(__name__+': voltage in z-direction out of limits.')
+            input("Press Enter to continue.")
+            sys.exit()
+            
+            
+            
 
 
 if __name__ == "__main__":
