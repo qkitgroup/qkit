@@ -6,13 +6,17 @@ Created on Mon Feb 15 12:17:39 2021
 @author: lr1740
 """
 import logging
-from iterools import count
+from itertools import count
+from qkit.core.instrument_base import Instrument
 
 class daq_module_toolz(Instrument):
-    _daq_ids = count(0)
+    _daqM_ids = count(0)
     def __init__(self, dataAcquisitionModule, device_id):
-        logging.info(__name__ + ' : Initializing daq tools')
-        Instrument.__init__(self, name, tags=['virtual', "lock-in amplifier"])
+        
+        self.daqM_id = next(self._daqM_ids)
+        logging.info(__name__ + ' : Initializing daq tools on device %s for daqM %d ' % (device_id, self.daqM_id))
+        Instrument.__init__(self, "%s_daqM%d" % (device_id, self.daqM_id), tags=['virtual', "data acquisition module"])
+        
         self.daqM = dataAcquisitionModule
         self.daqM.set("device", device_id)
         
@@ -244,61 +248,64 @@ if __name__ == "__main__":
     import qkit
     qkit.start()
     #%%
-    UHFLI_test = qkit.instruments.create("UHFLI_test", "ZI_UHFLI_SemiCon", device_id = "dev2587")
+    UHFLI_test = qkit.instruments.create("UHFLI_test", "ZI_UHFLI", device_id = "dev2587")
+    unmanaged_daq_module = UHFLI_test.create_daq_module()
+    print(unmanaged_daq_module.getString("device"))
+    daqM = daq_module_toolz(unmanaged_daq_module, "dev2587")
     #%%
     print("Trigger mode:")
-    UHFLI_test.set_daqM_trigger_mode("HW_trigger")
-    print(UHFLI_test.get_daqM_trigger_mode())
+    daqM.set_daqM_trigger_mode("HW_trigger")
+    print(daqM.get_daqM_trigger_mode())
     
     print("Trigger path:")
-    UHFLI_test.set_daqM_trigger_path("/dev2587/demods/0/sample.x")
-    print(UHFLI_test.get_daqM_trigger_path())
+    daqM.set_daqM_trigger_path("/dev2587/demods/0/sample.x")
+    print(daqM.get_daqM_trigger_path())
     
     print("Trigger edge:")
-    UHFLI_test.set_daqM_trigger_edge("falling")
-    print(UHFLI_test.get_daqM_trigger_edge())
+    daqM.set_daqM_trigger_edge("falling")
+    print(daqM.get_daqM_trigger_edge())
     
     print("Trigger duration:")
-    UHFLI_test.set_daqM_trigger_duration(1e-3)
-    print(UHFLI_test.get_daqM_trigger_duration())
+    daqM.set_daqM_trigger_duration(1e-3)
+    print(daqM.get_daqM_trigger_duration())
     
     print("Trigger delay:")
-    UHFLI_test.set_daqM_trigger_delay(-1e-3)
-    print(UHFLI_test.get_daqM_trigger_delay())
+    daqM.set_daqM_trigger_delay(-1e-3)
+    print(daqM.get_daqM_trigger_delay())
     
     print("Holdoff time:")
-    UHFLI_test.set_daqM_trigger_holdoff_time(1e-3)
-    print(UHFLI_test.get_daqM_trigger_holdoff_time())
+    daqM.set_daqM_trigger_holdoff_time(1e-3)
+    print(daqM.get_daqM_trigger_holdoff_time())
     
     print("Holdoff count:")
-    UHFLI_test.set_daqM_trigger_holdoff_count(1)
-    print(UHFLI_test.get_daqM_trigger_holdoff_count())
+    daqM.set_daqM_trigger_holdoff_count(1)
+    print(daqM.get_daqM_trigger_holdoff_count())
     
-    UHFLI_test.set_daqM_sample_path("/dev2587/demods/0/sample.r")
-    #print(UHFLI_test.get_daqM_sample_path()) #It seems there is no way to get this
+    daqM.set_daqM_sample_path("/dev2587/demods/0/sample.r")
+    #print(daqM.get_daqM_sample_path()) #It seems there is no way to get this
     
     print("Grid mode:")
-    UHFLI_test.set_daqM_grid_mode("exact")
-    print(UHFLI_test.get_daqM_grid_mode())
+    daqM.set_daqM_grid_mode("exact")
+    print(daqM.get_daqM_grid_mode())
     
     print("Grid averages:")
-    UHFLI_test.set_daqM_grid_averages(666)
-    print(UHFLI_test.get_daqM_grid_averages())
+    daqM.set_daqM_grid_averages(666)
+    print(daqM.get_daqM_grid_averages())
     
     print("Grid sample num:")
-    UHFLI_test.set_daqM_grid_num_samples(69)
-    print(UHFLI_test.get_daqM_grid_num_samples())
+    daqM.set_daqM_grid_num_samples(69)
+    print(daqM.get_daqM_grid_num_samples())
     
     print("Grid meas num:")
-    UHFLI_test.set_daqM_grid_num_measurements(13)
-    print(UHFLI_test.get_daqM_grid_num_measurements())
+    daqM.set_daqM_grid_num_measurements(13)
+    print(daqM.get_daqM_grid_num_measurements())
     
     print("Grid direction:")
-    UHFLI_test.set_daqM_grid_direction("alternating")
-    print(UHFLI_test.get_daqM_grid_direction())
+    daqM.set_daqM_grid_direction("alternating")
+    print(daqM.get_daqM_grid_direction())
     
     print("Grid num:")
-    UHFLI_test.set_daqM_grid_num(1414)
-    print(UHFLI_test.get_daqM_grid_num())
+    daqM.set_daqM_grid_num(1414)
+    print(daqM.get_daqM_grid_num())
     
-    UHFLI_test.reset_daqM_signal_paths()
+    daqM.reset_daqM_signal_paths()

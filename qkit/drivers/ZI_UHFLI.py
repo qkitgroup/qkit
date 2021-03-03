@@ -15,7 +15,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 from qkit.core.instrument_base import Instrument
-from _ZI_toolkit import daq_module_toolz
+#from _ZI_toolkit import daq_module_toolz
 import zhinst.utils
 import logging
 from time import sleep
@@ -195,13 +195,15 @@ class ZI_UHFLI(Instrument):
         
         #Tell qkit which functions are intended for public use
         self.add_function("disable_everything")
-        
+        self.add_function("create_daq_module")
         
         #public use functions
     def disable_everything(self):
         zhinst.utils.disable_everything(self.daq, self.device)
         
-        
+    def create_daq_module(self):
+        return self.daq.dataAcquisitionModule()
+    
         #Set and get functions for the qkit wrapper, not intended for public use
         '''
         signal ins
