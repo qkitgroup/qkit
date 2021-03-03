@@ -826,21 +826,23 @@ class ADwin_ProII_complete(Instrument):
         Gate 3 = z-direction
         
         '''
-        translation_factor = 2 #factor (Ampere/Volts) that is used by the current sources from input to output
+        translation_factor_x = -1.91 #factor (Ampere/Volts) that is used by the current sources from input to output
+        translation_factor_y = -2.0
+        translation_factor_z = -2.0
         
         #coil calibration parameters
-        x_calib = 1 #in Tesla/Amps
-        y_calib = 1 #in Tesla/Amps
-        z_calib = 1 #in Tesla/Amps
+        x_calib = 0.180 #in Tesla/Amps
+        y_calib = 0.056 #in Tesla/Amps
+        z_calib = 0.060 #in Tesla/Amps
         
-        x_max_current = 10 #maximal current in Amps through coil x
-        y_max_current = 10 #maximal current in Amps through coil y
-        z_max_current = 10 #maximal current in Amps through coil z
+        x_max_current = 7.5 #maximal current in Amps through coil x before quench
+        y_max_current = 5.0 #maximal current in Amps through coil y
+        z_max_current = 5.0 #maximal current in Amps through coil z
         
         #set  voltage 
         if direction == 1:
-            voltage_x = amplitude / x_calib / translation_factor
-            if abs(voltage_x) <=  10 and abs(voltage_x) <= (x_max_current / translation_factor):
+            voltage_x = amplitude / x_calib / translation_factor_x
+            if abs(voltage_x) <=  10 and abs(voltage_x) <= abs(x_max_current / translation_factor_x):
                 self.set_gate1_output_voltage_in_V(voltage_x)
             else:
                 logging.warning(__name__+': voltage in x-direction out of limits.')
@@ -848,8 +850,8 @@ class ADwin_ProII_complete(Instrument):
                 sys.exit()
         
         if direction == 2:
-            voltage_y = amplitude / y_calib / translation_factor
-            if abs(voltage_y) <=  10 and abs(voltage_y) <= (y_max_current / translation_factor):
+            voltage_y = amplitude / y_calib / translation_factor_y
+            if abs(voltage_y) <=  10 and abs(voltage_y) <= abs(y_max_current / translation_factor_y):
                 self.set_gate2_output_voltage_in_V(voltage_y)
             else:
                 logging.warning(__name__+': voltage in y-direction out of limits.')
@@ -857,8 +859,8 @@ class ADwin_ProII_complete(Instrument):
                 sys.exit()
         
         if direction == 3:
-            voltage_z = amplitude / z_calib / translation_factor
-            if abs(voltage_z) <=  10 and abs(voltage_z) <= (z_max_current / translation_factor):
+            voltage_z = amplitude / z_calib / translation_factor_z
+            if abs(voltage_z) <=  10 and abs(voltage_z) <= abs(z_max_current / translation_factor_z):
                 self.set_gate3_output_voltage_in_V(voltage_z)
             else:
                 logging.warning(__name__+': voltage in z-direction out of limits.')
@@ -882,16 +884,18 @@ class ADwin_ProII_complete(Instrument):
             theta_corr: correction angle added to theta
             phi_corr: correction angle added to phi
         '''
-        translation_factor = 2 #factor (Ampere/Volts) that is used by the current sources from input to output
+        translation_factor_x = -1.91 #factor (Ampere/Volts) that is used by the current sources from input to output
+        translation_factor_y = -2.0
+        translation_factor_z = -2.0
         
         #coil calibration parameters
-        x_calib = 1 #in Tesla/Amps
-        y_calib = 1 #in Tesla/Amps
-        z_calib = 1 #in Tesla/Amps
+        x_calib = 0.180 #in Tesla/Amps
+        y_calib = 0.056 #in Tesla/Amps
+        z_calib = 0.060 #in Tesla/Amps
         
-        x_max_current = 10 #maximal current in Amps through coil x
-        y_max_current = 10 #maximal current in Amps through coil y
-        z_max_current = 10 #maximal current in Amps through coil z
+        x_max_current = 7.5 #maximal current in Amps through coil x before quench
+        y_max_current = 5.0 #maximal current in Amps through coil y
+        z_max_current = 5.0 #maximal current in Amps through coil z
         
         #calculate field components in carthesian coordinates
         amplitude_x = amplitude * np.sin(np.deg2rad(theta+theta_corr)) * np.cos(np.deg2rad(phi+phi_corr))
@@ -900,8 +904,8 @@ class ADwin_ProII_complete(Instrument):
         
         #setting voltages
         #set x voltage 
-        voltage_x = amplitude_x / x_calib / translation_factor
-        if abs(voltage_x) <=  10 and abs(voltage_x) <= (x_max_current / translation_factor):
+        voltage_x = amplitude_x / x_calib / translation_factor_x
+        if abs(voltage_x) <=  10 and abs(voltage_x) <= abs(x_max_current / translation_factor_x):
             self.set_gate1_output_voltage_in_V(voltage_x) 
         else:
             logging.warning(__name__+': voltage in x-direction out of limits.')
@@ -909,8 +913,8 @@ class ADwin_ProII_complete(Instrument):
             sys.exit()
             
         #set y voltage 
-        voltage_y = amplitude_y / y_calib / translation_factor
-        if abs(voltage_y) <=  10 and abs(voltage_y) <= (y_max_current / translation_factor):
+        voltage_y = amplitude_y / y_calib / translation_factor_y
+        if abs(voltage_y) <=  10 and abs(voltage_y) <= abs(y_max_current / translation_factor_y):
             self.set_gate2_output_voltage_in_V(voltage_y)
         else:
             logging.warning(__name__+': voltage in y-direction out of limits.')
@@ -918,8 +922,8 @@ class ADwin_ProII_complete(Instrument):
             sys.exit()
             
         #set z voltage 
-        voltage_z = amplitude_z / z_calib / translation_factor
-        if abs(voltage_z) <=  10 and abs(voltage_z) <= (z_max_current / translation_factor):
+        voltage_z = amplitude_z / z_calib / translation_factor_z
+        if abs(voltage_z) <=  10 and abs(voltage_z) <= abs(z_max_current / translation_factor_z):
             self.set_gate3_output_voltage_in_V(voltage_z)
         else:
             logging.warning(__name__+': voltage in z-direction out of limits.')
