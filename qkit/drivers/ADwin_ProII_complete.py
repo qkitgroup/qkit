@@ -826,7 +826,7 @@ class ADwin_ProII_complete(Instrument):
         Gate 3 = z-direction
         
         '''
-        translation_factor_x = -1.91 #factor (Ampere/Volts) that is used by the current sources from input to output
+        translation_factor_x = -2.0 #factor (Ampere/Volts) that is used by the current sources from input to output
         translation_factor_y = -2.0
         translation_factor_z = -2.0
         
@@ -884,7 +884,7 @@ class ADwin_ProII_complete(Instrument):
             theta_corr: correction angle added to theta
             phi_corr: correction angle added to phi
         '''
-        translation_factor_x = -1.91 #factor (Ampere/Volts) that is used by the current sources from input to output
+        translation_factor_x = -2.0 #factor (Ampere/Volts) that is used by the current sources from input to output
         translation_factor_y = -2.0
         translation_factor_z = -2.0
         
