@@ -5,7 +5,10 @@ Created on Mon Feb 15 12:17:39 2021
 
 @author: lr1740
 """
+from _ZI_toolkit import daq_module_toolz as dtools
+from time import sleep
 import ZI_UHFLI as lolvl
+import numpy as np
 import logging
 
 class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
@@ -13,289 +16,80 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
     def __init__(self, name, device_id):
         lolvl.ZI_UHFLI.__init__(self, name, device_id)
         
-        self._daqM_trigger_mode_dict = {"continuous" : 0,
-                                        "edge_trigger" : 1,
-                                        "digital_trigger" : 2,
-                                        "pulse_trigger" : 3,
-                                        "tracking_trigger" : 4,
-                                        "HW_trigger" : 6,
-                                        "tracking_pulse_trigger" : 7,
-                                        "event_count_trigger" : 8}
-        
-        self._inv_daqM_trigger_mode_dict = {v: k for k, v in self._daqM_trigger_mode_dict.items()}
-        
-        
-        self._daqM_trigger_edge_dict = {"rising" : 1,
-                                        "falling" : 2,
-                                        "both" : 3}
-        
-        self._inv_daqM_trigger_edge_dict = {v: k for k, v in self._daqM_trigger_edge_dict.items()}
-        
-        
-        self._daqM_grid_mode_dict = {"nearest" : 1,
-                                     "linear" : 2,
-                                     "exact" : 4}
-        
-        self._inv_daqM_grid_mode_dict = {v: k for k, v in self._daqM_grid_mode_dict.items()}
-         
-        
-        self._daqM_grid_direction_dict = {"forward" : 0,
-                                          "backward" : 1,
-                                          "alternating" : 2}
-        
-        self._inv_daqM_grid_direction_dict = {v: k for k, v in self._daqM_grid_direction_dict.items()}
-        
-        
-        self.add_parameter("daqM_trigger_mode", type = str,
-                           flags = self.FLAG_GETSET)
-        
-        self.add_parameter("daqM_trigger_path", type = str,
-                           flags = self.FLAG_GETSET)
-        
-        self.add_parameter("daqM_trigger_edge", type = str,
-                           flags = self.FLAG_GETSET)
-        
-        self.add_parameter("daqM_trigger_duration", type = float,
-                           flags = self.FLAG_GETSET,
-                           minval = 0,
-                           units = "s")
-        
-        self.add_parameter("daqM_trigger_delay", type = float,
-                           flags = self.FLAG_GETSET,
-                           units = "s")
-        
-        self.add_parameter("daqM_trigger_holdoff_time", type = float,
-                           flags = self.FLAG_GETSET,
-                           units = "s")
-        
-        self.add_parameter("daqM_trigger_holdoff_count", type = int,
-                           flags = self.FLAG_GETSET,
-                           minval = 0)
-        
-        self.add_parameter("daqM_sample_path", type = str,
-                           flags = self.FLAG_SET)
-        
-        self.add_parameter("daqM_grid_mode", type = str,
-                           flags = self.FLAG_GETSET)
-        
-        self.add_parameter("daqM_grid_averages", type = int, #are called repetitions in ZI
-                           flags = self.FLAG_GETSET,
-                           minval = 1)
-        
-        self.add_parameter("daqM_grid_num_samples", type = int,
-                           flags = self.FLAG_GETSET,
-                           minval = 1)
-        
-        self.add_parameter("daqM_grid_num_measurements", type = int,
-                          flags = self.FLAG_GETSET,
-                          minval = 1)
-        
-        self.add_parameter("daqM_grid_direction", type = str,
-                           flags = self.FLAG_GETSET)
-        
-        self.add_parameter("daqM_grid_num", type = int,
-                           flags = self.FLAG_GETSET,
-                           minval = 1)
-        
-        #Tell qkit which functions are intended for public use
-        self.add_function("reset_daqM_signal_paths")
-        
-        #public use functions
-    def reset_daqM_signal_paths(self):
-        self.daqM.unsubscribe("*")
-    
-    def _do_set_daqM_trigger_mode(self, newmode):
-        logging.debug(__name__ + ' : setting trigger mode of the daqM to %s' % (newmode))
-        try:
-            self.daqM.set('type', self._daqM_trigger_mode_dict[newmode])
-        except:
-            logging.warning("You entered an invalid daqM-trigger mode, puny human.")
-            
-    def _do_get_daqM_trigger_mode(self):
-        logging.debug(__name__ + ' : getting trigger mode of daqM')
-        return self._inv_daqM_trigger_mode_dict[self.daqM.getInt('type')]
-    
-    
-    def _do_set_daqM_trigger_path(self, newpath):
-        logging.debug(__name__ + ' : setting trigger path of the daqM to %s' % (newpath))
-        self.daqM.set("triggernode", newpath)
-        
-    def _do_get_daqM_trigger_path(self):
-        logging.debug(__name__ + ' : getting trigger path of daqM')
-        return self.daqM.get("triggernode")["triggernode"][0]
+        #Initialize two managed daqMs to run measurements in parallel
+        self.daqM1 = dtools.daq_module_toolz(self.create_daq_module(), self._device_id)        
+        self.daqM2 = dtools.daq_module_toolz(self.create_daq_module(), self._device_id)
         
     
-    def _do_set_daqM_trigger_edge(self, newmode):
-        logging.debug(__name__ + ' : setting trigger edge of the daqM to %s' % (newmode))
-        try:
-            self.daqM.set('edge', self._daqM_trigger_edge_dict[newmode])
-        except:
-            logging.warning("You entered an invalid daqM-trigger edge, puny human.")
+    def _prep_singleshot(self, daqM, averages):
+        if averages == 1: # We have to do this since the min length of the grid mode is 2
+            averages = 2  # We'll only use the first sample for return vals. I know this is ugly, plz don't hit me any more!
+        daqM.set_daqM_grid_mode("exact")
+        daqM.set_daqM_grid_num_samples(averages)
+        daqM.set_daqM_grid_num_measurements(1)
+        daqM.set_daqM_grid_direction("forward")
+        daqM.set_daqM_grid_num(1)
     
-    def _do_get_daqM_trigger_edge(self):
-        logging.debug(__name__ + ' : getting trigger mode of daqM')
-        return self._inv_daqM_trigger_edge_dict[self.daqM.getInt('edge')]
-    
-    
-    def _do_set_daqM_trigger_duration(self, newduration):
-        logging.debug(__name__ + ' : setting trigger duration of the daqM to %s' % (newduration))
-        self.daqM.set("duration", newduration)
+    def get_value(self, averages, daqM = None):
+        meanval = []
+        #Use daqM1 as default
+        if daqM is None:
+            daqM = self.daqM1
+        #Check wheter the device is rdy for measurement
+        if not daqM.get_daqM_sample_path(): #Did the user specify which data to stream?
+            logging.error("Humanling, you forgot AGAIN to add sample paths. You are not worthy of me.")
+            return
+        if not daqM.get_daqM_trigger_mode == "continuous" and not daqM.get_daqM_trigger_path(): #The trigger should either be continuous or, in case of a not self-triggered measurement, a trigger path must be specified
+            logging.error("You are waiting for a trigger signal which will never come. Hopeless. Set a trigger path to escape this purgatory.")
+            return
         
-    def _do_get_daqM_trigger_duration(self):
-        logging.debug(__name__ + ' : getting trigger duration of the daqM')
-        return self.daqM.getDouble("duration")
-    
-    
-    def _do_set_daqM_trigger_delay(self, newduration):
-        logging.debug(__name__ + ' : setting trigger delay of the daqM to %s' % (newduration))
-        self.daqM.set("delay", newduration)
+        self._prep_singleshot(daqM, averages) #Setup the daqM parameters for a single shot                
         
-    def _do_get_daqM_trigger_delay(self):
-        logging.debug(__name__ + ' : getting trigger delay of the daqM')
-        return self.daqM.getDouble("delay")
-    
-    
-    def _do_set_daqM_trigger_holdoff_time(self, newduration):
-        logging.debug(__name__ + ' : setting trigger holdoff time of the daqM to %s' % (newduration))
-        self.daqM.set("holdoff/time", newduration)
+        #Actual measurement routine:
+        daqM.execute() #Arm the measurement
+        while not daqM.finished(): #wait for completion
+            sleep(0.1)        
+        data = daqM.read() #Getting that sweet, sweet data, baby!
         
-    def _do_get_daqM_trigger_holdoff_time(self):
-        logging.debug(__name__ + ' : getting trigger holdoff time of the daqM')
-        return self.daqM.getDouble("holdoff/time")
+        #Assert that the data has the correct structure. Build the return value while you're at it ;)
+        assert data, "Datastream was empty, the daq couldn't return any values"
+        for sample_path in daqM.get_daqM_sample_path():
+            assert sample_path in data, "Datastream doesn't contain the subscribed data paths."
+            assert len(data[sample_path]) == 1, "Datastream doesn't contain the desired amout of samples"
+            if averages != 1:
+                meanval.append(np.average(data[sample_path][0]["value"]))# ZI's data structure is quite intense...
+            else:
+                meanval.append(data[sample_path][0]["value"][0][0])
+                
+        return meanval, data #return the processed mean and the raw data dict, becuz why not?
     
     
-    def _do_set_daqM_trigger_holdoff_count(self, newcount):
-        logging.debug(__name__ + ' : setting trigger holdoff count of the daqM to %s' % (newcount))
-        self.daqM.set("holdoff/count", newcount)
-        
-    def _do_get_daqM_trigger_holdoff_count(self):
-        logging.debug(__name__ + ' : getting trigger holdoff count of the daqM')
-        return self.daqM.getInt("holdoff/count")
-    
-    
-    def _do_set_daqM_sample_path(self, newpath):
-        logging.debug(__name__ + ' : setting sample path of the daqM to %s' % (newpath))
-        self.daqM.subscribe(newpath)
-    
-    
-    def _do_set_daqM_grid_mode(self, newmode):
-        logging.debug(__name__ + ' : setting the grid mode of the daqM to %s' % (newmode))
-        try:
-            self.daqM.set('grid/mode', self._daqM_grid_mode_dict[newmode])
-        except:
-            logging.warning("You entered an invalid daqM-grid mode, puny human.")
-    
-    def _do_get_daqM_grid_mode(self):
-        logging.debug(__name__ + ' : getting trigger mode of daqM')
-        return self._inv_daqM_grid_mode_dict[self.daqM.getInt('grid/mode')]
-    
-    
-    def _do_set_daqM_grid_averages(self, newavg):
-        logging.debug(__name__ + ' : setting grid averages of the daqM to %s' % (newavg))
-        self.daqM.set("grid/repetitions", newavg)
-        
-    def _do_get_daqM_grid_averages(self):
-        logging.debug(__name__ + ' : getting the number of grid averages of the daqM')
-        return self.daqM.getInt("grid/repetitions")
-    
-    
-    def _do_set_daqM_grid_num_samples(self, newnum):
-        logging.debug(__name__ + ' : setting the number of samples aqcuired during one trigger event of the daqM to %s' % (newnum))
-        self.daqM.set("grid/cols", newnum)
-        
-    def _do_get_daqM_grid_num_samples(self):
-        logging.debug(__name__ + ' : getting the number of samples aqcuired during one trigger event of the daqM')
-        return self.daqM.getInt("grid/cols")
-    
-
-    def _do_set_daqM_grid_num_measurements(self, newnum):
-        logging.debug(__name__ + ' : setting the number of trigger events to be acquired before the daqM finishes one grid to %s' % (newnum))
-        self.daqM.set("grid/rows", newnum)
-        
-    def _do_get_daqM_grid_num_measurements(self):
-        logging.debug(__name__ + ' : getting the number of trigger events to be acquired before the daqM finishes one grid')
-        return self.daqM.getInt("grid/rows")
-    
-    
-    def _do_set_daqM_grid_direction(self, newdir):
-        logging.debug(__name__ + ' : setting grid direction of the daqM to %s' % (newdir))
-        try:
-            self.daqM.set('grid/direction', self._daqM_grid_direction_dict[newdir])
-        except:
-            logging.warning("You entered an invalid daqM-grid direction, puny human.")
-            
-    def _do_get_daqM_grid_direction(self):
-        logging.debug(__name__ + ' : getting grid direction of the daqM')
-        return self._inv_daqM_grid_direction_dict[self.daqM.getInt('grid/direction')]
-    
-    
-    def _do_set_daqM_grid_num(self, newnum):
-        logging.debug(__name__ + ' : setting the number of grids to acquire before the daqM finishes to %s' % (newnum))
-        self.daqM.set("count", newnum)
-        
-    def _do_get_daqM_grid_num(self):
-        logging.debug(__name__ + ' : getting the number of grids to acquire before the daqM finishes')
-        return self.daqM.getInt("count")
 #%%
 if __name__ == "__main__":
     import qkit
     qkit.start()
     #%%
     UHFLI_test = qkit.instruments.create("UHFLI_test", "ZI_UHFLI_SemiCon", device_id = "dev2587")
-    #%%
-    print("Trigger mode:")
-    UHFLI_test.set_daqM_trigger_mode("HW_trigger")
-    print(UHFLI_test.get_daqM_trigger_mode())
-    
-    print("Trigger path:")
-    UHFLI_test.set_daqM_trigger_path("/dev2587/demods/0/sample.x")
-    print(UHFLI_test.get_daqM_trigger_path())
-    
-    print("Trigger edge:")
-    UHFLI_test.set_daqM_trigger_edge("falling")
-    print(UHFLI_test.get_daqM_trigger_edge())
-    
-    print("Trigger duration:")
-    UHFLI_test.set_daqM_trigger_duration(1e-3)
-    print(UHFLI_test.get_daqM_trigger_duration())
-    
-    print("Trigger delay:")
-    UHFLI_test.set_daqM_trigger_delay(-1e-3)
-    print(UHFLI_test.get_daqM_trigger_delay())
-    
-    print("Holdoff time:")
-    UHFLI_test.set_daqM_trigger_holdoff_time(1e-3)
-    print(UHFLI_test.get_daqM_trigger_holdoff_time())
-    
-    print("Holdoff count:")
-    UHFLI_test.set_daqM_trigger_holdoff_count(1)
-    print(UHFLI_test.get_daqM_trigger_holdoff_count())
-    
-    UHFLI_test.set_daqM_sample_path("/dev2587/demods/0/sample.r")
-    #print(UHFLI_test.get_daqM_sample_path()) #It seems there is no way to get this
-    
-    print("Grid mode:")
-    UHFLI_test.set_daqM_grid_mode("exact")
-    print(UHFLI_test.get_daqM_grid_mode())
-    
-    print("Grid averages:")
-    UHFLI_test.set_daqM_grid_averages(666)
-    print(UHFLI_test.get_daqM_grid_averages())
-    
-    print("Grid sample num:")
-    UHFLI_test.set_daqM_grid_num_samples(69)
-    print(UHFLI_test.get_daqM_grid_num_samples())
-    
-    print("Grid meas num:")
-    UHFLI_test.set_daqM_grid_num_measurements(13)
-    print(UHFLI_test.get_daqM_grid_num_measurements())
-    
-    print("Grid direction:")
-    UHFLI_test.set_daqM_grid_direction("alternating")
-    print(UHFLI_test.get_daqM_grid_direction())
-    
-    print("Grid num:")
-    UHFLI_test.set_daqM_grid_num(1414)
-    print(UHFLI_test.get_daqM_grid_num())
-    
-    UHFLI_test.reset_daqM_signal_paths()
+    UHFLI_test.set_ch1_input_ac_coupling(True)
+    UHFLI_test.set_ch1_input_50ohm(True)
+    UHFLI_test.set_ch1_input_range(0.5)
+    UHFLI_test.set_dem1_demod_enable(True)
+    UHFLI_test.set_dem1_sample_rate(100e+03)
+    UHFLI_test.set_dem1_filter_order(4)
+    UHFLI_test.set_dem1_filter_timeconst(1e-3)
+    UHFLI_test.set_dem1_demod_harmonic(1)
+    UHFLI_test.set_ch1_carrier_freq(400e3)    
+    UHFLI_test.set_ch1_output_amp_enable(True)
+    UHFLI_test.set_ch1_output(True)
+    UHFLI_test.set_ch1_output_range(1.5)
+    UHFLI_test.set_ch1_output_amplitude(0.25)
+    UHFLI_test.daqM1.set_daqM_trigger_mode("continuous")
+    UHFLI_test.daqM1.set_daqM_trigger_edge("rising")
+    UHFLI_test.daqM1.set_daqM_trigger_path("/dev2587/demods/0/sample.trigin4")
+    print(UHFLI_test.daqM1.get_daqM_trigger_mode())
+    print(UHFLI_test.daqM1.get_daqM_trigger_edge())
+    UHFLI_test.daqM1.set_daqM_sample_path(["/dev2587/demods/0/sample.x", "/dev2587/demods/0/sample.y"])
+    (meanval, _) = UHFLI_test.get_value(5000)
+    print(meanval)
+    print(UHFLI_test.daqM1.get_daqM_grid_num_samples())
+    print(UHFLI_test.daqM1.get_daqM_grid_num_measurements())

@@ -14,7 +14,7 @@ class daq_module_toolz(Instrument):
     def __init__(self, dataAcquisitionModule, device_id):
         
         self.daqM_id = next(self._daqM_ids)
-        logging.info(__name__ + ' : Initializing daq tools on device %s for daqM %d ' % (device_id, self.daqM_id))
+        logging.info(__name__ + ' : Initializing daq tools for daqM %d of device %s ' % (self.daqM_id, device_id))
         Instrument.__init__(self, "%s_daqM%d" % (device_id, self.daqM_id), tags=['virtual', "data acquisition module"])
         
         self.daqM = dataAcquisitionModule
@@ -53,6 +53,7 @@ class daq_module_toolz(Instrument):
         self._inv_daqM_grid_direction_dict = {v: k for k, v in self._daqM_grid_direction_dict.items()}
         
         
+        
         self.add_parameter("daqM_trigger_mode", type = str,
                            flags = self.FLAG_GETSET)
         
@@ -79,8 +80,8 @@ class daq_module_toolz(Instrument):
                            flags = self.FLAG_GETSET,
                            minval = 0)
         
-        self.add_parameter("daqM_sample_path", type = str,
-                           flags = self.FLAG_SET)
+        self.add_parameter("daqM_sample_path", type = list,
+                          flags = self.FLAG_SET | self.FLAG_SOFTGET)
         
         self.add_parameter("daqM_grid_mode", type = str,
                            flags = self.FLAG_GETSET)
@@ -91,11 +92,11 @@ class daq_module_toolz(Instrument):
         
         self.add_parameter("daqM_grid_num_samples", type = int,
                            flags = self.FLAG_GETSET,
-                           minval = 1)
+                           minval = 2)#change back to 1
         
         self.add_parameter("daqM_grid_num_measurements", type = int,
                           flags = self.FLAG_GETSET,
-                          minval = 1)
+                          minval = 2)#change back to 1
         
         self.add_parameter("daqM_grid_direction", type = str,
                            flags = self.FLAG_GETSET)
@@ -105,12 +106,26 @@ class daq_module_toolz(Instrument):
                            minval = 1)
         
         #Tell qkit which functions are intended for public use
-        self.add_function("reset_daqM_signal_paths")
+        self.add_function("reset_daqM_sample_path")
+        self.add_function("read")
+        self.add_function("execute")
+        #self.add_function("finished")
         
-        #public use functions
-    def reset_daqM_signal_paths(self):
+        #public use functions       
+    def read(self, return_flat_data_dict = True):
+        return self.daqM.read(return_flat_data_dict)
+    
+    def execute(self):
+        self.daqM.execute()
+        
+    def finished(self):
+        return self.daqM.finished()
+    
+    def reset_daqM_sample_path(self):
+        logging.debug(__name__ + ' : removing all samples paths')
         self.daqM.unsubscribe("*")
     
+        #sets and gets
     def _do_set_daqM_trigger_mode(self, newmode):
         logging.debug(__name__ + ' : setting trigger mode of the daqM to %s' % (newmode))
         try:
@@ -181,8 +196,10 @@ class daq_module_toolz(Instrument):
     
     
     def _do_set_daqM_sample_path(self, newpath):
-        logging.debug(__name__ + ' : setting sample path of the daqM to %s' % (newpath))
-        self.daqM.subscribe(newpath)
+        self.reset_daqM_sample_path()
+        logging.debug(__name__ + ' : Adding the sample paths to %s' % (newpath))
+        for element in newpath:
+            self.daqM.subscribe(element)
     
     
     def _do_set_daqM_grid_mode(self, newmode):
@@ -281,8 +298,8 @@ if __name__ == "__main__":
     daqM.set_daqM_trigger_holdoff_count(1)
     print(daqM.get_daqM_trigger_holdoff_count())
     
-    daqM.set_daqM_sample_path("/dev2587/demods/0/sample.r")
-    #print(daqM.get_daqM_sample_path()) #It seems there is no way to get this
+    daqM.set_daqM_sample_path(["/dev2587/demods/0/sample.r", "/dev2587/demods/0/sample.x"])
+    print(daqM.get_daqM_sample_path())
     
     print("Grid mode:")
     daqM.set_daqM_grid_mode("exact")
@@ -307,5 +324,5 @@ if __name__ == "__main__":
     print("Grid num:")
     daqM.set_daqM_grid_num(1414)
     print(daqM.get_daqM_grid_num())
-    
-    daqM.reset_daqM_signal_paths()
+   
+    daqM.reset_daqM_sample_path()
