@@ -6,8 +6,9 @@ Created on Mon Feb 15 12:17:39 2021
 @author: lr1740
 """
 from _ZI_toolkit import daq_module_toolz as dtools
-from time import sleep
 import ZI_UHFLI as lolvl
+
+from time import sleep
 import numpy as np
 import logging
 
@@ -30,8 +31,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         daqM.set_daqM_grid_direction("forward")
         daqM.set_daqM_grid_num(1)
     
-    def get_value(self, averages, daqM = None):
-        meanval = []
+    def get_value(self, averages, daqM = None):        
         #Use daqM1 as default
         if daqM is None:
             daqM = self.daqM1
@@ -39,7 +39,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         if not daqM.get_daqM_sample_path(): #Did the user specify which data to stream?
             logging.error("Humanling, you forgot AGAIN to add sample paths. You are not worthy of me.")
             return
-        if not daqM.get_daqM_trigger_mode == "continuous" and not daqM.get_daqM_trigger_path(): #The trigger should either be continuous or, in case of a not self-triggered measurement, a trigger path must be specified
+        if not daqM.get_daqM_trigger_mode() == "continuous" and not daqM.get_daqM_trigger_path(): #The trigger should either be continuous or, in case of a not self-triggered measurement, a trigger path must be specified
             logging.error("You are waiting for a trigger signal which will never come. Hopeless. Set a trigger path to escape this purgatory.")
             return
         
@@ -51,6 +51,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
             sleep(0.1)        
         data = daqM.read() #Getting that sweet, sweet data, baby!
         
+        meanval = []
         #Assert that the data has the correct structure. Build the return value while you're at it ;)
         assert data, "Datastream was empty, the daq couldn't return any values"
         for sample_path in daqM.get_daqM_sample_path():

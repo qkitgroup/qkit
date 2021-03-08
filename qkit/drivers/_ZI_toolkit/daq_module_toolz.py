@@ -5,19 +5,21 @@ Created on Mon Feb 15 12:17:39 2021
 
 @author: lr1740
 """
+
 import logging
 from itertools import count
 from qkit.core.instrument_base import Instrument
 
 class daq_module_toolz(Instrument):
     _daqM_ids = count(0)
-    def __init__(self, dataAcquisitionModule, device_id):
+    def __init__(self, unmanaged_daq_module, device_id):
         
         self.daqM_id = next(self._daqM_ids)
         logging.info(__name__ + ' : Initializing daq tools for daqM %d of device %s ' % (self.daqM_id, device_id))
         Instrument.__init__(self, "%s_daqM%d" % (device_id, self.daqM_id), tags=['virtual', "data acquisition module"])
+        #DataAcquisitionModule.__init__(self)
         
-        self.daqM = dataAcquisitionModule
+        self.daqM = unmanaged_daq_module
         self.daqM.set("device", device_id)
         
         self._daqM_trigger_mode_dict = {"continuous" : 0,
@@ -92,11 +94,11 @@ class daq_module_toolz(Instrument):
         
         self.add_parameter("daqM_grid_num_samples", type = int,
                            flags = self.FLAG_GETSET,
-                           minval = 2)#change back to 1
+                           minval = 2)
         
         self.add_parameter("daqM_grid_num_measurements", type = int,
                           flags = self.FLAG_GETSET,
-                          minval = 2)#change back to 1
+                          minval = 2)
         
         self.add_parameter("daqM_grid_direction", type = str,
                            flags = self.FLAG_GETSET)
@@ -106,10 +108,10 @@ class daq_module_toolz(Instrument):
                            minval = 1)
         
         #Tell qkit which functions are intended for public use
-        self.add_function("reset_daqM_sample_path")
         self.add_function("read")
         self.add_function("execute")
-        #self.add_function("finished")
+        self.add_function("finished")
+        self.add_function("reset_daqM_sample_path")
         
         #public use functions       
     def read(self, return_flat_data_dict = True):
@@ -326,3 +328,4 @@ if __name__ == "__main__":
     print(daqM.get_daqM_grid_num())
    
     daqM.reset_daqM_sample_path()
+    print(daqM.read())
