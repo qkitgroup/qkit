@@ -1,18 +1,18 @@
 import logging
-import json
+#import json
 from datetime import datetime
 from ZI_HDAWG4 import ZI_HDAWG4
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
 import os
-from pathlib import Path
+#from pathlib import Path
 import qkit
-from qkit.core.instrument_base import Instrument
-import shutil
-import sys
-import textwrap
-import time
-from time import sleep
+#from qkit.core.instrument_base import Instrument
+#import shutil
+#import sys
+#import textwrap
+#import time
+#from time import sleep
 import zhinst 
 import zhinst.utils
 
@@ -138,7 +138,7 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
         os.makedirs('sequences',exist_ok=True)
         sequence_code_file_name = "sequences/sequence_"+now.strftime("%Y-%m-%d_%Hh%Mmin%Ss")
         sequence_code_file = open(sequence_code_file_name, "w")
-        n = sequence_code_file.write(self.awg_program)
+        #n = sequence_code_file.write(self.awg_program)
         sequence_code_file.close()
         logging.info(__name__+' : saved sequence filename: %s'%sequence_code_file_name)
 

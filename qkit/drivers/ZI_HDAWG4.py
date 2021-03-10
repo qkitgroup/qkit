@@ -25,10 +25,10 @@ from pathlib import Path
 import qkit
 from qkit.core.instrument_base import Instrument
 import shutil
-import sys
-import textwrap
+#import sys
+#import textwrap
 import time
-from time import sleep
+#from time import sleep
 import zhinst 
 import zhinst.utils
 import json
@@ -61,7 +61,7 @@ class ZI_HDAWG4(Instrument):
             delay (FLOAT
             channel_output (INT)
             #wave_output (INT)
-            amplitude (FLOAT
+            amplitude (FLOAT)
             modulation_mode (INT)
 
 
@@ -619,7 +619,7 @@ class ZI_HDAWG4(Instrument):
 
             #write array to csv file
             file = open(filename,'w')
-            sequencearray = np.empty(0)
+            #sequencearray = np.empty(0)
 
             for v in range(0,len(array[u])):
                 file.write(str(array[u][v])+'\n')
@@ -733,7 +733,7 @@ class ZI_HDAWG4(Instrument):
         self.set_ch4_modulation_mode(config_data['device_settings'][0]['modulation_mode_channel4'])
 
 if __name__ == "__main__":
-    import qkit
+#    import qkit
     qkit.start()
 
     #example for a sequence
