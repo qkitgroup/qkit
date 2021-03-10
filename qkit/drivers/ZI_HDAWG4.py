@@ -111,7 +111,7 @@ class ZI_HDAWG4(Instrument):
         logging.info(__name__+'Waveform folder set: '+self.wave_dir)
 
         # disable all outputs etc.
-        zhinst.utils.disable_everything(self.daq, self.device)
+        self.disable_everything()
 
         #implement functions
         self.add_function('zrefresh_folder')
@@ -119,6 +119,7 @@ class ZI_HDAWG4(Instrument):
         self.add_function('zload_own_sequence_program')
         self.add_function('zupload_to_device')
         self.add_function('load_config_file')
+        self.add_function('disable_everything')
 
         #/TRIGGERS/OUT/n/SOURCE
         self.add_parameter('marker_output', type = int,
@@ -359,9 +360,12 @@ class ZI_HDAWG4(Instrument):
         #readout
         output = self.daq.getInt('/%s/triggers/out/%d/source'% (self._device_id, channel-1))
 
-        #convert read out setting to number of array
-        settings_array = np.array([[0,4,5],[0,6,7]])
-        result = np.where(settings_array[(channel-1)%2] == output)[0][0]
+        #convert read out setting to number of array (read out for triggers will be ignored)
+        try:
+            settings_array = np.array([[0,4,5],[0,6,7]])
+            result = np.where(settings_array[(channel-1)%2] == output)[0][0]
+        except:
+            result=0
 
         logging.info(__name__+ ': Reading marker %d on channel %d.'% (result, channel))
         return result
@@ -566,6 +570,11 @@ class ZI_HDAWG4(Instrument):
 
         return output
 
+    #disable everything
+    def disable_everything(self):
+        zhinst.utils.disable_everything(self.daq, self.device)
+        logging.info(__name__+': all outputs etc. disabled')
+
     #create backup of folder "waves/" and empty it
     def zrefresh_folder(self):
 
@@ -739,7 +748,7 @@ if __name__ == "__main__":
     hartwig.load_config_file('example_config_ZI_HDAWG4.json')
 
     #empty wave folder
-    hartwig.zrefresh_folder()
+    #hartwig.zrefresh_folder()
 
     #make new example sequence and save it to /awg/waves
     example_sequence_array = np.array([])
@@ -757,7 +766,7 @@ if __name__ == "__main__":
     hartwig.zupload_to_device()
 
     #disable everything
-    zhinst.utils.disable_everything(hartwig.daq, hartwig.device)
+    hartwig.disable_everything()
 
     ##to add parameters, run the following program and copy and paste from file listofnodes
     #nodesmachine = qkit.instruments.create('hartwig','ZI_HDAWG4',device_id = device_identification)
