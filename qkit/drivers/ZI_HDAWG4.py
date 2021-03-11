@@ -25,10 +25,10 @@ from pathlib import Path
 import qkit
 from qkit.core.instrument_base import Instrument
 import shutil
-#import sys
-#import textwrap
+import sys
+import textwrap
 import time
-#from time import sleep
+from time import sleep
 import zhinst 
 import zhinst.utils
 import json
@@ -61,7 +61,7 @@ class ZI_HDAWG4(Instrument):
             delay (FLOAT
             channel_output (INT)
             #wave_output (INT)
-            amplitude (FLOAT)
+            amplitude (FLOAT
             modulation_mode (INT)
 
 
@@ -421,7 +421,11 @@ class ZI_HDAWG4(Instrument):
              channel (INT): channel index 'X'·
 
         """
-        logging.info(__name__+': setting direct to %s ' %new +'.')
+        if new == 0:
+            logging.info(__name__+ ': Switching channel %d direct mode off.'% channel)
+        if new == 1:
+            logging.info(__name__+ ': Switching channel %d direct mode on.'% channel)
+
         self.daq.setInt('/%s/SIGOUTS/%d/DIRECT'%(self._device_id,channel-1), new)
         self.daq.sync()
 
@@ -440,8 +444,13 @@ class ZI_HDAWG4(Instrument):
              return value (INT): 0 (disable), 1 (enable)
 
         """
-        logging.info(__name__+': getting direct.')
-        return self.daq.getInt('/%s/SIGOUTS/%d/DIRECT'%(self._device_id,channel-1))
+        output=self.daq.getInt('/%s/SIGOUTS/%d/DIRECT'%(self._device_id,channel-1))
+        if output == 0:
+            logging.info(__name__+ ': Channel %d direct mode: off.'% channel)
+        if output == 1: 
+            logging.info(__name__+ ': Channel %d direct mode: on.'% channel)
+
+        return output
 
     def _do_set_user_regs(self,new, channel):
         """
@@ -619,7 +628,7 @@ class ZI_HDAWG4(Instrument):
 
             #write array to csv file
             file = open(filename,'w')
-            #sequencearray = np.empty(0)
+            sequencearray = np.empty(0)
 
             for v in range(0,len(array[u])):
                 file.write(str(array[u][v])+'\n')
@@ -731,9 +740,14 @@ class ZI_HDAWG4(Instrument):
         self.set_ch2_modulation_mode(config_data['device_settings'][0]['modulation_mode_channel2'])
         self.set_ch3_modulation_mode(config_data['device_settings'][0]['modulation_mode_channel3'])
         self.set_ch4_modulation_mode(config_data['device_settings'][0]['modulation_mode_channel4'])
+        #set direct mode
+        self.set_ch1_direct(config_data['device_settings'][0]['direct_channel1'])
+        self.set_ch2_direct(config_data['device_settings'][0]['direct_channel2'])
+        self.set_ch3_direct(config_data['device_settings'][0]['direct_channel3'])
+        self.set_ch4_direct(config_data['device_settings'][0]['direct_channel4'])
 
 if __name__ == "__main__":
-#    import qkit
+    import qkit
     qkit.start()
 
     #example for a sequence
