@@ -839,6 +839,11 @@ class ADwin_ProII_complete(Instrument):
         y_max_current = 5.0 #maximal current in Amps through coil y
         z_max_current = 5.0 #maximal current in Amps through coil z
         
+        #maximal fields:
+        #x: 1,35T
+        #y: 0,28T
+        #z: 0,30T
+        
         #set  voltage 
         if direction == 1:
             voltage_x = amplitude / x_calib / translation_factor_x

@@ -22,13 +22,22 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         self.daqM2 = dtools.daq_module_toolz(self.create_daq_module(), self._device_id)
         
         self.add_function("get_value")
+        self.add_function("create_daq_module")
+        
+    def create_daq_module(self):
+        return self.daq.dataAcquisitionModule()
+    
+        #Set and get functions for the qkit wrapper, not intended for public use
+        '''
+        signal ins
+        '''
         
     def _prep_singleshot(self, daqM, averages):
         if averages == 1: # We have to do this since the min length of the grid mode is 2
             averages = 2  # We'll only use the first sample for return vals. I know this is ugly, plz don't hit me any more!
         daqM.set_daqM_grid_mode("exact")
         daqM.set_daqM_grid_num_samples(averages)
-        daqM.set_daqM_grid_num_measurements(1)
+        daqM.set_daqM_grid_num_measurements(2)
         daqM.set_daqM_grid_direction("forward")
         daqM.set_daqM_grid_num(1)
     
