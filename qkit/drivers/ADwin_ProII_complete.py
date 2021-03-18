@@ -228,7 +228,6 @@ class ADwin_ProII_complete(Instrument):
             minval=1, maxval=8,
             tags=['sweep'])
 
-
         #module number analog input set via Data_189 array
         self.add_parameter('analog_input_module_number', type=int,
             flags=Instrument.FLAG_GETSET,
@@ -352,7 +351,14 @@ class ADwin_ProII_complete(Instrument):
         output=self.adw.GetData_Long(189, channel, 1)[0]
         logging.info(__name__ + ': reading module number of analog input %d : %d' %(channel,output))
         return output
-
+        
+    def _do_get_analog_input_voltage_in_V(self,channel):
+        """\nDOCUMENTATION\n\nget_inputX_analog_input_voltage_in_V():\n\n\t Read out voltage of analog input 'X' (ADwin parameter: Data_190[X]).\n\n\t return value (FLOAT): voltage in V (possible values: -10 to 10)\n\n\n"""
+        digitvalue=self.adw.GetData_Long(190, channel, 1)[0]
+        voltvalue=self.digit_to_volt(digitvalue)
+        logging.info(__name__ +': reading voltage analog input %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
+        return voltvalue
+    
     def _do_set_process_delay(self,new):
         """set process_delay in s
         """
@@ -460,12 +466,6 @@ class ADwin_ProII_complete(Instrument):
             logging.info(__name__ +': reading output voltage gate %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
             return voltvalue
         
-    def _do_get_analog_input_voltage_in_V(self,channel):
-        """\nDOCUMENTATION\n\nget_inputX_analog_input_voltage_in_V():\n\n\t Read out voltage of analog input 'X' (ADwin parameter: Data_190[X]).\n\n\t return value (FLOAT): voltage in V (possible values: -10 to 10)\n\n\n"""
-        digitvalue=self.adw.GetData_Long(190, channel, 1)[0]
-        voltvalue=self.digit_to_volt(digitvalue)
-        logging.info(__name__ +': reading voltage analog input %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
-        return voltvalue
     
     # def _do_set_output_voltage_in_V_with_given_ramping_speed_in_V_per_s(self, V_and_speed, channel):
     #     """ramp voltage with given speed in V/s, ramping time accuracy = +-1ms
@@ -872,11 +872,6 @@ class ADwin_ProII_complete(Instrument):
         x_max_current = 7.5 #maximal current in Amps through coil x before quench
         y_max_current = 5.0 #maximal current in Amps through coil y
         z_max_current = 5.0 #maximal current in Amps through coil z
-        
-        #maximal fields:
-        #x: 1,35T
-        #y: 0,28T
-        #z: 0,30T
         
         #set  voltage 
         if direction == 1:
