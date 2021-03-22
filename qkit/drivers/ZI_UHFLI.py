@@ -197,6 +197,15 @@ class ZI_UHFLI(Instrument):
         self.add_function("disable_everything")
         self.add_function("create_daq_module")
         
+        
+    def create_daq_module(self):
+        return self.daq.dataAcquisitionModule()
+    
+        #Set and get functions for the qkit wrapper, not intended for public use
+        '''
+        signal ins
+        '''
+        
         #public use functions
     def disable_everything(self):
         zhinst.utils.disable_everything(self.daq, self.device)
