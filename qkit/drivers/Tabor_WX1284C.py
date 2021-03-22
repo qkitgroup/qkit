@@ -35,10 +35,10 @@ import pyvisa.constants as vc
 
 class Tabor_WX1284C(Instrument):
     '''
-    This is the python driver for the Tabor Electronics Arbitrary Waveform Generator WX1284C
+    This is the python driver for the Tabor Electronics Arbitrary Waveform Generator WX1284C/WX2184C
     '''
 
-    def __init__(self, name, address, chpair=None, reset=False, clock=6e9, numchannels = 4):
+    def __init__(self, name, address, chpair=None, reset=False, numchannels = 4):
         '''
         Initializes the AWG WX1284C
         Input:
@@ -61,7 +61,7 @@ class Tabor_WX1284C(Instrument):
             self._visainstrument.timeout=2
         else:
             self._visainstrument = visa.instrument(self._address)
-            self._visainstrument.timeout=2000L
+            self._visainstrument.timeout=2000
             self._visainstrument.visalib.set_buffer(self._visainstrument.session, vc.VI_READ_BUF, 4000)
             self._visainstrument.visalib.set_buffer(self._visainstrument.session, vc.VI_WRITE_BUF, 32000)
 
@@ -84,9 +84,10 @@ class Tabor_WX1284C(Instrument):
         
         self._ins_VISA_INSTR = False#(self._visainstrument.resource_class == "INSTR") #check whether we have INSTR or SOCKET type
         
+        self._awg_version = self.ask(":SYST:INF:MOD?") #gives model
         self._values = {}
         self._values['files'] = {}
-        self._clock = clock
+        self._clock = 1.25e9 # max value for WX1284
 
         if chpair not in [None, 1, 2]:
             raise ValueError("chpair should be 1, 2 or None.")
@@ -117,15 +118,16 @@ class Tabor_WX1284C(Instrument):
         self.add_parameter('marker_output', type=bool,
             flags=Instrument.FLAG_GETSET,
             channels=(1, self._numchannels), channel_prefix='ch%d_')
-        self.add_parameter('trigger_impedance', type=float,       #changed, checked in manual
-            flags=Instrument.FLAG_GETSET,
-            minval=50, maxval=10e3, units='Ohm')
+        if(self._awg_version == "WX2184C"):
+            self.add_parameter('trigger_impedance', type=float,       #changed, checked in manual
+                flags=Instrument.FLAG_GETSET,
+                minval=50, maxval=10e3, units='Ohm')
         self.add_parameter('trigger_level', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=-5, maxval=5, units='Volts')
         self.add_parameter('clock', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=1e6, maxval=1.25e9, units='Hz')
+            minval=1e6, maxval=2.3e9, units='Hz')
         self.add_parameter('reference_source', type=str,
             flags=Instrument.FLAG_GETSET)
         self.add_parameter('reference_source_freq', type=float,
@@ -224,15 +226,15 @@ class Tabor_WX1284C(Instrument):
         if not self._ins_VISA_INSTR:
             tmo= self._visainstrument.timeout
             self._visainstrument.timeout = .1
-            if verbose: print "Emptying Queue"
+            if verbose: print("Emptying Queue")
             try:
                 for i in range(200):
                     rl = str(self._visainstrument.read())
-                    if verbose: print "In Buffer %i: "%i+rl
+                    if verbose: print("In Buffer %i: "%i+rl)
             except visa.VisaIOError:
-                if verbose: print "Timeout after %i iterations"%i
+                if verbose: print("Timeout after %i iterations"%i)
             self._visainstrument.timeout = tmo
-        if verbose: print "Clearing Error Memory:"
+        if verbose: print("Clearing Error Memory:")
         for i in range(200):
             try:
                 if self.check():
@@ -348,7 +350,7 @@ class Tabor_WX1284C(Instrument):
         try:
             self.set_trigger_slope(tr_slope)
         except Exception as m:
-            print 'Trigger slope has to be POS or NEG. Setting to NEG.', m
+            print('Trigger slope has to be POS or NEG. Setting to NEG.', m)
             self.set_trigger_slope('NEG')
 
     def preset_manipulation(self):
@@ -381,7 +383,7 @@ class Tabor_WX1284C(Instrument):
                 return self._visainstrument.ask(cmd).strip()
             except visa.VisaIOError as e:
                 logging.debug(__name__ + "(" +self.get_name()+"): VisaIOError, retry ->%s<-"%e)
-        raise ValueError(__name__ + "(" +self.get_name()+"): ask('%s') not successful after 15 retries ->%s<-"%(cmd[0:100],e))
+        raise ValueError(__name__ + "(" +self.get_name()+"): ask('%s') not successful after 15 retries"%(cmd[0:100]))
 
     def write(self,cmd):
         for i in range(15):
@@ -390,7 +392,7 @@ class Tabor_WX1284C(Instrument):
                 return self._visainstrument.write(cmd)
             except visa.VisaIOError as e:
                 logging.debug(__name__ + "(" +self.get_name()+") :VisaIOError, retry ->%s<-"%e)
-        raise ValueError(__name__ + "(" +self.get_name()+") : write('%s') not successful after 15 retries ->%s<-"%(cmd[0:100],e))
+        raise ValueError(__name__ + "(" +self.get_name()+") : write('%s') not successful after 15 retries"%(cmd[0:100]))
 
     def write_raw(self,cmd):
         if visa.qkit_visa_version == 1:
@@ -797,12 +799,15 @@ class Tabor_WX1284C(Instrument):
         '''
         Sets the rate at which the datapoints are sent to the designated output channel
         Input:
-            clock (int) : frequency in Hz (75e6 to 1.25e9)
+            clock (int) : frequency in Hz (75e6 to 2.3e9)
         Output:
             None
         '''
-        self._clock = clock
-        self.write(':FREQ:RAST%f' % clock)
+        if clock > 1.25e9 and self._awg_version == "WX1284C":
+            self._clock=1.25e9
+            print("This model of AWG has a maximum clock of 1.25GS/s. Setting to default 1.25 GS/s.")
+        else: self._clock = clock
+        self.write(':FREQ:RAST%f' % self._clock)
 
     def do_get_amplitude(self, channel):
         '''
@@ -831,10 +836,10 @@ class Tabor_WX1284C(Instrument):
             % (channel, amp))
         if amp < 50e-3:
             amp = 50e-3
-            print 'amplitude was set to 0.05 V, which is smallest possible voltage'
+            print('amplitude was set to 0.05 V, which is smallest possible voltage')
         if amp > 2:
             amp = 2.
-            print 'amplitude was set to 2 V, which is highest possible voltage'
+            print('amplitude was set to 2 V, which is highest possible voltage')
 
         self.write(':INST%s;:VOLT%.3f' % (channel, amp))
 
@@ -863,10 +868,10 @@ class Tabor_WX1284C(Instrument):
         channel +=self._choff
         if offset < -1.000:
             offset = -1.000
-            print 'Offset was set to -1.000 V, which is smallest possible voltage'
+            print('Offset was set to -1.000 V, which is smallest possible voltage')
         if offset > 1.000:
             offset = 1.000
-            print 'Offset was set to 1.000 V, which is highest possible voltage'
+            print('Offset was set to 1.000 V, which is highest possible voltage')
 
         logging.debug(__name__ + ' : Set offset of channel %s to %.3f' % (channel, offset))
         self.write(':INST%s;:VOLT:OFFS%.3f' % (channel, offset))
@@ -985,7 +990,7 @@ class Tabor_WX1284C(Instrument):
             (string) : 10e6, 20e6, 50e6, 100e6
         '''
         logging.debug(__name__ + ' : Get clock reference frequency.')
-        return float(self.ask(':ROSC:FREQ ?'))
+        return int(self.ask(':ROSC:FREQ ?')[:-1])*1.0e6
 
     def do_set_common_clock(self,status=True):
         '''
@@ -1040,12 +1045,10 @@ class Tabor_WX1284C(Instrument):
 
         channel +=self._choff
 
-        dim = len(w)
-
         if len(w)%16 != 0:
             raise ValueError #wfm length has to be divisible by 16
         if len(w) < 192:
-            w = numpy.append(w1, numpy.zeros(192 - len(w)))
+            w = numpy.append(w, numpy.zeros(192 - len(w)))
             m1 = numpy.append(m1, numpy.zeros(192 - len(m1)))
             m2 = numpy.append(m2, numpy.zeros(192 - len(m2)))
 
@@ -1062,11 +1065,11 @@ class Tabor_WX1284C(Instrument):
         #set set single trace transfer mode
         self.write(':TRAC:MODE SING')
 
-        ws = ''
+        ws = b''
         for i in range(0,len(w)):
-            ws = ws + struct.pack('<H', 8191*w[i]+8192+m1[i]*2**14+m2[i]*2**15)
+            ws = ws + struct.pack('<H', int(8191*w[i]+8192+m1[i]*2**14+m2[i]*2**15))
 
-        self.write_raw(':TRAC#%i%i%s' %(int(numpy.log10(len(ws))+1), len(ws), ws))
+        self.write_raw(b':TRAC#%i%i%s' %(int(numpy.log10(len(ws))+1), len(ws), ws))
 
     def wfm_send2(self, w1, w2, m1=None, m2=None, channel=1, seg=1):
         '''
@@ -1108,9 +1111,9 @@ class Tabor_WX1284C(Instrument):
         self.write(':TRAC:MODE COMB')
 
         wfm = numpy.append(numpy.reshape(numpy.array(8191*w2+8192+m1*2**14+m2*2**15,dtype=numpy.dtype('<H')),(-1,16)),numpy.reshape(numpy.array(8191*w1+8192+m1*2**14+m2*2**15,dtype=numpy.dtype('<H')),(-1,16)),axis=1).flatten()
-        ws =str(buffer(wfm))
+        ws = bytes(memoryview(wfm))
 
-        self.write_raw(':TRAC#%i%i%s' %(int(numpy.log10(len(ws))+1), len(ws), ws))
+        self.write_raw(b':TRAC#%i%i%s' %(int(numpy.log10(len(ws))+1), len(ws), ws))
 
 
     def define_sequence(self,channel, segments=None,loops=None,jump_flags=None):
@@ -1123,7 +1126,7 @@ class Tabor_WX1284C(Instrument):
         '''
         channel +=self._choff
         if segments is None:
-            print "Amount of segments not specified, try to get it from AWG"
+            print("Amount of segments not specified, try to get it from AWG")
             for i in range(1,32000):
                 if int(self.ask(":TRAC:DEF%i?"%i).split()[-1])==0:
                     segments = i-1
@@ -1135,18 +1138,18 @@ class Tabor_WX1284C(Instrument):
             if segments == 1 : segments = [1,1,1]
             elif segments == 2 : segments = [1,2,1,2]
             else: segments = range(1,segments+1)
-        if loops == None: loops = numpy.ones(len(segments))
-        if jump_flags == None: jump_flags = numpy.zeros(len(segments))
+        if loops == None: loops = numpy.ones(len(segments),dtype=numpy.uint)
+        if jump_flags == None: jump_flags = numpy.zeros(len(segments),dtype=numpy.ushort)
         if not len(loops)==len(segments) or not len(jump_flags) == len(segments):
             raise ValueError("Length of segments (%i) does not match length of loops (%i) or length of jump_flags(%i)"%(len(segments),len(loops),len(jump_flags)))
         if len(segments)<3: raise ValueError("Sorry, you need at least 3 segments. Your command has %i segments"%(len(segments)))
 
         #Set specified channel
         self.write(':INST%s' % (channel))
-        ws = ''
+        ws = b''
         for i in range(len(segments)):
             ws = ws + struct.pack('<LHH', loops[i],segments[i],jump_flags[i])
-        self.write_raw(':SEQ#%i%i%s' %(int(numpy.log10(len(ws))+1), len(ws), ws))
+        self.write_raw(b':SEQ#%i%i%s' %(int(numpy.log10(len(ws))+1), len(ws), ws))
 
     def set_seq_length(self,length,chpair=1):
         self.define_sequence((2*chpair-1 if self._numchannels == 4 else chpair),length)

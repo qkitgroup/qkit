@@ -164,8 +164,10 @@ class Spectrum_M4i2211(Instrument):
         '''
         if platform.architecture()[0] == '64bit':
             pf_64Bit = True
+            drv_handle= POINTER(c_uint64)
         else:
             pf_64Bit = False
+            drv_handle = c_void_p
 
         if pf_64Bit:
             logging.debug(__name__ + ' : Loading spcm_win64.dll')
@@ -202,6 +204,27 @@ class Spectrum_M4i2211(Instrument):
             self._spcm_win32.InValidateBuf  = self._spcm_win32["_spcm_dwInvalidateBuf@8"]
             self._spcm_win32.GetErrorInfo   = self._spcm_win32["_spcm_dwGetErrorInfo_i32@16"]
 
+        self._spcm_win32.open.argtype = [c_char_p]
+        self._spcm_win32.open.restype = drv_handle
+        self._spcm_win32.close.argtype = [drv_handle]
+        self._spcm_win32.close.restype = None
+        self._spcm_win32.SetParam32.argtype = [drv_handle, c_int32, c_int32]
+        self._spcm_win32.SetParam32.restype = c_uint32
+        self._spcm_win32.SetParam64m.argtype = [drv_handle, c_int32, c_int32, c_int32]
+        self._spcm_win32.SetParam64m.restype = c_uint32
+        self._spcm_win32.SetParam64.argtype = [drv_handle, c_int32, c_int64]
+        self._spcm_win32.SetParam64.restye = c_uint32
+        self._spcm_win32.GetParam32.argtype = [drv_handle, c_int32, POINTER (c_int32)]
+        self._spcm_win32.GetParam32.restype = c_uint32
+        self._spcm_win32.GetParam64.argtype = [drv_handle, c_int32, POINTER (c_int64)]
+        self._spcm_win32.GetParam64.restype = c_uint32
+        self._spcm_win32.DefTransfer64.argtype = [drv_handle, c_uint32, c_uint32, c_uint32, c_void_p, c_uint64, c_uint64]
+        self._spcm_win32.DefTransfer64.restype = c_uint32
+        self._spcm_win32.InValidateBuf.argtype = [drv_handle, c_uint32]
+        self._spcm_win32.InValidateBuf.restype = c_uint32
+        self._spcm_win32.GetErrorInfo.argtype = [drv_handle, POINTER (c_uint32), POINTER (c_int32), c_char_p]
+        self._spcm_win32.GetErrorInfo.restype = c_uint32
+
     def _open(self):
         '''
         Opens the card, and creates a handle.
@@ -215,7 +238,7 @@ class Spectrum_M4i2211(Instrument):
         '''
         logging.debug(__name__ + ' : Try to open card')
         if ( not self._card_is_open):
-          self._spcm_win32.handel = self._spcm_win32.open('spcm0')
+          self._spcm_win32.handel = self._spcm_win32.open(create_string_buffer (b'spcm0'))
           self._card_is_open = True
         else:
           logging.warning(__name__ + ' : Card is already open !')
@@ -383,11 +406,11 @@ class Spectrum_M4i2211(Instrument):
 
         self._spcm_win32.GetErrorInfo(self._spcm_win32.handel, p_er1, p_er2, p_errortekst)
 
-        tekst = ""
+        tekst = b""
 
         for ii in range(200):
             tekst  = tekst + p_errortekst.contents[ii]
-        logging.error(__name__ + ' : ' + tekst)
+        logging.error(__name__ + ' : ' + str(tekst))
         return tekst
 
 
@@ -947,7 +970,7 @@ class Spectrum_M4i2211(Instrument):
         
     def set_clockmode_ext(self):
         '''
-        Sets the clock mode to PLL
+        Sets the clock mode to external
 
         Input:
             None
@@ -1363,7 +1386,6 @@ class Spectrum_M4i2211(Instrument):
         if data == 'timeout':
             return data
         data = numpy.array(data, numpy.float32)
-        data = []
         data = 2.0 * amp * (data / 255.0) + offset
         return data
 
@@ -1371,7 +1393,7 @@ class Spectrum_M4i2211(Instrument):
         lMemsize = self.get_memsize()
         lSegsize = self.get_segmentsize()
 
-        lnumber_of_segments = lMemsize / lSegsize
+        lnumber_of_segments = int(lMemsize / lSegsize)
 
         data = self.readout_raw_buffer()
         if data == 'timeout':
@@ -1386,7 +1408,7 @@ class Spectrum_M4i2211(Instrument):
         amp = float(self.get_input_amp_ch0())
         offset = float(self.get_input_offset_ch0())
 
-        lnumber_of_segments = lMemsize / lSegsize
+        lnumber_of_segments = int(lMemsize / lSegsize)
 
         data = self.readout_raw_buffer()
         if data == 'timeout':
@@ -1423,7 +1445,7 @@ class Spectrum_M4i2211(Instrument):
         lMemsize = self.get_memsize()
         lSegsize = self.get_segmentsize()
 
-        lnumber_of_segments = lMemsize / lSegsize
+        lnumber_of_segments = int(lMemsize / lSegsize)
 
         data = self.readout_raw_buffer(nr_of_channels=2)
         if data == 'timeout':
@@ -1441,7 +1463,7 @@ class Spectrum_M4i2211(Instrument):
         amp1 = float(self.get_input_amp_ch0())
         offset1 = float(self.get_input_offset_ch1())
 
-        lnumber_of_ssegments = lMemsize / lSegsize
+        lnumber_of_segments = int(lMemsize / lSegsize)
 
         data = self.readout_raw_buffer(nr_of_channels=2)
         if data == 'timeout':

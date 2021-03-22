@@ -61,7 +61,7 @@ class Anritsu_MS2830A(Instrument):
             minval=0, maxval=26.5e9,
             tags=['sweep'])
 
-        self.add_parameter('nop', type=float,
+        self.add_parameter('nop', type=int,
             flags=Instrument.FLAG_GETSET,
             minval=155, maxval=30001,
             tags=['sweep'])
@@ -118,25 +118,25 @@ class Anritsu_MS2830A(Instrument):
         '''
         sets the resolution bandwidth
         '''
-        self._visainstrument.write('BAND:BWID %e'%(BW))
+        self._visainstrument.write(':BWID %e'%(BW))
 
     def do_get_resolutionBW(self):
         '''
         gets the resolution bandwidth
         '''
-        return float(self._visainstrument.ask('BAND?'))
+        return float(self._visainstrument.ask(':BWID?'))
 
     def do_set_videoBW(self, BW):
         '''
         sets the video bandwidth
         '''
-        self._visainstrument.write('DISP:TRAC:X:WIDT %e'%(BW))
+        self._visainstrument.write(':BWID:VID %e'%(BW))
 
     def do_get_videoBW(self):
         '''
         gets the video bandwidth
         '''
-        return float(self._visainstrument.ask('DISP:TRAC:X:WIDT?'))
+        return float(self._visainstrument.ask(':BWID:VID?'))
 
     def do_get_sweeptime(self):
         '''
@@ -200,7 +200,7 @@ class Anritsu_MS2830A(Instrument):
         '''
         gets the power unit for powers
         '''
-        return self._visainstrument.ask('unit:pow')
+        return self._visainstrument.ask('unit:pow?')
         
         
     def do_get_averages(self):
@@ -257,20 +257,20 @@ class Anritsu_MS2830A(Instrument):
         '''
         return linspace(self.get_startfreq(),self.get_stopfreq(),self.get_nop())
     
-#    def enable_marker(self,marker,state='ON'):
+    def enable_marker(self,marker,state='ON'):
         '''
         ON or OFF
         '''
-        #self._visainstrument.write('CALC:MARK%i %s'%(marker,state))    
+        self._visainstrument.write('CALC:MARK%i:STAT %s'%(marker,state))    
     
-#    def sweep(self):
+    def sweep(self):
         '''
         perform a sweep and wait for it to finish
         '''
-        #self._visainstrument.write('INIT; *WAI')    
+        self._visainstrument.write('INIT; *WAI')    
     
     def get_trace(self, tracenumber=1):
-        tmp = self._visainstrument.ask_for_values(':trac:data? trace%i'%tracenumber)
+        tmp = self._visainstrument.query_ascii_values(':trac:data? trace%i'%tracenumber)
         if self._comp_mode:
             tmp = [tmp,numpy.zeros_like(tmp)]
         return tmp

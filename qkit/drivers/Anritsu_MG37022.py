@@ -59,10 +59,11 @@ class Anritsu_MG37022(Instrument):
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=20e9,
             units='Hz',tags=['sweep'])
-        self.add_parameter('phase_offset', type=float,
-            flags=Instrument.FLAG_GETSET,
-            minval=-360, maxval=360,
-            units='deg')
+        if ("MG3692C" not in self.ask("*IDN?").split(",")):
+            self.add_parameter('phase_offset', type=float,
+                flags=Instrument.FLAG_GETSET,
+                minval=-360, maxval=360,
+                units='deg')
         self.add_parameter('slope', type=float,
             flags=Instrument.FLAG_GETSET,
             minval=0, maxval=100,
