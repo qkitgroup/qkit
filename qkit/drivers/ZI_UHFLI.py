@@ -201,13 +201,6 @@ class ZI_UHFLI(Instrument):
     def disable_everything(self):
         zhinst.utils.disable_everything(self.daq, self.device)
         
-    def create_daq_module(self):
-        return self.daq.dataAcquisitionModule()
-    
-        #Set and get functions for the qkit wrapper, not intended for public use
-        '''
-        signal ins
-        '''
         
     def _do_set_input_range(self, newrange, channel):
         logging.debug(__name__ + ' : setting range on input channel %s to %s V' % (channel, newrange))

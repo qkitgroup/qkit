@@ -17,6 +17,8 @@
 
 
 'Parameters used on ADwin'
+'Data_189[i]: module of analog input gate i'
+'Data_190[i]: analog input gate i'
 'Data_191[i]: output number variable => set output number on adwin module for each gate'
 'Data_192[i]: voltage limit error variable => 1 if voltage limit exceeded or limits not set'
 'Data_193[i]: module numbers of gates'
@@ -226,6 +228,20 @@ class ADwin_ProII_complete(Instrument):
             minval=1, maxval=8,
             tags=['sweep'])
 
+        #module number analog input set via Data_189 array
+        self.add_parameter('analog_input_module_number', type=int,
+            flags=Instrument.FLAG_GETSET,
+            channels=(1,200), channel_prefix='input%d_',
+            minval=1, maxval=20,
+            tags=['sweep'])
+
+        #analog input read out via Data_190 array
+        self.add_parameter('analog_input_voltage_in_V', type=float,
+            flags=Instrument.FLAG_GET,
+            channels=(1,200), channel_prefix='input%d_',
+            minval=-10, maxval=10, units='V',
+            tags=['sweep'])
+
     def start_process(self, process_number):
         """start process (done automatically when creating ADwin_ProII instance)
         """
@@ -325,6 +341,24 @@ class ADwin_ProII_complete(Instrument):
         logging.debug(__name__ +': reading all Global LONG variables')
         return self.adw.Get_Par_All()
 
+    def _do_set_analog_input_module_number(self,value,channel):
+        """\nDOCUMENTATION\n\nset_inputX_analog_input_module_number(value):\n\n\t Allocate ADwin module number to analog input 'X' (ADwin parameter: Data_189[X]).\n\n\t parameters:\n\n\t value (INT): module number (possible values: 1 to 20)\n\t X (INT): input index\n\n\n"""
+        logging.info(__name__ + ': setting module number of input %d to %d'%(channel,value))
+        self.adw.SetData_Long([value], 189, channel, 1)
+
+    def _do_get_analog_input_module_number(self,channel):
+        """\nDOCUMENTATION\n\nget_inputX_analog_input_module_number():\n\n\t Read out ADwin module number of analog input 'X' (ADwin parameter: Data_189[X]).\n\n\t parameters: \n\n\t X (INT): input index \n\n\t return value (INT): module number (possible values: 1 to 20)\n\n\n"""
+        output=self.adw.GetData_Long(189, channel, 1)[0]
+        logging.info(__name__ + ': reading module number of analog input %d : %d' %(channel,output))
+        return output
+        
+    def _do_get_analog_input_voltage_in_V(self,channel):
+        """\nDOCUMENTATION\n\nget_inputX_analog_input_voltage_in_V():\n\n\t Read out voltage of analog input 'X' (ADwin parameter: Data_190[X]).\n\n\t return value (FLOAT): voltage in V (possible values: -10 to 10)\n\n\n"""
+        digitvalue=self.adw.GetData_Long(190, channel, 1)[0]
+        voltvalue=self.digit_to_volt(digitvalue)
+        logging.info(__name__ +': reading voltage analog input %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
+        return voltvalue
+    
     def _do_set_process_delay(self,new):
         """set process_delay in s
         """
