@@ -22,7 +22,16 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         self.daqM1 = dtools.daq_module_toolz(self.create_daq_module(), self._device_id)        
         self.daqM2 = dtools.daq_module_toolz(self.create_daq_module(), self._device_id)
         
-        self.add_function("get_value")       
+        self.add_function("get_value") 
+        self.add_function("create_daq_module")
+        
+    def create_daq_module(self):
+        return self.daq.dataAcquisitionModule()
+    
+        #Set and get functions for the qkit wrapper, not intended for public use
+        '''
+        signal ins
+        '''
         
     def _prep_singleshot(self, daqM, averages):
         num_samples = ceil(averages / 2)      
