@@ -9,6 +9,7 @@ from _ZI_toolkit import daq_module_toolz as dtools
 import ZI_UHFLI as lolvl
 
 from time import sleep
+from math import ceil
 import numpy as np
 import logging
 
@@ -24,10 +25,11 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         self.add_function("get_value")       
         
     def _prep_singleshot(self, daqM, averages):
-        if averages == 1: # We have to do this since the min length of the grid mode is 2
-            averages = 2  # We'll only use the first sample for return vals. I know this is ugly, plz don't hit me any more!
+        num_samples = ceil(averages / 2)      
+        if num_samples == 1:
+            num_samples = 2    
         daqM.set_daqM_grid_mode("exact")
-        daqM.set_daqM_grid_num_samples(averages)
+        daqM.set_daqM_grid_num_samples(num_samples)
         daqM.set_daqM_grid_num_measurements(2)
         daqM.set_daqM_grid_direction("forward")
         daqM.set_daqM_grid_num(1)
@@ -59,11 +61,13 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
             assert sample_path in data, "Datastream doesn't contain the subscribed data paths."
             assert len(data[sample_path]) == 1, "Datastream doesn't contain the desired amout of samples"
             if averages != 1:
-                meanval.append(np.average(data[sample_path][0]["value"]))# ZI's data structure is quite intense...
+                a = np.append(data[sample_path][0]["value"][0], data[sample_path][0]["value"][1])
+                print(len(a))
+                meanval.append(np.average(a))# ZI's data structure is quite intense...
             else:
                 meanval.append(data[sample_path][0]["value"][0][0])
                 
-        return meanval, data #return the processed mean and the raw data dict, becuz why not?
+        return meanval, data # return the processed mean and the raw data dict, becuz why not?
     
     
 #%%
@@ -91,7 +95,7 @@ if __name__ == "__main__":
     print(UHFLI_test.daqM1.get_daqM_trigger_mode())
     print(UHFLI_test.daqM1.get_daqM_trigger_edge())
     UHFLI_test.daqM1.set_daqM_sample_path(["/dev2587/demods/0/sample.x", "/dev2587/demods/0/sample.y"])
-    (meanval, _) = UHFLI_test.get_value(5000)
+    (meanval, _) = UHFLI_test.get_value(500)
     print(meanval)
     print(UHFLI_test.daqM1.get_daqM_grid_num_samples())
     print(UHFLI_test.daqM1.get_daqM_grid_num_measurements())
