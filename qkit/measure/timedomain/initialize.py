@@ -78,7 +78,7 @@ class InitializeTimeDomain(object):
         if breakpoint: raise ValueError("Not all vallues in your sample file are present. I can not continue. Sorry.")
 
         # If some parameters are not given, that have a good default, set them in the sample object, so that the user knows them.
-        for p,v in self.optional_params.iteritems():
+        for p,v in iter(self.optional_params.items()):
             if p not in self._sample.__dict__:
                 self._sample.__dict__[p] = v[1]
         #Init the spectrum card
@@ -118,7 +118,9 @@ class InitializeTimeDomain(object):
             
             if self._sample.awg._numchannels == 4:
                 self._sample.awg.set_p1_trigger_time(self._sample.T_rep)
+                self._sample.awg.set_p2_trigger_time(self._sample.T_rep)
                 self._sample.awg.set_p1_sync_output(True)
+                self._sample.awg.set_p2_sync_output(True)
             else:
                 self._sample.awg.set_trigger_time(self._sample.T_rep)
                 self._sample.awg.set_sync_output(True)

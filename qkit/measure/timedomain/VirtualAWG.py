@@ -693,19 +693,20 @@ class VirtualAWG(object):
             ind += 1
         return sequences, readout_indices
 
-    def load(self, show_progress_bar=True):
+    def load(self, show_progress_bar=True, reset=True):
         """
         Load the sequences stored in the channels of the virtual AWG to your physical device (awg, fpga).
         Currently only enabled for the tabor awg.
         """
         # Case discrimination:
-        if self._sample.awg.get_name() == "tawg":
+        if self._sample.awg.get_name() is "Tabor_WX1284C":
             sequences, readout_inds = self._sync()
             load_tawg.load_tabor(
                 sequences,
                 readout_inds,
                 self._sample,
-                show_progress_bar=show_progress_bar,
+                reset=reset,
+                show_progress_bar=show_progress_bar
             )
         else:
             print("Unknown device type! Unable to load sequences.")

@@ -70,6 +70,9 @@ class Measure_td(object):
         self._measurement_object = Measurement()
         self._measurement_object.measurement_type = 'timedomain'
         self._measurement_object.sample = self.sample
+
+        self.state_0_cal=None
+        self.state_1_cal=None
         
     
     def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit=None):
@@ -363,6 +366,14 @@ class Measure_td(object):
         self._hdf_readout_frequencies = self._hdf.add_coordinate(self.multiplex_attribute, unit=self.multiplex_unit)
         self._hdf_readout_frequencies.add(self.readout.get_tone_freq())
         
+        if self.state_0_cal and self.state_1_cal and self.mode >2: 
+            #Adds calibration of ground and excited state of qubit for visualization of population during measurement
+            self._hdf_state_0 = self._hdf.add_coordinate("State 0 Calibration")
+            self._hdf_state_0.add(self.state_0_cal)
+
+            self._hdf_state_1 = self._hdf.add_coordinate("State 1 Calibration")
+            self._hdf_state_1.add(self.state_1_cal)
+
         if self.ReadoutTrace:
             self._hdf_TimeTraceAxis = self._hdf.add_coordinate('recorded timepoint', unit='s')
             self._hdf_TimeTraceAxis.add(np.arange(self.sample.mspec.get_samples()) / self.readout.get_adc_clock())
@@ -399,11 +410,14 @@ class Measure_td(object):
             self._hdf_y.add(self.y_vec)
             self._hdf_amp = []
             self._hdf_pha = []
+            self._hdf_p1 = []
             for i in range(self.ndev):
                 self._hdf_amp.append(self._hdf.add_value_matrix('amplitude_%i' % i,
                                                                 x=self._hdf_y, y=self._hdf_x, unit='a.u.'))
                 self._hdf_pha.append(self._hdf.add_value_matrix('phase_%i' % i,
                                                                 x=self._hdf_y, y=self._hdf_x, unit='rad'))
+                if self.state_0_cal and self.state_1_cal:
+                    self._hdf_p1.append(self._hdf.add_value_matrix("p1_%i" %i, x=self._hdf_y, y=self._hdf_x, unit=""))
             if self.ReadoutTrace:
                 self._hdf_I = self._hdf.add_value_box('I_TimeTrace', x=self._hdf_y, y=self._hdf_x,
                                                       z=self._hdf_TimeTraceAxis, unit='V', save_timestamp=False)
@@ -422,6 +436,9 @@ class Measure_td(object):
                                                              z=self._hdf_x, unit='a.u.'))
                 self._hdf_pha.append(self._hdf.add_value_box('phase_%i' % i, x=self._hdf_z, y=self._hdf_y,
                                                              z=self._hdf_x, unit='rad'))
+                if self.state_0_cal and self.state_1_cal:
+                    self._hdf_p1.append(self._hdf.add_value_box("p1_%i" %i, x=self._hdf_z, y=self._hdf_y,
+                                                             z=self._hdf_x, unit=""))
             if self.ReadoutTrace:
                 self._hdf_I = self._hdf.add_value_box('I_TimeTrace', x=self._hdf_z, y=self._hdf_y,
                                                       z=self._hdf_TimeTraceAxis, unit='V', save_timestamp=False)
@@ -461,6 +478,10 @@ class Measure_td(object):
             for i in range(self.ndev):
                 self._hdf_amp[i].append(np.atleast_1d(ampliData.T[i]))
                 self._hdf_pha[i].append(np.atleast_1d(phaseData.T[i]))
+                if self.state_0_cal and self.state_1_cal and self.mode > 2:
+                    I_iter = np.atleast_1d(ampliData.T[i])*np.sin(np.atleast_1d(phaseData.T[i]))
+                    Q_iter = np.atleast_1d(ampliData.T[i])*np.cos(np.atleast_1d(phaseData.T[i]))
+                    self._hdf_p1[i].append(((self.state_1[0][0]-self.state_0[0][0])*(I_iter-self.state_0[0][0])+(self.state_1[1][0]-self.state_0[1][0])*(Q_iter-self.state_0[1][0]))/((self.state_1[0][0]-self.state_0[0][0])**2+(self.state_1[1][0]-self.state_0[1][0])**2))
             if self.ReadoutTrace:
                 if self.mode < 3:  # mode 2 not yet fully supported but working for DDC timetrace experiments
                     self._hdf_I.append(Is)
@@ -514,3 +535,13 @@ class Measure_td(object):
         Small comment to add at the end of plot pics for more information i.e. good for wiki entries.
         '''
         self._plot_comment = comment
+        
+    def add_qubit_state_cal(self, filepath_to_0, filepath_to_1):
+        state_0_data = hdf.Data(filepath_to_0).data
+        state_1_data = hdf.Data(filepath_to_1).data
+
+        self.state_0_cal = (state_0_data.amplitude_avg_0[:]*np.sin(state_0_data.phase_avg_0[:]),state_0_data.amplitude_avg_0[:]*np.cos(state_0_data.phase_avg_0[:]))
+        self.state_1_cal = (state_1_data.amplitude_avg_0[:]*np.sin(state_1_data.phase_avg_0[:]),state_1_data.amplitude_avg_0[:]*np.cos(state_1_data.phase_avg_0[:]))
+
+        state_0_data.close_file()
+        state_1_data.close_file()

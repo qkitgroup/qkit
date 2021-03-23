@@ -99,6 +99,11 @@ def load_tabor(channel_sequences, ro_index, sample, reset=True, show_progress_ba
 
     if reset:
         _reset(awg, number_of_channels, ro_index)
+    else:
+        if number_of_channels <= 2:
+            awg.define_sequence(1, len(ro_index))
+        else:
+            awg.define_sequence(3, len(ro_index))
     # Loading the waveforms into the AWG, differentiating between all cases
     if show_progress_bar:
         p = Progress_Bar(len(ro_index), 'Load AWG')
