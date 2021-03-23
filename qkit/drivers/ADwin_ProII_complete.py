@@ -43,6 +43,7 @@ import logging
 import time
 import numpy as np
 import sys
+import matplotlib.pyplot as plt
 
 class ADwin_ProII_complete(Instrument):
     """
@@ -358,6 +359,9 @@ class ADwin_ProII_complete(Instrument):
         voltvalue=self.digit_to_volt(digitvalue)
         logging.info(__name__ +': reading voltage analog input %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
         return voltvalue
+    
+    def get_input(self, channel):
+        return self.get('input%d_analog_input_voltage_in_V'% channel)
     
     def _do_set_process_delay(self,new):
         """set process_delay in s
@@ -964,6 +968,38 @@ class ADwin_ProII_complete(Instrument):
             input("Press Enter to continue.")
             sys.exit()
             
+    def IV_curve(self, output=None, input=None, V_min=0.0, V_max=0.001, V_div=1, samples=10, IV_gain=1e6):
+        '''Produces an IV curve. A voltage is applied at the DUT and the resulting current 
+        is converted by an IV converter. It's output voltage is measured by the ADwin. 
+        
+        Returns:
+            (Voltage_points, Current_points)
+        
+        Parameters:
+            V_min: minimum voltage applied by ADwin BEFORE voltage divider in Volts
+            V_max: maximum voltage applied by ADwin BEFORE voltage divider in Volts
+            samples: number of voltage values applied in given interval
+            V_div: Voltage divider applied in 1/V_div
+            IV_gain: gain of current to voltage converter
+        '''
+        V_step = (V_max - V_min)/samples
+        V_values = np.arange(V_min, V_max+ V_step, V_step)
+        
+        data_V = []
+        data_I = []
+        
+        if output != None and input!= None:
+            for voltage in V_values:        
+                data_V.append(voltage/V_div*1000) #voltage in mV
+                self.set_out(output, voltage)
+                time.sleep(0.01)
+                data_I.append(self.get_input(input)/IV_gain) 
+            
+        else: 
+            print("Input or output not defined!")
+            
+        return (data_V, data_I)    
+        
             
             
 
