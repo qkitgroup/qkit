@@ -29,9 +29,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         return self.daq.dataAcquisitionModule()
     
         #Set and get functions for the qkit wrapper, not intended for public use
-        '''
-        signal ins
-        '''
+
         
     def _prep_singleshot(self, daqM, averages):
         num_samples = ceil(averages / 2)      
