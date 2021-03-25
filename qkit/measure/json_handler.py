@@ -23,7 +23,7 @@ class QkitJSONEncoder(json.JSONEncoder):
             return {'dtype': type(obj).__name__, 'content': obj.tolist()}
         # if type(obj) == types.InstanceType:  # no valid synatx in python 3 and probably not needed (MMW)
         #    return {'dtype' : type(obj).__name__, 'content': str(obj.get_name())}
-        if uncertainties_enable or qkit.module_available('uncertainties'):
+        if qkit.module_available('uncertainties'):
             if type(obj) in (uncertainties.core.Variable, uncertainties.core.AffineScalarFunc):
                 return {'dtype': 'ufloat',
                         'content': {'nominal_value': obj.nominal_value,
@@ -43,7 +43,7 @@ class QkitJSONDecoder(json.JSONDecoder):
             if obj['dtype'] == 'ndarray':
                 return np.array(obj['content'])
             if obj['dtype'] == 'ufloat':
-                if uncertainties_enable or qkit.module_available('uncertainties'):
+                if qkit.module_available('uncertainties'):
                     return uncertainties.ufloat(nominal_value=obj['content']['nominal_value'],
                                                 std_dev=obj['content']['std_dev'])
                 else:

@@ -699,7 +699,7 @@ class VirtualAWG(object):
         Currently only enabled for the tabor awg.
         """
         # Case discrimination:
-        if self._sample.awg.get_name() is "Tabor_WX1284C":
+        if self._sample.awg.get_type() is "Tabor_WX1284C":
             sequences, readout_inds = self._sync()
             load_tawg.load_tabor(
                 sequences,

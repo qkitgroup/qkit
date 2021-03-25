@@ -481,7 +481,7 @@ class Measure_td(object):
                 if self.state_0_cal and self.state_1_cal and self.mode > 2:
                     I_iter = np.atleast_1d(ampliData.T[i])*np.sin(np.atleast_1d(phaseData.T[i]))
                     Q_iter = np.atleast_1d(ampliData.T[i])*np.cos(np.atleast_1d(phaseData.T[i]))
-                    self._hdf_p1[i].append(((self.state_1[0][0]-self.state_0[0][0])*(I_iter-self.state_0[0][0])+(self.state_1[1][0]-self.state_0[1][0])*(Q_iter-self.state_0[1][0]))/((self.state_1[0][0]-self.state_0[0][0])**2+(self.state_1[1][0]-self.state_0[1][0])**2))
+                    self._hdf_p1[i].append(((self.state_1_cal[0][0]-self.state_0_cal[0][0])*(I_iter-self.state_0_cal[0][0])+(self.state_1_cal[1][0]-self.state_0_cal[1][0])*(Q_iter-self.state_0_cal[1][0]))/((self.state_1_cal[0][0]-self.state_0_cal[0][0])**2+(self.state_1_cal[1][0]-self.state_0_cal[1][0])**2))
             if self.ReadoutTrace:
                 if self.mode < 3:  # mode 2 not yet fully supported but working for DDC timetrace experiments
                     self._hdf_I.append(Is)
@@ -537,11 +537,12 @@ class Measure_td(object):
         self._plot_comment = comment
         
     def add_qubit_state_cal(self, filepath_to_0, filepath_to_1):
-        state_0_data = hdf.Data(filepath_to_0).data
-        state_1_data = hdf.Data(filepath_to_1).data
+        state_0_data = hdf.Data(filepath_to_0)
+        state_1_data = hdf.Data(filepath_to_1)
 
-        self.state_0_cal = (state_0_data.amplitude_avg_0[:]*np.sin(state_0_data.phase_avg_0[:]),state_0_data.amplitude_avg_0[:]*np.cos(state_0_data.phase_avg_0[:]))
-        self.state_1_cal = (state_1_data.amplitude_avg_0[:]*np.sin(state_1_data.phase_avg_0[:]),state_1_data.amplitude_avg_0[:]*np.cos(state_1_data.phase_avg_0[:]))
+
+        self.state_0_cal = (state_0_data.data.amplitude_avg_0[:]*np.sin(state_0_data.data.phase_avg_0[:]),state_0_data.data.amplitude_avg_0[:]*np.cos(state_0_data.data.phase_avg_0[:]))
+        self.state_1_cal = (state_1_data.data.amplitude_avg_0[:]*np.sin(state_1_data.data.phase_avg_0[:]),state_1_data.data.amplitude_avg_0[:]*np.cos(state_1_data.data.phase_avg_0[:]))
 
         state_0_data.close_file()
         state_1_data.close_file()

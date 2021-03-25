@@ -225,6 +225,7 @@ class Spectrum_M4i2211(Instrument):
         self._spcm_win32.GetErrorInfo.argtype = [drv_handle, POINTER (c_uint32), POINTER (c_int32), c_char_p]
         self._spcm_win32.GetErrorInfo.restype = c_uint32
 
+        #self.set_clockmode_pll()
     def _open(self):
         '''
         Opens the card, and creates a handle.
@@ -238,7 +239,7 @@ class Spectrum_M4i2211(Instrument):
         '''
         logging.debug(__name__ + ' : Try to open card')
         if ( not self._card_is_open):
-          self._spcm_win32.handel = self._spcm_win32.open(create_string_buffer (b'spcm0'))
+          self._spcm_win32.handel = self._spcm_win32.open(create_string_buffer(b'spcm0'))
           self._card_is_open = True
         else:
           logging.warning(__name__ + ' : Card is already open !')
@@ -733,7 +734,7 @@ class Spectrum_M4i2211(Instrument):
         logging.debug(__name__ + ' : Card started with trigger')
         self._buffer_setup()
         self._set_param(_spcm_regs.SPC_M2CMD,
-            _spcm_regs.M2CMD_CARD_START | _spcm_regs.M2CMD_CARD_ENABLETRIGGER)
+            _spcm_regs.M2CMD_CARD_START | _spcm_regs.M2CMD_CARD_ENABLETRIGGER | _spcm_regs.M2CMD_DATA_STARTDMA)
 
     def start_with_trigger_and_waitready(self):
         '''
