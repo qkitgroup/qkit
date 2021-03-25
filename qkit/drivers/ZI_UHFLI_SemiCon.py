@@ -71,7 +71,6 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
             assert len(data[sample_path]) == 1, "Datastream doesn't contain the desired amout of samples"
             if averages != 1:
                 a = np.append(data[sample_path][0]["value"][0], data[sample_path][0]["value"][1])
-                print(len(a))
                 meanval.append(np.average(a))# ZI's data structure is quite intense...
             else:
                 meanval.append(data[sample_path][0]["value"][0][0])
