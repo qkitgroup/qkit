@@ -17,7 +17,6 @@
 
 
 'Parameters used on ADwin'
-'Data_189[i]: module of analog input gate i'
 'Data_190[i]: analog input gate i'
 'Data_191[i]: output number variable => set output number on adwin module for each gate'
 'Data_192[i]: voltage limit error variable => 1 if voltage limit exceeded or limits not set'
@@ -29,6 +28,7 @@
 'Data_198[i]: write status variable => 1 while setting voltage to gate i'
 'Data_199[i]: safe port bit => 1 if safe port, 0 if not (default)'
 'Data_200[i]: ramp stop voltage value'
+'Par_71:      analog input module number'
 'Par_72:      test variable to read out input'
 'Par_73:      module number test variable to read out input'
 'Par_74:      output number test variable to read out input'
@@ -229,17 +229,10 @@ class ADwin_ProII_complete(Instrument):
             minval=1, maxval=8,
             tags=['sweep'])
 
-        #module number analog input set via Data_189 array
-        self.add_parameter('analog_input_module_number', type=int,
-            flags=Instrument.FLAG_GETSET,
-            channels=(1,200), channel_prefix='input%d_',
-            minval=1, maxval=20,
-            tags=['sweep'])
-
         #analog input read out via Data_190 array
         self.add_parameter('analog_input_voltage_in_V', type=float,
             flags=Instrument.FLAG_GET,
-            channels=(1,200), channel_prefix='input%d_',
+            channels=(1,200), channel_prefix='ch%d_',
             minval=-10, maxval=10, units='V',
             tags=['sweep'])
 
@@ -341,27 +334,19 @@ class ADwin_ProII_complete(Instrument):
         """
         logging.debug(__name__ +': reading all Global LONG variables')
         return self.adw.Get_Par_All()
-
-    def _do_set_analog_input_module_number(self,value,channel):
-        """\nDOCUMENTATION\n\nset_inputX_analog_input_module_number(value):\n\n\t Allocate ADwin module number to analog input 'X' (ADwin parameter: Data_189[X]).\n\n\t parameters:\n\n\t value (INT): module number (possible values: 1 to 20)\n\t X (INT): input index\n\n\n"""
-        logging.info(__name__ + ': setting module number of input %d to %d'%(channel,value))
-        self.adw.SetData_Long([value], 189, channel, 1)
-
-    def _do_get_analog_input_module_number(self,channel):
-        """\nDOCUMENTATION\n\nget_inputX_analog_input_module_number():\n\n\t Read out ADwin module number of analog input 'X' (ADwin parameter: Data_189[X]).\n\n\t parameters: \n\n\t X (INT): input index \n\n\t return value (INT): module number (possible values: 1 to 20)\n\n\n"""
-        output=self.adw.GetData_Long(189, channel, 1)[0]
-        logging.info(__name__ + ': reading module number of analog input %d : %d' %(channel,output))
-        return output
         
-    def _do_get_analog_input_voltage_in_V(self,channel):
-        """\nDOCUMENTATION\n\nget_inputX_analog_input_voltage_in_V():\n\n\t Read out voltage of analog input 'X' (ADwin parameter: Data_190[X]).\n\n\t return value (FLOAT): voltage in V (possible values: -10 to 10)\n\n\n"""
+
+    def _do_get_analog_input_voltage_in_V(self, channel):
+        """\nDOCUMENTATION\n\nget_chX_analog_input_voltage_in_V():\n\n\t Read out voltage of analog input 'X' (ADwin parameter: Data_190[X]).rn\t module: module number \n\n\t return value (FLOAT): voltage in V (possible values: -10 to 10)\n\n\n"""
         digitvalue=self.adw.GetData_Long(190, channel, 1)[0]
+        self.set_Par_71_global_long(15)
         voltvalue=self.digit_to_volt(digitvalue)
         logging.info(__name__ +': reading voltage analog input %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
         return voltvalue
+        pass
     
-    def get_input(self, channel):
-        return self.get('input%d_analog_input_voltage_in_V'% channel)
+    #def get_input(self, channel):
+        #return self.get('ch%d_analog_input_voltage_in_V'% channel)
     
     def _do_set_process_delay(self,new):
         """set process_delay in s
@@ -438,7 +423,7 @@ class ADwin_ProII_complete(Instrument):
         """
         #check if channel is set:
         if channel > self.get_number_of_gates():
-            logging.warning(__name__+': gate has not been set before! Voltaage not set!')
+            logging.warning(__name__+': gate has not been set before! Voltage not set!')
             input("Press Enter to continue.")
             sys.exit()   
         else:
