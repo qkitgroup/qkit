@@ -345,8 +345,8 @@ class ADwin_ProII_complete(Instrument):
         return voltvalue
         pass
     
-    #def get_input(self, channel):
-        #return self.get('ch%d_analog_input_voltage_in_V'% channel)
+    def get_input(self, channel):
+        return self.get('ch%d_analog_input_voltage_in_V'% channel)
     
     def _do_set_process_delay(self,new):
         """set process_delay in s
@@ -953,7 +953,7 @@ class ADwin_ProII_complete(Instrument):
             input("Press Enter to continue.")
             sys.exit()
             
-    def IV_curve(self, output=None, input=None, V_min=0.0, V_max=0.001, V_div=1, samples=10, IV_gain=1e6):
+    def IV_curve(self, output=None, input_gate=None, V_min=0.0, V_max=0.001, V_div=1, samples=10, IV_gain=1e6):
         '''Produces an IV curve. A voltage is applied at the DUT and the resulting current 
         is converted by an IV converter. It's output voltage is measured by the ADwin. 
         
@@ -973,13 +973,13 @@ class ADwin_ProII_complete(Instrument):
         data_V = []
         data_I = []
         
-        if output != None and input!= None:
+        if output != None and input_gate!= None:
             for voltage in V_values:        
                 data_V.append(voltage/V_div*1000) #voltage in mV
                 self.set_out(output, voltage)
                 time.sleep(0.01)
-                data_I.append(self.get_input(input)/IV_gain) 
-            
+                data_I.append(self.get_input(input_gate)/IV_gain) 
+            self.set_out(output, 0)
         else: 
             print("Input or output not defined!")
             
