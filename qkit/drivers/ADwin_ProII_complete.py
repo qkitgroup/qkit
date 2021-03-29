@@ -180,13 +180,13 @@ class ADwin_ProII_complete(Instrument):
             minval=-10, maxval=10, units='V',
             tags=['sweep'])
 
-        # #output voltage with given ramping speed (in V/s) set via Data_200 array
-        # #get output voltage with get_output_voltage_in_V()
-        # self.add_parameter('output_voltage_in_V_with_given_ramping_speed_in_V_per_s', type=list,
-        #     flags=Instrument.FLAG_SET,
-        #     channels=(1,200), channel_prefix='gate%d_',
-        #     minval=[-10, 1e-6], maxval=[10, 1e10], units='V',
-        #     tags=['sweep'])
+        #output voltage with given ramping speed (in V/s) set via Data_200 array
+        #get output voltage with get_output_voltage_in_V()
+        self.add_parameter('output_voltage_in_V_with_given_ramping_speed_in_V_per_s', type=list,
+            flags=Instrument.FLAG_SET,
+            channels=(1,200), channel_prefix='gate%d_',
+            minval=[-10, 1e-6], maxval=[10, 1e10], units='V',
+            tags=['sweep'])
 
         #ramping time in s set via Data_196 array
         self.add_parameter('ramping_time_in_s', type=float,
@@ -456,60 +456,60 @@ class ADwin_ProII_complete(Instrument):
             return voltvalue
         
     
-    # def _do_set_output_voltage_in_V_with_given_ramping_speed_in_V_per_s(self, V_and_speed, channel):
-    #     """ramp voltage with given speed in V/s, ramping time accuracy = +-1ms
-    #     Set output voltage of gate 'X' (ADwin parameter: Data_200[X]) with a given ramping speed.
-    #     The global ramping speed of this gate will be changed, too! So setting an output voltage without speed
-    #     will use the new global ramping speed.
-    #     Ramping time accuracy is approximately 1 ms.
+    def _do_set_output_voltage_in_V_with_given_ramping_speed_in_V_per_s(self, V_and_speed, channel):
+        """ramp voltage with given speed in V/s, ramping time accuracy = +-1ms
+        Set output voltage of gate 'X' (ADwin parameter: Data_200[X]) with a given ramping speed.
+        The global ramping speed of this gate will be changed, too! So setting an output voltage without speed
+        will use the new global ramping speed.
+        Ramping time accuracy is approximately 1 ms.
         
-    #     parameters:
-    #     new (FLOAT): new voltage in V (possible values: -10 to 10)
-    #     channel (INT): gate index 'X' 
-    #     speed (FLOAT): voltage ramping speed in V/s
-    #     """
-    #     new = V_and_speed[0]
-    #     speed = V_and_speed[1]
-    #     #check if channel is set:
-    #     if channel > self.get_number_of_gates():
-    #         logging.warning(__name__+': gate has not been set before! Voltaage not set!')
-    #         input("Press Enter to continue.")
-    #         sys.exit()
-    #     else:
-    #         #set limit error variable back to 0
-    #         self.adw.SetData_Long([0], 192, channel, 1)
-    #         #calculate and set ramping time with given speed
-    #         beginningoframpvoltage=self.digit_to_volt(self.adw.GetData_Long(200,channel,1)[0]) 
-    #         duration=abs((new-beginningoframpvoltage)/speed)
-    #         exec('self.set_gate%d_ramping_time_in_s(%f)'%(channel,duration))
-    #         #set voltage
-    #         logging.info(__name__ +': setting output voltage gate %d to  %f V with ramping speed %d V/s'%(channel,new,speed))
-    #         endoframpvoltage=self.volt_to_digit(new)
-    #         self.adw.SetData_Long([endoframpvoltage], 200, channel, 1)
-    #         self._apply_voltage_and_check_write_status()
-    #         #check if voltage limit was exceeded using error variable
-    #         if self.adw.GetData_Long(192,channel,1)[0] == 1:
-    #             logging.warning(__name__+': voltage limit exceeded or individual voltage limit not set, output voltage will remain unchanged.')
-    #             input("Press Enter to continue.")
-    #             sys.exit()
+        parameters:
+        new (FLOAT): new voltage in V (possible values: -10 to 10)
+        channel (INT): gate index 'X' 
+        speed (FLOAT): voltage ramping speed in V/s
+        """
+        new = V_and_speed[0]
+        speed = V_and_speed[1]
+        #check if channel is set:
+        if channel > self.get_number_of_gates():
+            logging.warning(__name__+': gate has not been set before! Voltaage not set!')
+            input("Press Enter to continue.")
+            sys.exit()
+        else:
+            #set limit error variable back to 0
+            self.adw.SetData_Long([0], 192, channel, 1)
+            #calculate and set ramping time with given speed
+            beginningoframpvoltage=self.digit_to_volt(self.adw.GetData_Long(200,channel,1)[0]) 
+            duration=abs((new-beginningoframpvoltage)/speed)
+            exec('self.set_gate%d_ramping_time_in_s(%f)'%(channel,duration))
+            #set voltage
+            logging.info(__name__ +': setting output voltage gate %d to  %f V with ramping speed %d V/s'%(channel,new,speed))
+            endoframpvoltage=self.volt_to_digit(new)
+            self.adw.SetData_Long([endoframpvoltage], 200, channel, 1)
+            self._apply_voltage_and_check_write_status()
+            #check if voltage limit was exceeded using error variable
+            if self.adw.GetData_Long(192,channel,1)[0] == 1:
+                logging.warning(__name__+': voltage limit exceeded or individual voltage limit not set, output voltage will remain unchanged.')
+                input("Press Enter to continue.")
+                sys.exit()
         
-    # def _do_get_output_voltage_in_V_with_given_ramping_speed_in_V_per_s(self, channel):
-    #     #code copy from _do_get_output_voltage_in_V()
-    #     """Read out output voltage of gate 'X' (ADwin parameter: Data_200[X]).
+    def _do_get_output_voltage_in_V_with_given_ramping_speed_in_V_per_s(self, channel):
+        #code copy from _do_get_output_voltage_in_V()
+        """Read out output voltage of gate 'X' (ADwin parameter: Data_200[X]).
         
-    #     return value (FLOAT): voltage in V (possible values: -10 to 10)
-    #     """
-    #     #check if channel is set:
-    #     if channel > self.get_number_of_gates():
-    #         logging.warning(__name__+': gate has not been set before! Voltaage not set!')
-    #         input("Press Enter to continue.")
-    #         sys.exit()
-    #     else:
-    #         digitvalue=self.adw.GetData_Long(200, channel, 1)[0]
-    #         voltvalue=self.digit_to_volt(digitvalue)
-    #         logging.info(__name__ +': reading output voltage gate %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
-    #         speed = self._do_get_ramping_time_in_s(channel)
-    #         return [voltvalue, speed]
+        return value (FLOAT): voltage in V (possible values: -10 to 10)
+        """
+        #check if channel is set:
+        if channel > self.get_number_of_gates():
+            logging.warning(__name__+': gate has not been set before! Voltaage not set!')
+            input("Press Enter to continue.")
+            sys.exit()
+        else:
+            digitvalue=self.adw.GetData_Long(200, channel, 1)[0]
+            voltvalue=self.digit_to_volt(digitvalue)
+            logging.info(__name__ +': reading output voltage gate %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
+            speed = self._do_get_ramping_time_in_s(channel)
+            return [voltvalue, speed]
 
     def _activate_write_sequence(self, value):
         """Internal function, (de)activate ADwin write sequence for gate 'X' (ADwin parameter: Par_76).
@@ -771,7 +771,7 @@ class ADwin_ProII_complete(Instrument):
       Allows easier access to set function for many gates.
       '''
       if gate > 3:
-          self.set('gate%d_output_voltage_in_V'% gate, voltage)
+          self.set('gate%d_output_voltage_in_V_with_given_ramping_speed_in_V_per_s'% gate, (voltage, 10))
       if gate <= 3:
           logging.warning(__name__+': This gate is reserved for the current sources! Voltage not set!')
           input("Press Enter to continue.")
