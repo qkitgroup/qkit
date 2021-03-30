@@ -29,7 +29,7 @@
 'Par_71:      analog input module number'
 'Par_75:      number of gates used, default=200 '
 'Par_76:      _activate_ADwin variable => 1 if write sequence is activated'
-'Par_77:      ramping speed in Volts/second'
+'FPar_77:     ramping speed normal ports in Volts/second'
 """
 
 import ADwin as adw
@@ -233,11 +233,12 @@ class ADwin_ProII(Instrument):
             minval=-10, maxval=10, units='V',
             tags=['sweep'])
         
-        #ramping speed in V/s
-        self.add_parameter('ramping_speed', type=float,
+        #ramping speed normal ports in V/s
+        self.add_parameter('ramping_speed_normal_ports', type=float,
             flags=Instrument.FLAG_GET,
-            minval=0, maxval=10, units='V/s',
+            minval=0, maxval=1e9, units='V/s',
             tags=[])
+        
 
     def start_process(self, process_number):
         """start process (done automatically when creating ADwin_ProII instance)
@@ -339,17 +340,34 @@ class ADwin_ProII(Instrument):
         return self.adw.Get_Par_All()
         
 
-    def _do_get_analog_input_voltage_in_V(self, channel):
-        """\nDOCUMENTATION\n\nget_chX_analog_input_voltage_in_V():\n\n\t Read out voltage of analog input 'X' (ADwin parameter: Data_190[X]).rn\t module: module number \n\n\t return value (FLOAT): voltage in V (possible values: -10 to 10)\n\n\n"""
-        digitvalue=self.adw.GetData_Long(190, channel, 1)[0]
-        self.set_Par_71_global_long(15)
-        voltvalue=self.digit_to_volt(digitvalue)
-        logging.info(__name__ +': reading voltage analog input %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
-        return voltvalue
-        pass
+    def _do_get_analog_input_voltage_in_V(self, channel, averages):
+        """Read out voltage of analog input 'X' (ADwin parameter: Data_190[X]).
+        module number is fixed in basic file and cannot be changed by driver yet.
+        
+        averages: 1 means no averaging so only one data point 
+        return value (FLOAT): voltage in V (possible values: -10 to 10)
+        """
+        if averages > 0: 
+            #set number of averages
+            self.set_Par_69_global_long(averages)
+            #activate input readout
+            self._activate_ADwin(2)
+            while self.get_Par_70_global_long() != 0:
+                    pass
+            self._activate_ADwin(0)
+            digitvalue=self.adw.GetData_Long(190, channel, 1)[0]
+            #self.set_Par_71_global_long(15)
+            voltvalue=self.digit_to_volt(digitvalue)
+            logging.info(__name__ +': reading voltage analog input %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
+            return voltvalue
+        else:
+            logging.warning(__name__+': number of averages must be 1 or bigger!.')
+            input("Press Enter to continue.")
+            sys.exit() 
+        
     
-    def get_input(self, channel):
-        return self.get('ch%d_analog_input_voltage_in_V'% channel)
+    def get_input(self, channel, averages):
+        return self.get('ch%d_analog_input_voltage_in_V'% channel, averages)
     
     def _do_set_process_delay(self,new):
         """set process_delay in cycles (1e-9s) of the ADwin.
@@ -367,18 +385,18 @@ class ADwin_ProII(Instrument):
         logging.debug(__name__ +': reading process_delay of process Nr.%s : %d digits'% (self.processnumber,resultdigits))
         return resultdigits
     
-    def _do_set_ramping_speed(self, speed):
-        '''sets the ramping speed in Volts/seconds
+    def _do_set_ramping_speed_normal_ports(self, speed):
+        '''sets the ramping speed in Volts/seconds for normal ports
         '''
-        logging.info(__name__ +': setting ramping speed of process Nr.%s to %f s' % (self.processnumber, speed))
+        logging.info(__name__ +': setting ramping speed for normal ports of process Nr.%s to %f s' % (self.processnumber, speed))
         self.set_Par_77_global_float(speed)
         
-    def _do_get_ramping_speed(self, speed):
-        '''gets the ramping speed in Volts/seconds
+    def _do_get_ramping_speed_normal_ports(self, speed):
+        '''gets the ramping speed in Volts/seconds for normal ports
         '''
         return self.get_Par77_global_float()
+    
         
-
     def digit_to_volt(self,digit, bit_format=16):
         """function to convert digits in voltage (input can be single value, python list of np.array)
         """
@@ -423,13 +441,8 @@ class ADwin_ProII(Instrument):
     
     def _do_set_output_voltage_in_V(self,new,channel):
         """Set output voltage of gate 'X' (ADwin parameter: Data_200[X]). 
-        If the ramping time was not set using set_gateX_ramping_time() or 
-        set_output_voltage_in_V_with_given_ramping_speed_in_V_per_s(),
-        initial voltage ramping time is 1µs. 
         Safe ports will respect the maximum ramping speed of 0.5V/s which is checked 
-        in the ADwin file. If the ramping speed is higher than 0.5V/s the ADwin will set it
-        to 0.5V/s but there won't be any error message! The feedback is left out for 
-        faster setting times.
+        in the ADwin file. 
         
         parameters:
         new (FLOAT): new voltage in V (possible values: -10 to 10)
@@ -444,14 +457,22 @@ class ADwin_ProII(Instrument):
             value=self.volt_to_digit(new)
             logging.info(__name__ +': setting output voltage gate %d to %f V'%(channel,new))
             self.adw.SetData_Long([value], 200, channel, 1)
-            self._apply_voltage_and_check_write_status()
+            
+            #activate ADwin to ramp input
+            self._activate_ADwin(1)
+            while self.get_Par_70_global_long() != 0:
+                pass
+            self._activate_ADwin(0)
+                       
             #check if voltage limit was exceeded. 
             if self.adw.GetData_Long(192,channel,1)[0] == 1:
                 logging.warning(__name__+': voltage limit exceeded or individual voltage limit not set, output voltage will remain unchanged.')
                 input("Press Enter to continue.")
                 #set limit error variable back to 0
                 self.adw.SetData_Long([0], 192, channel, 1)
-                sys.exit()        
+                sys.exit() 
+            else:
+                logging.info(__name__+': voltage set to gate')
 
     def _do_get_output_voltage_in_V(self,channel):
         """Read out output voltage of gate 'X' (ADwin parameter: Data_200[X]).
@@ -679,32 +700,32 @@ class ADwin_ProII(Instrument):
         logging.info(__name__ +': reading individual upper voltage limit gate %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
         return voltvalue
 
-    def _apply_voltage_and_check_write_status(self):
-        """Internal function, apply voltage to gate 'X' and check write status in while loop 
-        (Status variable - ADwin parameter: Data_198[X]). Python script will only continue if 
-        write status is switched back from 1 to 0 on all gates after applying voltage to gate.
-        """
-        nrofgates=self.get_number_of_gates()
-        write_status_variables=np.ones(nrofgates)
-        checksum=1
+    # def _apply_voltage_and_check_write_status(self):
+    #     """Internal function, apply voltage to gate 'X' and check write status in while loop 
+    #     (Status variable - ADwin parameter: Data_198[X]). Python script will only continue if 
+    #     write status is switched back from 1 to 0 on all gates after applying voltage to gate.
+    #     """
+    #     nrofgates=self.get_number_of_gates()
+    #     write_status_variables=np.ones(nrofgates)
+    #     checksum=1
 
-        #activate write sequence - adwin starts ramping up from this point
-        self._activate_ADwin(1)
-        #check write status
-        #takes approximately .7ms per cycle in for loop below => the time between two ramps is 
-        #in the order of the number of gates times .7ms, the ramping time of itself is not
-        #affected by this
-        while checksum!=0:
-            for channel in range(1,nrofgates+1):
-                value=self.adw.GetData_Long(198,channel,1)[0]
-                write_status_variables[channel-1]=value
-                ##To see if ADwin is setting voltages check:
-                #print(write_status_variables)
-                checksum=np.sum(write_status_variables)
+    #     #activate write sequence - adwin starts ramping up from this point
+    #     self._activate_ADwin(1)
+    #     #check write status
+    #     #takes approximately .7ms per cycle in for loop below => the time between two ramps is 
+    #     #in the order of the number of gates times .7ms, the ramping time of itself is not
+    #     #affected by this
+    #     while checksum!=0:
+    #         for channel in range(1,nrofgates+1):
+    #             value=self.adw.GetData_Long(198,channel,1)[0]
+    #             write_status_variables[channel-1]=value
+    #             ##To see if ADwin is setting voltages check:
+    #             #print(write_status_variables)
+    #             checksum=np.sum(write_status_variables)
 
-        #stop write sequence
-        self._activate_ADwin(0)
-        logging.info(__name__+': voltage set to gate')
+    #     #stop write sequence
+    #     self._activate_ADwin(0)
+    #     logging.info(__name__+': voltage set to gate')
 
     def _do_set_number_of_gates(self,value):
         """Set number of gates used in setup (ADwin parameter: Par_75).
