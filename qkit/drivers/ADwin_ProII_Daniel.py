@@ -44,7 +44,7 @@ import numpy as np
 #import sys
 
 
-class ADwin_ProII(Instrument):
+class ADwin_ProII_Daniel(Instrument):
     """
            DOCUMENTATION
 
@@ -343,7 +343,7 @@ class ADwin_ProII(Instrument):
         return self.adw.Get_Par_All()
         
 
-    def _do_get_analog_input_voltage_in_V(self, channel, averages):
+    def _do_get_analog_input_voltage_in_V(self, channel, averages=10):
         """Read out voltage of analog input 'X' (ADwin parameter: Data_190[X]).
         module number is fixed in basic file and cannot be changed by driver yet.
         
@@ -369,7 +369,7 @@ class ADwin_ProII(Instrument):
             sys.exit() 
         
     
-    def get_input(self, channel, averages):
+    def get_input(self, channel, averages=10):
         return self.get('ch%d_analog_input_voltage_in_V'% channel, averages)
     
     def _do_set_process_delay(self,new):
@@ -394,10 +394,10 @@ class ADwin_ProII(Instrument):
         logging.info(__name__ +': setting ramping speed for normal ports of process Nr.%s to %f s' % (self.processnumber, speed))
         self.set_Par_77_global_float(speed)
         
-    def _do_get_ramping_speed_normal_ports(self, speed):
+    def _do_get_ramping_speed_normal_ports(self):
         '''gets the ramping speed in Volts/seconds for normal ports
         '''
-        return self.get_Par77_global_float()
+        return self.get_FPar_77_global_float()
     
         
     def digit_to_volt(self,digit, bit_format=16):
@@ -461,12 +461,15 @@ class ADwin_ProII(Instrument):
             logging.info(__name__ +': setting output voltage gate %d to %f V'%(channel,new))
             self.adw.SetData_Long([value], 200, channel, 1)
             self.set_Par_78_global_long(channel)
+            print(channel, " set to 78")
             
             #activate ADwin to ramp input
             self._activate_ADwin(1)
+            print("adwin activated")
             while self.get_Par_70_global_long() != 0:
                 time.sleep(1e-4)
             self._activate_ADwin(0)
+            print("adwin deactivated")
                        
             #check if voltage limit was exceeded. 
             if self.adw.GetData_Long(192,channel,1)[0] == 1:
@@ -1045,7 +1048,7 @@ if __name__ == "__main__":
 
     qkit.start()
     #1)create instance - implement global voltage limits when creating instance
-    bill = qkit.instruments.create('bill', 'ADwin_ProII_Daniel', processnumber=1, processpath='/home/ws/oc0612/SEMICONDUCTOR/Code/ADwin/ramp_input.TC1',
+    bill = qkit.instruments.create('bill', 'ADwin_ProII_Daniel', processnumber=1, processpath='C:/Users/Daniel/SEMICONDUCTOR/code/ADwin/ramp_input.TC1',
                                    devicenumber=1, global_lower_limit_in_V=-1, global_upper_limit_in_V=3, global_lower_limit_in_V_safe_port=-1, 
                                    global_upper_limit_in_V_safe_port=3)
 
