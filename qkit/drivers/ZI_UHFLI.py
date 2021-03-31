@@ -80,6 +80,7 @@ class ZI_UHFLI(Instrument):
         '''
         signal ins:
         '''
+        
         self.add_parameter("input_range", type = float,
                            flags = ZI_UHFLI.FLAG_GETSET,
                            channels = (1, 2), channel_prefix = "ch%d_",
@@ -209,7 +210,6 @@ class ZI_UHFLI(Instrument):
         #public use functions
     def disable_everything(self):
         zhinst.utils.disable_everything(self.daq, self.device)
-        
         
     def _do_set_input_range(self, newrange, channel):
         logging.debug(__name__ + ' : setting range on input channel %s to %s V' % (channel, newrange))
