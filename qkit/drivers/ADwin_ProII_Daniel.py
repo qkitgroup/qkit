@@ -353,7 +353,7 @@ class ADwin_ProII(Instrument):
             #activate input readout
             self._activate_ADwin(2)
             while self.get_Par_70_global_long() != 0:
-                    pass
+                time.sleep(1e-4)          
             self._activate_ADwin(0)
             digitvalue=self.adw.GetData_Long(190, channel, 1)[0]
             #self.set_Par_71_global_long(15)
@@ -439,7 +439,7 @@ class ADwin_ProII(Instrument):
         logging.debug(__name__ + ' : converting V to digits, digit value: '+ str(result)+'\n')
         return result
     
-    def _do_set_output_voltage_in_V(self,new,channel):
+    def _do_set_output_voltage_in_V(self, new, channel):
         """Set output voltage of gate 'X' (ADwin parameter: Data_200[X]). 
         Safe ports will respect the maximum ramping speed of 0.5V/s which is checked 
         in the ADwin file. 
@@ -457,11 +457,12 @@ class ADwin_ProII(Instrument):
             value=self.volt_to_digit(new)
             logging.info(__name__ +': setting output voltage gate %d to %f V'%(channel,new))
             self.adw.SetData_Long([value], 200, channel, 1)
+            self.set_Par_78_global_long(channel)
             
             #activate ADwin to ramp input
             self._activate_ADwin(1)
             while self.get_Par_70_global_long() != 0:
-                pass
+                time.sleep(1e-4)
             self._activate_ADwin(0)
                        
             #check if voltage limit was exceeded. 
