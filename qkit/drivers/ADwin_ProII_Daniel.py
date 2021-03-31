@@ -31,6 +31,9 @@
 'Par_76:      _activate_ADwin variable => 1 if write sequence is activated'
 'FPar_77:     ramping speed normal ports in Volts/second'
 """
+import sys
+sys.path.append(r'/home/ws/oc0612/SEMICONDUCTOR/qkit')
+
 
 import ADwin as adw
 import qkit
@@ -38,8 +41,8 @@ from qkit.core.instrument_base import Instrument
 import logging
 import time
 import numpy as np
-import sys
-import matplotlib.pyplot as plt
+#import sys
+
 
 class ADwin_ProII(Instrument):
     """
@@ -482,7 +485,7 @@ class ADwin_ProII(Instrument):
         """
         #check if channel is set:
         if channel > self.get_number_of_gates():
-            logging.warning(__name__+': gate has not been set before! Voltaage not set!')
+            logging.warning(__name__+': gate has not been set before! Voltage not set!')
             input("Press Enter to continue.")
             sys.exit()
         else:
@@ -813,7 +816,7 @@ class ADwin_ProII(Instrument):
       Allows easier access to set function for many gates.
       '''
       if gate > 3:
-          self.set('gate%d_output_voltage_in_V_with_given_ramping_speed_in_V_per_s'% gate, (voltage, 10))
+          self.set('gate%d_output_voltage_in_V'% gate, voltage)
       if gate <= 3:
           logging.warning(__name__+': This gate is reserved for the current sources! Voltage not set!')
           input("Press Enter to continue.")
@@ -995,7 +998,7 @@ class ADwin_ProII(Instrument):
             input("Press Enter to continue.")
             sys.exit()
             
-    def IV_curve(self, output=None, input_gate=None, V_min=0.0, V_max=0.001, V_div=1, samples=10, IV_gain=1e6):
+    def IV_curve(self, output=None, input_gate=None, V_min=0.0, V_max=0.001, V_div=1, samples=10, IV_gain=1e6, I_max=1e-9, averages=10):
         '''Produces an IV curve. A voltage is applied at the DUT and the resulting current 
         is converted by an IV converter. It's output voltage is measured by the ADwin. 
         
@@ -1008,6 +1011,7 @@ class ADwin_ProII(Instrument):
             samples: number of voltage values applied in given interval
             V_div: Voltage divider applied in 1/V_div
             IV_gain: gain of current to voltage converter
+            I_max: maximum current after with the I_V curve ends
         '''
         V_step = (V_max - V_min)/samples
         V_values = np.arange(V_min, V_max+ V_step, V_step)
@@ -1019,8 +1023,11 @@ class ADwin_ProII(Instrument):
             for voltage in V_values:        
                 data_V.append(voltage/V_div*1000) #voltage in mV
                 self.set_out(output, voltage)
-                time.sleep(0.01)
-                data_I.append(self.get_input(input_gate)/IV_gain) 
+                time.sleep(0.001)
+                current = self.get_input(input_gate, averages)/IV_gain
+                data_I.append(current) 
+                if current > I_max:
+                    break
             self.set_out(output, 0)
         else: 
             print("Input or output not defined!")
@@ -1038,14 +1045,13 @@ if __name__ == "__main__":
 
     qkit.start()
     #1)create instance - implement global voltage limits when creating instance
-    bill = qkit.instruments.create('bill', 'ADwin_ProII_complete', processnumber=1, processpath='/V/GroupWernsdorfer/People/Sven/ramptest.TC1',
+    bill = qkit.instruments.create('bill', 'ADwin_ProII_Daniel', processnumber=1, processpath='/home/ws/oc0612/SEMICONDUCTOR/Code/ADwin/ramp_input.TC1',
                                    devicenumber=1, global_lower_limit_in_V=-1, global_upper_limit_in_V=3, global_lower_limit_in_V_safe_port=-1, 
                                    global_upper_limit_in_V_safe_port=3)
 
     print(10*'*'+'Initialization complete'+10*'*')
-#
-#
-#    #2)set number of gates
+    
+    #2)set number of gates
 #    logging.debug(__name__+": test routine : 2)set total number of gates")
 #    bill.set_number_of_gates(8)
 #    bill.get_number_of_gates()
