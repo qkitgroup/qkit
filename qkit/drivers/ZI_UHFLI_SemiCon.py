@@ -31,7 +31,10 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
                           flags = self.FLAG_SET | self.FLAG_SOFTGET)
         
         self.add_function("create_daq_module")
-        #self.add_function("get_value")
+        self.add_function("get_value")
+        self.add_function("easy_sub")
+        self.add_function("poll_samples")
+        self.add_function("data_fetch")
         
         
     def _do_set_daq_sample_path(self, newpath):
@@ -92,12 +95,13 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
                 
         return meanval, data # return the processed mean and the raw data dict, becuz why not?
     
-    def get_samples(self, path, avgs):
-        (sub_path, sample_node) = path.split(".")
-        result_sum = 0
-        for _ in itertools.repeat(None, avgs):
-                result_sum += self.daq.getSample(sub_path)[sample_node]
-        return result_sum/avgs
+    
+    def easy_sub(self, demod_index):
+        sub_list = []        
+        for element in demod_index:
+            sub_list.append("/%s/demods/%d/sample" % (self._device_id, element))
+        self.set_daq_sample_path(sub_list)            
+    
     
     def poll_samples(self, integration_time):
         self.daq.flush()
@@ -109,6 +113,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         
         self.last_poll = data
 
+
     def data_fetch(self, demod_index, data_node, average = True):
         assert self.last_poll, "No data has been polled yet"
         selected = self.last_poll["/%s/demods/%d/sample" % (self._device_id, demod_index)][data_node]
@@ -116,6 +121,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
             return np.array([np.mean(selected)])
         else:
             return selected
+
 
 #%%
 if __name__ == "__main__":
@@ -143,13 +149,11 @@ if __name__ == "__main__":
     UHFLI_test.daqM1.set_daqM_trigger_path("/dev2587/demods/0/sample.trigin4")
     print(UHFLI_test.daqM1.get_daqM_trigger_mode())
     print(UHFLI_test.daqM1.get_daqM_trigger_edge())
-    UHFLI_test.daqM1.set_daqM_sample_path(["/dev2587/demods/0/sample.x", "/dev2587/demods/0/sample.y"])
-    UHFLI_test.set_daq_sample_path(["/dev2587/demods/0/sample", "/dev2587/demods/1/sample"])
+    UHFLI_test.easy_sub([0,1])
     print(UHFLI_test.get_daq_sample_path())    
     UHFLI_test.poll_samples(0.5)
     print(len(UHFLI_test.last_poll["/dev2587/demods/0/sample"]["x"]))
-    print(type(UHFLI_test.data_fetch(1, "x", True)))
     print(UHFLI_test.data_fetch(1, "x", True))
-    print(UHFLI_test.data_fetch(1, "x", True)[0])
-    print(type(UHFLI_test.data_fetch(1, "x", False)))
     #print(UHFLI_test.last_poll)
+    #%%
+    print(UHFLI_test.data_fetch(0, "x", True))
