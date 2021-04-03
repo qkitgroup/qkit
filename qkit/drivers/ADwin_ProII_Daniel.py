@@ -209,8 +209,8 @@ class ADwin_ProII_Daniel(Instrument):
         #ramping speed normal ports in V/s
         self.add_parameter('ramping_speed_normal_ports', type=float,
             flags=Instrument.FLAG_GET,
-            minval=0, maxval=100, units='V/s',
-            tags=[])
+            minval=0.0, maxval=100.0, #units='V/s',
+            tags=['sweep'])
         
 
     def start_process(self, process_number):
@@ -279,7 +279,7 @@ class ADwin_ProII_Daniel(Instrument):
         logging.debug(__name__ +': reading all Global LONG variables')
         return self.adw.Get_Par_All()
         
-    def _do_get_analog_input_voltage_in_V(self, channel, averages=0):
+    def _do_get_analog_input_voltage_in_V(self, channel, averages=10):
         """Read out voltage of analog input 'X' (ADwin parameter: Data_190[X]).
         module number is fixed in basic file and cannot be changed by driver yet.
         
@@ -303,8 +303,8 @@ class ADwin_ProII_Daniel(Instrument):
             input("Press Enter to continue.")
             sys.exit() 
           
-    def get_input(self, channel, averages=10):
-        return self.get('ch%d_analog_input_voltage_in_V'% channel, averages)
+    def get_input(self, channel, averaging=10):
+        return self.get('ch%d_analog_input_voltage_in_V'% channel, averages=averaging)
     
     def _do_set_process_delay(self,new):
         """set process_delay in cycles (1e-9s) of the ADwin.
@@ -629,7 +629,7 @@ class ADwin_ProII_Daniel(Instrument):
           input("Press Enter to continue.")
           sys.exit()
 
-    def initialize_gates(self, number,  lower_limit=0, upper_limit=0):
+    def initialize_gates(self, number,  lower_limit=0, upper_limit=0, speed=1.0):
         '''This function sets the number of  gates (including current sources)
         and distributes them on the modules starting at module 1 and filling up
         all 8 outputs. Then module 2 etc. is filled up. The modules have to exist.
@@ -692,6 +692,9 @@ class ADwin_ProII_Daniel(Instrument):
         #set all outputs (besides current outputs) to zero:
         for gate in range(4, number+1):
             self.set_out(gate, 0)
+            
+        #set ramping speed. I don't know why self.set_ramping_speed_normal_ports(speed) does not work....
+        self._do_set_ramping_speed_normal_ports(speed)
             
             
     #The following functions are for the use of current sources that are set with a voltage 
@@ -812,7 +815,8 @@ class ADwin_ProII_Daniel(Instrument):
             input("Press Enter to continue.")
             sys.exit()
             
-    def IV_curve(self, output=None, input_gate=None, V_min=0.0, V_max=0.001, V_div=1, samples=10, IV_gain=1e6, I_max=1e-9, averages=10):
+    def IV_curve(self, output=None, input_gate=None, V_min=0.0, V_max=0.001, V_div=1, samples=10, 
+                 IV_gain=1e6, I_max=1e-9, averages=10):
         '''Produces an IV curve. A voltage is applied at the DUT and the resulting current 
         is converted by an IV converter. It's output voltage is measured by the ADwin. 
         
@@ -861,70 +865,3 @@ if __name__ == "__main__":
                                    global_upper_limit_in_V_safe_port=3)
 
     print(10*'*'+'Initialization complete'+10*'*')
-    
-    #2)set number of gates
-#    logging.debug(__name__+": test routine : 2)set total number of gates")
-#    bill.set_number_of_gates(8)
-#    bill.get_number_of_gates()
-#
-#    #3)set module numbers and output numbers
-#    logging.debug(__name__+": test routine : 3a)module numbers of the gates")
-#    #here: outputs on module 4
-#    for gate in range(1,bill.get_number_of_gates()+1):
-#        exec('bill.set_gate%d_module_number(2)'%gate)
-#        exec('bill.get_gate%d_module_number()'%gate)
-#
-#    logging.debug(__name__+": test routine : 3b)output numbers of the gates")
-#    #here: outputs on module 4
-#    for gate in range(1,bill.get_number_of_gates()+1):
-#        exec('bill.set_gate%d_output_number(gate)'%gate)
-#        exec('bill.get_gate%d_output_number()'%gate)
-#
-#    #4)set ramping times for each gate in s
-#    # necessary for set_out without given speed
-#    #bill.set_gate1_ramping_time_in_s(0.1)
-#    #bill.get_gate1_ramping_time_in_s()
-#
-#    #5)set safe ports
-#    logging.debug(__name__+": test routine : 5)set safe ports")
-#    bill.set_gate1_safe_port(0)
-#    bill.get_gate1_safe_port()
-#
-#    #6)set individual voltage limits => have to be set, otherwise limits=0V, error
-#    #set limits before setting voltages, otherwise limits and inputs will be compared, which can return errors
-#    for i in range(1,bill.get_number_of_gates()+1):
-#        bill.individual_voltage_limits_setter_in_V(-1,3,i)
-#
-#
-#    #7)set voltages
-#    logging.debug(__name__+": test routine : 7)set voltages in V and ramping speed in V/s")
-#    for j in range(0,3):
-#        print("setting to 1V")
-#        bill.set_gate1_output_voltage_in_V_with_given_ramping_speed_in_V_per_s(1,speed=0.5)
-#        print("setting to 0V")
-#        bill.set_gate1_output_voltage_in_V_with_given_ramping_speed_in_V_per_s(0,speed=0.5)
-#
-#    #uncomment the following lines to read documentation
-#    **************************************************************
-#
-#    print(ADwin_ProII.__init__.__doc__)
-#    print(ADwin_ProII._do_set_output_voltage_in_V_with_given_ramping_speed_in_V_per_s.__doc__)
-#    print(ADwin_ProII._activate_ADwin.__doc__)
-#    print(ADwin_ProII._do_set_output_number.__doc__)
-#    print(ADwin_ProII._do_get_output_number.__doc__)
-#    print(ADwin_ProII._do_set_module_number.__doc__)
-#    print(ADwin_ProII._do_get_module_number.__doc__)
-#    print(ADwin_ProII.individual_voltage_limits_setter_in_V.__doc__)
-#    print(ADwin_ProII._do_set_individual_lower_voltage_limit_in_V.__doc__)
-#    print(ADwin_ProII._do_get_individual_lower_voltage_limit_in_V.__doc__)
-#    print(ADwin_ProII._do_set_individual_upper_voltage_limit_in_V.__doc__)
-#    print(ADwin_ProII._do_get_individual_upper_voltage_limit_in_V.__doc__)
-#    print(ADwin_ProII._apply_voltage_and_check_write_status.__doc__)
-#    print(ADwin_ProII._do_set_number_of_gates.__doc__)
-#    print(ADwin_ProII._do_get_number_of_gates.__doc__)
-#    print(ADwin_ProII._do_set_ramping_time_in_s.__doc__)
-#    print(ADwin_ProII._do_get_ramping_time_in_s.__doc__)
-#    print(ADwin_ProII._do_set_out.__doc__)
-#    print(ADwin_ProII._do_get_output_voltage_in_V.__doc__)
-#    print(ADwin_ProII._do_set_safe_port.__doc__)
-#    print(ADwin_ProII._do_get_safe_port.__doc__)
