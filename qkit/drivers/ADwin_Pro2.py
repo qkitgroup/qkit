@@ -111,7 +111,14 @@ class ADwin_Pro2(Instrument):
             logging.error(__name__+': lower voltage limit higher than upper limit')
             sys.exit()
         
-      
+        
+        #load and start process
+        self.processnumber=processnumber
+        self.adw.Load_Process(self.process)
+        time.sleep(1.0)
+        self.adw.Start_Process(self.processnumber)
+        
+        
         #implement functions
         self.add_function('start_process')
         self.add_function('stop_process')
@@ -205,11 +212,11 @@ class ADwin_Pro2(Instrument):
             minval=0.0, maxval=100.0, #units='V/s',
             tags=['sweep'])
         
-    def bootload_process(self):
-        '''bootloads the process given in the processpath.
-        '''
-        btl_dir = self.adw.ADwindir + "ADwin12.btl"
-        self.adw.Boot(btl_dir) 
+    # def bootload_process(self):
+    #     '''bootloads the process given in the processpath.
+    #     '''
+    #     btl_dir = self.adw.ADwindir + "ADwin12.btl"
+    #     self.adw.Boot(btl_dir) 
 
     def start_process(self):
         """start process (done automatically when creating ADwin_ProII instance)
@@ -627,7 +634,6 @@ class ADwin_Pro2(Instrument):
         all 8 outputs. Then module 2 etc. is filled up. The modules have to exist.
         Gates 1-3 are reserved for the current sources, meaning voltage gates 
         from 4 to n are initialized.
-        All voltages at gates>3 are set to 0 Volts instantaneously!!!
         
         parameters:
             number: number of voltage gates including current sources.
@@ -644,9 +650,6 @@ class ADwin_Pro2(Instrument):
             input("Press Enter to continue.")
             sys.exit()
         else:
-            # print("Initializing the ADwin resets all gates to 0 Volts intantaneosly!\nPlease make  sure to ground all gates before initialization!")
-            # input("Press Enter to continue.")
-            
             number = number 
             self.set_number_of_gates(number)
             rest = int(number % 8)
@@ -684,10 +687,6 @@ class ADwin_Pro2(Instrument):
             #initialize voltage limits for votage gates:
             for gate in range(4, number+1):
                 self.individual_voltage_limits_setter_in_V(lower_limit, upper_limit, gate)
-                
-            # #set all outputs (besides current outputs) to zero:
-            # for gate in range(4, number+1):
-            #     self.set_out(gate, 0)
                 
             #set ramping speed. I don't know why self.set_ramping_speed_normal_ports(speed) does not work...
             self._do_set_ramping_speed_normal_ports(speed)
@@ -828,16 +827,25 @@ class ADwin_Pro2(Instrument):
             I_max: maximum current after with the I_V curve ends
         '''
         V_step = (V_max - V_min)/samples
-        V_values = np.arange(V_min, V_max+ V_step, V_step)
+        V_values_negative = np.arange(0, V_min - V_step, -V_step)
+        V_values_positive = np.arange(0, V_max + V_step, V_step)
         
         data_V = []
         data_I = []
         
         if output != None and input_gate!= None:
-            for voltage in V_values:        
+            for voltage in V_values_negative:        
                 data_V.append(voltage/V_div*1000) #voltage in mV
                 self.set_out(output, voltage)
-                time.sleep(0.001)
+                time.sleep(1e-6)
+                current = self.get_input(input_gate, averages)/IV_gain
+                data_I.append(current) 
+                if abs(current) > I_max:
+                    break
+            for voltage in V_values_positive:        
+                data_V.append(voltage/V_div*1000) #voltage in mV
+                self.set_out(output, voltage)
+                time.sleep(1e-6)
                 current = self.get_input(input_gate, averages)/IV_gain
                 data_I.append(current) 
                 if abs(current) > I_max:
