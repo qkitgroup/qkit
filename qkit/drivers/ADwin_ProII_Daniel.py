@@ -19,20 +19,22 @@
 'Parameters used on ADwin'
 'Data_190[i]: analog input gate i'
 'Data_191[i]: output number variable => set output number on adwin module for each gate'
-'Data_192[i]: voltage limit error variable => 1 if voltage limit exceeded or limits not set'
+'Data_192[i]: limit error variable => 1 if voltage limit exceeded or limits not set'
 'Data_193[i]: module numbers of gates'
-'Data_194[i]: individual lower voltage limit for output voltages, default=0V'
-'Data_195[i]: individual upper voltage limit for output voltages, default=0V'
-'Data_198[i]: write status variable => 1 while setting voltage to gate i'
+'Data_194[i]: individual lower limit for output voltages, default=0V'
+'Data_195[i]: individual upper limit for output voltages, default=0V'
+'Data_197[i]: ramp start value, memory of last voltage set on output'
 'Data_199[i]: safe port bit => 1 if safe port, 0 if not (default)'
-'Data_200[i]: ramp stop voltage value'
+'Data_200[i]: ramp stop value'
+
+'Par_69:      number of averages for input measurement'
 'Par_71:      analog input module number'
 'Par_75:      number of gates used, default=200 '
-'Par_76:      _activate_ADwin variable => 1 if write sequence is activated'
-'FPar_77:     ramping speed normal ports in Volts/second'
+'Par_76:      run variable => 1 if device is run'
+'FPar_77:     ramping speed in Volts/second normal ports'
+'Par_78:      channel which is ramped. only it will be changed during an event'
+'Par_79:      test variable: ramp stop value'
 """
-import sys
-sys.path.append(r'/home/ws/oc0612/SEMICONDUCTOR/qkit')
 
 
 import ADwin as adw
@@ -41,7 +43,7 @@ from qkit.core.instrument_base import Instrument
 import logging
 import time
 import numpy as np
-#import sys
+import sys
 
 
 class ADwin_ProII_Daniel(Instrument):
@@ -279,7 +281,7 @@ class ADwin_ProII_Daniel(Instrument):
         logging.debug(__name__ +': reading all Global LONG variables')
         return self.adw.Get_Par_All()
         
-    def _do_get_analog_input_voltage_in_V(self, channel, averages=10):
+    def _do_get_analog_input_voltage_in_V(self, channel, averages=100):
         """Read out voltage of analog input 'X' (ADwin parameter: Data_190[X]).
         module number is fixed in basic file and cannot be changed by driver yet.
         
@@ -303,7 +305,7 @@ class ADwin_ProII_Daniel(Instrument):
             input("Press Enter to continue.")
             sys.exit() 
           
-    def get_input(self, channel, averaging=10):
+    def get_input(self, channel, averaging=100):
         return self.get('ch%d_analog_input_voltage_in_V'% channel, averages=averaging)
     
     def _do_set_process_delay(self,new):
@@ -635,6 +637,7 @@ class ADwin_ProII_Daniel(Instrument):
         all 8 outputs. Then module 2 etc. is filled up. The modules have to exist.
         Gates 1-3 are reserved for the current sources, meaning voltage gates 
         from 4 to n are initialized.
+        All voltages at gates>3 are set to 0 Volts instantaneously!!!
         
         parameters:
             number: number of voltage gates including current sources.
@@ -651,6 +654,9 @@ class ADwin_ProII_Daniel(Instrument):
             input("Press Enter to continue.")
             sys.exit()
         else:
+            print("Initializing the ADwin resets all gates to 0 Volts intantaneosly!\nPlease make  sure to ground all gates before initialization!")
+            input("Press Enter to continue.")
+            
             number = number 
             self.set_number_of_gates(number)
             rest = int(number % 8)
@@ -680,21 +686,21 @@ class ADwin_ProII_Daniel(Instrument):
                 input("Press Enter to continue.")
                 sys.exit()
        
-        #initialize voltage limits 
-        #limits for current sources:
-        for gate in range(1, 3+1):
-            self.individual_voltage_limits_setter_in_V(-10, 10, gate)
-            
-        #initialize voltage limits for votage gates:
-        for gate in range(4, number+1):
-            self.individual_voltage_limits_setter_in_V(lower_limit, upper_limit, gate)
-            
-        #set all outputs (besides current outputs) to zero:
-        for gate in range(4, number+1):
-            self.set_out(gate, 0)
-            
-        #set ramping speed. I don't know why self.set_ramping_speed_normal_ports(speed) does not work....
-        self._do_set_ramping_speed_normal_ports(speed)
+            #initialize voltage limits 
+            #limits for current sources:
+            for gate in range(1, 3+1):
+                self.individual_voltage_limits_setter_in_V(-10, 10, gate)
+                
+            #initialize voltage limits for votage gates:
+            for gate in range(4, number+1):
+                self.individual_voltage_limits_setter_in_V(lower_limit, upper_limit, gate)
+                
+            #set all outputs (besides current outputs) to zero:
+            for gate in range(4, number+1):
+                self.set_out(gate, 0)
+                
+            #set ramping speed. I don't know why self.set_ramping_speed_normal_ports(speed) does not work...
+            self._do_set_ramping_speed_normal_ports(speed)
             
             
     #The following functions are for the use of current sources that are set with a voltage 
@@ -865,3 +871,7 @@ if __name__ == "__main__":
                                    global_upper_limit_in_V_safe_port=3)
 
     print(10*'*'+'Initialization complete'+10*'*')
+    bill.initialize_gates(8, -1, 1, speed=1)
+    bill.set_out(2, 0.5)
+    bill.get_input(1)
+    
