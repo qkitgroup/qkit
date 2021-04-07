@@ -235,6 +235,21 @@ class Faulhaber_3564K024B_C(Instrument):
         time.sleep(0.5)
         self.ins.read(size=100)
         return float(self._query('pos'))
+    
+    def get_status(self):
+        """
+        Gets the status of endless loop initiated by 'self.run()' and eventually stopped by 'self.stop()' or 'self.abort()'.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        status: boolean
+            Running state.
+        """
+        return self.running and not self.aborting
 
     def close(self):
         """

@@ -466,3 +466,7 @@ class fid(file_system_service):
             raise ImportError("This function requires pandas to be installed.")
 
         add_settings_column = open_in_filemanager = remove_column = show = get_filtered_uuids = search = add_column = void_func
+
+    def enlarge_notebook(self,width=100):
+        from IPython.core.display import display, HTML
+        display(HTML("<style>.container { width:%i%% !important; }</style>"%width))

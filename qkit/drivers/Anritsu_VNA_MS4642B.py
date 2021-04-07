@@ -314,7 +314,7 @@ class Anritsu_VNA_MS4642B(Instrument):
         '''
         logging.debug(__name__ + ' : setting Number of Points to %s ' % (nop))
         if self._zerospan:
-          print 'in zerospan mode, nop is 1'
+          print('in zerospan mode, nop is 1')
         else:
           cw = self.get_cw()
           if(nop == 1) and (not cw):
@@ -708,7 +708,7 @@ class Anritsu_VNA_MS4642B(Instrument):
             None
         '''
         logging.debug(__name__ + ' : setting trigger source to "%s"' % source)
-        if source.upper() in [AUTO, MAN, EXT, REM]:
+        if source.upper() in ["AUTO", "MAN", "EXT", "REM"]:
             self._visainstrument.write('TRIG:SOUR %s' % source.upper())        
         else:
             raise ValueError('set_trigger_source(): must be AUTO | MANual | EXTernal | REMote')
@@ -986,7 +986,7 @@ class Anritsu_VNA_MS4642B(Instrument):
             return self._visainstrument.write('SENS%i:AVER:TYP %s' %(self._ci,avgtype))
             
         else:
-            logging.debug(__name__ + ' : Illegal argument %s'%(swtype))
+            logging.debug(__name__ + ' : Illegal argument %s'%(avgtype))
 
 
     def read(self, msg):

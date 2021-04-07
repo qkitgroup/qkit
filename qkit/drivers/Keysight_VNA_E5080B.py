@@ -16,11 +16,10 @@
 # along with this program; if not, query to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+import qkit
 from qkit.core.instrument_base import Instrument
 from qkit import visa
-import types
 import logging
-from time import sleep
 import numpy
 
 class Keysight_VNA_E5080B(Instrument):
@@ -46,7 +45,7 @@ class Keysight_VNA_E5080B(Instrument):
         Instrument.__init__(self, name, tags=['physical'])
 
         self._address = address
-        self._visainstrument = visa.instrument(self._address)
+        self.reconnect()
         self._freqpoints = 0
         self._ci = channel_index 
         self._pi = 2 # port_index, similar to self._ci
@@ -308,12 +307,9 @@ class Keysight_VNA_E5080B(Instrument):
             None
         """
         logging.debug(__name__ + ' : setting Number of Points to %s ' % nop)
-        if self.get_cw():
-          print('in cw mode, nop is 1')
-        else:
-            self._visainstrument.write(':SENS%i:SWE:POIN %i' %(self._ci,nop))
-            self._nop = nop
-            self.get_freqpoints() #Update List of frequency points
+        self._visainstrument.write(':SENS%i:SWE:POIN %i' %(self._ci,nop))
+        self._nop = nop
+        self.get_freqpoints() #Update List of frequency points
         
     def do_get_nop(self):
         """
@@ -778,7 +774,7 @@ class Keysight_VNA_E5080B(Instrument):
         """
         :return: the active trace on the selected channel
         """
-        # TODO: ask device
+        self._active_trace = int(self._visainstrument.query('CALC%i:PAR:MNUM?'%(self._ci)).strip())
         return self._active_trace
 
     def do_get_sweep_type(self):
@@ -819,6 +815,22 @@ class Keysight_VNA_E5080B(Instrument):
         else:
             logging.error(__name__ + ' : Illegal argument %s' % swtype)
             return False
+            
+    def do_get_measurement_parameter(self):
+        """
+        Gets the measurement parameter, i.e. S11, S21, ...
+        Output:
+            Parameter as string "S11" ...
+        """
+        return self.query("CALC%i:MEAS:PAR?"%self._ci).strip()
+    
+    def do_set_measurement_parameter(self,mode):
+        """
+        Sets the measurement parameter, i.e. S11, S21, ...
+        Input:
+            mode: Parameter as string, e.g. "S11"
+        """
+        return self.write("CALC%i:MEAS:PAR %s"%(self._ci,mode))
 
     def do_set_trigger_source(self,source):
         """
@@ -882,7 +894,9 @@ class Keysight_VNA_E5080B(Instrument):
         """
         This function is called at the beginning of each single measurement in the spectroscopy script.
         Here, it starts n sweeps, where n is the active channels trigger count.
+        Also, the averages need to be reset.
         """
+        self.avg_clear()
         self.set_sweep_mode("group")
 
     
@@ -894,3 +908,6 @@ class Keysight_VNA_E5080B(Instrument):
             return self.get_sweep_mode() == "HOLD"
         except:
             return False
+    
+    def reconnect(self):
+        self._visainstrument = visa.instrument(self._address)

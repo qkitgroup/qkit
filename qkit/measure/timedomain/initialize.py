@@ -193,13 +193,13 @@ class InitializeTimeDomain(object):
         if clips > 50:
             logging.error("Clipping detected, please reduce amplifier voltage (%r Clips)" %clips)
         elif clips > 0:
-            print "In 5 measurements, only %i points had the maximum amplitude. This sounds good, go on."%clips
+            print("In 5 measurements, only %i points had the maximum amplitude. This sounds good, go on."%clips)
         elif np.max(samples)<15:
             raise ValueError("No signal detected. Check your wiring!")
         elif np.max(np.abs(samples)) < 64:
-            print "The amplitude never reached half of the maximum of the card. Think about adding an amplifier and check that you are using the smallest spec_input_level."
+            print("The amplitude never reached half of the maximum of the card. Think about adding an amplifier and check that you are using the smallest spec_input_level.")
         else:
-            print "The amplitude seems reasonable. Check the image nevertheless."
+            print("The amplitude seems reasonable. Check the image nevertheless.")
         self._sample.mspec.set_window(*self._sample.acqu_window)
         
     def record_averaged_trace(self):
@@ -258,8 +258,8 @@ class InitializeTimeDomain(object):
         plt.grid(axis='x')
         self._sample.qubit_mw_src.set_power(pwr)
         
-        print "You can now change the self._sample.readout_delay parameter to align the two pulses. The readout pulse should start when the manipulation ends."
-        print "If you are satisfied just press <Enter> or tell me the new delay."
+        print("You can now change the self._sample.readout_delay parameter to align the two pulses. The readout pulse should start when the manipulation ends.")
+        print("If you are satisfied just press <Enter> or tell me the new delay.")
         plt.show()
         inp = raw_input("readout_delay ({:g}s) = ".format(self._sample.readout_delay))
         if inp == '':
@@ -319,4 +319,3 @@ class InitializeTimeDomain(object):
     def _load_awg_square(self, times):
         self._vawg.set_sequence(sl.rabi(self._sample, iq_frequency=0), times)
         self._vawg.load(show_progress_bar=False)
-        
