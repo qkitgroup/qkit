@@ -33,6 +33,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         self.add_function("create_daq_module")
         self.add_function("get_value")
         self.add_function("easy_sub")
+        self.add_function("get_sample")
         self.add_function("poll_samples")
         self.add_function("data_fetch")
         
@@ -99,9 +100,11 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
     def easy_sub(self, demod_index):
         sub_list = []        
         for element in demod_index:
-            sub_list.append("/%s/demods/%d/sample" % (self._device_id, element))
+            sub_list.append("/%s/demods/%d/sample" % (self._device_id, element - 1))
         self.set_daq_sample_path(sub_list)            
     
+    def get_sample(self, demod_index, data_node):
+        return self.daq.getSample("/%s/demods/%d/sample" % (self._device_id, demod_index - 1)) [data_node]
     
     def poll_samples(self, integration_time):
         self.daq.flush()
@@ -116,7 +119,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
 
     def data_fetch(self, demod_index, data_node, average = True):
         assert self.last_poll, "No data has been polled yet"
-        selected = self.last_poll["/%s/demods/%d/sample" % (self._device_id, demod_index)][data_node]
+        selected = self.last_poll["/%s/demods/%d/sample" % (self._device_id, demod_index)] [data_node]
         if average:
             return np.array([np.mean(selected)])
         else:
@@ -154,6 +157,7 @@ if __name__ == "__main__":
     UHFLI_test.poll_samples(0.5)
     print(len(UHFLI_test.last_poll["/dev2587/demods/0/sample"]["x"]))
     print(UHFLI_test.data_fetch(1, "x", True))
+    print("Get sample: ", UHFLI_test.get_sample(1, "x"))
     #print(UHFLI_test.last_poll)
     #%%
     print(UHFLI_test.data_fetch(0, "x", True))

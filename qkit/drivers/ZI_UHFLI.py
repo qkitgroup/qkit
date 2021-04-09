@@ -214,7 +214,7 @@ class ZI_UHFLI(Instrument):
     def _do_set_input_range(self, newrange, channel):
         logging.debug(__name__ + ' : setting range on input channel %s to %s V' % (channel, newrange))
         self.daq.setDouble("/%s/sigins/%s/range" % (self._device_id, channel-1), newrange)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_input_range(self, channel):
         logging.debug(__name__ + ' : getting range on input channel %s' % channel)
@@ -223,7 +223,7 @@ class ZI_UHFLI(Instrument):
     def _do_set_input_scaling(self, newscale, channel):
         logging.debug(__name__ + ' : setting scaling on input channel %s to %s' % (channel, newscale))
         self.daq.setDouble("/%s/sigins/%s/scaling" % (self._device_id, channel-1), newscale)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_input_scaling(self, channel):
         logging.debug(__name__ + ' : getting scaling on input channel %s' % channel)
@@ -238,7 +238,7 @@ class ZI_UHFLI(Instrument):
             logging.debug(__name__ + ' : setting coupling on input channel %s to dc' % channel)
             status = 0
         self.daq.setInt('/%s/sigins/%s/ac' % (self._device_id, channel-1), status)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_input_ac_coupling(self, channel):
         logging.debug(__name__ + ' : getting the coupling on input channel %s' % channel)
@@ -256,7 +256,7 @@ class ZI_UHFLI(Instrument):
             logging.debug(__name__ + ' : setting impedance on input channel %s to 1 MOhm' % channel)
             status = 0
         self.daq.setInt('/%s/sigins/%s/imp50' % (self._device_id, channel-1), status)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_input_50ohm(self, channel):
         logging.debug(__name__ + ' : getting the impedance of input channel %s' % channel)
@@ -274,7 +274,7 @@ class ZI_UHFLI(Instrument):
             logging.debug(__name__ + ' : deactivating autorange on input channel %s' % channel)
             status = 0
         self.daq.setInt('/%s/sigins/%s/autorange' % (self._device_id, channel-1), status)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_input_autorange(self, channel):
         logging.debug(__name__ + ' : getting the autorange status of input channel %s' % channel)
@@ -300,7 +300,7 @@ class ZI_UHFLI(Instrument):
     def _do_set_carrier_freq(self, newfreq, channel):
         logging.debug(__name__ + ' : setting carrier frequency on channel %s to %s Hz' % (channel, newfreq))
         self.daq.setDouble("/%s/oscs/%s/freq" % (self._device_id, channel-1), newfreq)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_carrier_freq(self, channel):
         logging.debug(__name__ + ' : getting carrier frequency on channel %s' % channel)
@@ -311,7 +311,7 @@ class ZI_UHFLI(Instrument):
     def _do_set_demod_harmonic(self, newharmonic, channel):
         logging.debug(__name__ + " : setting harmonic on demodulator %s to %s" % (channel, newharmonic))
         self.daq.setInt("/%s/demods/%s/harmonic" % (self._device_id, channel-1), newharmonic)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_demod_harmonic(self, channel):
         logging.debug(__name__ + ' : getting harmonic on demodulator %s' % channel)
@@ -321,7 +321,7 @@ class ZI_UHFLI(Instrument):
     def _do_set_phase_offs(self, newoffs, channel):
         logging.debug(__name__ + " : setting phase offset on demodulator %s to %s deg" % (channel, newoffs))
         self.daq.setDouble("/%s/demods/%s/phaseshift" % (self._device_id, channel-1), newoffs)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_phase_offs(self, channel):
         logging.debug(__name__ + ' : getting phase offset on demodulator %s' % channel)
@@ -331,7 +331,7 @@ class ZI_UHFLI(Instrument):
     def _do_set_filter_order(self, neworder, channel):
         logging.debug(__name__ + " : setting filter order on demodulator %s to %s" % (channel, neworder))
         self.daq.setInt('/%s/demods/%s/order' % (self._device_id, channel-1) , neworder)
-        self.daq.sync()        
+        #self.daq.sync()        
         
     def _do_get_filter_order(self, channel):
         logging.debug(__name__ + ' : getting filter order on demodulator %s' % channel)
@@ -341,7 +341,7 @@ class ZI_UHFLI(Instrument):
     def _do_set_filter_timeconst(self, newtc, channel):
         logging.debug(__name__ + " : setting filter time constant on demodulator %s to %s s" % (channel, newtc))
         self.daq.setDouble('/%s/demods/%s/timeconstant' % (self._device_id, channel-1), newtc)
-        self.daq.sync()
+        #self.daq.sync()
         sleep(10 * newtc)
     
     def _do_get_filter_timeconst(self, channel):
@@ -357,7 +357,7 @@ class ZI_UHFLI(Instrument):
             logging.debug(__name__ + ' : deactivating sinc filter on demodulator %s' % channel)
             status = 0
         self.daq.setInt('/%s/demods/%s/sinc' % (self._device_id, channel-1), status)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_filter_sinc(self, channel):
         logging.debug(__name__ + ' : getting sinc filter status on demodulator %s' % channel)
@@ -375,7 +375,7 @@ class ZI_UHFLI(Instrument):
             logging.debug(__name__ + ' : deactivating demodulator %s' % channel)
             status = 0
         self.daq.setInt('/%s/demods/%s/enable' % (self._device_id, channel-1), status)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_demod_enable(self, channel):
         logging.debug(__name__ + ' : getting status of demodulator %s' % channel)
@@ -388,7 +388,7 @@ class ZI_UHFLI(Instrument):
     def _do_set_sample_rate(self, newrate, channel):
         logging.debug(__name__ + " : setting sample rate on demodulator %s to %s s" % (channel, newrate))
         self.daq.setDouble('/%s/demods/%s/rate' % (self._device_id, channel-1), newrate)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_sample_rate(self, channel):
         logging.debug(__name__ + ' : getting sample rate on demodulator %s' % channel)
@@ -416,7 +416,7 @@ class ZI_UHFLI(Instrument):
             logging.debug(__name__ + ' : deactivating output channel %s' % channel)
             status = 0
         self.daq.setInt('/%s/sigouts/%s/on' % (self._device_id, channel-1), status)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_output(self, channel):
         logging.debug(__name__ + ' : getting status of output channel %s' % channel)
@@ -436,7 +436,7 @@ class ZI_UHFLI(Instrument):
             self.set_parameter_bounds("ch%d_output_range" % channel, 750e-3, 1.5)
             status = 0
         self.daq.setInt('/%s/sigouts/%s/imp50' % (self._device_id, channel-1), status)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_output_50ohm(self, channel):
         logging.debug(__name__ + ' : getting the expected load impedance of output channel %s' % channel)
@@ -459,7 +459,7 @@ class ZI_UHFLI(Instrument):
         self.set_parameter_bounds("ch%d_output_offset" % channel, -newrange, newrange)
         self.set_parameter_bounds("ch%d_output_amplitude" % channel, -newrange, newrange)
         self.daq.setDouble('/%s/sigouts/%s/range' % (self._device_id, channel-1), newrange)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_output_range(self, channel):
         logging.debug(__name__ + ' : getting range on output channel %s' % channel)
@@ -469,7 +469,7 @@ class ZI_UHFLI(Instrument):
     def _do_set_output_offset(self, newoffs, channel):
         logging.debug(__name__ + " : setting offset on output channel %s to %s s" % (channel, newoffs))
         self.daq.setDouble('/%s/sigouts/%s/offset' % (self._device_id, channel-1), newoffs)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_output_offset(self, channel):
         logging.debug(__name__ + " : getting offset on output channel %s" % channel)
@@ -479,7 +479,7 @@ class ZI_UHFLI(Instrument):
     def _do_set_output_amplitude(self, newampl, channel):
         logging.debug(__name__ + " : setting amplitude on output channel %s to %s s" % (channel, newampl))
         self.daq.setDouble('/%s/sigouts/%s/amplitudes/%s' % (self._device_id, channel-1, 3 + 4 * (channel-1)), newampl)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_output_amplitude(self, channel):
         logging.debug(__name__ + " : getting amplitude on output channel %s" % channel)
@@ -494,7 +494,7 @@ class ZI_UHFLI(Instrument):
             logging.debug(__name__ + ' : deactivating autorange on output channel %s' % channel)
             status = 0
         self.daq.setInt('/%s/sigouts/%s/autorange' % (self._device_id, channel-1), status)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_output_autorange(self, channel):
         logging.debug(__name__ + ' : getting autorange status on output channel %s' % channel)
@@ -512,7 +512,7 @@ class ZI_UHFLI(Instrument):
             logging.debug(__name__ + ' : deactivating amplitude on channel %s' % channel)
             status = 0
         self.daq.setInt('/%s/sigouts/%s/enables/%s'  % (self._device_id, channel-1, 3 + 4 * (channel-1)), status)
-        self.daq.sync()
+        #self.daq.sync()
     
     def _do_get_output_amp_enable(self, channel):
         logging.debug(__name__ + ' : getting amplitude status on output channel %s' % channel)
@@ -549,11 +549,16 @@ if __name__ == "__main__":
     UHFLI_test.set_ch1_output_amp_enable(True)
     UHFLI_test.set_ch2_output_amp_enable(True)
     '''
-    UHFLI_test.set_ch2_input_range(0.5)
+    UHFLI_test.set_ch1_output_50ohm(True)
+    UHFLI_test.set_ch1_output_amplitude(300e-3)
+    UHFLI_test.set_ch1_output_amp_enable(True)
+    UHFLI_test.set_ch1_output(True)
+    UHFLI_test.set_ch2_input_range(0.7)
+    UHFLI_test.set_ch2_input_autorange
     UHFLI_test.set_ch2_input_scaling(32)
     UHFLI_test.set_ch2_input_ac_coupling(True)
     UHFLI_test.set_ch2_input_50ohm(True)
-    UHFLI_test.set_ch2_input_autorange(True)
+    #UHFLI_test.set_ch2_input_autorange(True)
     UHFLI_test.set_ch2_input_difference("in2-in1")
     '''
     print(UHFLI_test.get_ch1_carrier_freq())
@@ -571,11 +576,11 @@ if __name__ == "__main__":
     print(UHFLI_test.get_ch1_output_amplitude())
     print(UHFLI_test.get_ch2_output_amplitude())
     '''
-    print(UHFLI_test.get_ch1_input_range())
-    print(UHFLI_test.get_ch1_input_scaling())
-    print(UHFLI_test.get_ch1_input_ac_coupling())
-    print(UHFLI_test.get_ch1_input_50ohm())
-    print(UHFLI_test.get_ch1_input_autorange())
-    print(UHFLI_test.get_ch1_input_difference())
+    print(UHFLI_test.get_ch2_input_range())
+    print(UHFLI_test.get_ch2_input_scaling())
+    print(UHFLI_test.get_ch2_input_ac_coupling())
+    print(UHFLI_test.get_ch2_input_50ohm())
+    print(UHFLI_test.get_ch2_input_autorange())
+    print(UHFLI_test.get_ch2_input_difference())
     print("Done!")
-    UHFLI_test.disable_everything()
+    #UHFLI_test.disable_everything()
