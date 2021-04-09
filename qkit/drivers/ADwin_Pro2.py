@@ -111,7 +111,13 @@ class ADwin_Pro2(Instrument):
             logging.error(__name__+': lower voltage limit higher than upper limit')
             sys.exit()
         
-        
+        #stop all ADwin processes before and give them time to go to the Finish: part to ramp down voltages
+        for i in range(1, 12+1):
+            self.adw.Stop_Process(i)
+        time.sleep(1)
+        while self.get_Par_76_global_long() != 0:
+                time.sleep(0.1)       
+            
         #load and start process
         self.processnumber=processnumber
         self.adw.Load_Process(self.process)
@@ -221,6 +227,12 @@ class ADwin_Pro2(Instrument):
     def start_process(self):
         """start process (done automatically when creating ADwin_ProII instance)
         """
+        #stop all ADwin processes before and give them time to go to the Finish: part to ramp down voltages
+        for i in range(1, 12+1):
+            self.adw.Stop_Process(i)
+        time.sleep(1)
+        while self.get_Par_76_global_long() != 0:
+                time.sleep(0.1)
         logging.debug(__name__+'process status: %d'%self.adw.Process_Status(self.process_number))
         logging.info(__name__ +': starting process')
         self.adw.Start_Process(self.process_number)
@@ -233,6 +245,12 @@ class ADwin_Pro2(Instrument):
         logging.debug(__name__+': process status: %d'%self.adw.Process_Status(self.process_number))
 
     def load_process(self):
+        #stop all ADwin processes before and give them time to go to the Finish: part to ramp down voltages
+        for i in range(1, 12+1):
+            self.adw.Stop_Process(i)
+        time.sleep(1)
+        while self.get_Par_76_global_long() != 0:
+                time.sleep(0.1)
         logging.debug(__name__+': process status: %d'%self.adw.Process_Status(self.process_number))
         logging.info(__name__ +': loading process')
         self.adw.Load_Process(self.process)
@@ -298,7 +316,7 @@ class ADwin_Pro2(Instrument):
             self._activate_ADwin(2)
             #wait for ADwin to finish:
             while self.get_Par_76_global_long() != 0:
-                time.sleep(1e-6)          
+                time.sleep(1e-4)          
             digitvalue=self.adw.GetData_Long(190, channel, 1)[0]
             voltvalue=self.digit_to_volt(digitvalue)
             logging.info(__name__ +': reading voltage analog input %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
@@ -403,7 +421,7 @@ class ADwin_Pro2(Instrument):
             self._activate_ADwin(1)
             #wait for ADwin to finish
             while self.get_Par_76_global_long() != 0:
-                time.sleep(1e-6)
+                time.sleep(1e-5)
                        
             #check if voltage limit was exceeded. 
             if self.adw.GetData_Long(192,channel,1)[0] == 1:
@@ -650,7 +668,6 @@ class ADwin_Pro2(Instrument):
             input("Press Enter to continue.")
             sys.exit()
         else:
-            number = number 
             self.set_number_of_gates(number)
             rest = int(number % 8)
             full_modules = int(np.trunc(number / 8))
@@ -690,6 +707,10 @@ class ADwin_Pro2(Instrument):
                 
             #set ramping speed. I don't know why self.set_ramping_speed_normal_ports(speed) does not work...
             self._do_set_ramping_speed_normal_ports(speed)
+            
+            #set all gates to 0 Volts
+            for gate in range(1, number+1):
+                self.set_out(gate, 0)
             
             
     #The following functions are for the use of current sources that are set with a voltage 
