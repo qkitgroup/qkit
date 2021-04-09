@@ -114,7 +114,9 @@ class ADwin_Pro2(Instrument):
         #stop all ADwin processes before and give them time to go to the Finish: part to ramp down voltages
         for i in range(1, 12+1):
             self.adw.Stop_Process(i)
-        time.sleep(1)
+        time.sleep(0.1)
+        if self.get_Par_76_global_long() == -1:
+            print("Ramping down all gates to 0 Volts...")
         while self.get_Par_76_global_long() != 0:
                 time.sleep(0.1)       
             
