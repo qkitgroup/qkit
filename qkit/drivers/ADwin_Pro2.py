@@ -114,12 +114,15 @@ class ADwin_Pro2(Instrument):
         #stop all ADwin processes before and give them time to go to the Finish: part to ramp down voltages
         for i in range(1, 12+1):
             self.adw.Stop_Process(i)
-        time.sleep(0.1)
-        if self.get_Par_76_global_long() == -1:
-            print("Ramping down all gates to 0 Volts...")
-        while self.get_Par_76_global_long() != 0:
-                time.sleep(0.1)       
-            
+        time.sleep(0.2)
+        if self.adw.Get_Par(76) == -1:
+            print("Ramping down all gates to 0 Volts...\nGreen LED at DAC module indicates ongoing ramping action.")
+            while self.adw.Get_Par(76) == -1:
+                    time.sleep(0.1)  
+            print("All outputs are ramped down to 0 Volts.")
+        else:
+            print("Outputs not being ramped down.")
+        
         #load and start process
         self.processnumber=processnumber
         self.adw.Load_Process(self.process)
@@ -235,16 +238,24 @@ class ADwin_Pro2(Instrument):
         time.sleep(1)
         while self.get_Par_76_global_long() != 0:
                 time.sleep(0.1)
-        logging.debug(__name__+'process status: %d'%self.adw.Process_Status(self.process_number))
+        logging.debug(__name__+'process status: %d'%self.adw.Process_Status(self.processnumber))
         logging.info(__name__ +': starting process')
-        self.adw.Start_Process(self.process_number)
-        logging.debug(__name__+'process status: %d'%self.adw.Process_Status(self.process_number))
+        self.adw.Start_Process(self.processnumber)
+        logging.debug(__name__+'process status: %d'%self.adw.Process_Status(self.processnumber))
 
     def stop_process(self):
-        logging.debug(__name__+': process status: %d'%self.adw.Process_Status(self.process_number))
+        logging.debug(__name__+': process status: %d'%self.adw.Process_Status(self.processnumber))
         logging.info(__name__ +': stopping process')
-        self.adw.Stop_Process(self.process_number)
-        logging.debug(__name__+': process status: %d'%self.adw.Process_Status(self.process_number))
+        self.adw.Stop_Process(self.processnumber)
+        logging.debug(__name__+': process status: %d'%self.adw.Process_Status(self.processnumber))
+        time.sleep(0.2)
+        if self.adw.Get_Par(76) == -1:
+            print("Ramping down all gates to 0 Volts...\nGreen LED at DAC module indicates ongoing ramping action.")
+            while self.adw.Get_Par(76) == -1:
+                    time.sleep(0.1)  
+            print("All outputs are ramped down to 0 Volts.")
+        else:
+            print("Outputs not being ramped down.")
 
     def load_process(self):
         #stop all ADwin processes before and give them time to go to the Finish: part to ramp down voltages
@@ -253,10 +264,10 @@ class ADwin_Pro2(Instrument):
         time.sleep(1)
         while self.get_Par_76_global_long() != 0:
                 time.sleep(0.1)
-        logging.debug(__name__+': process status: %d'%self.adw.Process_Status(self.process_number))
+        logging.debug(__name__+': process status: %d'%self.adw.Process_Status(self.processnumber))
         logging.info(__name__ +': loading process')
         self.adw.Load_Process(self.process)
-        logging.debug(__name__+': process status: %d'%self.adw.Process_Status(self.process_number))  
+        logging.debug(__name__+': process status: %d'%self.adw.Process_Status(self.processnumber))  
     
     def _do_get_data_length(self,data_array_number):
         """Data_Length, see ADwin Driver Python documentation
@@ -711,7 +722,7 @@ class ADwin_Pro2(Instrument):
             self._do_set_ramping_speed_normal_ports(speed)
             
             #set all gates to 0 Volts
-            for gate in range(1, number+1):
+            for gate in range(4, number+1):
                 self.set_out(gate, 0)
             
             
