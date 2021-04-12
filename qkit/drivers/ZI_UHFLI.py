@@ -62,6 +62,10 @@ class ZI_UHFLI(Instrument):
                                       "inverted" : 1,
                                       "in1-in2" : 2,
                                       "in2-in1" : 3}
+        self._filter_settling_factors = {r"90%" : [2.3, 3.89, 5.32, 6.68, 
+                                                   7.99, 9.27, 10.53, 11.77],
+                                         r"99%" : [4.61, 6.64, 8.41, 10.05, 
+                                                   11.6, 13.11, 14.57, 16]}
         self._inv_difference_mode_dict = {v: k for k, v in self._difference_mode_dict.items()}
                 
         #Set the apilevel to the highest supported by your device, to unlock most of the functionalities.
@@ -197,6 +201,7 @@ class ZI_UHFLI(Instrument):
         #Tell qkit which functions are intended for public use
         self.add_function("disable_everything")
         self.add_function("create_daq_module")
+        self.add_function("wait_settle_time")
         
         
     def create_daq_module(self):
@@ -210,6 +215,11 @@ class ZI_UHFLI(Instrument):
         #public use functions
     def disable_everything(self):
         zhinst.utils.disable_everything(self.daq, self.device)
+        
+    def wait_settle_time(self, demod_index, step_recovery = r"99%"):
+        tc = self.get('dem%d_filter_timeconst' % (demod_index))        
+        order = self.get("dem%d_filter_order" % (demod_index))
+        sleep(tc * self._filter_settling_factors[step_recovery][order - 1])
         
     def _do_set_input_range(self, newrange, channel):
         logging.debug(__name__ + ' : setting range on input channel %s to %s V' % (channel, newrange))
@@ -331,7 +341,8 @@ class ZI_UHFLI(Instrument):
     def _do_set_filter_order(self, neworder, channel):
         logging.debug(__name__ + " : setting filter order on demodulator %s to %s" % (channel, neworder))
         self.daq.setInt('/%s/demods/%s/order' % (self._device_id, channel-1) , neworder)
-        #self.daq.sync()        
+        #self.daq.sync()
+        self.wait_settle_time(channel)        
         
     def _do_get_filter_order(self, channel):
         logging.debug(__name__ + ' : getting filter order on demodulator %s' % channel)
@@ -342,7 +353,7 @@ class ZI_UHFLI(Instrument):
         logging.debug(__name__ + " : setting filter time constant on demodulator %s to %s s" % (channel, newtc))
         self.daq.setDouble('/%s/demods/%s/timeconstant' % (self._device_id, channel-1), newtc)
         #self.daq.sync()
-        sleep(10 * newtc)
+        self.wait_settle_time(channel)
     
     def _do_get_filter_timeconst(self, channel):
         logging.debug(__name__ + ' : getting filter timeconstant on demodulator %s' % channel)
@@ -549,6 +560,7 @@ if __name__ == "__main__":
     UHFLI_test.set_ch1_output_amp_enable(True)
     UHFLI_test.set_ch2_output_amp_enable(True)
     '''
+    UHFLI_test.set_dem1_filter_timeconst(1e-3)
     UHFLI_test.set_ch1_output_50ohm(True)
     UHFLI_test.set_ch1_output_amplitude(300e-3)
     UHFLI_test.set_ch1_output_amp_enable(True)
