@@ -721,9 +721,10 @@ class ADwin_Pro2(Instrument):
             #set ramping speed. I don't know why self.set_ramping_speed_normal_ports(speed) does not work...
             self._do_set_ramping_speed_normal_ports(speed)
             
-            #set all gates to 0 Volts
+            #set all outputs to 0 Volts
             for gate in range(1, number+1):
-                self.set_out(gate, 0)
+                self.set('gate%d_output_voltage_in_V'% gate, 0)
+                
             
             
     #The following functions are for the use of current sources that are set with a voltage 
