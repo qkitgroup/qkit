@@ -1,12 +1,15 @@
 # MP, AS @ KIT 05/2017
 # Class to collect all information about a single measurement
 
+import copy
+import json
 import logging
-import json, types
-import os, copy
+import os
+
 import qkit
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
 from qkit.measure.samples_class import Sample
+
 
 class Measurement(object):
     '''
@@ -119,4 +122,9 @@ class Measurement(object):
         '''
         for ins in self.instuments:
             self.update_instrument(ins)
-            
+
+    def write_to_hdf(self, hdf_file):
+        self.uuid = hdf_file._uuid
+        self.hdf_relpath = hdf_file._relpath
+        mo = hdf_file.add_textlist('measurement')
+        mo.append(self.get_JSON())
