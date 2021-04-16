@@ -336,6 +336,11 @@ def _display_view(self, graphicsView):
                 if np.all(np.isnan(data)):
                     data[(0,) * len(data.shape)] = 0
                     print("Your Data array is all NaN. I set the first value to not blow up graphics window.")
+
+                _, data, _, _, _, units[2] = _do_data_manipulation(None, data, None, None, None, units[2],
+                                                                   ds_types['vector'], self.manipulation,
+                                                                   self.manipulations, colorplot=True)
+
                 cp.setImage(data)
                 # Apparently an imageItem does not feature scaling when it's not created by imageView.
                 #, pos=(scales[0][0] - scales[0][1] / 2., scales[1][0] - scales[1][1] / 2.), scale=(scales[0][1], scales[1][1]))
