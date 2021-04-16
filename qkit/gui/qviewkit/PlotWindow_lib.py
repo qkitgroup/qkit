@@ -323,6 +323,7 @@ def _display_view(self, graphicsView):
                     print(e)
                     return
 
+                pi = graphicsView.getPlotItem()
                 cp = pg.ImageItem()
 
                 image_width = abs(dss[0][-1] - dss[0][0])
@@ -340,7 +341,6 @@ def _display_view(self, graphicsView):
                 #, pos=(scales[0][0] - scales[0][1] / 2., scales[1][0] - scales[1][1] / 2.), scale=(scales[0][1], scales[1][1]))
                 cp.setRect(
                     QRectF(dss[0][0] - pixel_sizex / 2., dss[1][0] - pixel_sizey / 2., image_width, image_height))
-                print(dss[1][0])
 
                 """
                 PColorMeshItem might be a viable option in the future but requires pyqtgraph 0.12 which needs python 3.7
@@ -348,7 +348,10 @@ def _display_view(self, graphicsView):
                 #cp = pg.PColorMeshItem()
                 #cp.setData(x=dss[0],y=dss[1],z=dss[2])
 
-                graphicsView.getPlotItem().addItem(cp)
+                pi.addItem(cp)
+                pi.setTitle(names[2])
+                _axis_timestamp_formatting(graphicsView, None, units[0], names[0], "bottom")
+                _axis_timestamp_formatting(graphicsView, None, units[1], names[1], "left")
 
             else:
                 ## retrieve the data type and store it in  x_ds_type, y_ds_type
@@ -458,7 +461,7 @@ def _display_view(self, graphicsView):
                 x_data, y_data, names[0], names[1], units[0], units[1] = _do_data_manipulation(x_data, y_data, names[0], names[1], units[0], units[1], ds_types['vector'], self.manipulation, self.manipulations)
 
                 _axis_timestamp_formatting(graphicsView, x_data, units[0], names[0], "bottom")
-                _axis_timestamp_formatting(graphicsView, y_data, units[1],names[1], "left")
+                _axis_timestamp_formatting(graphicsView, y_data, units[1], names[1], "left")
 
                 # this allows to set a couple of plot related settings
                 if view_params:
