@@ -276,6 +276,8 @@ def _display_view(self, graphicsView):
 
     overlay_num = self.ds.attrs.get("overlays", 0)
 
+    colorplot = False
+
     ## evaluate the overlay-entries to get the ds_urls of the datasets to be
     ## displayed.
     view_params = json.loads(self.ds.attrs.get("view_params", {}))
@@ -357,6 +359,8 @@ def _display_view(self, graphicsView):
                 pi.setTitle(names[2])
                 _axis_timestamp_formatting(graphicsView, None, units[0], names[0], "bottom")
                 _axis_timestamp_formatting(graphicsView, None, units[1], names[1], "left")
+
+                colorplot = True
 
             else:
                 ## retrieve the data type and store it in  x_ds_type, y_ds_type
@@ -463,7 +467,11 @@ def _display_view(self, graphicsView):
                     return
 
                 ## Any data manipulation (dB <-> lin scale, etc) is done here
-                x_data, y_data, names[0], names[1], units[0], units[1] = _do_data_manipulation(x_data, y_data, names[0], names[1], units[0], units[1], ds_types['vector'], self.manipulation, self.manipulations)
+                if not colorplot:
+                    # If the view includes a colorplot, data manipulations are performed only on the colorplot.
+                    x_data, y_data, names[0], names[1], units[0], units[1] = \
+                        _do_data_manipulation(x_data, y_data, names[0], names[1], units[0], units[1],
+                                              ds_types['vector'], self.manipulation, self.manipulations)
 
                 _axis_timestamp_formatting(graphicsView, x_data, units[0], names[0], "bottom")
                 _axis_timestamp_formatting(graphicsView, y_data, units[1], names[1], "left")
