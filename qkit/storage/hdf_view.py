@@ -18,7 +18,7 @@ class dataset_view(object):
     datasets are plotted against each other.
     """
     
-    def __init__(self, hdf_file, name, x=None, y=None, error=None, filter = None,
+    def __init__(self, hdf_file, name, x=None, y=None, z=None, error=None, filter=None,
                  ds_type =  ds_types['view'], folder = 'views', view_params={}):
         
         self.hf = hdf_file
@@ -28,21 +28,24 @@ class dataset_view(object):
         self.ds_type = ds_type
         self.filter = filter
         if not x or not y: 
-            logging.ERROR("View: Please supply a x and y dataset.")
+            logging.ERROR("View: Please supply an x and y dataset.")
         self.x_object = str3(x.ds_url)
         self.y_object = str3(y.ds_url)
+        if z is not None:
+            self.z_object = str3(z.ds_url)
+        else:
+            self.z_object = None
         self.error_object = None
         if error:
             self.error_object = str3(error.ds_url)
         
-        self.ds = self.hf.create_dataset(self.name,0,folder=self.folder,dim=1)
+        self.ds = self.hf.create_dataset(self.name, 0, folder=self.folder, dim=1)
         self.view_params = json.dumps(view_params)
         self.view_num = 0
         self._setup_metadata()
-        self.hf.flush()
-
+        # self.hf.flush() # YS: moved to _setup_metadata so that also flushed after view.add
         
-    def add(self,x=None, y=None, error=None, pyfilter = None):
+    def add(self, x=None, y=None, error=None, pyfilter = None):
         """Adds one y vs x overlay plot to the dataset_view object.        
     
         Args:
@@ -56,20 +59,23 @@ class dataset_view(object):
         if error:
             self.error_object = str3(error.ds_url)
         self.filter = pyfilter
+        self.z_object = None
         self._setup_metadata(init = False)
-        
-    def _setup_metadata(self,init=True):
+
+    def _setup_metadata(self, init=True):
         ds = self.ds
         if init:
-            ds.attrs.create("view_type",view_types['1D-V'])
-            ds.attrs.create('ds_type',self.ds_type)
-            ds.attrs.create('view_params',self.view_params.encode())
-        ds.attrs.create("xy_"+str(self.view_num),(str(self.x_object)+":"+str(self.y_object)).encode())
+            ds.attrs.create("view_type", view_types['1D-V'])
+            ds.attrs.create('ds_type', self.ds_type)
+            ds.attrs.create('view_params', self.view_params.encode())
+        ds.attrs.create("xy_" + str(self.view_num), (str(self.x_object) + ":" + str(self.y_object)).encode())
+        if self.z_object is not None:
+            ds.attrs.create("z_" + str(self.view_num), (str(self.z_object)).encode())
         if self.error_object:
             ds.attrs.create("xy_"+str(self.view_num)+"_error",str(self.error_object).encode())
-        ds.attrs.create("overlays",self.view_num)
-        ds.attrs.create("xy_"+str(self.view_num)+"_filter",str(self.filter).encode())
-
+        ds.attrs.create("overlays", self.view_num)
+        ds.attrs.create("xy_"+str(self.view_num)+"_filter", str(self.filter).encode())
+        self.hf.flush()
         self.view_num += 1
         
     def _exec_filter(self,view_num):

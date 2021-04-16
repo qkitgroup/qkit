@@ -267,20 +267,22 @@ class Data(object):
                           comment=comment, folder=folder, dim = 3, **meta)
         return ds
 
-    def add_view(self,name,x = None, y = None, error = None, filter  = None, view_params = {}):
-        """Adds a view to plot x-y data.
+    def add_view(self, name, x=None, y=None, z=None, error=None, filter=None, view_params={}):
+        """Adds a view to plot x-y data (or -z data).
         
         This function is a wrapper to create a dataset_view.
         x, y with the corresponding error are the datasets to display, e.g.
         x = h5["/entry/data0/temperature"]
         y = h5["/entry/analysis0/frequency_fit"]
         error = h5["/entry/analysis0/frequency_fit_error"]
+
+        If z is supplied, the base view will be a colorplot with overlays possible of x-y data.
+
         filter is a string of reguar python code, which
         accesses the x,y dataset returns arrays of (x,y)
-        (Fixme: not jet implemented)
         """
-        ds =  dataset_view(self.hf,name, x=x, y=y, error=error, filter = filter, 
-                           ds_type = ds_types['view'],view_params = view_params)
+        ds = dataset_view(self.hf, name, x=x, y=y, z=z, error=error, filter=filter,
+                          ds_type=ds_types['view'], view_params=view_params)
         return ds
 
     def add_fid_param(self, param, value):

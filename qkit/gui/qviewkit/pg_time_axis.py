@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #!/usr/bin/env python
 # Thanks to @cpascual. This code is taken from
 # https://gist.github.com/cpascual/cdcead6c166e63de2981bc23f5840a98

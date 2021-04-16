@@ -31,7 +31,7 @@ import numpy as np
 import qkit
 from qkit.gui.qviewkit.plot_view import Ui_Form
 from qkit.storage.hdf_constants import ds_types, view_types
-from qkit.gui.qviewkit.PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
+from qkit.gui.qviewkit.PlotWindow_lib import _display_view, _display_1D_data, _display_2D_data, _display_table, _display_text #_display_1D_view,
 from qkit.gui.qviewkit.PlotWindow_lib import _get_ds, _get_ds_url, _get_name, _get_unit
 
 class PlotWindow(QWidget,Ui_Form):
@@ -155,7 +155,8 @@ class PlotWindow(QWidget,Ui_Form):
                     self.addQvkMenu()
                     self.graphicsView.sceneObj.contextMenu[:0] = [self.qvkMenu]
                     self.gridLayout.addWidget(self.graphicsView,0,0)
-                _display_1D_view(self,self.graphicsView)
+                #_display_1D_view(self,self.graphicsView)
+                _display_view(self, self.graphicsView)
 
             elif self.view_type == view_types['1D']:
                 if not self.graphicsView or self._onPlotTypeChanged:
