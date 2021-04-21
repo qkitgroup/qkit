@@ -2,6 +2,7 @@
 # Andre Schneider <andre.schneider@student.kit.edu> 2014
 # modified: JB <jochen.braumueller@kit.edu> 11/2016
 # modified: Jan Brehm <jan.brehm@kit.edu> 02/2019
+# modified: Nicolas Gosling <Nicolas.Gosling@partner.kit.edu> 04/21
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

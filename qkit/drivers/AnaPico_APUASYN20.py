@@ -1,6 +1,5 @@
-# AnaPico_APUASYN20.py class, to perform the communication between the Wrapper and the device
-# Pieter de Groot <pieterdegroot@gmail.com>, 2008
-# Martijn Schaafsma <qtlab@mcschaafsma.nl>, 2008
+# AnaPico_APUASYN20.py
+# Nicolas Gosling <Nicolas.Gosling@partner.kit.edu> 04/21
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
