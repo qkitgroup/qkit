@@ -96,7 +96,7 @@ class hdf_dataset(object):
         self._next_matrix = True
         self._y_pos = 0
         
-    def append(self,data, reset = False):
+    def append(self,data, reset=False, pointwise=False):
         """Function to save a growing measurement dataset to the hdf file.
         
         Data is added one datapoint (vector) or one dataline (matrix, box) at a
@@ -104,8 +104,9 @@ class hdf_dataset(object):
         existing dataset. A timestamp-dataset is also recorded here.
 
         Args:
-            data; any data to be appended to the dataset
+            data: any data to be appended to the dataset
             reset (Boolean, optional); indicator for appending, or resetting the dataset
+            pointwise (Boolean): if True, the data is appended pointwise, i.e. to the innermost dimension
         """
         if self.ds_type == ds_types['txt']:
             try:
@@ -134,14 +135,13 @@ class hdf_dataset(object):
             if self._save_timestamp:
                 self._create_timestamp_ds()
 
-        self.hf.append(self.ds,data, next_matrix=self._next_matrix, reset = reset)
+        self.hf.append(self.ds, data, next_matrix=self._next_matrix, reset=reset, pointwise=pointwise)
         if self._save_timestamp:
             self.hf.append(self.ds_ts, numpy.array([time.time()]), next_matrix=self._next_matrix, reset=reset)
         if self._next_matrix:
             self._next_matrix = False
 
         self.hf.flush()
-            
             
     def add(self,data):
         """Function to save a 1dim dataset once.
