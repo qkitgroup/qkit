@@ -135,10 +135,10 @@ class hdf_dataset(object):
                 self._create_timestamp_ds()
 
         self.hf.append(self.ds,data, next_matrix=self._next_matrix, reset = reset)
+        if self._save_timestamp:
+            self.hf.append(self.ds_ts, numpy.array([time.time()]), next_matrix=self._next_matrix, reset=reset)
         if self._next_matrix:
             self._next_matrix = False
-        if self._save_timestamp:
-            self.hf.append(self.ds_ts, numpy.array([time.time()]), reset=reset)
 
         self.hf.flush()
             
@@ -162,16 +162,17 @@ class hdf_dataset(object):
         A dataset with the same name (+ suffix '_ts') and dimension-1 is created
         and unix timestamp added at each append() call.
         """
-        self.ds_ts = self.hf.create_dataset(self.name+'_ts', tracelength = 1,folder=self.folder,dim=max(self.dim-1, 1), dtype='float64')
+        ds_type = {
+            ds_types['vector']: ds_types['vector'],
+            ds_types['matrix']: ds_types['vector'],
+            ds_types['box']: ds_types['matrix']
+        }[self.ds_type]
+        self.ds_ts = self.hf.create_dataset(self.name + '_ts', tracelength=1, folder=self.folder, dim=max(self.dim - 1, 1), dtype='float64', ds_type=ds_type)
         self.ds_ts.attrs.create('name', 'measurement_time'.encode())       
         self.ds_ts.attrs.create('unit', 's'.encode())
-        if self.ds_type == ds_types['vector']:
-            self.ds_ts.attrs.create('ds_type', ds_types['vector'])
         if self.ds_type == ds_types['matrix']:
-            self.ds_ts.attrs.create('ds_type', ds_types['vector'])
             self.ds_ts.attrs.create("x_ds_url",self.ds.attrs.get('x_ds_url', ''))
         if self.ds_type == ds_types['box']:
-            self.ds_ts.attrs.create('ds_type', ds_types['matrix'])   
             self.ds_ts.attrs.create("x_ds_url",self.ds.attrs.get('x_ds_url', ''))
             self.ds_ts.attrs.create("y_ds_url",self.ds.attrs.get('y_ds_url', ''))
     """
