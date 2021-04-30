@@ -447,6 +447,29 @@ class IV_curve3(object):
         --------
         >>> ivc.load(uuid='XXXXXX')
         """
+        def _get_xy_parameter():
+            if self.m_type == 'transport':
+                measurand = self.df.data.i_0
+            elif self.m_type == 'spectroscopy':
+                measurand = self.df.data.amplitude
+            if self.scan_dim >= 2:  # 2D or 3D scan
+                # x parameter
+                self.x_ds = self.df[measurand.attrs['x_ds_url']]
+                self.x_coordname = self.x_ds.attrs['name']
+                self.x_unit = self.x_ds.attrs['unit']
+                self.x_vec = self.x_ds[:]
+                if self.scan_dim == 3:  # 3D scan
+                    # y parameter
+                    self.y_ds = self.df[measurand.attrs['y_ds_url']]
+                    self.y_coordname = self.y_ds.attrs['name']
+                    self.y_unit = self.y_ds.attrs['unit']
+                    self.y_vec = self.y_ds[:]
+                else:
+                    self.y_ds, self.y_coordname, self.y_unit, self.y_vec = None, None, None, None
+            else:
+                self.x_ds, self.x_coordname, self.x_unit, self.x_vec = None, None, None, None
+            return
+
         if uuid != self.uuid and self.uuid is not None:
             self.__init__()
         self.uuid = uuid
@@ -500,22 +523,13 @@ class IV_curve3(object):
                     self.V[j] = v
                     if dVdI:
                         self.dVdI[j] = dvdi
-            if self.scan_dim >= 2:  # 2D or 3D scan
-                # x parameter
-                self.x_ds = self.df[self.df.data.i_0.attrs['x_ds_url']]
-                self.x_coordname = self.x_ds.attrs['name']
-                self.x_unit = self.x_ds.attrs['unit']
-                self.x_vec = self.x_ds[:]
-                if self.scan_dim == 3:  # 3D scan
-                    # y parameter
-                    self.y_ds = self.df[self.df.data.i_0.attrs['y_ds_url']]
-                    self.y_coordname = self.y_ds.attrs['name']
-                    self.y_unit = self.y_ds.attrs['unit']
-                    self.y_vec = self.y_ds[:]
-                else:
-                    self.y_ds, self.y_coordname, self.y_unit, self.y_vec = None, None, None, None
-            else:
-                self.x_ds, self.x_coordname, self.x_unit, self.x_vec = None, None, None, None
+            _get_xy_parameter()
+        elif self.m_type == 'spectroscopy':
+            self.frequency = self.df.data.frequency[:]
+            self.amplitude = self.df.data.amplitude[:]
+            self.phase = self.df.data.phase[:]
+            self.scan_dim = self.df.data.amplitude.attrs['ds_type']  # scan dimension (1D, 2D, ...)
+            _get_xy_parameter()
         else:
             raise ValueError('No data of transport measurements')
         return
@@ -793,20 +807,22 @@ class IV_curve3(object):
             Datasets that are opened instantaneously. Default is 'views/IV'
         """
         if uuid is None:
-            df = self.df
+            path = self.path
         else:
-            df = Data(qkit.fid.get(uuid))
-        if ds is None:
+            path = qkit.fid.get(uuid)
+        if np.iterable(ds) and all(isinstance(x, str) for x in ds):
+            pass
+        elif type(ds) is str:
+            ds = [ds]
+        elif ds is None:
             ds = ['views/IV']
             # try:
             #     if self.scan_dim > 1:
             #         for i in range(len(self.sweeps)):
             #             datasets.append('{:s}_{:d}'.format({0: 'I', 1: 'V'}[not self.bias].lower(), i))
-        elif not np.iterable(ds) and type(ds) is str:
-            ds = [ds]
         else:
             raise ValueError('Argument <ds> needs to be set properly.')
-        qviewkit.plot(df.get_filepath(), datasets=ds, live=False)  # opens IV-view by default
+        qviewkit.plot(path, datasets=ds, live=False)  # opens IV-view by default
 
     def get_bias(self, df=None):
         """

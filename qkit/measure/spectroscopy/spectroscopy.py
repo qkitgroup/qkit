@@ -65,6 +65,8 @@ class spectrum(object):
         self.tdx = 0.002  # [s]
         self.tdy = 0.002  # [s]
 
+        self.vna_poll_interval = 0.1 # interval in seconds in which the vna is queried to be ready.
+
         self.comment = ''
         self.dirname = None
 
@@ -523,13 +525,15 @@ class spectrum(object):
                             sleep(self.tdy)
                             if self.averaging_start_ready:
                                 self.vna.start_measurement()
-                                if self.vna.ready():
+                                # Check if the VNA is STILL in ready state, then add some delay.
+                                # If you manually decrease the poll_inveral, I guess you know what you are doing and will disable this safety query.
+                                if self.vna_poll_interval >= 0.1 and self.vna.ready():
                                     logging.debug("VNA STILL ready... Adding delay")
                                     qkit.flow.sleep(
                                         .2)  # just to make sure, the ready command does not *still* show ready
 
                                 while not self.vna.ready():
-                                    qkit.flow.sleep(min(self.vna.get_sweeptime_averages(query=False) / 11., .2))
+                                    qkit.flow.sleep(min(self.vna.get_sweeptime_averages(query=False) / 11., self.vna_poll_interval))
                             else:
                                 self.vna.avg_clear()
                                 qkit.flow.sleep(self._sweeptime_averages)
@@ -838,9 +842,9 @@ class Landscape:
                 popt, pcov = curve_fit(fit_fct, x_fit, z_fit/multiplier, p0=p0)
                 self.xzlandscape_func = lambda x: multiplier * fit_fct(x, *popt)
 
-            self.xz_freqpoints = np.arange(self.xzlandscape_func(self.spec.x_vec[0])-self.z_span/2,
-                                           self.xzlandscape_func(self.spec.x_vec[-1])+self.z_span/2,
-                                           self.vna.get_span()/self.vna.get_nop())
+            self.xz_freqpoints = np.arange(np.min(self.xzlandscape_func(self.spec.x_vec)) - self.z_span / 2,
+                                           np.max(self.xzlandscape_func(self.spec.x_vec)) + self.z_span / 2,
+                                           self.vna.get_span() / self.vna.get_nop())
         except Exception as message:
             print('fit not successful:', message)
 

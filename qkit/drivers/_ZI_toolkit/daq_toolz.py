@@ -11,7 +11,7 @@ from itertools import count
 from qkit.core.instrument_base import Instrument
 
 class daq_module_toolz(Instrument):
-    _daqM_ids = count(0)
+    _daq_ids = count(0)
     def __init__(self, unmanaged_daq_module, device_id):
         
         self.daqM_id = next(self._daqM_ids)
@@ -119,7 +119,7 @@ class daq_module_toolz(Instrument):
     
     def execute(self):
         self.daqM.execute()
-    
+        
     def finished(self):
         return self.daqM.finished()
     

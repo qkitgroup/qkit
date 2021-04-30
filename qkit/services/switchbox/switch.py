@@ -53,8 +53,8 @@ for P in [GPIO_OpAmp, GPIO_SigInv, GPIO_ComGnd] + PINS[0] + PINS[1]:
 class Switch(object):
     def __init__(self):
         self._sw_pos = [[None] * 6, [None] * 6]
-        self._pulse_len = [.5] * 2
-        self._sleep_time = .5
+        self._pulse_len = [.08] * 2
+        self._sleep_time = .2
         self._lock = Lock()
         self._update_display()
     
@@ -62,7 +62,7 @@ class Switch(object):
         with self._lock:
             if GPIO.input(GPIO_OpAmp):
                 raise ValueError("OpAmp still enabled!")
-            GPIO.output(GPIO_ComGnd, True)
+            #GPIO.output(GPIO_ComGnd, True)
             GPIO.output(PINS[switch][port], True)
             GPIO.output(GPIO_SigInv, not invert)
             time.sleep(self._sleep_time)
@@ -85,7 +85,7 @@ class Switch(object):
     def enable(self, switch, port):
         self._pulse(switch, port, False)
         self._sw_pos[switch][port] = True
-        GPIO.output(GPIO_ComGnd, False)
+        #GPIO.output(GPIO_ComGnd, False)
         self._update_display()
     
     def switch_to(self, switch, port):
