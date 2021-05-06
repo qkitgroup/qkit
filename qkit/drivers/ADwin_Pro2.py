@@ -116,7 +116,7 @@ class ADwin_Pro2(Instrument):
             self.adw.Stop_Process(i)
         time.sleep(0.2)
         if self.adw.Get_Par(76) == -1:
-            print("Ramping down all gates to 0 Volts...\nGreen LED at DAC module indicates ongoing ramping action.")
+            print("Ramping down all outputs (gates + current sources) to 0 Volts...\nGreen LED at DAC module indicates ongoing ramping action.")
             while self.adw.Get_Par(76) == -1:
                     time.sleep(0.1)  
             print("All outputs are ramped down to 0 Volts.")
@@ -753,7 +753,7 @@ class ADwin_Pro2(Instrument):
         
         x_max_current = 7.5 #maximal current in Amps through coil x before quench
         y_max_current = 5.0 #maximal current in Amps through coil y
-        z_max_current = 5.0 #maximal current in Amps through coil z
+        z_max_current = 7.0 #maximal current in Amps through coil z
         
         #set  voltage 
         if direction == 1:

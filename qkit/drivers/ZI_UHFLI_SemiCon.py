@@ -107,6 +107,23 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         return self.daq.getSample("/%s/demods/%d/sample" % (self._device_id, demod_index - 1)) [data_node]
     
     def poll_samples(self, integration_time):
+        ''' Poll samples directly from the dataserver. Stream will not be handled or cleaned. Only use for high performance.
+        
+        Function collects data from the data server during the integration time. The timeout for the connection to the dataserver is set to 500ms, 
+        and the function will raise errors as soon as sample loss is detected.
+
+        Parameters
+        ----------
+        integration_time : float
+            Unit: s
+            time during which the poll command will collect incoming samples from the lockin
+
+        Returns
+        -------
+        None.
+
+        '''
+
         self.daq.flush()
         data = self.daq.poll(integration_time, 500, self.FLAG_DETECT | self.FLAG_THROW , True) #arguments: (Poll length in s, timeout in ms, flags, return flat dictionary)
        
@@ -119,7 +136,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
 
     def data_fetch(self, demod_index, data_node, average = True):
         assert self.last_poll, "No data has been polled yet"
-        selected = self.last_poll["/%s/demods/%d/sample" % (self._device_id, demod_index)] [data_node]
+        selected = self.last_poll["/%s/demods/%d/sample" % (self._device_id, demod_index - 1)] [data_node]
         if average:
             return np.array([np.mean(selected)])
         else:
