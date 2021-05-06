@@ -183,7 +183,7 @@ class MeasureBase(object):
             return True
     
         def create_dataset(self, hdf_file):
-            if self.hdf_dataset is None:
+            if self.hdf_dataset is None or self.hdf_dataset.hf != hdf_file.hf: # If dataset not yet created or belongs to old hdf file
                 self.validate_parameters()
                 c = [co.create_dataset(hdf_file) for co in self.coordinates]
                 if self.dim == 1:
