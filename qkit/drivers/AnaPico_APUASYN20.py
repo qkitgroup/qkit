@@ -50,7 +50,7 @@ class AnaPico_APUASYN20(Instrument):
         self._numchannels = 4
 
         self.add_parameter('power',
-            flags=super().FLAG_GETSET, units='dBm', minval=0, maxval=18,
+            flags=super().FLAG_GETSET, units='dBm', minval=-10, maxval=23,
             channels=(1, self._numchannels), channel_prefix='ch%d_', type=float)
         self.add_parameter('frequency',
             flags=super().FLAG_GETSET, units='Hz', minval=1e5, maxval=20e9,
