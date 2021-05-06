@@ -31,6 +31,7 @@ class IV_meas(mb.MeasureBase):
         self._get_value_func = None
         self._get_tracedata_func = None
         self.qviewkit_singleInstance = False
+        self.data_instance = None
         #self._qvk_process = Which datatype you get?
         
     def set_get_value_func(self, get_func, *args, **kwargs):
@@ -53,18 +54,18 @@ class IV_meas(mb.MeasureBase):
         
         def create_file():
             self._prepare_measurement_file(
-                    [self.Data("I", [self._x_parameter], "A")])
+                    [self.data_instance])
             self._open_qviewkit()
         
         #implement creation of save file right here?
-        qkit.flow.start()
+        #qkit.flow.start()
         create_file()
         try:
             for index, x_val in enumerate(self._x_parameter.values):
                 self._x_parameter.set_function(x_val)
                 qkit.flow.sleep(self._x_parameter.wait_time)                
                 i = self._get_value_func()
-                self._datasets["I"].append(i)
+                self._datasets["Current"].append(i)
                 pb.iterate()
         finally:
             qkit.flow.end()
