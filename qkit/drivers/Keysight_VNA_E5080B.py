@@ -263,6 +263,13 @@ class Keysight_VNA_E5080B(Instrument):
             raise ValueError('get_tracedata(): Format must be AmpPha or RealImag')
       
     def get_freqpoints(self, query=False):
+        if self.get_sweep_type(query=False) == "SEGM":
+            freqs = numpy.array([])
+            for x in numpy.reshape(self._visainstrument.query_binary_values("sense:segment:list? SSTOP"),(-1,8)):
+                if x[0]>0.5:
+                    freqs = numpy.append(freqs,numpy.linspace(x[2],x[3],int(x[1])))
+            self._freqpoints = freqs
+            return self._freqpoints
         if query:
             self._freqpoints = numpy.array(self._visainstrument.query_ascii_values('SENS:X?'))
         if self.get_cw():
@@ -906,3 +913,16 @@ class Keysight_VNA_E5080B(Instrument):
     
     def reconnect(self):
         self._visainstrument = visa.instrument(self._address)
+    
+    def add_segment(self,center,span,nop,power):
+        self.write("SENS:SEGM1:ADD")
+        self.write("SENS:SEGM1:FREQ:CENT %f"%center)
+        self.write("SENS:SEGM1:FREQ:SPAN %f"%span)
+        self.write("SENS:SEGM1:SWE:POIN %i"%nop)
+        self.write("SENS:SEGM1:POW %f"%power)
+        self.write("SENS:SEGM1 ON")
+        qkit.flow.sleep(1) # The VNA needs some time to digest this...
+        
+        
+    def delete_all_segments(self):
+        self.write("SENS:SEGM:DEL:ALL")
