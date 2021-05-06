@@ -1201,7 +1201,10 @@ class Keysight_B2900(Instrument):
             logging.debug('{!s}: Get bias value{:s}'.format(__name__, self._log_chans[self._channels][channel]))
             #return float(self._ask(':sour{:s}:{:s}?'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode(channel=channel)])))
             self._write(':disp:view sing{:d}'.format(channel))
-            return float(self._ask(':meas:{:s}?'.format(self._IV_modes[self.get_bias_mode(channel=channel)])).replace('+9.910000E+37', 'nan').replace('9.900000E+37', 'inf'))
+            if self.get_status(channel):
+                return float(self._ask(':meas:{:s}?'.format(self._IV_modes[self.get_bias_mode(channel=channel)])).replace('+9.910000E+37', 'nan').replace('9.900000E+37', 'inf'))
+            else:
+                return float(self._ask(':sour{:s}:{:s}:lev'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode(channel=channel)])))
         except Exception as e:
             logging.error('{!s}: Cannot get bias value{:s}'.format(__name__, self._log_chans[self._channels][channel]))
             raise type(e)('{!s}: Cannot get bias value{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], e))
