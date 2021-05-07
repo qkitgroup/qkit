@@ -282,7 +282,7 @@ class spectrum(object):
             self._data_y = self._data_file.add_coordinate(self.y_coordname, unit=self.y_unit)
             self._data_y.add(self.y_vec)
             for i in range(self.num_traces):
-                self._data.append(self._data_file.add_value_box(self.traces_names[i], x=self._data_x, y = self.data_y,
+                self._data.append(self._data_file.add_value_box(self.traces_names[i], x=self._data_x, y = self._data_y,
                                                                    z=self._data_freq, unit=self.units[i],
                                                                    save_timestamp=True))
             if self.log_function != None:  # use logging
@@ -509,8 +509,7 @@ class spectrum(object):
 
                             """ measurement """
                             for i in range(self.num_traces):
-                                data[i] = self.sig_analyzer.get_tracedata(i+1)
-                                self._data[i].append(data[i])
+                                self._data[i].append(self.sig_analyzer.get_tracedata(i+1))
 
                         if self.progress_bar:
                             self._p.iterate()

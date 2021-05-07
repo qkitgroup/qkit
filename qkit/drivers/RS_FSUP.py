@@ -2,6 +2,7 @@
 # Andre Schneider <andre.schneider@student.kit.edu> 2014
 # modified: JB <jochen.braumueller@kit.edu> 11/2016
 # modified: Jan Brehm <jan.brehm@kit.edu> 02/2019
+# modified: Nicolas Gosling <Nicolas.Gosling@partner.kit.edu> 04/21
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -149,12 +150,8 @@ class RS_FSUP(Instrument):
     
     def do_get_freqpoints(self):
         '''
-        Get number of averages
-
-        Input:
-            None
-        Output:
-            number of averages
+        returns an array with the frequencies of the points returned by get_trace()
+        ideally suitable as x-axis for plots
         '''
 
         x_values=numpy.linspace(self.do_get_startfreq(), self.do_get_stopfreq(), self.do_get_nop())
@@ -334,13 +331,6 @@ class RS_FSUP(Instrument):
         '''
         self.write('INIT:CONT %s'%(value))
     
-    def get_frequencies(self):
-        '''
-        returns an array with the frequencies of the points returned by get_trace()
-        ideally suitable as x-axis for plots
-        '''
-        return numpy.linspace(self.get_startfreq(),self.get_stopfreq(),self.get_nop())
-    
     def enable_marker(self,marker,state='ON'):
         '''
         ON or OFF
@@ -365,14 +355,7 @@ class RS_FSUP(Instrument):
     def get_tracedata(self,tracenumber=1):
 
         amp = numpy.array(self._visainstrument.query_ascii_values('trac:data? trace%i'%tracenumber))
-        return amp    
-    
-    def get_frequencies(self):
-        '''
-        returns an array with the frequencies of the points returned by get_trace()
-        ideally suitable as x-axis for plots
-        '''
-        return numpy.linspace(self.get_startfreq(),self.get_stopfreq(),self.get_nop())
+        return amp
     
     def write(self, command):
         self._visainstrument.write(command)
