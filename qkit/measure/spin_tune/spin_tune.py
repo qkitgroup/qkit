@@ -14,26 +14,88 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-################################################################## Julian Added
+
 import qkit
 import qkit.measure.measurement_base as mb
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
-################################################################## Old
 
 import numpy as np
+import logging
 
-
-##################################################################
 class IV_meas(mb.MeasureBase):
     def __init__(self, exp_name = "", sample = None):
         mb.MeasureBase.__init__(self, sample)
         
+        self._z_parameter = None
+        
         self._get_value_func = None
         self._get_tracedata_func = None
-        self.qviewkit_singleInstance = False
-        self.data_instance = None
-        #self._qvk_process = Which datatype you get?
         
+        self.gate_lib = {}
+        self.measurand = {"name" : "current", "unit" : "A"}
+    
+    def set_z_parameters(self, vec, coordname, set_obj, unit, dt=None): 
+        try:
+            self._z_parameter = self.Coordinate(coordname, unit, np.array(vec, dtype=float), set_obj, dt)
+            self._z_parameter.validate_parameters()
+        except Exception as e:
+            self._z_parameter = None
+            raise e
+        
+        
+    def add_gates(self, gate_dict):
+        if type(gate_dict) is not dict:
+            raise TypeError("%s: Cannot append %s to the gate library. Dict needed." % (__name__, gate_dict))
+        for gate_name, set_func in gate_dict.items():
+            if type(gate_name) is not str:
+                raise TypeError("%s: Cannot append %s to the gate library. Dict keys must be strings." % (__name__, gate_dict))
+            if  not callable(set_func):
+                raise TypeError("%s: Cannot append %s to the gate library. Dict values must be functions." % (__name__, gate_dict))
+        self.gate_lib.update(gate_dict)
+    
+    def reset_gates(self):
+        logging.warning("Gate library was reset and is empty.")
+        self.gate_lib = {}
+    
+    def set_x_gate(self, gate, vrange, mV = False):
+        if gate not in self.gate_lib.keys():
+            raise KeyError("%s: Cannot set %s as x_gate.. It could not be found in the gate library." % (__name__, gate))
+        if mV:
+            vrange = vrange / 1000
+       
+        try:
+            self._x_parameter = self.Coordinate(gate, "V", np.array(vrange, dtype=float), self.gate_lib[gate], 0)
+            self._x_parameter.validate_parameters()
+        except Exception as e:
+            self._x_parameter = None
+            raise e
+            
+    def set_y_gate(self, gate, vrange, mV = False):
+        if gate not in self.gate_lib.keys():
+            raise KeyError("%s: Cannot set %s as y_gate. It could not be found in the gate library." % (__name__, gate))
+        if mV:
+            vrange = vrange / 1000
+        
+        try:
+            self._y_parameter = self.Coordinate(gate, "V", np.array(vrange, dtype=float), self.gate_lib[gate], 0)
+            self._y_parameter.validate_parameters()
+        except Exception as e:
+            self._y_parameter = None
+            raise e
+            
+    def set_z_gate(self, gate, vrange, mV = False):
+        if gate not in self.gate_lib.keys():
+            raise KeyError("%s: Cannot set %s as z_gate. It could not be found in the gate library." % (__name__, gate))
+        if mV:
+            vrange = vrange / 1000
+       
+        try:
+            self._z_parameter = self.Coordinate(gate, "V", np.array(vrange, dtype=float), self.gate_lib[gate], 0)
+            self._z_parameter.validate_parameters()
+        except Exception as e:
+            self._z_parameter = None
+            raise e
+            
     def set_get_value_func(self, get_func, *args, **kwargs):
         if not callable(get_func):
             raise TypeError("%s: Cannot set %s as get_value_func. Callable object needed." % (__name__, get_func))
@@ -47,26 +109,38 @@ class IV_meas(mb.MeasureBase):
         self._get_value_func = None
         
     def measure1D(self):
-        #add useful information about the measurement
-        self._measurement_object_measurement_func = "measure1D_spin_tune"
+        self._measurement_object.measurement_func = "%s: measure1D" % __name__
         
-        pb = Progress_Bar(len(self._x_parameter.values))
-        
-        def create_file():
-            self._prepare_measurement_file(
-                    [self.data_instance])
-            self._open_qviewkit()
-        
-        #implement creation of save file right here?
-        #qkit.flow.start()
-        create_file()
+        pb = Progress_Bar(len(self._x_parameter.values))        
+        self._prepare_measurement_file([self.Data(name = self.measurand["name"], coords = [self._x_parameter], 
+                                                  unit = self.measurand["unit"], save_timestamp = False)])
+        self._open_qviewkit()
         try:
-            for index, x_val in enumerate(self._x_parameter.values):
+            for x_val in self._x_parameter.values:
                 self._x_parameter.set_function(x_val)
-                qkit.flow.sleep(self._x_parameter.wait_time)                
-                i = self._get_value_func()
-                self._datasets["Current"].append(i)
+                qkit.flow.sleep(self._x_parameter.wait_time)
+                self._datasets[self.measurand["name"]].append(self._get_value_func())
                 pb.iterate()
         finally:
-            qkit.flow.end()
+            self._end_measurement()
+            
+    def measure2D(self):
+        self._measurement_object.measurement_func = "%s: measure2D" % __name__
+        
+        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values))        
+        self._prepare_measurement_file([self.Data(name = self.measurand["name"], coords = [self._x_parameter, self._y_parameter], 
+                                                  unit = self.measurand["unit"], save_timestamp = False)])
+        self._open_qviewkit()
+        try:
+            for x_val in self._x_parameter.values:
+                sweepy = []
+                self._x_parameter.set_function(x_val)
+                qkit.flow.sleep(self._x_parameter.wait_time)
+                for y_val in self._y_parameter.values:
+                    self._y_parameter.set_function(x_val)
+                    qkit.flow.sleep(self._y_parameter.wait_time)
+                    sweepy.append(self._get_value_func())
+                    pb.iterate()
+                self._datasets[self.measurand["name"]].append(sweepy)
+        finally:
             self._end_measurement()
