@@ -659,7 +659,7 @@ class ADwin_Pro2(Instrument):
           input("Press Enter to continue.")
           sys.exit()
 
-    def initialize_gates(self, number,  lower_limit=0, upper_limit=0, speed=1.0):
+    def initialize_gates(self, number,  lower_limit=0, upper_limit=0, speed=0.2):
         '''This function sets the number of  gates (including current sources)
         and distributes them on the modules starting at module 1 and filling up
         all 8 outputs. Then module 2 etc. is filled up. The modules have to exist.
@@ -751,7 +751,7 @@ class ADwin_Pro2(Instrument):
         y_calib = 0.056 #in Tesla/Amps
         z_calib = 0.060 #in Tesla/Amps
         
-        x_max_current = 7.5 #maximal current in Amps through coil x before quench
+        x_max_current = 8.34 #maximal current in Amps through coil x before quench
         y_max_current = 5.0 #maximal current in Amps through coil y
         z_max_current = 7.0 #maximal current in Amps through coil z
         
@@ -808,9 +808,9 @@ class ADwin_Pro2(Instrument):
         y_calib = 0.056 #in Tesla/Amps
         z_calib = 0.060 #in Tesla/Amps
         
-        x_max_current = 7.5 #maximal current in Amps through coil x before quench
+        x_max_current = 8.34 #maximal current in Amps through coil x before quench
         y_max_current = 5.0 #maximal current in Amps through coil y
-        z_max_current = 5.0 #maximal current in Amps through coil z
+        z_max_current = 7.0 #maximal current in Amps through coil z
         
         #calculate field components in carthesian coordinates
         amplitude_x = amplitude * np.sin(np.deg2rad(theta+theta_corr)) * np.cos(np.deg2rad(phi+phi_corr))
