@@ -345,6 +345,8 @@ def _display_1D_data(self, graphicsView):
         For a box type the data to be displayed on the x-axis is the z-axis (highest coordinate) of the ds
         """
         dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['z_ds_url'])
+        self.TraceXSelector.setRange(-1 * self.ds.shape[0], self.ds.shape[0] - 1)
+        self.TraceYSelector.setRange(-1 * self.ds.shape[-1], self.ds.shape[-1] - 1)
         
         if self.TraceXValueChanged:
             """
@@ -465,7 +467,6 @@ def _display_2D_data(self, graphicsView):
         
         fill_x = dss[2].shape[0]
         fill_y = dss[2].shape[1]
-        
         self.TraceXValue.setText(self._getXValueFromTraceNum(self.ds, self.TraceXNum))
         self.TraceYValue.setText(self._getYValueFromTraceNum(self.ds, self.TraceYNum))
     if self.ds_type == ds_types['box']:
@@ -474,6 +475,8 @@ def _display_2D_data(self, graphicsView):
         setting the x- and y-axis are set.
         The ds-type box also has a z_ds_url.
         """
+        self.TraceXSelector.setRange(-1 * self.ds.shape[0], self.ds.shape[0] - 1)
+        self.TraceYSelector.setRange(-1 * self.ds.shape[-1], self.ds.shape[-1] - 1)
         if self.PlotTypeSelector.currentIndex() == 0:  # y_ds on x-axis; z_ds on y-axis
             if self.TraceXValueChanged:
                 # calc trace number from entered value
