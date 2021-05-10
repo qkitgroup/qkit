@@ -187,11 +187,11 @@ class MeasureBase(object):
                 self.validate_parameters()
                 c = [co.create_dataset(hdf_file) for co in self.coordinates]
                 if self.dim == 1:
-                    self.hdf_dataset = hdf_file.add_value_vector(self.name, x=c[0], **self.kwargs)
+                    self.hdf_dataset = hdf_file.add_value_vector(self.name, x=c[0], unit = self.unit, **self.kwargs)
                 elif self.dim == 2:
-                    self.hdf_dataset = hdf_file.add_value_matrix(self.name, x=c[0], y=c[1], **self.kwargs)
+                    self.hdf_dataset = hdf_file.add_value_matrix(self.name, x=c[0], y=c[1], unit = self.unit, **self.kwargs)
                 elif self.dim == 3:
-                    self.hdf_dataset = hdf_file.add_value_box(self.name, x=c[0], y=c[1], z=c[2], **self.kwargs)
+                    self.hdf_dataset = hdf_file.add_value_box(self.name, x=c[0], y=c[1], z=c[2], unit = self.unit, **self.kwargs)
             else:
                 logging.info(__name__ + ": Dataset for coordinate '{}' was already created.".format(self.name))
             return self.hdf_dataset
