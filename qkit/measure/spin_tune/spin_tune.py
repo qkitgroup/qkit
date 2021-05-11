@@ -30,6 +30,7 @@ class IV_meas(mb.MeasureBase):
         
         self._get_value_func = None
         self._get_tracedata_func = None
+        self.reverse2D = True
         
         self.gate_lib = {}
         self.measurand = {"name" : "current", "unit" : "A"}
@@ -124,7 +125,7 @@ class IV_meas(mb.MeasureBase):
         finally:
             self._end_measurement()
             
-    def measure2D(self):
+    def measure2D(self):        
         self._measurement_object.measurement_func = "%s: measure2D" % __name__
         
         pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values))        
@@ -132,15 +133,52 @@ class IV_meas(mb.MeasureBase):
                                                   unit = self.measurand["unit"], save_timestamp = False)])
         self._open_qviewkit()
         try:
+            direction = 1
             for x_val in self._x_parameter.values:
                 sweepy = []
                 self._x_parameter.set_function(x_val)
                 qkit.flow.sleep(self._x_parameter.wait_time)
-                for y_val in self._y_parameter.values:
-                    self._y_parameter.set_function(x_val)
+                
+                for y_val in self._y_parameter.values[::direction]:                    
+                    self._y_parameter.set_function(y_val)
                     qkit.flow.sleep(self._y_parameter.wait_time)
-                    sweepy.append(self._get_value_func())
-                    pb.iterate()
-                self._datasets[self.measurand["name"]].append(sweepy)
+                    #sweepy.append(self._get_value_func())
+                    sweepy.append(y_val*x_val)
+                    pb.iterate()         
+                    
+                self._datasets[self.measurand["name"]].append(sweepy[::direction])
+                if self.reverse2D: direction *= -1
+        finally:
+            self._end_measurement()
+            
+    def measure3D(self):        
+        self._measurement_object.measurement_func = "%s: measure3D" % __name__
+        
+        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * len(self._z_parameter.values))        
+        self._prepare_measurement_file([self.Data(name = self.measurand["name"], coords = [self._x_parameter, self._y_parameter, self._z_parameter], 
+                                                  unit = self.measurand["unit"], save_timestamp = False)])
+        self._open_qviewkit()
+        try:
+            for z_val in self._z_parameter.values:
+                self._z_parameter.set_function(z_val)
+                qkit.flow.sleep(self._z_parameter.wait_time)
+                
+                direction = 1
+                for x_val in self._x_parameter.values:
+                    sweepy = []
+                    self._x_parameter.set_function(x_val)
+                    qkit.flow.sleep(self._x_parameter.wait_time)
+                    
+                    for y_val in self._y_parameter.values[::direction]:                    
+                        self._y_parameter.set_function(y_val)
+                        qkit.flow.sleep(self._y_parameter.wait_time)
+                        #sweepy.append(self._get_value_func())
+                        sweepy.append(x_val * y_val * z_val)
+                        pb.iterate()
+                        
+                    self._datasets[self.measurand["name"]].append(sweepy[::direction])
+                    if self.reverse2D: direction *= -1
+                
+                self._datasets[self.measurand["name"]].next_matrix()
         finally:
             self._end_measurement()
