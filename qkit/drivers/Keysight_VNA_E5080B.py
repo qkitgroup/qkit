@@ -813,6 +813,10 @@ class Keysight_VNA_E5080B(Instrument):
         """
         if swtype in ('LIN','LOG','SEGM','POW','CW'):
             logging.debug(__name__ + ' : Setting sweep type to %s' % swtype)
+            if swtype == 'SEGM':
+                self._visainstrument.write('SENS%i:SEGM:POW:CONT ON' %(self._ci))
+                self._visainstrument.write('SENS%i:SEGM:ARB ON' %(self._ci))
+                self._visainstrument.write('SENS%i:SEGM:X:SPAC OBAS' %(self._ci))
             return self._visainstrument.write('SENS%i:SWE:TYPE %s' %(self._ci,swtype))
         else:
             logging.error(__name__ + ' : Illegal argument %s' % swtype)
@@ -913,11 +917,16 @@ class Keysight_VNA_E5080B(Instrument):
     
     def reconnect(self):
         self._visainstrument = visa.instrument(self._address)
-    
+
     def add_segment(self,center,span,nop,power):
         self.write("SENS:SEGM1:ADD")
-        self.write("SENS:SEGM1:FREQ:CENT %f"%center)
-        self.write("SENS:SEGM1:FREQ:SPAN %f"%span)
+        if span >= 0:
+            self.write("SENS:SEGM1:FREQ:CENT %f" % center)
+            self.write("SENS:SEGM1:FREQ:SPAN %f"%span)
+        else:
+            start, stop = center+numpy.array((-1, 1))*span/2
+            self.write("SENS:SEGM1:FREQ:STAR %f" % start)
+            self.write("SENS:SEGM1:FREQ:STOP %f" % stop)
         self.write("SENS:SEGM1:SWE:POIN %i"%nop)
         self.write("SENS:SEGM1:POW %f"%power)
         self.write("SENS:SEGM1 ON")
