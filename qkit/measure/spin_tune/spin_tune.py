@@ -109,6 +109,19 @@ class IV_meas(mb.MeasureBase):
         self._get_tracedata_func = lambda: get_func(*args, **kwargs)
         self._get_value_func = None
         
+    def _my_gauss(self, x_val, y_val, z_val = 0):
+        
+        def gauss(x, mu, sigma):
+            return np.exp(-(x - mu)**2 / (2 * sigma **2)) / (sigma * np.sqrt(2 * np.pi))
+        
+        mu_x = 2 - z_val/10
+        mu_y = 2           
+        sigma = 1
+        
+        result = gauss(x_val, mu_x, sigma) * gauss(y_val, mu_y, sigma)
+        
+        return result
+        
     def measure1D(self):
         self._measurement_object.measurement_func = "%s: measure1D" % __name__
         
@@ -142,15 +155,14 @@ class IV_meas(mb.MeasureBase):
                 for y_val in self._y_parameter.values[::direction]:                    
                     self._y_parameter.set_function(y_val)
                     qkit.flow.sleep(self._y_parameter.wait_time)
-                    #sweepy.append(self._get_value_func())
-                    sweepy.append(y_val*x_val)
-                    pb.iterate()         
+                    sweepy.append(self._get_value_func())
+                    pb.iterate()
                     
                 self._datasets[self.measurand["name"]].append(sweepy[::direction])
                 if self.reverse2D: direction *= -1
         finally:
             self._end_measurement()
-            
+    
     def measure3D(self):        
         self._measurement_object.measurement_func = "%s: measure3D" % __name__
         
@@ -159,21 +171,20 @@ class IV_meas(mb.MeasureBase):
                                                   unit = self.measurand["unit"], save_timestamp = False)])
         self._open_qviewkit()
         try:
-            for z_val in self._z_parameter.values:
-                self._z_parameter.set_function(z_val)
-                qkit.flow.sleep(self._z_parameter.wait_time)
+            for x_val in self._x_parameter.values:
+                self._x_parameter.set_function(x_val)
+                qkit.flow.sleep(self._x_parameter.wait_time)
                 
                 direction = 1
-                for x_val in self._x_parameter.values:
+                for y_val in self._y_parameter.values:
                     sweepy = []
-                    self._x_parameter.set_function(x_val)
-                    qkit.flow.sleep(self._x_parameter.wait_time)
+                    self._y_parameter.set_function(x_val)
+                    qkit.flow.sleep(self._y_parameter.wait_time)
                     
-                    for y_val in self._y_parameter.values[::direction]:                    
-                        self._y_parameter.set_function(y_val)
-                        qkit.flow.sleep(self._y_parameter.wait_time)
-                        #sweepy.append(self._get_value_func())
-                        sweepy.append(x_val * y_val * z_val)
+                    for z_val in self._z_parameter.values[::direction]:                    
+                        self._z_parameter.set_function(y_val)
+                        qkit.flow.sleep(self._z_parameter.wait_time)
+                        sweepy.append(self._get_value_func())
                         pb.iterate()
                         
                     self._datasets[self.measurand["name"]].append(sweepy[::direction])
