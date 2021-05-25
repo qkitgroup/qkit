@@ -22,7 +22,7 @@ from qkit.gui.notebook.Progress_Bar import Progress_Bar
 import numpy as np
 import logging
 
-class tuning(mb.MeasureBase):
+class Tuning(mb.MeasureBase):
     def __init__(self, exp_name = "", sample = None):
         mb.MeasureBase.__init__(self, sample)
         
