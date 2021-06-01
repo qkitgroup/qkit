@@ -18,9 +18,12 @@
 import qkit
 import qkit.measure.measurement_base as mb
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
+from qkit.measure.write_additional_files import get_instrument_settings
 
 import numpy as np
 import logging
+
+from numpy.random import rand
 
 class tuning(mb.MeasureBase):
     def __init__(self, exp_name = "", sample = None):
@@ -31,9 +34,11 @@ class tuning(mb.MeasureBase):
         self._get_value_func = None
         self._get_tracedata_func = None
         self.reverse2D = True
+        self.report_static_votlages = True
         
         self.gate_lib = {}
         self.measurand = {"name" : "current", "unit" : "A"}
+        
     
     def set_z_parameters(self, vec, coordname, set_obj, unit, dt=None): 
         try:
@@ -108,7 +113,26 @@ class tuning(mb.MeasureBase):
             raise TypeError("%s: Cannot set %s as get_tracedata_func. Callable object needed." % (__name__, get_func))
         self._get_tracedata_func = lambda: get_func(*args, **kwargs)
         self._get_value_func = None
+    
+    def _prepare_measurement_file(self, data, coords=()):
+        mb.MeasureBase._prepare_measurement_file(self, data, coords=())
         
+        if self.report_static_voltages:
+            self._static_voltages = self._data_file.add_textlist("static_voltages")
+            _instr_settings_dict = get_instrument_settings(self._data_file.get_filepath())
+           
+            string1 = "gate"
+            string2 = "_output_voltage_in_V"
+            active_gates = {}
+            
+            for parameters in _instr_settings_dict.values():
+                for (key, value) in parameters.items():
+                    if string1 in key and string2 in key and abs(value) > 0.0004:
+                        active_gates.update({key:value})
+            self._static_voltages.append(active_gates)
+        
+        
+    #testfuncs to be removed later
     def _my_gauss(self, x_val, y_val, z_val = 0):
         
         def gauss(x, mu, sigma):
@@ -121,7 +145,12 @@ class tuning(mb.MeasureBase):
         result = gauss(x_val, mu_x, sigma) * gauss(y_val, mu_y, sigma)
         
         return result
-        
+    
+    def _test_logfunc(self):
+        a = float(rand(1))
+        print(a)
+        return a
+    
     def measure1D(self):
         self._measurement_object.measurement_func = "%s: measure1D" % __name__
         
@@ -150,6 +179,7 @@ class tuning(mb.MeasureBase):
             for x_val in self._x_parameter.values:
                 sweepy = []
                 self._x_parameter.set_function(x_val)
+                self._acquire_log_functions()
                 qkit.flow.sleep(self._x_parameter.wait_time)
                 
                 for y_val in self._y_parameter.values[::direction]:                    
@@ -174,6 +204,7 @@ class tuning(mb.MeasureBase):
         try:            
             for x_val in self._x_parameter.values:
                 self._x_parameter.set_function(x_val)
+                self._acquire_log_functions()
                 qkit.flow.sleep(self._x_parameter.wait_time)
                 
                 direction = 1
