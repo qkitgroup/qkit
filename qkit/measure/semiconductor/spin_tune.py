@@ -25,7 +25,7 @@ import logging
 
 from numpy.random import rand
 
-class tuning(mb.MeasureBase):
+class Tuning(mb.MeasureBase):
     def __init__(self, exp_name = "", sample = None):
         mb.MeasureBase.__init__(self, sample)
         
