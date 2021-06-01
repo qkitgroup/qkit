@@ -34,7 +34,7 @@ class Tuning(mb.MeasureBase):
         self._get_value_func = None
         self._get_tracedata_func = None
         self.reverse2D = True
-        self.report_static_votlages = True
+        self.report_static_voltages = True
         
         self.gate_lib = {}
         self.measurand = {"name" : "current", "unit" : "A"}
