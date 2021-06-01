@@ -2,6 +2,7 @@
 # JSON en-/decoder for non-JSON standard data-types
 
 import json
+import dill
 import types
 import numpy as np
 import logging
@@ -23,6 +24,8 @@ class QkitJSONEncoder(json.JSONEncoder):
             return {'dtype': type(obj).__name__, 'content': obj.tolist()}
         # if type(obj) == types.InstanceType:  # no valid synatx in python 3 and probably not needed (MMW)
         #    return {'dtype' : type(obj).__name__, 'content': str(obj.get_name())}
+        if type(obj) == types.FunctionType:
+            return {"dtype" : type(obj).__name__, "content": dill.dumps(obj).decode("cp1252")}
         if uncertainties_enable or qkit.module_available('uncertainties'):
             if type(obj) in (uncertainties.core.Variable, uncertainties.core.AffineScalarFunc):
                 return {'dtype': 'ufloat',
@@ -42,6 +45,8 @@ class QkitJSONDecoder(json.JSONDecoder):
         if 'content' in obj and 'dtype' in obj and len(obj) == 2:
             if obj['dtype'] == 'ndarray':
                 return np.array(obj['content'])
+            if obj["dtype"] == "function":
+                return dill.loads(obj["content"].encode("cp1252"))
             if obj['dtype'] == 'ufloat':
                 if uncertainties_enable or qkit.module_available('uncertainties'):
                     return uncertainties.ufloat(nominal_value=obj['content']['nominal_value'],
