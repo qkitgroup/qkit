@@ -21,12 +21,55 @@ from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.write_additional_files import get_instrument_settings
 
 import numpy as np
-import logging
 
 from numpy.random import rand
 
 class Tuning(mb.MeasureBase):
+    """
+    A class containing measurement routines for spin qubit tuning.
+    
+    Parents
+    -------
+    Measurement_base
+    
+    Attributes
+    ----------
+    reverse2D : bool
+        Zig-zag sweeping during 2D Measurements
+    
+    report_static_voltages: bool
+        Create an extra entry in the .h5 file which reports the active (non-zero) gate voltages
+    
+    measurand : dict
+        Contains the name and the unit of the measurand
+    
+    Methods
+    -------
+    set_z_parameters(self, vec, coordname, set_obj, unit, dt=None): 
+        sets the z-axis for 3D Measurements.
+    
+    set_get_value_func(self, get_func, *args, **kwargs):
+        Sets the measurement function.
+    
+    measure1D() :
+        Starts a 1D measurement
+    
+    measure2D() :
+        Starts a 2D measurement
+        
+    measure3D() :
+        Starts a 3D measurement
+    """
     def __init__(self, exp_name = "", sample = None):
+        """
+        Parameters
+        ----------
+        exp_name : str, optional
+            Name of the current experiment
+        sample : qkit.measure.samples_class.Sample, optional
+            Sample used in the current experiment
+        
+        """
         mb.MeasureBase.__init__(self, sample)
         
         self._z_parameter = None
@@ -40,69 +83,60 @@ class Tuning(mb.MeasureBase):
         self.measurand = {"name" : "current", "unit" : "A"}
         
     
-    def set_z_parameters(self, vec, coordname, set_obj, unit, dt=None): 
+    def set_z_parameters(self, vec, coordname, set_obj, unit, dt=None):
+        """
+        Sets z-parameters for 2D and 3D scan.
+        In a 3D measurement, the x-parameters will be the "outer" sweep meaning for every x value all y values are swept and for each (x,y) value the bias is swept according to the set sweep parameters.
+
+        Parameters
+        ----------
+        vec : array_like
+            An N-dimensional array that contains the sweep values.
+        coordname : string
+            The coordinate name to be created as data series in the .h5 file.
+        set_obj : obj
+            An callable object to execute with vec-values.
+        unit : string
+            The unit name to be used in data series in the .h5 file.
+        dt : float, optional
+            The sleep time between z-iterations.
+
+        Returns
+        -------
+        None
+        
+        Raises
+        ------
+        Exception
+            If the creation of the coordinate fails.
+        """
         try:
             self._z_parameter = self.Coordinate(coordname, unit, np.array(vec, dtype=float), set_obj, dt)
             self._z_parameter.validate_parameters()
         except Exception as e:
             self._z_parameter = None
             raise e
-        
-        
-    def add_gates(self, gate_dict):
-        if type(gate_dict) is not dict:
-            raise TypeError("%s: Cannot append %s to the gate library. Dict needed." % (__name__, gate_dict))
-        for gate_name, set_func in gate_dict.items():
-            if type(gate_name) is not str:
-                raise TypeError("%s: Cannot append %s to the gate library. Dict keys must be strings." % (__name__, gate_dict))
-            if  not callable(set_func):
-                raise TypeError("%s: Cannot append %s to the gate library. Dict values must be functions." % (__name__, gate_dict))
-        self.gate_lib.update(gate_dict)
-    
-    def reset_gates(self):
-        logging.warning("Gate library was reset and is empty.")
-        self.gate_lib = {}
-    
-    def set_x_gate(self, gate, vrange, mV = False):
-        if gate not in self.gate_lib.keys():
-            raise KeyError("%s: Cannot set %s as x_gate.. It could not be found in the gate library." % (__name__, gate))
-        if mV:
-            vrange = vrange / 1000
-       
-        try:
-            self._x_parameter = self.Coordinate(gate, "V", np.array(vrange, dtype=float), self.gate_lib[gate], 0)
-            self._x_parameter.validate_parameters()
-        except Exception as e:
-            self._x_parameter = None
-            raise e
-            
-    def set_y_gate(self, gate, vrange, mV = False):
-        if gate not in self.gate_lib.keys():
-            raise KeyError("%s: Cannot set %s as y_gate. It could not be found in the gate library." % (__name__, gate))
-        if mV:
-            vrange = vrange / 1000
-        
-        try:
-            self._y_parameter = self.Coordinate(gate, "V", np.array(vrange, dtype=float), self.gate_lib[gate], 0)
-            self._y_parameter.validate_parameters()
-        except Exception as e:
-            self._y_parameter = None
-            raise e
-            
-    def set_z_gate(self, gate, vrange, mV = False):
-        if gate not in self.gate_lib.keys():
-            raise KeyError("%s: Cannot set %s as z_gate. It could not be found in the gate library." % (__name__, gate))
-        if mV:
-            vrange = vrange / 1000
-       
-        try:
-            self._z_parameter = self.Coordinate(gate, "V", np.array(vrange, dtype=float), self.gate_lib[gate], 0)
-            self._z_parameter.validate_parameters()
-        except Exception as e:
-            self._z_parameter = None
-            raise e
-            
+           
     def set_get_value_func(self, get_func, *args, **kwargs):
+        """
+        Sets the measurement function.
+        
+        Parameters
+        ----------
+        get_func: function
+            the get_func must return an int or float datatype. Arrays are not allowed.
+        *args, **kwargs:
+            Additional arguments to be passed to the get_func each time the measurement function is called.
+        
+        Returns
+        -------
+        None
+        
+        Raises
+        ------
+        TypeError
+            If the passed object is not callable.
+        """
         if not callable(get_func):
             raise TypeError("%s: Cannot set %s as get_value_func. Callable object needed." % (__name__, get_func))
         self._get_value_func = lambda: get_func(*args, **kwargs)
@@ -162,7 +196,7 @@ class Tuning(mb.MeasureBase):
             for x_val in self._x_parameter.values:
                 self._x_parameter.set_function(x_val)
                 qkit.flow.sleep(self._x_parameter.wait_time)
-                self._datasets[self.measurand["name"]].append(self._get_value_func())
+                self._datasets[self.measurand["name"]].append(float(self._get_value_func()))
                 pb.iterate()
         finally:
             self._end_measurement()
@@ -185,7 +219,7 @@ class Tuning(mb.MeasureBase):
                 for y_val in self._y_parameter.values[::direction]:                    
                     self._y_parameter.set_function(y_val)
                     qkit.flow.sleep(self._y_parameter.wait_time)
-                    sweepy.append(self._get_value_func())
+                    sweepy.append(float(self._get_value_func()))
                     #sweepy.append(self._my_gauss(x_val, y_val))
                     pb.iterate()
                     
@@ -216,7 +250,7 @@ class Tuning(mb.MeasureBase):
                     for z_val in self._z_parameter.values[::direction]:                    
                         self._z_parameter.set_function(z_val)
                         qkit.flow.sleep(self._z_parameter.wait_time)
-                        sweepy.append(self._get_value_func())
+                        sweepy.append(float(self._get_value_func()))
                         #sweepy.append(self._my_gauss(x_val, y_val, z_val))
                         pb.iterate()
                         
