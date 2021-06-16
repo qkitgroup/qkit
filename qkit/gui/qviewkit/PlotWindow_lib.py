@@ -385,21 +385,20 @@ def _display_1D_data(self, graphicsView):
             _axis_timestamp_formatting(graphicsView, y_data, units[1], names[1],"left"):
         if not self.user_setting_changed:
             self.plot_style = self.plot_styles['linepoint']
-            self.linestyle_selector.pointLine.setChecked(True)
     
     # if only one entry in the dataset --> point-style
     elif y_data.shape[-1] == 1:
         self.plot_style = self.plot_styles['point']
-        self.linestyle_selector.point.setChecked(True)
-    else:
-        self.linestyle_selector.line.setChecked(True)
 
     if self.plot_style == self.plot_styles['line']:
         graphicsView.plot(y=y_data, x=x_data, clear=True, pen=(200, 200, 100), connect='finite')
+        self.linestyle_selector.line.setChecked(True)
     elif self.plot_style == self.plot_styles['linepoint']:
         graphicsView.plot(y=y_data, x=x_data, clear=True, pen=(200, 200, 100), connect='finite', symbol='+')
+        self.linestyle_selector.pointLine.setChecked(True)
     elif self.plot_style == self.plot_styles['point']:
         graphicsView.plot(y=y_data, x=x_data, clear=True, pen=None, symbol='+')
+        self.linestyle_selector.point.setChecked(True)
     
     plIt = graphicsView.getPlotItem()
     plVi = plIt.getViewBox()

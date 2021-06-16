@@ -607,6 +607,11 @@ class PlotWindow(QWidget,Ui_Form):
         histogram = QAction('Histogram', self.qvkMenu, checkable=True)
         self.qvkMenu.addAction(histogram)
         histogram.triggered.connect(self.setHistogram)
+
+        self.manipulation_menu = {'dB': dB_scale, 'wrap': phase_wrap, 'linear': linear_correction, 'sub_offset_avg_y': offset_correction, 'norm_data_avg_x':
+            norm_correction, 'histogram': histogram}
+        
+        self.updateManipulationMenu()
         
         self.qvkMenu.addSeparator()
         
@@ -619,6 +624,10 @@ class PlotWindow(QWidget,Ui_Form):
         
         if menu is not None:
             menu.addMenu(self.qvkMenu)
+    
+    def updateManipulationMenu(self):
+        for m in self.manipulation_menu:
+            self.manipulation_menu[m].setChecked(bool(self.manipulation & self.manipulations[m]))
 
     @pyqtSlot()
     def setPointMode(self):
