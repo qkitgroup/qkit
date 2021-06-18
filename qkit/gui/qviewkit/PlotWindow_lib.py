@@ -424,8 +424,53 @@ def _display_1D_data(self, graphicsView):
                 pass
             
             self._last_x_pos = xval
-    
+            if self.distance_measure[0] is True: # a ROI is open
+                _, x0, y0, [roi, tx, ty,td] = self.distance_measure
+                roi.setSize((xval - x0, yval - y0))
+                tx.setText("%s" % pg.siFormat(xval - x0, suffix=units[0]))
+                tx.setPos((xval + x0) / 2, min(yval, y0))
+                ty.setText("%s" % pg.siFormat(-y0 + yval, suffix=units[1]))
+                ty.setPos(max(xval, x0), (yval + y0) / 2)
+                try:
+                    sx, Sx = pg.siScale((xval - x0))
+                    td.setText("%s/%s%s" % (pg.siFormat((yval - y0) / (xval - x0) / sx, suffix=units[1]), Sx, units[0]))
+                except ZeroDivisionError:
+                    td.setText("--")
+                td.setPos(min(xval, x0), max(yval, y0))
+
     self.proxy = pg.SignalProxy(plVi.scene().sigMouseMoved, rateLimit=15, slot=mouseMoved)
+    
+    def middleClick(mce):
+        mce = mce[0]
+        if mce.button() == 4:
+            mce.accept()
+            mousePoint = plVi.mapSceneToView(mce.scenePos())
+            xval = mousePoint.x()
+            yval = mousePoint.y()
+            if plIt.ctrl.logXCheck.isChecked():  # logarithmic scale on x axis
+                xval = 10 ** xval
+            if plIt.ctrl.logYCheck.isChecked():  # logarithmic scale on x axis
+                yval = 10 ** yval
+            
+            
+            if self.distance_measure[0] is False:
+                if len(self.distance_measure) >= 4:
+                    [plVi.removeItem(i) for i in self.distance_measure[-1]]
+                roi = pg.RectROI((xval, yval), (0, 0))
+                tx = pg.TextItem("")
+                tx.setPos(xval, yval)
+                ty = pg.TextItem("")
+                ty.setPos(xval, yval)
+                td = pg.TextItem("")
+                td.setPos(xval, yval)
+                self.distance_measure = [True, xval, yval, [roi, tx, ty,td]]
+                [plVi.addItem(i) for i in self.distance_measure[-1]]
+            else:
+                self.distance_measure[0] = False
+
+    self.distance_measure = self.__dict__.get('distance_measure', [False])
+
+    self.proxy2 = pg.SignalProxy(plVi.scene().sigMouseClicked,slot=middleClick)
 
 
 def _display_2D_data(self, graphicsView):
@@ -568,34 +613,87 @@ def _display_2D_data(self, graphicsView):
     
     def mouseMoved(mpos):
         mpos = mpos[0]
-        if not self.obj_parent.liveCheckBox.isChecked():
-            if imIt.sceneBoundingRect().contains(mpos):
-                mousePoint = imIt.mapFromScene(mpos)
-                x_index = int(mousePoint.x())
-                y_index = int(mousePoint.y())
-                if x_index >= 0 and y_index >= 0:
-                    if x_index < fill_x and y_index < fill_y:
-                        # Check this for < or <=
-                        # Also the x0s and dxs
-                        
-                        xval = scales[0][0] + x_index * scales[0][1]
-                        yval = scales[1][0] + y_index * scales[1][1]
-                        zval = data[x_index][y_index]
-                        self.PointX.setText("X: %.6e %s" % (xval, units[0]))
-                        self.PointY.setText("Y: %.6e %s" % (yval, units[1]))
-                        self.PointZ.setText("Z: %.6e %s" % (zval, units[2]))
-                        self.data_coord = "%g\t%g\t%g" % (xval, yval, zval)
+        mousePoint = imIt.mapFromScene(mpos)
+        x_index = int(mousePoint.x())
+        y_index = int(mousePoint.y())
         
+        xval = scales[0][0] + x_index * scales[0][1]
+        yval = scales[1][0] + y_index * scales[1][1]
+        if 0<= x_index < fill_x and 0 <= y_index < fill_y:
+            zval = data[x_index][y_index]
         else:
-            xval = 0
-            yval = 0
             zval = 0
-            self.PointX.setText("X: %.6e %s" % (xval, units[0]))
-            self.PointY.setText("Y: %.6e %s" % (yval, units[1]))
-            self.PointZ.setText("Z: %.6e %s" % (zval, units[2]))
-            self.data_coord = "%g\t%g\t%g" % (xval, yval, zval)
-    
+        self.PointX.setText("X: %.6e %s" % (xval, units[0]))
+        self.PointY.setText("Y: %.6e %s" % (yval, units[1]))
+        self.PointZ.setText("Z: %.6e %s" % (zval, units[2]))
+        self.data_coord = "%g\t%g\t%g" % (xval, yval, zval)
+
+        if self.distance_measure[0] is True: # a ROI is open
+            _, x0, y0, [roi, tx, ty, td] = self.distance_measure
+            roi.setSize((xval - x0, yval - y0))
+            tx.setText("%s" % pg.siFormat(xval - x0, suffix=units[0]))
+            tx.setPos((xval + x0) / 2, min(yval, y0))
+            ty.setText("%s" % pg.siFormat(-y0 + yval, suffix=units[1]))
+            ty.setPos(max(xval, x0), (yval + y0) / 2)
+            try:
+                sx,Sx = pg.siScale((xval - x0))
+                td.setText("%s/%s%s" % (pg.siFormat((yval - y0) / (xval - x0)/sx, suffix=units[1]), Sx, units[0]))
+            except ZeroDivisionError:
+                td.setText("--")
+            td.setPos(min(xval, x0), max(yval, y0))
+        
     self.proxy = pg.SignalProxy(imVi.scene().sigMouseMoved, rateLimit=15, slot=mouseMoved)
+    def middleClick(mce):
+        mce = mce[0]
+        if mce.button() == 4:
+            mce.accept()
+            mousePoint = imIt.mapFromScene(mce.scenePos())
+            xval = scales[0][0] + int(mousePoint.x()) * scales[0][1]
+            yval = scales[1][0] + int(mousePoint.y()) * scales[1][1]
+
+            if self.distance_measure[0] is False:
+                if len(self.distance_measure) >=4:
+                    [imVi.removeItem(i) for i in self.distance_measure[-1]]
+                roi = pg.RectROI((xval, yval), (0,0))
+                tx = pg.TextItem("")
+                tx.setPos(xval, yval)
+                ty = pg.TextItem("")
+                ty.setPos(xval,yval)
+                td = pg.TextItem("")
+                td.setPos(xval, yval)
+                self.distance_measure = [True,xval,yval,[roi, tx, ty, td]]
+                [imVi.addItem(i) for i in self.distance_measure[-1]]
+            else:
+                self.distance_measure[0] = False
+                
+    self.distance_measure = self.__dict__.get('distance_measure',[False])
+    self.proxy2 = pg.SignalProxy(imVi.scene().sigMouseClicked,slot=middleClick)
+    
+    """
+        def middleClick(mce):
+        mce = mce[0]
+        if mce.button() == 4:
+            mce.accept()
+            mousePoint = imIt.mapFromScene(mce.scenePos())
+            xval = scales[0][0] + int(mousePoint.x()) * scales[0][1]
+            yval = scales[1][0] + int(mousePoint.y()) * scales[1][1]
+
+            if self.distance_measure is False:
+                self.distance_measure = [xval,yval]
+            elif type(self.distance_measure) is list and len(self.distance_measure) == 2:
+                roi = pg.RectROI((xval,yval),(self.distance_measure[0]-xval, self.distance_measure[1]-yval))
+                tx = pg.TextItem("%s" % pg.siFormat(-self.distance_measure[0] + xval, suffix=units[0]))
+                tx.setPos((xval+self.distance_measure[0])/2,min(yval,self.distance_measure[1]))
+                ty = pg.TextItem("%s" % pg.siFormat(-self.distance_measure[1] + yval, suffix=units[1]))
+                ty.setPos(max(xval,self.distance_measure[0]),(yval + self.distance_measure[1]) / 2)
+                self.distance_measure = [roi,tx,ty]
+                [imVi.addItem(i) for i in self.distance_measure]
+            else:
+                [imVi.removeItem(i) for i in self.distance_measure]
+                self.distance_measure = [xval, yval]
+    self.distance_measure = False
+    self.proxy2 = pg.SignalProxy(imVi.scene().sigMouseClicked,slot=middleClick)
+    """
 
 
 def _display_table(self, graphicsView):
