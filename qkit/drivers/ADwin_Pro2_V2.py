@@ -1,7 +1,9 @@
 '''
+IMPORTANT:
+This file is using the ADwin process ramp_input_V2.TC1
+
 TO-DO: 
-    set_ramping_speed does not wrap
-    set_voltage_range does not wrap
+    if ADwin is not booted then it has to be manually booted with ADbasic once
 
 '''
 
@@ -24,15 +26,23 @@ TO-DO:
 
 
 'Parameters used on ADwin'
+'Data_178-Data_184: INTERNAL array buffers for parallel setting of gates and oversampling. Do not change from outside!
+'Data_185[i]: gates which are to be set in parallel. so Data_185=[15, 20, 1 ,10, 0, 0, 0,..] 
+'Data_186[i]: voltage range of outputs. 10 means +-10V. This is only a storage for QKit calculations. Not used by ADwin directly.
+'Data_187[i]: steps in one period of oversampling in which the lower bit is kept. The index corresponds to the gates in Data_188. So gate Data_188[i] is Data_187[i] steps in lower bit.
+'Data_188[i]: gates which are oversampled continuously. so Data_188=[15, 20, 1 ,10, 0, 0, 0,..]  
 'Data_190[i]: analog input gate i'
 'Data_191[i]: output number variable => set output number on adwin module for each gate'
 'Data_192[i]: limit error variable => 1 if voltage limit exceeded or limits not set'
 'Data_193[i]: module numbers of gates'
 'Data_194[i]: individual lower limit for output voltages, default=0V'
 'Data_195[i]: individual upper limit for output voltages, default=0V'
+'Data_197[i]: ramp start value, memory of last voltage set on output. INTERN USE ONLY!'
+'Data_198[i]: ramp value at the moment which ist set to DAC. for single channel or parallel ramping 
 'Data_199[i]: safe port bit => 1 if safe port, 0 if not (default)'
 'Data_200[i]: ramp stop value'
 
+'Par_68:      number of steps for one period for oversampling, usually between 10 to 100
 'Par_69:      number of averages for input measurement'
 'Par_71:      analog input module number'
 'Par_75:      number of gates used, default=200 '
@@ -55,7 +65,7 @@ class ADwin_Pro2_V2(Instrument):
     """
            DOCUMENTATION
 
-           __init__: ADwin_ProII_SemiCon (parent class: ADwin_ProII)
+           __init__: 
 
              initialization parameters:
                  name (STRING):
@@ -88,8 +98,13 @@ class ADwin_Pro2_V2(Instrument):
                  output_number (INT)
              
              INPORTATANT FUNCTIONS:
+                 set_out
                  set_out_parallel
-                 initialize_gates(number, lower_limit, upper_limit)
+                 initialize_gates(number, lower_limit, upper_limit, speed)
+                 get_input_voltage
+                 set_oversampling_state
+                 set_oversampling_division
+                 set_voltage_range
                  set_field_1d(direction, amplitude)
                  set_field_3d(amplitude, theta, phi)
                  
@@ -134,7 +149,15 @@ class ADwin_Pro2_V2(Instrument):
         self.add_function('load_process')
         self.add_function("digit_to_volt")
         self.add_function("volt_to_digit")
-        self.add_function('individual_voltage_limits_setter_in_V')     
+        self.add_function('individual_voltage_limits_setter_in_V')    
+        self.add_function('set_out')
+        self.add_function('get_out')
+        self.add_function('set_out_parallel')
+        self.add_function('oversampled_gates')
+        self.add_function('set_field_1d')
+        self.add_function('set_field_3d')
+        self.add_function('initialize_gates')
+        self.add_function('IV_curve')
         
         
         #implement parameters
@@ -223,7 +246,7 @@ class ADwin_Pro2_V2(Instrument):
         
         #ramping speed normal ports in V/s
         self.add_parameter('ramping_speed_normal_ports', type=float,
-            flags=Instrument.FLAG_GET,
+            flags=Instrument.FLAG_GETSET,
             minval=0.0, maxval=100.0)
         
         #state of gate X if it uses oversampling =1 or not =0
@@ -242,7 +265,7 @@ class ADwin_Pro2_V2(Instrument):
         #voltage ranges of outputs. symmetric around 0V. 
         #a value of 10 means +-10V
         self.add_parameter('voltage_range', type=float,
-            flags=Instrument.FLAG_GET,
+            flags=Instrument.FLAG_GETSET,
             channels=(1,200), channel_prefix='gate%d_',
             minval=-10, maxval=10, units='V',
             tags=['sweep'])
@@ -338,7 +361,7 @@ class ADwin_Pro2_V2(Instrument):
         logging.debug(__name__ +': reading all Global LONG variables')
         return self.adw.Get_Par_All()
         
-    def _do_get_input_voltage(self, channel, averages=100):
+    def _do_get_input_voltage(self, channel, averages=1000):
         """Read out voltage of analog input 'X' (ADwin parameter: Data_190[X]).
         module number is fixed in basic file and cannot be changed by driver yet.
         wrapped as self.get_ch1_input_voltage()
@@ -354,7 +377,7 @@ class ADwin_Pro2_V2(Instrument):
             self._activate_ADwin(2)
             #wait for ADwin to finish:
             while self.get_Par_76_global_long() != 0:
-                time.sleep(1e-4)          
+                pass         
             digitvalue=self.adw.GetData_Long(190, channel, 1)[0]
             voltvalue=self.digit_to_volt(digitvalue, channel, bit_format=16)
             logging.info(__name__ +': reading voltage analog input %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
@@ -420,7 +443,11 @@ class ADwin_Pro2_V2(Instrument):
             #for oversampling:
             #number of steps to stay in lower bit= round(overall_number_steps(1- (bits%1)))
             steps_lower_bit = int(round(self.get_oversampling_divisions()*(1- (result_bits%1))))
-            result = [int(round(result_bits)), steps_lower_bit] 
+            result = [int(np.trunc(result_bits)), steps_lower_bit] 
+            if steps_lower_bit==0:
+                result[0] = result[0] + 1
+                result[1] = 10
+            #print(result)
             logging.debug(__name__ + ' : converting V to digits, digit value: '+ str(result)+'\n')
             return result
     
@@ -441,7 +468,7 @@ class ADwin_Pro2_V2(Instrument):
             logging.info(__name__ +': setting number of oversampling steps in lower bit to %d.'%steps_lower_bit)
         else:
             value, _ =self.volt_to_digit(new, channel)
-            logging.info(__name__ +': oversapling not used.')
+            logging.info(__name__ +': oversampling not used on gate %d.'%channel)
             
         logging.info(__name__ +': setting output voltage gate %d to %f V'%(channel,new))
         self.adw.SetData_Long([value], 200, channel, 1)
@@ -450,7 +477,9 @@ class ADwin_Pro2_V2(Instrument):
         self._activate_ADwin(1)
         #wait for ADwin to finish
         while self.get_Par_76_global_long() != 0:
-            time.sleep(1e-5)
+            pass
+            
+            
                    
         #check if voltage limit was exceeded. 
         if self.adw.GetData_Long(192,channel,1)[0] == 1:
@@ -474,17 +503,27 @@ class ADwin_Pro2_V2(Instrument):
         logging.info(__name__ +': reading output voltage gate %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
         return voltvalue
     
-    
-    def set_out_parallel(self, voltages, channels):
-        '''Set output voltage of many channels in the array 'channel' to values in the array 'voltage'.
+    def set_out(self, gate, voltage):
+        '''Allows easier access to set function for many gates.
+        '''
+        self.set('gate%d_out'% gate, voltage)
+        
+    def get_out(self, gate):
+        '''Allows easier access to get function for many gates.
+        '''
+        self.get('gate%d_out'% gate)
+
+    def set_out_parallel(self, channels, voltages):
+        '''set_out_parallel(channels, voltages)
+        Set output voltage of many channels in the array 'channel' to values in the array 'voltage'.
         Safe ports will respect the maximum ramping speed of 0.5V/s which is checked 
         in the ADwin file. 
         The gates which are set in parallel are given to the Data_185 array. Voltage limit errors
         are reported in Data_192[i] of each channel.
         
         parameters:
-            new (FLOAT): new voltage in V 
-            channel (INT): gate index 'X'
+            channels (list(INT)): gates to be set
+            voltages (list(FLOAT)): new voltages in V 
         '''
         #The maximum number of gates which can be set in parallel as defined by the for-loop in the ADbasic file:
         max_num_channels = 10
@@ -520,7 +559,7 @@ class ADwin_Pro2_V2(Instrument):
             self._activate_ADwin(3)
             #wait for ADwin to finish
             while self.get_Par_76_global_long() != 0:
-                time.sleep(1e-5)
+                pass
                        
             #check if voltage was out of bounds:
             limit_error_Data = list(self.adw.GetData_Long(192,1,self.get_number_of_gates()))
@@ -558,7 +597,7 @@ class ADwin_Pro2_V2(Instrument):
         self._activate_ADwin(1)
         #wait for ADwin to finish
         while self.get_Par_76_global_long() != 0:
-            time.sleep(1e-5)
+            pass
                    
         #check if voltage limit was exceeded. 
         if self.adw.GetData_Long(192,channel,1)[0] == 1:
@@ -801,7 +840,7 @@ class ADwin_Pro2_V2(Instrument):
                     
             elif state==1:
                 if channel in oversampled_gates_Data:
-                    logging.warning(__name__ +': gate %d already oversampled.' %channel)
+                    logging.info(__name__ +': gate %d already oversampled.' %channel)
                 else:
                     #add channel 
                     oversampled_gates_new = oversampled_gates_Data + [channel]
@@ -1123,8 +1162,7 @@ class ADwin_Pro2_V2(Instrument):
         if output != None and input_gate!= None:
             for voltage in V_values_negative:        
                 data_V.append(voltage/V_div*1000) #voltage in mV
-                self.set('gate%d_out'% output, voltage)
-                time.sleep(1e-6)
+                self.set('gate%d_out'% output, voltage)                
                 current = self.get('ch%d_input_voltage'% input_gate, averages)/IV_gain
                 data_I.append(current) 
                 if abs(current) > I_max:
@@ -1132,7 +1170,6 @@ class ADwin_Pro2_V2(Instrument):
             for voltage in V_values_positive:        
                 data_V.append(voltage/V_div*1000) #voltage in mV
                 self.set('gate%d_out'% output, voltage)
-                time.sleep(1e-6)
                 current = self.get('ch%d_input_voltage'% input_gate, averages)/IV_gain
                 data_I.append(current) 
                 if abs(current) > I_max:
@@ -1154,12 +1191,31 @@ if __name__ == "__main__":
 
     qkit.start()
     #1)create instance - implement global voltage limits when creating instance
-    bill = qkit.instruments.create('bill', 'ADwin_Pro2', processnumber=1, processpath='/V/GroupWernsdorfer/People/Daniel/ADwin/ramp_input_oversampling_parallel.TC1',
-                                   devicenumber=1, global_lower_limit_in_V=-1, global_upper_limit_in_V=3, global_lower_limit_in_V_safe_port=-1, 
-                                   global_upper_limit_in_V_safe_port=3)
-
+    #bill with oversampling and parallel gate setting
+    bill = qkit.instruments.create('bill', 'ADwin_Pro2_V2',processnumber=1, 
+                                   processpath='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ramp_input_V2.TC1', 
+                                   devicenumber=1, 
+                                   global_lower_limit_in_V=-2.5, 
+                                   global_upper_limit_in_V=1.0,
+                                   global_lower_limit_in_V_safe_port=-10,
+                                   global_upper_limit_in_V_safe_port=10)
+    
+    gate_num = 24
+    ohmics = np.arange(24, gate_num+1)
+    
+    bill.initialize_gates(gate_num,lower_limit=-2, upper_limit=0.8, speed=0.2)
+    for ohmic in ohmics:
+        bill.individual_voltage_limits_setter_in_V(-10e-3, 10e-3, ohmic)
+    
     print(10*'*'+'Initialization complete'+10*'*')
-    bill.initialize_gates(8, -1, 1, speed=1)
     #bill.set_gate2_out(0.5)
-   # bill.get_ch1_input_voltage()
+    #bill.set_out(5, 0.5)
+    #bill.get_ch1_input_voltage()
+   
+    #oversampling parameters
+    bill.set_oversampling_divisions(10)
+    gates_oversampled = [5]
+    for gate in gates_oversampled:
+        bill.set("gate%d_oversampling_state"%gate, 1)
+
     
