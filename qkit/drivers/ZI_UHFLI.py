@@ -22,14 +22,6 @@ from time import sleep
 import numpy as np
 
 class ZI_UHFLI(Instrument):
-    '''
-    This is the python driver for the Anritsu MS4642A Vector Network Analyzer
-
-    Usage:
-    Initialise with
-    <name> = instruments.create('<name>', address='<GPIB address>', reset=<bool>)
-    
-    '''
 
     def __init__(self, name, device_id):
 
