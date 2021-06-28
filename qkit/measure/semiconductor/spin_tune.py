@@ -186,6 +186,7 @@ class Tuning(mb.MeasureBase):
         return a
     
     def measure1D(self):
+        """"Starts a 1D - measurement along the x-coordinate."""
         self._measurement_object.measurement_func = "%s: measure1D" % __name__
         
         pb = Progress_Bar(len(self._x_parameter.values))        
@@ -201,7 +202,8 @@ class Tuning(mb.MeasureBase):
         finally:
             self._end_measurement()
             
-    def measure2D(self):        
+    def measure2D(self):
+        """Starts a 2D - measurement, with y being the inner and x the outer loop coordinate."""
         self._measurement_object.measurement_func = "%s: measure2D" % __name__
         
         pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values))        
@@ -228,7 +230,8 @@ class Tuning(mb.MeasureBase):
         finally:
             self._end_measurement()
     
-    def measure3D(self):        
+    def measure3D(self):
+        """Starts a 3D - measurement, with z being the innermost, y the inner and x the outer loop coordinate."""
         self._measurement_object.measurement_func = "%s: measure3D" % __name__
         
         pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * len(self._z_parameter.values))        
