@@ -156,12 +156,12 @@ class Tuning(mb.MeasureBase):
             _instr_settings_dict = get_instrument_settings(self._data_file.get_filepath())
            
             string1 = "gate"
-            string2 = "_output_voltage_in_V"
+            string2 = "_out"
             active_gates = {}
             
             for parameters in _instr_settings_dict.values():
                 for (key, value) in parameters.items():
-                    if string1 in key and string2 in key and abs(value) > 0.0004:
+                    if string1 in key and key.endswith(string2) and abs(value) > 0.0004:
                         active_gates.update({key:value})
             self._static_voltages.append(active_gates)
         
