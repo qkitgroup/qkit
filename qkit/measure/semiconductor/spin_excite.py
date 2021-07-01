@@ -210,9 +210,6 @@ class Exciting(mb.MeasureBase):
                 else:
                     avg += self._get_tracedata_func()
                     avg = avg / (it + 1)
-                    arr = np.zeros(len(self._get_tracedata_func()))
-                    self._datasets[self.measurand["name"]].ds.read_direct(arr)
-                    print(arr)
                     self._datasets[self.measurand["name"]].ds.write_direct(np.ascontiguousarray(np.atleast_1d(avg)))
                     self._datasets[self.measurand["name"]].ds.attrs['iteration'] = it + 1
                     self._data_file.flush()
