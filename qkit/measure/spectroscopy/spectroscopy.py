@@ -357,6 +357,16 @@ class spectrum(object):
         data_amp, data_pha = self.vna.get_tracedata()
         data_real, data_imag = self.vna.get_tracedata('RealImag')
 
+        if hasattr(self.vna,"_edel"):
+            #phase correction for electrical delay
+            slope_corr=self.vna._edel*2*np.pi
+
+            data_pha=np.unwrap(data_pha)
+            for i,f in enumerate(self._freqpoints):
+                data_pha[i]=data_pha[i]+slope_corr*f
+
+            data_pha=(data_pha + np.pi) % (2*np.pi)-np.pi
+
         self._data_amp.append(data_amp)
         self._data_pha.append(data_pha)
         self._data_real.append(data_real)
