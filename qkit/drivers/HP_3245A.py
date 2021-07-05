@@ -168,7 +168,7 @@ class HP_3245A(Instrument):
             self.write('APPLY DCI %.1fE-3' % (abs(current)/1e-3))
     
     def do_get_current(self):
-        if self.ask('APPLY?' == "DCI":
+        if self.ask('APPLY?') == "DCI":
             return self.ask('OUTPUT?')
         else:
             print("Not in current mode.")
@@ -198,7 +198,7 @@ class HP_3245A(Instrument):
             self.write('APPLY DCV %.1fE-0' % (abs(voltage)))
 
     def do_get_voltage(self):
-        if self.ask('APPLY?' == "DCV":
+        if self.ask('APPLY?') == "DCV":
             return self.ask("OUTPUT?")
         else:
             print("Not in voltage mode.")

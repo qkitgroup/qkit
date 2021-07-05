@@ -33,18 +33,19 @@ else:
         def add_function(self,name):
             pass
 
-import visa_prologix as visa
+import qkit
+from qkit import visa
 from time import sleep,clock
 import sys
 
 class HP_34401A(Instrument):
 
-    def __init__(self, name, address,ip=""):
+    def __init__(self, name, address):
 
         Instrument.__init__(self, name, tags=['physical'])
 
         self._address = address
-        self._visainstrument = visa.instrument(self._address,ip=ip)
+        self._visainstrument = visa.instrument(self._address)
 
         self.set_default() #reset
 
@@ -212,7 +213,7 @@ class HP_34401A(Instrument):
 
 ## testing:
 
-if __name__ == "__main__":
+""" if __name__ == "__main__":
 
     hp_mm = HP_34401A("HP_34401A", "GPIB::17", ip="192.168.0.100")
 
@@ -233,5 +234,5 @@ if __name__ == "__main__":
 
     print hp_mm.measure()
 
-    print hp_mm.get_measurement_mode()
+    print hp_mm.get_measurement_mode() """
 

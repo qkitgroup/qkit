@@ -60,6 +60,7 @@ class Keysight_VNA_E5071C(Instrument):
         self._start = 0
         self._stop = 0
         self._nop = 0
+        self._edel=0
 
         # Implement parameters
         self.add_parameter('nop', type=int,
@@ -83,11 +84,13 @@ class Keysight_VNA_E5071C(Instrument):
         self.add_parameter('channel_index', type=int)
         self.add_parameter('sweeptime',     type=float, minval=0, maxval=1e3,   units='s',flags=Instrument.FLAG_GET)
         self.add_parameter('sweeptime_averages', type=float,minval=0, maxval=1e3,units='s',flags=Instrument.FLAG_GET)
-        self.add_parameter('edel',          type=float,minval=-10, maxval=10,units='s',channels=(1, self._pi), channel_prefix = 'port%d_') # the channel option for qtlab's Instument class is used here to easily address the two VNA ports
+        self.add_parameter('edel',          type=float,minval=-10, maxval=10,units='s') #JB 2021
+        #self.add_parameter('edel',          type=float,minval=-10, maxval=10,units='s',channels=(1, self._pi), channel_prefix = 'port%d_') # the channel option for qtlab's Instument class is used here to easily address the two VNA ports
         self.add_parameter('edel_status',   type=bool) # legacy name for parameter. This corresponds to the VNA's port extension values.
         self.add_parameter('sweep_mode',    type=str)  #JDB This parameter switches on/off hold. The hold function below does the same job, this is just for code compatibility to the agilent and anritsu drivers.
         self.add_parameter('sweep_type',    type=str)
         self.add_parameter('active_trace',  type=int)
+        self.add_parameter('meas_parameter', type=str)
         
         #Triggering Stuff
         self.add_parameter('trigger_source', type=str)
@@ -129,8 +132,7 @@ class Keysight_VNA_E5071C(Instrument):
         self.get_edel_status()
         self.get_cw()
         self.get_cwfreq()
-        for port in range(self._pi):
-            self.get('port%d_edel' % (port+1))
+        self.get_edel()
         
     ###
     #Communication with device
@@ -531,25 +533,29 @@ class Keysight_VNA_E5071C(Instrument):
         return self._sweep
 
 
-    def do_set_edel(self, val,channel):  # MP 04/2017
+    def do_set_edel(self, val):  # JB 2021
 
         '''
         Set electrical delay
 
         '''
-        logging.debug(__name__ + ' : setting port %s extension to %s sec' % (channel, val))
-        self.write('SENS1:CORR:EXT:PORT%i:TIME %.12f' % (channel, val))
+        logging.debug(__name__ + ' : setting port extension to %s sec' % ( val))
+        #self.write('SENS1:CORR:EXT:PORT%i:TIME %.12f' % (channel, val))
+        self.write("CALC:CORR:EDEL:TIME %.12f"%(val))
+        self._edel=val
+        return
         
     
-    def do_get_edel(self, channel):   # MP 04/2017
+    def do_get_edel(self):   # JB 2021
 
         '''
         Get electrical delay
 
         '''
-        logging.debug(__name__ + ' : getting port %s extension' % channel)
-        self._edel = float(self.ask('SENS1:CORR:EXT:PORT%i:TIME?'% channel))
-        return  self._edel
+        logging.debug(__name__ + ' : getting port extension')
+        #self._edel = float(self.ask('SENS1:CORR:EXT:PORT%i:TIME?'% channel))
+        self._edel = float(self.ask("CALC:CORR:EDEL:TIME?"))
+        return self._edel
         
     def do_set_edel_status(self, status):   # AS 04/2019
 
@@ -844,7 +850,30 @@ class Keysight_VNA_E5071C(Instrument):
             
         else:
             logging.debug(__name__ + ' : Illegal argument %s'%(swtype))
-    
+
+    def do_get_meas_parameter(self):
+        '''
+        Gets the current measurement parameter
+        Input:
+            None
+        Output:
+            String, one of:
+                S11|S21|S31|S41|S12|S22|S32|S42|S13|S23|S33|S43|S14|S24|S34|S44|A|B|C|D|R1|R2|R3|R4|AUX1|AUX2
+        '''
+        return self.ask("CALC{}:PAR:DEF?".format(self._ci))
+
+    def do_set_meas_parameter(self, value):
+        '''
+        Sets the current measurement parameter
+        Input:
+            String, one of:
+                S11|S21|S31|S41|S12|S22|S32|S42|S13|S23|S33|S43|S14|S24|S34|S44|A|B|C|D|R1|R2|R3|R4|AUX1|AUX2
+        Output:
+           None
+        '''
+        self.write("CALC{}:PAR:DEF {}".format(self._ci,value))
+        return
+
     def write(self,msg):
         return self._visainstrument.write(msg)
     
