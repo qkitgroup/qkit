@@ -342,12 +342,12 @@ def _display_1D_data(self, graphicsView):
     
     elif self.ds_type == ds_types['box']:
         """
-        For a box type the data to be displayed on the x-axis is the z-axis (highest coordinate) of the ds
+        For a box type. Z data is displayed along the chosen axes in the viewer
         """
-        dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['z_ds_url'])
         self.TraceXSelector.setRange(-1 * self.ds.shape[0], self.ds.shape[0] - 1)
-        self.TraceYSelector.setRange(-1 * self.ds.shape[-1], self.ds.shape[-1] - 1)
-        
+        self.TraceYSelector.setRange(-1 * self.ds.shape[1], self.ds.shape[1] - 1)
+        self.TraceZSelector.setRange(-1 * self.ds.shape[2], self.ds.shape[2] - 1)
+
         if self.TraceXValueChanged:
             """
             If the trace to be displayed has been changed, the correct dataslice and the displayed
@@ -371,15 +371,42 @@ def _display_1D_data(self, graphicsView):
             self.TraceYNum = num
             self.TraceYSelector.setValue(self.TraceYNum)
             self.TraceYValueChanged = False
+
+        if self.TraceZValueChanged:
+            """
+            If the trace to be displayed has been changed, the correct dataslice and the displayed
+            text has to be adjusted.
+            """
+            # calc trace number from entered value
+            (z0, dz) = _get_axis_scale(_get_ds(self.ds, _get_ds_url(self.ds, 'z_ds_url')))
+            num = int((self._traceZ_value - z0) / dz)
+            self.TraceZNum = num
+            self.TraceZSelector.setValue(self.TraceZNum)
+            self.TraceZValueChanged = False
         
         self.TraceXValue.setText(self._getXValueFromTraceNum(self.ds, self.TraceXNum))
         self.TraceYValue.setText(self._getYValueFromTraceNum(self.ds, self.TraceYNum))
-        
-        x_data = dss[0][()][:dss[1].shape[-1]]  # x_data gets truncated to y_data shape if neccessary
-        y_data = dss[1][()][self.TraceXNum, self.TraceYNum, :]
+        self.TraceZValue.setText(self._getZValueFromTraceNum(self.ds, self.TraceZNum))
+
+        if self.PlotTypeSelector.currentIndex() == 5:
+            dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['z_ds_url'])
+            x_data = dss[0][()][:dss[1].shape[-1]]  # x_data gets truncated to y_data shape if neccessary
+            y_data = dss[1][()][self.TraceXNum, self.TraceYNum, :]
+        if self.PlotTypeSelector.currentIndex() == 4:
+            dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['y_ds_url'])
+            x_data = dss[0][()][:dss[1].shape[-1]]
+            y_data = dss[1][()][self.TraceXNum, :, self.TraceZNum]
+        if self.PlotTypeSelector.currentIndex() == 3:
+            dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url'])
+            x_data = dss[0][()][:dss[1].shape[-1]]
+            y_data = dss[1][()][:, self.TraceYNum, self.TraceZNum]
+
     
     ## Any data manipulation (dB <-> lin scale, etc) is done here
-    x_data, y_data, names[0], names[1], units[0], units[1] = _do_data_manipulation(x_data, y_data, names[0], names[1], units[0], units[1], ds_types['vector'], self.manipulation, self.manipulations)
+    x_data, y_data, names[0], names[1], units[0], units[1] = _do_data_manipulation(x_data,
+                                                                                   y_data, names[0], names[1], units[0],
+                                                                                   units[1], ds_types['vector'],
+                                                                                   self.manipulation, self.manipulations)
 
     if _axis_timestamp_formatting(graphicsView, x_data, units[0], names[0], "bottom") or \
             _axis_timestamp_formatting(graphicsView, y_data, units[1], names[1],"left"):

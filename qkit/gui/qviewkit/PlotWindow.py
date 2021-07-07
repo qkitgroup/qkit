@@ -495,6 +495,16 @@ class PlotWindow(QWidget,Ui_Form):
             self.TraceZSelector.setEnabled(True)
         if index == 3:
             self.view_type = view_types['1D']
+            self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(True)
+            self.TraceZSelector.setEnabled(True)
+        if index == 4:
+            self.view_type = view_types['1D']
+            self.TraceXSelector.setEnabled(True)
+            self.TraceYSelector.setEnabled(False)
+            self.TraceZSelector.setEnabled(True)
+        if index == 5:
+            self.view_type = view_types['1D']
             self.TraceXSelector.setEnabled(True)
             self.TraceYSelector.setEnabled(True)
             self.TraceZSelector.setEnabled(False)
