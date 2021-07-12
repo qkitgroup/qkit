@@ -98,13 +98,15 @@ class ADwin_Pro2_V2(Instrument):
                  output_number (INT)
              
              INPORTATANT FUNCTIONS:
-                 set_out
-                 set_out_parallel
+                 set_gate5_out(1)
+                 set_out(5, 1)     shorthand of previous function
+                 set_out_parallel([gates], [voltages])
                  initialize_gates(number, lower_limit, upper_limit, speed)
-                 get_input_voltage
-                 set_oversampling_state
-                 set_oversampling_division
-                 set_voltage_range
+                 get_ch1_input_voltage(averages=1000)
+                 get_input(1)      shorthand of previous function
+                 set_gate5_oversampling_state(1)
+                 set_oversampling_division(10)
+                 set_gate5_voltage_range(2)
                  set_field_1d(direction, amplitude)
                  set_field_3d(amplitude, theta, phi)
                  
@@ -154,6 +156,7 @@ class ADwin_Pro2_V2(Instrument):
         self.add_function('get_out')
         self.add_function('set_out_parallel')
         self.add_function('oversampled_gates')
+        self.add_function('get_input')
         self.add_function('set_field_1d')
         self.add_function('set_field_3d')
         self.add_function('initialize_gates')
@@ -383,10 +386,15 @@ class ADwin_Pro2_V2(Instrument):
             logging.info(__name__ +': reading voltage analog input %d : %f V , %d digits'%(channel,voltvalue, digitvalue))
             return voltvalue
         else:
-            logging.warning(__name__+': number of averages must bigger than 0 and smaller than 60 000!.')
+            logging.warning(__name__+': number of averages must bigger than 0 and smaller than 10 000!.')
             input("Press Enter to continue.")
             sys.exit() 
-          
+    
+    def get_input(self, channel, averaging):
+        '''Short version of get_gateX_input_voltage().
+        get_input(channel, averaging)
+        '''
+        return self.get("ch%d_input_voltage"%channel, averages=averaging)
     
     def _do_set_process_delay(self,new):
         """set process_delay in cycles (1e-9s) of the ADwin.
