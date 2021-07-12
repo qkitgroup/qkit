@@ -60,7 +60,7 @@ class Exciting(mb.MeasureBase):
     measure3D() :
         Starts a 3D measurement
     """
-    def __init__(self, exp_name = "", sample = None):
+    def __init__(self, exp_name = "", manipulation_backend = None, readout_backend = None, sample = None):
         """
         Parameters
         ----------
@@ -72,16 +72,25 @@ class Exciting(mb.MeasureBase):
         """
         mb.MeasureBase.__init__(self, sample)
         
+        self._ro_backend = readout_backend
+        self._manip_backend = manipulation_backend
+        self._pulse_seq = None
+        
         self._z_parameter = None
         
-        self._get_value_func = None
-        self._get_tracedata_func = None
         self.reverse2D = True
         self.report_static_voltages = True
         
         self.gate_lib = {}
         self.measurand = {"name" : "current", "unit" : "A"}
         
+    def _setup_ro(self):
+        #get the measurement window out of the qupulse object and send it to the readout
+        pass
+        
+    def _setup_manip(self):
+        #Load the waveforms of the qupulse object onto the AWG
+        pass
     
     def set_z_parameters(self, vec, coordname, set_obj, unit, dt=None):
         """
