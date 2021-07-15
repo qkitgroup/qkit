@@ -35,6 +35,11 @@ cfg['datadir'] = os.path.join(cfg['qkitdir'],'data')
 cfg['instruments_dir']      = os.path.join(cfg['qkitdir'],'drivers')
 cfg['user_instruments_dir'] = None
 
+##
+## Set circle fit version for resonator class
+##
+cfg['circle_fit_version'] = 2
+
 
 ##
 ## Save data with the new naming scheme
