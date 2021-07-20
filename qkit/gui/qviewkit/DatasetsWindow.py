@@ -128,9 +128,12 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             self.timer.stop()
     
     def _disable_live_update(self):
-        if not self._force_live_plot and not self.h5file['entry'].attrs.get('updating',True):
-            self.liveCheckBox.setChecked(False)
-            self._force_live_plot = True # don't disable the live plot if it is manually enabled again
+        try:
+            if not self._force_live_plot and not self.h5file['entry'].attrs.get('updating',True):
+                self.liveCheckBox.setChecked(False)
+                self._force_live_plot = True # don't disable the live plot if it is manually enabled again
+        except ValueError as e:
+            qkit.logging.error("Qviewkit/DatasetsWindow.py: Error on checking for live plot: "+str(e))
 
     def _refresh_time_handler(self,refreshTime):
         self.refreshTime_value = refreshTime*1000 # ms -> s

@@ -202,6 +202,9 @@ class PlotWindow(QWidget,Ui_Form):
         except ValueError as e:
             print("PlotWindow: Value Error; Dataset not yet available", self.dataset_url)
             print(e)
+        except OSError as e:
+            print("PlotWindow: OS Error; Probably a read/write conflict occured", self.dataset_url)
+            print(e)
 
 
     def _setup_signal_slots(self):
