@@ -392,6 +392,94 @@ class Keysight_B2900(Instrument):
         self._raise_error()
         return ans
 
+    def set_gpio_mode(self, val, channel=-1):
+        """
+        Assigns the input/output function to the specified GPIO pin <channel> to <val>.
+
+        Parameters
+        ----------
+        val: str
+            GPIO specification. possible values are DINPut(default for the EXT1 to EXT13 pins) | DIO | HVOL(default for the EXT14 pin) | TINPut | TOUT
+        channel: int
+            Number of GPIO pin of interest. -1 means channel 1 to 14.
+        """
+        # Corresponding Command: [:SOURce]:DIGital:EXTernal[n][:FUNCtion] function
+        try:
+            logging.debug('{!s}: Set the GPIO mode of pin {!s} to {!s}'.format(__name__, channel, val))
+            if channel == -1:
+                for j in range(14):
+                    self._write('sour:dig:ext{:d}:func {:s}'.format(j + 1, val))
+            else:
+                self._write('sour:dig:ext{:d}:func {:s}'.format(channel, val))
+            self._write('SOUR:DIG:DATA 16383')
+            self.ccr = bin(16383)
+        except Exception as e:
+            logging.error('{!s}: Cannot set the GPIO mode of pin {!s} to {!s}'.format(__name__, channel, val))
+            raise type(e)('{!s}: Cannot set the GPIO mode of pin {!s} to {!s}\n{!s}'.format(__name__, channel, val, e))
+        return
+
+    def get_gpio_mode(self, channel):
+        """
+        Gets the assigned input/output function to the specified GPIO pin <channel>.
+
+        Parameters
+        ----------
+        channel: int
+            Number of GPIO pin of interest. -1 means channel 1 to 14.
+
+        Returns
+        -------
+        val: str
+            GPIO specification. possible values are DINPut(default for the EXT1 to EXT13 pins) | DIO | HVOL(default for the EXT14 pin) | TINPut | TOUT
+        """
+        # Corresponding Command: [:SOURce]:DIGital:EXTernal[n][:FUNCtion]?
+        try:
+            logging.debug('{!s}: Get the GPIO mode of pin {!s}'.format(__name__, channel))
+            return self._ask('SOUR:DIG:EXT{:d}:FUNC'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get the GPIO mode of pin {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get the GPIO mode of pin {!s}\n{!s}'.format(__name__, channel, e))
+
+    def set_digio(self, status, channel):
+        """
+        Sets the output data to GPIO pin (digital control port) <channel> to <status>.
+
+        Parameters
+        ----------
+        status: bool, int
+            Digital Output status.
+        channel: int
+            Number of GPIO pin of interest.
+        """
+        # Corresponding Command: [:SOURce]:DIGital:DATA data
+        try:
+            logging.debug('{!s}: Set the digital output of pin {!s} to {!s}'.format(__name__, channel, status))
+            self.ccr = (self.ccr[:-channel] + str(int(not(status))) + self.ccr[-channel + 1:])[:16]
+            self._write('sour:dig:data {:d}'.format(int(self.ccr, 2)))
+        except Exception as e:
+            logging.error('{!s}: Cannot set the digital output of pin {!s} to {!s}'.format(__name__, channel, status))
+            raise type(e)('{!s}: Cannot set the digital output of pin {!s} to {!s}\n{!s}'.format(__name__, channel, status, e))
+        return
+
+    def get_digio(self, channel):
+        """
+        Sets the output data to GPIO pin (digital control port) <channel> to <status>.
+
+        Parameters
+        ----------
+        status: bool, int
+            Digital Output status.
+        channel: int
+            Number of GPIO pin of interest.
+        """
+        # Corresponding Command: [:SOURce]:DIGital:DATA?
+        try:
+            logging.debug('{!s}: Get the digital output of pin {!s}'.format(__name__, channel))
+            return not(int(bin(int(self._ask('sour:dig:data?')))[-channel:][0]))
+        except Exception as e:
+            logging.error('{!s}: Cannot get the digital output of pin {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get the digital output of pin {!s}\n{!s}'.format(__name__, channel, e))
+
     def set_measurement_mode(self, mode, channel=1):
         """
         Sets measurement mode (wiring system) of channel <channel> to <mode>.
