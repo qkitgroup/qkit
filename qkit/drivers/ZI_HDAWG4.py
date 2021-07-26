@@ -78,8 +78,6 @@ class ZI_HDAWG4(Instrument):
         self._binary = np.array([[0,0],[0,1],[1,0],[1,1]])
         #maximum length of waveform (in samples, in order to set trigger)
         self._waveform_max_length = 0
-        #reset string variable for sequence program
-        self._awg_program = str()
 
         #arrays containing information about which channel of the device are switched on
         #and which wave and marker outputs are used
@@ -87,6 +85,9 @@ class ZI_HDAWG4(Instrument):
         #self._wave_outputs = np.array([0,0,0,0])
         self._marker_outputs = np.array([0,0,0,0])
         self._channel_outputs = np.array([0,0,0,0])
+        
+        #Sample clock prescaler values:
+        self._prescaler = np.array([2**i for i in range(14)])
 
         #set apilevel to highest supported by device to unlock most of the functionalities
         #create apisession to communicate with device (ziDataServer needed)
@@ -114,10 +115,12 @@ class ZI_HDAWG4(Instrument):
         self.disable_everything()
 
         #implement functions
-        self.add_function('zrefresh_folder')
-        self.add_function('zwrite')
-        self.add_function('zload_own_sequence_program')
-        self.add_function('zupload_to_device')
+        self.add_function("start_playback")
+        self.add_function("stop_playback")
+        self.add_function('refresh_folder')
+        self.add_function('write')
+        self.add_function('set_program_string')
+        self.add_function('upload_to_device')
         self.add_function('load_config_file')
         self.add_function('disable_everything')
 
@@ -135,12 +138,22 @@ class ZI_HDAWG4(Instrument):
             minval = 0.2, maxval = 5,
             units = 'V', tags = ['fixed values'])
 
+        #/SYSTEM/CLOCKS/SAMPLECLOCK/FREQ
+        self.add_parameter('sampling_clock', type = float,
+            flags = Instrument.FLAG_GETSET,
+            minval = 100e6, maxval = 2.4e9,
+            tags = ['sweep'])
+        
         #/AWGS/n/TIME
-        self.add_parameter('sampling_rate', type = int,
+        self.add_parameter('sampling_prescaler', type = int,
             flags = Instrument.FLAG_GETSET,
             minval = 0, maxval = 13,
             tags = ['sweep'])
-
+        
+        #Actual samoling rate
+        self.add_parameter('sampling_rate', type = float,
+            flags = Instrument.FLAG_GET)
+        
         #/SYSTEM/AWG/CHANNELGROUPING
         self.add_parameter('channel_grouping', type = int,
             flags = Instrument.FLAG_GETSET,
@@ -529,40 +542,34 @@ class ZI_HDAWG4(Instrument):
             logging.info(__name__+ ': Channel grouping set to groups of 4.')
         return output
 
-    def _do_set_sampling_rate(self,new,user_input = 0):
-        """
-        ZI_HDAWG4: setting sampling rate, possible values:
-        0  :  2.40e+09  Hz
-        1  :  1.20e+09  Hz
-        2  :  6.00e+08  Hz
-        3  :  3.00e+08  Hz
-        4  :  1.50e+08  Hz
-        5  :  7.50e+07  Hz
-        6  :  3.75e+07  Hz
-        7  :  1.88e+07  Hz
-        8  :  9.38e+06  Hz
-        9  :  4.69e+06  Hz
-        10  :  2.34e+06  Hz
-        11  :  1.17e+06  Hz
-        12  :  5.86e+05  Hz
-        13  :  2.93e+05  Hz
-        """
-        possible_sampling_rates_in_Hz = np.array([2.4e9,1.2e9,600e6,300e6,150e6,75e6,37.5e6,18.75e6,9.38e6,4.69e6,2.34e6,1.17e6,585.98e3,292.97e3])
-        if user_input:
-            logging.info(__name__ +': setting sampling rate, possible values:')
-            for l in range(0,len(possible_sampling_rates_in_Hz)):
-                print(l, ' : ',f"{possible_sampling_rates_in_Hz[l]:.2e}",' Hz')
-            new = int(input("input corresponding integer value: "))
-        logging.info(__name__ +': setting sampling_rate to %s' %f"{possible_sampling_rates_in_Hz[new]:.2e}" +' Hz .')
-        self.daq.setInt('/%s/AWGS/0/TIME' % self._device_id,  new)
+    def _do_set_sampling_clock(self, newclock):
+        logging.info(__name__+ ': Setting samkple clock to %f.' % newclock)
+        self.daq.setDouble('/%s/system/clocks/sampleclock/freq' % self._device_id, newclock)
         self.daq.sync()
 
-    def _do_get_sampling_rate(self):
-        possible_sampling_rates_in_Hz = np.array([2.4e9,1.2e9,600e6,300e6,150e6,75e6,37.5e6,18.75e6,9.38e6,4.69e6,2.34e6,1.17e6,585.98e3,292.97e3])
-        sampling_rate_integer = self.daq.getInt('/%s/AWGS/0/TIME' % self._device_id)
-        logging.info(__name__ +': getting sampling_rate: %s' %f"{possible_sampling_rates_in_Hz[sampling_rate_integer]:.2e}" +' Hz .')
-        return possible_sampling_rates_in_Hz[sampling_rate_integer]
+    def _do_get_sampling_clock(self):
+        logging.info(__name__+ ': Getting sample clock.')
+        return self.daq.getDouble('/%s/system/clocks/sampleclock/freq' % self._device_id)
+    
+    def _do_set_sampling_prescaler(self, newdiv):
+        if newdiv not in self._prescaler:
+            raise ValueError(__name__ + " Could not set sampling prescaler, must be 2^n, with n between 0 and 13")            
+        logging.info(__name__ +': Setting sampling prescaler to %d' % newdiv)
+        exponent = np.floor(np.log2(np.abs(newdiv))).astype(int)
+        self.daq.setInt('/%s/AWGS/0/TIME' % self._device_id, exponent)
+        self.daq.sync()
 
+    def _do_get_sampling_prescaler(self):
+        logging.info(__name__ +': getting sampling_prescaler')
+        exponent = self.daq.getInt('/%s/AWGS/0/TIME' % self._device_id)        
+        return 2**exponent
+    
+    def _do_get_sampling_rate(self):
+        logging.info(__name__ +': getting sampling_rate')
+        clock = self.daq.getDouble('/%s/system/clocks/sampleclock/freq' % self._device_id)
+        prescaler = 2**self.daq.getInt('/%s/AWGS/0/TIME' % self._device_id)
+        return clock/prescaler
+        
     def _do_set_output_range(self,new,channel):
         valuesarray = np.array([0.2,0.4,0.8,1.,1.5,2.,3.,4.,5.])
         if new not in valuesarray:
@@ -578,6 +585,14 @@ class ZI_HDAWG4(Instrument):
         logging.info(__name__+': output range of channel %s : %d' %(channel-1,output) +'V.')
 
         return output
+    
+    #start awg sequencer
+    def start_playback(self):
+        self.daq.setInt(f"/{self.device}/awgs/0/enable", 1)
+
+    #start awg sequencer
+    def stop_playback(self):
+        self.daq.setInt(f"/{self.device}/awgs/0/enable", 0)
 
     #disable everything
     def disable_everything(self):
@@ -585,7 +600,7 @@ class ZI_HDAWG4(Instrument):
         logging.info(__name__+': all outputs etc. disabled')
 
     #create backup of folder "waves/" and empty it
-    def zrefresh_folder(self):
+    def refresh_folder(self):
 
         #if folder "waves/" already exists, create new folder and backup existing one
         if os.path.exists(self.wave_dir):
@@ -606,7 +621,7 @@ class ZI_HDAWG4(Instrument):
     #when used in a loop, stamp has to be equal to the iteration index
     #the input array for multiple channels must have the form (['channel1','channel2',...])
     #select preview plot by setting preview = 'yes' (default: 'no')
-    def zwrite(self,array,stamp = 1,preview = 'no'):
+    def write(self,array,stamp = 1,preview = 'no'):
 
         #csv files are saved for channels 1 to 4 using A,B,C or D, respectively     
         channeldefinitions = (['A','B','C','D'])
@@ -654,12 +669,14 @@ class ZI_HDAWG4(Instrument):
 
 
     #load own sequential C program from an arbitrary path (input as string)
-    def zload_own_sequence_program(self,path):
-        self.awg_program = open(path, 'r').read()
+    def set_program_string(self, program):
+        if type(program) != str:
+            raise TypeError(__name__ + ": Assigned value must be a string")
+        self.awg_program = program
         logging.info(__name__+' : sequence program :\n\n'+self.awg_program+'\n\n')
 
     #compile and upload sequence to device
-    def zupload_to_device(self):
+    def upload_to_device(self):
 
         #check if folder containing wave files exists
         if not os.path.isdir(self.wave_dir):
@@ -699,10 +716,7 @@ class ZI_HDAWG4(Instrument):
         # "This is the preferred method of using the AWG: Run in single mode continuous waveform playback is best achieved by
         # using an infinite loop (e.g., while (true)) in the sequencer program."
         self.daq.setInt(f"/{self.device}/awgs/0/single", 1)
-
-        #activate awg
-        self.daq.setInt(f"/{self.device}/awgs/0/enable", 1)
-
+        
     #load config file from path
     def load_config_file(self, path):
         logging.info(__name__+': loading config file %s '% path)
@@ -747,7 +761,6 @@ class ZI_HDAWG4(Instrument):
         self.set_ch4_direct(config_data['device_settings'][0]['direct_channel4'])
 
 if __name__ == "__main__":
-    import qkit
     qkit.start()
 
     #example for a sequence
@@ -755,14 +768,11 @@ if __name__ == "__main__":
 
     ###create ZI_HDAWG4 instance
     hartwig = qkit.instruments.create('hartwig','ZI_HDAWG4',device_id = device_identification)
-    print('Starting testing routine.')
-    print(100*'x')
-
     #load config file
-    hartwig.load_config_file('example_config_ZI_HDAWG4.json')
+    #hartwig.load_config_file('example_config_ZI_HDAWG4.json')
 
     #empty wave folder
-    #hartwig.zrefresh_folder()
+    #hartwig.refresh_folder()
 
     #make new example sequence and save it to /awg/waves
     example_sequence_array = np.array([])
@@ -771,16 +781,16 @@ if __name__ == "__main__":
             example_sequence_array = np.append(example_sequence_array,i)
 
     #write example_sequence_array to csv file
-    hartwig.zwrite([example_sequence_array])
+    #hartwig.zwrite([example_sequence_array])
 
     #load sequencer code that plays files in /awg/waves
-    hartwig.zload_own_sequence_program('ZI_HDAWG4_testseq')
+    #hartwig.load_own_sequence_program('ZI_HDAWG4_testseq')
 
     #upload and play
-    hartwig.zupload_to_device()
+   # hartwig.upload_to_device()
 
     #disable everything
-    hartwig.disable_everything()
+    #hartwig.disable_everything()
 
     ##to add parameters, run the following program and copy and paste from file listofnodes
     #nodesmachine = qkit.instruments.create('hartwig','ZI_HDAWG4',device_id = device_identification)

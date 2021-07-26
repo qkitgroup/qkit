@@ -9,7 +9,7 @@ class virtual_voltage_source(Instrument):
         self.add_parameter('attenuation', type=float,
             flags=self.FLAG_GETSET, units='dB')
         
-        self.add_parameter('output_voltage_in_V', type=float,
+        self.add_parameter('out', type=float,
             flags=self.FLAG_GETSET,
             channels=(1,200), channel_prefix='gate%d_',
             minval=-10, maxval=10, units='V',
@@ -24,8 +24,8 @@ class virtual_voltage_source(Instrument):
     def _do_get_attenuation(self):
         return self._attn
     
-    def _do_set_output_voltage_in_V(self, newV, channel):
+    def _do_set_out(self, newV, channel):
         self._gate_votlages[channel-1] = newV
     
-    def _do_get_output_voltage_in_V(self, channel):
+    def _do_get_out(self, channel):
         return self._gate_votlages[channel-1]

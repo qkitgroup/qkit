@@ -1045,14 +1045,25 @@ class ADwin_Pro2_V2(Instrument):
         translation_factor_y = -2.0
         translation_factor_z = -2.0
         
+        #new 1D coil
         #coil calibration parameters
-        x_calib = 0.180 #in Tesla/Amps
-        y_calib = 0.056 #in Tesla/Amps
-        z_calib = 0.060 #in Tesla/Amps
+        x_calib = 10 #in Tesla/Amps
+        y_calib = 10 #in Tesla/Amps
+        z_calib = 10 #in Tesla/Amps
         
-        x_max_current = 8.34 #maximal current in Amps through coil x before quench
-        y_max_current = 5.0 #maximal current in Amps through coil y
-        z_max_current = 7.0 #maximal current in Amps through coil z
+        x_max_current = 0 #maximal current in Amps through coil x before quench
+        y_max_current = 0 #maximal current in Amps through coil y
+        z_max_current = 0 #maximal current in Amps through coil z
+        
+        # #OLD 3D coils
+        # #coil calibration parameters
+        # x_calib = 0.180 #in Tesla/Amps
+        # y_calib = 0.056 #in Tesla/Amps
+        # z_calib = 0.060 #in Tesla/Amps
+        
+        # x_max_current = 8.34 #maximal current in Amps through coil x before quench
+        # y_max_current = 5.0 #maximal current in Amps through coil y
+        # z_max_current = 7.0 #maximal current in Amps through coil z
         
         #set  voltage 
         if direction == 1:
