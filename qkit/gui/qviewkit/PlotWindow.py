@@ -541,7 +541,10 @@ class PlotWindow(QWidget,Ui_Form):
         else:
             x_data = np.array(x_ds)[:ds.shape[0]]
         xunit = _get_unit(x_ds)
-        xval = x_data[num]
+        try:
+            xval = x_data[num]
+        except (KeyError,IndexError):
+            xval = "X"
         return str(xval)+" "+str(xunit)
 
     def _getYValueFromTraceNum(self,ds,num):
@@ -551,15 +554,22 @@ class PlotWindow(QWidget,Ui_Form):
         else:
             y_data = np.array(y_ds)[:ds.shape[1]]
         yunit = _get_unit(y_ds)
-        yval = y_data[num]
+        try:
+            yval = y_data[num]
+        except (KeyError,IndexError):
+            yval = "X"
         return str(yval)+" "+str(yunit)
 
     def _getZValueFromTraceNum(self,ds,num):
         z_ds = _get_ds(ds, ds.attrs.get('z_ds_url'))
         z_data = np.array(z_ds)[:ds.shape[2]]
         zunit = _get_unit(z_ds)
-        zval = z_data[num]
+        try:
+            zval = z_data[num]
+        except (KeyError,IndexError):
+            zval = "X"
         return str(zval)+" "+str(zunit)
+        
 
     def addQvkMenu(self,menu=None):
         """Add custom entry in the right-click menu.
