@@ -20,6 +20,8 @@ import qkit.measure.measurement_base as mb
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.write_additional_files import get_instrument_settings
 
+from copy import deepcopy
+
 import qupulse
 
 import numpy as np
@@ -130,7 +132,30 @@ class Exciting(mb.MeasureBase):
             if self._ro_backend.measurement_settings[measurement]["active"]:
                 for node in self._ro_backend.measurement_settings[measurement]["data_nodes"]:
                     func(measurement, node)
-           
+    
+    def _active_measurements_wrapper(self, func):
+        def wrapped_func(func):
+            for measurement in self._ro_backend.measurement_settings.keys():
+                if self._ro_backend.measurement_settings[measurement]["active"]:
+                    func(measurement)
+        return wrapped_func
+    
+    def _active_measurement_nodes_wrapper(self, func):
+        def wrapped_func(func):
+            for measurement in self._ro_backend.measurement_settings.keys():
+                if self._ro_backend.measurement_settings[measurement]["active"]:
+                    for node in self._ro_backend.measurement_settings[measurement]["data_nodes"]:
+                        func(measurement, node)
+        return wrapped_func          
+    
+    def _copy_file_structure(self, file):
+        b = {}
+        for key in file.keys():
+            b.update({key : {}})
+            for sub_key in file[key].keys():
+                b[key].update({sub_key : np.NaN})
+        return b
+            
     def set_get_value_func(self, get_func, *args, **kwargs):
         """
         Sets the measurement function.
@@ -202,66 +227,103 @@ class Exciting(mb.MeasureBase):
     def measure1D(self):
         self._measurement_object.measurement_func = "%s: measure1D" % __name__
         
-        total_iterations = 0 #setup the progress bar        
-        @self._active_measurements
-        def count_iterations(measurement):
-            nonlocal total_iterations 
-            total_iterations += self._ro_backend.measurement_settings[measurement]["averages"]           
+        total_iterations = 0 #setup the progress bar
+        datasets = []
+        for measurement in self._ro_backend.measurement_settings.keys():
+            
+            if self._ro_backend.measurement_settings[measurement]["active"]:
+                #Count the number of total iterations which have to be made during the measurement
+                total_iterations += self._ro_backend.measurement_settings[measurement]["averages"]
+                
+                for node in self._ro_backend.measurement_settings[measurement]["data_nodes"]:
+                    #Create one dataset for each Measurement node
+                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = [self._x_parameter],
+                                          unit = self._ro_backend.measurement_settings[measurement]["unit"], 
+                                          save_timestamp = False))
         pb = Progress_Bar(total_iterations)
-        
-        datasets = [] #create the datasets needed in the file        
-        @self._active_measurement_nodes
-        def create_datasets(measurement, node):
-            nonlocal datasets
-            datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = [self._x_parameter],
-                                      unit = self._ro_backend.measurement_settings[measurement]["unit"], 
-                                      save_timestamp = False))
-       
         self._prepare_measurement_file(datasets)
         self._open_qviewkit()
         try:
             self._ro_backend.arm()
-            #self._manip_backend.run()
-           
-            total_data = self._ro_backend.read()
-            @self._active_measurement_nodes
-            def check_dimension(measurement, node):
-                nonlocal total_data
-                if total_data[measurement][node].ndim != 3:
-                    raise IndexError("Invalid readout dimensions. The readout backend must return arrays with 3 dimensions.")                    
-           
-            @self._active_measurement_nodes
-            def fill_datasets(measurement, node):
-                self._datasets["%s.%s" % (measurement, node)].append(np.average(total_data[measurement][node], axis = (0, 2)))         
+            #self._manip_backend.run()            
             
-            iterations = 0
-            @self._active_measurements
-            def calculate_addends(measurement):
-                nonlocal total_data, iterations             
-                first_node = list(total_data[measurement].keys())[0]
-                iterations += len(total_data[measurement][first_node]) #since for one measurement, all data_nodes have the same length, we just get the length of the first node
-            
+            latest_data = self._ro_backend.read()
+            total_sum = {}
+            iterations = 0            
+            for measurement in self._ro_backend.measurement_settings.keys():                
+                
+                if self._ro_backend.measurement_settings[measurement]["active"]:
+                    #Count the number of iterations collected by the most recent call of read
+                    first_node = list(latest_data[measurement].keys())[0]
+                    iterations += len(latest_data[measurement][first_node])
+                    #Create the datastructure of the averagesum over all measurements
+                    total_sum.update({measurement : {}})
+                    
+                    for node in self._ro_backend.measurement_settings[measurement]["data_nodes"]:
+                        #Check whether the arrays have the correct dimensions:
+                        if latest_data[measurement][node].ndim != 3:
+                            raise IndexError("Invalid readout dimensions. The readout backend must return arrays with 3 dimensions.")
+                        #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
+                        total_sum[measurement].update({node : np.average(latest_data[measurement][node], axis = (0, 2))})
+                        #Pass the data to the h5 file
+                        self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node])
+
             pb.iterate(addend = iterations)
+            
             while not self._ro_backend.finished():
+                old_iterations = iterations
                 latest_data = self._ro_backend.read()
-                @self._active_measurement_nodes
-                def append_data(measurement, node):
-                    nonlocal latest_data, total_data
-                    total_data[measurement][node] = np.concatenate((total_data[measurement][node], 
-                                           latest_data[measurement][node]), axis = 0)
-                    #print(len(total_data[measurement][node]))
-                    new_avg = np.average(total_data[measurement][node], axis = (0, 2))
-                    self._datasets["%s.%s" % (measurement, node)].ds.write_direct(new_avg)
+                for measurement in self._ro_backend.measurement_settings.keys():                
+                    
+                    if self._ro_backend.measurement_settings[measurement]["active"]:
+                        #Count the number of iterations collected by the most recent call of read
+                        first_node = list(latest_data[measurement].keys())[0]
+                        iterations += len(latest_data[measurement][first_node])
+                        
+                        for node in self._ro_backend.measurement_settings[measurement]["data_nodes"]:
+                            #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
+                            total_sum[measurement][node] += np.average(latest_data[measurement][node], axis = (0, 2))
+                            #Calculate the average
+                            new_avg = total_sum[measurement][node] / iterations
+                            #Pass the new average to the h5 file
+                            self._datasets["%s.%s" % (measurement, node)].ds.write_direct(new_avg)
+                
                 self._data_file.flush()
-                pb.iterate(addend = 1)
-            print(len(total_data["M1"]["x"]))
+                pb.iterate(addend = iterations - old_iterations)
             
         finally:
             self._ro_backend.stop()
-            #self._manip_backend.hard_stop()
+            #self._manip_backend.stop()
+            self._end_measurement()
+    
+    def measure2D(self):        
+        self._measurement_object.measurement_func = "%s: measure2D" % __name__
+        
+        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values))
+        self._prepare_measurement_file([self.Data(name = self.measurand["name"], coords = [self._x_parameter, self._y_parameter],
+                                                  unit = self.measurand["unit"], save_timestamp = False)])
+        self._open_qviewkit()
+        try:
+            direction = 1
+            for x_val in self._x_parameter.values:
+                sweepy = []
+                self._x_parameter.set_function(x_val)
+                self._acquire_log_functions()
+                qkit.flow.sleep(self._x_parameter.wait_time)
+                
+                for y_val in self._y_parameter.values[::direction]:                    
+                    self._y_parameter.set_function(y_val)
+                    qkit.flow.sleep(self._y_parameter.wait_time)
+                    sweepy.append(float(self._get_value_func()))
+                    #sweepy.append(self._my_gauss(x_val, y_val))
+                    pb.iterate()
+                    
+                self._datasets[self.measurand["name"]].append(sweepy[::direction])
+                if self.reverse2D: direction *= -1
+        finally:
             self._end_measurement()
             
-    def measure2D(self):        
+    def measure2D_ST(self):        
         self._measurement_object.measurement_func = "%s: measure2D" % __name__
         
         pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values))
