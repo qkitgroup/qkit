@@ -204,9 +204,9 @@ class Exciting(mb.MeasureBase):
         
         total_iterations = 0 #setup the progress bar        
         @self._active_measurements
-        def increase_iterations(measurement):
+        def count_iterations(measurement):
             nonlocal total_iterations 
-            total_iterations += self._ro_backend.measurement_settings[measurement]["measurement_count"]           
+            total_iterations += self._ro_backend.measurement_settings[measurement]["averages"]           
         pb = Progress_Bar(total_iterations)
         
         datasets = [] #create the datasets needed in the file        
@@ -227,22 +227,35 @@ class Exciting(mb.MeasureBase):
             @self._active_measurement_nodes
             def check_dimension(measurement, node):
                 nonlocal total_data
-                if total_data[measurement][node].ndim != 2:
-                    raise IndexError("Invalid readout dimensions. The readout backend must return arrays with 2 dimensions.")                    
+                if total_data[measurement][node].ndim != 3:
+                    raise IndexError("Invalid readout dimensions. The readout backend must return arrays with 3 dimensions.")                    
            
             @self._active_measurement_nodes
-            def append_data(measurement, node):
-                self._datasets["%s.%s" % (measurement, node)].append(np.average(total_data[measurement][node], axis = 0))         
+            def fill_datasets(measurement, node):
+                self._datasets["%s.%s" % (measurement, node)].append(np.average(total_data[measurement][node], axis = (0, 2)))         
             
-            pb.iterate(addend = 1)#total_data.shape[0])
-            """
+            iterations = 0
+            @self._active_measurements
+            def calculate_addends(measurement):
+                nonlocal total_data, iterations             
+                first_node = list(total_data[measurement].keys())[0]
+                iterations += len(total_data[measurement][first_node]) #since for one measurement, all data_nodes have the same length, we just get the length of the first node
+            
+            pb.iterate(addend = iterations)
             while not self._ro_backend.finished():
-                latest_data = np.array(self._ro_backend.read())
-                total_data = np.append(total_data, latest_data, axis = 0)
-                self._datasets[self.measurand["name"]].ds.write_direct(np.average(total_data, axis = 0))
+                latest_data = self._ro_backend.read()
+                @self._active_measurement_nodes
+                def append_data(measurement, node):
+                    nonlocal latest_data, total_data
+                    total_data[measurement][node] = np.concatenate((total_data[measurement][node], 
+                                           latest_data[measurement][node]), axis = 0)
+                    #print(len(total_data[measurement][node]))
+                    new_avg = np.average(total_data[measurement][node], axis = (0, 2))
+                    self._datasets["%s.%s" % (measurement, node)].ds.write_direct(new_avg)
                 self._data_file.flush()
-                pb.iterate(addend = latest_data.shape[0])
-        """
+                pb.iterate(addend = 1)
+            print(len(total_data["M1"]["x"]))
+            
         finally:
             self._ro_backend.stop()
             #self._manip_backend.hard_stop()
