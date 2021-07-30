@@ -257,19 +257,21 @@ class Exciting(mb.MeasureBase):
                     first_node = list(latest_data[measurement].keys())[0]
                     iterations += len(latest_data[measurement][first_node])
                     #Create the datastructure of the averagesum over all measurements
-                    total_sum.update({measurement : {}})
+                    total_sum[measurement] = {}
+                    #total_sum.update({measurement : {}})
                     
                     for node in self._ro_backend.measurement_settings[measurement]["data_nodes"]:
                         #Check whether the arrays have the correct dimensions:
                         if latest_data[measurement][node].ndim != 3:
                             raise IndexError("Invalid readout dimensions. The readout backend must return arrays with 3 dimensions.")
                         #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
-                        total_sum[measurement].update({node : np.average(latest_data[measurement][node], axis = (0, 2))})
+                        total_sum[measurement][node] = np.average(latest_data[measurement][node], axis = (0, 2))
                         #Pass the data to the h5 file
                         self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node])
 
             pb.iterate(addend = iterations)
             
+            divider = 2
             while not self._ro_backend.finished():
                 old_iterations = iterations
                 latest_data = self._ro_backend.read()
@@ -283,11 +285,9 @@ class Exciting(mb.MeasureBase):
                         for node in self._ro_backend.measurement_settings[measurement]["data_nodes"]:
                             #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
                             total_sum[measurement][node] += np.average(latest_data[measurement][node], axis = (0, 2))
-                            #Calculate the average
-                            new_avg = total_sum[measurement][node] / iterations
-                            #Pass the new average to the h5 file
-                            self._datasets["%s.%s" % (measurement, node)].ds.write_direct(new_avg)
-                
+                            #Divide through the number of finished iterations
+                            self._datasets["%s.%s" % (measurement, node)].ds.write_direct(total_sum[measurement][node] / divider)
+                divider += 1
                 self._data_file.flush()
                 pb.iterate(addend = iterations - old_iterations)
             
@@ -382,3 +382,30 @@ class Exciting(mb.MeasureBase):
                 self._datasets[self.measurand["name"]].next_matrix()
         finally:
             self._end_measurement()
+if __name__ == "__main__":
+    import qkit
+    from datetime import date
+    qkit.cfg['run_id'] = 'Testing %s' % date.today()
+    qkit.cfg['user'] = 'Julian'
+    qkit.start()
+    import qkit.measure.samples_class as sc
+    
+    import numpy as np
+    from numpy.random import rand
+    from qkit.measure.semiconductor.spin_excite import Exciting
+    from qkit.measure.semiconductor.readout_backends import RO_test_backend
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import logging
+    
+    readout = RO_test_backend.RO_backend()
+    excitation = Exciting(readout_backend = readout)
+    excitation.qviewkit_singleInstance = True
+    excitation.set_x_parameters(np.arange(1, 257), "la banane", lambda val: True, "V")
+    
+    v_source = qkit.instruments.create("bill_virtual", "virtual_voltage_source")
+    #%%
+    excitation._ro_backend.measurement_settings["M1"]["measurement_count"] = 256
+    excitation._ro_backend.measurement_settings["M1"]["sample_count"] = 10
+    excitation._ro_backend.measurement_settings["M1"]["averages"] = 400
+    excitation.measure1D()
