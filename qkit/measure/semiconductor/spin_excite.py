@@ -20,14 +20,62 @@ import qkit.measure.measurement_base as mb
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.write_additional_files import get_instrument_settings
 
-from copy import deepcopy
-
 import qupulse
 
 import numpy as np
 
 from numpy.random import rand
 
+class Qupulse_decoder:
+    def __init__(self, qupulse_pt, qupulse_pars):
+        self.qupulse_pt = qupulse_pt
+        self.qupulse_pars = qupulse_pars
+        self.get_loop_start()
+        self.get_loop_stop()
+        self.get_loop_step()
+        
+    def get_loop_start(self):
+        key = self.qupulse_pt.loop_range.start.original_expression
+        if type(key) == str:
+            self.loop_start_name = key
+            self.loop_start_value = self.qupulse_pars[key]
+        elif type(key) == int:
+            try:
+                del(self.loop_start_name)
+            except:
+                pass
+            self.loop_start_value = key
+        else:
+            raise TypeError("Data type of the original qupulse Expression is unknown")
+
+    def get_loop_stop(self):
+        key = self.qupulse_pt.loop_range.stop.original_expression
+        if type(key) == str:
+            self.loop_stop_name = key
+            self.loop_stop_value = self.qupulse_pars[key]
+        elif type(key) == int:
+            try:
+                del(self.loop_stop_name)
+            except:
+                pass
+            self.loop_stop_value = key
+        else:
+            raise TypeError("Data type of the original qupulse Expression is unknown")
+    
+    def get_loop_step(self):
+        key = self.qupulse_pt.loop_range.step.original_expression
+        if type(key) == str:
+            self.loop_step_name = key
+            self.loop_step_value = self.qupulse_pars[key]
+        elif type(key) == int:
+            try:
+                del(self.loop_step_name)
+            except:
+                pass
+            self.loop_step_value = key
+        else:
+            raise TypeError("Data type of the original qupulse Expression is unknown")
+        
 class Exciting(mb.MeasureBase):
     """
     A class containing measurement routines for spin qubit tuning.
@@ -247,46 +295,33 @@ class Exciting(mb.MeasureBase):
             self._ro_backend.arm()
             #self._manip_backend.run()            
             
-            latest_data = self._ro_backend.read()
             total_sum = {}
-            iterations = 0            
-            for measurement in self._ro_backend.measurement_settings.keys():                
-                
-                if self._ro_backend.measurement_settings[measurement]["active"]:
-                    #Count the number of iterations collected by the most recent call of read
-                    first_node = list(latest_data[measurement].keys())[0]
-                    iterations += len(latest_data[measurement][first_node])
-                    #Create the datastructure of the averagesum over all measurements
-                    total_sum[measurement] = {}
-                    #total_sum.update({measurement : {}})
-                    
-                    for node in self._ro_backend.measurement_settings[measurement]["data_nodes"]:
-                        #Check whether the arrays have the correct dimensions:
-                        if latest_data[measurement][node].ndim != 3:
-                            raise IndexError("Invalid readout dimensions. The readout backend must return arrays with 3 dimensions.")
-                        #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
-                        total_sum[measurement][node] = np.average(latest_data[measurement][node], axis = (0, 2))
-                        #Pass the data to the h5 file
-                        self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node])
-
-            pb.iterate(addend = iterations)
-            
-            divider = 2
+            iterations = 0   
+            divider = 1
             while not self._ro_backend.finished():
                 old_iterations = iterations
                 latest_data = self._ro_backend.read()
-                for measurement in self._ro_backend.measurement_settings.keys():                
+                for measurement in latest_data.keys():
+                    if divider == 1:                            
+                        total_sum[measurement] = {}                 
+                    #Count the number of iterations collected by the most recent call of read
+                    first_node = list(latest_data[measurement].keys())[0]
+                    iterations += len(latest_data[measurement][first_node])
                     
-                    if self._ro_backend.measurement_settings[measurement]["active"]:
-                        #Count the number of iterations collected by the most recent call of read
-                        first_node = list(latest_data[measurement].keys())[0]
-                        iterations += len(latest_data[measurement][first_node])
-                        
-                        for node in self._ro_backend.measurement_settings[measurement]["data_nodes"]:
-                            #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
+                    for node in latest_data[measurement].keys():
+                        if latest_data[measurement][node].ndim != 3:
+                            raise IndexError("Invalid readout dimensions. The readout backend must return arrays with 3 dimensions.")
+                        if False in np.any(latest_data[measurement][node], axis = (0, 2)):
+                            raise ValueError("During the last read the readout returned an array with empty slices.")
+                        #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
+                        if divider == 1:
+                            total_sum[measurement][node] = np.average(latest_data[measurement][node], axis = (0, 2))
+                            self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node])
+                        else:
                             total_sum[measurement][node] += np.average(latest_data[measurement][node], axis = (0, 2))
-                            #Divide through the number of finished iterations
-                            self._datasets["%s.%s" % (measurement, node)].ds.write_direct(total_sum[measurement][node] / divider)
+                            #Divide through the number of finished iterations, since you accumulate all the averages
+                            self._datasets["%s.%s" % (measurement, node)].ds.write_direct(total_sum[measurement][node] / divider)                        
+                            
                 divider += 1
                 self._data_file.flush()
                 pb.iterate(addend = iterations - old_iterations)
@@ -382,6 +417,7 @@ class Exciting(mb.MeasureBase):
                 self._datasets[self.measurand["name"]].next_matrix()
         finally:
             self._end_measurement()
+            
 if __name__ == "__main__":
     import qkit
     from datetime import date

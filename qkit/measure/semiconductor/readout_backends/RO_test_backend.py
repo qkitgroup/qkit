@@ -11,90 +11,53 @@ import numpy as np
 
 class RO_backend:
     def __init__(self):
-        #These parts are to be removed later, they are for testing purposes only
-        self._M1_sampling_rate = 2e9
-        self._M1_measurement_count = 256
-        self._M1_sample_count = 1
-        self._M1_averages = 6
-        self._M1_active = True
+
         #These are not to be removed later
-        self.measurement_settings = {"M1":{"sampling_rate" : self.M1_sampling_rate,
-                               "measurement_count" : self.M1_measurement_count,
-                               "sample_count" : self.M1_sample_count,
-                               "averages" : self.M1_averages,
+        self.measurement_settings = {"M1":{"sampling_rate" : 1.3e6,
+                               "measurement_count" : 256,
+                               "sample_count" : 3,
+                               "averages" : 30,
                                "data_nodes" : ["x", "y", "r"],
                                "unit" : "V",
-                               "active" : self.M1_active
+                               "active" : True
                                },
-                                    "M2":{"sampling_rate" : self.M1_sampling_rate,
-                               "measurement_count" : 3,
-                               "sample_count" : 1,
-                               "averages" : 3,
+                                    "M2":{"sampling_rate" : 1.4e6,
+                               "measurement_count" : 256,
+                               "sample_count" : 3,
+                               "averages" : 31,
                                "data_nodes" : ["a", "b", "c"],
                                "unit" : "V",
-                               "active" : False
-                               }}
+                               "active" : True
+                               },
+                                    "M3":{"sampling_rate" : 1.4e6,
+                               "measurement_count" : 256,
+                               "sample_count" : 3,
+                               "averages" : 31,
+                               "data_nodes" : ["hubbi"],
+                               "unit" : "V",
+                               "active" : True
+                               }
+                                }
         #These parts are to be removed later, they are for testing purposes only
         self.is_finished = True
-        self.max_counter = 0
-        self.counter = 0
-    
-    @property
-    def M1_sampling_rate(self):
-        return self._M1_sampling_rate
-    @M1_sampling_rate.setter
-    def M1_sampling_rate(self, value):
-        if type(value) != int:
-            raise TypeError("Number of measurements must be an interger number.")
-        self._M1_sampling_rate = value
-    
-    @property
-    def M1_measurement_count(self):
-        return self._M1_measurement_count   
-    @M1_measurement_count.setter
-    def M1_measurement_count(self, value):
-        if type(value) != int:
-            raise TypeError("Number of measurements must be an interger number.")
-        self._M1_measurement_count = value
-    
-    @property
-    def M1_sample_count(self):
-        return self._M1_sample_count    
-    @M1_sample_count.setter
-    def M1_sample_count(self, value):
-        if type(value) != int:
-            raise TypeError("Number of samples must be an interger number.")
-        self._M1_sample_count = value
-    
-    @property
-    def M1_active(self):
-        return self._M1_active
-    @M1_active.setter
-    def M1_active(self, value):
-        if type(value) != bool:
-            raise TypeError("Measurement activity must be a bool.")
-        self._M1_active = value
-    
-    @property
-    def M1_averages(self):
-        return self._M1_averages
-    @M1_averages.setter
-    def M1_averages(self, value):
-        if type(value) != int:
-            raise TypeError("Number of measurements must be an interger number.")
-        self._M1_averages = value
+        self.max_counter = {}
+        self.counter = {}
+        self.return_length = {}
     
     def arm(self):
-        avgs = []
+        self.all_done = 0
         for measurement in self.measurement_settings.keys():
             if self.measurement_settings[measurement]["active"]:
-                avgs.append(self.measurement_settings[measurement]["averages"])
+                self.all_done += 1
+            #self.measurement_settings[measurement]["active"] = True
+            self.max_counter[measurement] = self.measurement_settings[measurement]["averages"]
+            #print(type(self.counter))
+            self.counter[measurement] = 0
         
-        self.max_counter = sum(avgs)
-        self.counter = 0
         self.is_finished = False
     
     def _roll_dice(self):
+    
         choice = random()
         if choice <= 0.33:
             self._return_length = 1
@@ -107,50 +70,54 @@ class RO_backend:
         #sleep(0.05)
         data = {}
         for measurement in self.measurement_settings.keys():
-            if self.measurement_settings[measurement]["active"]:
+            if self.measurement_settings[measurement]["active"] and self.counter[measurement] < self.measurement_settings[measurement]["averages"]:
                 self._roll_dice()
-                print("_return_length: ", self._return_length)
-                print("coutner: ", self.counter)
-                if self.counter + self._return_length > self.max_counter:
-                    self._return_length = self.max_counter - self.counter
-                self.counter += self._return_length
                 data[measurement] = {}
-                arr = np.empty((self._return_length, 
-                                self.measurement_settings[measurement]["measurement_count"], 
-                                self.measurement_settings[measurement]["sample_count"]))                
+                if self.counter[measurement] + self._return_length > self.measurement_settings[measurement]["averages"]:
+                    self._return_length = self.measurement_settings[measurement]["averages"] - self.counter[measurement]
+                self.counter[measurement] += self._return_length
                 
-                for node in self.measurement_settings[measurement]["data_nodes"]:                    
-                    for avgs in range(len(arr)):
-                        for iterator in range(len(arr[0][1])):
-                            meas = np.sin(np.linspace(0, np.pi, self.measurement_settings[measurement]["measurement_count"]))
-                            noise1 = np.random.normal(0, 5, self.measurement_settings[measurement]["measurement_count"])
-                            arr[avgs, :, iterator] = meas + noise1                
-                    data[measurement][node] = arr        
+                arr = np.empty((self._return_length, 
+                               self.measurement_settings[measurement]["measurement_count"],
+                               self.measurement_settings[measurement]["sample_count"]))
+                for node in self.measurement_settings[measurement]["data_nodes"]:
+                    for avg in range(self._return_length):
+                        for i in range(self.measurement_settings[measurement]["sample_count"]):
+                                sine = np.sin(np.linspace(0, np.pi, self.measurement_settings[measurement]["measurement_count"]))
+                                noise = np.random.normal(0, 5, self.measurement_settings[measurement]["measurement_count"])
+                                arr[avg, :, i] = sine + noise                    
+                    data[measurement][node] = arr         
         return data
-
-    
-    def finished(self):
-        if self.counter >= self.max_counter: 
-            self.counter = 0
-            self.is_finished = True
         
+    def finished(self):
+        done = 0
+        for measurement in self.measurement_settings.keys():
+            if self.counter[measurement] >= self.max_counter[measurement]:                
+                done += 1
+        if done == self.all_done:
+            self.all_done = 0
+            self.is_finished = True
         return self.is_finished
     
-    def stop(self):        
+    def stop(self):
+        self.all_done = 0
         self.is_finished = True
-        self.counter = 0
+        for measurement in self.measurement_settings.keys():
+            self.counter[measurement] = 0
         
 if __name__ == "__main__":
-    print("Hellol")
     test_backend = RO_backend()
     
-    while not test_backend.finished():
-        print("I run even though I don't run?")
+    #while not test_backend.finished():
+    #    print("I run even though I don't run?")
         
     test_backend.arm()
-    print(test_backend.max_counter)
-    
+    i = 0
     while not test_backend.finished():
-        test_backend.read()
-        print(test_backend.counter)
-    print(test_backend.read())
+        a = test_backend.read()
+        i += 1
+        #print(i)
+    #print(a.keys())
+   # for key in a.keys():
+        #print(key, a[key].keys())
+    #print(test_backend.read())
