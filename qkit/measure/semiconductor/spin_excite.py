@@ -23,6 +23,7 @@ from qkit.measure.write_additional_files import get_instrument_settings
 import qupulse
 
 import numpy as np
+import warnings
 
 from numpy.random import rand
 
@@ -33,6 +34,26 @@ class Qupulse_decoder:
         self.get_loop_start()
         self.get_loop_stop()
         self.get_loop_step()
+        self.get_measurement_parameters()
+        self.loop_range = np.arange(self.loop_start_value, self.loop_stop_value, self.loop_step_value) * 1e-9
+        self.loop_length = len(self.loop_range)
+        
+    @property
+    def qupulse_pt(self):
+        return self._qupulse_pt
+    @qupulse_pt.setter
+    def qupulse_pt(self, new_pt):
+        if not isinstance(new_pt, qupulse.pulses.loop_pulse_template.ForLoopPulseTemplate):
+            raise TypeError("Invalid pulse template. Must be a ForLoopPulseTemplate.")
+        self._qupulse_pt = new_pt
+    @property
+    def qupulse_pars(self):
+        return self._qupulse_pars
+    @qupulse_pars.setter
+    def qupulse_pars(self, new_pars):
+        if not isinstance(new_pars, dict):
+            raise TypeError("Invalid pulse parameters. Must be a dictionary.")
+        self._qupulse_pars = new_pars
         
     def get_loop_start(self):
         key = self.qupulse_pt.loop_range.start.original_expression
@@ -40,10 +61,7 @@ class Qupulse_decoder:
             self.loop_start_name = key
             self.loop_start_value = self.qupulse_pars[key]
         elif type(key) == int:
-            try:
-                del(self.loop_start_name)
-            except:
-                pass
+            self.loop_start_name = "for_loop_start"
             self.loop_start_value = key
         else:
             raise TypeError("Data type of the original qupulse Expression is unknown")
@@ -54,10 +72,7 @@ class Qupulse_decoder:
             self.loop_stop_name = key
             self.loop_stop_value = self.qupulse_pars[key]
         elif type(key) == int:
-            try:
-                del(self.loop_stop_name)
-            except:
-                pass
+            self.loop_stop_name = "for_loop_stop"
             self.loop_stop_value = key
         else:
             raise TypeError("Data type of the original qupulse Expression is unknown")
@@ -68,13 +83,28 @@ class Qupulse_decoder:
             self.loop_step_name = key
             self.loop_step_value = self.qupulse_pars[key]
         elif type(key) == int:
-            try:
-                del(self.loop_step_name)
-            except:
-                pass
+            self.loop_step_name = "for_loop_step"
             self.loop_step_value = key
         else:
             raise TypeError("Data type of the original qupulse Expression is unknown")
+    
+    def get_measurement_parameters(self):
+        try:
+            averages = self.qupulse_pars["n_rep"]
+        except KeyError:
+            warnings.warn("No repetitions per measurement defined. Defaulting to 1000.")
+            averages = 1000
+        
+        qupulse_prog = self.qupulse_pt.create_program(parameters = self.qupulse_pars)
+        self.measurement_pars = qupulse_prog.get_measurement_windows()
+        
+        for measurement in self.measurement_pars.keys():
+            if isinstance(averages, dict) and isinstance(averages[measurement], int):
+                self.measurement_pars[measurement] = self.measurement_pars[measurement] + (averages[measurement],)
+            elif isinstance(averages, int):
+                self.measurement_pars[measurement] = self.measurement_pars[measurement] + (averages,)
+            else:
+                raise TypeError("Cannot set averages. Parameter entry must be an int or a dictionary containing ints.")
         
 class Exciting(mb.MeasureBase):
     """
@@ -112,7 +142,9 @@ class Exciting(mb.MeasureBase):
     measure3D() :
         Starts a 3D measurement
     """
-    def __init__(self, readout_backend, exp_name = "", manipulation_backend = None, sample = None):
+    def __init__(self, readout_backend, #manipulation_backend,
+                 qupulse_pt, qupulse_pars,
+                 exp_name = "", manipulation_backend = None, sample = None):
         """
         Parameters
         ----------
@@ -124,116 +156,94 @@ class Exciting(mb.MeasureBase):
         """
         mb.MeasureBase.__init__(self, sample)
         
+        self._validate_ro_backend(readout_backend)
         self._ro_backend = readout_backend
-        self._manip_backend = manipulation_backend
-        self._pulse_seq = None
+        self._validate_manip_backend(manipulation_backend)
+        self._manip_backend = manipulation_backend        
+               
+        self.qupulse_pt = qupulse_pt
+        self.qupulse_pars = qupulse_pars
+        self.compile_qupulse()
         
-        self._z_parameter = None
-        
-        self.qupulse_obj = None
-        self.qupulse_params = None
-        
-        self.reverse2D = True
+        self.meander_sweep = True
         self.report_static_voltages = True
-        
-        self.gate_lib = {}
-        self.measurand = {"name" : "current", "unit" : "A"}
 
         
     @property
-    def qupulse_prog(self):
-        return self._qupulse_prog
-    @qupulse_prog.setter
-    def qupulse_prog(self, prog):
-        if not isinstance(prog, qupulse._program._loop.Loop):
-            raise TypeError("Object must be a qupulse._program._loop.Loop")
-        self._setup_ro(prog)
-        self._qupulse_prog = prog
+    def qupulse_pt(self):
+        if self._qupulse_pt == None:
+            raise ValueError("No qupulse_pt was defined.")
+        return self._qupulse_pt
+    @qupulse_pt.setter
+    def qupulse_pt(self, new_pt):
+        if not isinstance(new_pt, qupulse.pulses.loop_pulse_template.ForLoopPulseTemplate):
+            raise TypeError("Invalid pulse template. Must be a ForLoopPulseTemplate.")
+        self._qupulse_pt = new_pt
+    @property
+    def qupulse_pars(self):
+        if self._qupulse_pars == None:
+            raise ValueError("No qupulse_pars were defined.")
+        return self._qupulse_pars
+    @qupulse_pars.setter
+    def qupulse_pars(self, new_pars):
+        if not isinstance(new_pars, dict):
+            raise TypeError("Invalid pulse parameters. Must be a dictionary.")
+        self._qupulse_pars = new_pars
     
-    def _setup_ro(self, prog):
-        meas_dict = prog.get_measurement_windows()
-        for measurement, parameters in meas_dict.items():
+    @property
+    def meander_sweep(self):
+        return self._meander_sweep
+    
+    @meander_sweep.setter
+    def meander_sweep(self, yesno):
+        if not isinstance(yesno, bool):
+            raise TypeError("Invalid meander_sweep parameter. Must be a boolean value.")
+        self._meander_sweep = yesno
+    
+    def _validate_ro_backend(self, RO_backend):
+        #Check whether all the needed functions are there
+        #and whether the settings dictionary has the right format
+        pass
+    
+    def _validate_manip_backend(self, manip_backend):
+        #Check whether all the needed functions are there
+        #and whether the settings dictionary has the right format
+        pass
+    
+    def _set_t_parameters(self):
+        try:
+            self._t_parameter = self.Coordinate(self.decoded.loop_step_name, 
+                                                unit = "s", 
+                                                values = self.decoded.loop_range,
+                                                set_function = lambda val: True,
+                                                wait_time = 0)
+            self._t_parameter.validate_parameters()
+        except Exception as e:
+            self._t_parameter = None
+            raise e
+    
+    def _setup_ro(self):
+        #Turn off all measurements
+        for measurement in self._ro_backend.measurement_settings.keys():
+            self._ro_backend.measurement_settings[measurement]["active"] = False
+        
+        for measurement, parameters in self.decoded.measurement_pars.items():
             measurement_durations = parameters[1]
+            averages = parameters[2]
             
             if measurement_durations[measurement_durations != measurement_durations[0]].size > 0: # check whether all elements are the same
-                raise Exception ("%s: All measurement windows for one measurement have to be of the same length" % __name__)           
-            
+                raise ValueError ("%s: All measurement windows for one measurement have to be of the same length" % __name__)
             try:
-                if self._ro_backend.measurement_settings[measurement]["active"]:
-                    self._ro_backend.measurement_settings[measurement]["measurement_count"] = len(measurement_durations)
-                    self._ro_backend.measurement_settings[measurement]["sample_count"] = np.int32(np.ceil(measurement_durations[0] * self._ro_backend.measurement_settings[measurement]["sampling_rate"] * 1e-9))
+                self._ro_backend.measurement_settings[measurement]["active"] = True
+                self._ro_backend.measurement_settings[measurement]["measurement_count"] = len(measurement_durations)
+                self._ro_backend.measurement_settings[measurement]["sample_count"] = np.int32(np.floor(measurement_durations[0] * self._ro_backend.measurement_settings[measurement]["sampling_rate"] * 1e-9))
+                self._ro_backend.measurement_settings[measurement]["averages"] = averages
             except KeyError:
                 raise Exception("%s: Defined measurement windows do not fit you readout backend. The requested measurement %s is not available in the loaded backend." % (__name__, measurement))
-                
-        
+    
     def _setup_manip(self):
         #Load the waveforms of the qupulse object onto the AWG
         pass
-    
-    def _active_measurements(self, func):
-        for measurement in self._ro_backend.measurement_settings.keys():
-            if self._ro_backend.measurement_settings[measurement]["active"]:
-                func(measurement)
-                
-    def _active_measurement_nodes(self, func):
-        for measurement in self._ro_backend.measurement_settings.keys():
-            if self._ro_backend.measurement_settings[measurement]["active"]:
-                for node in self._ro_backend.measurement_settings[measurement]["data_nodes"]:
-                    func(measurement, node)
-    
-    def _active_measurements_wrapper(self, func):
-        def wrapped_func(func):
-            for measurement in self._ro_backend.measurement_settings.keys():
-                if self._ro_backend.measurement_settings[measurement]["active"]:
-                    func(measurement)
-        return wrapped_func
-    
-    def _active_measurement_nodes_wrapper(self, func):
-        def wrapped_func(func):
-            for measurement in self._ro_backend.measurement_settings.keys():
-                if self._ro_backend.measurement_settings[measurement]["active"]:
-                    for node in self._ro_backend.measurement_settings[measurement]["data_nodes"]:
-                        func(measurement, node)
-        return wrapped_func          
-    
-    def _copy_file_structure(self, file):
-        b = {}
-        for key in file.keys():
-            b.update({key : {}})
-            for sub_key in file[key].keys():
-                b[key].update({sub_key : np.NaN})
-        return b
-            
-    def set_get_value_func(self, get_func, *args, **kwargs):
-        """
-        Sets the measurement function.
-        
-        Parameters
-        ----------
-        get_func: function
-            the get_func must return an int or float datatype. Arrays are not allowed.
-        *args, **kwargs:
-            Additional arguments to be passed to the get_func each time the measurement function is called.
-        
-        Returns
-        -------
-        None
-        
-        Raises
-        ------
-        TypeError
-            If the passed object is not callable.
-        """
-        if not callable(get_func):
-            raise TypeError("%s: Cannot set %s as get_value_func. Callable object needed." % (__name__, get_func))
-        self._get_value_func = lambda: get_func(*args, **kwargs)
-        self._get_tracedata_func = None
-        
-    def set_get_tracedata_func(self, get_func, *args, **kwargs):
-        if not callable(get_func):
-            raise TypeError("%s: Cannot set %s as get_tracedata_func. Callable object needed." % (__name__, get_func))
-        self._get_tracedata_func = lambda: get_func(*args, **kwargs)
-        self._get_value_func = None
     
     def _prepare_measurement_file(self, data, coords=()):
         mb.MeasureBase._prepare_measurement_file(self, data, coords=())
@@ -251,173 +261,124 @@ class Exciting(mb.MeasureBase):
                     if string1 in key and string2 in key and abs(value) > 0.0004:
                         active_gates.update({key:value})
             self._static_voltages.append(active_gates)
-        
-        
-    #testfuncs to be removed later
-    def _my_gauss(self, x_val, y_val, z_val = 0):
-        
-        def gauss(x, mu, sigma):
-            return np.exp(-(x - mu)**2 / (2 * sigma **2)) / (sigma * np.sqrt(2 * np.pi))
-        
-        mu_x = 2 - z_val/10
-        mu_y = 2           
-        sigma = 1
-        
-        result = gauss(x_val, mu_x, sigma) * gauss(y_val, mu_y, sigma)
-        
-        return result
     
-    def _test_logfunc(self):
-        a = float(rand(1))
-        print(a)
-        return a
-    
-    def measure1D(self):
-        self._measurement_object.measurement_func = "%s: measure1D" % __name__
-        
+    def _prepare_measurement(self, *coords):
         total_iterations = 0 #setup the progress bar
         datasets = []
-        for measurement in self._ro_backend.measurement_settings.keys():
-            
+        coords_list = list(coords)
+        coords_list.append(self._t_parameter)
+        for measurement in self._ro_backend.measurement_settings.keys():            
             if self._ro_backend.measurement_settings[measurement]["active"]:
                 #Count the number of total iterations which have to be made during the measurement
                 total_iterations += self._ro_backend.measurement_settings[measurement]["averages"]
                 
                 for node in self._ro_backend.measurement_settings[measurement]["data_nodes"]:
                     #Create one dataset for each Measurement node
-                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = [self._x_parameter],
+                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords_list,
                                           unit = self._ro_backend.measurement_settings[measurement]["unit"], 
                                           save_timestamp = False))
-        pb = Progress_Bar(total_iterations)
+        self._total_iterations = total_iterations
         self._prepare_measurement_file(datasets)
-        self._open_qviewkit()
+        if self.open_qviewkit:
+            self._open_qviewkit()
+    
+    def _measure_vs_time(self, dimension, progress_bar):
+        self._ro_backend.arm()
+        #self._manip_backend.run()       
+        total_sum = {}
+        iterations = 0
+        divider = 1
+        while not self._ro_backend.finished():
+            old_iterations = iterations
+            latest_data = self._ro_backend.read()
+            for measurement in latest_data.keys():
+                if divider == 1:                            
+                    total_sum[measurement] = {}                 
+                #Count the number of iterations collected by the most recent call of read
+                first_node = list(latest_data[measurement].keys())[0]
+                iterations += len(latest_data[measurement][first_node])
+                
+                for node in latest_data[measurement].keys():
+                    if latest_data[measurement][node].ndim != 3:
+                        raise IndexError("Invalid readout dimensions. The readout backend must return arrays with 3 dimensions.")
+                    if False in np.any(latest_data[measurement][node], axis = (0, 2)):
+                        raise ValueError("During the last read the readout returned an array with empty slices.")
+                    #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
+                    if divider == 1:
+                        total_sum[measurement][node] = np.average(latest_data[measurement][node], axis = (0, 2))
+                        self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node])
+                    else:
+                        total_sum[measurement][node] += np.average(latest_data[measurement][node], axis = (0, 2))
+                        #Divide through the number of finished iterations, since you accumulate all the averages
+                        if dimension == 1:
+                            self._datasets["%s.%s" % (measurement, node)].ds[:] =  total_sum[measurement][node] / divider
+                        elif dimension == 2:
+                            self._datasets["%s.%s" % (measurement, node)].ds[-1] = total_sum[measurement][node] / divider
+                        elif dimension == 3:
+                            self._datasets["%s.%s" % (measurement, node)].ds[-1][-1] = total_sum[measurement][node] / divider
+            divider += 1
+            self._data_file.flush()
+            progress_bar.iterate(addend = iterations - old_iterations)
+        self._ro_backend.stop()
+        #self._manip_backend.stop()
+            
+    def compile_qupulse(self):
+        self.decoded = Qupulse_decoder(self.qupulse_pt, self.qupulse_pars)
+        self._set_t_parameters()
+        self._setup_ro()
+        self._setup_manip()
+        
+    def measure1D(self):
+        self._measurement_object.measurement_func = "%s: measure1D" % __name__
+        self._prepare_measurement()
+        pb = Progress_Bar(self._total_iterations)
         try:
-            self._ro_backend.arm()
-            #self._manip_backend.run()            
+            #self._acquire_log_functions()
+            self._measure_vs_time(1, pb)
+        finally:
+            self._ro_backend.stop()
+            #self._manip_backend.stop()
+            self._end_measurement()
             
-            total_sum = {}
-            iterations = 0   
-            divider = 1
-            while not self._ro_backend.finished():
-                old_iterations = iterations
-                latest_data = self._ro_backend.read()
-                for measurement in latest_data.keys():
-                    if divider == 1:                            
-                        total_sum[measurement] = {}                 
-                    #Count the number of iterations collected by the most recent call of read
-                    first_node = list(latest_data[measurement].keys())[0]
-                    iterations += len(latest_data[measurement][first_node])
-                    
-                    for node in latest_data[measurement].keys():
-                        if latest_data[measurement][node].ndim != 3:
-                            raise IndexError("Invalid readout dimensions. The readout backend must return arrays with 3 dimensions.")
-                        if False in np.any(latest_data[measurement][node], axis = (0, 2)):
-                            raise ValueError("During the last read the readout returned an array with empty slices.")
-                        #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
-                        if divider == 1:
-                            total_sum[measurement][node] = np.average(latest_data[measurement][node], axis = (0, 2))
-                            self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node])
-                        else:
-                            total_sum[measurement][node] += np.average(latest_data[measurement][node], axis = (0, 2))
-                            #Divide through the number of finished iterations, since you accumulate all the averages
-                            self._datasets["%s.%s" % (measurement, node)].ds.write_direct(total_sum[measurement][node] / divider)                        
-                            
-                divider += 1
-                self._data_file.flush()
-                pb.iterate(addend = iterations - old_iterations)
-            
+    def measure2D(self):        
+        self._measurement_object.measurement_func = "%s: measure2D" % __name__        
+        self._prepare_measurement(self._x_parameter)
+        pb = Progress_Bar(len(self._x_parameter.values) * self._total_iterations)
+        try:
+            for x_val in self._x_parameter.values:
+                self._x_parameter.set_function(x_val)
+                self._acquire_log_functions()
+                qkit.flow.sleep(self._x_parameter.wait_time)
+                self._measure_vs_time(2, pb)
         finally:
             self._ro_backend.stop()
             #self._manip_backend.stop()
             self._end_measurement()
     
-    def measure2D(self):        
-        self._measurement_object.measurement_func = "%s: measure2D" % __name__
-        
-        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values))
-        self._prepare_measurement_file([self.Data(name = self.measurand["name"], coords = [self._x_parameter, self._y_parameter],
-                                                  unit = self.measurand["unit"], save_timestamp = False)])
-        self._open_qviewkit()
-        try:
-            direction = 1
-            for x_val in self._x_parameter.values:
-                sweepy = []
-                self._x_parameter.set_function(x_val)
-                self._acquire_log_functions()
-                qkit.flow.sleep(self._x_parameter.wait_time)
-                
-                for y_val in self._y_parameter.values[::direction]:                    
-                    self._y_parameter.set_function(y_val)
-                    qkit.flow.sleep(self._y_parameter.wait_time)
-                    sweepy.append(float(self._get_value_func()))
-                    #sweepy.append(self._my_gauss(x_val, y_val))
-                    pb.iterate()
-                    
-                self._datasets[self.measurand["name"]].append(sweepy[::direction])
-                if self.reverse2D: direction *= -1
-        finally:
-            self._end_measurement()
-            
-    def measure2D_ST(self):        
-        self._measurement_object.measurement_func = "%s: measure2D" % __name__
-        
-        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values))
-        self._prepare_measurement_file([self.Data(name = self.measurand["name"], coords = [self._x_parameter, self._y_parameter],
-                                                  unit = self.measurand["unit"], save_timestamp = False)])
-        self._open_qviewkit()
-        try:
-            direction = 1
-            for x_val in self._x_parameter.values:
-                sweepy = []
-                self._x_parameter.set_function(x_val)
-                self._acquire_log_functions()
-                qkit.flow.sleep(self._x_parameter.wait_time)
-                
-                for y_val in self._y_parameter.values[::direction]:                    
-                    self._y_parameter.set_function(y_val)
-                    qkit.flow.sleep(self._y_parameter.wait_time)
-                    sweepy.append(float(self._get_value_func()))
-                    #sweepy.append(self._my_gauss(x_val, y_val))
-                    pb.iterate()
-                    
-                self._datasets[self.measurand["name"]].append(sweepy[::direction])
-                if self.reverse2D: direction *= -1
-        finally:
-            self._end_measurement()
-    
     def measure3D(self):        
         self._measurement_object.measurement_func = "%s: measure3D" % __name__
-        
-        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * len(self._z_parameter.values))        
-        self._prepare_measurement_file([self.Data(name = self.measurand["name"], coords = [self._x_parameter, self._y_parameter, self._z_parameter], 
-                                                  unit = self.measurand["unit"], save_timestamp = False)])
-        self._open_qviewkit()
+        self._prepare_measurement(self._x_parameter, self._y_parameter)
+        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * self._total_iterations)
         try:            
+            direction = 1
             for x_val in self._x_parameter.values:
                 self._x_parameter.set_function(x_val)
                 self._acquire_log_functions()
                 qkit.flow.sleep(self._x_parameter.wait_time)
                 
-                direction = 1
-                for y_val in self._y_parameter.values:
-                    sweepy = []
+                for y_val in self._y_parameter.values[::direction]:
                     self._y_parameter.set_function(y_val)
                     qkit.flow.sleep(self._y_parameter.wait_time)
-                    
-                    for z_val in self._z_parameter.values[::direction]:                    
-                        self._z_parameter.set_function(z_val)
-                        qkit.flow.sleep(self._z_parameter.wait_time)
-                        sweepy.append(float(self._get_value_func()))
-                        #sweepy.append(self._my_gauss(x_val, y_val, z_val))
-                        pb.iterate()
-                        
-                    self._datasets[self.measurand["name"]].append(sweepy[::direction])
-                    if self.reverse2D: direction *= -1
+                    self._measure_vs_time(3, pb)
                 
-                self._datasets[self.measurand["name"]].next_matrix()
+                for dset in self._datasets.values():
+                    dset.next_matrix()
+                if self.meander_sweep: direction *= -1
         finally:
+            self._ro_backend.stop()
+            #self._manip_backend.stop()
             self._end_measurement()
-            
+
 if __name__ == "__main__":
     import qkit
     from datetime import date
