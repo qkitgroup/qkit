@@ -13,7 +13,7 @@ class RO_backend:
     def __init__(self):
 
         #These are not to be removed later
-        self.measurement_settings = {"M1":{"sampling_rate" : 1.3e6,
+        self.measurement_settings = {"M1":{"sampling_rate" : 10e9,
                                "measurement_count" : 256,
                                "sample_count" : 3,
                                "averages" : 30,
@@ -21,7 +21,7 @@ class RO_backend:
                                "unit" : "V",
                                "active" : True
                                },
-                                    "M2":{"sampling_rate" : 1.4e6,
+                                    "M2":{"sampling_rate" : 10e9,
                                "measurement_count" : 256,
                                "sample_count" : 3,
                                "averages" : 31,
@@ -29,10 +29,10 @@ class RO_backend:
                                "unit" : "V",
                                "active" : True
                                },
-                                    "M3":{"sampling_rate" : 1.4e6,
+                                    "M3":{"sampling_rate" : 10e9,
                                "measurement_count" : 256,
                                "sample_count" : 3,
-                               "averages" : 31,
+                               "averages" : 1,
                                "data_nodes" : ["hubbi"],
                                "unit" : "V",
                                "active" : True
@@ -75,18 +75,18 @@ class RO_backend:
                 data[measurement] = {}
                 if self.counter[measurement] + self._return_length > self.measurement_settings[measurement]["averages"]:
                     self._return_length = self.measurement_settings[measurement]["averages"] - self.counter[measurement]
-                self.counter[measurement] += self._return_length
+                self.counter[measurement] += self._return_length                
                 
-                arr = np.empty((self._return_length, 
-                               self.measurement_settings[measurement]["measurement_count"],
-                               self.measurement_settings[measurement]["sample_count"]))
                 for node in self.measurement_settings[measurement]["data_nodes"]:
+                    arr = np.empty((self._return_length, 
+                                   self.measurement_settings[measurement]["measurement_count"],
+                                   self.measurement_settings[measurement]["sample_count"]))
                     for avg in range(self._return_length):
                         for i in range(self.measurement_settings[measurement]["sample_count"]):
-                                sine = np.sin(np.linspace(0, np.pi, self.measurement_settings[measurement]["measurement_count"]))
+                                cosine = np.cos(np.linspace(0, np.pi, self.measurement_settings[measurement]["measurement_count"]))
                                 noise = np.random.normal(0, 5, self.measurement_settings[measurement]["measurement_count"])
-                                arr[avg, :, i] = sine + noise                    
-                    data[measurement][node] = arr         
+                                arr[avg, :, i] = cosine + noise                    
+                    data[measurement][node] = arr
         return data
         
     def finished(self):
