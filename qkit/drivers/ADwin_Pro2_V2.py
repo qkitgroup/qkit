@@ -4,6 +4,8 @@ This file is using the ADwin process ramp_input_V2.TC1
 
 TO-DO: 
     if ADwin is not booted then it has to be manually booted with ADbasic once
+    get_out() retruns None
+    set_out_parallel may not log changes
 
 '''
 
@@ -535,26 +537,33 @@ class ADwin_Pro2_V2(Instrument):
         '''
         #The maximum number of gates which can be set in parallel as defined by the for-loop in the ADbasic file:
         max_num_channels = 10
+        #the gates which are reseved for the current sources cannot be accessed with set_out_parallel
+        field_gates = [1, 2, 3]
+        
         if len(voltages)==len(channels) and isinstance(voltages, list) and isinstance(channels, list) and len(voltages)<=max_num_channels:
             #setting to be ramped gates as an array to Data_185. Initialized as zeros:
             channel_list = [0]*max_num_channels
             for gate in channels:
-                index_channels = channels.index(gate)
-                channel_list[index_channels] = gate
-                volts = voltages[index_channels]
-                
-                if self.get('gate%d_oversampling_state'%gate)==1:
-                    #oversampling is on so the length in which the lower bit ist kept 
-                    #has to be given to the ADwin
-                    value, steps_lower_bit = self.volt_to_digit(volts, gate)
-                    self.adw.SetData_Long([steps_lower_bit], 187, gate, 1)
-                    logging.info(__name__ +': setting number of oversampling steps in lower bit to %d for gate %d.'%(steps_lower_bit, gate))
+                if (gate in field_gates):
+                    logging.warning(__name__+': voltage at outputs for current sources cannot be changed with this funcion. ')
+                    sys.exit() 
                 else:
-                    value, _ =self.volt_to_digit(volts, gate)
-                    logging.info(__name__ +': not oversampling gate %d.'%gate)
+                    index_channels = channels.index(gate)
+                    channel_list[index_channels] = gate
+                    volts = voltages[index_channels]
                     
-                logging.info(__name__ +': setting output voltage gate %d to %f V'%(gate, volts))
-                self.adw.SetData_Long([value], 200, gate, 1)
+                    if self.get('gate%d_oversampling_state'%gate)==1:
+                        #oversampling is on so the length in which the lower bit ist kept 
+                        #has to be given to the ADwin
+                        value, steps_lower_bit = self.volt_to_digit(volts, gate)
+                        self.adw.SetData_Long([steps_lower_bit], 187, gate, 1)
+                        logging.info(__name__ +': setting number of oversampling steps in lower bit to %d for gate %d.'%(steps_lower_bit, gate))
+                    else:
+                        value, _ =self.volt_to_digit(volts, gate)
+                        logging.info(__name__ +': not oversampling gate %d.'%gate)
+                        
+                    logging.info(__name__ +': setting output voltage gate %d to %f V'%(gate, volts))
+                    self.adw.SetData_Long([value], 200, gate, 1)
               
            
             #setting array of ramped channels to Data_185
