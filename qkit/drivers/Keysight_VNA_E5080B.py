@@ -261,6 +261,18 @@ class Keysight_VNA_E5080B(Instrument):
             return dataamp, datapha
         else:
             raise ValueError('get_tracedata(): Format must be AmpPha or RealImag')
+    
+    def get_segments(self):
+        if self.get_sweep_type(query=False) == "SEGM":
+            self._visainstrument.write('FORM:DATA REAL,64')
+            self._visainstrument.write('FORM:BORD SWAPPED')
+            segments =  [0]
+            for x in numpy.reshape(self._visainstrument.query_binary_values("sense:segment:list? SSTOP",datatype="d"),(-1,8)):
+                if x[0]>0.5: #the segment is active
+                    segments.append(int(x[1])+segments[-1])
+            return segments[1:]
+        else:
+            return []
       
     def get_freqpoints(self, query=False):
         if self.get_sweep_type(query=False) == "SEGM":
