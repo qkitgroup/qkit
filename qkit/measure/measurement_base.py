@@ -268,7 +268,7 @@ class MeasureBase(object):
         self._dim = 0
         for d in data:
             for c in d.coordinates:
-                coordinates.add(c.name)
+                coordinates.add(c.name.rstrip("_0123456789")) # removes indices like frequency_0 from the file name
             self._dim = max(self._dim, len(d.coordinates))  # if you have several 2D scans, the dimension is still 2D
         if not self.measurement_name:
             self.measurement_name = ", ".join(coordinates)
