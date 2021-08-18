@@ -264,9 +264,11 @@ class Keysight_VNA_E5080B(Instrument):
       
     def get_freqpoints(self, query=False):
         if self.get_sweep_type(query=False) == "SEGM":
+            self._visainstrument.write('FORM:DATA REAL,64')
+            self._visainstrument.write('FORM:BORD SWAPPED')
             freqs = numpy.array([])
-            for x in numpy.reshape(self._visainstrument.query_binary_values("sense:segment:list? SSTOP"),(-1,8)):
-                if x[0]>0.5:
+            for x in numpy.reshape(self._visainstrument.query_binary_values("sense:segment:list? SSTOP",datatype="d"),(-1,8)):
+                if x[0]>0.5: #the segment is active
                     freqs = numpy.append(freqs,numpy.linspace(x[2],x[3],int(x[1])))
             self._freqpoints = freqs
             return self._freqpoints
@@ -288,6 +290,7 @@ class Keysight_VNA_E5080B(Instrument):
         single means only one single trace, not all the averages even if averages
          larger than 1 and Average==True
         """
+        mode=mode.lower()
         if mode == 'hold':
             self._visainstrument.write('SENS%i:SWE:MODE HOLD' % self._ci)
         elif mode == 'cont':
