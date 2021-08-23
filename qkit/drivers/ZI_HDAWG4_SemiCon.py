@@ -145,6 +145,91 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
     def zrun_sequence(self, new):
         self.set_reg1_user_regs(new)
 
+    def setrectangle(self, samples_hi_how_many_times_sixteen, samples_lo_how_many_times_sixteen, channel):
+        try:
+            if type(samples_hi_how_many_times_sixteen) != int or type(samples_lo_how_many_times_sixteen) != int or type(channel) != int:
+                logging.error(__name__+" : All input values have to be integers.")
+                raise
+
+            if samples_hi_how_many_times_sixteen<0 or samples_lo_how_many_times_sixteen<0:
+                logging.error(__name__+" : All input values have to be either positive or zero.")
+                raise
+
+            if samples_hi_how_many_times_sixteen==0 and samples_lo_how_many_times_sixteen==0:
+                logging.error(__name__+" : A rectangle wave with no length is nonsense.")
+                raise
+
+            if channel>4 or channel<1:
+                logging.error(__name__+" : Only channels from 1 to 4 can be selected.")
+                
+
+            samples_hi = samples_hi_how_many_times_sixteen * 16
+            samples_lo = samples_lo_how_many_times_sixteen * 16
+
+            awg_prog_list = []
+            awg_prog_list.append("wave pulse = rect(%d,1);" % samples_hi)
+            awg_prog_list.append("wave zeropulse = rect(%d,0);" % samples_lo)
+            awg_prog_list.append("while(1){")
+            awg_prog_list.append("playWave(%d, pulse);" % channel)
+            awg_prog_list.append("playWave(%d, zeropulse);" % channel)
+            awg_prog_list.append("}")
+            awg_program = "".join(awg_prog_list)
+            self.set_program_string(awg_program)
+            self.upload_to_device()
+
+            # define class attribute with the total number of samples in multiples of 16 for the wavelength for setclockandprescaler()
+            self.totalwaveformlength = samples_hi_how_many_times_sixteen + samples_lo_how_many_times_sixteen
+
+        except:
+            logging.error(__name__+" : Rectangle sequence could not be created.")
+
+
+    def setclockandprescaler(self, f_waveform):
+
+        '''Method to find and set the HDAWG clock frequency and the prescaler value for a frequency of a waveform with a specific number of samples. \n
+        Input: rectangle frequency (float, int, >0), number of samples (the input value is multiplied with 16 to respect the granularity of the HDAWG).\n
+        Output: f_clock: clock frequency; prescaler exponent (the prescales is 2^n).'''
+
+        try:
+            samples_how_many_times_sixteen = self.totalwaveformlength
+            
+            # get rectangle frequency
+            if (type(f_waveform) != float and type(f_waveform) != int) or f_waveform <= 0:
+                logging.error("The given rectangle frequency has to be a positive integer or float number.")
+                raise
+
+            # get number of samples
+            if type(samples_how_many_times_sixteen) == int and samples_how_many_times_sixteen > 0 : 
+                samples_rectangle = 16 * samples_how_many_times_sixteen # multiple of 16
+            else:
+                logging.error(__name__+" : The number of samples has to be a positive multiple of 16.")
+                raise
+
+            # arbitrary start values 
+            f_clock = 10e10
+            n = 14
+
+            # find highest possible clock frequency with the highest possible prescaler exponent
+            while f_clock > 2.4e9:
+                n -= 1
+                f_clock = 2 ** n * samples_rectangle * f_waveform
+
+            # check if f_clock is not too low (lower than 100 MHz), output computed parameters if ok
+            if f_clock < 1e8:
+                logging.error(__name__+" : Computed clock frequency is too low for the AWG. Increase rectangle frequency or number of samples.")
+                raise
+            elif n<0:
+                logging.error(__name__+" : Computed clock frequency is too high for the AWG. Decrease rectangle frequency or number of samples.")
+                raise
+                
+            else:
+                logging.info(__name__+" : New parameters: f_clock = {} Hz, prescaler: 2^{}".format(f_clock, n))
+                self.set_sampling_clock(f_clock)
+                self.set_sampling_prescaler(int(2**n))
+
+        except:
+            logging.error(__name__+" : Clock frequency and prescaler could not be changed.")
+
 
 if __name__ == "__main__":
     qkit.start()

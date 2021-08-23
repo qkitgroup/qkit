@@ -147,7 +147,7 @@ class ZI_HDAWG4(Instrument):
         #/AWGS/n/TIME
         self.add_parameter('sampling_prescaler', type = int,
             flags = Instrument.FLAG_GETSET,
-            minval = 0, maxval = 13,
+            minval = 0, maxval = 8192,
             tags = ['sweep'])
         
         #Actual samoling rate
@@ -543,7 +543,7 @@ class ZI_HDAWG4(Instrument):
         return output
 
     def _do_set_sampling_clock(self, newclock):
-        logging.info(__name__+ ': Setting samkple clock to %f.' % newclock)
+        logging.info(__name__+ ': Setting sample clock to %f.' % newclock)
         self.daq.setDouble('/%s/system/clocks/sampleclock/freq' % self._device_id, newclock)
         self.daq.sync()
 
