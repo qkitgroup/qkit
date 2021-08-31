@@ -1,30 +1,30 @@
 '''
+ADwin ProII driver written by S. Fuhrmann und D. Schroller
+
+TO-DO: 
+    set_out_parallel may not log changes -> get_out afterwads helps
+
 IMPORTANT:
 This file is using the ADwin process ramp_input_V2.TC1
 
-TO-DO: 
-    if ADwin is not booted then it has to be manually booted with ADbasic once
-    get_out() retruns None
-    set_out_parallel may not log changes
+If ADwin is not booted then it has to be booted manually with ADbasic once. 
 
-'''
 
-"""
- ADwin-Pro II qkit driver - copy into qkit/drivers folder
+Copy driver into qkit/drivers folder.
 
- This program is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation; either version 2 of the License, or
- (at your option) any later version.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program; if not, write to the Free Software
- Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+     This program is free software; you can redistribute it and/or modify
+     it under the terms of the GNU General Public License as published by
+     the Free Software Foundation; either version 2 of the License, or
+     (at your option) any later version.
+    
+     This program is distributed in the hope that it will be useful,
+     but WITHOUT ANY WARRANTY; without even the implied warranty of
+     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+     GNU General Public License for more details.
+    
+     You should have received a copy of the GNU General Public License
+     along with this program; if not, write to the Free Software
+     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 
 'Parameters used on ADwin'
@@ -51,7 +51,7 @@ TO-DO:
 'Par_76:      run variable => 1 if device is run'
 'FPar_77:     ramping speed in Volts/second normal ports'
 'Par_78:      channel which is ramped. only it will be changed during an event'
-"""
+'''
 
 
 import ADwin as adw
@@ -134,7 +134,7 @@ class ADwin_Pro2_V2(Instrument):
             logging.error(__name__+': lower voltage limit higher than upper limit')
             sys.exit()
         
-        #VERY IMPORTANT TO INCLUCE! stoppin the running ADwin process before and give it time to go to the Finish part to ramp down voltages
+        #VERY IMPORTANT TO INCLUCE! stopping the running ADwin process before and give it time to go to the Finish part to ramp down voltages
         self.stop_process()
            
         #bootload
@@ -521,7 +521,7 @@ class ADwin_Pro2_V2(Instrument):
     def get_out(self, gate):
         '''Allows easier access to get function for many gates.
         '''
-        self.get('gate%d_out'% gate)
+        return self.get('gate%d_out'% gate)
 
     def set_out_parallel(self, channels, voltages):
         '''set_out_parallel(channels, voltages)
@@ -546,7 +546,12 @@ class ADwin_Pro2_V2(Instrument):
             for gate in channels:
                 if (gate in field_gates):
                     logging.warning(__name__+': voltage at outputs for current sources cannot be changed with this funcion. ')
+                    input("Press Enter to continue.")
                     sys.exit() 
+                elif channels.count(gate)>1:
+                    logging.warning(__name__+': same gate used multiple times. ')
+                    input("Press Enter to continue.")
+                    sys.exit()
                 else:
                     index_channels = channels.index(gate)
                     channel_list[index_channels] = gate
@@ -595,6 +600,7 @@ class ADwin_Pro2_V2(Instrument):
             logging.warning(__name__+': voltage and channel must be a list of equal length!')
             input("Press Enter to continue.")
             sys.exit() 
+ 
     
     
     def _do_set_output_current_voltage_in_V(self, new, channel): #For current sources! NO EXTERNAL USE!
