@@ -29,3 +29,9 @@ class virtual_voltage_source(Instrument):
     
     def _do_get_output_voltage_in_V(self, channel):
         return self._gate_votlages[channel-1]
+
+if __name__ == "__main__":
+    import qkit
+    qkit.start()
+    vsource = qkit.instruments.create("vsource", "virtual_voltage_source")
+    vsource.set_attenuation(2)
