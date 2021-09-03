@@ -19,6 +19,8 @@ import qkit
 import qkit.measure.measurement_base as mb
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.write_additional_files import get_instrument_settings
+from qkit.measure.semiconductor.readout_backends.RO_backend_base import RO_backend_base
+from qkit.measure.semiconductor.manipulation_backends.MA_backend_base import MA_backend_base
 
 import qupulse
 
@@ -27,15 +29,44 @@ import warnings
 import inspect
 
 from numpy.random import rand
+from collections.abc import MutableMapping
+
+class TransformedDict(MutableMapping):
+    """A dictionary that applies an arbitrary key-altering
+       function before accessing the keys"""
+
+    def __init__(self, mapping, *args, **kwargs):
+        self.mapping = mapping
+        self.store = dict()
+        self.update(dict(*args, **kwargs))  # use the free update to set keys
+
+    def __getitem__(self, key):
+        return self.store[key]
+
+    def __setitem__(self, key, value):
+        self.store[self._keytransform(key)] = value
+
+    def __delitem__(self, key):
+        del self.store[key]
+
+    def __iter__(self):
+        return iter(self.store)
+    
+    def __len__(self):
+        return len(self.store)
+    
+    def __str__(self):
+        return self.store.__str__()
+
+    def _keytransform(self, key):
+        return self.mapping[key]  
 
 class Qupulse_decoder2:
     valid_pulses = np.array(inspect.getmembers(qupulse.pulses, inspect.isclass))[:, 1]
+    _for_type = qupulse.pulses.loop_pulse_template.ForLoopPulseTemplate
     def __init__(self, *experiments):
         self.experiments = experiments          
-        self.measurement_pars = {}    
-        self.axis_pars = {}
-        
-        self._for_type = qupulse.pulses.loop_pulse_template.ForLoopPulseTemplate
+        self.measurement_pars = {}
         
         self._validate_entries()
         self._extract_measurement_pars()
@@ -55,23 +86,29 @@ class Qupulse_decoder2:
             #check whether channel and measurement definitions do not overlap.
             for channel in pt.defined_channels:
                 if channel in pt_channels:
-                    raise Exception("Channels of different experiments overlap. Experiments are not allowed to share channels.")
+                    raise ValueError("Channels of different experiments overlap. Experiments are not allowed to share channels.")
                 pt_channels.add(channel)
             for measurement in pt.measurement_names:
                 if measurement in pt_measurements:
-                    raise Exception("Measurements of different experiments overlap. Experiments are not allowed to share Measurements.")
+                    raise ValueError("Measurements of different experiments overlap. Experiments are not allowed to share Measurements.")
                 pt_measurements.add(measurement)
             #In case there are forloop pts, check whether they don't have overlapping measurement axis
             if isinstance(pt, self._for_type):
                 a = pt.loop_range.step.original_expression
                 if isinstance(a, str) and a in pt_axis:
-                    raise Exception("Different Experiments have the same step parameter name. Experiments must have different step parameter names.")
+                    raise ValueError("Different Experiments have the same step parameter name. Experiments must have different step parameter names.")
                 pt_axis.add(a)
 
     def _extract_measurement_pars(self):
         for pt, pars in self.experiments:
             prog = pt.create_program(parameters = pars)
-            self.measurement_pars.update(prog.get_measurement_windows())
+            for measurement, parameters in prog.get_measurement_windows().items():
+                measurement_durations = parameters[1]
+                if measurement_durations[measurement_durations != measurement_durations[0]].size > 0: # check whether all elements are the same
+                    raise ValueError ("%s: All measurement windows for one measurement have to be of the same length" % __name__)
+                self.measurement_pars[measurement] = {}
+                self.measurement_pars[measurement]["measurement_count"] = len(measurement_durations)
+                self.measurement_pars[measurement]["measurement_duration"] = measurement_durations[0] * 1e-9
     
     def _get_loop_start(self, pt, pars):
         key = pt.loop_range.start.original_expression
@@ -110,88 +147,89 @@ class Qupulse_decoder2:
                 if not pt.measurement_names:
                     warnings.warn("%s does not contain any measurements. Measurement axis parameters cannot be extracted automatically." % pt.identifier)
                 for measurement in pt.measurement_names:
-                    self.axis_pars[measurement] = (loop_step_name, np.arange(loop_start, loop_stop, loop_step) * 1e-9)
+                    self.measurement_pars[measurement]["loop_step_name"] = loop_step_name
+                    self.measurement_pars[measurement]["loop_range"] = np.arange(loop_start, loop_stop, loop_step) * 1e-9
             else:
-                warnings.warn("%s is not a ForLoopPulseTemplate. Measurement axis parameters cannot be extracted automatically." % pt.identifier)
-        
-class Qupulse_decoder:
-    def __init__(self, qupulse_pt, qupulse_pars):
-        self.qupulse_pt = qupulse_pt
-        self.qupulse_pars = qupulse_pars
-        self.get_loop_start()
-        self.get_loop_stop()
-        self.get_loop_step()
-        self.get_measurement_parameters()
-        self.loop_range = np.arange(self.loop_start_value, self.loop_stop_value, self.loop_step_value) * 1e-9
-        self.loop_length = len(self.loop_range)
-        
-    @property
-    def qupulse_pt(self):
-        return self._qupulse_pt
-    @qupulse_pt.setter
-    def qupulse_pt(self, new_pt):
-        if not isinstance(new_pt, qupulse.pulses.loop_pulse_template.ForLoopPulseTemplate):
-            raise TypeError("Invalid pulse template. Must be a ForLoopPulseTemplate.")
-        self._qupulse_pt = new_pt
-    @property
-    def qupulse_pars(self):
-        return self._qupulse_pars
-    @qupulse_pars.setter
-    def qupulse_pars(self, new_pars):
-        if not isinstance(new_pars, dict):
-            raise TypeError("Invalid pulse parameters. Must be a dictionary.")
-        self._qupulse_pars = new_pars
-        
-    def get_loop_start(self):
-        key = self.qupulse_pt.loop_range.start.original_expression
-        if type(key) == str:
-            self.loop_start_name = key
-            self.loop_start_value = self.qupulse_pars[key]
-        elif type(key) == int:
-            self.loop_start_name = "for_loop_start"
-            self.loop_start_value = key
-        else:
-            raise TypeError("Data type of the original qupulse Expression is unknown")
-
-    def get_loop_stop(self):
-        key = self.qupulse_pt.loop_range.stop.original_expression
-        if type(key) == str:
-            self.loop_stop_name = key
-            self.loop_stop_value = self.qupulse_pars[key]
-        elif type(key) == int:
-            self.loop_stop_name = "for_loop_stop"
-            self.loop_stop_value = key
-        else:
-            raise TypeError("Data type of the original qupulse Expression is unknown")
+                warnings.warn("%s is not a ForLoopPulseTemplate. Measurement axis parameters cannot be extracted automatically." % pt.identifier) 
     
-    def get_loop_step(self):
-        key = self.qupulse_pt.loop_range.step.original_expression
-        if type(key) == str:
-            self.loop_step_name = key
-            self.loop_step_value = self.qupulse_pars[key]
-        elif type(key) == int:
-            self.loop_step_name = "for_loop_step"
-            self.loop_step_value = key
-        else:
-            raise TypeError("Data type of the original qupulse Expression is unknown")
+class Settings:
+    def __init__(self, core, decoder_params, **add_pars):
+        self.core = core
+        
+        self._assert_mapping(decoder_params, add_pars)
+        self._assert_averages(decoder_params, add_pars)        
+        self.measurement_settings = TransformedDict(self.mapping, decoder_params)        
+        self._validate_entries()
+        
+        self._get_units()
+        self._get_nodes()
+        self._time_to_samples()
     
-    def get_measurement_parameters(self):
-        try:
-            averages = self.qupulse_pars["n_rep"]
-        except KeyError:
-            warnings.warn("No repetitions per measurement defined. Defaulting to 1000.")
-            averages = 1000
+    def __iter__(self):
+        return iter(self.measurement_settings)
+    
+    def __getitem__(self, key):
+        return self.measurement_settings[key]
+    
+    def keys(self):
+        return self.measurement_settings.keys()
+    
+    def values(self):
+        return self.measurement_settings.values()
+    
+    def items(self):
+        return self.measurement_settings.items()
         
-        qupulse_prog = self.qupulse_pt.create_program(parameters = self.qupulse_pars)
-        self.measurement_pars = qupulse_prog.get_measurement_windows()
-        
-        for measurement in self.measurement_pars.keys():
-            if isinstance(averages, dict) and isinstance(averages[measurement], int):
-                self.measurement_pars[measurement] = self.measurement_pars[measurement] + (averages[measurement],)
-            elif isinstance(averages, int):
-                self.measurement_pars[measurement] = self.measurement_pars[measurement] + (averages,)
-            else:
-                raise TypeError("Cannot set averages. Parameter entry must be an int or a dictionary containing ints.")
+    def _assert_mapping(self, decoder_params, add_pars):
+        if "measurement_mapping" in add_pars:
+            if type(add_pars["measurement_mapping"]) != dict:
+                raise TypeError("Invalid data type for measurement_mapping. Must be a dictionary.")
+            if not all(x in add_pars["measurement_mapping"].keys() for x in decoder_params.keys()):
+                raise KeyError("Measurement mapping incomplete. Not all measurements are mapped.")
+            self.mapping = add_pars["measurement_mapping"]
+            self.inverse_mapping = {v : k for k, v in self.mapping.items()}
+        else:
+            self.mapping = self.inverse_mapping = {v : v for v in decoder_params.keys()}
+    
+    def _assert_averages(self, decoder_params, add_pars):        
+        if "averages" in add_pars:
+            if type(add_pars["averages"]) != dict:
+                raise TypeError("Invalid data type for averages. Must be a dictionary.")
+            for measurement, settings in decoder_params.items():
+                if measurement not in add_pars["averages"]:
+                    raise KeyError("Averages incomplete. Not all measurements have an assigned number of averages")
+                else: settings["averages"] = add_pars["averages"][measurement]
+        else:
+            for settings in decoder_params.values():
+                settings["averages"] = 1000
+            warnings.warn("No averages given. Defaulting to 1000 for all measurements")
+            
+    def _validate_entries(self):
+        for measurement in self.measurement_settings.keys():
+            if measurement not in self.core._ro_backend._registered_measurements.keys():
+                raise AttributeError(f"Your readout backend does not support measurement {measurement}")
+                
+    def _time_to_samples(self):        
+        for measurement, settings in self.measurement_settings.items():
+            settings["sample_count"] = np.int32(np.floor(settings["measurement_duration"] * \
+                    getattr(self.core._ro_backend, f"{measurement}_get_sample_rate")()))
+            
+    def _get_units(self):
+        for measurement, settings in self.measurement_settings.items():
+            settings["unit"] = self.core._ro_backend._registered_measurements[measurement]["unit"]
+    
+    def _get_nodes(self):
+        for measurement, settings in self.measurement_settings.items():
+            settings["data_nodes"] = self.core._ro_backend._registered_measurements[measurement]["data_nodes"]
+    
+    def load(self):
+        for measurement in self.core._ro_backend._registered_measurements:
+            getattr(self.core._ro_backend, f"{measurement}_deactivate")()
+        for measurement, settings in self.measurement_settings.store.items():
+            getattr(self.core._ro_backend, f"{measurement}_set_measurement_count")(settings["measurement_count"])
+            getattr(self.core._ro_backend, f"{measurement}_set_sample_count")(settings["sample_count"])
+            getattr(self.core._ro_backend, f"{measurement}_set_averages")(settings["averages"])
+            getattr(self.core._ro_backend, f"{measurement}_activate")()
         
 class Exciting(mb.MeasureBase):
     """
@@ -230,7 +268,7 @@ class Exciting(mb.MeasureBase):
         Starts a 3D measurement
     """
     def __init__(self, readout_backend, #manipulation_backend,
-                 *experiments, exp_name = "", manipulation_backend = None, sample = None):
+                 *experiments, exp_name = "", manipulation_backend = None, sample = None, **add_pars):
         """
         Parameters
         ----------
@@ -242,45 +280,17 @@ class Exciting(mb.MeasureBase):
         """
         mb.MeasureBase.__init__(self, sample)
         
-        self._validate_ro_backend(readout_backend)
+        self._validate_RO_backend(readout_backend)
         self._ro_backend = readout_backend
-        self._validate_manip_backend(manipulation_backend)
-        self._manip_backend = manipulation_backend        
-               
-# =============================================================================
-#         self.qupulse_pt = qupulse_pt
-#         self.qupulse_pars = qupulse_pars
-# =============================================================================
+        #self._validate_manip_backend(manipulation_backend)
+        self._manip_backend = manipulation_backend   
         
         self._t_parameters = {}
-        self.compile_qupulse(*experiments)
+        self.compile_qupulse(*experiments, **add_pars)
         
         self.meander_sweep = True
         self.report_static_voltages = True
-
         
-# =============================================================================
-#     @property
-#     def qupulse_pt(self):
-#         if self._qupulse_pt == None:
-#             raise ValueError("No qupulse_pt was defined.")
-#         return self._qupulse_pt
-#     @qupulse_pt.setter
-#     def qupulse_pt(self, new_pt):
-#         if not isinstance(new_pt, qupulse.pulses.loop_pulse_template.ForLoopPulseTemplate):
-#             raise TypeError("Invalid pulse template. Must be a ForLoopPulseTemplate.")
-#         self._qupulse_pt = new_pt
-#     @property
-#     def qupulse_pars(self):
-#         if self._qupulse_pars == None:
-#             raise ValueError("No qupulse_pars were defined.")
-#         return self._qupulse_pars
-#     @qupulse_pars.setter
-#     def qupulse_pars(self, new_pars):
-#         if not isinstance(new_pars, dict):
-#             raise TypeError("Invalid pulse parameters. Must be a dictionary.")
-#         self._qupulse_pars = new_pars
-# =============================================================================
     
     @property
     def meander_sweep(self):
@@ -302,16 +312,14 @@ class Exciting(mb.MeasureBase):
             raise TypeError("Invalid report_static_voltages parameter. Must be a boolean value.")
         self._report_static_voltages = yesno
     
-    def _validate_ro_backend(self, RO_backend):
-        #Check whether all the needed functions are there
-        #and whether the settings dictionary has the right format
-        pass
-    
-    def _validate_manip_backend(self, manip_backend):
-        #Check whether all the needed functions are there
-        #and whether the settings dictionary has the right format
-        pass
-    
+    def _validate_RO_backend(self, RO_backend):
+        if not issubclass(RO_backend.__class__, RO_backend_base):
+            raise TypeError("Invalid readout backend. The backend must be a subclass of RO_backend_base")
+            
+    def _validate_MA_backend(self, MA_backend):
+        if not issubclass(MA_backend.__class__, MA_backend_base):
+            raise TypeError("Invalid manipulation backend. The backend must be a subclass of MA_backend_base")
+            
     def update_t_parameters(self, vec, coordname, measurement):
             new_t_parameter = self.Coordinate(coordname, 
                                                 unit = "s", 
@@ -328,28 +336,6 @@ class Exciting(mb.MeasureBase):
             for meas, coordinate in self._t_parameters.items():
                 if coordinate.name == new_t_parameter.name:
                     self._t_parameters[measurement] = self._t_parameters[meas]           
-            
-    def _setup_ro(self):
-        #Turn off all measurements
-        for measurement in self._ro_backend.measurement_settings.keys():
-            self._ro_backend.measurement_settings[measurement]["active"] = False
-        for measurement, parameters in self.decoded.measurement_pars.items():
-            measurement_durations = parameters[1]
-            averages = 250
-            
-            if measurement_durations[measurement_durations != measurement_durations[0]].size > 0: # check whether all elements are the same
-                raise ValueError ("%s: All measurement windows for one measurement have to be of the same length" % __name__)
-            try:
-                self._ro_backend.measurement_settings[measurement]["active"] = True
-                self._ro_backend.measurement_settings[measurement]["measurement_count"] = len(measurement_durations)
-                self._ro_backend.measurement_settings[measurement]["sample_count"] = np.int32(np.floor(measurement_durations[0] * self._ro_backend.measurement_settings[measurement]["sampling_rate"] * 1e-9))
-                self._ro_backend.measurement_settings[measurement]["averages"] = averages
-            except KeyError:
-                raise Exception("%s: Defined measurement windows do not fit you readout backend. The requested measurement %s is not available in the loaded backend." % (__name__, measurement))
-    
-    def _setup_manip(self):
-        #Load the waveforms of the qupulse object onto the AWG
-        pass
     
     def _prepare_measurement_file(self, data, coords=()):
         mb.MeasureBase._prepare_measurement_file(self, data, coords=())
@@ -372,16 +358,14 @@ class Exciting(mb.MeasureBase):
         total_iterations = 0 #setup the progress bar
         datasets = []
         coords_list = list(coords)
-        for measurement in self._ro_backend.measurement_settings.keys():            
-            if self._ro_backend.measurement_settings[measurement]["active"]:
-                #Count the number of total iterations which have to be made during the measurement
-                total_iterations += self._ro_backend.measurement_settings[measurement]["averages"]
-                
-                for node in self._ro_backend.measurement_settings[measurement]["data_nodes"]:
-                    #Create one dataset for each Measurement node
-                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords_list + [self._t_parameters[measurement]],
-                                          unit = self._ro_backend.measurement_settings[measurement]["unit"], 
-                                          save_timestamp = False))
+        for measurement in self.settings:
+            total_iterations += self.settings[measurement]["averages"]
+            
+            for node in self.settings[measurement]["data_nodes"]:
+                #Create one dataset for each Measurement node
+                datasets.append(self.Data(name = "%s.%s" % (self.settings.inverse_mapping[measurement], node), coords = coords_list + [self._t_parameters[measurement]],
+                                      unit = self.settings[measurement]["unit"], 
+                                      save_timestamp = False))
         self._total_iterations = total_iterations
         self._prepare_measurement_file(datasets)
         if self.open_qviewkit:
@@ -411,36 +395,31 @@ class Exciting(mb.MeasureBase):
                     #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
                     if divider == 1:
                         total_sum[measurement][node] = np.average(latest_data[measurement][node], axis = (0, 2))
-                        self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node])
+                        self._datasets["%s.%s" % (self.settings.inverse_mapping[measurement], node)].append(total_sum[measurement][node])
                     else:
                         total_sum[measurement][node] += np.average(latest_data[measurement][node], axis = (0, 2))
                         #Divide through the number of finished iterations, since you accumulate all the averages
                         if dimension == 1:
-                            self._datasets["%s.%s" % (measurement, node)].ds[:] =  total_sum[measurement][node] / divider
+                            self._datasets["%s.%s" % (self.settings.inverse_mapping[measurement], node)].ds[:] =  total_sum[measurement][node] / divider
                         elif dimension == 2:
-                            self._datasets["%s.%s" % (measurement, node)].ds[-1] = total_sum[measurement][node] / divider
+                            self._datasets["%s.%s" % (self.settings.inverse_mapping[measurement], node)].ds[-1] = total_sum[measurement][node] / divider
                         elif dimension == 3:
-                            self._datasets["%s.%s" % (measurement, node)].ds[-1][-1] = total_sum[measurement][node] / divider
+                            self._datasets["%s.%s" % (self.settings.inverse_mapping[measurement], node)].ds[-1][-1] = total_sum[measurement][node] / divider
             divider += 1
             self._data_file.flush()
             progress_bar.iterate(addend = iterations - old_iterations)
         self._ro_backend.stop()
         #self._manip_backend.stop()
-            
-# =============================================================================
-#     def compile_qupulse(self):
-#         self.decoded = Qupulse_decoder(self.qupulse_pt, self.qupulse_pars)
-#         self._set_t_parameters()
-#         self._setup_ro()
-#         self._setup_manip()
-# =============================================================================
     
-    def compile_qupulse(self, *experiments):
+    def compile_qupulse(self, *experiments, **add_pars):
         self.decoded = Qupulse_decoder2(*experiments)
-        for measurement, parameters in self.decoded.axis_pars.items():
-            self.update_t_parameters(parameters[1], parameters[0], measurement)
-        self._setup_ro()
-        self._setup_manip()
+        print(self.decoded.measurement_pars)
+        self.settings = Settings(self, self.decoded.measurement_pars, **add_pars)
+        for measurement in self.settings:
+            self.update_t_parameters(self.settings[measurement]["loop_range"], 
+                                     self.settings[measurement]["loop_step_name"],
+                                     measurement)
+        self.settings.load()
         
     def measure1D(self):
         self._measurement_object.measurement_func = "%s: measure1D" % __name__
@@ -520,3 +499,84 @@ if __name__ == "__main__":
     excitation._ro_backend.measurement_settings["M1"]["sample_count"] = 10
     excitation._ro_backend.measurement_settings["M1"]["averages"] = 400
     excitation.measure1D()
+    
+# =============================================================================
+# class Qupulse_decoder:
+#     def __init__(self, qupulse_pt, qupulse_pars):
+#         self.qupulse_pt = qupulse_pt
+#         self.qupulse_pars = qupulse_pars
+#         self.get_loop_start()
+#         self.get_loop_stop()
+#         self.get_loop_step()
+#         self.get_measurement_parameters()
+#         self.loop_range = np.arange(self.loop_start_value, self.loop_stop_value, self.loop_step_value) * 1e-9
+#         self.loop_length = len(self.loop_range)
+#         
+#     @property
+#     def qupulse_pt(self):
+#         return self._qupulse_pt
+#     @qupulse_pt.setter
+#     def qupulse_pt(self, new_pt):
+#         if not isinstance(new_pt, qupulse.pulses.loop_pulse_template.ForLoopPulseTemplate):
+#             raise TypeError("Invalid pulse template. Must be a ForLoopPulseTemplate.")
+#         self._qupulse_pt = new_pt
+#     @property
+#     def qupulse_pars(self):
+#         return self._qupulse_pars
+#     @qupulse_pars.setter
+#     def qupulse_pars(self, new_pars):
+#         if not isinstance(new_pars, dict):
+#             raise TypeError("Invalid pulse parameters. Must be a dictionary.")
+#         self._qupulse_pars = new_pars
+#         
+#     def get_loop_start(self):
+#         key = self.qupulse_pt.loop_range.start.original_expression
+#         if type(key) == str:
+#             self.loop_start_name = key
+#             self.loop_start_value = self.qupulse_pars[key]
+#         elif type(key) == int:
+#             self.loop_start_name = "for_loop_start"
+#             self.loop_start_value = key
+#         else:
+#             raise TypeError("Data type of the original qupulse Expression is unknown")
+# 
+#     def get_loop_stop(self):
+#         key = self.qupulse_pt.loop_range.stop.original_expression
+#         if type(key) == str:
+#             self.loop_stop_name = key
+#             self.loop_stop_value = self.qupulse_pars[key]
+#         elif type(key) == int:
+#             self.loop_stop_name = "for_loop_stop"
+#             self.loop_stop_value = key
+#         else:
+#             raise TypeError("Data type of the original qupulse Expression is unknown")
+#     
+#     def get_loop_step(self):
+#         key = self.qupulse_pt.loop_range.step.original_expression
+#         if type(key) == str:
+#             self.loop_step_name = key
+#             self.loop_step_value = self.qupulse_pars[key]
+#         elif type(key) == int:
+#             self.loop_step_name = "for_loop_step"
+#             self.loop_step_value = key
+#         else:
+#             raise TypeError("Data type of the original qupulse Expression is unknown")
+#     
+#     def get_measurement_parameters(self):
+#         try:
+#             averages = self.qupulse_pars["n_rep"]
+#         except KeyError:
+#             warnings.warn("No repetitions per measurement defined. Defaulting to 1000.")
+#             averages = 1000
+#         
+#         qupulse_prog = self.qupulse_pt.create_program(parameters = self.qupulse_pars)
+#         self.measurement_pars = qupulse_prog.get_measurement_windows()
+#         
+#         for measurement in self.measurement_pars.keys():
+#             if isinstance(averages, dict) and isinstance(averages[measurement], int):
+#                 self.measurement_pars[measurement] = self.measurement_pars[measurement] + (averages[measurement],)
+#             elif isinstance(averages, int):
+#                 self.measurement_pars[measurement] = self.measurement_pars[measurement] + (averages,)
+#             else:
+#                 raise TypeError("Cannot set averages. Parameter entry must be an int or a dictionary containing ints.") 
+# =============================================================================
