@@ -723,7 +723,7 @@ class ZI_HDAWG4(Instrument):
         with open(path, 'r+') as f:
             config_data = json.load(f)
         #set sampling rate
-        self.set_sampling_rate(config_data['device_settings'][0]['sampling_rate'])
+        self.set_sampling_clock(config_data['device_settings'][0]['sampling_clock'])
         #set user registers
         for i in range(1,33):
             exec('self.set_reg%d_user_regs(%d)'%(i,int(config_data['device_settings'][0]['user_reg%d'% i])))

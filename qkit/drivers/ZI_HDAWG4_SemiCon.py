@@ -66,12 +66,8 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
         fileslist = sorted(os.listdir(self.wave_dir))
         logging.debug(__name__+': Detected waveform files: '+str(os.listdir(self.wave_dir)))
 
-        #make sequence program string in order to play all csv files in folder "waves/" (self.set_reg1_user_regs(1) to run playback)
-
-        self.awg_program = str("while(getUserReg(0)==0);\n")
-
         #set up markers
-
+        self.awg_program = str()
         self.awg_program = self.awg_program+"wave marker1_wave = \"marker1_file\";\n"
         self.awg_program = self.awg_program+"wave marker2_wave = \"marker2_file\";\n"
 
