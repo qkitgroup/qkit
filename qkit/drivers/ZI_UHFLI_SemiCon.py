@@ -176,7 +176,6 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         logging.debug(__name__ + ' : setting sample path of the daq to %s' % (newpath))
         self.daq.unsubscribe("*")
         self.daq.flush()
-
         for element in newpath:
             self.daq.subscribe(element)
     
