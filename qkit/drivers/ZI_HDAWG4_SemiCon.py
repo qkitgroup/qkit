@@ -68,22 +68,25 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
 
         #set up markers
         self.awg_program = str()
-        self.awg_program = self.awg_program+"wave marker1_wave = \"marker1_file\";\n"
-        self.awg_program = self.awg_program+"wave marker2_wave = \"marker2_file\";\n"
+        marker_fileNum = 0
+        for i in range(len(fileslist)):
+            if "marker" in fileslist[i]:
+                marker_fileNum += 1
+                self.awg_program = self.awg_program + "wave marker" + str(marker_fileNum) + "_wave = \"marker" + str(marker_fileNum) +"_file\";\n"
 
         #put together csv wave w and marker_wave to wave wm...
 
         channel_identifiers = ['A','B','C','D']
         wms_array=np.array([])
         for j in range(0,len(fileslist)):
-                if fileslist[j]!='.cache' and fileslist[j]!='marker1_wave.csv' and fileslist[j]!='marker2_wave.csv':#ommit .cache and marker waves when iterating through files
+                if fileslist[j]!='.cache' and "marker" not in fileslist[j]:#ommit .cache and marker waves when iterating through files
                     #check for files and also channel identifier A,B,C,D in filename, e.g. "custom0A..."
                     waveform_index=fileslist[j][6]
                     for i in range(0,len(self._channel_outputs)):
 
                         if self._channel_outputs[i]==1 and fileslist[j][7]==channel_identifiers[i]:
                             self.awg_program = self.awg_program+"wave w"+channel_identifiers[i]+waveform_index+" = \""+str(fileslist[j]).replace(".csv","")+"\";\n"
-                            self.awg_program = self.awg_program+"wave wm"+channel_identifiers[i]+waveform_index+" = w"+channel_identifiers[i]+waveform_index+"+marker"+str(self._marker_outputs[i])+"_wave;\n"
+                            self.awg_program = self.awg_program+"wave wm"+channel_identifiers[i]+waveform_index+" = w"+channel_identifiers[i]+waveform_index+"+marker"+str(i+1)+"_wave;\n"
                             wms_array=np.append(wms_array,"wm"+channel_identifiers[i]+waveform_index)
 
         #set up loop, single or repeat mode
@@ -137,6 +140,7 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
         #n = sequence_code_file.write(self.awg_program)
         sequence_code_file.close()
         logging.info(__name__+' : saved sequence filename: %s'%sequence_code_file_name)
+        print(self.awg_program)
 
     def zrun_sequence(self, new):
         self.set_reg1_user_regs(new)
