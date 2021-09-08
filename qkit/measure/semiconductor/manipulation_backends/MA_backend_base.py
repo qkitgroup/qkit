@@ -8,6 +8,7 @@ Created on Fri Sep  3 19:50:44 2021
 from abc import ABC, abstractmethod
 
 class MA_backend_base(ABC):
+    _registered_channels = {}
     
     @abstractmethod
     def run():
@@ -15,4 +16,7 @@ class MA_backend_base(ABC):
     
     @abstractmethod
     def stop():
+        pass
+    
+    def register_channel(self, name):
         pass
