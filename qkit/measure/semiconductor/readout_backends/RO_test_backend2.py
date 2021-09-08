@@ -29,7 +29,15 @@ class RO_backend(RO_backend_base):
                                "data_nodes" : ["x", "y", "z"],
                                "unit" : "V",
                                "active" : True
-                               }}
+                               },
+                                    "M2":{"sampling_rate" : 10e9,
+                               "measurement_count" : 256,
+                               "sample_count" : 3,
+                               "averages" : 30,
+                               "data_nodes" : ["d", "e", "f"],
+                               "unit" : "V",
+                               "active" : True}
+                                }
     
         
     #These parts are to be removed later, they are for testing purposes only
@@ -39,6 +47,7 @@ class RO_backend(RO_backend_base):
         self.return_length = {}
         self.register_measurement("M4", "V", ["a", "b", "c"])
         self.register_measurement("M1", "V", ["x", "y", "z"])
+        self.register_measurement("M2", "V", ["d", "e", "f"])
     
     def M4_get_sample_rate(self):
         rate = self.measurement_settings["M4"]["sampling_rate"]
@@ -80,6 +89,25 @@ class RO_backend(RO_backend_base):
         print("Measurement M1 deactivated")
         self.measurement_settings["M1"]["active"] = False
     
+    def M2_get_sample_rate(self):
+        rate = self.measurement_settings["M2"]["sampling_rate"]
+        print(f"M2 sampling rate: {rate}")
+        return rate    
+    def M2_set_measurement_count(self, new_meas):
+        print(f"Setting M2 measurement_count to {new_meas}")
+        self.measurement_settings["M2"]["measurement_count"] = new_meas
+    def M2_set_sample_count(self, new_samp):
+        print(f"Setting M2 sample_count to {new_samp}")
+        self.measurement_settings["M2"]["sample_count"] = new_samp
+    def M2_set_averages(self, new_avgs):
+        print(f"Setting M2 averages to {new_avgs}")
+        self.measurement_settings["M2"]["averages"] = new_avgs
+    def M2_activate(self):
+        print("Measurement M2 activated")
+        self.measurement_settings["M2"]["active"] = True
+    def M2_deactivate(self):
+        print("Measurement M2 deactivated")
+        self.measurement_settings["M2"]["active"] = False
     def arm(self):
         self.all_done = 0
         for measurement in self.measurement_settings.keys():
