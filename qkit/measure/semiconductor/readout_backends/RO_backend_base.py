@@ -25,7 +25,10 @@ class RO_backend_base(ABC):
     @abstractmethod
     def stop():
         pass
-
+    
+    def __str__(self):
+        return f"{self.__class__.__name__}"
+    
     def register_measurement(self, name, unit, nodes):
         if type(name) != str:
             raise TypeError(f"{name} is not a valid experiment name. The experiment name must be a string.")
@@ -50,11 +53,6 @@ class RO_backend_base(ABC):
         
         if not getattr(self, f"{name}_set_averages", None):
             not_implemented += f"\n{name}_set_averages()"
-            
-# =============================================================================
-#         if not getattr(self, f"{name}_set_data_nodes", None):
-#             not_implemented += f"\n{name}_set_data_nodes()"
-# =============================================================================
             
         if not getattr(self, f"{name}_activate", None):
             not_implemented += f"\n{name}_activate()"
