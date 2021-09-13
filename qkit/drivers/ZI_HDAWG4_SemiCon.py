@@ -69,25 +69,32 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
         #set up markers
         self.awg_program = str()
         marker_fileNum = 0
+        wave_fileNum = 0
         for i in range(len(fileslist)):
             if "marker" in fileslist[i]:
                 marker_fileNum += 1
-                self.awg_program = self.awg_program + "wave marker" + str(marker_fileNum) + "_wave = \"marker" + str(marker_fileNum) +"_file\";\n"
-
+                self.awg_program = self.awg_program + "wave marker" + str(marker_fileNum) + " = \"marker" + str(marker_fileNum) + "\";\n"
+            if "wave" in fileslist[i]:
+                wave_fileNum += 1
+                self.awg_program = self.awg_program + "wave w" + str(wave_fileNum) + " = \"wave" + str(wave_fileNum) + "\";\n"
+        
         #put together csv wave w and marker_wave to wave wm...
-
-        channel_identifiers = ['A','B','C','D']
-        wms_array=np.array([])
-        for j in range(0,len(fileslist)):
-                if fileslist[j]!='.cache' and "marker" not in fileslist[j]:#ommit .cache and marker waves when iterating through files
-                    #check for files and also channel identifier A,B,C,D in filename, e.g. "custom0A..."
-                    waveform_index=fileslist[j][6]
-                    for i in range(0,len(self._channel_outputs)):
-
-                        if self._channel_outputs[i]==1 and fileslist[j][7]==channel_identifiers[i]:
-                            self.awg_program = self.awg_program+"wave w"+channel_identifiers[i]+waveform_index+" = \""+str(fileslist[j]).replace(".csv","")+"\";\n"
-                            self.awg_program = self.awg_program+"wave wm"+channel_identifiers[i]+waveform_index+" = w"+channel_identifiers[i]+waveform_index+"+marker"+str(i+1)+"_wave;\n"
-                            wms_array=np.append(wms_array,"wm"+channel_identifiers[i]+waveform_index)
+        combined_waves_index = []
+        for i in range(wave_fileNum):
+            if "wave marker" + str(i+1) in self.awg_program:
+                combined_waves_index.append(i+1)
+                self.awg_program = self.awg_program + "wave wm" + str(i+1) + " = w" + str(i+1) + " + marker" + str(i+1) + ";\n"
+            
+#        wms_array=np.array([])
+#        for j in range(len(fileslist)):
+#                if "wave" in fileslist[j]:
+#                    waveform_index=fileslist[j][6]
+#                    for i in range(0,len(self._channel_outputs)):
+#
+#                        if self._channel_outputs[i]==1 and fileslist[j][7]==channel_identifiers[i]:
+#                            self.awg_program = self.awg_program+"wave w"+channel_identifiers[i]+waveform_index+" = \""+str(fileslist[j]).replace(".csv","")+"\";\n"
+#                            self.awg_program = self.awg_program+"wave wm"+channel_identifiers[i]+waveform_index+" = w"+channel_identifiers[i]+waveform_index+"+marker"+str(i+1)+"_wave;\n"
+#                            wms_array=np.append(wms_array,"wm"+channel_identifiers[i]+waveform_index)
 
         #set up loop, single or repeat mode
 
@@ -103,26 +110,40 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
         #make playWaves
 
         #   internal counter to see how many channels are used
-        counter = 0
+        used_channels = max([wave_fileNum, marker_fileNum])
 
-        for j in range(0,len(wms_array)):
+        for i in range(used_channels):
+            if i==0:
+                self.awg_program = self.awg_program+"playWave("
+                
+            if i+1 in combined_waves_index:
+                self.awg_program = self.awg_program + str(i+1) + ",wm" + str(i+1) + ","
+            else:
+                if "wave w" + str(i+1) in self.awg_program:
+                    self.awg_program = self.awg_program + str(i+1) + ",w" + str(i+1) + ","
+                if "wave marker" + str(i+1) in self.awg_program:
+                    self.awg_program = self.awg_program + str(i+1) + ",marker" + str(i+1) + ","
+                    
+            if i+1 == used_channels:
+                self.awg_program = self.awg_program[:-1]
+                self.awg_program = self.awg_program+");\n"
 
-                for i in range(0,len(self._channel_outputs)): 
-                    playwave_variable = wms_array[j] 
-
-                    if counter==0 and i==0:
-                        self.awg_program = self.awg_program+"playWave("
-
-                    if self._channel_outputs[i]==1 and wms_array[j][2]==channel_identifiers[i]:
-                        if counter!=0:
-                            self.awg_program = self.awg_program+","
-                        self.awg_program = self.awg_program+str(i+1)+","+playwave_variable
-                        counter+=1
-
-                #   check if brackets of playWave have to be closed
-                if counter == np.sum(self._channel_outputs):
-                    self.awg_program = self.awg_program+");\n"
-                    counter = 0
+#                for i in range(0,len(self._channel_outputs)): 
+#                    playwave_variable = wms_array[j] 
+#
+#                    if counter==0 and i==0:
+#                        self.awg_program = self.awg_program+"playWave("
+#
+#                    if self._channel_outputs[i]==1 and wms_array[j][2]==channel_identifiers[i]:
+#                        if counter!=0:
+#                            self.awg_program = self.awg_program+","
+#                        self.awg_program = self.awg_program+str(i+1)+","+playwave_variable
+#                        counter+=1
+#
+#                #   check if brackets of playWave have to be closed
+#                if counter == np.sum(self._channel_outputs):
+#                    self.awg_program = self.awg_program+");\n"
+#                    counter = 0
 
         if loop_or_single_or_repeat!=1:
             self.awg_program = self.awg_program+"}"
@@ -284,15 +305,15 @@ if __name__ == "__main__":
     hartwig.zcreate_sequence_program()
 
     #upload and play
-    hartwig.zupload_to_device()
+    #hartwig.zupload_to_device()
 
     #run sequence
-    hartwig.zrun_sequence(1)
+    #hartwig.zrun_sequence(1)
 
     #stop sequence
-    hartwig.zrun_sequence(0)
+    #hartwig.zrun_sequence(0)
 
     #disable everything
-    zhinst.utils.disable_everything(hartwig.daq, hartwig.device)
+    #zhinst.utils.disable_everything(hartwig.daq, hartwig.device)
     #----------------------------------
 
