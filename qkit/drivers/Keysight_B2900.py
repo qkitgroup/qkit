@@ -66,7 +66,7 @@ class Keysight_B2900(Instrument):
         Loading module ... S98_started.py
         Loading module ... S99_init_user.py
         
-        >>> IVD = qkit.instruments.create('IVD', 'Keysight_B2901A', address='TCPIP0::00.00.000.00::INSTR', reset=True)
+        >>> IVD = qkit.instruments.create('IVD', 'Keysight_B2900', address='TCPIP0::00.00.000.00::INSTR', reset=True)
         Initialized the file info database (qkit.fid) in 0.000 seconds.
         """
         # Corresponding Command: :SYSTem:BEEPer:STATe mode
@@ -1442,6 +1442,34 @@ class Keysight_B2900(Instrument):
         except Exception as e:
             logging.error('{!s}: Cannot get current value{:s}'.format(__name__, self._log_chans[self._channels][channel]))
             raise type(e)('{!s}: Cannot get current value{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], e))
+    
+    
+    def get_resistance(self, channel=1):
+        """
+        Gets resistance value <val> of channel <channel>.
+
+        Parameters
+        ----------
+        channel: int
+            Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels. Default is 1.
+
+        Returns
+        -------
+        val: float
+            Sense resistance value.
+        """
+        # Corresponding Command: voltage = [:SOUR[c]]:VOLT?
+        # Corresponding Command: :READ[:SCALar]: <CURRent|RESistance|SOURce|STATus|TIME|VOLTage>? [chanlist]
+        # Corresponding Command: :MEASure:<CURRent[:DC]|RESistance|VOLTage[:DC]>? [chanlist]
+        try:
+            logging.debug('{:s}: Get resistance value{:s}'.format(__name__, self._log_chans[self._channels][channel]))
+            self._write(':disp:view sing{:d}'.format(channel))
+            #return float(self._ask(':sour{:s}:res?'.format(self._cmd_chans[self._channels][channel])))
+            return float(self._ask(':meas:res?').replace('+9.910000E+37', 'nan').replace('9.900000E+37', 'inf'))
+        except Exception as e:
+            logging.error('{!s}: Cannot get resistance value{:s}'.format(__name__, self._log_chans[self._channels][channel]))
+            raise type(e)('{!s}: Cannot get resistance value{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], e))
+        
 
     def get_IV(self, channel=1):
         """
