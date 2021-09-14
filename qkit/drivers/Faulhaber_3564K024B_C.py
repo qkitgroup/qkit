@@ -33,9 +33,11 @@ class Faulhaber_3564K024B_C(Instrument):
         timeout = 0.1
         self.ins = serial.Serial(address, baudrate, timeout=timeout)
         self.running, self.aborting = False, False
+        self.lock = threading.Lock()
         
         self.mode = 'SOR0'
         self.set_mode(self.mode)
+        self.position = None
         self.speed = 10000
         self.direction = 0
         self.bounds = (-1, 1500000)
@@ -54,7 +56,8 @@ class Faulhaber_3564K024B_C(Instrument):
         -------
         None
         """
-        return self.ins.write('{:s}\r'.format(cmd).encode())
+        with self.lock:
+            return self.ins.write('{:s}\r'.format(cmd).encode())
 
     def _query(self, cmd, size=100):
         """
@@ -70,8 +73,9 @@ class Faulhaber_3564K024B_C(Instrument):
         answer: str
             Answer that is returned at read after the sent <cmd>.
         """
-        self.ins.write('{:s}\r'.format(cmd).encode())
-        return self.ins.read(size=size).decode().split('\r\n')[0] # strip('\r\n') # 
+        with self.lock:
+            self.ins.write('{:s}\r'.format(cmd).encode())
+            return self.ins.read(size=size).decode().split('\r\n')[0] # strip('\r\n') # 
     
     def set_mode(self, mode):
         """
@@ -102,6 +106,7 @@ class Faulhaber_3564K024B_C(Instrument):
         None
         """
         self.mode = mode
+        self._write(mode)
         
     def set_speed(self, speed, direction=None):
         """
@@ -170,9 +175,10 @@ class Faulhaber_3564K024B_C(Instrument):
             Motor position.
         """
         try:
-            return float(self._query('pos'))
+            self.position = float(self._query('pos'))
         except ValueError:
-            return float(self._query('pos'))
+            pass
+        return self.position
 
     def set_zero_position(self):
         """
@@ -204,21 +210,25 @@ class Faulhaber_3564K024B_C(Instrument):
         pos: int
             Actual position
         """
-        def _move_to():
-            rel = int(np.sign(self.get_position() - pos))
-            self.set_direction({1: 1, -1: 0}[rel])
-            self.set_status(True)
-            while {1: self.get_position() > pos, -1: self.get_position() < pos}[rel] and not self.aborting:
-                time.sleep(t)
-            self.set_status(False)
+        if self.mode == 'SOR1':
+            def _move_to():
+                rel = int(np.sign(self.get_position() - pos))
+                self.set_direction({1: 1, -1: 0}[rel])
+                self.set_status(True)
+                while {1: self.get_position() > pos, -1: self.get_position() < pos}[rel] and not self.aborting:
+                    time.sleep(t)
+                self.set_status(False)
+        elif self.mode == 'SOR0':
+            print('''use 'SOR1' mode instead''')
+            raise NotImplementedError(''''move_to' not yet implemented for 'SOR0' mode.''' )
         
         self.aborting = False
-        self.thread = threading.Thread(target=_move_to)
-        self.thread.start()
+        self.thread_move_to = threading.Thread(target=_move_to)
+        self.thread_move_to.start()
 
     def set_bounds(self, bounds=(0, 1510000)):
         """
-        Sets the position range to <boudns>.
+        Sets the position range to <bounds>.
 
         Parameters
         ----------
@@ -232,6 +242,21 @@ class Faulhaber_3564K024B_C(Instrument):
         self._write('LL{:+d}'.format(bounds[0]))
         self._write('LL{:+d}'.format(bounds[1]))
         self._write('APL1')
+    
+    def get_bounds(self):
+        """
+        Gets the position range <bounds>.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        bounds: tuple(int)
+            Motor position range.
+        """
+        return (float(self._query('GNL')), float(self._query('GPL')))
 
     def run(self, bounds=None, speed=None, t=1e-2):
         """
@@ -257,34 +282,35 @@ class Faulhaber_3564K024B_C(Instrument):
                     self.set_direction(0)
                     time.sleep(0.5)
                     self.set_status(True)
-                    while float(self._query('POS')) < bounds[1] and not self.aborting:
+                    while self.get_position() < bounds[1] and not self.aborting:
                         time.sleep(t)
                     self.set_status(False)
                     if self.aborting: break
                     self.set_direction(1)
                     time.sleep(0.5)
                     self.set_status(True)
-                    while float(self._query('POS')) > bounds[0] and not self.aborting:
+                    while self.get_position() > bounds[0] and not self.aborting:
                         time.sleep(t)
                     self.set_status(False)
                     self.set_direction(1)
         elif self.mode == 'SOR0':
             def run_endless():
-                while self.running:
-                    self.set_status(True)
-                    self.set_speed(speed=speed, direction=0)
-                    while self.get_position() < bounds[1] and not self.aborting:
-                        time.sleep(t)
-                    if self.aborting: break
-                    self.set_speed(speed=speed, direction=1)
-                    while self.get_position() > bounds[0] and not self.aborting:
-                        time.sleep(t)
-                    self.set_speed(speed=0, direction=1)
-                    self.set_status(False)
+                while True:  # ugly bugfix, but I don't know, how to solve the problem of a restart (MMW)
+                    while self.running:
+                        self.set_status(True)
+                        self.set_speed(speed=speed, direction=0)
+                        while self.get_position() < bounds[1] and not self.aborting:
+                            time.sleep(t)
+                        self.set_speed(speed=speed, direction=1)
+                        while self.get_position() > bounds[0] and not self.aborting:
+                            time.sleep(t)
+                        self.set_speed(speed=0, direction=1)
+                        self.set_status(False)
+                    time.sleep(1)
         
         self.running, self.aborting = True, False
-        self.thread = threading.Thread(target=run_endless)
-        self.thread.start()
+        self.thread_run = threading.Thread(target=run_endless)
+        self.thread_run.start()
 
     def stop(self):
         """
@@ -314,10 +340,11 @@ class Faulhaber_3564K024B_C(Instrument):
         """
         self.running, self.aborting = False, True
         time.sleep(0.5)
-        self.ins.read(size=100)
+        with self.lock:
+            self.ins.read(size=100)
         return self.get_position()
     
-    def get_status(self):
+    def get_running_status(self):
         """
         Gets the status of endless loop initiated by 'self.run()' and eventually stopped by 'self.stop()' or 'self.abort()'.
 
