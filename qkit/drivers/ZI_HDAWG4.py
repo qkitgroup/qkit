@@ -88,6 +88,9 @@ class ZI_HDAWG4(Instrument):
         
         #Sample clock prescaler values:
         self._prescaler = np.array([2**i for i in range(14)])
+        
+        #Possible voltage ranges for outputs
+        self._Vrange_array = np.array([0.2,0.4,0.8,1.,1.5,2.,3.,4.,5.])
 
         #set apilevel to highest supported by device to unlock most of the functionalities
         #create apisession to communicate with device (ziDataServer needed)
@@ -571,9 +574,8 @@ class ZI_HDAWG4(Instrument):
         return clock/prescaler
         
     def _do_set_output_range(self,new,channel):
-        valuesarray = np.array([0.2,0.4,0.8,1.,1.5,2.,3.,4.,5.])
-        if new not in valuesarray:
-            new = valuesarray[np.searchsorted(valuesarray,new,side = 'right')-1]
+        if new not in self._Vrange_array:
+            new = self._Vrange_array[np.searchsorted(self._Vrange_array,new,side = 'right')-1]
             logging.warning('Output voltage must be equal to one of the following values (in V): 0.2 / 0.4 / 0.8 / 1. / 1.5. / 2. / 3. / 4. / 5. \n Setting output to next lower value: '+str(new)+" V")
         logging.info(__name__+': setting output range of channel %s to %d' %(channel-1,new) +'V.')
         self.daq.setDouble('/%s/SIGOUTS/%d/RANGE' % (self._device_id, channel-1), new)

@@ -48,12 +48,47 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
         time = samples_value/sampling_rate
         logging.info(__name__ +': %s samples converted to %s s.'%(f"{samples_value:.5e}",f"{time:.5e}"))
         return time
+    
+    
+    def zdict_to_CSV(self,data_dict):
+        if type(data_dict) != dict:
+            raise TypeError(f"{__name__}: Cannot use {type(data_dict)} input. Data must be an dict with channel names and corresponding wave data.")
+        
+        channel_names = []
+        for key in data_dict:
+            channel_names.append(key)
+        
+        for i in range(len(channel_names)):
+            index = [s for s in channel_names[i] if s.isdigit()]
+            if "trig" in channel_names[i]:
+                if type(data_dict[channel_names[i]]) == dict:
+                    if "sample" not in data_dict[channel_names[i]]:
+                        raise KeyError("Unkown dict keys. Wave data needs to be part of the \"sample\" key.")
+                    trigArray = np.concatenate(data_dict[channel_names[i]]["sample"])
+                else:
+                    trigArray = data_dict[channel_names[i]]
+                np.savetxt(self.wave_dir + "marker" + index[0] + ".csv", trigArray.astype(int), fmt='%s')
+            else:
+                if type(data_dict[channel_names[i]]) == dict:
+                    if "sample" not in data_dict[channel_names[i]]:
+                        raise KeyError("Unkown dict keys. Wave data needs to be part of the \"sample\" key.")
+                    waveArray = np.concatenate(data_dict[channel_names[i]]["sample"])
+                else:
+                    waveArray = data_dict[channel_names[i]]
+                    
+                maxV = max(abs(waveArray))
+                new = self._Vrange_array[np.searchsorted(self._Vrange_array, maxV, side = 'left')]
+                print("setting ch" + index[0] + " output range to " + str(new) + "V to match waveform data.")
+                self.set('ch' + index[0] + '_output_range', new)
+                
+                scaled_data = waveArray/new
+                np.savetxt(self.wave_dir + "wave" + index[0] + ".csv", scaled_data)
+                
 
     # define AWG program as string stored in the variable self.awg_program, equivalent to what
     # would be entered in the Sequence Editor window in the graphical UI.
     # before creating sequence, run load_config_file.
     # set int loop_or_single_or_repeat to 0 (loop mode), 1 (single mode, default) or other positive integer as the number of repetitions (example: 3 => repeating 3 times)
-
     def zcreate_sequence_program(self, loop_or_single_or_repeat = 0):
 
         #check input values
