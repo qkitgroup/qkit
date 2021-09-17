@@ -104,7 +104,6 @@ class Qupulse_decoder2:
                     raise ValueError(f"{__name__}: The step parameter defined in {pt.identifier} is already used in another experiment. Experiments must have different step parameter names.")
                 pt_axis.add(a)
 
-    #TODO: Validate the sample_rates Still have to? They are called automatically.
     def _render_channel(self, wvf, channel, sample_rate):
         start_time, end_time = 0, wvf.duration
         sample_count = (end_time - start_time) * sample_rate + 1                    
@@ -193,9 +192,11 @@ class Qupulse_decoder2:
                 warnings.warn(f"{__name__}: {pt.identifier} is not a ForLoopPulseTemplate. Measurement axis parameters cannot be extracted automatically.") 
     
 class Settings:
-    def __init__(self, core, channel_params, measurement_params, averages):
+    def __init__(self, core, channel_params, measurement_params, averages, **add_pars):
         self.core = core
-        
+        if "measurement_mapping" in add_pars:
+            averages_mapping = expand_mapping(averages, add_pars["measurement_mapping"])
+            averages = {averages_mapping[meas] : avg for meas, avg in averages.items()}  
         self._assert_measurement_averages(measurement_params, averages)
         self.channel_settings = channel_params
         self._validate_channel_entries()
@@ -434,13 +435,11 @@ class Exciting(mb.MeasureBase):
         self._ro_backend.stop()
         self._ma_backend.stop()
     
-    def compile_qupulse(self, *experiments, averages, deep_render = False, **add_pars):
-        if "measurement_mapping" in add_pars:
-            averages = {add_pars["measurement_mapping"][meas] : avg for meas, avg in averages.items()}     
+    def compile_qupulse(self, *experiments, averages, deep_render = False, **add_pars):   
         sample_rates = {channel : getattr(self._ma_backend, f"{channel}_get_sample_rate")() \
                         for channel in self._ma_backend._registered_channels.keys()}        
         decoded = Qupulse_decoder2(*experiments, sample_rates = sample_rates, deep_render = deep_render, **add_pars)        
-        self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages)        
+        self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)        
         for name, measurement in self.settings.measurement_settings.items():
             try:
                 self.update_t_parameters(measurement["loop_range"], 
