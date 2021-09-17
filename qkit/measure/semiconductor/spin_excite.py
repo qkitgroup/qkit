@@ -30,21 +30,51 @@ import numpy as np
 import warnings
 import inspect
 
+def keytransform(original, transform):
+    transformed = {}
+    for key, value in original.items():
+        trans_key = transform[key]
+        transformed[trans_key] = value
+        transformed[trans_key]["display_name"] = key
+    return transformed
+
+def expand_mapping(dictionary, mapping):
+        additional_mapping = {entry : entry for entry in dictionary.keys() if entry not in mapping.keys()}
+        mapping.update(additional_mapping)
+        return mapping
+        
+def invert_dict(dict):        
+        inverse_dict = {v : k for k, v in dict.items()}
+        return inverse_dict
+
 class Qupulse_decoder2:
     valid_pulses = np.array(inspect.getmembers(qupulse.pulses, inspect.isclass))[:, 1]
     _for_type = qupulse.pulses.loop_pulse_template.ForLoopPulseTemplate
     _repetition_type = qupulse._program.waveforms.RepetitionWaveform
     _seq_type = qupulse._program.waveforms.SequenceWaveform
-    def __init__(self, *experiments, sample_rates, deep_render = False):
+    
+    def __init__(self, *experiments, sample_rates, deep_render = False, **kwargs):
         self.experiments = experiments          
         self.measurement_pars = {}
         self.channel_pars = {}
         
         self._validate_entries()
-        self._extract_waveforms(sample_rates, deep_render)
+        
         self._extract_measurement_pars()
         self._extract_axis_pars()
-        
+        if "measurement_mapping" in kwargs:
+            measurement_mapping = expand_mapping(self.measurement_pars, kwargs["measurement_mapping"])
+            self.measurement_pars = keytransform(self.measurement_pars, measurement_mapping)
+        if "channel_mapping" in kwargs:
+            rate_mapping = expand_mapping(sample_rates, invert_dict(kwargs["channel_mapping"]))
+            sample_rates = {rate_mapping[channel] : rate for channel, rate in sample_rates.items()}
+            self._extract_waveforms(sample_rates, deep_render)
+            channel_mapping = expand_mapping(self.channel_pars, kwargs["channel_mapping"])
+            self.channel_pars = keytransform(self.channel_pars, channel_mapping)
+        else:
+            self._extract_waveforms(sample_rates, deep_render)
+
+
     def _validate_entries(self):
         pt_channels = set()
         pt_measurements = set()
@@ -73,7 +103,8 @@ class Qupulse_decoder2:
                 if isinstance(a, str) and a in pt_axis:
                     raise ValueError(f"{__name__}: The step parameter defined in {pt.identifier} is already used in another experiment. Experiments must have different step parameter names.")
                 pt_axis.add(a)
-    #TODO: Validate the sample_rates
+
+    #TODO: Validate the sample_rates Still have to? They are called automatically.
     def _render_channel(self, wvf, channel, sample_rate):
         start_time, end_time = 0, wvf.duration
         sample_count = (end_time - start_time) * sample_rate + 1                    
@@ -347,7 +378,7 @@ class Exciting(mb.MeasureBase):
                         active_gates.update({key:value})
             self._static_voltages.append(active_gates)
     
-    def _prepare_measurement(self, measurement_mapping, coords):
+    def _prepare_measurement(self, coords):
         total_iterations = 0 #setup the progress bar
         datasets = []
         for measurement in self.settings.measurement_settings.keys():
@@ -355,7 +386,7 @@ class Exciting(mb.MeasureBase):
             
             for node in self.settings.measurement_settings[measurement]["data_nodes"]:
                 #Create one dataset for each Measurement node
-                datasets.append(self.Data(name = "%s.%s" % (measurement_mapping[measurement], node), coords = coords + [self._t_parameters[measurement]],
+                datasets.append(self.Data(name = "%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node), coords = coords + [self._t_parameters[measurement]],
                                       unit = self.settings.measurement_settings[measurement]["unit"], 
                                       save_timestamp = False))
         self._total_iterations = total_iterations
@@ -363,7 +394,7 @@ class Exciting(mb.MeasureBase):
         if self.open_qviewkit:
             self._open_qviewkit()
     
-    def _measure_vs_time(self, measurement_mapping, dimension, progress_bar):
+    def _measure_vs_time(self, dimension, progress_bar):
         self._ro_backend.arm()
         self._ma_backend.run()       
         total_sum = {}
@@ -383,20 +414,20 @@ class Exciting(mb.MeasureBase):
                     if latest_data[measurement][node].ndim != 3:
                         raise IndexError(f"{__name__}: Invalid readout dimensions. {self._ro_backend} must return arrays with 3 dimensions.")
                     if False in np.any(latest_data[measurement][node], axis = (0, 2)):
-                        raise ValueError("{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
+                        raise ValueError(f"{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
                     #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
                     if divider == 1:
                         total_sum[measurement][node] = np.average(latest_data[measurement][node], axis = (0, 2))
-                        self._datasets["%s.%s" % (measurement_mapping[measurement], node)].append(total_sum[measurement][node])
+                        self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].append(total_sum[measurement][node])
                     else:
                         total_sum[measurement][node] += np.average(latest_data[measurement][node], axis = (0, 2))
                         #Divide through the number of finished iterations, since you accumulate all the averages
                         if dimension == 1:
-                            self._datasets["%s.%s" % (measurement_mapping[measurement], node)].ds[:] =  total_sum[measurement][node] / divider
+                            self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].ds[:] =  total_sum[measurement][node] / divider
                         elif dimension == 2:
-                            self._datasets["%s.%s" % (measurement_mapping[measurement], node)].ds[-1] = total_sum[measurement][node] / divider
+                            self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].ds[-1] = total_sum[measurement][node] / divider
                         elif dimension == 3:
-                            self._datasets["%s.%s" % (measurement_mapping[measurement], node)].ds[-1][-1] = total_sum[measurement][node] / divider
+                            self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].ds[-1][-1] = total_sum[measurement][node] / divider
             divider += 1
             self._data_file.flush()
             progress_bar.iterate(addend = iterations - old_iterations)
@@ -404,40 +435,28 @@ class Exciting(mb.MeasureBase):
         self._ma_backend.stop()
     
     def compile_qupulse(self, *experiments, averages, deep_render = False, **add_pars):
-        channel_mapping = None
-        measurement_mapping = None
-        
-        if "channel_mapping" in add_pars.keys():
-            channel_mapping = add_pars["channel_mapping"]
-        if "measurement_mapping" in add_pars.keys():
-            measurement_mapping = add_pars["measurement_mapping"]
-            
-        sample_rates = Mapping_handler({channel : getattr(self._ma_backend, f"{channel}_get_sample_rate")() \
-                        for channel in self._ma_backend._registered_channels.keys()}, channel_mapping)
-        averages = Mapping_handler(averages, measurement_mapping)
-        
-        self.decoded = Qupulse_decoder2(*experiments, sample_rates = sample_rates.mapped, deep_render = deep_render)
-        self.measurement_pars = Mapping_handler(self.decoded.measurement_pars, measurement_mapping)
-        self.channel_pars = Mapping_handler(self.decoded.channel_pars, channel_mapping)
-        
-        self.settings = Settings(self, self.channel_pars.mapped, self.measurement_pars.mapped, averages.mapped)
-        
+        if "measurement_mapping" in add_pars:
+            averages = {add_pars["measurement_mapping"][meas] : avg for meas, avg in averages.items()}     
+        sample_rates = {channel : getattr(self._ma_backend, f"{channel}_get_sample_rate")() \
+                        for channel in self._ma_backend._registered_channels.keys()}        
+        decoded = Qupulse_decoder2(*experiments, sample_rates = sample_rates, deep_render = deep_render, **add_pars)        
+        self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages)        
         for name, measurement in self.settings.measurement_settings.items():
             try:
                 self.update_t_parameters(measurement["loop_range"], 
                                          measurement["loop_step_name"],
                                          name)
             except KeyError:
-                warnings.warn(f"{__name__}: Measurement {name} does not have a defined time axis.")
+                warnings.warn(f"{__name__}: Measurement {name} does not have a defined time axis.")        
         self.settings.load()
         
     def measure1D(self):
         self._measurement_object.measurement_func = "%s: measure1D" % __name__
-        self._prepare_measurement(self.measurement_pars.inverse_mapping, [])
+        self._prepare_measurement([])
         pb = Progress_Bar(self._total_iterations)
         try:
             #self._acquire_log_functions()
-            self._measure_vs_time(self.measurement_pars.inverse_mapping, 1, pb)
+            self._measure_vs_time(1, pb)
         finally:
             self._ro_backend.stop()
             self._ma_backend.stop()
@@ -445,7 +464,7 @@ class Exciting(mb.MeasureBase):
             
     def measure2D(self):        
         self._measurement_object.measurement_func = "%s: measure2D" % __name__        
-        self._prepare_measurement(self.measurement_pars.inverse_mapping, [self._x_parameter])
+        self._prepare_measurement([self._x_parameter])
         pb = Progress_Bar(len(self._x_parameter.values) * self._total_iterations)
         try:
             for x_val in self._x_parameter.values:
@@ -460,7 +479,7 @@ class Exciting(mb.MeasureBase):
     
     def measure3D(self):        
         self._measurement_object.measurement_func = "%s: measure3D" % __name__
-        self._prepare_measurement(self.measurement_pars.inverse_mapping, [self._x_parameter, self._y_parameter])
+        self._prepare_measurement([self._x_parameter, self._y_parameter])
         pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * self._total_iterations)
         try:            
             direction = 1
@@ -472,7 +491,7 @@ class Exciting(mb.MeasureBase):
                 for y_val in self._y_parameter.values[::direction]:
                     self._y_parameter.set_function(y_val)
                     qkit.flow.sleep(self._y_parameter.wait_time)
-                    self._measure_vs_time(self.measurement_pars.inverse_mapping, 3, pb)
+                    self._measure_vs_time(3, pb)
                 
                 for dset in self._datasets.values():
                     dset.next_matrix()
@@ -483,32 +502,32 @@ class Exciting(mb.MeasureBase):
             self._end_measurement()
 
 if __name__ == "__main__":
+
+    from qupulse.pulses import PointPT, ForLoopPT
+    # create our atomic "low-level" PointPTs
+    first_point_pt = PointPT([(0,   'v_0'),
+                            (1,   'v_1', 'linear'),
+                            ('t', 'v_0+v_1', 'jump')],
+                            channel_names={'patushka'},
+                            measurements={('Blurps', 1, 2)})
+
+    for_loop_pt = ForLoopPT(first_point_pt, 't', ('t_start', 't_end', 2))
+
+    parameters = dict(t=3,
+                    t_2=2,
+                    v_0=1,
+                    v_1=1.4,
+                    t_start = 4,
+                    t_end = 13)
+    
     import qkit
-    from datetime import date
-    qkit.cfg['run_id'] = 'Testing %s' % date.today()
-    qkit.cfg['user'] = 'Julian'
+    from qkit.measure.semiconductor.manipulation_backends.MANIP_test_backend import MA_test_backend
+    from qkit.measure.semiconductor.readout_backends.RO_test_backend2 import RO_backend
     qkit.start()
-    import qkit.measure.samples_class as sc
-    
-    import numpy as np
-    from qkit.measure.semiconductor.spin_excite import Exciting
-    from qkit.measure.semiconductor.readout_backends import RO_test_backend
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import logging
-    
-    readout = RO_test_backend.RO_backend()
-    excitation = Exciting(readout_backend = readout)
-    excitation.qviewkit_singleInstance = True
-    excitation.set_x_parameters(np.arange(1, 257), "la banane", lambda val: True, "V")
-    
-    v_source = qkit.instruments.create("bill_virtual", "virtual_voltage_source")
-    #%%
-    excitation._ro_backend.measurement_settings["M1"]["measurement_count"] = 256
-    excitation._ro_backend.measurement_settings["M1"]["sample_count"] = 10
-    excitation._ro_backend.measurement_settings["M1"]["averages"] = 400
-    excitation.measure1D()
-    
+    ma_backend = MA_test_backend()
+    ro_backend = RO_backend()
+    excitation = Exciting(ro_backend, ma_backend, (for_loop_pt, parameters), averages = {"Blurps" : 100}, channel_mapping = {"patushka" : "Ch1"},
+                        measurement_mapping = {"Blurps" : "M1"})
 # =============================================================================
 # class Qupulse_decoder:
 #     def __init__(self, qupulse_pt, qupulse_pars):
