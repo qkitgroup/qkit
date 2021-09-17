@@ -24,35 +24,35 @@ class ZI_HDAWG4_backend(MA_backend_base):
         self.wave_data = wave_data
         
     def Ch1_get_sample_rate(self):
-        rate = self.hartwig.get_sampling_clock()*1e-9
+        rate = self.hartwig.get_sampling_rate()*1e-9
         return rate
     
     def Ch2_get_sample_rate(self):
-        rate = self.hartwig.get_sampling_clock()*1e-9
+        rate = self.hartwig.get_sampling_rate()*1e-9
         return rate
     
     def Ch3_get_sample_rate(self):
-        rate = self.hartwig.get_sampling_clock()*1e-9
+        rate = self.hartwig.get_sampling_rate()*1e-9
         return rate
     
     def Ch4_get_sample_rate(self):
-        rate = self.hartwig.get_sampling_clock()*1e-9
+        rate = self.hartwig.get_sampling_rate()*1e-9
         return rate
     
     def Trig1_get_sample_rate(self):
-        rate = self.hartwig.get_sampling_clock()*1e-9
+        rate = self.hartwig.get_sampling_rate()*1e-9
         return rate
 
     def Trig2_get_sample_rate(self):
-        rate = self.hartwig.get_sampling_clock()*1e-9
+        rate = self.hartwig.get_sampling_rate()*1e-9
         return rate
 
     def Trig3_get_sample_rate(self):
-        rate = self.hartwig.get_sampling_clock()*1e-9
+        rate = self.hartwig.get_sampling_rate()*1e-9
         return rate
 
     def Trig4_get_sample_rate(self):
-        rate = self.hartwig.get_sampling_clock()*1e-9
+        rate = self.hartwig.get_sampling_rate()*1e-9
         return rate
     
     
