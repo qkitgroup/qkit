@@ -213,7 +213,7 @@ class ZI_DAQ_module(Instrument):
         logging.debug(__name__ + ' : getting trigger mode of daqM')
         return self._inv_daqM_grid_mode_dict[self.daqM.getInt('grid/mode')]
     
-    
+    #u sure you are what you are? BUGFIX ME
     def _do_set_daqM_grid_averages(self, newavg):
         logging.debug(__name__ + ' : setting grid averages of the daqM to %s' % (newavg))
         self.daqM.set("grid/repetitions", newavg)
