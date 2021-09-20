@@ -35,5 +35,5 @@ class MA_backend_base(ABC):
         if not_implemented:
             raise NotImplementedError(f"{name} is missing the following methods:\n" + not_implemented)
     
-        self._registered_measurements[name] = {"unit" : unit}
+        self._registered_channels[name] = {"unit" : unit}
 

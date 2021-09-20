@@ -36,3 +36,33 @@ class TransformedDict(MutableMapping):
 
     def _keytransform(self, key):
         return self.mapping[key]
+    
+class Mapping_handler:
+    def __init__(self, dictionary, mapping = None):
+        if type(dictionary) != dict:
+            raise TypeError(f"{__name__}: Cannot map {dictionary}. Must be a dictionary.")
+        self.dictionary = dictionary
+        
+        if mapping == None:
+            self.mapping = {entry : entry for entry in self.dictionary.keys()}
+        else:
+            self.mapping = mapping        
+        if type(mapping) != dict:
+            raise TypeError(f"{__name__}: Cannot use {mapping} as mapping. Must be a dictionary.")
+        
+        self._expand_mapping()
+        self._create_inverse_mapping()
+        
+        try:
+            self.mapped = TransformedDict(self.mapping, dictionary)
+        except KeyError:
+            self.mapped = TransformedDict(self.inverse_mapping, dictionary)        
+        self.not_mapped = self.dictionary
+    
+    def _expand_mapping(self):
+        additional_mapping = {entry : entry for entry in self.dictionary.keys()\
+                                  if entry not in self.mapping.values() and entry not in self.mapping.keys()}
+        self.mapping.update(additional_mapping)
+        
+    def _create_inverse_mapping(self):
+        self.inverse_mapping = {v : k for k, v in self.mapping.items()}
