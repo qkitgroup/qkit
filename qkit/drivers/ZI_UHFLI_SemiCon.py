@@ -6,7 +6,7 @@ Created on Mon Feb 15 12:17:39 2021
 @author: lr1740
 """
 import qkit
-import ZI_UHFLI as lolvl
+import qkit.drivers.ZI_UHFLI as lolvl
 
 from math import ceil
 from time import sleep

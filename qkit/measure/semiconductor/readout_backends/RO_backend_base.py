@@ -8,8 +8,11 @@ Created on Wed Sep  1 13:33:53 2021
 from abc import ABC, abstractmethod
 
 class RO_backend_base(ABC):
-    _registered_measurements = {}
     
+    @abstractmethod
+    def __init__(self):
+        self._registered_measurements = {}
+        
     @abstractmethod
     def arm():
         pass
@@ -21,7 +24,6 @@ class RO_backend_base(ABC):
     @abstractmethod
     def read():
         pass
-    
     @abstractmethod
     def stop():
         pass
