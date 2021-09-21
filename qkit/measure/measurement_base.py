@@ -263,7 +263,7 @@ class MeasureBase(object):
         """
         pass
 
-    def _create_file_name(self, data):
+    def _create_file_name(self, data, addInfo):
         coordinates = set()
         self._dim = 0
         for d in data:
@@ -272,9 +272,9 @@ class MeasureBase(object):
             self._dim = max(self._dim, len(d.coordinates))  # if you have several 2D scans, the dimension is still 2D
         if not self.measurement_name:
             self.measurement_name = ", ".join(coordinates)
-        self._file_name = '{}D_'.format(self._dim) + self.measurement_name.replace(' ', '').replace(',', '_')
+        self._file_name = '{}D_'.format(self._dim) + self.measurement_name.replace(' ', '').replace(',', '_') + addInfo
 
-    def _prepare_measurement_file(self, data, coords=()):
+    def _prepare_measurement_file(self, data, addInfo = "", coords=()):
         """
         creates the output .h5-file with distinct dataset structures for each measurement type.
         at this point all measurement parameters are known and put in the output file
@@ -283,7 +283,7 @@ class MeasureBase(object):
         for c in coords:
             if not isinstance(c, self.Coordinate):
                 raise TypeError('{:s}:  {!s} is no valid coordinate object'.format(__name__, c))
-        self._create_file_name(data)
+        self._create_file_name(data, addInfo)
         
         self._data_file = hdf.Data(name=self._file_name, mode='a')
         self._datasets = {}
