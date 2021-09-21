@@ -23,7 +23,6 @@ from qkit.measure.write_additional_files import get_instrument_settings
 import numpy as np
 
 from numpy.random import rand
-from warnings import warn
 
 class Tuning(mb.MeasureBase):
     """
@@ -35,7 +34,7 @@ class Tuning(mb.MeasureBase):
     
     Attributes
     ----------
-    meander_sweep : bool
+    reverse2D : bool
         Zig-zag sweeping during 2D Measurements
     
     report_static_voltages: bool
@@ -61,7 +60,7 @@ class Tuning(mb.MeasureBase):
     measure3D() :
         Starts a 3D measurement
     """
-    def __init__(self, measurement_limit = 200e-12, exp_name = "", sample = None):
+    def __init__(self, exp_name = "", sample = None):
         """
         Parameters
         ----------
@@ -72,50 +71,17 @@ class Tuning(mb.MeasureBase):
         
         """
         mb.MeasureBase.__init__(self, sample)
-
         
         self._z_parameter = None
         
         self._get_value_func = None
         self._get_tracedata_func = None
-        
-        self.measurement_limit = measurement_limit        
-        self.meander_sweep = True
+        self.reverse2D = True
         self.report_static_voltages = True
-                
+        
         self.gate_lib = {}
         self.measurand = {"name" : "current", "unit" : "A"}
         
-    @property
-    def measurement_limit(self):       
-        return self._measurement_limit
-    
-    @measurement_limit.setter
-    def measurement_limit(self, newlim):
-        try:
-            self._measurement_limit = abs(float(newlim))
-        except Exception as e:
-            raise type(e)(f"{__name__}: Cannot set {newlim} as current limit. conversion to float failed: {e}")
-    
-    @property
-    def meander_sweep(self):
-        return self._meander_sweep
-    
-    @meander_sweep.setter
-    def meander_sweep(self, yesno):
-        if not isinstance(yesno, bool):
-            raise TypeError(f"{__name__}: Cannot use {yesno} as meander_sweep. Must be a boolean value.")
-        self._meander_sweep = yesno
-        
-    @property
-    def report_static_voltages(self):
-        return self._report_static_voltages
-    
-    @report_static_voltages.setter
-    def report_static_voltages(self, yesno):
-        if not isinstance(yesno, bool):
-            raise TypeError(f"{__name__}: Cannot use {yesno} as report_static_voltages. Must be a boolean value.")        
-        self._report_static_voltages = yesno
     
     def set_z_parameters(self, vec, coordname, set_obj, unit, dt=None):
         """
@@ -198,6 +164,26 @@ class Tuning(mb.MeasureBase):
                     if string1 in key and key.endswith(string2) and abs(value) > 0.0004:
                         active_gates.update({key:value})
             self._static_voltages.append(active_gates)
+        
+        
+    #testfuncs to be removed later
+    def _my_gauss(self, x_val, y_val, z_val = 0):
+        
+        def gauss(x, mu, sigma):
+            return np.exp(-(x - mu)**2 / (2 * sigma **2)) / (sigma * np.sqrt(2 * np.pi))
+        
+        mu_x = 2 - z_val/10
+        mu_y = 2           
+        sigma = 1
+        
+        result = gauss(x_val, mu_x, sigma) * gauss(y_val, mu_y, sigma)
+        
+        return result
+    
+    def _test_logfunc(self):
+        a = float(rand(1))
+        print(a)
+        return a
     
     def measure1D(self):
         """"Starts a 1D - measurement along the x-coordinate."""
@@ -211,13 +197,8 @@ class Tuning(mb.MeasureBase):
             for x_val in self._x_parameter.values:
                 self._x_parameter.set_function(x_val)
                 qkit.flow.sleep(self._x_parameter.wait_time)
-                measured = float(self._get_value_func())
-                self._datasets[self.measurand["name"]].append(measured)
+                self._datasets[self.measurand["name"]].append(float(self._get_value_func()))
                 pb.iterate()
-                if abs(measured) >= self.measurement_limit:
-                    warn(f"{__name__}: Measurement limit reached. Stopping measure1D.")
-                    qkit.flow.sleep(0.2)
-                    break                
         finally:
             self._end_measurement()
             
@@ -230,29 +211,22 @@ class Tuning(mb.MeasureBase):
                                                   unit = self.measurand["unit"], save_timestamp = False)])
         self._open_qviewkit()
         try:
-            y_direction = 1
-            stop = False
+            direction = 1
             for x_val in self._x_parameter.values:
                 sweepy = []
                 self._x_parameter.set_function(x_val)
                 self._acquire_log_functions()
                 qkit.flow.sleep(self._x_parameter.wait_time)
                 
-                for y_val in self._y_parameter.values[::y_direction]:                    
+                for y_val in self._y_parameter.values[::direction]:                    
                     self._y_parameter.set_function(y_val)
                     qkit.flow.sleep(self._y_parameter.wait_time)
-                    measured = float(self._get_value_func())
-                    sweepy.append(measured)
+                    sweepy.append(float(self._get_value_func()))
+                    #sweepy.append(self._my_gauss(x_val, y_val))
                     pb.iterate()
-                    if abs(measured) >= self.measurement_limit:
-                        stop = True
-                        warn(f"{__name__}: Measurement limit reached. Stopping measure2D.")
-                        qkit.flow.sleep(0.2)
-                        break
-                        
-                self._datasets[self.measurand["name"]].append(sweepy[::y_direction])
-                if self.meander_sweep: y_direction *= -1
-                if stop: break                    
+                    
+                self._datasets[self.measurand["name"]].append(sweepy[::direction])
+                if self.reverse2D: direction *= -1
         finally:
             self._end_measurement()
     
@@ -265,40 +239,27 @@ class Tuning(mb.MeasureBase):
                                                   unit = self.measurand["unit"], save_timestamp = False)])
         self._open_qviewkit()
         try:            
-            stop = False
             for x_val in self._x_parameter.values:
                 self._x_parameter.set_function(x_val)
                 self._acquire_log_functions()
                 qkit.flow.sleep(self._x_parameter.wait_time)
                 
-                z_direction = 1
+                direction = 1
                 for y_val in self._y_parameter.values:
                     sweepy = []
                     self._y_parameter.set_function(y_val)
                     qkit.flow.sleep(self._y_parameter.wait_time)
                     
-                    for z_val in self._z_parameter.values[::z_direction]:                    
+                    for z_val in self._z_parameter.values[::direction]:                    
                         self._z_parameter.set_function(z_val)
                         qkit.flow.sleep(self._z_parameter.wait_time)
-                        measured = float(self._get_value_func())
-                        sweepy.append(measured)
+                        sweepy.append(float(self._get_value_func()))
+                        #sweepy.append(self._my_gauss(x_val, y_val, z_val))
                         pb.iterate()
-                        if abs(measured) >= self.measurement_limit:
-                            stop = True
-                            warn(f"{__name__}: Measurement limit reached. Stopping measure3D.")
-                            qkit.flow.sleep(0.2)
-                            break
                         
-                    self._datasets[self.measurand["name"]].append(sweepy[::z_direction])
-                    if self.meander_sweep: z_direction *= -1
-                    if stop: break
+                    self._datasets[self.measurand["name"]].append(sweepy[::direction])
+                    if self.reverse2D: direction *= -1
                 
                 self._datasets[self.measurand["name"]].next_matrix()
-                if stop: break
         finally:
             self._end_measurement()
-            
-if __name__ == "__main__":
-    tuning = Tuning()
-    print(tuning.measurement_limit)
-    print(tuning.report_static_voltages)

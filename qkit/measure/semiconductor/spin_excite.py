@@ -470,7 +470,7 @@ class Exciting(mb.MeasureBase):
                 self._x_parameter.set_function(x_val)
                 self._acquire_log_functions()
                 qkit.flow.sleep(self._x_parameter.wait_time)
-                self._measure_vs_time(self.measurement_pars.inverse_mapping, 2, pb)
+                self._measure_vs_time(2, pb)
         finally:
             self._ro_backend.stop()
             self._ma_backend.stop()
