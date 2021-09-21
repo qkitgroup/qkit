@@ -79,15 +79,11 @@ class Tuning(mb.MeasureBase):
         self._get_value_func = None
         self._get_tracedata_func = None
         
-<<<<<<< HEAD
         self.measurement_limit = measurement_limit        
         self.meander_sweep = True
         self.report_static_voltages = True
-                
-=======
         self.identifier = ""
-        
->>>>>>> 49407b56c20c3864aed247d4178d7f273f1d1805
+
         self.gate_lib = {}
         self.measurand = {"name" : "current", "unit" : "A"}
         
@@ -121,6 +117,16 @@ class Tuning(mb.MeasureBase):
         if not isinstance(yesno, bool):
             raise TypeError(f"{__name__}: Cannot use {yesno} as report_static_voltages. Must be a boolean value.")        
         self._report_static_voltages = yesno
+
+    @property
+    def identifier(self):
+        return self._identifier
+    
+    @identifier.setter
+    def identifier(self, new_id):
+        if not isinstance(new_id, str):
+            raise TypeError(f"{__name__}: Cannot use {new_id} as identifier. Must be a boolean value.")
+        self._identifier = new_id
     
     def set_z_parameters(self, vec, coordname, set_obj, unit, dt=None):
         """
@@ -187,10 +193,8 @@ class Tuning(mb.MeasureBase):
         self._get_tracedata_func = lambda: get_func(*args, **kwargs)
         self._get_value_func = None
     
-    def _prepare_measurement_file(self, data, identifier = "", coords=()):
-        if type(identifier) != str:
-            raise TypeError("Identifier has to be a string.")
-        mb.MeasureBase._prepare_measurement_file(self, data, identifier , coords=())
+    def _prepare_measurement_file(self, data, coords=()):
+        mb.MeasureBase._prepare_measurement_file(self, data, coords=(), add_info = self.identifier)
         
         if self.report_static_voltages:
             self._static_voltages = self._data_file.add_textlist("static_voltages")
@@ -212,7 +216,7 @@ class Tuning(mb.MeasureBase):
         
         pb = Progress_Bar(len(self._x_parameter.values))        
         self._prepare_measurement_file([self.Data(name = self.measurand["name"], coords = [self._x_parameter], 
-                                                  unit = self.measurand["unit"], save_timestamp = False)], self.identifier)
+                                                  unit = self.measurand["unit"], save_timestamp = False)])
         self._open_qviewkit()
         try:
             for x_val in self._x_parameter.values:
@@ -234,7 +238,7 @@ class Tuning(mb.MeasureBase):
         
         pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values))        
         self._prepare_measurement_file([self.Data(name = self.measurand["name"], coords = [self._x_parameter, self._y_parameter], 
-                                                  unit = self.measurand["unit"], save_timestamp = False)], self.identifier)
+                                                  unit = self.measurand["unit"], save_timestamp = False)])
         self._open_qviewkit()
         try:
             y_direction = 1
@@ -269,7 +273,7 @@ class Tuning(mb.MeasureBase):
         
         pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * len(self._z_parameter.values))        
         self._prepare_measurement_file([self.Data(name = self.measurand["name"], coords = [self._x_parameter, self._y_parameter, self._z_parameter], 
-                                                  unit = self.measurand["unit"], save_timestamp = False)], self.identifier)
+                                                  unit = self.measurand["unit"], save_timestamp = False)])
         self._open_qviewkit()
         try:            
             stop = False

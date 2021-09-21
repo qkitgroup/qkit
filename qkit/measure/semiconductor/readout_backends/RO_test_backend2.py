@@ -12,7 +12,7 @@ import numpy as np
 
 class RO_backend(RO_backend_base):
     def __init__(self):
-
+        super().__init__()
         #This dictionary acts as if it was the machine
         self.measurement_settings = {"M4":{"sampling_rate" : 10e9,
                                "measurement_count" : 256,

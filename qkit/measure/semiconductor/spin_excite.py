@@ -314,19 +314,8 @@ class Exciting(mb.MeasureBase):
         self._t_parameters = {}
         self.compile_qupulse(*experiments, averages = averages, deep_render = deep_render, **add_pars)
         
-        self.meander_sweep = True
         self.report_static_voltages = True
-        
-    
-    @property
-    def meander_sweep(self):
-        return self._meander_sweep
-    
-    @meander_sweep.setter
-    def meander_sweep(self, yesno):
-        if not isinstance(yesno, bool):
-            raise TypeError(f"{__name__}: Cannot use {yesno} as meander_sweep. Must be a boolean value.")
-        self._meander_sweep = yesno
+
     
     @property
     def report_static_voltages(self):
@@ -481,20 +470,18 @@ class Exciting(mb.MeasureBase):
         self._prepare_measurement([self._x_parameter, self._y_parameter])
         pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * self._total_iterations)
         try:            
-            direction = 1
             for x_val in self._x_parameter.values:
                 self._x_parameter.set_function(x_val)
                 self._acquire_log_functions()
                 qkit.flow.sleep(self._x_parameter.wait_time)
                 
-                for y_val in self._y_parameter.values[::direction]:
+                for y_val in self._y_parameter.values:
                     self._y_parameter.set_function(y_val)
                     qkit.flow.sleep(self._y_parameter.wait_time)
                     self._measure_vs_time(3, pb)
                 
                 for dset in self._datasets.values():
                     dset.next_matrix()
-                if self.meander_sweep: direction *= -1
         finally:
             self._ro_backend.stop()
             self._ma_backend.stop()

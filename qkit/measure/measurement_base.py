@@ -274,16 +274,20 @@ class MeasureBase(object):
             self.measurement_name = ", ".join(coordinates)
         self._file_name = '{}D_'.format(self._dim) + self.measurement_name.replace(' ', '').replace(',', '_') + addInfo
 
-    def _prepare_measurement_file(self, data, addInfo = "", coords=()):
+    def _prepare_measurement_file(self, data, coords=(), **kwargs):
         """
         creates the output .h5-file with distinct dataset structures for each measurement type.
         at this point all measurement parameters are known and put in the output file
         All nacessary coordinates are alread included in the data instances, but you can supply a list of additional coords, which will be created.
         """
+        add_info = ""
+        if "add_info" in kwargs:
+            add_info = kwargs["add_info"]
+        
         for c in coords:
             if not isinstance(c, self.Coordinate):
                 raise TypeError('{:s}:  {!s} is no valid coordinate object'.format(__name__, c))
-        self._create_file_name(data, addInfo)
+        self._create_file_name(data, add_info)
         
         self._data_file = hdf.Data(name=self._file_name, mode='a')
         self._datasets = {}
