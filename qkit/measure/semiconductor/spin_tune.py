@@ -22,7 +22,6 @@ from qkit.measure.write_additional_files import get_instrument_settings
 
 import numpy as np
 
-from numpy.random import rand
 from warnings import warn
 
 class Tuning(mb.MeasureBase):
@@ -82,7 +81,7 @@ class Tuning(mb.MeasureBase):
         self.measurement_limit = measurement_limit        
         self.meander_sweep = True
         self.report_static_voltages = True
-        self.identifier = ""
+        self.identifier = exp_name
 
         self.gate_lib = {}
         self.measurand = {"name" : "current", "unit" : "A"}
