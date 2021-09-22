@@ -121,12 +121,15 @@ class Faulhaber_3564K024B_C(Instrument):
         -------
         None
         """
-        self.speed = speed
-        if direction != None:
-            self.direction = direction
-        self.set_direction(val=self.direction)
-        self._write('SOR0')
-        self._write('V{:s}{:d}'.format({0: '+', 1: '-'}[direction], self.speed))
+        try:
+            self.speed = speed
+            if direction != None:
+                self.direction = direction
+            self.set_direction(val=self.direction)
+            self._write('SOR0')
+            self._write('V{:s}{:d}'.format({0: '+', 1: '-'}[direction], self.speed))
+        except:
+            self.set_speed(speed=speed, direction=direction)
 
     def set_status(self, status):
         """
@@ -141,9 +144,12 @@ class Faulhaber_3564K024B_C(Instrument):
         -------
         None
         """
-        if self.mode == 'SOR0':
-            self.set_speed(speed={True: self.speed, False: 0}[status], direction=self.direction)
-        self._write({True: 'EN', False: 'DI'}[status])
+        try:
+            if self.mode == 'SOR0':
+                self.set_speed(speed={True: self.speed, False: 0}[status], direction=self.direction)
+            self._write({True: 'EN', False: 'DI'}[status])
+        except:
+            self.set_status(status=status)
 
     def set_direction(self, val):
         """
@@ -159,7 +165,10 @@ class Faulhaber_3564K024B_C(Instrument):
         None
         """
         self.direction = val
-        self._write({0: 'ADR', 1: 'ADL'}[val])
+        try:
+            self._write({0: 'ADR', 1: 'ADL'}[val])
+        except:
+            self.set_direction(val=val)
 
     def get_position(self):
         """
@@ -177,8 +186,9 @@ class Faulhaber_3564K024B_C(Instrument):
         try:
             self.position = float(self._query('pos'))
         except ValueError:
-            pass
-        return self.position
+            print('''Faulhaber_3564K024B_C: couldn't get position.''')
+        finally:
+            return self.position
 
     def set_zero_position(self):
         """
