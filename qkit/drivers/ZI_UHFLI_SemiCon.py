@@ -18,7 +18,8 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
     def __init__(self, name, device_id):
         self._device_id = device_id
         lolvl.ZI_UHFLI.__init__(self, name, self._device_id)
-        self.daqM1 = qkit.instruments.create("daqM1", "ZI_DAQ_module", unmanaged_daq_module = self.create_daq_module(), device_id = self._device_id)
+        self.daqM1 = qkit.instruments.create("UHFLI_daqM1", "ZI_DAQ_module", unmanaged_daq_module = self.create_daq_module(), device_id = self._device_id)
+        self.daqM2 = qkit.instruments.create("UHFLI_daqM2", "ZI_DAQ_module", unmanaged_daq_module = self.create_daq_module(), device_id = self._device_id)
         
         self.grid_settings = {"trig_type" : "HW_trigger",
                               "trig_demod_index" : 0,

@@ -95,9 +95,6 @@ class ZI_UHFLI_backend(RO_backend_base):
                     for grid in range(len(raw_data[path])):
                         if raw_data[path][grid]["header"]["flags"] & 1:
                             data[demod][node].append(raw_data[path][grid]["value"])
-                data[demod][node] = np.array(data[demod][node])
-                if data[demod][node].ndim != 3:
-                    return {}
         return data
     
     def stop(self):
@@ -121,7 +118,7 @@ if __name__ == "__main__":
     backend.demod1_activate()
     backend.arm()
     while not backend.finished():
-        sleep(0.01)
+        sleep(0.1)
         data = backend.read()
         print(data)
     print(data["demod1"]["x"].ndim)

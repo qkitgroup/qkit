@@ -21,7 +21,6 @@ from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.write_additional_files import get_instrument_settings
 from qkit.measure.semiconductor.readout_backends.RO_backend_base import RO_backend_base
 from qkit.measure.semiconductor.manipulation_backends.MA_backend_base import MA_backend_base
-from qkit.measure.semiconductor.utils.utility_objects import TransformedDict, Mapping_handler
 
 import qupulse
 from qupulse._program._loop import to_waveform
@@ -68,16 +67,16 @@ class Qupulse_decoder2:
         else:
             measurement_mapping = {measurement : measurement for measurement in self.measurement_pars.keys()}
         self.measurement_pars = keytransform(self.measurement_pars, measurement_mapping)
-        #TODO add display name also for channels without mapping
+        
         if "channel_mapping" in kwargs:
-            rate_mapping = expand_mapping(sample_rates, invert_dict(kwargs["channel_mapping"]))
-            sample_rates = {rate_mapping[channel] : rate for channel, rate in sample_rates.items()}
+            rate_mapping = expand_mapping(sample_rates, invert_dict(kwargs["channel_mapping"])) #The rates come with the instrument name of the channels. Therefore we have to invert the user mapping
+            sample_rates = {rate_mapping[channel] : rate for channel, rate in sample_rates.items()} #Map the sample rates of the instrument channels to the user defined channels
             self._extract_waveforms(sample_rates, deep_render)
-            channel_mapping = expand_mapping(self.channel_pars, kwargs["channel_mapping"])
-            self.channel_pars = keytransform(self.channel_pars, channel_mapping)
+            channel_mapping = expand_mapping(self.channel_pars, kwargs["channel_mapping"])            
         else:
             self._extract_waveforms(sample_rates, deep_render)
-
+            channel_mapping = {channel : channel for channel in self.channel_pars.keys()}            
+        self.channel_pars = keytransform(self.channel_pars, channel_mapping)
 
     def _validate_entries(self):
         pt_channels = set()
@@ -87,7 +86,7 @@ class Qupulse_decoder2:
         for pt, pars in self.experiments:
             #check whether the pulse template and the parameters are of the correct types.
             if type(pt) not in self.valid_pulses:
-                raise TypeError(f"{__name__}: Cannot use {pt.identifier} as pulse template. Must be a qupulse pulse template.")
+                raise TypeError(f"{__name__}: Cannot use {pt} as pulse template. Must be a qupulse pulse template.")
             if not pt.identifier:
                 warnings.warn(f"{__name__}: Pulse template {pt} has no identifier. Support messages will be less clear.")
             if type(pars) != dict:
@@ -399,21 +398,24 @@ class Exciting(mb.MeasureBase):
             latest_data = self._ro_backend.read()
             for measurement in latest_data.keys():
                 if self.divider[measurement] == 1:                            
-                    total_sum[measurement] = {}                 
-                #Count the number of iterations collected by the most recent call of read
+                    total_sum[measurement] = {}               
                 first_node = list(latest_data[measurement].keys())[0]
+                #If latest data is empty for one measurement, skip it
+                if len(latest_data[measurement][first_node]) == 0: continue
+                #Count the number of iterations collected by the most recent call of read
                 iterations += len(latest_data[measurement][first_node])
-                for node in latest_data[measurement].keys():                  
-                    if latest_data[measurement][node].ndim != 3:
+                for node in latest_data[measurement].keys():
+                    latest_node_data = np.array(latest_data[measurement][node])
+                    if latest_node_data.ndim != 3:
                         raise IndexError(f"{__name__}: Invalid readout dimensions. {self._ro_backend} must return arrays with 3 dimensions.")
-                    if False in np.any(latest_data[measurement][node], axis = (0, 2)):
+                    if False in np.any(latest_node_data, axis = (0, 2)):
                         raise ValueError(f"{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
                     #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
                     if self.divider[measurement] == 1:
-                        total_sum[measurement][node] = np.average(latest_data[measurement][node], axis = (0, 2))
+                        total_sum[measurement][node] = np.average(latest_node_data, axis = (0, 2))
                         self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].append(total_sum[measurement][node])
                     else:
-                        total_sum[measurement][node] += np.average(latest_data[measurement][node], axis = (0, 2))
+                        total_sum[measurement][node] += np.average(latest_node_data, axis = (0, 2))
                         #Divide through the number of finished iterations, since you accumulate all the averages
                         if dimension == 1:
                             self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].ds[:] =  total_sum[measurement][node] / self.divider[measurement]
