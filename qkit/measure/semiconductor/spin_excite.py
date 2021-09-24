@@ -62,9 +62,13 @@ class Qupulse_decoder2:
         
         self._extract_measurement_pars()
         self._extract_axis_pars()
+        
         if "measurement_mapping" in kwargs:
             measurement_mapping = expand_mapping(self.measurement_pars, kwargs["measurement_mapping"])
-            self.measurement_pars = keytransform(self.measurement_pars, measurement_mapping)
+        else:
+            measurement_mapping = {measurement : measurement for measurement in self.measurement_pars.keys()}
+        self.measurement_pars = keytransform(self.measurement_pars, measurement_mapping)
+        #TODO add display name also for channels without mapping
         if "channel_mapping" in kwargs:
             rate_mapping = expand_mapping(sample_rates, invert_dict(kwargs["channel_mapping"]))
             sample_rates = {rate_mapping[channel] : rate for channel, rate in sample_rates.items()}
@@ -371,9 +375,10 @@ class Exciting(mb.MeasureBase):
     def _prepare_measurement(self, coords):
         total_iterations = 0 #setup the progress bar
         datasets = []
+        self.divider = {}
         for measurement in self.settings.measurement_settings.keys():
             total_iterations += self.settings.measurement_settings[measurement]["averages"]
-            
+            self.divider[measurement] = 1
             for node in self.settings.measurement_settings[measurement]["data_nodes"]:
                 #Create one dataset for each Measurement node
                 datasets.append(self.Data(name = "%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node), coords = coords + [self._t_parameters[measurement]],
@@ -383,42 +388,40 @@ class Exciting(mb.MeasureBase):
         self._prepare_measurement_file(datasets)
         if self.open_qviewkit:
             self._open_qviewkit()
-    
+            
     def _measure_vs_time(self, dimension, progress_bar):
         self._ro_backend.arm()
         self._ma_backend.run()       
         total_sum = {}
         iterations = 0
-        divider = 1
         while not self._ro_backend.finished():
             old_iterations = iterations
             latest_data = self._ro_backend.read()
             for measurement in latest_data.keys():
-                if divider == 1:                            
+                if self.divider[measurement] == 1:                            
                     total_sum[measurement] = {}                 
                 #Count the number of iterations collected by the most recent call of read
                 first_node = list(latest_data[measurement].keys())[0]
                 iterations += len(latest_data[measurement][first_node])
-                
-                for node in latest_data[measurement].keys():
+                for node in latest_data[measurement].keys():                  
                     if latest_data[measurement][node].ndim != 3:
                         raise IndexError(f"{__name__}: Invalid readout dimensions. {self._ro_backend} must return arrays with 3 dimensions.")
                     if False in np.any(latest_data[measurement][node], axis = (0, 2)):
                         raise ValueError(f"{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
                     #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
-                    if divider == 1:
+                    if self.divider[measurement] == 1:
                         total_sum[measurement][node] = np.average(latest_data[measurement][node], axis = (0, 2))
                         self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].append(total_sum[measurement][node])
                     else:
                         total_sum[measurement][node] += np.average(latest_data[measurement][node], axis = (0, 2))
                         #Divide through the number of finished iterations, since you accumulate all the averages
                         if dimension == 1:
-                            self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].ds[:] =  total_sum[measurement][node] / divider
+                            self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].ds[:] =  total_sum[measurement][node] / self.divider[measurement]
                         elif dimension == 2:
-                            self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].ds[-1] = total_sum[measurement][node] / divider
+                            self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].ds[-1] = total_sum[measurement][node] / self.divider[measurement]
                         elif dimension == 3:
-                            self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].ds[-1][-1] = total_sum[measurement][node] / divider
-            divider += 1
+                            self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].ds[-1][-1] = total_sum[measurement][node] / self.divider[measurement]
+                self.divider[measurement] += 1
             self._data_file.flush()
             progress_bar.iterate(addend = iterations - old_iterations)
         self._ro_backend.stop()

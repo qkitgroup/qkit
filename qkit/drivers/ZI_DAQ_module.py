@@ -109,6 +109,7 @@ class ZI_DAQ_module(Instrument):
         self.add_function("read")
         self.add_function("execute")
         self.add_function("finished")
+        self.add_function("stop")
         self.add_function("reset_daqM_sample_path")
         
         #public use functions       
@@ -120,6 +121,9 @@ class ZI_DAQ_module(Instrument):
     
     def finished(self):
         return self.daqM.finished()
+    
+    def stop(self):
+        self.daqM.finish()
     
     def reset_daqM_sample_path(self):
         logging.debug(__name__ + ' : removing all samples paths')

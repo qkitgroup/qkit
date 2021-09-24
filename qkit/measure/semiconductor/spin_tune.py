@@ -81,7 +81,6 @@ class Tuning(mb.MeasureBase):
         self.measurement_limit = measurement_limit        
         self.meander_sweep = True
         self.report_static_voltages = True
-        self.identifier = exp_name
 
         self.gate_lib = {}
         self.measurand = {"name" : "current", "unit" : "A"}
@@ -193,7 +192,7 @@ class Tuning(mb.MeasureBase):
         self._get_value_func = None
     
     def _prepare_measurement_file(self, data, coords=()):
-        mb.MeasureBase._prepare_measurement_file(self, data, coords=(), add_info = self.identifier)
+        mb.MeasureBase._prepare_measurement_file(self, data, coords=())
         
         if self.report_static_voltages:
             self._static_voltages = self._data_file.add_textlist("static_voltages")

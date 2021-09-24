@@ -263,7 +263,7 @@ class MeasureBase(object):
         """
         pass
 
-    def _create_file_name(self, data, addInfo):
+    def _create_file_name(self, data):
         coordinates = set()
         self._dim = 0
         for d in data:
@@ -272,7 +272,7 @@ class MeasureBase(object):
             self._dim = max(self._dim, len(d.coordinates))  # if you have several 2D scans, the dimension is still 2D
         if not self.measurement_name:
             self.measurement_name = ", ".join(coordinates)
-        self._file_name = '{}D_'.format(self._dim) + self.measurement_name.replace(' ', '').replace(',', '_') + addInfo
+        self._file_name = '{}D_'.format(self._dim) + self.measurement_name.replace(' ', '').replace(',', '_')
 
     def _prepare_measurement_file(self, data, coords=(), **kwargs):
         """
@@ -280,14 +280,11 @@ class MeasureBase(object):
         at this point all measurement parameters are known and put in the output file
         All nacessary coordinates are alread included in the data instances, but you can supply a list of additional coords, which will be created.
         """
-        add_info = ""
-        if "add_info" in kwargs:
-            add_info = kwargs["add_info"]
         
         for c in coords:
             if not isinstance(c, self.Coordinate):
                 raise TypeError('{:s}:  {!s} is no valid coordinate object'.format(__name__, c))
-        self._create_file_name(data, add_info)
+        self._create_file_name(data)
         
         self._data_file = hdf.Data(name=self._file_name, mode='a')
         self._datasets = {}
