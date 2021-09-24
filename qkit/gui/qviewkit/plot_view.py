@@ -9,7 +9,8 @@
 import sys
 in_pyqt5 = False
 try:
-    from PyQt5 import QtCore, QtGui
+    from PyQt5 import QtCore
+    import PyQt5.QtWidgets as QtGui
     in_pyqt5 = True
 except ImportError as e:
     pass

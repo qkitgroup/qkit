@@ -11,7 +11,8 @@ import qkit
 in_pyqt5 = False
 in_pyqt4 = False
 try:
-    from PyQt5 import QtCore, QtGui
+    from PyQt5 import QtCore
+    import PyQt5.QtWidgets as QtGui
     from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject,QTimer
     from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog
     in_pyqt5 = True
