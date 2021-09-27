@@ -12,42 +12,51 @@ class ZI_UHFLI_backend(RO_backend_base):
     def __init__(self, UHFLI):
         super().__init__()
         self.UHFLI = UHFLI
+        self._id = self.UHFLI._device_id
         self.register_measurement("demod1", "V", ["x", "y", "r", "theta"])
+        self.register_measurement("demod2", "V", ["x", "y", "r", "theta"])
         
-        self.grid_settings = {"demod1" : {"trig_type" : "HW_trigger",
-                      "trig_demod_index" : 0,
-                      "trig_channel" : 1,
-                      "trig_edge" : "rising",
-                      "trig_holdoff_count" : 0,
-                      "trig_software_delay" : 0,                              
-                      "mode" : "exact",
-                      "direction" : "forward",
-                      "demod_index" : 0,
-                      "active" : False}
-                      }
-        self.name_to_index = {"demod1" : "0",
-                              "demod2" : "1"}
+        self.settings = {"demod1" : {"trig_type" : "HW_trigger",
+                                    "trig_channel" : 1,
+                                    "trig_edge" : "rising",
+                                    "trig_holdoff_count" : 0,
+                                    "trig_software_delay" : 0,                              
+                                    "mode" : "exact",
+                                    "direction" : "forward",
+                                    "demod_index" : 0,
+                                    "active" : False,
+                                    "daqM" : self.UHFLI.daqM1},
+                         "demod2" : {"trig_type" : "HW_trigger",
+                                    "trig_channel" : 2,
+                                    "trig_edge" : "rising",
+                                    "trig_holdoff_count" : 0,
+                                    "trig_software_delay" : 0,                              
+                                    "mode" : "exact",
+                                    "direction" : "forward",
+                                    "demod_index" : 1,
+                                    "active" : False,
+                                    "daqM" : self.UHFLI.daqM2}
+                          }
         self.setup_grid()
 
     def setup_grid(self):
-        #Set up the trigger
-        self.UHFLI.daqM1.set_daqM_trigger_mode(self.grid_settings["demod1"]["trig_type"])
-        self.UHFLI.daqM1.set_daqM_trigger_path("/{:s}/demods/{!s}/sample.TRIGIN{!s}".format(self.UHFLI._device_id,
-                                                                                             self.grid_settings["demod1"]["demod_index"],
-                                                                                             self.grid_settings["demod1"]["trig_channel"]))
-        self.UHFLI.daqM1.set_daqM_trigger_edge(self.grid_settings["demod1"]["trig_edge"])
-        self.UHFLI.daqM1.set_daqM_trigger_holdoff_count(self.grid_settings["demod1"]["trig_holdoff_count"])
-        self.UHFLI.daqM1.set_daqM_trigger_delay(self.grid_settings["demod1"]["trig_software_delay"])
-        
-        #setting up the grid
-        self.UHFLI.daqM1.set_daqM_grid_mode(self.grid_settings["demod1"]["mode"])
-        self.UHFLI.daqM1.set_daqM_grid_direction(self.grid_settings["demod1"]["direction"])
-        
-        #setting up the sample path
-        self.UHFLI.daqM1.set_daqM_sample_path(["/%s/demods/%d/sample.%s" % (self.UHFLI._device_id, self.grid_settings["demod1"]["demod_index"], "r"),
-                                         "/%s/demods/%d/sample.%s" % (self.UHFLI._device_id, self.grid_settings["demod1"]["demod_index"], "theta"),
-                                         "/%s/demods/%d/sample.%s" % (self.UHFLI._device_id, self.grid_settings["demod1"]["demod_index"], "x"),
-                                         "/%s/demods/%d/sample.%s" % (self.UHFLI._device_id, self.grid_settings["demod1"]["demod_index"], "y")])
+        for settings in self.settings.values():
+            #Set up the trigger
+            settings["daqM"].set_daqM_trigger_mode(settings["trig_type"])
+            settings["daqM"].set_daqM_trigger_path(f"/{self._id}/demods/{settings['demod_index']}/sample.TRIGIN{settings['trig_channel']}")
+            settings["daqM"].set_daqM_trigger_edge(settings["trig_edge"])
+            settings["daqM"].set_daqM_trigger_holdoff_count(settings["trig_holdoff_count"])
+            settings["daqM"].set_daqM_trigger_delay(settings["trig_software_delay"])
+            
+            #setting up the grid
+            settings["daqM"].set_daqM_grid_mode(settings["mode"])
+            settings["daqM"].set_daqM_grid_direction(settings["direction"])
+            
+            #setting up the sample path
+            settings["daqM"].set_daqM_sample_path([f"/{self._id}/demods/{settings['demod_index']}/sample.r",
+                                                   f"/{self._id}/demods/{settings['demod_index']}/sample.theta",
+                                                   f"/{self._id}/demods/{settings['demod_index']}/sample.x",
+                                                   f"/{self._id}/demods/{settings['demod_index']}/sample.y",])
         
     def demod1_get_sample_rate(self):
         return self.UHFLI.get_dem1_sample_rate() # is returned in Hz
@@ -66,39 +75,66 @@ class ZI_UHFLI_backend(RO_backend_base):
     
     def demod1_activate(self):
         self.UHFLI.set_dem1_demod_enable(True)
-        self.grid_settings["demod1"]["active"] = True
+        self.settings["demod1"]["active"] = True
     
     def demod1_deactivate(self):
         self.UHFLI.set_dem1_demod_enable(False)
-        self.grid_settings["demod1"]["active"] = False
+        self.settings["demod1"]["active"] = False
+        
+    def demod2_get_sample_rate(self):
+        return self.UHFLI.get_dem2_sample_rate() # is returned in Hz
+        
+    def demod2_set_measurement_count(self, meas_num):
+        self.UHFLI.daqM2.set_daqM_grid_num_measurements(meas_num)
+    
+    def demod2_set_sample_count(self, sample_num):
+        #we set this here because it is at this point that the system knows how long a trigger event will be
+        trigger_duration = sample_num / self.UHFLI.get_dem2_sample_rate()
+        self.UHFLI.daqM2.set_daqM_trigger_holdoff_time(trigger_duration)
+        self.UHFLI.daqM2.set_daqM_grid_num_samples(sample_num)        
+    
+    def demod2_set_averages(self, grid_num):
+        self.UHFLI.daqM2.set_daqM_grid_num(grid_num)
+    
+    def demod2_activate(self):
+        self.UHFLI.set_dem2_demod_enable(True)
+        self.settings["demod2"]["active"] = True
+    
+    def demod2_deactivate(self):
+        self.UHFLI.set_dem2_demod_enable(False)
+        self.settings["demod2"]["active"] = False
     
     def arm(self):
-        if self.grid_settings["demod1"]["active"]: self.UHFLI.daqM1.execute()
-        #TODO if self.grid2_settings["active"]: ...
+        for settings in self.settings.values():
+            if settings["active"]: settings["daqM"].execute()
     
     def finished(self):
         finished = True
-        if self.grid_settings["demod1"]["active"]: finished &= self.UHFLI.daqM1.finished()
-        #TODO if self.grid2_settings["active"]: finished &= ... 
+        for settings in self.settings.values():            
+            if settings["active"]: finished &= settings["daqM"].finished()
+            
         return finished
     
     def read(self):
         data = {}
-        demod = "demod1"
-        if self.grid_settings[demod]["active"]:
-            raw_data = self.UHFLI.daqM1.read()
-            data[demod] = {}
-            for node in self._registered_measurements[demod]["data_nodes"]:
-                data[demod][node] = []
-                path = f'/{self.UHFLI._device_id}/demods/{self.name_to_index[demod]}/sample.{node}'          
-                if path in raw_data.keys():                    
-                    for grid in range(len(raw_data[path])):
-                        if raw_data[path][grid]["header"]["flags"] & 1:
-                            data[demod][node].append(raw_data[path][grid]["value"])
+                            
+        for demod, settings in self.settings.items():
+            if settings["active"]:
+                data[demod] = {}
+                raw_data = settings["daqM"].read()
+                for node in self._registered_measurements[demod]["data_nodes"]:
+                    data[demod][node] = []
+                    path = f"/{self._id}/demods/{settings['demod_index']}/sample.{node}"
+                    if path in raw_data.keys():
+                        for grid in range(len(raw_data[path])):
+                            if raw_data[path][grid]["header"]["flags"] & 1:
+                                data[demod][node].append(raw_data[path][grid]["value"])
+                            
         return data
     
     def stop(self):
-        if self.grid_settings["demod1"]["active"]: self.UHFLI.daqM1.stop()
+        for settings in self.settings.values():
+            if settings["active"]: settings["daqM"].stop()
     
 #%%
 if __name__ == "__main__":
@@ -116,9 +152,16 @@ if __name__ == "__main__":
     print("The number of grids to acquire by the daq module: ", UHFLI.daqM1.get_daqM_grid_num())
     #%%
     backend.demod1_activate()
+    backend.demod2_activate()
     backend.arm()
     while not backend.finished():
         sleep(0.1)
         data = backend.read()
         print(data)
-    print(data["demod1"]["x"].ndim)
+    #%%
+    print(UHFLI.daqM1.get_daqM_sample_path())
+    print(UHFLI.daqM1.get_daqM_trigger_path())
+    
+    print(UHFLI.daqM2.get_daqM_sample_path())
+    print(UHFLI.daqM2.get_daqM_trigger_path())
+    print(backend.finished())
