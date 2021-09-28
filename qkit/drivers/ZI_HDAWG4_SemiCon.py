@@ -60,19 +60,19 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
         
         for i in range(len(channel_names)):
             index = [s for s in channel_names[i] if s.isdigit()]
-            if "trig" in channel_names[i]:
+            if "Trig" in channel_names[i]:
                 if type(data_dict[channel_names[i]]) == dict:
-                    if "sample" not in data_dict[channel_names[i]]:
-                        raise KeyError("Unkown dict keys. Wave data needs to be part of the \"sample\" key.")
-                    trigArray = np.concatenate(data_dict[channel_names[i]]["sample"])
+                    if "samples" not in data_dict[channel_names[i]]:
+                        raise KeyError("Unkown dict keys. Wave data needs to be part of the \"samples\" key.")
+                    trigArray = np.concatenate(data_dict[channel_names[i]]["samples"])
                 else:
                     trigArray = data_dict[channel_names[i]]
                 np.savetxt(self.wave_dir + "marker" + index[0] + ".csv", trigArray.astype(int), fmt='%s')
             else:
                 if type(data_dict[channel_names[i]]) == dict:
-                    if "sample" not in data_dict[channel_names[i]]:
-                        raise KeyError("Unkown dict keys. Wave data needs to be part of the \"sample\" key.")
-                    waveArray = np.concatenate(data_dict[channel_names[i]]["sample"])
+                    if "samples" not in data_dict[channel_names[i]]:
+                        raise KeyError("Unkown dict keys. Wave data needs to be part of the \"samples\" key.")
+                    waveArray = np.concatenate(data_dict[channel_names[i]]["samples"])
                 else:
                     waveArray = data_dict[channel_names[i]]
                     

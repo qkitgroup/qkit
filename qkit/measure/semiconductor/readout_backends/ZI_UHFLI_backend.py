@@ -5,7 +5,6 @@ Created on Tue Sep  7 17:57:44 2021
 
 @author: lr1740
 """
-import numpy as np
 from qkit.measure.semiconductor.readout_backends.RO_backend_base import RO_backend_base
 
 class ZI_UHFLI_backend(RO_backend_base):
@@ -33,7 +32,7 @@ class ZI_UHFLI_backend(RO_backend_base):
                                     "trig_software_delay" : 0,                              
                                     "mode" : "exact",
                                     "direction" : "forward",
-                                    "demod_index" : 1,
+                                    "demod_index" : 4,
                                     "active" : False,
                                     "daqM" : self.UHFLI.daqM2}
                           }
@@ -82,14 +81,14 @@ class ZI_UHFLI_backend(RO_backend_base):
         self.settings["demod1"]["active"] = False
         
     def demod2_get_sample_rate(self):
-        return self.UHFLI.get_dem2_sample_rate() # is returned in Hz
+        return self.UHFLI.get_dem5_sample_rate() # is returned in Hz
         
     def demod2_set_measurement_count(self, meas_num):
         self.UHFLI.daqM2.set_daqM_grid_num_measurements(meas_num)
     
     def demod2_set_sample_count(self, sample_num):
         #we set this here because it is at this point that the system knows how long a trigger event will be
-        trigger_duration = sample_num / self.UHFLI.get_dem2_sample_rate()
+        trigger_duration = sample_num / self.UHFLI.get_dem5_sample_rate()
         self.UHFLI.daqM2.set_daqM_trigger_holdoff_time(trigger_duration)
         self.UHFLI.daqM2.set_daqM_grid_num_samples(sample_num)        
     
@@ -97,11 +96,11 @@ class ZI_UHFLI_backend(RO_backend_base):
         self.UHFLI.daqM2.set_daqM_grid_num(grid_num)
     
     def demod2_activate(self):
-        self.UHFLI.set_dem2_demod_enable(True)
+        self.UHFLI.set_dem5_demod_enable(True)
         self.settings["demod2"]["active"] = True
     
     def demod2_deactivate(self):
-        self.UHFLI.set_dem2_demod_enable(False)
+        self.UHFLI.set_dem5_demod_enable(False)
         self.settings["demod2"]["active"] = False
     
     def arm(self):
@@ -142,11 +141,18 @@ if __name__ == "__main__":
     import qkit
     qkit.start()
     UHFLI = qkit.instruments.create("UHFLI", "ZI_UHFLI_SemiCon", device_id = "dev2587")
+    UHFLI.set_ch1_output(True)
+    UHFLI.set_ch2_output(True)
+    UHFLI.set_ch1_output_amp_enable(True)
+    UHFLI.set_ch2_output_amp_enable(True)
     backend = ZI_UHFLI_backend(UHFLI)
     print(backend.demod1_get_sample_rate())
     backend.demod1_set_measurement_count(50)
     backend.demod1_set_sample_count(75)
     backend.demod1_set_averages(10)
+    backend.demod2_set_measurement_count(50)
+    backend.demod2_set_sample_count(75)
+    backend.demod2_set_averages(10)
     print("The number of samples to acquire by the daq module: ", UHFLI.daqM1.get_daqM_grid_num_samples())
     print("The number of measurements to acquire by the daq module: ", UHFLI.daqM1.get_daqM_grid_num_measurements())
     print("The number of grids to acquire by the daq module: ", UHFLI.daqM1.get_daqM_grid_num())
@@ -165,3 +171,12 @@ if __name__ == "__main__":
     print(UHFLI.daqM2.get_daqM_sample_path())
     print(UHFLI.daqM2.get_daqM_trigger_path())
     print(backend.finished())
+    #%%
+    UHFLI.set_ch1_carrier_freq(400e3)
+    UHFLI.set_ch2_carrier_freq(1e6)
+    UHFLI.set_ch1_output_amplitude(250e-3)
+    UHFLI.set_ch2_output_amplitude(100e-3)
+    UHFLI.set_ch1_output(True)
+    UHFLI.set_ch2_output(True)
+    UHFLI.set_ch1_output_amp_enable(True)
+    UHFLI.set_ch2_output_amp_enable(True)

@@ -389,6 +389,8 @@ class Exciting(mb.MeasureBase):
             self._open_qviewkit()
             
     def _measure_vs_time(self, dimension, progress_bar):
+        self._ro_backend.stop()
+        self._ma_backend.stop() #We do this to be ABSOLUTELY sure that the first trigger recieved also belongs to the first wavefrom
         self._ro_backend.arm()
         self._ma_backend.run()       
         total_sum = {}

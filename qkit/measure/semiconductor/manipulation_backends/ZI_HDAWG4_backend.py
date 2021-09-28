@@ -5,7 +5,7 @@ Created on Mon Sep 13 15:40:38 2021
 @author: Thomas
 """
 
-from MA_backend_base import MA_backend_base
+from qkit.measure.semiconductor.manipulation_backends.MA_backend_base import MA_backend_base
 
 class ZI_HDAWG4_backend(MA_backend_base):
     def __init__(self, instrument):
