@@ -70,12 +70,16 @@ class Qupulse_decoder2:
         
         if "channel_mapping" in kwargs:
             rate_mapping = expand_mapping(sample_rates, invert_dict(kwargs["channel_mapping"])) #The rates come with the instrument name of the channels. Therefore we have to invert the user mapping
-            sample_rates = {rate_mapping[channel] : rate for channel, rate in sample_rates.items()} #Map the sample rates of the instrument channels to the user defined channels
-            self._extract_waveforms(sample_rates, deep_render)
+            sample_rates = {rate_mapping[channel] : rate for channel, rate in sample_rates.items()}
+            
+        self._validate_sample_rates(sample_rates)
+        self._extract_waveforms(sample_rates, deep_render)
+        
+        if "channel_mapping" in kwargs:
             channel_mapping = expand_mapping(self.channel_pars, kwargs["channel_mapping"])            
         else:
-            self._extract_waveforms(sample_rates, deep_render)
-            channel_mapping = {channel : channel for channel in self.channel_pars.keys()}            
+            channel_mapping = {channel : channel for channel in self.channel_pars.keys()}
+
         self.channel_pars = keytransform(self.channel_pars, channel_mapping)
 
     def _validate_entries(self):
@@ -106,7 +110,16 @@ class Qupulse_decoder2:
                 if isinstance(a, str) and a in pt_axis:
                     raise ValueError(f"{__name__}: The step parameter defined in {pt.identifier} is already used in another experiment. Experiments must have different step parameter names.")
                 pt_axis.add(a)
-
+    
+    def _validate_sample_rates(self, sample_rates):
+        missing_rates = ""
+        for pt, pars in self.experiments:
+            for channel in pt.defined_channels:
+                if channel not in sample_rates.keys():
+                    missing_rates += f"{channel}\n"
+        if missing_rates:
+            raise ValueError(f"{__name__}: Incomplete instructions by {sample_rates}. The following channels have no assigned sampling rates:\n{missing_rates}")
+    
     def _render_channel(self, wvf, channel, sample_rate):
         start_time, end_time = 0, wvf.duration
         sample_count = (end_time - start_time) * sample_rate + 1                    
@@ -314,7 +327,6 @@ class Exciting(mb.MeasureBase):
         self._validate_MA_backend(manipulation_backend)
         self._ma_backend = manipulation_backend   
         
-        self._t_parameters = {}
         self.compile_qupulse(*experiments, averages = averages, deep_render = deep_render, **add_pars)
         
         self.report_static_voltages = True
@@ -436,6 +448,7 @@ class Exciting(mb.MeasureBase):
                         for channel in self._ma_backend._registered_channels.keys()}        
         decoded = Qupulse_decoder2(*experiments, sample_rates = sample_rates, deep_render = deep_render, **add_pars)        
         self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)        
+        self._t_parameters = {}
         for name, measurement in self.settings.measurement_settings.items():
             try:
                 self.update_t_parameters(measurement["loop_range"], 
