@@ -157,6 +157,7 @@ class ADwin_Pro2_V2(Instrument):
         self.add_function('set_out')
         self.add_function('get_out')
         self.add_function('set_out_parallel')
+        self.add_function('set_out_dict')
         self.add_function('oversampled_gates')
         self.add_function('get_input')
         self.add_function('set_field_1d')
@@ -601,7 +602,87 @@ class ADwin_Pro2_V2(Instrument):
             input("Press Enter to continue.")
             sys.exit() 
  
-    
+    def set_out_dict(self, values_dict):
+        '''set_out_dict({gatenumber: voltage,...})
+        Set output voltage of many channels of the dictionary.
+        Safe ports will respect the maximum ramping speed of 0.5V/s which is checked 
+        in the ADwin file. 
+        The gates which are set in parallel are given to the Data_185 array. Voltage limit errors
+        are reported in Data_192[i] of each channel.
+        
+        parameters:
+            values_dict = {gatenumber: voltage in V,...}
+        '''
+        #The maximum number of gates which can be set in parallel as defined by the for-loop in the ADbasic file:
+        max_num_channels = 10
+        #the gates which are reseved for the current sources cannot be accessed with set_out_parallel
+        field_gates = [1, 2, 3]
+        
+        #check if there are empty values 
+        if (not bool(len(["" for x in values_dict.values() if not x]))) and len(values_dict)<=max_num_channels:
+            #Transformation of dictionary in two arrays:
+            channels = list(values_dict.keys())
+            voltages = list(values_dict.values())
+            
+            #setting to be ramped gates as an array to Data_185. Initialized as zeros:
+            channel_list = [0]*max_num_channels
+            for gate in channels:
+                if (gate in field_gates):
+                    logging.warning(__name__+': voltage at outputs for current sources cannot be changed with this funcion. ')
+                    input("Press Enter to continue.")
+                    sys.exit() 
+                elif channels.count(gate)>1:
+                    logging.warning(__name__+': same gate used multiple times. ')
+                    input("Press Enter to continue.")
+                    sys.exit()
+                else:
+                    index_channels = channels.index(gate)
+                    channel_list[index_channels] = gate
+                    volts = voltages[index_channels]
+                    
+                    if self.get('gate%d_oversampling_state'%gate)==1:
+                        #oversampling is on so the length in which the lower bit ist kept 
+                        #has to be given to the ADwin
+                        value, steps_lower_bit = self.volt_to_digit(volts, gate)
+                        self.adw.SetData_Long([steps_lower_bit], 187, gate, 1)
+                        logging.info(__name__ +': setting number of oversampling steps in lower bit to %d for gate %d.'%(steps_lower_bit, gate))
+                    else:
+                        value, _ =self.volt_to_digit(volts, gate)
+                        logging.info(__name__ +': not oversampling gate %d.'%gate)
+                        
+                    logging.info(__name__ +': setting output voltage gate %d to %f V'%(gate, volts))
+                    self.adw.SetData_Long([value], 200, gate, 1)
+              
+           
+            #setting array of ramped channels to Data_185
+            self.adw.SetData_Long(channel_list, 185, 1, max_num_channels)
+            
+            #setting number of to be ramped gates to Par_70
+            self.set_Par_70_global_long(len(channels)) 
+            
+            #activate ADwin to ramp input
+            self._activate_ADwin(3)
+            #wait for ADwin to finish
+            while self.get_Par_76_global_long() != 0:
+                pass
+                       
+            #check if voltage was out of bounds:
+            limit_error_Data = list(self.adw.GetData_Long(192,1,self.get_number_of_gates()))
+            #print("limit error Data: ", str(limit_error_Data))
+            if 1 in limit_error_Data:
+                logging.warning(__name__+': voltage limit exceeded or individual voltage limit not set on channels. ')
+                input("Press Enter to continue.")
+                #set limit error variable back to 0
+                self.adw.SetData_Long([0], 192, 1, 200)
+                sys.exit() 
+            else:
+                for gate in channels:
+                    logging.info(__name__+': voltage set to gate %d.'%gate)
+                    
+        else:
+            logging.warning(__name__+': dictionary not processable!')
+            input("Press Enter to continue.")
+            sys.exit() 
     
     def _do_set_output_current_voltage_in_V(self, new, channel): #For current sources! NO EXTERNAL USE!
         """Set output voltage of current gate 'X' (1-3) (ADwin parameter: Data_200[X]). 
