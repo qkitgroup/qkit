@@ -10,6 +10,8 @@ try:
     if qkit.module_available('uncertainties'):
         import uncertainties
         uncertainties_enable = True
+    else:
+        uncertainties_enable = False
 except AttributeError:
     try:
         import uncertainties
