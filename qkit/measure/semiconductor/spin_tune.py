@@ -220,13 +220,14 @@ class Tuning(mb.MeasureBase):
             for x_val in self._x_parameter.values:
                 self._x_parameter.set_function(x_val)
                 qkit.flow.sleep(self._x_parameter.wait_time)
-                measured = float(self._get_value_func())
-                self._datasets[self.measurand["name"]].append(measured)
+                measured = self._get_value_func()
+                for element in measured:
+                    self._datasets[self.measurand["name"]].append(element)
                 pb.iterate()
-                if abs(measured) >= self.measurement_limit:
-                    warn(f"{__name__}: Measurement limit reached. Stopping measure1D.")
-                    qkit.flow.sleep(0.2)
-                    break                
+                #if abs(measured) >= self.measurement_limit:
+                #    warn(f"{__name__}: Measurement limit reached. Stopping measure1D.")
+                #    qkit.flow.sleep(0.2)
+                #    break                
         finally:
             self._end_measurement()
             
