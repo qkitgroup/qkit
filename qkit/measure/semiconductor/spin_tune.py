@@ -215,19 +215,31 @@ class Tuning(mb.MeasureBase):
         pb = Progress_Bar(len(self._x_parameter.values))        
         self._prepare_measurement_file([self.Data(name = self.measurand["name"], coords = [self._x_parameter], 
                                                   unit = self.measurand["unit"], save_timestamp = False)])
-        self._open_qviewkit()
+        self._open_qviewkit()        
         try:
+            total_length = len(self._x_parameter.values)
+            measured_length = 0
+            stop = False
             for x_val in self._x_parameter.values:
                 self._x_parameter.set_function(x_val)
                 qkit.flow.sleep(self._x_parameter.wait_time)
-                measured = self._get_value_func()
-                for element in measured:
-                    self._datasets[self.measurand["name"]].append(element)
-                pb.iterate()
-                #if abs(measured) >= self.measurement_limit:
-                #    warn(f"{__name__}: Measurement limit reached. Stopping measure1D.")
-                #    qkit.flow.sleep(0.2)
-                #    break                
+                measured = np.atleast_1d(self._get_value_func())
+                measured_length += len(measured)
+                
+                if measured_length >= total_length:
+                    measured = measured[:len(measured) - (measured_length - total_length)]
+                    stop = True
+                    
+                for value in measured:
+                    if abs(value) > self.measurement_limit:
+                        warn(f"{__name__}: Measurement limit reached. Stopping measure1D.")
+                        qkit.flow.sleep(0.2)
+                        stop = True
+                
+                self._datasets[self.measurand["name"]].append(measured)                
+                pb.iterate(addend = len(measured))
+                
+                if stop: break
         finally:
             self._end_measurement()
             
