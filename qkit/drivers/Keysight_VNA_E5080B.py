@@ -135,6 +135,9 @@ class Keysight_VNA_E5080B(Instrument):
             flags=Instrument.FLAG_GET,
             minval=0, maxval=1e3,
             units='s', tags=['sweep'])
+        
+        self.add_parameter('measurement_parameter', type=str,
+                           flags=Instrument.FLAG_GETSET)
     
         self.add_parameter('edel', type=float, # legacy name for parameter. This corresponds to the VNA's port extension values.
             flags=Instrument.FLAG_GETSET, 
