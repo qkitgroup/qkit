@@ -73,48 +73,62 @@ class Multiplexer:
         latest_data = {}
         for name, measurement in self.registered_measurements.items():
             if measurement["active"]:
-                temp = measurement["get_tracedata_func"]()
-                for node, value in temp.items():
-                    latest_data[f"{name}.{node}"] = value
+                latest_data[name] = dict(map(lambda x: (x[0], np.atleast_1d(x[1])), measurement["get_tracedata_func"]().items()))
         return latest_data
         
 class Watchdog:
     def __init__(self):
         self.stop = False
         self.message = ""
-        self.measurement_bounds = {}
+        self.max_length = 0
+        self.node_bounds = {}
+        self.node_lengths = {}  
     
-    def register_node(self, data_node, bound_lower, bound_upper):
-        if type(data_node) != str:
-            raise TypeError(f"{__name__}: {data_node} is not a valid measurement node. The measurement node must be a string.")
+    def register_node(self, node, bound_lower, bound_upper):
+        if type(node) != str:
+            raise TypeError(f"{__name__}: {node} is not a valid measurement node. The measurement node must be a string.")
         try:
             bound_lower = float(bound_lower)
         except Exception as e:
-            raise type(e)(f"{__name__}: Cannot set {bound_lower} as lower measurement bound for node {data_node}. Conversion to float failed.")
+            raise type(e)(f"{__name__}: Cannot set {bound_lower} as lower measurement bound for node {node}. Conversion to float failed.")
         try:
             bound_upper = float(bound_upper)
         except Exception as e:
-            raise type(e)(f"{__name__}: Cannot set {bound_lower} as lower measurement bound for node {data_node}. Conversion to float failed.")
+            raise type(e)(f"{__name__}: Cannot set {bound_lower} as lower measurement bound for node {node}. Conversion to float failed.")
         
         if bound_lower >= bound_upper:
             raise ValueError(f"{__name__}: Invalid bounds. {bound_lower} is larger or equal to {bound_upper}.")
         
-        self.measurement_bounds[f"{data_node}"] = [bound_lower, bound_upper]
+        self.node_bounds[node] = [bound_lower, bound_upper]
+        self.node_lengths[node] = 0
         
     def reset(self):
         self.stop = False
-        self.global_message = ""
+        self.global_message = ""        
+        for node in self.node_lengths.keys():
+            self.node_lengths[node] = 0
     
-    def limits_check(self, data_node, values):
-        if data_node not in self.measurement_bounds.keys():
-            raise KeyError(f"{__name__}: No bounds are defined for {data_node}.")
-        for value in np.atleast_1d(values):
-            if value < self.measurement_bounds[data_node][0]:
+    def limits_check(self, node, values):
+        if node not in self.node_bounds.keys():
+            raise KeyError(f"{__name__}: No bounds are defined for node {node}")
+        for value in values:
+            if value < self.node_bounds[node][0]:
                 self.stop = True
-                self.message = f"{__name__}: Lower measurement bound for {data_node} reached. Stopping measurement."
-            elif value > self.measurement_bounds[data_node][1]:
+                self.message = f"{__name__}: Lower measurement bound for node {node} reached. Stopping measurement."
+            elif value > self.node_bounds[node][1]:
                 self.stop = True
-                self.message = f"{__name__}: Upper measurement bound for {data_node} reached. Stopping measurement."
+                self.message = f"{__name__}: Upper measurement bound for node {node} reached. Stopping measurement."
+    
+    def length_check(self, node, values):
+        values_length = len(values)
+        count = self.node_lengths[node] + values_length      
+        
+        if count >= self.max_length:
+            values = values[:self.max_length - self.node_lengths[node]]
+            self.node_lengths[node] = self.max_length
+        else:
+            self.node_lengths[node] = count
+        return values
     
 class Tuning(mb.MeasureBase):
     """
@@ -152,7 +166,7 @@ class Tuning(mb.MeasureBase):
     measure3D() :
         Starts a 3D measurement
     """
-    def __init__(self, exp_name = "", sample = None):
+    def __init__(self, measurement_limit = 200e-12, exp_name = "", sample = None):
         """
         Parameters
         ----------
@@ -167,11 +181,29 @@ class Tuning(mb.MeasureBase):
         
         self._z_parameter = None
         
+        self._get_value_func = None
+        self._get_tracedata_func = None
+        
+        self.measurement_limit = measurement_limit        
         self.meander_sweep = True
         self.report_static_voltages = True
         
         self.multiplexer = Multiplexer()
         self.watchdog = Watchdog()
+
+        self.gate_lib = {}
+        self.measurand = {"name" : "current", "unit" : "A"}
+        
+    @property
+    def measurement_limit(self):       
+        return self._measurement_limit
+    
+    @measurement_limit.setter
+    def measurement_limit(self, newlim):
+        try:
+            self._measurement_limit = abs(float(newlim))
+        except Exception as e:
+            raise type(e)(f"{__name__}: Cannot set {newlim} as current limit. conversion to float failed: {e}")
     
     @property
     def meander_sweep(self):
@@ -196,10 +228,10 @@ class Tuning(mb.MeasureBase):
     def register_measurement(self, name, unit, nodes, get_tracedata_func, *args, **kwargs):
         self.multiplexer.register_measurement(name, unit, nodes, get_tracedata_func, *args, **kwargs)
         for node in nodes:
-            self.watchdog.register_node(f"{name}.{node}", -10, 10)
+            self.watchdog.register_node(node, -10, 10)
     
-    def set_node_bounds(self, measurement, node, bound_lower, bound_upper):
-        self.watchdog.register_node(f"{measurement}.{node}", bound_lower, bound_upper)
+    def set_node_bounds(self, node, bound_lower, bound_upper):
+        self.watchdog.register_node(node, bound_lower, bound_upper)
     
     def set_z_parameters(self, vec, coordname, set_obj, unit, dt=None):
         """
@@ -234,6 +266,37 @@ class Tuning(mb.MeasureBase):
         except Exception as e:
             self._z_parameter = None
             raise e
+           
+    def set_get_value_func(self, get_func, *args, **kwargs):
+        """
+        Sets the measurement function.
+        
+        Parameters
+        ----------
+        get_func: function
+            the get_func must return an int or float datatype. Arrays are not allowed.
+        *args, **kwargs:
+            Additional arguments to be passed to the get_func each time the measurement function is called.
+        
+        Returns
+        -------
+        None
+        
+        Raises
+        ------
+        TypeError
+            If the passed object is not callable.
+        """
+        if not callable(get_func):
+            raise TypeError("%s: Cannot set %s as get_value_func. Callable object needed." % (__name__, get_func))
+        self._get_value_func = lambda: get_func(*args, **kwargs)
+        self._get_tracedata_func = None
+        
+    def set_get_tracedata_func(self, get_func, *args, **kwargs):
+        if not callable(get_func):
+            raise TypeError("%s: Cannot set %s as get_tracedata_func. Callable object needed." % (__name__, get_func))
+        self._get_tracedata_func = lambda: get_func(*args, **kwargs)
+        self._get_value_func = None
     
     def _prepare_measurement_file(self, data, coords=()):
         mb.MeasureBase._prepare_measurement_file(self, data, coords=())
@@ -252,122 +315,33 @@ class Tuning(mb.MeasureBase):
                         active_gates.update({key:value})
             self._static_voltages.append(active_gates)
     
-    def _prepare_empty_container(self):
-        sweepy = {}
-        for data_node in self.watchdog.measurement_bounds.keys():
-            sweepy[f"{data_node}"] = []
-        return sweepy
-    
-    def _append_value(self, latest_data, container):
-        for name, values in latest_data.items():
-            self.watchdog.limits_check(name, values)
-            container[f"{name}"].append(values)
-    
-    def _append_vector(self, latest_data, container, direction):
-        for name, values in latest_data.items():
-            container[f"{name}"].append(values[::direction]) 
-    
     def multi_measure1D(self):
         self._measurement_object.measurement_func = "%s: multi_measure1D" % __name__
-        pb = Progress_Bar(len(self._x_parameter.values))
-        
+        max_length = len(self._x_parameter.values)
+        self.watchdog.max_length = max_length
+        pb = Progress_Bar(max_length)
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter])
         self._prepare_measurement_file(dsets)
         self._open_qviewkit()
         
         try:
             for x_val in self._x_parameter.values:
+                iterations = 0
                 self._x_parameter.set_function(x_val)
                 qkit.flow.sleep(self._x_parameter.wait_time)
                 latest_data = self.multiplexer.measure()
                 
-                self._append_value(latest_data, self._datasets)
+                for name, measurement in latest_data.items():
+                    for node, value in measurement.items():
+                        self.watchdog.limits_check(node, value)
+                        value = self.watchdog.length_check(node, value)
+                        iterations += len(value)
+                        self._datasets[f"{name}.{node}"].append(value)
                 
-                pb.iterate()
-                
+                pb.iterate(addend = iterations)
                 if self.watchdog.stop:
                     warn(f"{__name__}: {self.watchdog.message}")
                     break
-        finally:
-            self.watchdog.reset()
-            self._end_measurement()
-            
-    def multi_measure2D(self):
-        """Starts a 2D - measurement, with y being the inner and x the outer loop coordinate."""
-        self._measurement_object.measurement_func = "%s: measure2D" % __name__        
-        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values))
-        
-        dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter, self._y_parameter])        
-        self._prepare_measurement_file(dsets)
-        self._open_qviewkit()
-        
-        try:
-            y_direction = 1
-            for x_val in self._x_parameter.values:             
-                self._x_parameter.set_function(x_val)
-                self._acquire_log_functions()
-                qkit.flow.sleep(self._x_parameter.wait_time)
-                sweepy = self._prepare_empty_container()
-                
-                for y_val in self._y_parameter.values[::y_direction]:                    
-                    self._y_parameter.set_function(y_val)
-                    qkit.flow.sleep(self._y_parameter.wait_time)
-                    latest_data = self.multiplexer.measure()
-                    self._append_value(latest_data, sweepy)
-                        
-                    pb.iterate()
-                    
-                    if self.watchdog.stop:
-                        warn(f"{__name__}: {self.watchdog.message}")
-                        break
-                
-                self._append_vector(sweepy, self._datasets, direction = y_direction)
-                
-                if self.meander_sweep: y_direction *= -1
-                if self.watchdog.stop: break                    
-        finally:
-            self.watchdog.reset()
-            self._end_measurement()    
-    
-    def multi_measure3D(self):
-        """Starts a 3D - measurement, with z being the innermost, y the inner and x the outer loop coordinate."""
-        self._measurement_object.measurement_func = "%s: measure3D" % __name__        
-        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * len(self._z_parameter.values))
-        
-        dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter, self._y_parameter, self._z_parameter]) 
-        self._prepare_measurement_file(dsets)
-        self._open_qviewkit()
-        
-        try:
-            for x_val in self._x_parameter.values:
-                self._x_parameter.set_function(x_val)
-                self._acquire_log_functions()
-                qkit.flow.sleep(self._x_parameter.wait_time)
-                
-                z_direction = 1
-                for y_val in self._y_parameter.values:
-                    sweepy = self._prepare_empty_container()
-                    self._y_parameter.set_function(y_val)
-                    qkit.flow.sleep(self._y_parameter.wait_time)
-                    
-                    for z_val in self._z_parameter.values[::z_direction]:                    
-                        self._z_parameter.set_function(z_val)
-                        qkit.flow.sleep(self._z_parameter.wait_time)
-                        latest_data = self.multiplexer.measure()
-                        self._append_value(latest_data, sweepy)
-                        pb.iterate()
-                        if self.watchdog.stop:
-                            warn(f"{__name__}: {self.watchdog.message}")
-                            break
-                        
-                    self._append_vector(sweepy, self._datasets, direction = z_direction)
-                    
-                    if self.meander_sweep: z_direction *= -1
-                    if self.watchdog.stop: break
-                
-                for dset in self._datasets.values():
-                    dset.next_matrix()
-                if self.watchdog.stop: break
         finally:
             self.watchdog.reset()
             self._end_measurement()
