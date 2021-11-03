@@ -17,6 +17,7 @@
 
 import qkit
 import qkit.measure.measurement_base as mb
+import qkit.measure.semiconductor.utils.utility_objects as uo
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.write_additional_files import get_instrument_settings
 
@@ -24,58 +25,6 @@ import numpy as np
 
 from warnings import warn
 
-class Multiplexer:
-    def __init__(self):
-        #self._validate_core(core)
-        #self.core = core
-        self.registered_measurements = {}
-        self.no_measurements = 0
-    
-    def _validate_core(self, core):
-        if not issubclass(core.__class__, mb.MeasureBase):
-            raise TypeError(f"{__name__}: Cannot use {core} as core. The backend must be a subclass of MeasureBase")
-    
-    def register_measurement(self, name, unit, nodes, get_tracedata_func, *args, **kwargs):
-        if type(name) != str:
-            raise TypeError(f"{__name__}: {name} is not a valid experiment name. The experiment name must be a string.")
-        if type(unit) != str:
-            raise TypeError(f"{__name__}: {unit} is not a valid unit. The unit must be a string.")
-        if type(nodes) != list:
-            raise TypeError(f"{__name__}: {nodes} are not valid data nodes. The data nodes must be a list of strings.")
-        else:
-            for node in nodes:
-                if type(node) != str:
-                    raise TypeError(f"{node} is not a valid data node. A data node must be a string.")
-        if not callable(get_tracedata_func):
-            raise TypeError("%s: Cannot set %s as get_value_func. Callable object needed." % (__name__, get_tracedata_func))
-        
-        self.registered_measurements[name] = {"unit" : unit, "nodes" : nodes, "get_tracedata_func" : lambda: get_tracedata_func(*args, **kwargs), "active" : True}
-        self.no_measurements = len(self.registered_measurements)
-    
-    def activate_measurement(self, name):
-        self.registerd_measurements[name]["active"] = True
-    
-    def deactivate_measurement(self, name):
-        self.registerd_measurements[name]["active"] = False
-        
-    def prepare_measurement_datasets(self, coords):
-        datasets = []
-        for name, measurement in self.registered_measurements.items():
-            if measurement["active"]:
-                for node in measurement["nodes"]:
-                    datasets.append(mb.MeasureBase.Data(name = f"{name}.{node}",
-                                              coords = coords,
-                                              unit = measurement["unit"],
-                                              save_timestamp = False))
-        return datasets
-    
-    def measure(self):
-        latest_data = {}
-        for name, measurement in self.registered_measurements.items():
-            if measurement["active"]:
-                latest_data[name] = dict(map(lambda x: (x[0], np.atleast_1d(x[1])), measurement["get_tracedata_func"]().items()))
-        return latest_data
-        
 class Watchdog:
     def __init__(self):
         self.stop = False
@@ -130,7 +79,7 @@ class Watchdog:
             self.node_lengths[node] = count
         return values
     
-class Tuning(mb.MeasureBase):
+class Watching(mb.MeasureBase):
     """
     A class containing measurement routines for everything.
     
@@ -166,7 +115,7 @@ class Tuning(mb.MeasureBase):
     measure3D() :
         Starts a 3D measurement
     """
-    def __init__(self, measurement_limit = 200e-12, exp_name = "", sample = None):
+    def __init__(self, exp_name = "", sample = None):
         """
         Parameters
         ----------
@@ -177,33 +126,17 @@ class Tuning(mb.MeasureBase):
         
         """
         mb.MeasureBase.__init__(self, sample)
-
         
         self._z_parameter = None
-        
-        self._get_value_func = None
-        self._get_tracedata_func = None
-        
-        self.measurement_limit = measurement_limit        
+             
         self.meander_sweep = True
         self.report_static_voltages = True
         
-        self.multiplexer = Multiplexer()
-        self.watchdog = Watchdog()
+        self.multiplexer = uo.Multiplexer()
+        self.watchdog = uo.Watchdog()
 
         self.gate_lib = {}
         self.measurand = {"name" : "current", "unit" : "A"}
-        
-    @property
-    def measurement_limit(self):       
-        return self._measurement_limit
-    
-    @measurement_limit.setter
-    def measurement_limit(self, newlim):
-        try:
-            self._measurement_limit = abs(float(newlim))
-        except Exception as e:
-            raise type(e)(f"{__name__}: Cannot set {newlim} as current limit. conversion to float failed: {e}")
     
     @property
     def meander_sweep(self):
@@ -228,10 +161,10 @@ class Tuning(mb.MeasureBase):
     def register_measurement(self, name, unit, nodes, get_tracedata_func, *args, **kwargs):
         self.multiplexer.register_measurement(name, unit, nodes, get_tracedata_func, *args, **kwargs)
         for node in nodes:
-            self.watchdog.register_node(node, -10, 10)
+            self.watchdog.register_node(f"{name}.{node}", -10, 10)
     
-    def set_node_bounds(self, node, bound_lower, bound_upper):
-        self.watchdog.register_node(node, bound_lower, bound_upper)
+    def set_node_bounds(self, measurement, node, bound_lower, bound_upper):
+        self.watchdog.register_node(f"{measurement}.{node}", bound_lower, bound_upper)
     
     def set_z_parameters(self, vec, coordname, set_obj, unit, dt=None):
         """
@@ -266,37 +199,6 @@ class Tuning(mb.MeasureBase):
         except Exception as e:
             self._z_parameter = None
             raise e
-           
-    def set_get_value_func(self, get_func, *args, **kwargs):
-        """
-        Sets the measurement function.
-        
-        Parameters
-        ----------
-        get_func: function
-            the get_func must return an int or float datatype. Arrays are not allowed.
-        *args, **kwargs:
-            Additional arguments to be passed to the get_func each time the measurement function is called.
-        
-        Returns
-        -------
-        None
-        
-        Raises
-        ------
-        TypeError
-            If the passed object is not callable.
-        """
-        if not callable(get_func):
-            raise TypeError("%s: Cannot set %s as get_value_func. Callable object needed." % (__name__, get_func))
-        self._get_value_func = lambda: get_func(*args, **kwargs)
-        self._get_tracedata_func = None
-        
-    def set_get_tracedata_func(self, get_func, *args, **kwargs):
-        if not callable(get_func):
-            raise TypeError("%s: Cannot set %s as get_tracedata_func. Callable object needed." % (__name__, get_func))
-        self._get_tracedata_func = lambda: get_func(*args, **kwargs)
-        self._get_value_func = None
     
     def _prepare_measurement_file(self, data, coords=()):
         mb.MeasureBase._prepare_measurement_file(self, data, coords=())
@@ -318,13 +220,12 @@ class Tuning(mb.MeasureBase):
     def multi_measure1D(self):
         self._measurement_object.measurement_func = "%s: multi_measure1D" % __name__
         max_length = len(self._x_parameter.values)
-        self.watchdog.max_length = max_length
         pb = Progress_Bar(max_length)
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter])
         self._prepare_measurement_file(dsets)
         self._open_qviewkit()
         
-        try:
+        try:                
             for x_val in self._x_parameter.values:
                 iterations = 0
                 self._x_parameter.set_function(x_val)
