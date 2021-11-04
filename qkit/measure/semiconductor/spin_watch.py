@@ -31,7 +31,7 @@ class Watchdog:
         self.message = ""
         self.max_length = 0
         self.node_bounds = {}
-        self.node_lengths = {}  
+        self._node_lengths = {}  
     
     def register_node(self, node, bound_lower, bound_upper):
         if type(node) != str:
@@ -49,13 +49,13 @@ class Watchdog:
             raise ValueError(f"{__name__}: Invalid bounds. {bound_lower} is larger or equal to {bound_upper}.")
         
         self.node_bounds[node] = [bound_lower, bound_upper]
-        self.node_lengths[node] = 0
+        self._node_lengths[node] = 0
         
     def reset(self):
         self.stop = False
         self.global_message = ""        
-        for node in self.node_lengths.keys():
-            self.node_lengths[node] = 0
+        for node in self._node_lengths.keys():
+            self._node_lengths[node] = 0
     
     def limits_check(self, node, values):
         if node not in self.node_bounds.keys():
@@ -70,13 +70,13 @@ class Watchdog:
     
     def length_check(self, node, values):
         values_length = len(values)
-        count = self.node_lengths[node] + values_length      
+        count = self._node_lengths[node] + values_length      
         
         if count >= self.max_length:
-            values = values[:self.max_length - self.node_lengths[node]]
-            self.node_lengths[node] = self.max_length
+            values = values[:self.max_length - self._node_lengths[node]]
+            self._node_lengths[node] = self.max_length
         else:
-            self.node_lengths[node] = count
+            self._node_lengths[node] = count
         return values
     
 class Watching(mb.MeasureBase):
@@ -135,8 +135,7 @@ class Watching(mb.MeasureBase):
         self.multiplexer = uo.Multiplexer()
         self.watchdog = uo.Watchdog()
 
-        self.gate_lib = {}
-        self.measurand = {"name" : "current", "unit" : "A"}
+        self._node_lengths = {}
     
     @property
     def meander_sweep(self):
@@ -162,6 +161,7 @@ class Watching(mb.MeasureBase):
         self.multiplexer.register_measurement(name, unit, nodes, get_tracedata_func, *args, **kwargs)
         for node in nodes:
             self.watchdog.register_node(f"{name}.{node}", -10, 10)
+            self._node_lengths[f"{name}.{node}"] = 0
     
     def set_node_bounds(self, measurement, node, bound_lower, bound_upper):
         self.watchdog.register_node(f"{measurement}.{node}", bound_lower, bound_upper)
@@ -216,34 +216,48 @@ class Watching(mb.MeasureBase):
                     if string1 in key and key.endswith(string2) and abs(value) > 0.0004:
                         active_gates.update({key:value})
             self._static_voltages.append(active_gates)
+            
+    def _finished(self):
+        if all(length >= self.max_length for length in self._node_lengths.values()): return True
+        else: return False
+    
+    def _length_check(self, node, values):
+        values_length = len(values)
+        count = self._node_lengths[node] + values_length      
+        
+        if count >= self.max_length:
+            values = values[:self.max_length - self._node_lengths[node]]
+            self._node_lengths[node] = self.max_length
+        else:
+            self._node_lengths[node] = count
+        return values
     
     def multi_measure1D(self):
         self._measurement_object.measurement_func = "%s: multi_measure1D" % __name__
-        max_length = len(self._x_parameter.values)
-        pb = Progress_Bar(max_length)
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter])
         self._prepare_measurement_file(dsets)
+        self.max_length = len(self._x_parameter.values)
+        pb = Progress_Bar(self.max_length * self.multiplexer.no_nodes)
+        
         self._open_qviewkit()
         
         try:                
-            for x_val in self._x_parameter.values:
-                iterations = 0
-                self._x_parameter.set_function(x_val)
-                qkit.flow.sleep(self._x_parameter.wait_time)
+            while (not self._finished()):
                 latest_data = self.multiplexer.measure()
                 
-                for name, measurement in latest_data.items():
-                    for node, value in measurement.items():
-                        self.watchdog.limits_check(node, value)
-                        value = self.watchdog.length_check(node, value)
-                        iterations += len(value)
-                        self._datasets[f"{name}.{node}"].append(value)
+                for data_node, values in latest_data.items():
+                    values = np.atleast_1d(values)
+                    self.watchdog.limits_check(data_node, values)                    
+                    checked_data = self._length_check(data_node, values)
+                    self._datasets[data_node].append(checked_data)                
+                    pb.iterate(addend = len(checked_data))
                 
-                pb.iterate(addend = iterations)
                 if self.watchdog.stop:
                     warn(f"{__name__}: {self.watchdog.message}")
                     break
         finally:
+            for data_node in self._node_lengths.keys():
+                self._node_lengths[data_node] = 0
             self.watchdog.reset()
             self._end_measurement()
     

@@ -15,6 +15,7 @@ class Multiplexer:
         #self.core = core
         self.registered_measurements = {}
         self.no_measurements = 0
+        self.no_nodes = 0
     
     def register_measurement(self, name, unit, nodes, get_tracedata_func, *args, **kwargs):
         if type(name) != str:
@@ -32,6 +33,9 @@ class Multiplexer:
         
         self.registered_measurements[name] = {"unit" : unit, "nodes" : nodes, "get_tracedata_func" : lambda: get_tracedata_func(*args, **kwargs), "active" : True}
         self.no_measurements = len(self.registered_measurements)
+        self.no_nodes = 0
+        for measurement in self.registered_measurements.values():
+            self.no_nodes += len(measurement["nodes"])
     
     def activate_measurement(self, name):
         self.registerd_measurements[name]["active"] = True
