@@ -134,18 +134,9 @@ class Watching(mb.MeasureBase):
         
         self.multiplexer = uo.Multiplexer()
         self.watchdog = uo.Watchdog()
-
+        
+        self._nodes = []
         self._node_lengths = {}
-    
-    @property
-    def meander_sweep(self):
-        return self._meander_sweep
-    
-    @meander_sweep.setter
-    def meander_sweep(self, yesno):
-        if not isinstance(yesno, bool):
-            raise TypeError(f"{__name__}: Cannot use {yesno} as meander_sweep. Must be a boolean value.")
-        self._meander_sweep = yesno
         
     @property
     def report_static_voltages(self):
@@ -160,8 +151,10 @@ class Watching(mb.MeasureBase):
     def register_measurement(self, name, unit, nodes, get_tracedata_func, *args, **kwargs):
         self.multiplexer.register_measurement(name, unit, nodes, get_tracedata_func, *args, **kwargs)
         for node in nodes:
-            self.watchdog.register_node(f"{name}.{node}", -10, 10)
-            self._node_lengths[f"{name}.{node}"] = 0
+            nodekey = f"{name}.{node}"
+            self.watchdog.register_node(nodekey, -10, 10)
+            self._node_lengths[nodekey] = 0
+            self._nodes.append(nodekey)
     
     def set_node_bounds(self, measurement, node, bound_lower, bound_upper):
         self.watchdog.register_node(f"{measurement}.{node}", bound_lower, bound_upper)
@@ -221,17 +214,20 @@ class Watching(mb.MeasureBase):
         if all(length >= self.max_length for length in self._node_lengths.values()): return True
         else: return False
     
-    def _length_check(self, node, values):
+    def _check_data(self, data_node, values):
+        values = np.atleast_1d(values)
+        self.watchdog.limits_check(data_node, values)
+        
         values_length = len(values)
-        count = self._node_lengths[node] + values_length      
+        count = self._node_lengths[data_node] + values_length
         
         if count >= self.max_length:
-            values = values[:self.max_length - self._node_lengths[node]]
-            self._node_lengths[node] = self.max_length
+            values = values[:self.max_length - self._node_lengths[data_node]]
+            self._node_lengths[data_node] = self.max_length
         else:
-            self._node_lengths[node] = count
+            self._node_lengths[data_node] = count
         return values
-    
+            
     def multi_measure1D(self):
         self._measurement_object.measurement_func = "%s: multi_measure1D" % __name__
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter])
@@ -245,16 +241,107 @@ class Watching(mb.MeasureBase):
             while (not self._finished()):
                 latest_data = self.multiplexer.measure()
                 
-                for data_node, values in latest_data.items():
-                    values = np.atleast_1d(values)
-                    self.watchdog.limits_check(data_node, values)                    
-                    checked_data = self._length_check(data_node, values)
-                    self._datasets[data_node].append(checked_data)                
+                for data_node, values in latest_data.items():       
+                    checked_data = self._check_data(data_node, values)
+                    self._datasets[data_node].append(checked_data)
                     pb.iterate(addend = len(checked_data))
                 
                 if self.watchdog.stop:
                     warn(f"{__name__}: {self.watchdog.message}")
                     break
+        finally:
+            for data_node in self._node_lengths.keys():
+                self._node_lengths[data_node] = 0
+            self.watchdog.reset()
+            self._end_measurement()
+    
+    def _prepare_empty_container(self):
+        sweepy = {}
+        for data_node in self._nodes:
+            sweepy[f"{data_node}"] = []
+        return sweepy
+    
+    def multi_measure2D(self):
+        """Starts a 2D - measurement, with y being the inner and x the outer loop coordinate."""
+        self._measurement_object.measurement_func = "%s: multi_measure2D" % __name__
+        dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter, self._y_parameter])
+        self._prepare_measurement_file(dsets)
+        self.max_length = len(self._y_parameter.values)
+        pb = Progress_Bar(self.max_length * self.multiplexer.no_nodes * len(self._x_parameter.values))
+        
+        self._open_qviewkit()
+        
+        try:
+            for x_val in self._x_parameter.values:
+                sweepy = self._prepare_empty_container()
+                self._x_parameter.set_function(x_val)
+                self._acquire_log_functions()
+                qkit.flow.sleep(self._x_parameter.wait_time)
+                
+                while (not self._finished()):
+                    latest_data = self.multiplexer.measure()
+                    
+                    for data_node, values in latest_data.items():       
+                        checked_data = self._check_data(data_node, values)
+                        sweepy[data_node].extend(checked_data)
+                        pb.iterate(addend = len(checked_data))
+                    
+                    if self.watchdog.stop:
+                        warn(f"{__name__}: {self.watchdog.message}")
+                        break
+                
+                for data_node, values in sweepy.items():          
+                    self._datasets[data_node].append(values)
+                    self._node_lengths[data_node] = 0
+                
+                if self.watchdog.stop: break                    
+        finally:
+            for data_node in self._node_lengths.keys():
+                self._node_lengths[data_node] = 0
+            self.watchdog.reset()
+            self._end_measurement()
+            
+    def multi_measure3D(self):
+        """Starts a 3D - measurement, with z being the innermost, y the inner and x the outer loop coordinate."""
+        self._measurement_object.measurement_func = "%s: multi_measure3D" % __name__
+        dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter, self._y_parameter, self._z_parameter])
+        self._prepare_measurement_file(dsets)
+        self.max_length = len(self._z_parameter.values)
+        pb = Progress_Bar(self.max_length * self.multiplexer.no_nodes * len(self._y_parameter.values) * len(self._x_parameter.values))
+        
+        self._open_qviewkit()
+        try:            
+            for x_val in self._x_parameter.values:
+                self._x_parameter.set_function(x_val)
+                self._acquire_log_functions()
+                qkit.flow.sleep(self._x_parameter.wait_time)
+                
+                for y_val in self._y_parameter.values:
+                    sweepy = self._prepare_empty_container()
+                    self._y_parameter.set_function(y_val)
+                    qkit.flow.sleep(self._y_parameter.wait_time)
+                    
+                    while (not self._finished()):
+                        latest_data = self.multiplexer.measure()
+                        
+                        for data_node, values in latest_data.items():       
+                            checked_data = self._check_data(data_node, values)
+                            sweepy[data_node].extend(checked_data)
+                            pb.iterate(addend = len(checked_data))
+                        
+                        if self.watchdog.stop:
+                            warn(f"{__name__}: {self.watchdog.message}")
+                            break
+                    
+                    for data_node, values in sweepy.items():          
+                        self._datasets[data_node].append(values)
+                        self._node_lengths[data_node] = 0
+                    
+                    if self.watchdog.stop: break   
+                
+                for dset in self._datasets.values():
+                    dset.next_matrix()                    
+                if self.watchdog.stop: break
         finally:
             for data_node in self._node_lengths.keys():
                 self._node_lengths[data_node] = 0
