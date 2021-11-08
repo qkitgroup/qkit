@@ -49,9 +49,6 @@ class Tuning(mb.MeasureBase):
     set_z_parameters(self, vec, coordname, set_obj, unit, dt=None): 
         sets the z-axis for 3D Measurements.
     
-    set_get_value_func(self, get_func, *args, **kwargs):
-        Sets the measurement function.
-    
     measure1D() :
         Starts a 1D measurement
     
@@ -170,7 +167,7 @@ class Tuning(mb.MeasureBase):
     def _append_value(self, latest_data, container):
         for name, values in latest_data.items():
             self.watchdog.limits_check(name, values)
-            container[f"{name}"].append(values)
+            container[f"{name}"].append(float(values))
     
     def _append_vector(self, latest_data, container, direction):
         for name, values in latest_data.items():
