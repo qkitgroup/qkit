@@ -60,7 +60,7 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
         
         for i in range(len(channel_names)):
             index = [s for s in channel_names[i] if s.isdigit()]
-            if "Trig" in channel_names[i]:
+            if any(x in channel_names[i] for x in ["Trig","trig"]):
                 if type(data_dict[channel_names[i]]) == dict:
                     if "samples" not in data_dict[channel_names[i]]:
                         raise KeyError("Unkown dict keys. Wave data needs to be part of the \"samples\" key.")
