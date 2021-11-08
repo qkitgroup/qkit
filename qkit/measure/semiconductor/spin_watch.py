@@ -211,8 +211,7 @@ class Watching(mb.MeasureBase):
             self._static_voltages.append(active_gates)
             
     def _finished(self):
-        if all(length >= self.max_length for length in self._node_lengths.values()): return True
-        else: return False
+        return all(length >= self.max_length for length in self._node_lengths.values())
     
     def _check_data(self, data_node, values):
         values = np.atleast_1d(values)
@@ -226,9 +225,15 @@ class Watching(mb.MeasureBase):
             self._node_lengths[data_node] = self.max_length
         else:
             self._node_lengths[data_node] = count
-        return values
-            
-    def multi_measure1D(self):
+        return values    
+    
+    def _prepare_empty_container(self):
+        sweepy = {}
+        for data_node in self._nodes:
+            sweepy[f"{data_node}"] = []
+        return sweepy
+                
+    def measure1D(self):
         self._measurement_object.measurement_func = "%s: multi_measure1D" % __name__
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter])
         self._prepare_measurement_file(dsets)
@@ -254,14 +259,8 @@ class Watching(mb.MeasureBase):
                 self._node_lengths[data_node] = 0
             self.watchdog.reset()
             self._end_measurement()
-    
-    def _prepare_empty_container(self):
-        sweepy = {}
-        for data_node in self._nodes:
-            sweepy[f"{data_node}"] = []
-        return sweepy
-    
-    def multi_measure2D(self):
+
+    def measure2D(self):
         """Starts a 2D - measurement, with y being the inner and x the outer loop coordinate."""
         self._measurement_object.measurement_func = "%s: multi_measure2D" % __name__
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter, self._y_parameter])
@@ -301,7 +300,7 @@ class Watching(mb.MeasureBase):
             self.watchdog.reset()
             self._end_measurement()
             
-    def multi_measure3D(self):
+    def measure3D(self):
         """Starts a 3D - measurement, with z being the innermost, y the inner and x the outer loop coordinate."""
         self._measurement_object.measurement_func = "%s: multi_measure3D" % __name__
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter, self._y_parameter, self._z_parameter])
@@ -333,11 +332,11 @@ class Watching(mb.MeasureBase):
                             warn(f"{__name__}: {self.watchdog.message}")
                             break
                     
-                    for data_node, values in sweepy.items():          
+                    for data_node, values in sweepy.items():
                         self._datasets[data_node].append(values)
                         self._node_lengths[data_node] = 0
                     
-                    if self.watchdog.stop: break   
+                    if self.watchdog.stop: break
                 
                 for dset in self._datasets.values():
                     dset.next_matrix()                    
@@ -346,118 +345,6 @@ class Watching(mb.MeasureBase):
             for data_node in self._node_lengths.keys():
                 self._node_lengths[data_node] = 0
             self.watchdog.reset()
-            self._end_measurement()
-    
-    def measure1D(self):
-        """"Starts a 1D - measurement along the x-coordinate."""
-        self._measurement_object.measurement_func = "%s: measure1D" % __name__
-        
-        pb = Progress_Bar(len(self._x_parameter.values))        
-        self._prepare_measurement_file([self.Data(name = self.measurand["name"], coords = [self._x_parameter], 
-                                                  unit = self.measurand["unit"], save_timestamp = False)])
-        self._open_qviewkit()        
-        try:
-            total_length = len(self._x_parameter.values)
-            measured_length = 0
-            stop = False
-            for x_val in self._x_parameter.values:
-                self._x_parameter.set_function(x_val)
-                qkit.flow.sleep(self._x_parameter.wait_time)
-                measured = np.atleast_1d(self._get_value_func())
-                measured_length += len(measured)
-                
-                if measured_length >= total_length:
-                    measured = measured[:len(measured) - (measured_length - total_length)]
-                    stop = True
-                    
-                for value in measured:
-                    if abs(value) > self.measurement_limit:
-                        warn(f"{__name__}: Measurement limit reached. Stopping measure1D.")
-                        qkit.flow.sleep(0.2)
-                        stop = True
-                
-                self._datasets[self.measurand["name"]].append(measured)                
-                pb.iterate(addend = len(measured))
-                
-                if stop: break
-        finally:
-            self._end_measurement()
-            
-    def measure2D(self):
-        """Starts a 2D - measurement, with y being the inner and x the outer loop coordinate."""
-        self._measurement_object.measurement_func = "%s: measure2D" % __name__
-        
-        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values))        
-        self._prepare_measurement_file([self.Data(name = self.measurand["name"], coords = [self._x_parameter, self._y_parameter], 
-                                                  unit = self.measurand["unit"], save_timestamp = False)])
-        self._open_qviewkit()
-        try:
-            y_direction = 1
-            stop = False
-            for x_val in self._x_parameter.values:
-                sweepy = []
-                self._x_parameter.set_function(x_val)
-                self._acquire_log_functions()
-                qkit.flow.sleep(self._x_parameter.wait_time)
-                
-                for y_val in self._y_parameter.values[::y_direction]:                    
-                    self._y_parameter.set_function(y_val)
-                    qkit.flow.sleep(self._y_parameter.wait_time)
-                    measured = float(self._get_value_func())
-                    sweepy.append(measured)
-                    pb.iterate()
-                    if abs(measured) >= self.measurement_limit:
-                        stop = True
-                        warn(f"{__name__}: Measurement limit reached. Stopping measure2D.")
-                        qkit.flow.sleep(0.2)
-                        break
-                        
-                self._datasets[self.measurand["name"]].append(sweepy[::y_direction])
-                if self.meander_sweep: y_direction *= -1
-                if stop: break                    
-        finally:
-            self._end_measurement()
-    
-    def measure3D(self):
-        """Starts a 3D - measurement, with z being the innermost, y the inner and x the outer loop coordinate."""
-        self._measurement_object.measurement_func = "%s: measure3D" % __name__
-        
-        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * len(self._z_parameter.values))        
-        self._prepare_measurement_file([self.Data(name = self.measurand["name"], coords = [self._x_parameter, self._y_parameter, self._z_parameter], 
-                                                  unit = self.measurand["unit"], save_timestamp = False)])
-        self._open_qviewkit()
-        try:            
-            stop = False
-            for x_val in self._x_parameter.values:
-                self._x_parameter.set_function(x_val)
-                self._acquire_log_functions()
-                qkit.flow.sleep(self._x_parameter.wait_time)
-                
-                z_direction = 1
-                for y_val in self._y_parameter.values:
-                    sweepy = []
-                    self._y_parameter.set_function(y_val)
-                    qkit.flow.sleep(self._y_parameter.wait_time)
-                    
-                    for z_val in self._z_parameter.values[::z_direction]:                    
-                        self._z_parameter.set_function(z_val)
-                        qkit.flow.sleep(self._z_parameter.wait_time)
-                        measured = float(self._get_value_func())
-                        sweepy.append(measured)
-                        pb.iterate()
-                        if abs(measured) >= self.measurement_limit:
-                            stop = True
-                            warn(f"{__name__}: Measurement limit reached. Stopping measure3D.")
-                            qkit.flow.sleep(0.2)
-                            break
-                        
-                    self._datasets[self.measurand["name"]].append(sweepy[::z_direction])
-                    if self.meander_sweep: z_direction *= -1
-                    if stop: break
-                
-                self._datasets[self.measurand["name"]].next_matrix()
-                if stop: break
-        finally:
             self._end_measurement()
             
 if __name__ == "__main__":
