@@ -105,7 +105,7 @@ class Watching(mb.MeasureBase):
     def set_node_bounds(self, measurement, node, bound_lower, bound_upper):
         register = self.multiplexer.registered_measurements
         if measurement not in register.keys():
-            raise KeyError(f"{__name__}: {measurement} is not a registered measurement.")
+            raise KeyError(f"{__name__}: \"{measurement}\" is not a registered measurement.")
         if node not in register[measurement]["nodes"]:            
             raise KeyError(f"{__name__}: Measurement \"{measurement}\" does not contain node \"{node}\".")
         self.watchdog.register_node(f"{measurement}.{node}", bound_lower, bound_upper)
