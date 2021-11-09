@@ -105,6 +105,11 @@ class Tuning(mb.MeasureBase):
             self.watchdog.register_node(f"{name}.{node}", -10, 10)
     
     def set_node_bounds(self, measurement, node, bound_lower, bound_upper):
+        register = self.multiplexer.registered_measurements
+        if measurement not in register.keys():
+            raise KeyError(f"{__name__}: {measurement} is not a registered measurement.")
+        if node not in register[measurement]["nodes"]:            
+            raise KeyError(f"{__name__}: Measurement \"{measurement}\" does not contain node \"{node}\".")
         self.watchdog.register_node(f"{measurement}.{node}", bound_lower, bound_upper)
     
     def set_z_parameters(self, vec, coordname, set_obj, unit, dt=None):

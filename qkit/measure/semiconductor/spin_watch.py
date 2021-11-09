@@ -24,60 +24,6 @@ from qkit.measure.write_additional_files import get_instrument_settings
 import numpy as np
 
 from warnings import warn
-
-class Watchdog:
-    def __init__(self):
-        self.stop = False
-        self.message = ""
-        self.max_length = 0
-        self.node_bounds = {}
-        self._node_lengths = {}  
-    
-    def register_node(self, node, bound_lower, bound_upper):
-        if type(node) != str:
-            raise TypeError(f"{__name__}: {node} is not a valid measurement node. The measurement node must be a string.")
-        try:
-            bound_lower = float(bound_lower)
-        except Exception as e:
-            raise type(e)(f"{__name__}: Cannot set {bound_lower} as lower measurement bound for node {node}. Conversion to float failed.")
-        try:
-            bound_upper = float(bound_upper)
-        except Exception as e:
-            raise type(e)(f"{__name__}: Cannot set {bound_lower} as lower measurement bound for node {node}. Conversion to float failed.")
-        
-        if bound_lower >= bound_upper:
-            raise ValueError(f"{__name__}: Invalid bounds. {bound_lower} is larger or equal to {bound_upper}.")
-        
-        self.node_bounds[node] = [bound_lower, bound_upper]
-        self._node_lengths[node] = 0
-        
-    def reset(self):
-        self.stop = False
-        self.global_message = ""        
-        for node in self._node_lengths.keys():
-            self._node_lengths[node] = 0
-    
-    def limits_check(self, node, values):
-        if node not in self.node_bounds.keys():
-            raise KeyError(f"{__name__}: No bounds are defined for node {node}")
-        for value in values:
-            if value < self.node_bounds[node][0]:
-                self.stop = True
-                self.message = f"{__name__}: Lower measurement bound for node {node} reached. Stopping measurement."
-            elif value > self.node_bounds[node][1]:
-                self.stop = True
-                self.message = f"{__name__}: Upper measurement bound for node {node} reached. Stopping measurement."
-    
-    def length_check(self, node, values):
-        values_length = len(values)
-        count = self._node_lengths[node] + values_length      
-        
-        if count >= self.max_length:
-            values = values[:self.max_length - self._node_lengths[node]]
-            self._node_lengths[node] = self.max_length
-        else:
-            self._node_lengths[node] = count
-        return values
     
 class Watching(mb.MeasureBase):
     """
@@ -157,6 +103,11 @@ class Watching(mb.MeasureBase):
             self._nodes.append(nodekey)
     
     def set_node_bounds(self, measurement, node, bound_lower, bound_upper):
+        register = self.multiplexer.registered_measurements
+        if measurement not in register.keys():
+            raise KeyError(f"{__name__}: {measurement} is not a registered measurement.")
+        if node not in register[measurement]["nodes"]:            
+            raise KeyError(f"{__name__}: Measurement \"{measurement}\" does not contain node \"{node}\".")
         self.watchdog.register_node(f"{measurement}.{node}", bound_lower, bound_upper)
     
     def set_z_parameters(self, vec, coordname, set_obj, unit, dt=None):
