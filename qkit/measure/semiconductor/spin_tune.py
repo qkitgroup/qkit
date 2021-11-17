@@ -1,4 +1,4 @@
-# spin_tune.py intented for use with a voltage source and an arbitrary I-V-device or lockin
+# spin_watch.py intented for use with arbitrary measurement hardware.
 # JF@KIT 04/2021
 
 # This program is free software; you can redistribute it and/or modify
@@ -27,7 +27,7 @@ from warnings import warn
     
 class Tuning(mb.MeasureBase):
     """
-    A class containing measurement routines for everything.
+    A class containing measurement routines for non-realtime synchronous data acquisition.
     
     Parents
     -------
@@ -40,9 +40,6 @@ class Tuning(mb.MeasureBase):
     
     report_static_voltages: bool
         Create an extra entry in the .h5 file which reports the active (non-zero) gate voltages
-    
-    measurand : dict
-        Contains the name and the unit of the measurand
     
     Methods
     -------

@@ -1,4 +1,4 @@
-# spin_tune.py intented for use with a voltage source and an arbitrary I-V-device or lockin
+# spin_tune.py intented for use with arbitrary measurement hardware.
 # JF@KIT 04/2021
 
 # This program is free software; you can redistribute it and/or modify
@@ -27,7 +27,7 @@ from warnings import warn
     
 class Watching(mb.MeasureBase):
     """
-    A class containing measurement routines for everything.
+    A class containing measurement routines for asynchronous data acquisition.
     
     Parents
     -------
@@ -35,22 +35,25 @@ class Watching(mb.MeasureBase):
     
     Attributes
     ----------
-    meander_sweep : bool
-        Zig-zag sweeping during 2D Measurements
-    
     report_static_voltages: bool
         Create an extra entry in the .h5 file which reports the active (non-zero) gate voltages
     
-    measurand : dict
-        Contains the name and the unit of the measurand
-    
     Methods
     -------
+    register_measurement(self, name, unit, nodes, get_tracedata_func, *args, **kwargs):
+        Registers a measurement.
+
+    activate_measurement(self, measurement):
+        Activates the given measurement.
+
+    deactivate_measurement(self, measurement):
+        Deactivates the given measurement.
+
+    set_node_bounds(self, measurement, node, bound_lower, bound_upper):
+        Sets the upper and the lower bounds for a registered measurement node.
+
     set_z_parameters(self, vec, coordname, set_obj, unit, dt=None): 
         sets the z-axis for 3D Measurements.
-    
-    set_get_value_func(self, get_func, *args, **kwargs):
-        Sets the measurement function.
     
     measure1D() :
         Starts a 1D measurement
@@ -80,8 +83,6 @@ class Watching(mb.MeasureBase):
         
         self.multiplexer = uo.Multiplexer()
         self.watchdog = uo.Watchdog()
-        
-        self._nodes = []
         self._node_lengths = {}
         
     @property
@@ -95,24 +96,103 @@ class Watching(mb.MeasureBase):
         self._report_static_voltages = yesno
     
     def register_measurement(self, name, unit, nodes, get_tracedata_func, *args, **kwargs):
+        """
+        Registers a measurement.
+
+        Parameters
+        ----------
+        name : string
+            Name of the measurement the measurement which is to be registered.
+        unit : string
+            Unit of the measurement.
+        nodes : list(string)
+            The data nodes of the measurement
+        get_tracedata_func : callable
+            Callable object which produces the data for the measurement which is to be registered.
+        *args, **kwargs:
+            Additional arguments which are passed to the get_tracedata_func during registration.
+
+        Returns
+        -------
+        None
+        """
         self.multiplexer.register_measurement(name, unit, nodes, get_tracedata_func, *args, **kwargs)
         for node in nodes:
             nodekey = f"{name}.{node}"
             self.watchdog.register_node(nodekey, -10, 10)            
     
     def activate_measurement(self, measurement):
+        """
+        Activates the given measurement.
+
+        Parameters
+        ----------
+        measurement : string
+            Name of the measurement the measurement which is to be activated.
+
+        Returns
+        -------
+        None
+        
+        Raises
+        ------
+        KeyError
+            If the given measurement doesn't exist.
+        """
         self.multiplexer.activate_measurement(measurement)
         for node in self.multiplexer.registered_measurements[measurement]["nodes"]:
             nodekey = f"{measurement}.{node}"
             self._node_lengths[nodekey] = 0
 
     def deactivate_measurement(self, measurement):
+        """
+        Deactivates the given measurement.
+
+        Parameters
+        ----------
+        measurement : string
+            Name of the measurement the measurement which is to be deactivated.
+
+        Returns
+        -------
+        None
+        
+        Raises
+        ------
+        KeyError
+            If the given measurement doesn't exist.
+        """
         self.multiplexer.deactivate_measurement(measurement)
         for node in self.multiplexer.registered_measurements[measurement]["nodes"]:
             nodekey = f"{measurement}.{node}"
             self._node_lengths.pop(nodekey, None)
 
     def set_node_bounds(self, measurement, node, bound_lower, bound_upper):
+        """
+        Sets the upper and the lower bounds for a registered measurement node.
+
+        Parameters
+        ----------
+        measurement : string
+            Name of the measurement the measurement node belongs to.
+        node : string
+            Name of the node whose limits are to be set.
+        bound_lower : float
+            Lower bound for the allowed measurement node values.
+        bound_upper : float
+            Upper bound for the allowed measurement node values.
+
+        Returns
+        -------
+        None
+        
+        Raises
+        ------
+        KeyError
+            If the given measurement doesn't exist.
+        KeyError
+            If the given node does not exist within the given measurement.
+        """
         register = self.multiplexer.registered_measurements
         if measurement not in register.keys():
             raise KeyError(f"{__name__}: \"{measurement}\" is not a registered measurement.")
@@ -197,8 +277,9 @@ class Watching(mb.MeasureBase):
         return sweepy
                 
     def measure1D(self):
-        assert self._x_parameter, f"{__name__}: Cannot start measure3D. x_parameters required."
-        self._measurement_object.measurement_func = "%s: multi_measure1D" % __name__
+        """Starts a 1D - measurement, along the x coordinate."""
+        assert self._x_parameter, f"{__name__}: Cannot start measure1D. x_parameters required."
+        self._measurement_object.measurement_func = "%s: measure1D" % __name__
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter])
         self._prepare_measurement_file(dsets)
         self.max_length = len(self._x_parameter.values)
@@ -226,9 +307,9 @@ class Watching(mb.MeasureBase):
 
     def measure2D(self):
         """Starts a 2D - measurement, with y being the inner and x the outer loop coordinate."""
-        assert self._x_parameter, f"{__name__}: Cannot start measure3D. x_parameters required."
-        assert self._y_parameter, f"{__name__}: Cannot start measure3D. y_parameters required."
-        self._measurement_object.measurement_func = "%s: multi_measure2D" % __name__
+        assert self._x_parameter, f"{__name__}: Cannot start measure2D. x_parameters required."
+        assert self._y_parameter, f"{__name__}: Cannot start measure2D. y_parameters required."
+        self._measurement_object.measurement_func = "%s: measure2D" % __name__
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter, self._y_parameter])
         self._prepare_measurement_file(dsets)
         self.max_length = len(self._y_parameter.values)
@@ -271,7 +352,7 @@ class Watching(mb.MeasureBase):
         assert self._x_parameter, f"{__name__}: Cannot start measure3D. x_parameters required."
         assert self._y_parameter, f"{__name__}: Cannot start measure3D. y_parameters required."
         assert self._z_parameter, f"{__name__}: Cannot start measure3D. z_parameters required."
-        self._measurement_object.measurement_func = "%s: multi_measure3D" % __name__
+        self._measurement_object.measurement_func = "%s: measure3D" % __name__
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter, self._y_parameter, self._z_parameter])
         self._prepare_measurement_file(dsets)
         self.max_length = len(self._z_parameter.values)
