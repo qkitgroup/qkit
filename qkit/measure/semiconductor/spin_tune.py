@@ -43,19 +43,19 @@ class Tuning(mb.MeasureBase):
     
     Methods
     -------
-    register_measurement(self, name, unit, nodes, get_tracedata_func, *args, **kwargs):
+    register_measurement(name, unit, nodes, get_tracedata_func, *args, **kwargs):
         Registers a measurement.
 
-    activate_measurement(self, measurement):
+    activate_measurement(measurement):
         Activates the given measurement.
 
-    deactivate_measurement(self, measurement):
+    deactivate_measurement(measurement):
         Deactivates the given measurement.
 
-    set_node_bounds(self, measurement, node, bound_lower, bound_upper):
+    set_node_bounds(measurement, node, bound_lower, bound_upper):
         Sets the upper and the lower bounds for a registered measurement node.
 
-    set_z_parameters(self, vec, coordname, set_obj, unit, dt=None): 
+    set_z_parameters(ec, coordname, set_obj, unit, dt=None): 
         sets the z-axis for 3D Measurements.
     
     measure1D() :
