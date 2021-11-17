@@ -11,8 +11,6 @@ import numpy as np
 
 class Multiplexer:
     def __init__(self):
-        #self._validate_core(core)
-        #self.core = core
         self.registered_measurements = {}
         self.no_measurements = 0
         self.no_nodes = 0
@@ -31,17 +29,21 @@ class Multiplexer:
         if not callable(get_tracedata_func):
             raise TypeError("%s: Cannot set %s as get_value_func. Callable object needed." % (__name__, get_tracedata_func))
         
-        self.registered_measurements[name] = {"unit" : unit, "nodes" : nodes, "get_tracedata_func" : lambda: get_tracedata_func(*args, **kwargs), "active" : True}
+        self.registered_measurements[name] = {"unit" : unit, "nodes" : nodes, "get_tracedata_func" : lambda: get_tracedata_func(*args, **kwargs), "active" : False}
         self.no_measurements = len(self.registered_measurements)
         self.no_nodes = 0
         for measurement in self.registered_measurements.values():
             self.no_nodes += len(measurement["nodes"])
     
     def activate_measurement(self, name):
-        self.registerd_measurements[name]["active"] = True
+        if name not in self.registered_measurements.keys():
+            raise KeyError(f"{__name__}: {name} is not a registered measurement. Cannot activate.")
+        self.registered_measurements[name]["active"] = True
     
     def deactivate_measurement(self, name):
-        self.registerd_measurements[name]["active"] = False
+        if name not in self.registered_measurements.keys():
+            raise KeyError(f"{__name__}: {name} is not a registered measurement. Cannot deactivate.")
+        self.registered_measurements[name]["active"] = False
         
     def prepare_measurement_datasets(self, coords):
         datasets = []

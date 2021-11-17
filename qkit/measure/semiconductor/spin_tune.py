@@ -104,6 +104,12 @@ class Tuning(mb.MeasureBase):
         for node in nodes:
             self.watchdog.register_node(f"{name}.{node}", -10, 10)
     
+    def activate_measurement(self, measurement):
+        self.multiplexer.activate_measurement(measurement)
+
+    def deactivate_measurement(self, measurement):
+        self.multiplexer.deactivate_measurement(measurement)
+    
     def set_node_bounds(self, measurement, node, bound_lower, bound_upper):
         register = self.multiplexer.registered_measurements
         if measurement not in register.keys():
@@ -165,8 +171,10 @@ class Tuning(mb.MeasureBase):
     
     def _prepare_empty_container(self):
         sweepy = {}
-        for data_node in self.watchdog.measurement_bounds.keys():
-            sweepy[f"{data_node}"] = []
+        for name, measurement in self.multiplexer.registered_measurements.items():
+            if measurement["active"]:
+                for node in measurement["nodes"]:
+                    sweepy[f"{name}.{node}"] = []
         return sweepy
     
     def _append_value(self, latest_data, container):
@@ -179,7 +187,9 @@ class Tuning(mb.MeasureBase):
             container[f"{name}"].append(values[::direction]) 
     
     def measure1D(self):
+        assert self._x_parameter, f"{__name__}: Cannot start measure1D. x_parameters required."
         self._measurement_object.measurement_func = "%s: multi_measure1D" % __name__
+        
         pb = Progress_Bar(len(self._x_parameter.values))
         
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter])
@@ -205,6 +215,8 @@ class Tuning(mb.MeasureBase):
             
     def measure2D(self):
         """Starts a 2D - measurement, with y being the inner and x the outer loop coordinate."""
+        assert self._x_parameter, f"{__name__}: Cannot start measure2D. x_parameters required."
+        assert self._y_parameter, f"{__name__}: Cannot start measure2D. y_parameters required."
         self._measurement_object.measurement_func = "%s: measure2D" % __name__        
         pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values))
         
@@ -242,6 +254,9 @@ class Tuning(mb.MeasureBase):
     
     def measure3D(self):
         """Starts a 3D - measurement, with z being the innermost, y the inner and x the outer loop coordinate."""
+        assert self._x_parameter, f"{__name__}: Cannot start measure3D. x_parameters required."
+        assert self._y_parameter, f"{__name__}: Cannot start measure3D. y_parameters required."
+        assert self._z_parameter, f"{__name__}: Cannot start measure3D. z_parameters required."
         self._measurement_object.measurement_func = "%s: measure3D" % __name__        
         pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * len(self._z_parameter.values))
         
