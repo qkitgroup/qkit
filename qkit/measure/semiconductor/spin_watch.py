@@ -98,10 +98,20 @@ class Watching(mb.MeasureBase):
         self.multiplexer.register_measurement(name, unit, nodes, get_tracedata_func, *args, **kwargs)
         for node in nodes:
             nodekey = f"{name}.{node}"
-            self.watchdog.register_node(nodekey, -10, 10)
-            self._node_lengths[nodekey] = 0
-            self._nodes.append(nodekey)
+            self.watchdog.register_node(nodekey, -10, 10)            
     
+    def activate_measurement(self, measurement):
+        self.multiplexer.activate_measurement(measurement)
+        for node in self.multiplexer.registered_measurements[measurement]["nodes"]:
+            nodekey = f"{measurement}.{node}"
+            self._node_lengths[nodekey] = 0
+
+    def deactivate_measurement(self, measurement):
+        self.multiplexer.deactivate_measurement(measurement)
+        for node in self.multiplexer.registered_measurements[measurement]["nodes"]:
+            nodekey = f"{measurement}.{node}"
+            self._node_lengths.pop(nodekey, None)
+
     def set_node_bounds(self, measurement, node, bound_lower, bound_upper):
         register = self.multiplexer.registered_measurements
         if measurement not in register.keys():
@@ -177,19 +187,22 @@ class Watching(mb.MeasureBase):
         else:
             self._node_lengths[data_node] = count
         return values    
-    
+        
     def _prepare_empty_container(self):
         sweepy = {}
-        for data_node in self._nodes:
-            sweepy[f"{data_node}"] = []
+        for name, measurement in self.multiplexer.registered_measurements.items():
+            if measurement["active"]:
+                for node in measurement["nodes"]:
+                    sweepy[f"{name}.{node}"] = []
         return sweepy
                 
     def measure1D(self):
+        assert self._x_parameter, f"{__name__}: Cannot start measure3D. x_parameters required."
         self._measurement_object.measurement_func = "%s: multi_measure1D" % __name__
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter])
         self._prepare_measurement_file(dsets)
         self.max_length = len(self._x_parameter.values)
-        pb = Progress_Bar(self.max_length * self.multiplexer.no_nodes)
+        pb = Progress_Bar(self.max_length * self.multiplexer.no_active_nodes)
         
         self._open_qviewkit()
         
@@ -213,11 +226,13 @@ class Watching(mb.MeasureBase):
 
     def measure2D(self):
         """Starts a 2D - measurement, with y being the inner and x the outer loop coordinate."""
+        assert self._x_parameter, f"{__name__}: Cannot start measure3D. x_parameters required."
+        assert self._y_parameter, f"{__name__}: Cannot start measure3D. y_parameters required."
         self._measurement_object.measurement_func = "%s: multi_measure2D" % __name__
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter, self._y_parameter])
         self._prepare_measurement_file(dsets)
         self.max_length = len(self._y_parameter.values)
-        pb = Progress_Bar(self.max_length * self.multiplexer.no_nodes * len(self._x_parameter.values))
+        pb = Progress_Bar(self.max_length * self.multiplexer.no_active_nodes * len(self._x_parameter.values))
         
         self._open_qviewkit()
         
@@ -253,11 +268,14 @@ class Watching(mb.MeasureBase):
             
     def measure3D(self):
         """Starts a 3D - measurement, with z being the innermost, y the inner and x the outer loop coordinate."""
+        assert self._x_parameter, f"{__name__}: Cannot start measure3D. x_parameters required."
+        assert self._y_parameter, f"{__name__}: Cannot start measure3D. y_parameters required."
+        assert self._z_parameter, f"{__name__}: Cannot start measure3D. z_parameters required."
         self._measurement_object.measurement_func = "%s: multi_measure3D" % __name__
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter, self._y_parameter, self._z_parameter])
         self._prepare_measurement_file(dsets)
         self.max_length = len(self._z_parameter.values)
-        pb = Progress_Bar(self.max_length * self.multiplexer.no_nodes * len(self._y_parameter.values) * len(self._x_parameter.values))
+        pb = Progress_Bar(self.max_length * self.multiplexer.no_active_nodes * len(self._y_parameter.values) * len(self._x_parameter.values))
         
         self._open_qviewkit()
         try:            
@@ -299,6 +317,6 @@ class Watching(mb.MeasureBase):
             self._end_measurement()
             
 if __name__ == "__main__":
-    tuning = Tuning()
+    tuning = Watching()
     print(tuning.measurement_limit)
     print(tuning.report_static_voltages)

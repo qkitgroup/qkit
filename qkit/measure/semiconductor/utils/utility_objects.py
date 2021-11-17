@@ -15,6 +15,14 @@ class Multiplexer:
         self.no_measurements = 0
         self.no_nodes = 0
     
+    @property
+    def no_active_nodes(self):
+        no_nodes = 0
+        for measurement in self.registered_measurements.values():
+            if measurement["active"]:
+                no_nodes += len(measurement["nodes"])
+        return no_nodes
+
     def register_measurement(self, name, unit, nodes, get_tracedata_func, *args, **kwargs):
         if type(name) != str:
             raise TypeError(f"{__name__}: {name} is not a valid experiment name. The experiment name must be a string.")
@@ -31,9 +39,6 @@ class Multiplexer:
         
         self.registered_measurements[name] = {"unit" : unit, "nodes" : nodes, "get_tracedata_func" : lambda: get_tracedata_func(*args, **kwargs), "active" : False}
         self.no_measurements = len(self.registered_measurements)
-        self.no_nodes = 0
-        for measurement in self.registered_measurements.values():
-            self.no_nodes += len(measurement["nodes"])
     
     def activate_measurement(self, name):
         if name not in self.registered_measurements.keys():

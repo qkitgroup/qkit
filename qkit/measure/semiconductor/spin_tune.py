@@ -113,9 +113,9 @@ class Tuning(mb.MeasureBase):
     def set_node_bounds(self, measurement, node, bound_lower, bound_upper):
         register = self.multiplexer.registered_measurements
         if measurement not in register.keys():
-            raise KeyError(f"{__name__}: \"{measurement}\" is not a registered measurement.")
+            raise KeyError(f"{__name__}: {measurement} is not a registered measurement.")
         if node not in register[measurement]["nodes"]:            
-            raise KeyError(f"{__name__}: Measurement \"{measurement}\" does not contain node \"{node}\".")
+            raise KeyError(f"{__name__}: Measurement {measurement} does not contain node {node}.")
         self.watchdog.register_node(f"{measurement}.{node}", bound_lower, bound_upper)
     
     def set_z_parameters(self, vec, coordname, set_obj, unit, dt=None):
@@ -189,7 +189,6 @@ class Tuning(mb.MeasureBase):
     def measure1D(self):
         assert self._x_parameter, f"{__name__}: Cannot start measure1D. x_parameters required."
         self._measurement_object.measurement_func = "%s: multi_measure1D" % __name__
-        
         pb = Progress_Bar(len(self._x_parameter.values))
         
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter])
