@@ -189,7 +189,7 @@ class Tuning(mb.MeasureBase):
     def measure1D(self):
         assert self._x_parameter, f"{__name__}: Cannot start measure1D. x_parameters required."
         self._measurement_object.measurement_func = "%s: multi_measure1D" % __name__
-        pb = Progress_Bar(len(self._x_parameter.values))
+        pb = Progress_Bar(len(self._x_parameter.values) * self.multiplexer.no_active_nodes)
         
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter])
         self._prepare_measurement_file(dsets)
@@ -203,7 +203,7 @@ class Tuning(mb.MeasureBase):
                 
                 self._append_value(latest_data, self._datasets)
                 
-                pb.iterate()
+                pb.iterate(addend = len(latest_data))
                 
                 if self.watchdog.stop:
                     warn(f"{__name__}: {self.watchdog.message}")
@@ -217,7 +217,7 @@ class Tuning(mb.MeasureBase):
         assert self._x_parameter, f"{__name__}: Cannot start measure2D. x_parameters required."
         assert self._y_parameter, f"{__name__}: Cannot start measure2D. y_parameters required."
         self._measurement_object.measurement_func = "%s: measure2D" % __name__        
-        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values))
+        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * self.multiplexer.no_active_nodes)
         
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter, self._y_parameter])        
         self._prepare_measurement_file(dsets)
@@ -237,12 +237,11 @@ class Tuning(mb.MeasureBase):
                     latest_data = self.multiplexer.measure()
                     self._append_value(latest_data, sweepy)
                         
-                    pb.iterate()
+                    pb.iterate(addend = len(latest_data))
                     
                     if self.watchdog.stop:
                         warn(f"{__name__}: {self.watchdog.message}")
                         break
-                
                 self._append_vector(sweepy, self._datasets, direction = y_direction)
                 
                 if self.meander_sweep: y_direction *= -1
@@ -257,7 +256,7 @@ class Tuning(mb.MeasureBase):
         assert self._y_parameter, f"{__name__}: Cannot start measure3D. y_parameters required."
         assert self._z_parameter, f"{__name__}: Cannot start measure3D. z_parameters required."
         self._measurement_object.measurement_func = "%s: measure3D" % __name__        
-        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * len(self._z_parameter.values))
+        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * len(self._z_parameter.values) * self.multiplexer.no_active_nodes)
         
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter, self._y_parameter, self._z_parameter]) 
         self._prepare_measurement_file(dsets)
@@ -280,7 +279,7 @@ class Tuning(mb.MeasureBase):
                         qkit.flow.sleep(self._z_parameter.wait_time)
                         latest_data = self.multiplexer.measure()
                         self._append_value(latest_data, sweepy)
-                        pb.iterate()
+                        pb.iterate(addend = len(latest_data))
                         if self.watchdog.stop:
                             warn(f"{__name__}: {self.watchdog.message}")
                             break
