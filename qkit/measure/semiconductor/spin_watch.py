@@ -17,7 +17,8 @@
 
 import qkit
 import qkit.measure.measurement_base as mb
-import qkit.measure.semiconductor.utils.utility_objects as uo
+from qkit.measure.semiconductor.utils.multiplexer import Sequential_multiplexer
+from qkit.measure.semiconductor.utils.watchdog import Watchdog
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.write_additional_files import get_instrument_settings
 
@@ -81,8 +82,8 @@ class Watching(mb.MeasureBase):
         self.meander_sweep = True
         self.report_static_voltages = True
         
-        self.multiplexer = uo.Multiplexer()
-        self.watchdog = uo.Watchdog()
+        self.multiplexer = Sequential_multiplexer()
+        self.watchdog = Watchdog()
         self._node_lengths = {}
         
     @property
@@ -102,7 +103,7 @@ class Watching(mb.MeasureBase):
         Parameters
         ----------
         name : string
-            Name of the measurement the measurement which is to be registered.
+            Name of the measurement which is to be registered.
         unit : string
             Unit of the measurement.
         nodes : list(string)
