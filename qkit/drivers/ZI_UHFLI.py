@@ -70,9 +70,6 @@ class ZI_UHFLI(Instrument):
                                         required_devtype = "UHFLI", 
                                         required_err_msg = self._bad_device_message)
         zhinst.utils.api_server_version_check(self.daq)     
-                
-        # Create a base configuration: Disable all available outputs, awgs, demods, scopes,...
-        zhinst.utils.disable_everything(self.daq, self.device)
         
         #Add Instrument parameters in a way that qkit knows they are there
         '''
