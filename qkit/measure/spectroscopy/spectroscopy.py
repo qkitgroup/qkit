@@ -771,7 +771,7 @@ class Landscape:
 
         try:
             if curve_f == 'lin_spline':
-                f = interp1d(x_fit, y_fit)
+                f = interp1d(x_fit, y_fit, fill_value="extrapolate")
                 center_points = f(self.spec.x_vec)
             elif curve_f == 'spline':
                 center_points =  UnivariateSpline(x_fit, y_fit)(self.spec.x_vec)

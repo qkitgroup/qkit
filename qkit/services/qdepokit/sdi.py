@@ -25,6 +25,7 @@ from qkit.measure.measurement_class import Measurement
 import qkit.measure.write_additional_files as waf
 from qkit.storage import store as hdf
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
+from qkit.gui.notebook.Stopwatch import Stopwatch
 from qkit.gui.plot import plot as qviewkit
 
 import sys
@@ -78,6 +79,7 @@ class SputterMonitor(object):
         self.y_set_obj = None
 
         self.progress_bar = False
+        self.stopwatch = False
 
         self._show_ideal = False
 
@@ -670,13 +672,16 @@ class SputterMonitor(object):
             set_duration and set_resolution should be called before to set the monitoring length and time resolution.
             set_filmparameters should be called before to provide the actual target values.
         """
-
+        
         self._init_depmon()
 
         if self.progress_bar:
             self._p = Progress_Bar(self._duration / self._resolution,
                                    'EVAP_timetrace ' + self.dirname,
                                    self._resolution)  # FIXME: Doesn't make much sense...
+        
+        if self.stopwatch:
+            self._sw = Stopwatch()
 
         print('Monitoring deposition...')
         sys.stdout.flush()
@@ -704,6 +709,9 @@ class SputterMonitor(object):
 
                 if self.progress_bar:
                     self._p.iterate()
+                
+                if self.stopwatch:
+                    self._sw.update(time.time() - mon_data.t0)
 
                 # calculate the time when the next iteration should take place
                 ti = mon_data.t0 + (float(mon_data.it) + 1) * self._resolution
@@ -789,6 +797,9 @@ class SputterMonitor(object):
         mon_data.t0 = time.time()  # note: Windows has limitations on time precision (about 16ms)?
         while True:
             self._acquire(mon_data)
+                
+            if self.stopwatch:
+                self._sw.update(time.time() - mon_data.t0)
 
             # Handle external commands
             try:
@@ -844,6 +855,9 @@ class SputterMonitor(object):
         sys.stdout.flush()
 
         self._init_depmon()
+        
+        if self.stopwatch:
+            self._sw = Stopwatch()
 
         if self.open_qviewkit:
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['views/resistance_thickness'],
