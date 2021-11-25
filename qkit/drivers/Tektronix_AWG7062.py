@@ -668,7 +668,7 @@ class Tektronix_AWG7062(Instrument):
             self._numpoints = numpts
             self.clear_waveforms()
         else:
-            print 'aborted'
+            print('aborted')
 
     def do_get_clock(self):
         '''
@@ -1019,7 +1019,7 @@ class Tektronix_AWG7062(Instrument):
             self._visainstrument.write('OUTP%s OFF' % channel)
         else:
             logging.debug(__name__ + ' : Try to set status to invalid value %s' % status)
-            print 'Tried to set status to invalid value %s' % status
+            print('Tried to set status to invalid value %s' % status)
 
     #  Ask for string with filenames
     def get_filenames(self):
@@ -1061,7 +1061,7 @@ class Tektronix_AWG7062(Instrument):
         #ws = ''
         #for i in range(0,len(w)):
         #    ws = ws + struct.pack('<fB', w[i], int(m[i]))
-        ws= str.join('',[struct.pack('<fB', w[i], int(m[i])) for i in range(0,len(w))])
+        ws= b''.join([struct.pack('<fB', w[i], int(m[i])) for i in range(0,len(w))])
 
         s1 = 'MMEM:DATA "%s",' % filename
         s3 = 'MAGIC 1000\n'
@@ -1072,13 +1072,13 @@ class Tektronix_AWG7062(Instrument):
         lenlen=str(len(str(len(s6) + len(s5) + len(s4) + len(s3))))
         s2 = '#' + lenlen + str(len(s6) + len(s5) + len(s4) + len(s3))
 
-        mes = s1 + s2 + s3 + s4 + s5 + s6
+        mes = (s1 + s2 + s3 + s4).encode() + s5 + s6.encode()   
 
         if visa.qkit_visa_version == 1:
             self._visainstrument.write(mes)
         else:
             self._visainstrument.write_raw(mes)
-        #print "%s sent to AWG"%filename
+        #print("%s sent to AWG"%filename)
 
     def wfm_import(self, file, path, format = 'WFM'):
         '''
@@ -1229,9 +1229,9 @@ class Tektronix_AWG7062(Instrument):
         '''
         for i in range(20):
             try:
-                print str(i) + ": " + self._visainstrument.read()
+                print( str(i) + ": " + self._visainstrument.read())
             except visa.VisaIOError:
-                print "Buffer is empty now. There have been %i lines in queue"%i
+                print( "Buffer is empty now. There have been %i lines in queue"%i)
                 break
     
     def do_set_clock_source(self,source):

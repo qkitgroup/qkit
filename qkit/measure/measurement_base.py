@@ -183,7 +183,7 @@ class MeasureBase(object):
             return True
     
         def create_dataset(self, hdf_file):
-            if self.hdf_dataset is None or self.hdf_dataset.hf != hdf_file.hf:
+            if self.hdf_dataset is None or self.hdf_dataset.hf != hdf_file.hf: # If dataset not yet created or belongs to old hdf file
                 self.validate_parameters()
                 c = [co.create_dataset(hdf_file) for co in self.coordinates]
                 if self.dim == 1:
@@ -268,7 +268,7 @@ class MeasureBase(object):
         self._dim = 0
         for d in data:
             for c in d.coordinates:
-                coordinates.add(c.name)
+                coordinates.add(c.name.rstrip("_0123456789")) # removes indices like frequency_0 from the file name
             self._dim = max(self._dim, len(d.coordinates))  # if you have several 2D scans, the dimension is still 2D
         if not self.measurement_name:
             self.measurement_name = ", ".join(coordinates)

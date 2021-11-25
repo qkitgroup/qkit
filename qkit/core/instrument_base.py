@@ -533,6 +533,8 @@ class Instrument(object):
                 else:
                     return p['value']
             elif not query:
+                if not flags & 1: #Instrument.FLAG_GET, not gettable
+                    return None 
                 # if this value is not stored but gettable, don't throw an error but just get it.
                 logging.debug("%s.%s value not cached. I try getting it with query=True."%(self._name,name))
                 return self._get_value(name,query=True,**kwargs)
@@ -542,7 +544,8 @@ class Instrument(object):
 
         # Check this here; getting of cached values should work
         if not flags & 1: #Instrument.FLAG_GET:
-            print('Instrument does not support getting of %s' % name)
+            if query:
+                logging.error('Instrument %s does not support getting of %s' %(self._name, name))
             return None
 
         func = p['get_func']

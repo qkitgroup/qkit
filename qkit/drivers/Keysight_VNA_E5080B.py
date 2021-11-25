@@ -135,6 +135,9 @@ class Keysight_VNA_E5080B(Instrument):
             flags=Instrument.FLAG_GET,
             minval=0, maxval=1e3,
             units='s', tags=['sweep'])
+        
+        self.add_parameter('measurement_parameter', type=str,
+                           flags=Instrument.FLAG_GETSET)
     
         self.add_parameter('edel', type=float, # legacy name for parameter. This corresponds to the VNA's port extension values.
             flags=Instrument.FLAG_GETSET, 
@@ -261,12 +264,26 @@ class Keysight_VNA_E5080B(Instrument):
             return dataamp, datapha
         else:
             raise ValueError('get_tracedata(): Format must be AmpPha or RealImag')
+    
+    def get_segments(self):
+        if self.get_sweep_type(query=False) == "SEGM":
+            self._visainstrument.write('FORM:DATA REAL,64')
+            self._visainstrument.write('FORM:BORD SWAPPED')
+            segments =  [0]
+            for x in numpy.reshape(self._visainstrument.query_binary_values("sense:segment:list? SSTOP",datatype="d"),(-1,8)):
+                if x[0]>0.5: #the segment is active
+                    segments.append(int(x[1])+segments[-1])
+            return segments[1:]
+        else:
+            return []
       
     def get_freqpoints(self, query=False):
         if self.get_sweep_type(query=False) == "SEGM":
+            self._visainstrument.write('FORM:DATA REAL,64')
+            self._visainstrument.write('FORM:BORD SWAPPED')
             freqs = numpy.array([])
-            for x in numpy.reshape(self._visainstrument.query_binary_values("sense:segment:list? SSTOP"),(-1,8)):
-                if x[0]>0.5:
+            for x in numpy.reshape(self._visainstrument.query_binary_values("sense:segment:list? SSTOP",datatype="d"),(-1,8)):
+                if x[0]>0.5: #the segment is active
                     freqs = numpy.append(freqs,numpy.linspace(x[2],x[3],int(x[1])))
             self._freqpoints = freqs
             return self._freqpoints
@@ -288,6 +305,7 @@ class Keysight_VNA_E5080B(Instrument):
         single means only one single trace, not all the averages even if averages
          larger than 1 and Average==True
         """
+        mode=mode.lower()
         if mode == 'hold':
             self._visainstrument.write('SENS%i:SWE:MODE HOLD' % self._ci)
         elif mode == 'cont':
@@ -813,6 +831,10 @@ class Keysight_VNA_E5080B(Instrument):
         """
         if swtype in ('LIN','LOG','SEGM','POW','CW'):
             logging.debug(__name__ + ' : Setting sweep type to %s' % swtype)
+            if swtype == 'SEGM':
+                self._visainstrument.write('SENS%i:SEGM:POW:CONT ON' %(self._ci))
+                self._visainstrument.write('SENS%i:SEGM:ARB ON' %(self._ci))
+                self._visainstrument.write('SENS%i:SEGM:X:SPAC OBAS' %(self._ci))
             return self._visainstrument.write('SENS%i:SWE:TYPE %s' %(self._ci,swtype))
         else:
             logging.error(__name__ + ' : Illegal argument %s' % swtype)
@@ -913,11 +935,16 @@ class Keysight_VNA_E5080B(Instrument):
     
     def reconnect(self):
         self._visainstrument = visa.instrument(self._address)
-    
+
     def add_segment(self,center,span,nop,power):
         self.write("SENS:SEGM1:ADD")
-        self.write("SENS:SEGM1:FREQ:CENT %f"%center)
-        self.write("SENS:SEGM1:FREQ:SPAN %f"%span)
+        if span >= 0:
+            self.write("SENS:SEGM1:FREQ:CENT %f" % center)
+            self.write("SENS:SEGM1:FREQ:SPAN %f"%span)
+        else:
+            start, stop = center+numpy.array((-1, 1))*span/2
+            self.write("SENS:SEGM1:FREQ:STAR %f" % start)
+            self.write("SENS:SEGM1:FREQ:STOP %f" % stop)
         self.write("SENS:SEGM1:SWE:POIN %i"%nop)
         self.write("SENS:SEGM1:POW %f"%power)
         self.write("SENS:SEGM1 ON")

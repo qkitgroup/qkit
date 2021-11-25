@@ -67,7 +67,7 @@ class virtual_measure_spec(Instrument):
         self.add_parameter('segments', type=int)
         self.add_parameter('averages', type=int)
         self.add_parameter('blocks', type=int)
-        self.add_parameter('offsets', type=types.ListType)
+        self.add_parameter('offsets', type=list)
         self.add_parameter('channels', type=int)
         self.add_parameter('multimode', type=bool)
         self.add_parameter('trigger_rate', type=float)
@@ -178,11 +178,11 @@ class virtual_measure_spec(Instrument):
         '''
         Sets the start and end of the acquisition window. These values can be chosen arbitrarily and do not have to be divisible by 16 or 32.
         '''
-        c_start = int(start) / self.bit_blocksize  # floor
+        c_start = int(start) // self.bit_blocksize  # floor
         c_start *= self.bit_blocksize
         # self.bit_pre = int(start) - c_start
         samples = int(end) - c_start
-        c_samples = (samples + self.bit_blocksize - 1) / self.bit_blocksize  # ceil
+        c_samples = (samples + self.bit_blocksize - 1) // self.bit_blocksize  # ceil
         c_samples *= self.bit_blocksize
         # self.bit_post = c_samples - samples
         # print "setting card to %g samples and a delay of %g"%(c_samples,c_start)
@@ -375,7 +375,7 @@ class virtual_measure_spec(Instrument):
             err = self._dacq.waitready()
             if (err == 263):
                 print('measure_spec: Timeout during data acquisition.')
-                return None;
+                return None
         else:
             status = self._dacq.get_card_status()
             # 'ready' or 'waitdma' flag, see p138 of the manual
@@ -413,10 +413,10 @@ class virtual_measure_spec(Instrument):
     def _multimode_average(self, dat):
         ''' faster-than-numpy averaging '''
         shp = dat.shape
-        sum = numpy.zeros((shp[0], shp[2]), np.int)
+        sum = numpy.zeros((shp[0], shp[2]), numpy.int)
         for i in range(shp[1]):
             sum += dat[:, i, :]
-        return np.array(res, np.float32) / shp[1]
+        return numpy.array(res, numpy.float32) / shp[1]
 
     def _acquire_singlemode(self):
         '''

@@ -9,7 +9,8 @@
 import sys
 in_pyqt5 = False
 try:
-    from PyQt5 import QtCore, QtGui
+    from PyQt5 import QtCore
+    import PyQt5.QtWidgets as QtGui
     in_pyqt5 = True
 except ImportError as e:
     pass
@@ -243,11 +244,15 @@ class Ui_Form(object):
         self.PlotTypeSelector.addItem(_fromUtf8(""))
         self.PlotTypeSelector.addItem(_fromUtf8(""))
         self.PlotTypeSelector.addItem(_fromUtf8(""))
+        self.PlotTypeSelector.addItem(_fromUtf8(""))
+        self.PlotTypeSelector.addItem(_fromUtf8(""))
         #self.horizontalLayout.addWidget(self.PlotTypeSelector)
-        self.PlotTypeSelector.setItemText(0, _translate("Form", "Select X", None))
-        self.PlotTypeSelector.setItemText(1, _translate("Form", "Select Y", None))
-        self.PlotTypeSelector.setItemText(2, _translate("Form", "Select Z", None))
-        self.PlotTypeSelector.setItemText(3, _translate("Form", "Line Plot", None))
+        self.PlotTypeSelector.setItemText(0, _translate("Form", "2D Select X", None))
+        self.PlotTypeSelector.setItemText(1, _translate("Form", "2D Select Y", None))
+        self.PlotTypeSelector.setItemText(2, _translate("Form", "2D Select Z", None))
+        self.PlotTypeSelector.setItemText(3, _translate("Form", "Line Plot X", None))
+        self.PlotTypeSelector.setItemText(4, _translate("Form", "Line Plot Y", None))
+        self.PlotTypeSelector.setItemText(5, _translate("Form", "Line Plot Z", None))
         
         self.PlotTypeLayout = QtGui.QVBoxLayout()
         self.PlotTypeLayout.addWidget(self.PlotTypeSelector)

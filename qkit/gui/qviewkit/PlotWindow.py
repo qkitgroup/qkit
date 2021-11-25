@@ -202,6 +202,9 @@ class PlotWindow(QWidget,Ui_Form):
         except ValueError as e:
             print("PlotWindow: Value Error; Dataset not yet available", self.dataset_url)
             print(e)
+        except OSError as e:
+            print("PlotWindow: OS Error; Probably a read/write conflict occured", self.dataset_url)
+            print(e)
 
 
     def _setup_signal_slots(self):
@@ -495,6 +498,16 @@ class PlotWindow(QWidget,Ui_Form):
             self.TraceZSelector.setEnabled(True)
         if index == 3:
             self.view_type = view_types['1D']
+            self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(True)
+            self.TraceZSelector.setEnabled(True)
+        if index == 4:
+            self.view_type = view_types['1D']
+            self.TraceXSelector.setEnabled(True)
+            self.TraceYSelector.setEnabled(False)
+            self.TraceZSelector.setEnabled(True)
+        if index == 5:
+            self.view_type = view_types['1D']
             self.TraceXSelector.setEnabled(True)
             self.TraceYSelector.setEnabled(True)
             self.TraceZSelector.setEnabled(False)
@@ -528,7 +541,10 @@ class PlotWindow(QWidget,Ui_Form):
         else:
             x_data = np.array(x_ds)[:ds.shape[0]]
         xunit = _get_unit(x_ds)
-        xval = x_data[num]
+        try:
+            xval = x_data[num]
+        except (KeyError,IndexError):
+            xval = "X"
         return str(xval)+" "+str(xunit)
 
     def _getYValueFromTraceNum(self,ds,num):
@@ -538,15 +554,22 @@ class PlotWindow(QWidget,Ui_Form):
         else:
             y_data = np.array(y_ds)[:ds.shape[1]]
         yunit = _get_unit(y_ds)
-        yval = y_data[num]
+        try:
+            yval = y_data[num]
+        except (KeyError,IndexError):
+            yval = "X"
         return str(yval)+" "+str(yunit)
 
     def _getZValueFromTraceNum(self,ds,num):
         z_ds = _get_ds(ds, ds.attrs.get('z_ds_url'))
         z_data = np.array(z_ds)[:ds.shape[2]]
         zunit = _get_unit(z_ds)
-        zval = z_data[num]
+        try:
+            zval = z_data[num]
+        except (KeyError,IndexError):
+            zval = "X"
         return str(zval)+" "+str(zunit)
+        
 
     def addQvkMenu(self,menu=None):
         """Add custom entry in the right-click menu.
@@ -607,6 +630,11 @@ class PlotWindow(QWidget,Ui_Form):
         histogram = QAction('Histogram', self.qvkMenu, checkable=True)
         self.qvkMenu.addAction(histogram)
         histogram.triggered.connect(self.setHistogram)
+
+        self.manipulation_menu = {'dB': dB_scale, 'wrap': phase_wrap, 'linear': linear_correction, 'sub_offset_avg_y': offset_correction, 'norm_data_avg_x':
+            norm_correction, 'histogram': histogram}
+        
+        self.updateManipulationMenu()
         
         self.qvkMenu.addSeparator()
         
@@ -619,6 +647,10 @@ class PlotWindow(QWidget,Ui_Form):
         
         if menu is not None:
             menu.addMenu(self.qvkMenu)
+    
+    def updateManipulationMenu(self):
+        for m in self.manipulation_menu:
+            self.manipulation_menu[m].setChecked(bool(self.manipulation & self.manipulations[m]))
 
     @pyqtSlot()
     def setPointMode(self):
