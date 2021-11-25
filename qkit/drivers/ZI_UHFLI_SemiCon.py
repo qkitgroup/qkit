@@ -110,7 +110,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
     #These functions will deprecate soon
     def poll_samples(self, integration_time):
         self.daq.flush()
-        data = self.daq.poll(integration_time, 500, self._FLAG_DETECT | self._FLAG_THROW , True) #arguments: (Poll length in s, timeout in ms, flags, return flat dictionary)
+        data = self.daq.poll(integration_time, 100, self._FLAG_DETECT | self._FLAG_THROW , True) #arguments: (Poll length in s, timeout in ms, flags, return flat dictionary)
        
         assert data, "Datastream was empty, the daq couldn't return any values"
         for sample_path in self.get_daq_sample_path():
