@@ -273,7 +273,10 @@ class Tuning(mb.MeasureBase):
     
     def _append_vector(self, latest_data, container, direction):
         for name, values in latest_data.items():
-            container[f"{name}"].append(values[::direction]) 
+            container[f"{name}"].append(values[::direction])
+            
+    def measure_hyst1D():
+        pass
     
     def measure1D(self):
         """Starts a 1D - measurement, along the x coordinate."""
