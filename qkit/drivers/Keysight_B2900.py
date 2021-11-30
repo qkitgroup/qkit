@@ -520,7 +520,7 @@ class Keysight_B2900(Instrument):
         Parameters
         ----------
         status: bool
-			Inter-channel synchronization mode specifies whether two channels are to be operated in sync.
+            Inter-channel synchronization mode specifies whether two channels are to be operated in sync.
 
         Returns
         -------
@@ -531,7 +531,7 @@ class Keysight_B2900(Instrument):
         try:
             logging.debug('{!s}: Set interchannel synchronization to {!r}'.format(__name__, status))
             if status:
-                self._write(':syst:gro:def (@1,2)'.format(val))
+                self._write(':syst:gro:def (@1,2)'.format(status))
             else:
                 self._write(':syst:gro:res')
         except Exception as e:
@@ -2262,7 +2262,7 @@ class Keysight_B2900(Instrument):
         """
         # Corresponding Command: :DISPlay:VIEW
         if mode.lower() in ('sing1', 'single1', 'sing2', 'single2', 'dual', 'grap', 'graph'):
-            logging.debug('{!s}: Set display to {:g}'.format(__name__, mode))
+            logging.debug('{!s}: Set display to {:s}'.format(__name__, mode))
             self._write(':disp:view {:s}'.format(mode))
         else:
             logging.error('{:s}: Cannot set display to {!s}'.format(__name__, mode))
