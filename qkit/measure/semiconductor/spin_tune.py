@@ -109,7 +109,7 @@ class Tuning(mb.MeasureBase):
             raise TypeError(f"{__name__}: Cannot use {yesno} as report_static_voltages. Must be a boolean value.")        
         self._report_static_voltages = yesno
     
-    def register_measurement(self, name, unit, nodes, get_tracedata_func, *args, **kwargs):
+    def register_measurement(self, name,  nodes, get_tracedata_func, *args, **kwargs):
         """
         Registers a measurement.
 
@@ -117,10 +117,8 @@ class Tuning(mb.MeasureBase):
         ----------
         name : string
             Name of the measurement the measurement which is to be registered.
-        unit : string
-            Unit of the measurement.
-        nodes : list(string)
-            The data nodes of the measurement
+        nodes : dict(string:string)
+            The data nodes (keys) of the measurement and units (values) of the respective data node.
         get_tracedata_func : callable
             Callable object which produces the data for the measurement which is to be registered.
         *args, **kwargs:
@@ -130,8 +128,8 @@ class Tuning(mb.MeasureBase):
         -------
         None
         """
-        self.multiplexer.register_measurement(name, unit, nodes, get_tracedata_func, *args, **kwargs)
-        for node in nodes:
+        self.multiplexer.register_measurement(name, nodes, get_tracedata_func, *args, **kwargs)
+        for node in nodes.keys():
             self.watchdog.register_node(f"{name}.{node}", -10, 10)
     
     def activate_measurement(self, measurement):

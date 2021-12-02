@@ -96,7 +96,7 @@ class Watching(mb.MeasureBase):
             raise TypeError(f"{__name__}: Cannot use {yesno} as report_static_voltages. Must be a boolean value.")        
         self._report_static_voltages = yesno
     
-    def register_measurement(self, name, unit, nodes, get_tracedata_func, *args, **kwargs):
+    def register_measurement(self, name, nodes, get_tracedata_func, *args, **kwargs):
         """
         Registers a measurement.
 
@@ -117,8 +117,8 @@ class Watching(mb.MeasureBase):
         -------
         None
         """
-        self.multiplexer.register_measurement(name, unit, nodes, get_tracedata_func, *args, **kwargs)
-        for node in nodes:
+        self.multiplexer.register_measurement(name, nodes, get_tracedata_func, *args, **kwargs)
+        for node in nodes.keys():
             nodekey = f"{name}.{node}"
             self.watchdog.register_node(nodekey, -10, 10)            
     
