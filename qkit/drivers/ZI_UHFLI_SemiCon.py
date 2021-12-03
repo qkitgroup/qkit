@@ -68,14 +68,14 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
     
     def get_sample(self):
         channels = {}
-        gotten_samples = {}
+        
         sample_path = self.get_daq_sample_path()
         data_nodes = self.get_data_nodes()
         assert sample_path, f"{__name__}: No sample_path was specified. Use set_daq_sample_path(list(str)) before calling get_sample."
         assert data_nodes, f"{__name__}: No data_nodes were specified. Use set_data_nodes(list(str)) before calling get_sample."
         for path in sample_path:
             raw_data = self.daq.getSample(path)
-            
+            gotten_samples = {}
             for node in data_nodes:
                 gotten_samples[node] = float(raw_data[node])
             
@@ -109,7 +109,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
                 
     #These functions will deprecate soon
     def poll_samples(self, integration_time):
-        self.daq.flush()
+        #self.daq.flush()
         data = self.daq.poll(integration_time, 100, self._FLAG_DETECT | self._FLAG_THROW , True) #arguments: (Poll length in s, timeout in ms, flags, return flat dictionary)
        
         assert data, "Datastream was empty, the daq couldn't return any values"
