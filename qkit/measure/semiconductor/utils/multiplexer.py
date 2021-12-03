@@ -37,19 +37,17 @@ class Sequential_multiplexer:
             if measurement["active"]:
                 no_nodes += len(measurement["nodes"])
         return no_nodes
-
-    def register_measurement(self, name, unit, nodes, get_tracedata_func, *args, **kwargs):
+    
+    def register_measurement(self, name, nodes, get_tracedata_func, *args, **kwargs):
         """
         Registers a measurement.
 
         Parameters
         ----------
         name : string
-            Name of the measurement the measurement which is to be registered.
-        unit : string
-            Unit of the measurement.
-        nodes : list(string)
-            The data nodes of the measurement
+            Name of the measurement which is to be registered.
+        nodes : dict(string:string)
+            The data nodes (keys) of the measurement and units (values) of the respective data node.
         get_tracedata_func : callable
             Callable object which produces the data for the measurement which is to be registered.
         *args, **kwargs:
@@ -60,19 +58,19 @@ class Sequential_multiplexer:
         None
         """
         if type(name) != str:
-            raise TypeError(f"{__name__}: {name} is not a valid experiment name. The experiment name must be a string.")
-        if type(unit) != str:
-            raise TypeError(f"{__name__}: {unit} is not a valid unit. The unit must be a string.")
-        if type(nodes) != list:
-            raise TypeError(f"{__name__}: {nodes} are not valid data nodes. The data nodes must be a list of strings.")
+            raise TypeError(f"{__name__}: {name} is not a valid experiment name. The experiment name must be a string.")        
+        if type(nodes) != dict:
+            raise TypeError(f"{__name__}: {nodes} are not valid data nodes. The data nodes must be a dictionary.")
         else:
-            for node in nodes:
+            for node, unit in nodes.items():
                 if type(node) != str:
-                    raise TypeError(f"{node} is not a valid data node. A data node must be a string.")
+                    raise TypeError(f"{__name__}: {node} is not a valid data node. A data node must be a string.")
+                if type(unit) != str:
+                    raise TypeError(f"{__name__}: {unit} is not a valid unit. The unit must be a string.")
         if not callable(get_tracedata_func):
             raise TypeError("%s: Cannot set %s as get_value_func. Callable object needed." % (__name__, get_tracedata_func))
         
-        self.registered_measurements[name] = {"unit" : unit, "nodes" : nodes, "get_tracedata_func" : lambda: get_tracedata_func(*args, **kwargs), "active" : False}
+        self.registered_measurements[name] = {"nodes" : nodes, "get_tracedata_func" : lambda: get_tracedata_func(*args, **kwargs), "active" : False}
         self.no_measurements = len(self.registered_measurements)
     
     def activate_measurement(self, name):
@@ -135,10 +133,10 @@ class Sequential_multiplexer:
         datasets = []
         for name, measurement in self.registered_measurements.items():
             if measurement["active"]:
-                for node in measurement["nodes"]:
+                for node, unit in measurement["nodes"].items():
                     datasets.append(mb.MeasureBase.Data(name = f"{name}.{node}",
                                               coords = coords,
-                                              unit = measurement["unit"],
+                                              unit = unit,
                                               save_timestamp = False))
         assert datasets, f"{__name__}: Tried to initialize an empty measurement dataset. Register and/or activate measurements."
         return datasets
