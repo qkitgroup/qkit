@@ -8,7 +8,6 @@ Created on Mon Feb 15 12:17:39 2021
 import qkit
 import qkit.drivers.ZI_UHFLI as lolvl
 
-from math import ceil
 from time import sleep
 import numpy as np
 import logging
@@ -43,7 +42,6 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
                           flags = self.FLAG_SET | self.FLAG_SOFTGET)
         
         self.add_function("create_daq_module")
-        self.add_function("get_value")
         self.add_function("easy_sub")
         self.add_function("get_sample")
         self.add_function("poll_samples")
@@ -53,18 +51,14 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         return self.daq.dataAcquisitionModule()   
 
     def easy_sub(self, demod_index):
-        typerr = TypeError("%s: Cannot use %s to subscribe to the DAQ. Object must be a list of integers." % (__name__, demod_index))
-        for element in demod_index:
+       sub_list = [] 
+       for element in demod_index:
             if not isinstance(element, int):
-                raise typerr
-            if element > 8:
-                raise ValueError("%s: Cannot use %s to subscribe to the DAQ. Device only possesses 8 demodulators."% (__name__, demod_index))
-        
-        sub_list = []                
-        for element in demod_index:
-            sub_list.append("/%s/demods/%d/sample" % (self._device_id, element - 1))
-            
-        self.set_daq_sample_path(sub_list)
+                raise TypeError("%s: Cannot use %s to subscribe to the DAQ. Object must be an iterable of integers." % (__name__, demod_index))
+            if element not in range(8):
+                raise ValueError("%s: Cannot use %s to subscribe to the DAQ. Invalid demodulator number."% (__name__, demod_index))
+            sub_list.append("/%s/demods/%d/sample" % (self._device_id, element))            
+       self.set_daq_sample_path(sub_list)
     
     def get_sample(self):
         channels = {}
@@ -82,30 +76,6 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
             channels[path] = gotten_samples
         
         return channels
-    
-    def _prep_grid(self, trigger_duration, sample_num, meas_num, num_averages = 1):
-        #setting up the trigger
-        self.daqM1.set_daqM_trigger_mode(self.grid_settings["trig_type"])
-        self.daqM1.set_daqM_trigger_path("/%s/demods/%d/sample.TRIGIN%d" % (self._device_id, 
-                                                                            self.grid_settings["trig_demod_index"], 
-                                                                            self.grid_settings["trig_channel"]))
-        self.daqM1.set_daqM_trigger_edge(self.grid_settings["trig_edge"])
-        self.daqM1.set_daqM_trigger_duration(trigger_duration)
-        self.daqM1.set_daqM_trigger_holdoff_time(trigger_duration)
-        self.daqM1.set_daqM_trigger_holdoff_count(self.grid_settings["trig_holdoff_count"])
-        self.daqM1.set_daqM_trigger_delay(self.grid_settings["trig_software_delay"])
-        #setting up the grid
-        self.daqM1.set_daqM_grid_mode(self.grid_settings["mode"])
-        self.daqM1.set_daqM_grid_direction(self.grid_settings["direction"])
-        self.daqM1.set_daqM_grid_num(self.grid_settings["number_of_grids"])
-        self.daqM1.set_daqM_grid_num_samples(sample_num)
-        self.daqM1.set_daqM_grid_num_measurements(meas_num)
-        self.daqM1.set_daqM_grid_averages(num_averages)
-        #setting up the sample path
-        self.daqM1.set_daqM_sample_path(["/%s/demods/%d/sample.%s" % (self._device_id, self.grid_settings["demod_index"], "r"),
-                                         "/%s/demods/%d/sample.%s" % (self._device_id, self.grid_settings["demod_index"], "theta"),
-                                         "/%s/demods/%d/sample.%s" % (self._device_id, self.grid_settings["demod_index"], "x"),
-                                         "/%s/demods/%d/sample.%s" % (self._device_id, self.grid_settings["demod_index"], "y")])
                 
     #These functions will deprecate soon
     def poll_samples(self, integration_time):
@@ -124,51 +94,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         if average:
             return np.array([np.mean(selected)])
         else:
-            return selected
-    
-    def _prep_singleshot(self, daqM, averages):
-        num_samples = ceil(averages / 2)      
-        if num_samples == 1:
-            num_samples = 2    
-        daqM.set_daqM_grid_mode("exact")
-        daqM.set_daqM_grid_num_samples(num_samples)
-        daqM.set_daqM_grid_num_measurements(2)
-        daqM.set_daqM_grid_direction("forward")
-        daqM.set_daqM_grid_num(1)    
-    
-    def get_value(self, averages, daqM = None):
-        #Use daqM1 as default
-        if daqM is None:
-            daqM = self.daqM1
-        #Check wheter the device is rdy for measurement
-        if not daqM.get_daqM_sample_path(): #Did the user specify which data to stream?
-            logging.error("Humanling, you forgot AGAIN to add sample paths. You are not worthy of me.")
-            return
-        if not daqM.get_daqM_trigger_mode() == "continuous" and not daqM.get_daqM_trigger_path(): #The trigger should either be continuous or, in case of a not self-triggered measurement, a trigger path must be specified
-            logging.error("You are waiting for a trigger signal which will never come. Hopeless. Set a trigger path to escape this purgatory.")
-            return
-        
-        self._prep_singleshot(daqM, averages) #Setup the daqM parameters for a single shot                
-        
-        #Actual measurement routine:
-        daqM.execute() #Arm the measurement
-        while not daqM.finished(): #wait for completion
-            sleep(0.1)        
-        data = daqM.read() #Getting that sweet, sweet data, baby!
-        
-        meanval = []
-        #Assert that the data has the correct structure. Build the return value while you're at it ;)
-        assert data, "Datastream was empty, the daq couldn't return any values"
-        for sample_path in daqM.get_daqM_sample_path():
-            assert sample_path in data, "Datastream doesn't contain the subscribed data paths."
-            assert len(data[sample_path]) == 1, "Datastream doesn't contain the desired amout of samples"
-            if averages != 1:
-                a = np.append(data[sample_path][0]["value"][0], data[sample_path][0]["value"][1])
-                meanval.append(np.average(a))# ZI's data structure is quite intense...
-            else:
-                meanval.append(data[sample_path][0]["value"][0][0])
-                
-        return meanval, data # return the processed mean and the raw data dict, becuz why not?    
+            return selected     
     
     def _do_set_daq_sample_path(self, newpath):
         typerr = TypeError("%s: Cannot set %s as daq_sample_path. Object must be a list of strings." % (__name__, newpath))
