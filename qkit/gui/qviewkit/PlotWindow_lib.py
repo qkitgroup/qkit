@@ -390,15 +390,15 @@ def _display_1D_data(self, graphicsView):
 
         if self.PlotTypeSelector.currentIndex() == 5:
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['z_ds_url'])
-            x_data = dss[0][()][:dss[1].shape[-1]]  # x_data gets truncated to y_data shape if neccessary
+            x_data = dss[0][()][:dss[1].shape[2]]  # x_data gets truncated to y_data shape if neccessary
             y_data = dss[1][()][self.TraceXNum, self.TraceYNum, :]
         if self.PlotTypeSelector.currentIndex() == 4:
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['y_ds_url'])
-            x_data = dss[0][()][:dss[1].shape[-1]]
+            x_data = dss[0][()][:dss[1].shape[1]]
             y_data = dss[1][()][self.TraceXNum, :, self.TraceZNum]
         if self.PlotTypeSelector.currentIndex() == 3:
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url'])
-            x_data = dss[0][()][:dss[1].shape[-1]]
+            x_data = dss[0][()][:dss[1].shape[0]]
             y_data = dss[1][()][:, self.TraceYNum, self.TraceZNum]
 
     
