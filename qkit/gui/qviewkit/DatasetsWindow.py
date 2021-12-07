@@ -123,7 +123,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                 
     def live_update_onoff(self):
         if self.liveCheckBox.isChecked():
-            self.timer.start(self.refreshTime_value)
+            self.timer.start(int(self.refreshTime_value))
             self.heardBeat.click()
         else:
             self.timer.stop()

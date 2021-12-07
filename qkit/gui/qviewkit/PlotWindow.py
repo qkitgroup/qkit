@@ -33,6 +33,7 @@ from qkit.gui.qviewkit.plot_view import Ui_Form
 from qkit.storage.hdf_constants import ds_types, view_types
 from qkit.gui.qviewkit.PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
 from qkit.gui.qviewkit.PlotWindow_lib import _get_ds, _get_ds_url, _get_name, _get_unit
+from qkit.core.lib.misc import str3
 
 class PlotWindow(QWidget,Ui_Form):
     """PlotWindow class organizes the correct display of data in a h5 file.
@@ -108,8 +109,8 @@ class PlotWindow(QWidget,Ui_Form):
         z_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('z_ds_url', '')))
         try:
             if self.ds.attrs.get('xy_0', ''):
-                x_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').decode().split(':')[1]).attrs.get('x_ds_url', '')))
-                y_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').decode().split(':')[1]).attrs.get('y_ds_url', '')))
+                x_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, str3(self.ds.attrs.get('xy_0', '')).split(':')[1]).attrs.get('x_ds_url','')))
+                y_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, str3(self.ds.attrs.get('xy_0', '')).split(':')[1]).attrs.get('y_ds_url','')))
             else:
                 raise AttributeError
         except AttributeError:
@@ -324,7 +325,7 @@ class PlotWindow(QWidget,Ui_Form):
         
         self.TraceZSelector.setEnabled(True)
         self.TraceZSelector.setRange(-1*shape[2],shape[2]-1)
-        self.TraceZSelector.setValue(shape[2]/2)
+        self.TraceZSelector.setValue(int(shape[2]/2))
         self.TraceZNum = int(shape[2]/2)
         
         self.TraceXSelector.setEnabled(False)

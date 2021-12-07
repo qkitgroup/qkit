@@ -35,6 +35,7 @@ import pyqtgraph as pg
 import qkit
 from qkit.storage.hdf_constants import ds_types
 import pprint
+from qkit.core.lib.misc import str3
 
 
 def _display_1D_view(self, graphicsView):
@@ -64,7 +65,7 @@ def _display_1D_view(self, graphicsView):
     ## displayed.
     view_params = json.loads(self.ds.attrs.get("view_params", {}))
     for i in range(overlay_num + 1):
-        xyurls = self.ds.attrs.get("xy_" + str(i), "").decode()
+        xyurls = str3(self.ds.attrs.get("xy_" + str(i), ""))
         ds_urls = [xyurls.split(":")[0], xyurls.split(":")[1]]
         if xyurls:
             err_url = self.ds.attrs.get("xy_" + str(i) + "_error", "")
@@ -843,7 +844,7 @@ def _get_unit(ds):
         String with unit.
     """
     try:
-        return ds.attrs.get('unit', b'_none_').decode('utf-8')
+        return str3(ds.attrs.get('unit', b'_none_'))
     except AttributeError as e:
         #print(ds)
         print("Qviewkit _get_unit:",e)
@@ -861,7 +862,7 @@ def _get_name(ds):
     if ds is None:
         return '_none_'
     try:
-        return ds.attrs.get('name', b'_none_').decode("utf-8")
+        return str3(ds.attrs.get('name', b'_none_'))
     except AttributeError as e:
         #print(ds)
         print("Qviewkit _get_name:",e)
