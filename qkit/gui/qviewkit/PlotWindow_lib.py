@@ -451,7 +451,7 @@ def _display_1D_data(self, graphicsView):
                 pass
             
             self._last_x_pos = xval
-            if self.distance_measure[0] is True: # a ROI is open
+            if self.distance_measure[0] == 1: # a ROI is open
                 _, x0, y0, [roi, tx, ty,td] = self.distance_measure
                 roi.setSize((xval - x0, yval - y0))
                 tx.setText("%s" % pg.siFormat(xval - x0, suffix=units[0]))
@@ -479,10 +479,7 @@ def _display_1D_data(self, graphicsView):
             if plIt.ctrl.logYCheck.isChecked():  # logarithmic scale on x axis
                 yval = 10 ** yval
             
-            
             if self.distance_measure[0] is False:
-                if len(self.distance_measure) >= 4:
-                    [plVi.removeItem(i) for i in self.distance_measure[-1]]
                 roi = pg.RectROI((xval, yval), (0, 0))
                 tx = pg.TextItem("")
                 tx.setPos(xval, yval)
@@ -490,9 +487,13 @@ def _display_1D_data(self, graphicsView):
                 ty.setPos(xval, yval)
                 td = pg.TextItem("")
                 td.setPos(xval, yval)
-                self.distance_measure = [True, xval, yval, [roi, tx, ty,td]]
+                self.distance_measure = [1, xval, yval, [roi, tx, ty,td]]
                 [plVi.addItem(i) for i in self.distance_measure[-1]]
+            elif self.distance_measure[0] == 1:
+                self.distance_measure[0] = 2 # hold distance measure ROI
             else:
+                if len(self.distance_measure) >= 4: # remove ROI
+                    [plVi.removeItem(i) for i in self.distance_measure[-1]]
                 self.distance_measure[0] = False
 
     self.distance_measure = self.__dict__.get('distance_measure', [False])
@@ -655,7 +656,7 @@ def _display_2D_data(self, graphicsView):
         self.PointZ.setText("Z: %.6e %s" % (zval, units[2]))
         self.data_coord = "%g\t%g\t%g" % (xval, yval, zval)
 
-        if self.distance_measure[0] is True: # a ROI is open
+        if self.distance_measure[0] == 1: # a ROI is open
             _, x0, y0, [roi, tx, ty, td] = self.distance_measure
             roi.setSize((xval - x0, yval - y0))
             tx.setText("%s" % pg.siFormat(xval - x0, suffix=units[0]))
@@ -679,8 +680,6 @@ def _display_2D_data(self, graphicsView):
             yval = scales[1][0] + int(mousePoint.y()) * scales[1][1]
 
             if self.distance_measure[0] is False:
-                if len(self.distance_measure) >=4:
-                    [imVi.removeItem(i) for i in self.distance_measure[-1]]
                 roi = pg.RectROI((xval, yval), (0,0))
                 tx = pg.TextItem("")
                 tx.setPos(xval, yval)
@@ -688,39 +687,17 @@ def _display_2D_data(self, graphicsView):
                 ty.setPos(xval,yval)
                 td = pg.TextItem("")
                 td.setPos(xval, yval)
-                self.distance_measure = [True,xval,yval,[roi, tx, ty, td]]
+                self.distance_measure = [1,xval,yval,[roi, tx, ty, td]]
                 [imVi.addItem(i) for i in self.distance_measure[-1]]
+            elif self.distance_measure[0] == 1:
+                self.distance_measure[0] = 2  # hold distance measure ROI
             else:
+                if len(self.distance_measure) >= 4:  # remove ROI
+                    [imVi.removeItem(i) for i in self.distance_measure[-1]]
                 self.distance_measure[0] = False
                 
     self.distance_measure = self.__dict__.get('distance_measure',[False])
     self.proxy2 = pg.SignalProxy(imVi.scene().sigMouseClicked,slot=middleClick)
-    
-    """
-        def middleClick(mce):
-        mce = mce[0]
-        if mce.button() == 4:
-            mce.accept()
-            mousePoint = imIt.mapFromScene(mce.scenePos())
-            xval = scales[0][0] + int(mousePoint.x()) * scales[0][1]
-            yval = scales[1][0] + int(mousePoint.y()) * scales[1][1]
-
-            if self.distance_measure is False:
-                self.distance_measure = [xval,yval]
-            elif type(self.distance_measure) is list and len(self.distance_measure) == 2:
-                roi = pg.RectROI((xval,yval),(self.distance_measure[0]-xval, self.distance_measure[1]-yval))
-                tx = pg.TextItem("%s" % pg.siFormat(-self.distance_measure[0] + xval, suffix=units[0]))
-                tx.setPos((xval+self.distance_measure[0])/2,min(yval,self.distance_measure[1]))
-                ty = pg.TextItem("%s" % pg.siFormat(-self.distance_measure[1] + yval, suffix=units[1]))
-                ty.setPos(max(xval,self.distance_measure[0]),(yval + self.distance_measure[1]) / 2)
-                self.distance_measure = [roi,tx,ty]
-                [imVi.addItem(i) for i in self.distance_measure]
-            else:
-                [imVi.removeItem(i) for i in self.distance_measure]
-                self.distance_measure = [xval, yval]
-    self.distance_measure = False
-    self.proxy2 = pg.SignalProxy(imVi.scene().sigMouseClicked,slot=middleClick)
-    """
 
 
 def _display_table(self, graphicsView):
