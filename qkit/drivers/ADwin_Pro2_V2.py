@@ -596,11 +596,19 @@ class ADwin_Pro2_V2(Instrument):
             else:
                 for gate in channels:
                     logging.info(__name__+': voltage set to gate %d.'%gate)
-                    
+                
+            #for logging:
+            for gate in channels:
+                if gate<4:
+                    self.get('gate%d_output_current_voltage_in_V'% gate)
+                else:      
+                    self.get('gate%d_out'% gate)
+           
         else:
             logging.warning(__name__+': voltage and channel must be a list of equal length!')
             input("Press Enter to continue.")
             sys.exit() 
+            
  
     def set_out_dict(self, values_dict):
         '''set_out_dict({gatenumber: voltage,...})
@@ -678,11 +686,19 @@ class ADwin_Pro2_V2(Instrument):
             else:
                 for gate in channels:
                     logging.info(__name__+': voltage set to gate %d.'%gate)
+              
+            #for logging:
+            for gate in channels:
+                if gate<4:
+                    self.get('gate%d_output_current_voltage_in_V'% gate)
+                else:      
+                    self.get('gate%d_out'% gate)
                     
         else:
             logging.warning(__name__+': dictionary not processable!')
             input("Press Enter to continue.")
             sys.exit() 
+                
     
     def _do_set_output_current_voltage_in_V(self, new, channel): #For current sources! NO EXTERNAL USE!
         """Set output voltage of current gate 'X' (1-3) (ADwin parameter: Data_200[X]). 
