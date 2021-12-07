@@ -59,6 +59,14 @@ class MeasureBase(object):
         self._measurement_object = Measurement()
         self._measurement_object.measurement_type = 'defaultMeasurement'
         self.web_visible = True
+
+    def __getattr__(self, item):
+        if item == "x_vec":
+            return self._x_parameter.values
+        elif item == "y_vec":
+            return self._y_parameter.values
+        else:
+            raise AttributeError("Measurement object has no attribute '{}'".format(item))
     
     def set_sample(self,sample):
         if sample is None:
