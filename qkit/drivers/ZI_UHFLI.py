@@ -191,19 +191,8 @@ class ZI_UHFLI(Instrument):
         
         #Tell qkit which functions are intended for public use
         self.add_function("disable_everything")
-        self.add_function("create_daq_module")
         self.add_function("wait_settle_time")
-        
-        
-    def create_daq_module(self):
-        return self.daq.dataAcquisitionModule()
-    
-        #Set and get functions for the qkit wrapper, not intended for public use
-        '''
-        signal ins
-        '''
-        
-        #public use functions
+
     def disable_everything(self):
         zhinst.utils.disable_everything(self.daq, self.device)
         
@@ -212,6 +201,9 @@ class ZI_UHFLI(Instrument):
         order = self.get("dem%d_filter_order" % (demod_index))
         sleep(tc * self._filter_settling_factors[step_recovery][order - 1])
         
+    '''
+    signal ins
+    '''        
     def _do_set_input_range(self, newrange, channel):
         logging.debug(__name__ + ' : setting range on input channel %s to %s V' % (channel, newrange))
         self.daq.setDouble("/%s/sigins/%s/range" % (self._device_id, channel), newrange)

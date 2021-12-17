@@ -16,40 +16,88 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
     
     def __init__(self, name, device_id):
         self._device_id = device_id
-        lolvl.ZI_UHFLI.__init__(self, name, self._device_id)
+        super().__init__(name, self._device_id)
         self.daqM1 = qkit.instruments.create("UHFLI_daqM1", "ZI_DAQ_module", unmanaged_daq_module = self.create_daq_module(), device_id = self._device_id)
         self.daqM2 = qkit.instruments.create("UHFLI_daqM2", "ZI_DAQ_module", unmanaged_daq_module = self.create_daq_module(), device_id = self._device_id)
-        
-        self.grid_settings = {"trig_type" : "HW_trigger",
-                              "trig_demod_index" : 0,
-                              "trig_channel" : 4,
-                              "trig_edge" : "rising",
-                              "trig_holdoff_count" : 0,
-                              "trig_software_delay" : 0,                              
-                              "mode" : "exact",
-                              "direction" : "forward",
-                              "number_of_grids" : 1,
-                              "demod_index" : 0
-                              }
-        
-        self._last_poll = None
+
         self._FLAG_THROW = 0x0004
         self._FLAG_DETECT = 0x0008
+        
+        self.ch0_clearance = 0
+        self.ch1_clearance = 0
         
         self.add_parameter("daq_sample_path", type = list,
                           flags = self.FLAG_SET | self.FLAG_SOFTGET)
         self.add_parameter("data_nodes", type = list,
                           flags = self.FLAG_SET | self.FLAG_SOFTGET)
+        self.add_parameter("step_recovery", type = str,
+                          flags = self.FLAG_SET | self.FLAG_SOFTGET)
+        
+        self.set_daq_sample_path([])
+        self.set_data_nodes([])
+        self.set_step_recovery(r"99%")
         
         self.add_function("create_daq_module")
+        self.add_function("activate_ch0")
+        self.add_function("activate_ch1")
         self.add_function("easy_sub")
         self.add_function("get_sample")
-        self.add_function("poll_samples")
-        self.add_function("data_fetch")
     
     def create_daq_module(self):
-        return self.daq.dataAcquisitionModule()   
-
+        return self.daq.dataAcquisitionModule()
+    
+    def activate_ch0(self):
+        self.set_dem0_demod_enable(True)
+        self.set_ch0_output(True)
+        
+        if any([True for path in self.get_daq_sample_path() if "/demods/4" in path]):
+            self.set_daq_sample_path([f"/{self._device_id}/demods/0/sample",
+                                      f"/{self._device_id}/demods/4/sample"])
+        else: self.set_daq_sample_path([f"/{self._device_id}/demods/0/sample"])
+        
+        self.set_data_nodes(["x", "y", "timestamp"])
+        
+    def activate_ch1(self):
+        self.set_dem4_demod_enable(True)
+        self.set_ch1_output(True)
+        
+        if any([True for path in self.get_daq_sample_path() if "/demods/0" in path]):
+            self.set_daq_sample_path([f"/{self._device_id}/demods/0/sample",
+                                      f"/{self._device_id}/demods/4/sample"])
+        else: self.set_daq_sample_path([f"/{self._device_id}/demods/4/sample"])
+        
+        self.set_data_nodes(["x", "y", "timestamp"])
+        
+    def sample_ch0(self, wait_settle_time):
+        assert self.get_dem0_demod_enable(), f"{__name__}: Demod 0 is not enabled."
+        if wait_settle_time:
+            self.wait_settle_time(0, self.get_step_recovery())
+            
+        raw = self.daq.getSample(f"/{self._device_id}/demods/0/sample")
+        nodes = self.get_data_nodes()
+        gotten_sample = {}
+        for node in nodes:
+            gotten_sample[f"{node}0"] = float(raw[node])
+            
+        if "x" in nodes and "y" in nodes:
+            gotten_sample["r0"] = np.sqrt(gotten_sample["x0"]**2 + gotten_sample["y0"]**2)
+        return gotten_sample
+    
+    def sample_ch1(self, wait_settle_time):
+        assert self.get_dem0_demod_enable(), f"{__name__}: Demod 4 is not enabled."
+        if wait_settle_time:
+            self.wait_settle_time(4, self.get_step_recovery())
+            
+        raw = self.daq.getSample(f"/{self._device_id}/demods/4/sample")
+        nodes = self.get_data_nodes()
+        gotten_sample = {}
+        for node in self.get_data_nodes():
+            gotten_sample[f"{node}4"] = float(raw[node])
+        
+        if "x" in nodes and "y" in nodes:
+            gotten_sample["r4"] = np.sqrt(gotten_sample["x4"]**2 + gotten_sample["y4"]**2)
+        return gotten_sample  
+        
     def easy_sub(self, demod_index):
        sub_list = [] 
        for element in demod_index:
@@ -119,6 +167,12 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
                 raise ValueError(f"{__name__}: {element} is not an allowed data_node. The allowed data_nodes are {allowed_nodes}.")
         logging.debug(__name__ + ' : setting data_nodes to %s' % (newnode))
 
+    def _do_set_step_recovery(self, new_rec):
+        allowed_recs = self._filter_settling_factors.keys()
+        if new_rec not in allowed_recs:
+            raise ValueError(f"{__name__}: {new_rec} is not a defined step recovery percentile. The allowed percentiles are {allowed_recs}.")
+        logging.debug(__name__ + ' : setting step_recovery to %s' % (new_rec))
+        
 #%%
 if __name__ == "__main__":
     qkit.start()
