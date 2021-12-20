@@ -160,14 +160,14 @@ class Resonator(object):
         self._frequency = np.array(self._hf[self.ds_url_freq],dtype=np.float64)
 
         try:
-            self._x_co = self._hf.get_dataset(self._ds_amp.x_ds_url.decode())
+            self._x_co = self._hf.get_dataset(self._ds_amp.x_ds_url)
         except:
             try:
                 self._x_co = self._hf.get_dataset(self.ds_url_power) # hardcode a std url
             except:
                 logging.warning('Unable to open any x_coordinate. Please set manually using \'set_x_coord()\'.')
         try:
-            self._y_co = self._hf.get_dataset(self._ds_amp.y_ds_url.decode())
+            self._y_co = self._hf.get_dataset(self._ds_amp.y_ds_url)
         except:
             try: self._y_co = self._hf.get_dataset(self.ds_url_freq) # hardcode a std url
             except:
