@@ -1,0 +1,40 @@
+// Define constants in time domain
+const t_wid = 50e-9;
+const t_len = t_wid*8;
+const amp = 1;
+const n_CPMG = 20;
+const t_evo = 50e-9;
+const t_readout = 1e-6;
+
+// Convert to samples
+const s_rate = 2.0e9;
+const s_wid = t_wid*s_rate;
+const s_len= round(s_rate*t_len/16)*16; //Account for waveform granularity of 16 samples
+const s_evo = round(s_rate*t_evo/16)*16;
+const s_readout = round(s_rate*t_readout/16)*16;
+
+// Define waveforms
+wave w = gauss(s_len, amp, s_len/2, s_wid);
+assignWaveIndex(1,2,w,1,2,w,0);
+
+// Reset oscillator phases and set trigger
+resetOscPhase();
+setTrigger(1);
+setTrigger(0);
+
+//First pi/2 pulse
+executeTableEntry(0);
+
+//Main CPMG loop with n_CPMG pi pulses
+cvar i;
+for (i = 0; i < n_CPMG; i++) {
+    playZero(s_evo);
+    executeTableEntry(1);
+    playZero(s_evo);
+}
+
+// Final pi/2 pulse
+executeTableEntry(0);
+
+//Readout window
+playZero(s_readout);
