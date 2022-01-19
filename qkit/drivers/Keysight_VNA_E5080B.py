@@ -107,7 +107,7 @@ class Keysight_VNA_E5080B(Instrument):
             
         self.add_parameter('power', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=-100, maxval=20,
+            minval=-100, maxval=20, offset=True,
             units='dBm', tags=['sweep'])
 
         self.add_parameter('startpower', type=float,
