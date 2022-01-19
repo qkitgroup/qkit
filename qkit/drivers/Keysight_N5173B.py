@@ -47,10 +47,7 @@ class Keysight_N5173B(Instrument):
 
         # Implement parameters
         self.add_parameter('power',
-            flags=Instrument.FLAG_GETSET, units='dBm', minval=-50, maxval=30, type=float)
-        self.add_parameter('external_attenuation',
-            flags=Instrument.FLAG_GETSET, units='dB', minval=0, type=float)
-        self.ext_att = 0
+            flags=Instrument.FLAG_GETSET, units='dBm', minval=-20, maxval=19, offset=True, type=float)
         #self.add_parameter('phase',
         #    flags=Instrument.FLAG_GETSET, units='rad', minval=-numpy.pi, maxval=numpy.pi, type=types.FloatType)
         self.add_parameter('frequency',
@@ -110,7 +107,7 @@ class Keysight_N5173B(Instrument):
             ampl (float) : power in dBm
         '''
         logging.debug(__name__ + ' : get power')
-        return float(self._visainstrument.query('POW:AMPL?')) - self.ext_att
+        return float(self._visainstrument.query('POW:AMPL?'))
 
     def do_set_power(self, amp):
         '''
@@ -122,32 +119,8 @@ class Keysight_N5173B(Instrument):
         Output:
             None
         '''
-        logging.debug(__name__ + ' : set power to %f' % (amp + self.ext_att))
-        self._visainstrument.write('POW:AMPL %s' % (amp + self.ext_att))
-    
-    def do_set_external_attenuation(self, att=0):
-        '''
-        Sets an eventual external attenuation, that is later subtracted from power values.
-
-        Input:
-            att (float) : attenuation in dB (Default is 0)
-
-        Output:
-            None
-        '''
-        self.ext_att = att
-    
-    def do_get_external_attenuation(self):
-        '''
-        Gets an eventual external attenuation, that is subtracted from power values.
-
-        Input:
-            None
-
-        Output:
-            att (float) : attenuation in dB
-        '''
-        return self.ext_att
+        logging.debug(__name__ + ' : set power to %f' % amp)
+        self._visainstrument.write('POW:AMPL %s' % amp)
     
     #def do_get_phase(self):
     #    '''
