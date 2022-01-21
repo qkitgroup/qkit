@@ -347,10 +347,13 @@ class Tuning(mb.MeasureBase):
                     if self.watchdog.stop:
                         warn(f"{__name__}: {self.watchdog.message}")
                         break
+                    
+                if self.watchdog.stop: break 
+            
                 self._append_vector(sweepy, self._datasets, direction = y_direction)
                 
                 if self.meander_sweep: y_direction *= -1
-                if self.watchdog.stop: break                    
+                                   
         finally:
             self.watchdog.reset()
             self._end_measurement()    
@@ -395,11 +398,12 @@ class Tuning(mb.MeasureBase):
                         if self.watchdog.stop:
                             warn(f"{__name__}: {self.watchdog.message}")
                             break
-                        
+                    
+                    if self.watchdog.stop: break
+                
                     self._append_vector(sweepy, self._datasets, direction = z_direction)
                     
                     if self.meander_sweep: z_direction *= -1
-                    if self.watchdog.stop: break
                 
                 for dset in self._datasets.values():
                     dset.next_matrix()
