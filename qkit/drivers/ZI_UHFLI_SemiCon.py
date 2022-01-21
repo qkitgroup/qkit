@@ -9,6 +9,7 @@ import qkit
 import qkit.drivers.ZI_UHFLI as lolvl
 
 from time import sleep
+from typing import Dict
 import numpy as np
 import logging
 
@@ -124,7 +125,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         
         return channels
     
-    def continuous_acquisition(self) -> dict[str, np.ndarray]:
+    def continuous_acquisition(self) -> Dict[str, np.ndarray]:
         """
         Polls samples for 50 ms.
         Intended to be used in a a loop which calls the function repeatedly.
@@ -154,7 +155,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
                 gotten_traces[f"r{demod_index}"] = np.sqrt(gotten_traces[f"x{demod_index}"]**2 + gotten_traces[f"y{demod_index}"]**2)
         return gotten_traces
     
-    def sample_averaged(self, avgs : int) -> dict[str, np.float64]:
+    def sample_averaged(self, avgs : int) -> Dict[str, np.float64]:
         """
         Software averages samples before returning.
 
@@ -174,6 +175,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         """
         node_lengths = {}
         cumulated_avgs = {}
+        self.daq.flush()
         
         measured = self.continuous_acquisition()
         for node, values in measured.items(): 
@@ -183,9 +185,10 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
                 node_lengths[node] = avgs
             else:
                 node_lengths[node] = count
-            cumulated_avgs[node] = [values]
+            cumulated_avgs[node] = np.sum(values)
         
-        while(not all(length >= avgs for length in node_lengths.values())):            
+        while(not all(length >= avgs for length in node_lengths.values())):
+            measured = self.continuous_acquisition()
             for node, values in measured.items():
                 count = node_lengths[node] + len(values)
                 if count >= avgs:
@@ -193,12 +196,8 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
                     node_lengths[node] = avgs
                 else:
                     node_lengths[node] = count
-                cumulated_avgs[node].append(values)
-                measured = self.continuous_acquisition()
-        
-        for node, values in cumulated_avgs.items():
-            print(node, len(np.concatenate(values)))
-        result = {node: np.average(np.concatenate(values)) for node, values in cumulated_avgs.items()}        
+                cumulated_avgs[node] += np.sum(values)
+        result = {node: values/avgs for node, values in cumulated_avgs.items()}        
         return result
         
             
@@ -263,7 +262,7 @@ if __name__ == "__main__":
     UHFLI.activate_ch0()
     UHFLI.activate_ch1()
     UHFLI.daq.flush()
-    print(type(UHFLI.sample_averaged(10)["x0"]))
+    print(UHFLI.sample_averaged(1000)["x0"])
     
     #%% Print and save the instrument settings
     #print(get_instrument_settings(r"C:\Users\Julian\Documents\Code")["daqM1"])
