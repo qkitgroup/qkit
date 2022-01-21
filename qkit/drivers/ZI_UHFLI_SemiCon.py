@@ -124,7 +124,25 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         
         return channels
     
-    def continuous_acquisition(self):
+    def continuous_acquisition(self) -> dict[str, np.ndarray]:
+        """
+        Polls samples for 50 ms.
+        Intended to be used in a a loop which calls the function repeatedly.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        result : dict(str : np.ndarray)
+            Samples polled during the last interval of poll and the time in between two polls.
+        
+        Raises
+        ------
+        EOFerror
+            If sample loss is detected.
+        """
         measured = self.daq.poll(self.integration_time, self.timeout, self._FLAG_THROW | self._FLAG_DETECT, True)
         nodes = self.get_data_nodes()
         gotten_traces = {}
@@ -136,7 +154,24 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
                 gotten_traces[f"r{demod_index}"] = np.sqrt(gotten_traces[f"x{demod_index}"]**2 + gotten_traces[f"y{demod_index}"]**2)
         return gotten_traces
     
-    def sample_averaged(self, avgs):#tbd
+    def sample_averaged(self, avgs : int) -> dict[str, np.float64]:
+        """
+        Software averages samples before returning.
+
+        Parameters
+        ----------
+        avgs : int
+
+        Returns
+        -------
+        result : dict(str : np.float64)
+            Samples polled during the last interval of poll and the time in between two polls.
+        
+        Raises
+        ------
+        EOFerror
+            If sample loss is dected.
+        """
         node_lengths = {}
         cumulated_avgs = {}
         
@@ -151,7 +186,6 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
             cumulated_avgs[node] = [values]
         
         while(not all(length >= avgs for length in node_lengths.values())):            
-            
             for node, values in measured.items():
                 count = node_lengths[node] + len(values)
                 if count >= avgs:
@@ -164,8 +198,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         
         for node, values in cumulated_avgs.items():
             print(node, len(np.concatenate(values)))
-        result = {node: np.average(np.concatenate(values)) for node, values in cumulated_avgs.items()}
-        
+        result = {node: np.average(np.concatenate(values)) for node, values in cumulated_avgs.items()}        
         return result
         
             
@@ -230,7 +263,7 @@ if __name__ == "__main__":
     UHFLI.activate_ch0()
     UHFLI.activate_ch1()
     UHFLI.daq.flush()
-    print(UHFLI.sample_averaged(10))
+    print(type(UHFLI.sample_averaged(10)["x0"]))
     
     #%% Print and save the instrument settings
     #print(get_instrument_settings(r"C:\Users\Julian\Documents\Code")["daqM1"])
