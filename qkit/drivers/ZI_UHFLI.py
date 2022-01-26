@@ -196,10 +196,13 @@ class ZI_UHFLI(Instrument):
     def disable_everything(self):
         zhinst.utils.disable_everything(self.daq, self.device)
         
+    def _calc_settle_time(self, demod_index, step_recovery = r"99%"):
+        tc = self.get(f'dem{demod_index}_filter_timeconst')        
+        order = self.get(f"dem{demod_index}_filter_order")
+        return tc * self._filter_settling_factors[step_recovery][order - 1]
+        
     def wait_settle_time(self, demod_index, step_recovery = r"99%"):
-        tc = self.get('dem%d_filter_timeconst' % (demod_index))        
-        order = self.get("dem%d_filter_order" % (demod_index))
-        sleep(tc * self._filter_settling_factors[step_recovery][order - 1])
+        sleep(self._calc_settle_time(demod_index, step_recovery))
         
     '''
     signal ins

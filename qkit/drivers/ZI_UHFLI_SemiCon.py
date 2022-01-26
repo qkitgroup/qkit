@@ -40,7 +40,13 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         self.add_function("create_daq_module")
         self.add_function("activate_ch0")
         self.add_function("activate_ch1")
+        self.add_function("sample_ch1")
+        self.add_function("sample_ch2")
         self.add_function("easy_sub")
+        self.add_function("get_sample")
+        self.add_function("continuous_acquistion")
+        self.add_function("find_slowest_demod")
+        self.add_function("sample_averaged")
         self.add_function("get_sample")
     
     def create_daq_module(self):
@@ -155,13 +161,24 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
                 gotten_traces[f"r{demod_index}"] = np.sqrt(gotten_traces[f"x{demod_index}"]**2 + gotten_traces[f"y{demod_index}"]**2)
         return gotten_traces
     
-    def sample_averaged(self, avgs : int) -> Dict[str, np.float64]:
+    def find_slowest_demod(self):
+        prev_settle_time = 0
+        for path in self.get_daq_sample_path():
+            demod_index = path.split('demods/')[1][0]
+            settle_time = self._calc_settle_time(demod_index, self.get_step_recovery())
+            if settle_time > prev_settle_time:
+                prev_settle_time = settle_time
+                self.slowest_demod = demod_index
+        return self.slowest_demod
+                
+    def sample_averaged(self, avgs : int, wait_settle_time : bool) -> Dict[str, np.float64]:
         """
         Software averages samples before returning.
 
         Parameters
         ----------
         avgs : int
+        wait_settle_time : bool
 
         Returns
         -------
@@ -173,6 +190,10 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         EOFerror
             If sample loss is dected.
         """
+        if wait_settle_time:
+            self.find_slowest_demod()
+            self.wait_settle_time(self.slowest_demod, self.get_step_recovery())
+        
         node_lengths = {}
         cumulated_avgs = {}
         self.daq.flush()
@@ -198,9 +219,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
                     node_lengths[node] = count
                 cumulated_avgs[node] += np.sum(values)
         result = {node: values/avgs for node, values in cumulated_avgs.items()}        
-        return result
-        
-            
+        return result            
     
     def _do_set_daq_sample_path(self, newpath):
         typerr = TypeError("%s: Cannot set %s as daq_sample_path. Object must be a list of strings." % (__name__, newpath))
@@ -262,8 +281,15 @@ if __name__ == "__main__":
     UHFLI.activate_ch0()
     UHFLI.activate_ch1()
     UHFLI.daq.flush()
-    print(UHFLI.sample_averaged(1000)["x0"])
+    print(UHFLI.sample_averaged(100)["x0"])
+    print(UHFLI._find_slowest_demod())
     
+    #%% Time the sample_averaged command
+    import timeit
+    def avgs(num, wait):
+        UHFLI.sample_averaged(num, wait)
+    num_exec = 20
+    print(timeit.timeit("avgs(100, True)", "from __main__ import avgs", number = num_exec)/num_exec)
     #%% Print and save the instrument settings
     #print(get_instrument_settings(r"C:\Users\Julian\Documents\Code")["daqM1"])
 # =============================================================================
