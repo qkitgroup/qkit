@@ -277,8 +277,15 @@ class Watching(mb.MeasureBase):
                     sweepy[f"{name}.{node}"] = []
         return sweepy
                 
-    def measure1D(self):
-        """Starts a 1D - measurement, along the x coordinate."""
+    def measure1D(self, data_to_show = None):
+        """
+        Starts a 1D - measurement, along the x coordinate.
+        
+        Parameters
+        ----------
+        data_to_show : List of strings, optional
+            Name of Datasets, which qviewkit opens at measurement start.
+        """
         assert self._x_parameter, f"{__name__}: Cannot start measure1D. x_parameters required."
         self._measurement_object.measurement_func = "%s: measure1D" % __name__
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter])
@@ -286,7 +293,7 @@ class Watching(mb.MeasureBase):
         self.max_length = len(self._x_parameter.values)
         pb = Progress_Bar(self.max_length * self.multiplexer.no_active_nodes)
         
-        self._open_qviewkit()
+        self._open_qviewkit(datasets = data_to_show)
         
         try:                
             while (not self._finished()):
@@ -306,8 +313,15 @@ class Watching(mb.MeasureBase):
             self.watchdog.reset()
             self._end_measurement()
 
-    def measure2D(self):
-        """Starts a 2D - measurement, with y being the inner and x the outer loop coordinate."""
+    def measure2D(self, data_to_show = None):
+        """
+        Starts a 2D - measurement, with y being the inner and x the outer loop coordinate.
+        
+        Parameters
+        ----------
+        data_to_show : List of strings, optional
+            Name of Datasets, which qviewkit opens at measurement start.
+        """
         assert self._x_parameter, f"{__name__}: Cannot start measure2D. x_parameters required."
         assert self._y_parameter, f"{__name__}: Cannot start measure2D. y_parameters required."
         self._measurement_object.measurement_func = "%s: measure2D" % __name__
@@ -316,7 +330,7 @@ class Watching(mb.MeasureBase):
         self.max_length = len(self._y_parameter.values)
         pb = Progress_Bar(self.max_length * self.multiplexer.no_active_nodes * len(self._x_parameter.values))
         
-        self._open_qviewkit()
+        self._open_qviewkit(datasets = data_to_show)
         
         try:
             for x_val in self._x_parameter.values:
@@ -348,8 +362,15 @@ class Watching(mb.MeasureBase):
             self.watchdog.reset()
             self._end_measurement()
             
-    def measure3D(self):
-        """Starts a 3D - measurement, with z being the innermost, y the inner and x the outer loop coordinate."""
+    def measure3D(self, data_to_show = None):
+        """
+        Starts a 3D - measurement, with z being the innermost, y the inner and x the outer loop coordinate.
+        
+        Parameters
+        ----------
+        data_to_show : List of strings, optional
+            Name of Datasets, which qviewkit opens at measurement start.
+        """
         assert self._x_parameter, f"{__name__}: Cannot start measure3D. x_parameters required."
         assert self._y_parameter, f"{__name__}: Cannot start measure3D. y_parameters required."
         assert self._z_parameter, f"{__name__}: Cannot start measure3D. z_parameters required."
@@ -359,7 +380,7 @@ class Watching(mb.MeasureBase):
         self.max_length = len(self._z_parameter.values)
         pb = Progress_Bar(self.max_length * self.multiplexer.no_active_nodes * len(self._y_parameter.values) * len(self._x_parameter.values))
         
-        self._open_qviewkit()
+        self._open_qviewkit(datasets = data_to_show)
         try:            
             for x_val in self._x_parameter.values:
                 self._x_parameter.set_function(x_val)

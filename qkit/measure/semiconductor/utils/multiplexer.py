@@ -138,6 +138,7 @@ class Sequential_multiplexer:
                                               coords = coords,
                                               unit = unit,
                                               save_timestamp = False))
+        assert datasets, f"{__name__}: Tried to initialize an empty measurement dataset. Register and/or activate measurements."
         return datasets
     
     def measure(self):

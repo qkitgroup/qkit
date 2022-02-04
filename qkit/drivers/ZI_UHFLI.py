@@ -78,36 +78,36 @@ class ZI_UHFLI(Instrument):
         
         self.add_parameter("input_range", type = float,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 2), channel_prefix = "ch%d_",
+                           channels = (0, 1), channel_prefix = "ch%d_",
                            minval = 10e-3, maxval = 1.5, 
                            units = "V")
         
         self.add_parameter("input_scaling", type = float,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 2), channel_prefix = "ch%d_",
+                           channels = (0, 1), channel_prefix = "ch%d_",
                            minval = 1e-12, maxval = 1e12)
         
         self.add_parameter("input_ac_coupling", type = bool,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 2), channel_prefix = "ch%d_")
+                           channels = (0, 1), channel_prefix = "ch%d_")
         
         self.add_parameter("input_50ohm", type = bool,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 2), channel_prefix = "ch%d_") 
+                           channels = (0, 1), channel_prefix = "ch%d_") 
         
         self.add_parameter("input_autorange", type = bool,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 2), channel_prefix = "ch%d_")
+                           channels = (0, 1), channel_prefix = "ch%d_")
         
         self.add_parameter("input_difference", type = str,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 2), channel_prefix = "ch%d_")
+                           channels = (0, 1), channel_prefix = "ch%d_")
         '''
         oscillators
         '''        
         self.add_parameter("carrier_freq", type = float, 
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 2), channel_prefix = "ch%d_",
+                           channels = (0, 1), channel_prefix = "ch%d_",
                            minval = 0, maxval = 600e6,
                            units = "Hz", tags = ["sweep"])
         '''
@@ -115,120 +115,115 @@ class ZI_UHFLI(Instrument):
         '''
         self.add_parameter("demod_harmonic", type = int,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 8), channel_prefix = "dem%d_",
+                           channels = (0, 7), channel_prefix = "dem%d_",
                            minval = 1, maxval = 1023)
         
         self.add_parameter("phase_offs", type = float,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 8), channel_prefix = "dem%d_",
+                           channels = (0, 7), channel_prefix = "dem%d_",
                            minval = 0, maxval = 360,
                            units = "deg", tags = ["sweep"])
         
         self.add_parameter("filter_order", type = int,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 8), channel_prefix = "dem%d_",
+                           channels = (0, 7), channel_prefix = "dem%d_",
                            minval = 1, maxval = 8)
         
         self.add_parameter("filter_timeconst", type = float,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 8), channel_prefix = "dem%d_",
+                           channels = (0, 7), channel_prefix = "dem%d_",
                            minval = 102.6e-9, maxval = 76.35,
                            units = "s", tags = ["sweep"])
         
         self.add_parameter("filter_sinc", type = bool,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 8), channel_prefix = "dem%d_")
+                           channels = (0, 7), channel_prefix = "dem%d_")
         
         self.add_parameter("demod_enable", type = bool,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 8), channel_prefix = "dem%d_")
+                           channels = (0, 7), channel_prefix = "dem%d_")
         
         self.add_parameter("sample_rate", type = float,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 8), channel_prefix = "dem%d_",
+                           channels = (0, 7), channel_prefix = "dem%d_",
                            minval = 1.676, maxval = 14.06e6, 
                            units = "Hz", tags = ["sweep"])
         
         self.add_parameter("trigger_mode", type = str,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 8), channel_prefix = "dem%d_")
+                           channels = (0, 7), channel_prefix = "dem%d_")
         '''
         signal outs:
         '''
         self.add_parameter("output", type = bool,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 2), channel_prefix = "ch%d_")
+                           channels = (0, 1), channel_prefix = "ch%d_")
 
         self.add_parameter("output_50ohm", type = bool,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 2), channel_prefix = "ch%d_")
+                           channels = (0, 1), channel_prefix = "ch%d_")
         
         self.add_parameter("output_range", type = float,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 2), channel_prefix = "ch%d_",
-                           minval = 750e-3, maxval = 1.5,
+                           channels = (0, 1), channel_prefix = "ch%d_",
+                           minval = 75e-3, maxval = 1.5,
                            units = "V")
         
         self.add_parameter("output_offset", type = float,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 2), channel_prefix = "ch%d_",
+                           channels = (0, 1), channel_prefix = "ch%d_",
                            minval = -1.5, maxval = 1.5,
                            units = "V")
         
         self.add_parameter("output_amplitude", type = float,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 2), channel_prefix = "ch%d_",
+                           channels = (0, 1), channel_prefix = "ch%d_",
                            minval = -1.5, maxval = 1.5,
                            units = "V")
         
         self.add_parameter("output_autorange", type = bool,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 2), channel_prefix = "ch%d_")
+                           channels = (0, 1), channel_prefix = "ch%d_")
                 
         self.add_parameter("output_amp_enable", type = bool,
                            flags = ZI_UHFLI.FLAG_GETSET,
-                           channels = (1, 2), channel_prefix = "ch%d_")
+                           channels = (0, 1), channel_prefix = "ch%d_")
         
         #Tell qkit which functions are intended for public use
         self.add_function("disable_everything")
-        self.add_function("create_daq_module")
         self.add_function("wait_settle_time")
-        
-        
-    def create_daq_module(self):
-        return self.daq.dataAcquisitionModule()
-    
-        #Set and get functions for the qkit wrapper, not intended for public use
-        '''
-        signal ins
-        '''
-        
-        #public use functions
+
     def disable_everything(self):
         zhinst.utils.disable_everything(self.daq, self.device)
         
-    def wait_settle_time(self, demod_index, step_recovery = r"99%"):
-        tc = self.get('dem%d_filter_timeconst' % (demod_index))        
-        order = self.get("dem%d_filter_order" % (demod_index))
-        sleep(tc * self._filter_settling_factors[step_recovery][order - 1])
+    def _calc_settle_time(self, demod_index, step_recovery = r"99%"):
+        tc = self.get(f'dem{demod_index}_filter_timeconst')        
+        order = self.get(f"dem{demod_index}_filter_order")
+        return tc * self._filter_settling_factors[step_recovery][order - 1]
         
+    def wait_settle_time(self, demod_index, step_recovery = r"99%"):
+        sleep(self._calc_settle_time(demod_index, step_recovery))
+        
+    '''
+    signal ins
+    '''        
     def _do_set_input_range(self, newrange, channel):
         logging.debug(__name__ + ' : setting range on input channel %s to %s V' % (channel, newrange))
-        self.daq.setDouble("/%s/sigins/%s/range" % (self._device_id, channel-1), newrange)
+        self.daq.setDouble("/%s/sigins/%s/range" % (self._device_id, channel), newrange)
         #self.daq.sync()
     
     def _do_get_input_range(self, channel):
         logging.debug(__name__ + ' : getting range on input channel %s' % channel)
-        return round(float(self.daq.getDouble("/%s/sigins/%s/range" % (self._device_id, channel-1))), 3)
+        return round(float(self.daq.getDouble("/%s/sigins/%s/range" % (self._device_id, channel))), 3)
     
     def _do_set_input_scaling(self, newscale, channel):
         logging.debug(__name__ + ' : setting scaling on input channel %s to %s' % (channel, newscale))
-        self.daq.setDouble("/%s/sigins/%s/scaling" % (self._device_id, channel-1), newscale)
+        self.daq.setDouble("/%s/sigins/%s/scaling" % (self._device_id, channel), newscale)
         #self.daq.sync()
     
     def _do_get_input_scaling(self, channel):
         logging.debug(__name__ + ' : getting scaling on input channel %s' % channel)
-        return round(float(self.daq.getDouble("/%s/sigins/%s/scaling" % (self._device_id, channel-1))), 3)
+        return round(float(self.daq.getDouble("/%s/sigins/%s/scaling" % (self._device_id, channel))), 3)
     
     
     def _do_set_input_ac_coupling(self, onoff, channel):
@@ -238,12 +233,12 @@ class ZI_UHFLI(Instrument):
         else:
             logging.debug(__name__ + ' : setting coupling on input channel %s to dc' % channel)
             status = 0
-        self.daq.setInt('/%s/sigins/%s/ac' % (self._device_id, channel-1), status)
+        self.daq.setInt('/%s/sigins/%s/ac' % (self._device_id, channel), status)
         #self.daq.sync()
     
     def _do_get_input_ac_coupling(self, channel):
         logging.debug(__name__ + ' : getting the coupling on input channel %s' % channel)
-        if self.daq.getInt('/%s/sigins/%s/ac' % (self._device_id, channel-1)):
+        if self.daq.getInt('/%s/sigins/%s/ac' % (self._device_id, channel)):
             return True
         else:
             return False
@@ -256,12 +251,12 @@ class ZI_UHFLI(Instrument):
         else:
             logging.debug(__name__ + ' : setting impedance on input channel %s to 1 MOhm' % channel)
             status = 0
-        self.daq.setInt('/%s/sigins/%s/imp50' % (self._device_id, channel-1), status)
+        self.daq.setInt('/%s/sigins/%s/imp50' % (self._device_id, channel), status)
         #self.daq.sync()
     
     def _do_get_input_50ohm(self, channel):
         logging.debug(__name__ + ' : getting the impedance of input channel %s' % channel)
-        if self.daq.getInt('/%s/sigins/%s/imp50' % (self._device_id, channel-1)):
+        if self.daq.getInt('/%s/sigins/%s/imp50' % (self._device_id, channel)):
             return True
         else:
             return False
@@ -274,12 +269,12 @@ class ZI_UHFLI(Instrument):
         else:
             logging.debug(__name__ + ' : deactivating autorange on input channel %s' % channel)
             status = 0
-        self.daq.setInt('/%s/sigins/%s/autorange' % (self._device_id, channel-1), status)
+        self.daq.setInt('/%s/sigins/%s/autorange' % (self._device_id, channel), status)
         #self.daq.sync()
     
     def _do_get_input_autorange(self, channel):
         logging.debug(__name__ + ' : getting the autorange status of input channel %s' % channel)
-        if self.daq.getInt('/%s/sigins/%s/autorange' % (self._device_id, channel-1)):
+        if self.daq.getInt('/%s/sigins/%s/autorange' % (self._device_id, channel)):
             return True
         else:
             return False
@@ -288,67 +283,67 @@ class ZI_UHFLI(Instrument):
     def _do_set_input_difference(self, newmode, channel):
         logging.debug(__name__ + " : setting difference mode on input channel %s to %s" % (channel, newmode))
         try:
-            self.daq.setInt('/%s/sigins/%s/diff' % (self._device_id, channel-1), self._difference_mode_dict[newmode])
+            self.daq.setInt('/%s/sigins/%s/diff' % (self._device_id, channel), self._difference_mode_dict[newmode])
         except:
             logging.warning("Hahahaha. Your difference mode is invaliiiiid!")
     
     def _do_get_input_difference(self, channel):
         logging.debug(__name__ + ' : getting difference mode on input channel %s' % channel)
-        return self._inv_difference_mode_dict[self.daq.getInt('/%s/sigins/%s/diff' % (self._device_id, channel-1))]
+        return self._inv_difference_mode_dict[self.daq.getInt('/%s/sigins/%s/diff' % (self._device_id, channel))]
     '''
     oscillators
     '''    
     def _do_set_carrier_freq(self, newfreq, channel):
         logging.debug(__name__ + ' : setting carrier frequency on channel %s to %s Hz' % (channel, newfreq))
-        self.daq.setDouble("/%s/oscs/%s/freq" % (self._device_id, channel-1), newfreq)
+        self.daq.setDouble("/%s/oscs/%s/freq" % (self._device_id, channel), newfreq)
         #self.daq.sync()
     
     def _do_get_carrier_freq(self, channel):
         logging.debug(__name__ + ' : getting carrier frequency on channel %s' % channel)
-        return round(float(self.daq.getDouble("/%s/oscs/%s/freq" % (self._device_id, channel-1))), 3)
+        return round(float(self.daq.getDouble("/%s/oscs/%s/freq" % (self._device_id, channel))), 3)
     '''
     demodulators
     '''
     def _do_set_demod_harmonic(self, newharmonic, channel):
         logging.debug(__name__ + " : setting harmonic on demodulator %s to %s" % (channel, newharmonic))
-        self.daq.setInt("/%s/demods/%s/harmonic" % (self._device_id, channel-1), newharmonic)
+        self.daq.setInt("/%s/demods/%s/harmonic" % (self._device_id, channel), newharmonic)
         #self.daq.sync()
     
     def _do_get_demod_harmonic(self, channel):
         logging.debug(__name__ + ' : getting harmonic on demodulator %s' % channel)
-        return int(self.daq.getInt("/%s/demods/%s/harmonic" % (self._device_id, channel-1)))
+        return int(self.daq.getInt("/%s/demods/%s/harmonic" % (self._device_id, channel)))
 
 
     def _do_set_phase_offs(self, newoffs, channel):
         logging.debug(__name__ + " : setting phase offset on demodulator %s to %s deg" % (channel, newoffs))
-        self.daq.setDouble("/%s/demods/%s/phaseshift" % (self._device_id, channel-1), newoffs)
+        self.daq.setDouble("/%s/demods/%s/phaseshift" % (self._device_id, channel), newoffs)
         #self.daq.sync()
     
     def _do_get_phase_offs(self, channel):
         logging.debug(__name__ + ' : getting phase offset on demodulator %s' % channel)
-        return round(float(self.daq.getDouble("/%s/demods/%s/phaseshift" % (self._device_id, channel-1))), 3)
+        return round(float(self.daq.getDouble("/%s/demods/%s/phaseshift" % (self._device_id, channel))), 3)
     
     
     def _do_set_filter_order(self, neworder, channel):
         logging.debug(__name__ + " : setting filter order on demodulator %s to %s" % (channel, neworder))
-        self.daq.setInt('/%s/demods/%s/order' % (self._device_id, channel-1) , neworder)
+        self.daq.setInt('/%s/demods/%s/order' % (self._device_id, channel) , neworder)
         #self.daq.sync()
         self.wait_settle_time(channel)        
         
     def _do_get_filter_order(self, channel):
         logging.debug(__name__ + ' : getting filter order on demodulator %s' % channel)
-        return(self.daq.getInt('/%s/demods/%s/order' % (self._device_id, channel-1)))
+        return(self.daq.getInt('/%s/demods/%s/order' % (self._device_id, channel)))
         
         
     def _do_set_filter_timeconst(self, newtc, channel):
         logging.debug(__name__ + " : setting filter time constant on demodulator %s to %s s" % (channel, newtc))
-        self.daq.setDouble('/%s/demods/%s/timeconstant' % (self._device_id, channel-1), newtc)
+        self.daq.setDouble('/%s/demods/%s/timeconstant' % (self._device_id, channel), newtc)
         #self.daq.sync()
         self.wait_settle_time(channel)
     
     def _do_get_filter_timeconst(self, channel):
         logging.debug(__name__ + ' : getting filter timeconstant on demodulator %s' % channel)
-        return float(self.daq.getDouble('/%s/demods/%s/timeconstant' % (self._device_id, channel-1)))
+        return float(self.daq.getDouble('/%s/demods/%s/timeconstant' % (self._device_id, channel)))
     
     
     def _do_set_filter_sinc(self, onoff, channel):
@@ -358,12 +353,12 @@ class ZI_UHFLI(Instrument):
         else:
             logging.debug(__name__ + ' : deactivating sinc filter on demodulator %s' % channel)
             status = 0
-        self.daq.setInt('/%s/demods/%s/sinc' % (self._device_id, channel-1), status)
+        self.daq.setInt('/%s/demods/%s/sinc' % (self._device_id, channel), status)
         #self.daq.sync()
     
     def _do_get_filter_sinc(self, channel):
         logging.debug(__name__ + ' : getting sinc filter status on demodulator %s' % channel)
-        if self.daq.getInt('/%s/demods/%s/sinc' % (self._device_id, channel-1)):
+        if self.daq.getInt('/%s/demods/%s/sinc' % (self._device_id, channel)):
             return True
         else:
             return False
@@ -376,12 +371,12 @@ class ZI_UHFLI(Instrument):
         else:
             logging.debug(__name__ + ' : deactivating demodulator %s' % channel)
             status = 0
-        self.daq.setInt('/%s/demods/%s/enable' % (self._device_id, channel-1), status)
+        self.daq.setInt('/%s/demods/%s/enable' % (self._device_id, channel), status)
         #self.daq.sync()
     
     def _do_get_demod_enable(self, channel):
         logging.debug(__name__ + ' : getting status of demodulator %s' % channel)
-        if self.daq.getInt('/%s/demods/%s/enable' % (self._device_id, channel-1)):
+        if self.daq.getInt('/%s/demods/%s/enable' % (self._device_id, channel)):
             return True
         else:
             return False
@@ -389,24 +384,24 @@ class ZI_UHFLI(Instrument):
     
     def _do_set_sample_rate(self, newrate, channel):
         logging.debug(__name__ + " : setting sample rate on demodulator %s to %s s" % (channel, newrate))
-        self.daq.setDouble('/%s/demods/%s/rate' % (self._device_id, channel-1), newrate)
+        self.daq.setDouble('/%s/demods/%s/rate' % (self._device_id, channel), newrate)
         #self.daq.sync()
     
     def _do_get_sample_rate(self, channel):
         logging.debug(__name__ + ' : getting sample rate on demodulator %s' % channel)
-        return float(self.daq.getDouble('/%s/demods/%s/rate' % (self._device_id, channel-1)))
+        return float(self.daq.getDouble('/%s/demods/%s/rate' % (self._device_id, channel)))
     
     
     def _do_set_trigger_mode(self, newmode, channel):
         logging.debug(__name__ + " : setting trigger mode on demodulator %s to %s" % (channel, newmode))
         try:
-            self.daq.setInt('/%s/demods/%s/trigger' % (self._device_id, channel-1), self._trigger_mode_dict[newmode])
+            self.daq.setInt('/%s/demods/%s/trigger' % (self._device_id, channel), self._trigger_mode_dict[newmode])
         except:
             logging.warning("You entered an invalid trigger mode, puny human.")
     
     def _do_get_trigger_mode(self, channel):
         logging.debug(__name__ + ' : getting trigger mode on demodulator %s' % channel)
-        return self._inv_trigger_mode_dict[self.daq.getInt('/%s/demods/%s/trigger' % (self._device_id, channel-1))]
+        return self._inv_trigger_mode_dict[self.daq.getInt('/%s/demods/%s/trigger' % (self._device_id, channel))]
     '''
     signal outs
     '''
@@ -417,12 +412,12 @@ class ZI_UHFLI(Instrument):
         else:
             logging.debug(__name__ + ' : deactivating output channel %s' % channel)
             status = 0
-        self.daq.setInt('/%s/sigouts/%s/on' % (self._device_id, channel-1), status)
+        self.daq.setInt('/%s/sigouts/%s/on' % (self._device_id, channel), status)
         #self.daq.sync()
     
     def _do_get_output(self, channel):
         logging.debug(__name__ + ' : getting status of output channel %s' % channel)
-        if self.daq.getInt('/%s/sigouts/%s/on' % (self._device_id, channel-1)):
+        if self.daq.getInt('/%s/sigouts/%s/on' % (self._device_id, channel)):
             return True
         else:
             return False
@@ -431,18 +426,18 @@ class ZI_UHFLI(Instrument):
     def _do_set_output_50ohm(self, onoff, channel):
         if onoff:
             logging.debug(__name__ + ' : expecting a 50ohm load on output channel %s' % channel)
-            self.set_parameter_bounds("ch%d_output_range" % channel, 75e-3, 150e-3)
+            self.set_parameter_bounds("ch%d_output_range" % channel, 75e-3, 750e-3)
             status = 1
         else:
             logging.debug(__name__ + ' : expecting a HiZ load on output channel %s' % channel)
-            self.set_parameter_bounds("ch%d_output_range" % channel, 750e-3, 1.5)
+            self.set_parameter_bounds("ch%d_output_range" % channel, 150e-3, 1.5)
             status = 0
-        self.daq.setInt('/%s/sigouts/%s/imp50' % (self._device_id, channel-1), status)
+        self.daq.setInt('/%s/sigouts/%s/imp50' % (self._device_id, channel), status)
         #self.daq.sync()
     
     def _do_get_output_50ohm(self, channel):
         logging.debug(__name__ + ' : getting the expected load impedance of output channel %s' % channel)
-        if self.daq.getInt('/%s/sigouts/%s/imp50' % (self._device_id, channel-1)):
+        if self.daq.getInt('/%s/sigouts/%s/imp50' % (self._device_id, channel)):
             return True
         else:
             return False
@@ -450,42 +445,42 @@ class ZI_UHFLI(Instrument):
 
     def _do_set_output_range(self,newrange,channel):
         valuesarray = np.array([75e-3, 750e-3])
-        if not self.daq.getInt('/%s/sigouts/%s/imp50' % (self._device_id, channel-1)):
+        if not self.daq.getInt('/%s/sigouts/%s/imp50' % (self._device_id, channel)):
             valuesarray = 2 * valuesarray
         if newrange not in valuesarray:
             index = np.searchsorted(valuesarray, newrange, side = 'right')-1
             newrange = valuesarray[index if index >= 0 else 0]
             logging.warning(__name__ + " : Invalid output range value. Setting output range to next lower value: %s" % newrange)
             
-        logging.debug(__name__ + ': setting range on output channel %s to %s V' % (channel-1, newrange))
+        logging.debug(__name__ + ': setting range on output channel %s to %s V' % (channel, newrange))
         self.set_parameter_bounds("ch%d_output_offset" % channel, -newrange, newrange)
         self.set_parameter_bounds("ch%d_output_amplitude" % channel, -newrange, newrange)
-        self.daq.setDouble('/%s/sigouts/%s/range' % (self._device_id, channel-1), newrange)
+        self.daq.setDouble('/%s/sigouts/%s/range' % (self._device_id, channel), newrange)
         #self.daq.sync()
     
     def _do_get_output_range(self, channel):
         logging.debug(__name__ + ' : getting range on output channel %s' % channel)
-        return float(self.daq.getDouble('/%s/sigouts/%s/range' % (self._device_id, channel-1)))
+        return float(self.daq.getDouble('/%s/sigouts/%s/range' % (self._device_id, channel)))
     
     
     def _do_set_output_offset(self, newoffs, channel):
         logging.debug(__name__ + " : setting offset on output channel %s to %s s" % (channel, newoffs))
-        self.daq.setDouble('/%s/sigouts/%s/offset' % (self._device_id, channel-1), newoffs)
+        self.daq.setDouble('/%s/sigouts/%s/offset' % (self._device_id, channel), newoffs)
         #self.daq.sync()
     
     def _do_get_output_offset(self, channel):
         logging.debug(__name__ + " : getting offset on output channel %s" % channel)
-        return float(self.daq.getDouble('/%s/sigouts/%s/offset' % (self._device_id, channel-1)))
+        return float(self.daq.getDouble('/%s/sigouts/%s/offset' % (self._device_id, channel)))
     
     
     def _do_set_output_amplitude(self, newampl, channel):
         logging.debug(__name__ + " : setting amplitude on output channel %s to %s s" % (channel, newampl))
-        self.daq.setDouble('/%s/sigouts/%s/amplitudes/%s' % (self._device_id, channel-1, 3 + 4 * (channel-1)), newampl)
+        self.daq.setDouble('/%s/sigouts/%s/amplitudes/%s' % (self._device_id, channel, 3 + 4 * (channel)), newampl)
         #self.daq.sync()
     
     def _do_get_output_amplitude(self, channel):
         logging.debug(__name__ + " : getting amplitude on output channel %s" % channel)
-        return float(self.daq.getDouble('/%s/sigouts/%s/amplitudes/%s' % (self._device_id, channel-1, 3 + 4 * (channel-1))))
+        return float(self.daq.getDouble('/%s/sigouts/%s/amplitudes/%s' % (self._device_id, channel, 3 + 4 * (channel))))
     
 
     def _do_set_output_autorange(self, onoff, channel):
@@ -495,12 +490,12 @@ class ZI_UHFLI(Instrument):
         else:
             logging.debug(__name__ + ' : deactivating autorange on output channel %s' % channel)
             status = 0
-        self.daq.setInt('/%s/sigouts/%s/autorange' % (self._device_id, channel-1), status)
+        self.daq.setInt('/%s/sigouts/%s/autorange' % (self._device_id, channel), status)
         #self.daq.sync()
     
     def _do_get_output_autorange(self, channel):
         logging.debug(__name__ + ' : getting autorange status on output channel %s' % channel)
-        if self.daq.getInt('/%s/sigouts/%s/autorange' % (self._device_id, channel-1)):
+        if self.daq.getInt('/%s/sigouts/%s/autorange' % (self._device_id, channel)):
             return True
         else:
             return False
@@ -513,12 +508,12 @@ class ZI_UHFLI(Instrument):
         else:
             logging.debug(__name__ + ' : deactivating amplitude on channel %s' % channel)
             status = 0
-        self.daq.setInt('/%s/sigouts/%s/enables/%s'  % (self._device_id, channel-1, 3 + 4 * (channel-1)), status)
+        self.daq.setInt('/%s/sigouts/%s/enables/%s'  % (self._device_id, channel, 3 + 4 * (channel)), status)
         #self.daq.sync()
     
     def _do_get_output_amp_enable(self, channel):
         logging.debug(__name__ + ' : getting amplitude status on output channel %s' % channel)
-        if self.daq.getInt('/%s/sigouts/%s/enables/%s'  % (self._device_id, channel-1, 3 + 4 * (channel-1))):
+        if self.daq.getInt('/%s/sigouts/%s/enables/%s'  % (self._device_id, channel, 3 + 4 * (channel))):
             return True
         else:
             return False        
