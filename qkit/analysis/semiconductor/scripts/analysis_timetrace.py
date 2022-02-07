@@ -1,12 +1,10 @@
 #%%
-import sys
-sys.path.insert(0, "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/scripts/")
 import copy
-import gc 
 
-from main_func import Loaderh5, PlotterPlungerSweep, PlotterTimetraceCond, PlotterTimetraceR, PlotterTimetracePhase, SliceTimetrace
-from main_func import AnalyzerPlungerSweep, AnalyzerTimetraceSpecralNoiseDensity, PlotterTimetraceSpectralNoiseDensity
-from main_func import rotate_phase
+from qkit.analysis.semiconductor.basic_functionality import Loaderh5, rotate_phase
+from qkit.analysis.semiconductor.timetrace_functionality import  PlotterPlungerSweep, PlotterTimetraceCond, PlotterTimetraceR, PlotterTimetracePhase, SliceTimetrace
+from qkit.analysis.semiconductor.timetrace_functionality import AnalyzerPlungerSweep, AnalyzerTimetraceSpecralNoiseDensity, PlotterTimetraceSpectralNoiseDensity
+
 
 settings = {"file_info" : {
                 "absolute_path" : "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/-3V/cooldown_1/",
