@@ -2,11 +2,15 @@ import numpy as np
 import h5py
 import pathlib
 import math
+import gc 
+import copy
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.colors import BoundaryNorm
 from matplotlib.ticker import MaxNLocator
 from scipy import signal
+from scipy.optimize import curve_fit
+
 
 
 
@@ -65,7 +69,19 @@ def create_saving_path(settings):
     return path + "/"   
     
     
+def make_len_eq(data, keys):
+    """Takes a data dict and looks at two entries. Cuts away the end of data of the longer one to make 
+    both equal length.
+    """
+    len1 = len(data[keys[0]])
+    len2 = len(data[keys[1]])
+    if len1 != len2:
+        if len1 < len2:
+            data[keys[1]] = data[keys[1]][:len1]
+        else:
+            data[keys[0]] = data[keys[0]][:len2]
 
+    return data
 
 
 class Loaderh5:
@@ -95,12 +111,15 @@ class PlotterSemiconInit(Figure):
         self.ax.title.set_size(fontsize=14) 
         self.ax.xaxis.label.set_size(fontsize=12)
         self.ax.yaxis.label.set_size(fontsize=12)
+        plt.rcParams['agg.path.chunksize'] = 10000 # makes saving too big data sets possible. 
      
-    def close_fig(self):
-        """Frees RAM and closes fig.
+    def close_delete(self):
+        """Closes fig and deletes instance to free RAM.
         """
         self.fig.clear()
         plt.close(self.fig)
+        del self
+        gc.collect()
 
 
 
@@ -117,14 +136,15 @@ class PlotterTimetraceCond(PlotterSemiconInit):
     def plot(self, settings, data, nodes:list, savename="timetrace", label="-", title="Timetrace"):
         """nodes are time and x,y,R of lock-in like ["demod0.timestamp0", "demod0.x0"].
         """
+        data = make_len_eq(data, nodes)
         self.ax.set_title(title)
         self.ax.set_xlabel("Time (s)")
         self.ax.set_ylabel("Conductance ($\mu$S)")
         self.ax.plot(convert_secs(data[nodes[0]]), convert_conductance(data[nodes[1]], settings, multiplier=1e6), label)
         plt.savefig(f"{create_saving_path(settings)}/{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
         plt.show()
-        self.close_fig()
-
+        self.close_delete()
+        
 
 class PlotterTimetraceR(PlotterSemiconInit):
     """Plots a timetrace of the lock-in amplitude over time. 
@@ -137,13 +157,14 @@ class PlotterTimetraceR(PlotterSemiconInit):
     def plot(self, settings, data, nodes:list, savename="timetrace", label="-", title="Timetrace"):
         """nodes are time and x,y,R of lock-in like ["demod0.timestamp0", "demod0.x0"].
         """
+        data = make_len_eq(data, nodes)
         self.ax.set_title(title)
         self.ax.set_xlabel("Time (s)")
         self.ax.set_ylabel("Lock-in R (mV)")
         self.ax.plot(convert_secs(data[nodes[0]]), data[nodes[1]]*1000, label)
         plt.savefig(f"{create_saving_path(settings)}/{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
         plt.show()
-        self.close_fig()
+        self.close_delete()
         
 
 class PlotterTimetracePhase(PlotterSemiconInit):
@@ -155,9 +176,14 @@ class PlotterTimetracePhase(PlotterSemiconInit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
                
-    def plot(self, settings, data, nodes, savename="timetrace_phase", label="-"):
+    def plot(self, settings, data, nodes, savename="timetrace_phase", label="-", x_limits=[], y_limits=[]):
         """nodes are t, x, y of lock-in like ["demod0.timestamp0", "demod0.x0", "demod0.y0"].
         """
+        data = make_len_eq(data, nodes)
+        if len(x_limits) == 2:
+            self.ax.set_xlim(x_limits)
+        if len(y_limits) == 2:
+            self.ax.set_ylim(y_limits)
         self.ax.set_title("Timetrace")
         self.ax.set_xlabel("Time (s)")
         self.ax.set_ylabel("Phase (deg)")
@@ -165,10 +191,11 @@ class PlotterTimetracePhase(PlotterSemiconInit):
         self.ax.plot(convert_secs(data[nodes[0]]), self.phase, label)
         plt.savefig(f"{create_saving_path(settings)}/{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
         plt.show()
-    
+        self.close_delete()
+
 
 class SliceTimetrace:
-    """Slices data_x and data_y by beginning and ending values of x in seconds.
+    """Slices data by beginning and ending values of the time (first node entry) in seconds.
     """
     def __init__(self, begin, end):
         """initialize with beginning and ending.
@@ -181,16 +208,12 @@ class SliceTimetrace:
         end_x = data[nodes[0]][0] + self.end * f
         index_begin = map_array_to_index(data[nodes[0]], begin_x)
         index_end = map_array_to_index(data[nodes[0]], end_x)
-        sliced_x = data[nodes[0]][index_begin : index_end]
-        sliced_y = data[nodes[1]][index_begin : index_end]
+        data_sliced = {}
+        for key in nodes:
+            data_sliced[key] = data[key][index_begin : index_end]
         
-        return {f"{nodes[0]}" : sliced_x, f"{nodes[1]}" : sliced_y,}
-    
-
-class SlicePlungerTimetrace:
-    """Slices.
-    """
-    #def make_slice_plunger_timetrace(self, timestamps,   )    
+        return data_sliced
+      
 
     
 class AnalyzerPlungerSweep:
@@ -220,13 +243,16 @@ class PlotterPlungerSweep(PlotterSemiconInit):
     """
     number_of_traces = 1
 
-    def plot(self, settings, settings_plunger, data, nodes, fit_params=None, savename="plunger_sweep", color="r"):
+    def plot(self, settings, settings_plunger, data, nodes, fit_params=None, savename="plunger_sweep", color="r", x_limits=[]):
+        data = make_len_eq(data, nodes)
         y_axis_factor = 1000  #scales y axis to mV
         self.ax.set_title("Plunger Gate Sweep")
         self.ax.set_xlabel("Voltage (V)")
         self.ax.set_ylabel("Lock-in Voltage (mV)")
         self.data_x = data[nodes[0]]
         self.data_y = data[nodes[1]]*y_axis_factor
+        if len(x_limits) == 2:
+            self.ax.set_xlim(x_limits)
         self.ax.plot(self.data_x, self.data_y)
         if fit_params != None:
             poly1d_fn = np.poly1d(fit_params["fit_coef"])
@@ -237,7 +263,7 @@ class PlotterPlungerSweep(PlotterSemiconInit):
         plt.savefig(f"{create_saving_path(settings_plunger)}/{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
         plt.savefig(f"{create_saving_path(settings)}/{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches) 
         plt.show() 
-
+        self.close_delete()
 
 
 
@@ -250,18 +276,38 @@ class AnalyzerTimetraceSpecralNoiseDensity:
     number_of_traces = 1
     
     def analyze(self, sampling_freq, fit_params, data, nodes):
-        freqs, times, spectrogram = signal.spectrogram(data[nodes[0]] / fit_params['fit_coef'][0], fs = sampling_freq, nperseg = len(data)) 
-       
-        return {"freq" : freqs, "times" : times, "spectrogram": spectrogram}
+        if fit_params is None: # for reference measurements without plunger gate sweeps
+            fit_params = {}
+            fit_params["fit_coef"] = [1]
+        freqs, times, spectrogram = signal.spectrogram(data[nodes[0]] / fit_params['fit_coef'][0], fs = sampling_freq, nperseg = len(data[nodes[0]])) 
+        
+        #freqs[0]=0 ; this is cut
+        return {"freq" : freqs[1:], "times" : times[1:], "spectrogram": spectrogram.flatten()[1:]}
     
+    def fit(self, spectrum, guess=None):
+        """Fits f(x)= a*x^b to data. Return is an array of a, b.
+        guess is an array or list of starting values for a, b.  
+        """
+        #make data slice around 1Hz
+        index_begin = map_array_to_index(spectrum["freq"], 1e-1)
+        index_end = map_array_to_index(spectrum["freq"], 1e1)
+        freqs = spectrum["freq"][index_begin : index_end]
+        spec = spectrum["spectrogram"][index_begin : index_end]
+
+        def func(x, a, b):
+            return a * np.power(x, b)
+        popt, cov = curve_fit(func, freqs, np.sqrt(spec), p0=guess, maxfev=10000000)
+    
+        return {"popt" : popt, "cov" : cov, "SND1Hz" : func(1, *popt)}
+
 
 class PlotterTimetraceSpectralNoiseDensity(PlotterSemiconInit):
     """Plots the spectral noise density.
     """
     number_of_traces = 1
 
-    def plot(self, settings, data, fit_params, savename=None, xlim:list=None, ylim:list=None, dotsize=0.5):
-        self.ax.set_title("Spectral noise density")
+    def plot(self, settings, data, fit_params, savename=None, xlim:list=None, ylim:list=None, dotsize=0.5, fiftyHz:bool=False, fit_vals=None):
+        self.ax.set_title("Spectral Noise Density")
         self.ax.set_xscale("log")
         self.ax.set_yscale("log")
         self.ax.set_xlabel("Frequency (Hz)")
@@ -270,30 +316,100 @@ class PlotterTimetraceSpectralNoiseDensity(PlotterSemiconInit):
             self.ax.set_xlim(xlim)
         if ylim != None:
             self.ax.set_ylim(ylim)
-        self.ax.plot(data["freq"], np.sqrt(data["spectrogram"]), "ok", markersize=dotsize)
-#        freq_line = np.arange(1e-4, 1e4, 1)
-#        plt.plot(freq_line, 2*1e-8 * freq_line**(-1), color="orange", label="$1 / f$" )
-#        plt.tight_layout()
-#        plt.legend()
+        if fit_params is None: # for reference measurements without plunger gate sweeps
+            fit_params = {}
+            fit_params["fit_coef"] = [1]
         if savename == None:
-            savename = f"SND_slope_{fit_params['fit_coef'][0]:.0f}"
+            savename = f"SND_slope_{fit_params['fit_coef'][0]:.3f}"
+
+        if fiftyHz == True: #plotting 50Hz multiples
+            savename += "_50Hz"
+            freqs = []
+            signals = []
+            for f in [i*50 for i in range(30)]:
+                freqs.extend([f]*1000 )
+                signals.extend(np.logspace(-8, -1, 1000))
+            self.ax.plot(freqs, signals, "yo", markersize=dotsize)
+
+        self.ax.plot(data["freq"], np.sqrt(data["spectrogram"]), "ok", markersize=dotsize)
+
+        if fit_vals is not None:
+            def func(x, a, b):
+                return a * np.power(x, b) 
+            index_begin = map_array_to_index(data["freq"], 1e-1)
+            index_end = map_array_to_index(data["freq"], 1e1)
+            freqs = data["freq"][index_begin : index_end]
+            text = f"SD(1Hz): {fit_vals['popt'][0]*1e6:.1f} " + "$\mathrm{\mu V}/\sqrt{\mathrm{Hz}}$"
+            self.ax.plot(freqs, func(freqs, *fit_vals["popt"]), label=text)
+            self.ax.legend(loc="lower left")
+
+        plt.grid()
         plt.savefig(f"{create_saving_path(settings)}/{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
         plt.show()
+        self.close_delete()
+
+
+
+class PlotterAccumulation(PlotterSemiconInit):
+    """Plots Accumulation voltages over bias cooling voltage.
+    """
+    def plot(self, data, savename="accumulations_biascooling", shape="^", size=100, transparency=1):
+        self.ax.set_title("Accumulation Voltages depending on Bias Cooling")
+        self.ax.set_xlabel("Bias Cooling Voltage (V)")
+        self.ax.set_ylabel("Accumulation Voltage (V)")
+        #self.ax.set_ylabel("Bias Cooling Voltage (V)")
+        #self.ax.set_xlabel("Accumulation Voltage (V)")
+        for cooldown in data:
+            self.ax.scatter(cooldown["bias_V"], cooldown["first_acc_V"], marker=shape, s=size, alpha=transparency)
+            #self.ax.scatter( cooldown["first_acc_V"], cooldown["bias_V"], marker=shape, s=size, alpha=transparency)
+        plt.grid()
+        plt.savefig(f"{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
+        plt.show() 
+        self.close_delete()
+
+
+
+def rotate_phase(data, nodes, phase_offset_deg):
+    """Gives phase offset to x and y data (given in nodes) not to phi node.
+    """
+    R = np.sqrt(np.add(np.power(data[nodes[0]], 2), np.power(data[nodes[1]], 2)))
+    phi = np.arctan2(data[nodes[1]], data[nodes[0]])
+    phi = phi + phase_offset_deg*np.pi/180
+    data_sliced = copy.deepcopy(data)
+    data_sliced[nodes[0]] = R * np.cos(phi)
+    data_sliced[nodes[1]] = R * np.sin(phi)  
+
+    return data_sliced
+
+
+
+
 
 
 ##############################################################
 #2D Data Plunger Timetrace
    
+class SlicePlungerTimetrace:
+    """Slices.
+    """
+    #def make_slice_plunger_timetrace(self, timestamps,   )  
+    
+
+       
 class PlotterPlungerTimetrace3D:
     """Plots 3D data.
     """
-    def plot(self, settings, data_x, data_y, data_z, colorcode="viridis", savename="Plunger_timetrace"):
+    def plot(self, settings, data_x, data_y, data_z, colorcode="viridis", savename="Plunger_timetrace", min=None, max=None):
         """good color codes might be viridis, PiYG, plasma, gist_rainbow...
         """
         data_z = np.transpose(convert_conductance(data_z, settings, 1e6))
         plt.xlabel("Time (h)", fontsize=12)
         plt.ylabel("Voltage plunger gate", fontsize=12)
-        levels = MaxNLocator(nbins=100).tick_values(data_z.min(), data_z.max())
+        if min is None:
+            min = data_z.min()
+        if max is None:
+            max = data_z.max()
+        levels = MaxNLocator(nbins=100).tick_values(min, max)
         cmap = plt.get_cmap(colorcode)
         norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
         plt.pcolormesh(convert_secs_2D(data_x)/3600, data_y, data_z, cmap=cmap, norm=norm)
@@ -309,8 +425,7 @@ class AnalyzerPeakTracker:
     def analyze(self, settings, data_x, data_y, data_z, colorcode="viridis", name="Plunger_timetrace_tracked"):
         pass
     
-    
-    
+
     
 #    import os, fnmatch
         

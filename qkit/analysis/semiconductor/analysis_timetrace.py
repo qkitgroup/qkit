@@ -2,9 +2,11 @@
 import sys
 sys.path.insert(0, "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/scripts/")
 import copy
+import gc 
 
 from main_func import Loaderh5, PlotterPlungerSweep, PlotterTimetraceCond, PlotterTimetraceR, PlotterTimetracePhase, SliceTimetrace
-from main_func import AnalyzerPlungerSweep, AnalyzerTimetraceSpecralNoiseDensity, PlotterTimetraceSpectralNoiseDensity 
+from main_func import AnalyzerPlungerSweep, AnalyzerTimetraceSpecralNoiseDensity, PlotterTimetraceSpectralNoiseDensity
+from main_func import rotate_phase
 
 settings = {"file_info" : {
                 "absolute_path" : "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/-3V/cooldown_1/",
@@ -17,7 +19,7 @@ settings = {"file_info" : {
                 "measurement_amp" : 100e-6,
                 "voltage_divider" : 3,
                 "IVgain" : 1e8,
-                "in_line_R": 45e3}
+                "in_line_R": 40e3}
             }
 
 
@@ -42,6 +44,7 @@ plotter_timetrace.plot(settings, data, ["demod0.timestamp0", "demod0.x0"], saven
 plotter_timetrace = PlotterTimetraceR()
 plotter_timetrace.plot(settings, data, ["demod0.timestamp0", "demod0.y0"], savename="timetrace_y", title="Timetrace y")
 
+
 #%% Plot Timetrace Cond R
 plotter_timetrace = PlotterTimetraceCond()
 plotter_timetrace.plot(settings, data, ["demod0.timestamp0", "demod0.r0"], savename="timetraceCond_R", title="Timetrace R")
@@ -60,17 +63,41 @@ plotter_phase.plot(settings, data, ["demod0.timestamp0", "demod0.x0", "demod0.y0
 
 
 #%% Slice Timetrace
-begin, end = 0, 1800 #seconds
+begin, end = 0, 100 #seconds
 slicer = SliceTimetrace(begin, end)
-data_sliced = slicer.make_slice_timetrace(data, ["demod0.timestamp0", "demod0.r0"])
+data_sliced = slicer.make_slice_timetrace(data, ["demod0.timestamp0", "demod0.r0", "demod0.x0", "demod0.y0"])
 
+
+plotter_timetrace = PlotterTimetraceR()
+plotter_timetrace.plot(settings, data_sliced, ["demod0.timestamp0", "demod0.r0"], savename="timetrace_sliced_R", title="Timetrace R")
+plotter_timetrace = PlotterTimetraceR()
+plotter_timetrace.plot(settings, data_sliced, ["demod0.timestamp0", "demod0.x0"], savename="timetrace_sliced_x", title="Timetrace x")
+plotter_timetrace = PlotterTimetraceR()
+plotter_timetrace.plot(settings, data_sliced, ["demod0.timestamp0", "demod0.y0"], savename="timetrace_sliced_y", title="Timetrace y")
 plotter_timetrace = PlotterTimetraceCond()
-plotter_timetrace.plot(settings, data_sliced, ["demod0.timestamp0", "demod0.r0"], savename="timetrace_sliced")
+plotter_timetrace.plot(settings, data_sliced, ["demod0.timestamp0", "demod0.r0"], savename="timetrace_sliced_R_Cond")
+plotter_phase = PlotterTimetracePhase()
+plotter_phase.plot(settings, data_sliced, ["demod0.timestamp0", "demod0.x0", "demod0.y0"], savename="timetrace_sliced_phase")
+
+#%% Rotate Data
+data_sliced_rotated = rotate_phase(data_sliced, ["demod0.x0", "demod0.y0"], +75)
+
+plotter_timetrace = PlotterTimetraceR()
+plotter_timetrace.plot(settings, data_sliced_rotated, ["demod0.timestamp0", "demod0.x0"], savename="timetrace_sliced_rotated_x", title="Timetrace x")
+plotter_timetrace = PlotterTimetraceR()
+plotter_timetrace.plot(settings, data_sliced_rotated, ["demod0.timestamp0", "demod0.y0"], savename="timetrace_sliced_rotated_y", title="Timetrace y")
+plotter_phase = PlotterTimetracePhase()
+plotter_phase.plot(settings, data_sliced_rotated, ["demod0.timestamp0", "demod0.x0", "demod0.y0"], savename="timetrace_sliced_rotated_phase")
+
+
+
+
+
 
 
 #%% Load Plunger Gate Sweep
-loader_plunger = Loaderh5()
-data_plunger = loader_plunger.load(settings_plunger)
+loader = Loaderh5()
+data_plunger = loader.load(settings_plunger)
 
 
 #%% Plot Plunger Sweep
@@ -80,16 +107,30 @@ plotter_plunger.plot(settings, settings_plunger, data_plunger, ["gate_6", "demod
 
 #%% Analyze Equvalent Gate Voltage 
 analyzer_plunger = AnalyzerPlungerSweep()
-fit_params = analyzer_plunger.analyze(data_plunger, ["gate_6", "demod0.r0"], voltage=-0.8555, intervall=0.001)
+plunger_fit_params = analyzer_plunger.analyze(data_plunger, ["gate_6", "demod0.r0"], voltage=-0.8555, intervall=0.002)
 
 plotter_plunger = PlotterPlungerSweep()
-plotter_plunger.plot(settings, settings_plunger, data_plunger, ["gate_6", "demod0.r0"], fit_params, savename="plunger_sweep_fit")
+plotter_plunger.plot(settings, settings_plunger, data_plunger, ["gate_6", "demod0.r0"], plunger_fit_params, savename="plunger_sweep_fit")
 
-#%% Analyze and Plot SND
+
+#%% Analyze and Plot SND of R
 sampling_f = 13732.91015625   #data["  "]
 analyzer_SND = AnalyzerTimetraceSpecralNoiseDensity()
-spectral_result = analyzer_SND.analyze(sampling_f, fit_params,  data_sliced, ["demod0.r0"])
-
+spectral_result_R = analyzer_SND.analyze(sampling_f, plunger_fit_params,  data_sliced, ["demod0.r0"])
+power_fit_params_R = analyzer_SND.fit(spectral_result_R, guess=[1e-5, -1])
 plotter_SND = PlotterTimetraceSpectralNoiseDensity()
-plotter_SND.plot(settings, spectral_result, fit_params)
+plotter_SND.plot(settings, spectral_result_R, plunger_fit_params, fit_vals=power_fit_params_R)
+
+
+#%% Zoom in higher freqs
+plotter_SND = PlotterTimetraceSpectralNoiseDensity()
+plotter_SND.plot(settings, spectral_result_R, plunger_fit_params, xlim=[10,8e3], ylim=[1e-8,5e-3], savename=f"SND_slope_{plunger_fit_params['fit_coef'][0]:.3f}_zoom", fiftyHz=True)
+
+
+#%% Free up memory
+#del data
+#del data_plunger
+#del data_sliced
+#gc.collect()
+
 # %%
