@@ -35,20 +35,20 @@ def convert_secs(timestamps, f=1.8*1e9):
     """Sets the starting point to 0 and adjusts with the clock speed of 1.8 GHz. Not really accurate.
     Timestamps need to be numpy arrays.
     """
-    timestamps = timestamps - timestamps[0]
-    timestamps = timestamps / f 
+    time_stamps = timestamps - timestamps[0]
+    time_stamps = time_stamps / f 
     
-    return timestamps
+    return time_stamps
     
 
 def convert_secs_2D(timestamps, f=1.8*1e9):
     """Sets the starting point to 0 and adjusts with the clock speed of 1.8 GHz. Not really accurate.
     Converts 2D timestamps in 1D arrays with each point in 1D being the beginning of a 2D array. 
     """
-    timestamps = timestamps[:,0] - timestamps[0,0]
-    timestamps = timestamps / f 
+    time_stamps = timestamps[:,0] - timestamps[0,0]
+    time_stamps = time_stamps / f 
     
-    return timestamps
+    return time_stamps
     
     
     
@@ -61,19 +61,20 @@ def create_saving_path(settings):
     return path + "/"   
     
     
-def make_len_eq(data, keys):
+def make_len_eq(data:dict, keys:list):
     """Takes a data dict and looks at two entries. Cuts away the end of data of the longer one to make 
     both equal length.
     """
     len1 = len(data[keys[0]])
     len2 = len(data[keys[1]])
+    data2 = {}
     if len1 != len2:
         if len1 < len2:
-            data[keys[1]] = data[keys[1]][:len1]
+            data2[keys[1]] = copy.deepcopy(data[keys[1]][:len1])
         else:
-            data[keys[0]] = data[keys[0]][:len2]
+            data2[keys[0]] = copy.deepcopy(data[keys[0]][:len2])
 
-    return data
+    return data2
 
 
 def rotate_phase(data, nodes, phase_offset_deg):

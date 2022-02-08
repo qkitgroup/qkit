@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 import matplotlib.pyplot as plt
 from scipy import signal
 from scipy.optimize import curve_fit
@@ -92,7 +93,7 @@ class SliceTimetrace:
         index_end = map_array_to_index(data[nodes[0]], end_x)
         data_sliced = {}
         for key in nodes:
-            data_sliced[key] = data[key][index_begin : index_end]
+            data_sliced[key] = copy.deepcopy(data[key][index_begin : index_end])
         
         return data_sliced
       
@@ -169,7 +170,7 @@ class AnalyzerTimetraceSpecralNoiseDensity:
         #freqs[0]=0 ; this is cut
         return {"freq" : freqs[1:], "times" : times[1:], "spectrogram": spectrogram.flatten()[1:]}
     
-    def fit(self, spectrum, guess=None):
+    def fit(self, spectrum, guess=None, max_iter=10000000):
         """Fits f(x)= a*x^b to data. Return is an array of a, b.
         guess is an array or list of starting values for a, b.  
         """
@@ -181,7 +182,7 @@ class AnalyzerTimetraceSpecralNoiseDensity:
 
         def func(x, a, b):
             return a * np.power(x, b)
-        popt, cov = curve_fit(func, freqs, np.sqrt(spec), p0=guess, maxfev=10000000)
+        popt, cov = curve_fit(func, freqs, np.sqrt(spec), p0=guess, maxfev=max_iter)
     
         return {"popt" : popt, "cov" : cov, "SND1Hz" : func(1, *popt)}
 
