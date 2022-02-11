@@ -162,7 +162,7 @@ class IQCloudAnalysis:
             max_variance = 0.0
             for i in range(self.n_states):
                 e = np.linalg.eigvalsh(self.covariances[step][i, :, :])
-                if np.max(e) > self.max_variance:
+                if np.max(e) > max_variance:
                     max_variance = np.max(e)
                 generalized_variance[i] = np.linalg.det(self.covariances[step][i, :, :])
 
