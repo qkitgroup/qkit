@@ -1,93 +1,65 @@
-from _typeshed import Self
-from qkit.drivers.ZHInst_Common import ZHInst_Device, ZHInst_Path, ZHInst_AWG_Mixin
-from typing import Union, List
-import zhinst
+import string
+import numpy as np
+from zhinst.toolkit.control.drivers import UHFQA as _UHFQA
+from zhinst.toolkit.control.node_tree import Node, Parameter
+from qkit.core.instrument_base import Instrument
+from qkit.drivers.ZHInst_Abstract import ZHInst_Abstract
 
-class ZHInst_UHFQA(ZHInst_Device, ZHInst_AWG_Mixin):
-    """
-    This class provides access to a Zurich Instrument UHFQA (Ultra High Frequency Quantum Analyzer).
-    This allows users to manage triggers, integrators, upload programs and perform measurements.
 
-    Roughly, this device consists of two main components:
-    - The Arbitrary Waveform Generator (AWG) generating signals to affect the Qubits
-    - The Qubit Measurement Unit analyzing the Qubits response
-
-    Between them, trigger signals can be exchanged and transceived with the outside world.
-    Further, 4 auxiliary outputs (NOT IMPLEMENTED) and 2 auxiliary inputs (NOT IMPLEMENTED) exist exist.
-    """
-
-    outputs: List(Self.Output)
-    inputs: List(Self.Inputs)
-    awg: Self.AWG
-
-    def __init__(self, name, device_id, server="localhost", port=8004, interface="1GbE"):
-        super().__init__(name, device_id, server=server, port=port, interface=interface)
-
-        self.outputs = [Self.Output(self, i) for i in range(1)] # We have two outputs, indecies 0, 1
-        self.inputs = [Self.Input(self, i) for i in range(1)] # We have two inputs aswell.
-        self.awg = Self.AWG(self, 0) # In principle, there is support for multiple AWGs. We only use 1?
+class ZHInst_UHFQA(ZHInst_Abstract):
+    def __init__(self, name, serialnumber, host="129.13.93.38",  **kwargs):
+        super().__init__(name, **kwargs)
+        self._uhfqa = _UHFQA(name, serialnumber, host=host)
+        self._uhfqa.setup()
+        self._uhfqa.connect_device()
         
+        # Iterate node tree for readable entries and hook them into QKit
+        self.blacklist = ["awg_sequencer", "awg_waveform", "awg_elf", "awg_dio", "elf", "qa_result_statistics",
+                          "scope_wave", "auxin_sample", "dio_input", "system_fwlog", "features_code"]
+        with open("node_dump_uhfqa.txt", "w", encoding="utf-8") as f:
+            self._recursive_qkit_hook(self._uhfqa.nodetree, f)
 
-    class Output(ZHInst_Path):
+        # Register readout methods
+        self.add_function("get_qubit_result", channels=(0, 9))
+        self.add_function("enable_channel", channels=(0, 9))
+        self.add_function("disable_channel", channels=(0, 9))
+        self.add_function("arm")
+        self.add_function("compile_program")
+        self.add_function("run")
+        self.add_parameter("readout_frequency", flags=Instrument.FLAG_GETSET, channels=(0, 9), type=float)
+        self.add_parameter("readout_amplitude", flags=Instrument.FLAG_GETSET, channels=(0, 9), type=float)
 
-        def __init__(self, accessor: Union[zhinst.ziPython.ziDAQServer, 'ZHInst_Path'], output_id: int):
-            super().__init__(accessor, f"sigouts/{output_id}")
+    def compile_program(self, *args, **kwargs):
+        self._uhfqa.awg.set_sequence_params(*args, **kwargs)
+        self._uhfqa.awg.compile()
 
-        def set_enabled(self, enabled: bool):
-            self.setBool("on", enabled)
+    def get_qubit_result(self, channel=None):
+        if channel == None: # FIXME: Register this correctly in QKit?
+            return [self._uhfqa.channels[i].result() for i in range(10)]
+        return self._uhfqa.channels[channel].result()
 
-        def get_enabled(self):
-            return self.getBool("on")
+    def enable_channel(self, channel):
+        self._uhfqa.channels[channel].enable()
 
-    class Input(ZHInst_Path):
+    def disable_channel(self, channel):
+        self._uhfqa.channels[channel].disable()
 
-        def __init__(self, accessor: Union[zhinst.ziPython.ziDAQServer, 'ZHInst_Path'], input_id: int):
-            super().__init__(accessor, f"sigins/{input_id}")
+    def arm(self, *args, **kwargs):
+        self._uhfqa.arm(*args, **kwargs)
 
-        # TODO: Create accessors. Whenever they are needed.
+    def run(self):
+        self._uhfqa.awg.run()
 
-    class AWG(ZHInst_Path):
+    def _do_set_readout_frequency(self, frequency, channel):
+        self._uhfqa.channels[channel].readout_frequency(frequency)
 
-        def __init__(self, accessor: Union[zhinst.ziPython.ziDAQServer, 'ZHInst_Path'], awg_id: int):
-            super().__init__(accessor, f"awgs/{awg_id}")
-            # TODO: Auxtriggers? Triggers?, 
+    def _do_set_readout_amplitude(self, amplitude, channel):
+        self._uhfqa.channels[channel].readout_frequency(amplitude)
 
-        def set_enabled(self, enabled: bool):
-            self.setBool("enable", enabled)
+    def _do_get_readout_frequency(self, channel):
+        return self._uhfqa.channels[channel].readout_frequency()
 
-        def get_enabled(self) -> bool:
-            return self.getBool("enable")
-
-        def set_user_register(self, register: int, value: int):
-            self.setInt(f"userregs/{register}", value)
-
-        def get_user_register(self, register: int) -> int:
-            return self.getInt(f"userregs/{register}")
-
-        def set_time(self, exponent: int):
-            """
-            Sets the sampling rate. [exponent] must be in the interval 0..=13.
-            The formula for the sampling rate then is:
-            f = 1.8GHz / (2^exponent)
-            """
-            assert 0 <= exponent <= 13, "Exponent out of range!"
-            self.setInt("time", exponent)
-
-        def get_time(self) -> int:
-            return self.getInt("time")
-
-        def set_single_shot(self, single_shot: bool):
-            self.setBool("single", single_shot)
-
-        def is_ready(self) -> bool:
-            return self.getBool("ready")
-
-        class Output(ZHInst_Path):
-
-            def __init__(self, accessor: Union[zhinst.ziPython.ziDAQServer, 'ZHInst_Path'], output_id):
-                super().__init__(accessor, f"outputs/{output_id}")
-
-            def set_amplitude(self, amplitude: float):
-                self.setDouble("amplitude", amplitude)
-
-            def get_am
+    def _do_get_readout_amplitude(self, channel):
+        return self._uhfqa.channels[channel].readout_frequency()
+    
+        
