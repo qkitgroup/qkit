@@ -16,10 +16,10 @@ class PlotterTimetraceCond(PlotterSemiconInit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
                
-    def plot(self, settings, data, nodes:list, savename="timetrace", label="-", title="Timetrace"):
+    def plot(self, settings, data_in, nodes, savename="timetrace", label="-", title="Timetrace"):
         """nodes are time and x,y,R of lock-in like ["demod0.timestamp0", "demod0.x0"].
         """
-        data = make_len_eq(data, nodes)
+        data = make_len_eq(data_in, nodes)
         self.ax.set_title(title)
         self.ax.set_xlabel("Time (s)")
         self.ax.set_ylabel("Conductance ($\mu$S)")
@@ -37,10 +37,10 @@ class PlotterTimetraceR(PlotterSemiconInit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
                
-    def plot(self, settings, data, nodes:list, savename="timetrace", label="-", title="Timetrace"):
+    def plot(self, settings, data_in, nodes, savename="timetrace", label="-", title="Timetrace"):
         """nodes are time and x,y,R of lock-in like ["demod0.timestamp0", "demod0.x0"].
         """
-        data = make_len_eq(data, nodes)
+        data = make_len_eq(data_in, nodes)
         self.ax.set_title(title)
         self.ax.set_xlabel("Time (s)")
         self.ax.set_ylabel("Lock-in R (mV)")
@@ -59,10 +59,10 @@ class PlotterTimetracePhase(PlotterSemiconInit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
                
-    def plot(self, settings, data, nodes, savename="timetrace_phase", label="-", x_limits=[], y_limits=[]):
+    def plot(self, settings, data_in, nodes, savename="timetrace_phase", label="-", x_limits=[], y_limits=[]):
         """nodes are t, x, y of lock-in like ["demod0.timestamp0", "demod0.x0", "demod0.y0"].
         """
-        data = make_len_eq(data, nodes)
+        data = make_len_eq(data_in, nodes)
         if len(x_limits) == 2:
             self.ax.set_xlim(x_limits)
         if len(y_limits) == 2:
@@ -129,8 +129,8 @@ class PlotterPlungerSweep(PlotterSemiconInit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def plot(self, settings, settings_plunger, data, nodes, fit_params=None, savename="plunger_sweep", color="r", x_limits=[]):
-        data = make_len_eq(data, nodes)
+    def plot(self, settings, settings_plunger, data_in, nodes, fit_params=None, savename="plunger_sweep", color="r", x_limits=[]):
+        data = make_len_eq(data_in, nodes)
         y_axis_factor = 1000  #scales y axis to mV
         self.ax.set_title("Plunger Gate Sweep")
         self.ax.set_xlabel("Voltage (V)")
@@ -156,22 +156,21 @@ class PlotterPlungerSweep(PlotterSemiconInit):
 
 
 class AnalyzerTimetraceSpecralNoiseDensity:
-    """Analyzes a sigle timetrace using the equivalent voltage noise found in fit_params['fit_coef'][0].
-    Includes conversion of data into conductance. 
-    """
     number_of_traces = 1
     
-    def analyze(self, sampling_freq, fit_params, data, nodes):
+    def analyze(self, sampling_freq, data, nodes, fit_params=None):
+        """Analyzes a sigle timetrace using the equivalent gate voltage found in fit_params['fit_coef'][0] if provided.
+        """
         if fit_params is None: # for reference measurements without plunger gate sweeps
             fit_params = {}
             fit_params["fit_coef"] = [1]
-        freqs, times, spectrogram = signal.spectrogram(data[nodes[0]] / fit_params['fit_coef'][0], fs = sampling_freq, nperseg = len(data[nodes[0]])) 
-        
-        #freqs[0]=0 ; this is cut
-        return {"freq" : freqs[1:], "times" : times[1:], "spectrogram": spectrogram.flatten()[1:]}
+        freqs, times, spectrogram = signal.spectrogram(data[nodes[0]] / fit_params['fit_coef'][0], fs = sampling_freq, nperseg = len(data[nodes[0]]))   
+        spectrogram = np.real(spectrogram.flatten().astype(complex)) # yes I know... tell me why data type is object and complex
+
+        return {"freq" : freqs[1:], "times" : times[1:], "spectrogram": spectrogram[1:]} # freqs[0]=0 ; The 0Hz value is cut off:
     
     def fit(self, spectrum, guess=None, max_iter=10000000):
-        """Fits f(x)= a*x^b to data. Return is an array of a, b.
+        """Fits f(x)= a*x^b to data. Return is the parameters of the fit around 1Hz.
         guess is an array or list of starting values for a, b.  
         """
         #make data slice around 1Hz
@@ -187,6 +186,7 @@ class AnalyzerTimetraceSpecralNoiseDensity:
         return {"popt" : popt, "cov" : cov, "SND1Hz" : func(1, *popt)}
 
 
+
 class PlotterTimetraceSpectralNoiseDensity(PlotterSemiconInit):
     """Plots the spectral noise density.
     """
@@ -195,7 +195,13 @@ class PlotterTimetraceSpectralNoiseDensity(PlotterSemiconInit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def plot(self, settings, data, fit_params, savename=None, xlim:list=None, ylim:list=None, dotsize=0.5, fiftyHz:bool=False, fit_vals=None):
+    def plot(self, settings, data, fit_params_plunger_in=None, fit_vals=None, savename=None, xlim:list=None, ylim:list=None, dotsize=0.5, fiftyHz:bool=False):
+        """Plots the sqrt of a spectrum (data). Respecting scaling with the slope of a plunger gate sweep (fit_params_plunger). 
+            data: spectral data in dictionary with keys "freq", "times", "spectorgram"
+            fit_params_plunger: dict including key "fit_coef" that is only used in the savename of the file
+            fit_vals: dict with keys "popt" and "SND1Hz" that is used to plot a linear fit to the data
+            fifyHz: bool that overlays the first 30 50Hz multiples
+        """
         self.ax.set_title("Spectral Noise Density")
         self.ax.set_xscale("log")
         self.ax.set_yscale("log")
@@ -205,17 +211,19 @@ class PlotterTimetraceSpectralNoiseDensity(PlotterSemiconInit):
             self.ax.set_xlim(xlim)
         if ylim != None:
             self.ax.set_ylim(ylim)
-        if fit_params is None: # for reference measurements without plunger gate sweeps
-            fit_params = {}
-            fit_params["fit_coef"] = [1]
+        if fit_params_plunger_in is None: # for reference measurements without plunger gate sweeps the slope is 1
+            fit_params_plunger = {}
+            fit_params_plunger["fit_coef"] = [1]
+        else:
+            fit_params_plunger = fit_params_plunger_in
         if savename == None:
-            savename = f"SND_slope_{fit_params['fit_coef'][0]:.3f}"
+            savename = f"SND_slope_{fit_params_plunger['fit_coef'][0]:.3f}"
 
         if fiftyHz == True: #plotting 50Hz multiples
             savename += "_50Hz"
             freqs = []
             signals = []
-            for f in [i*50 for i in range(30)]:
+            for f in [i*50 for i in range(31)]:
                 freqs.extend([f]*1000 )
                 signals.extend(np.logspace(-8, -1, 1000))
             self.ax.plot(freqs, signals, "yo", markersize=dotsize)

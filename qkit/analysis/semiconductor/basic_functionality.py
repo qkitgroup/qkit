@@ -67,14 +67,13 @@ def make_len_eq(data:dict, keys:list):
     """
     len1 = len(data[keys[0]])
     len2 = len(data[keys[1]])
-    data2 = {}
     if len1 != len2:
         if len1 < len2:
-            data2[keys[1]] = copy.deepcopy(data[keys[1]][:len1])
+            data[keys[1]] = copy.deepcopy(data[keys[1]][:len1])
         else:
-            data2[keys[0]] = copy.deepcopy(data[keys[0]][:len2])
+            data[keys[0]] = copy.deepcopy(data[keys[0]][:len2])
 
-    return data2
+    return data
 
 
 def rotate_phase(data, nodes, phase_offset_deg):
@@ -83,11 +82,11 @@ def rotate_phase(data, nodes, phase_offset_deg):
     R = np.sqrt(np.add(np.power(data[nodes[0]], 2), np.power(data[nodes[1]], 2)))
     phi = np.arctan2(data[nodes[1]], data[nodes[0]])
     phi = phi + phase_offset_deg*np.pi/180
-    data_sliced = copy.deepcopy(data)
-    data_sliced[nodes[0]] = R * np.cos(phi)
-    data_sliced[nodes[1]] = R * np.sin(phi)  
+    data_rotated = copy.deepcopy(data)
+    data_rotated[nodes[0]] = R * np.cos(phi)
+    data_rotated[nodes[1]] = R * np.sin(phi)  
 
-    return data_sliced
+    return data_rotated
 
 
 
@@ -141,10 +140,10 @@ class PlotterAccumulation(PlotterSemiconInit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def plot_one_trace(self, settings, data, nodes:list, gatename:str="", savename="accumulation", label="-", title="Accumulation"):
+    def plot_one_trace(self, settings, data_in, nodes, gatename:str="", savename="accumulation", label="-", title="Accumulation"):
         """Plot only one trace.
         """
-        data = make_len_eq(data, nodes)
+        data = make_len_eq(data_in, nodes)
         self.ax.set_title(title)
         if len(gatename) == 0:
             gatename = nodes[0]
@@ -155,10 +154,10 @@ class PlotterAccumulation(PlotterSemiconInit):
         plt.show()
         self.close_delete()
 
-    def add_trace(self, settings, data, nodes:list, label_id=""):
+    def add_trace(self, settings, data_in, nodes, label_id=""):
         """Adds a trace to the plotter object which can be plotted by plot_all().
         """
-        data = make_len_eq(data, nodes)
+        data = make_len_eq(data_in, nodes)
         self.ax.plot(data[nodes[0]], convert_conductance(data[nodes[1]], settings, multiplier=1e6), label=label_id)
     
     def plot_all(self, settings, gatename:str="", savename="accumulation_many", title="Accumulation"):

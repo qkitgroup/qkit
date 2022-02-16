@@ -35,7 +35,7 @@ class PlotterPlungerTimetrace3D(PlotterSemiconInit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def plot(self, settings:dict, data:dict, nodes:list, colorcode="viridis", savename="plunger_timetrace", min_cond=None, max_cond=None, point_size=3, marker_shape="ro"):
+    def plot(self, settings:dict, data:dict, nodes, colorcode="viridis", savename="plunger_timetrace", min_cond=None, max_cond=None, point_size=3, marker_shape="ro"):
         """Nodes in format [timestamps, plunger_gate, R].
         good color codes might be viridis, PiYG, plasma, gist_rainbow...
         """
@@ -70,7 +70,7 @@ class PlotterPlungerTimetrace3D(PlotterSemiconInit):
 class AnalyzerPeakTracker:
     """Fits a sechans function to a plunger gate sweep in two iterations.
     """
-    def analyze(self, data:dict, nodes:list, peak_V:float, intervall1=0.01, intervall2=0.01, max_iter=10000):
+    def analyze(self, data:dict, nodes, peak_V:float, intervall1=0.01, intervall2=0.01, max_iter=10000):
         """peak_V is the Voltage of the peak eyeballed.
         width and width2 are the intervalls of idices used to fit the data to.  Better in Volts in future. 
         """
@@ -88,6 +88,7 @@ class AnalyzerPeakTracker:
         p0 = [a, b, peak_index, d]  #iniatal guess of a, b, c, d
         timestamps = convert_secs_2D(data[nodes[0]])
         length_sweep = len(timestamps)
+        data["timestamps_diff"] = np.diff(timestamps)
         data["avg_sweep_time"] = np.average(np.diff(timestamps)) 
         data["peaks_plunger_V"] =  np.array([None] * length_sweep) # initialize None array for peaks
         data["peaks_value"] =  np.array([None] * length_sweep)
@@ -109,7 +110,7 @@ class AnalyzerPeakTracker:
                         popt1, pcov1 = curve_fit(sech, np.arange(peak_fitted_index-intervall2_half_index, peak_fitted_index+intervall2_half_index, 1),
                             data[nodes[2]][trace_num][peak_fitted_index-intervall2_half_index : peak_fitted_index+intervall2_half_index], p1, maxfev=max_iter)
 
-                        data["peaks_plunger_V"][trace_num] = data[nodes[1]][int(round(popt1[2]))] # peak of plunger sweep trace in Volts
+                        data["peaks_plunger_V"][trace_num] = data[nodes[1]][int(round(popt1[2]))] # plunger gate voltage of peak 
                         data["peaks_value"][trace_num] = sech(popt1[2], *popt1) # lock-in value of fitted peak
                         data["peaks_plunger_V_cov"][trace_num] = pcov1 # covariance on index of peak
                         data["peaks_fit_popts"][trace_num] = popt1
@@ -136,13 +137,36 @@ class AnalyzerPeakTracker:
             except RuntimeError:
                 print("RUNTIME ERROR first ", trace_num)
                 pass
-
         
+        
+        
+
+class PlotterPlungerTraceTimestampsDiff(PlotterSemiconInit):
+    """Plots the time difference between consecutive plunger traces.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def plot(self, settings, data, savename="timestamps_diff" ):
+        self.ax.set_title("Length of Plunger Sweeps")
+        self.ax.set_xlabel("Sweep Number")
+        self.ax.set_ylabel("Difference between Sweeps (s)")
+        x_vals = np.arange(1, len(data["timestamps_diff"])+1)
+        self.ax.plot(x_vals, data["timestamps_diff"])
+        self.ax.plot(x_vals, [data["avg_sweep_time"]]*len(x_vals), "-r", label="average")
+        plt.savefig(f"{create_saving_path(settings)}/{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
+        plt.legend()
+        plt.show()
+        self.close_delete()
+
+
+
+
 
 
 
 class PlotterPlungerTraceFit(PlotterSemiconInit):
-    """Plots a single plunger gate sweep trace and overlays the analyzed fit. 
+    """Plots a single plunger gate sweep trace and overlays the analyzed fit to see how shitty the fit is. 
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
