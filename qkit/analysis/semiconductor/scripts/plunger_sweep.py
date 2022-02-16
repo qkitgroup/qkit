@@ -42,7 +42,7 @@ plotter.plot(settings, data_sliced, ["demod0.timestamp0", "gates_6_16", "demod0.
 
 #%% Analyze  Data
 analyzer = AnalyzerPeakTracker()
-analyzer.analyze( data_sliced, ["demod0.timestamp0", "gates_6_16", "demod0.r0"], peak_V=0.725, intervall1=0.05, intervall2=0.03)
+analyzer.analyze( data_sliced, ["demod0.timestamp0", "gates_6_16", "demod0.r0"], peak_V=0.725, intervall1=0.1, intervall2=0.05)
 
 #%% Plot Analyzed Data
 plotter = PlotterPlungerTimetrace3D()
@@ -55,18 +55,20 @@ plotter.plot(settings, data_sliced)
 
 #%% Plot a single plunger trace
 plotter = PlotterPlungerTraceFit()
-plotter.plot()
+plotter.plot(settings, data_sliced,  ["gates_6_16", "demod0.r0"],  trace_num=10)
 
 
 #%% SND
 sampling_f = 1/data_sliced["avg_sweep_time"]  
 analyzer_SND = AnalyzerTimetraceSpecralNoiseDensity()
 spectral_result = analyzer_SND.analyze(sampling_f, data_sliced, ["peaks_plunger_V"])
-power_fit_params = None #analyzer_SND.fit(spectral_result, guess=[1e-5, -1])
+
 
 #%%
 plotter_SND = PlotterTimetraceSpectralNoiseDensity()
-plotter_SND.plot(settings, spectral_result, fit_vals=power_fit_params, savename="SND")
+plotter_SND.plot(settings, spectral_result, savename="SND")
 
 
 
+
+# %%

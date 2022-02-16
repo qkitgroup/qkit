@@ -73,10 +73,11 @@ class AnalyzerPeakTracker:
     def analyze(self, data:dict, nodes, peak_V:float, intervall1=0.01, intervall2=0.01, max_iter=10000):
         """peak_V is the Voltage of the peak eyeballed.
         width and width2 are the intervalls of idices used to fit the data to.  Better in Volts in future. 
+        The sechans fit is NOT using Volt values as x values but instead indices of the array. 
         """
         def sech(x, a, b, c, d):
             '''hyperbolic secans function'''
-            return a * (1 / np.cosh(b * (x - c))) + d
+            return a * (1 / np.cosh(b * (x - c))) + d # return is scaled in Volts
         
         # initial parameters for fit
         a, b, d = 0.08, -0.1, 0.0
@@ -94,6 +95,7 @@ class AnalyzerPeakTracker:
         data["peaks_value"] =  np.array([None] * length_sweep)
         data["peaks_plunger_V_cov"] =  np.array([None] * length_sweep)
         data["peaks_fit_popts"] =  np.array([None] * length_sweep)
+        data["peaks_fit_intervall_half"] = intervall2_half_index # saves the index size of the fit intervall/2
 
         for trace_num in range(len(timestamps)):
             try:
@@ -113,7 +115,7 @@ class AnalyzerPeakTracker:
                         data["peaks_plunger_V"][trace_num] = data[nodes[1]][int(round(popt1[2]))] # plunger gate voltage of peak 
                         data["peaks_value"][trace_num] = sech(popt1[2], *popt1) # lock-in value of fitted peak
                         data["peaks_plunger_V_cov"][trace_num] = pcov1 # covariance on index of peak
-                        data["peaks_fit_popts"][trace_num] = popt1
+                        data["peaks_fit_popts"][trace_num] = popt1 # values of [a, b, c, d]
 
                         if pcov1[2][2] > 1:
                             print("COV TOO BIG  ", trace_num)  
@@ -138,7 +140,7 @@ class AnalyzerPeakTracker:
                 print("RUNTIME ERROR first ", trace_num)
                 pass
         
-        
+
         
 
 class PlotterPlungerTraceTimestampsDiff(PlotterSemiconInit):
@@ -154,8 +156,8 @@ class PlotterPlungerTraceTimestampsDiff(PlotterSemiconInit):
         x_vals = np.arange(1, len(data["timestamps_diff"])+1)
         self.ax.plot(x_vals, data["timestamps_diff"])
         self.ax.plot(x_vals, [data["avg_sweep_time"]]*len(x_vals), "-r", label="average")
-        plt.savefig(f"{create_saving_path(settings)}/{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
         plt.legend()
+        plt.savefig(f"{create_saving_path(settings)}/{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
         plt.show()
         self.close_delete()
 
@@ -163,15 +165,33 @@ class PlotterPlungerTraceTimestampsDiff(PlotterSemiconInit):
 
 
 
-
-
 class PlotterPlungerTraceFit(PlotterSemiconInit):
     """Plots a single plunger gate sweep trace and overlays the analyzed fit to see how shitty the fit is. 
+    The sechans function uses as x values not voltages but indices of the voltages of the plunger gate array.
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def plot(self):
-        pass
+    def plot(self, settings:dict, data:dict, nodes, trace_num, savename="one_plunger_fit"):
+        def sech(x, a, b, c, d):
+            '''hyperbolic secans function'''
+            return a * (1 / np.cosh(b * (x - c))) + d
 
+        self.ax.set_title("One Plunger Sweep")
+        self.ax.set_xlabel("Plunger Voltage (V)")
+        self.ax.set_ylabel("Lock-in (mV)")
+
+        #plotting the fit only in the used intervall 
+        fit_peak_index = int(round(data["peaks_fit_popts"][trace_num][2])) # value of c in sech(x, *[a, b, c, d]) as an INDEX of the array
+        fit_intervall_half_index = data["peaks_fit_intervall_half"]
+        fit_x_indices = np.arange(fit_peak_index - fit_intervall_half_index, fit_peak_index + fit_intervall_half_index+1)
+        fit_x = data[nodes[0]][fit_x_indices[0] : fit_x_indices[-1]+1]
+        fit_y = 1000 * sech(fit_x_indices, *data["peaks_fit_popts"][trace_num])
+        self.ax.plot(fit_x, fit_y, "r", label="fit")
+        
+        self.ax.plot(data[nodes[0]], data[nodes[1]][trace_num]*1000)
+        plt.legend()
+        plt.savefig(f"{create_saving_path(settings)}/{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
+        plt.show()
+        self.close_delete()
     
