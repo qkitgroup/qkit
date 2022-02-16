@@ -16,8 +16,7 @@ class ZHInst_UHFQA(ZHInst_Abstract):
         # Iterate node tree for readable entries and hook them into QKit
         self.blacklist = ["awg_sequencer", "awg_waveform", "awg_elf", "awg_dio", "elf", "qa_result_statistics",
                           "scope_wave", "auxin_sample", "dio_input", "system_fwlog", "features_code"]
-        with open("node_dump_uhfqa.txt", "w", encoding="utf-8") as f:
-            self._recursive_qkit_hook(self._uhfqa.nodetree, f)
+        self.mount_api("node_dump_uhfqa.txt", self._uhfqa.nodetree)
 
         # Register readout methods
         self.add_function("get_qubit_result", channels=(0, 9))
@@ -34,7 +33,7 @@ class ZHInst_UHFQA(ZHInst_Abstract):
         self._uhfqa.awg.compile()
 
     def get_qubit_result(self, channel=None):
-        if channel == None: # FIXME: Register this correctly in QKit?
+        if channel == None: # TODO: Register this correctly in QKit?
             return [self._uhfqa.channels[i].result() for i in range(10)]
         return self._uhfqa.channels[channel].result()
 
