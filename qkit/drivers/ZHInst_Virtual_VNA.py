@@ -1,4 +1,3 @@
-from email.mime import base
 from qkit.core.instrument_base import Instrument
 from qkit.drivers.AbstractVNA import AbstractVNA
 from qkit.drivers.ZHInst_SHFSG import ZHInst_SHFSG

@@ -1,4 +1,3 @@
-import string
 import numpy as np
 from zhinst.toolkit.control.drivers import UHFQA as _UHFQA
 from zhinst.toolkit.control.node_tree import Node, Parameter
