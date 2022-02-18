@@ -77,7 +77,7 @@ def make_len_eq(data:dict, keys:list):
 
 
 def rotate_phase(data, nodes, phase_offset_deg):
-    """Gives phase offset to x and y data (given in nodes) not to phi node.
+    """Gives phase offset to x and y data (given in nodes).
     """
     R = np.sqrt(np.add(np.power(data[nodes[0]], 2), np.power(data[nodes[1]], 2)))
     phi = np.arctan2(data[nodes[1]], data[nodes[0]])

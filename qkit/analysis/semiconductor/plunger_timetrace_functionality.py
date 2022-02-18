@@ -72,7 +72,7 @@ class AnalyzerPeakTracker:
     """
     def analyze(self, data:dict, nodes, peak_V:float, intervall1=0.01, intervall2=0.01, max_iter=10000):
         """peak_V is the Voltage of the peak eyeballed.
-        width and width2 are the intervalls of idices used to fit the data to.  Better in Volts in future. 
+        width and width2 are the intervalls of idices used to fit the data to.  Better in Volts in future? 
         The sechans fit is NOT using Volt values as x values but instead indices of the array. 
         """
         def sech(x, a, b, c, d):
@@ -86,7 +86,7 @@ class AnalyzerPeakTracker:
         intervall1_half_index = map_array_to_index(data[nodes[1]], abs(intervall1 / 2) + data[nodes[1]][0])
         intervall2_half_index= map_array_to_index(data[nodes[1]], abs(intervall2 / 2) + data[nodes[1]][0])
 
-        p0 = [a, b, peak_index, d]  #iniatal guess of a, b, c, d
+        p0 = [a, b, peak_index, d]  #initatal guess of a, b, c, d
         timestamps = convert_secs_2D(data[nodes[0]])
         length_sweep = len(timestamps)
         data["timestamps_diff"] = np.diff(timestamps)
@@ -188,7 +188,7 @@ class PlotterPlungerTraceFit(PlotterSemiconInit):
         fit_x = data[nodes[0]][fit_x_indices[0] : fit_x_indices[-1]+1]
         fit_y = 1000 * sech(fit_x_indices, *data["peaks_fit_popts"][trace_num])
         self.ax.plot(fit_x, fit_y, "r", label="fit")
-        
+
         self.ax.plot(data[nodes[0]], data[nodes[1]][trace_num]*1000)
         plt.legend()
         plt.savefig(f"{create_saving_path(settings)}/{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)

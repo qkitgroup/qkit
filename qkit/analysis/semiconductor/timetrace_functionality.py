@@ -158,20 +158,18 @@ class PlotterPlungerSweep(PlotterSemiconInit):
 class AnalyzerTimetraceSpecralNoiseDensity:
     number_of_traces = 1
     
-    def analyze(self, sampling_freq, data, nodes, fit_params=None):
-        """Analyzes a sigle timetrace using the equivalent gate voltage found in fit_params['fit_coef'][0] if provided.
+    def analyze(self, sampling_freq, data, nodes):
+        """Analyzes a sigle timetrace.
         """
-        if fit_params is None: # for reference measurements without plunger gate sweeps
-            fit_params = {}
-            fit_params["fit_coef"] = [1]
-        freqs, times, spectrogram = signal.spectrogram(data[nodes[0]] / fit_params['fit_coef'][0], fs = sampling_freq, nperseg = len(data[nodes[0]]))   
+        freqs, times, spectrogram = signal.spectrogram(data[nodes[0]], fs = sampling_freq, nperseg = len(data[nodes[0]]))   
         spectrogram = np.real(spectrogram.flatten().astype(complex)) # yes I know... tell me why data type is object and complex
 
         return {"freq" : freqs[1:], "times" : times[1:], "spectrogram": spectrogram[1:]} # freqs[0]=0 ; The 0Hz value is cut off:
     
     def fit(self, spectrum, guess=None, max_iter=10000000):
-        """Fits f(x)= a*x^b to data. Return is the parameters of the fit around 1Hz.
-        guess is an array or list of starting values for a, b.  
+        """Fits f(x)= a*x^b to data AROUND 1Hz. So the spectrum must include 1Hz...
+        Return is the parameters of the fit.
+        guess is an array or list of starting values for a, b of f(x)=a*x**b.  
         """
         #make data slice around 1Hz
         index_begin = map_array_to_index(spectrum["freq"], 1e-1)
@@ -188,7 +186,7 @@ class AnalyzerTimetraceSpecralNoiseDensity:
 
 
 class PlotterTimetraceSpectralNoiseDensity(PlotterSemiconInit):
-    """Plots the spectral noise density.
+    """Plots the spectral noise density using the equivalent gate voltage found in fit_params['fit_coef'][0] if provided.
     """
     number_of_traces = 1
 
@@ -196,9 +194,9 @@ class PlotterTimetraceSpectralNoiseDensity(PlotterSemiconInit):
         super().__init__(*args, **kwargs)
 
     def plot(self, settings, data, fit_params_plunger_in=None, fit_vals=None, savename=None, xlim:list=None, ylim:list=None, dotsize=0.5, fiftyHz:bool=False):
-        """Plots the sqrt of a spectrum (data). Respecting scaling with the slope of a plunger gate sweep (fit_params_plunger). 
+        """Plots the sqrt of a spectrum (data["spectrogram"]). Respecting scaling with the slope of a plunger gate sweep (fit_params_plunger). 
             data: spectral data in dictionary with keys "freq", "times", "spectorgram"
-            fit_params_plunger: dict including key "fit_coef" that is only used in the savename of the file
+            fit_params_plunger_in: dict including key "fit_coef" 
             fit_vals: dict with keys "popt" and "SND1Hz" that is used to plot a linear fit to the data
             fifyHz: bool that overlays the first 30 50Hz multiples
         """
@@ -219,7 +217,7 @@ class PlotterTimetraceSpectralNoiseDensity(PlotterSemiconInit):
         if savename == None:
             savename = f"SND_slope_{fit_params_plunger['fit_coef'][0]:.3f}"
 
-        if fiftyHz == True: #plotting 50Hz multiples
+        if fiftyHz == True: # plotting 50Hz multiples
             savename += "_50Hz"
             freqs = []
             signals = []
@@ -228,7 +226,7 @@ class PlotterTimetraceSpectralNoiseDensity(PlotterSemiconInit):
                 signals.extend(np.logspace(-8, -1, 1000))
             self.ax.plot(freqs, signals, "yo", markersize=dotsize)
 
-        self.ax.plot(data["freq"], np.sqrt(data["spectrogram"]), "ok", markersize=dotsize)
+        self.ax.plot(data["freq"], np.sqrt(data["spectrogram"] / fit_params_plunger['fit_coef'][0]), "ok", markersize=dotsize)
 
         if fit_vals is not None:
             def func(x, a, b):
