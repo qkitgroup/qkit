@@ -112,13 +112,23 @@ plotter_plunger = PlotterPlungerSweep()
 plotter_plunger.plot(settings, settings_plunger, data_plunger_rotated, ["gate_6", "demod0.x0"], plunger_fit_params, savename="plunger_sweep_fit_x")
 
 
-#%% Analyze and Plot SND of R
+#%% Analyze and Plot SND with classic Fourier Trafo
 sampling_f = 13732.91015625   #data["  "]
 analyzer_SND = AnalyzerTimetraceSpecralNoiseDensity()
-spectral_result = analyzer_SND.analyze(sampling_f,  data_sliced_rotated, ["demod0.x0"], plunger_fit_params)
+spectral_result = analyzer_SND.analyze(sampling_f,  data_sliced_rotated, ["demod0.x0"])
 power_fit_params = analyzer_SND.fit(spectral_result, guess=[1e-5, -1])
 plotter_SND = PlotterTimetraceSpectralNoiseDensity()
-plotter_SND.plot(settings, spectral_result, plunger_fit_params, fit_vals=power_fit_params)
+plotter_SND.plot(settings, spectral_result, plunger_fit_params, fit_vals=power_fit_params, savename="SND_fourier")
+
+
+#%% Analyze and Plot SND with Welch's method
+sampling_f = 13732.91015625   #data["  "]
+segment_length = 1e5 # length of each segment that is used for Welch
+analyzer_SND = AnalyzerTimetraceSpecralNoiseDensity()
+spectral_result_welch = analyzer_SND.analyze_welch(sampling_f,  data_sliced_rotated, ["demod0.x0"], segment_length)
+power_fit_params_welch = analyzer_SND.fit(spectral_result_welch, guess=[1e-5, -1])
+plotter_SND = PlotterTimetraceSpectralNoiseDensity()
+plotter_SND.plot(settings, spectral_result_welch, plunger_fit_params, fit_vals=power_fit_params_welch, savename="SND_welch")
 
 
 #%% Zoom in higher freqs

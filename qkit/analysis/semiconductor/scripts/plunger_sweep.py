@@ -61,13 +61,16 @@ plotter.plot(settings, data_sliced,  ["gates_6_16", "demod0.r0"],  trace_num=10)
 #%% SND
 sampling_f = 1/data_sliced["avg_sweep_time"]  
 analyzer_SND = AnalyzerTimetraceSpecralNoiseDensity()
-spectral_result = analyzer_SND.analyze(sampling_f, data_sliced, ["peaks_plunger_V"])
+spectral_result = analyzer_SND.analyze(sampling_f, data_sliced, ["peaks_plunger_V"]) # classic Fourier
+segment_length = 50 # length of each segment for Welch
+spectral_result_welch = analyzer_SND.analyze_welch(sampling_f, data_sliced, ["peaks_plunger_V"], segment_length) # Welch's method
 
-
-#%%
+#%% 
 plotter_SND = PlotterTimetraceSpectralNoiseDensity()
-plotter_SND.plot(settings, spectral_result, savename="SND")
+plotter_SND.plot(settings, spectral_result, savename="SND") # classic Fourier
 
+plotter_SND = PlotterTimetraceSpectralNoiseDensity()
+plotter_SND.plot(settings, spectral_result_welch, savename="SND_welch") # Welch's method
 
 
 
