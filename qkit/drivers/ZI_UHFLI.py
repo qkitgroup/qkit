@@ -189,20 +189,46 @@ class ZI_UHFLI(Instrument):
                            flags = ZI_UHFLI.FLAG_GETSET,
                            channels = (0, 1), channel_prefix = "ch%d_")
         
+        '''
+        Software parameters:
+        '''
+        self.add_parameter("step_recovery", type = str,
+                          flags = self.FLAG_SET | self.FLAG_SOFTGET,
+                          channels = (0, 7), channel_prefix = "dem%d_")
+        
+        for demod_index in range(8):
+            self.set(f"dem{demod_index}_step_recovery", r"99%")
+        self.settling_times = [0] * 8
+        self.calc_all_settling_times()
+        
         #Tell qkit which functions are intended for public use
         self.add_function("disable_everything")
+        self.add_function("calc_settling_time")
         self.add_function("wait_settle_time")
+        self.add_function("wait_longest_settle_time")
+        self.add_function("calc_all_settling_times")
+        
+
 
     def disable_everything(self):
         zhinst.utils.disable_everything(self.daq, self.device)
         
-    def _calc_settle_time(self, demod_index, step_recovery = r"99%"):
-        tc = self.get(f'dem{demod_index}_filter_timeconst')        
+    def calc_settling_time(self, demod_index):
+        step_recovery = self.get(f'dem{demod_index}_step_recovery')
+        tc = self.get(f'dem{demod_index}_filter_timeconst') 
         order = self.get(f"dem{demod_index}_filter_order")
         return tc * self._filter_settling_factors[step_recovery][order - 1]
         
-    def wait_settle_time(self, demod_index, step_recovery = r"99%"):
-        sleep(self._calc_settle_time(demod_index, step_recovery))
+    def wait_settle_time(self, demod_index):
+        sleep(self.settling_times[demod_index])
+        
+    def wait_longest_settle_time(self):
+        sleep(self.longest_settling_time)
+        
+    def calc_all_settling_times(self):
+        for demod_index in range(8):
+            self.settling_times[demod_index] = self.calc_settling_time(demod_index)
+        self.longest_settling_time = max(self.settling_times)
         
     '''
     signal ins
@@ -327,6 +353,8 @@ class ZI_UHFLI(Instrument):
     def _do_set_filter_order(self, neworder, channel):
         logging.debug(__name__ + " : setting filter order on demodulator %s to %s" % (channel, neworder))
         self.daq.setInt('/%s/demods/%s/order' % (self._device_id, channel) , neworder)
+        self.settling_times[channel] = self.calc_settling_time(channel)
+        self.longest_settling_time = max(self.settling_times)
         #self.daq.sync()
         self.wait_settle_time(channel)        
         
@@ -338,6 +366,9 @@ class ZI_UHFLI(Instrument):
     def _do_set_filter_timeconst(self, newtc, channel):
         logging.debug(__name__ + " : setting filter time constant on demodulator %s to %s s" % (channel, newtc))
         self.daq.setDouble('/%s/demods/%s/timeconstant' % (self._device_id, channel), newtc)
+        self.settling_times[channel] = self.calc_settling_time(channel)
+        self.longest_settling_time = max(self.settling_times)
+        
         #self.daq.sync()
         self.wait_settle_time(channel)
     
@@ -516,7 +547,15 @@ class ZI_UHFLI(Instrument):
         if self.daq.getInt('/%s/sigouts/%s/enables/%s'  % (self._device_id, channel, 3 + 4 * (channel))):
             return True
         else:
-            return False        
+            return False
+    '''
+    Software Parameters
+    '''
+    def _do_set_step_recovery(self, new_rec, channel):
+        allowed_recs = self._filter_settling_factors.keys()
+        if new_rec not in allowed_recs:
+            raise ValueError(f"{__name__}: {new_rec} is not a defined step recovery percentile. The allowed percentiles are {allowed_recs}.")
+        logging.debug(__name__ + ' : setting step_recovery to %s' % (new_rec))
 
 
 if __name__ == "__main__":
@@ -525,7 +564,7 @@ if __name__ == "__main__":
     
     UHFLI_test = qkit.instruments.create("UHFLI_test", "ZI_UHFLI", device_id = "dev2587")
     '''
-    UHFLI_test.set_ch1_carrier_freq(400e6)
+    UHFLI_test.set_ch0_carrier_freq(400e6)
     UHFLI_test.set_dem8_demod_harmonic(4)
     UHFLI_test.set_dem1_phase_offs(10)
     UHFLI_test.set_dem1_filter_order(5)
@@ -535,31 +574,31 @@ if __name__ == "__main__":
     UHFLI_test.set_dem1_sample_rate(5e3)
     UHFLI_test.set_dem2_trigger_mode("in3_rising")
     UHFLI_test.set_dem3_trigger_mode("in585")
-    UHFLI_test.set_ch1_output(True)
-    UHFLI_test.set_ch1_output_50ohm(False)
-    UHFLI_test.set_ch1_output_range(1500e-3)
-    UHFLI_test.set_ch1_output_offset(160e-3)
-    UHFLI_test.set_ch1_output_amplitude(300e-3)
-    UHFLI_test.set_ch2_output_amplitude(400e-3)
+    UHFLI_test.set_ch0_output(True)
+    UHFLI_test.set_ch0_output_50ohm(False)
+    UHFLI_test.set_ch0_output_range(1500e-3)
+    UHFLI_test.set_ch0_output_offset(160e-3)
+    UHFLI_test.set_ch0_output_amplitude(300e-3)
+    UHFLI_test.set_ch1_output_amplitude(400e-3)
+    UHFLI_test.set_ch0_output_autorange(False)
     UHFLI_test.set_ch1_output_autorange(False)
-    UHFLI_test.set_ch2_output_autorange(False)
+    UHFLI_test.set_ch0_output_amp_enable(True)
     UHFLI_test.set_ch1_output_amp_enable(True)
-    UHFLI_test.set_ch2_output_amp_enable(True)
     '''
     UHFLI_test.set_dem1_filter_timeconst(1e-3)
-    UHFLI_test.set_ch1_output_50ohm(True)
-    UHFLI_test.set_ch1_output_amplitude(300e-3)
-    UHFLI_test.set_ch1_output_amp_enable(True)
-    UHFLI_test.set_ch1_output(True)
-    UHFLI_test.set_ch2_input_range(0.7)
-    UHFLI_test.set_ch2_input_autorange
-    UHFLI_test.set_ch2_input_scaling(32)
-    UHFLI_test.set_ch2_input_ac_coupling(True)
-    UHFLI_test.set_ch2_input_50ohm(True)
-    #UHFLI_test.set_ch2_input_autorange(True)
-    UHFLI_test.set_ch2_input_difference("in2-in1")
+    UHFLI_test.set_ch0_output_50ohm(True)
+    UHFLI_test.set_ch0_output_amplitude(300e-3)
+    UHFLI_test.set_ch0_output_amp_enable(True)
+    UHFLI_test.set_ch0_output(True)
+    UHFLI_test.set_ch1_input_range(0.7)
+    UHFLI_test.set_ch1_input_autorange
+    UHFLI_test.set_ch1_input_scaling(32)
+    UHFLI_test.set_ch1_input_ac_coupling(True)
+    UHFLI_test.set_ch1_input_50ohm(True)
+    #UHFLI_test.set_ch1_input_autorange(True)
+    UHFLI_test.set_ch1_input_difference("in2-in1")
     '''
-    print(UHFLI_test.get_ch1_carrier_freq())
+    print(UHFLI_test.get_ch0_carrier_freq())
     print(UHFLI_test.get_dem1_phase_offs())
     print(UHFLI_test.get_dem1_filter_order())
     print(UHFLI_test.get_dem1_filter_timeconst())
@@ -567,18 +606,18 @@ if __name__ == "__main__":
     print(UHFLI_test.get_dem4_demod_enable())
     print(UHFLI_test.get_dem1_sample_rate())
     print(UHFLI_test.get_dem1_trigger_mode())
-    print(UHFLI_test.get_ch2_output())
-    print(UHFLI_test.get_ch1_output_50ohm())
-    print(UHFLI_test.get_ch1_output_range())
-    print(UHFLI_test.get_ch1_output_offset())
+    print(UHFLI_test.get_ch1_output())
+    print(UHFLI_test.get_ch0_output_50ohm())
+    print(UHFLI_test.get_ch0_output_range())
+    print(UHFLI_test.get_ch0_output_offset())
+    print(UHFLI_test.get_ch0_output_amplitude())
     print(UHFLI_test.get_ch1_output_amplitude())
-    print(UHFLI_test.get_ch2_output_amplitude())
     '''
-    print(UHFLI_test.get_ch2_input_range())
-    print(UHFLI_test.get_ch2_input_scaling())
-    print(UHFLI_test.get_ch2_input_ac_coupling())
-    print(UHFLI_test.get_ch2_input_50ohm())
-    print(UHFLI_test.get_ch2_input_autorange())
-    print(UHFLI_test.get_ch2_input_difference())
+    print(UHFLI_test.get_ch1_input_range())
+    print(UHFLI_test.get_ch1_input_scaling())
+    print(UHFLI_test.get_ch1_input_ac_coupling())
+    print(UHFLI_test.get_ch1_input_50ohm())
+    print(UHFLI_test.get_ch1_input_autorange())
+    print(UHFLI_test.get_ch1_input_difference())
     print("Done!")
     #UHFLI_test.disable_everything()
