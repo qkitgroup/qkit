@@ -70,17 +70,22 @@ class PlotterPlungerTimetrace3D(PlotterSemiconInit):
 class AnalyzerPeakTracker:
     """Fits a sechans function to a plunger gate sweep in two iterations.
     """
-    def analyze(self, data:dict, nodes, peak_V:float, intervall1=0.01, intervall2=0.01, max_iter=10000):
+    def analyze(self, data:dict, nodes, peak_V:float, init_params=None, intervall1=0.01, intervall2=0.01, max_iter=10000):
         """peak_V is the Voltage of the peak eyeballed.
         width and width2 are the intervalls of idices used to fit the data to.  Better in Volts in future? 
         The sechans fit is NOT using Volt values as x values but instead indices of the array. 
+        init_params: first values [a, b, d] of f(x) = a * (1 / np.cosh(b * (x - c))) + d
+        peak_V: first value of c 
         """
         def sech(x, a, b, c, d):
             '''hyperbolic secans function'''
             return a * (1 / np.cosh(b * (x - c))) + d # return is scaled in Volts
         
-        # initial parameters for fit
-        a, b, d = 0.08, -0.1, 0.0
+        if init_params is None:
+            # initial parameters for fit
+            a, b, d = 0.01, -0.1, 0.0
+        else:
+            a, b, d = init_params[0], init_params[1], init_params[2]
 
         peak_index = map_array_to_index(data[nodes[1]], peak_V)
         intervall1_half_index = map_array_to_index(data[nodes[1]], abs(intervall1 / 2) + data[nodes[1]][0])
@@ -172,7 +177,7 @@ class PlotterPlungerTraceFit(PlotterSemiconInit):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def plot(self, settings:dict, data:dict, nodes, trace_num, savename="one_plunger_fit"):
+    def plot(self, settings:dict, data:dict, nodes, trace_num, plot_fit=True, savename="one_plunger_fit"):
         def sech(x, a, b, c, d):
             '''hyperbolic secans function'''
             return a * (1 / np.cosh(b * (x - c))) + d
@@ -181,13 +186,14 @@ class PlotterPlungerTraceFit(PlotterSemiconInit):
         self.ax.set_xlabel("Plunger Voltage (V)")
         self.ax.set_ylabel("Lock-in (mV)")
 
-        #plotting the fit only in the used intervall 
-        fit_peak_index = int(round(data["peaks_fit_popts"][trace_num][2])) # value of c in sech(x, *[a, b, c, d]) as an INDEX of the array
-        fit_intervall_half_index = data["peaks_fit_intervall_half"]
-        fit_x_indices = np.arange(fit_peak_index - fit_intervall_half_index, fit_peak_index + fit_intervall_half_index+1)
-        fit_x = data[nodes[0]][fit_x_indices[0] : fit_x_indices[-1]+1]
-        fit_y = 1000 * sech(fit_x_indices, *data["peaks_fit_popts"][trace_num])
-        self.ax.plot(fit_x, fit_y, "r", label="fit")
+        if plot_fit:
+            #plotting the fit only in the used intervall 
+            fit_peak_index = int(round(data["peaks_fit_popts"][trace_num][2])) # value of c in sech(x, *[a, b, c, d]) as an INDEX of the array
+            fit_intervall_half_index = data["peaks_fit_intervall_half"]
+            fit_x_indices = np.arange(fit_peak_index - fit_intervall_half_index, fit_peak_index + fit_intervall_half_index+1)
+            fit_x = data[nodes[0]][fit_x_indices[0] : fit_x_indices[-1]+1]
+            fit_y = 1000 * sech(fit_x_indices, *data["peaks_fit_popts"][trace_num])
+            self.ax.plot(fit_x, fit_y, "r", label="fit")
 
         self.ax.plot(data[nodes[0]], data[nodes[1]][trace_num]*1000)
         plt.legend()
