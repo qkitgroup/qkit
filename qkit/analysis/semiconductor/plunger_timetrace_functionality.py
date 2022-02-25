@@ -194,4 +194,3 @@ class PlotterPlungerTraceFit(PlotterSemiconInit):
         plt.savefig(f"{create_saving_path(settings)}/{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
         plt.show()
         self.close_delete()
-    
