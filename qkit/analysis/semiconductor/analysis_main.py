@@ -3,8 +3,6 @@ import os
 
 from PyQt5 import uic
 from PyQt5.QtWidgets import QWidget, QMainWindow, QLineEdit, QApplication, QVBoxLayout, QGridLayout, QLabel
-from PyQt5.QtGui import QIntValidator,QDoubleValidator,QFont
-from PyQt5.QtCore import Qt
 
 class Settings_tab(QWidget):
     def __init__(self, obj):
