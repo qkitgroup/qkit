@@ -80,6 +80,7 @@ class spectrum(object):
         self._plot_comment = ""
 
         self.set_log_function()
+        self.set_log_function_2D()
 
         self.open_qviewkit = True
         self.qviewkit_singleInstance = False
@@ -320,7 +321,7 @@ class spectrum(object):
                 self._log_y_value_2D = []
                 for i in range(len(self.log_y_name_2D)):
                     if self.log_y_name_2D[i] not in self.log_y_name_2D[:i]:  # add y coordinate for 2D logging
-                        self._log_y_value_2D.append(self._data_file.add_coordinate(self.log_y_name_2D[i], unit=self.log_y_unit_2D[i]))
+                        self._log_y_value_2D.append(self._data_file.add_coordinate(self.log_y_name_2D[i], unit=self.log_y_unit_2D[i], folder='data'))  # possibly use "data1"
                         self._log_y_value_2D[i].add(self.log_y_2D[i])
                     else:  # use y coordinate for 2D logging if it is already added
                         self._log_y_value_2D.append(self._log_y_value_2D[np.squeeze(np.argwhere(self.log_y_name_2D[i] == np.array(self.log_y_name_2D[:i])))])
@@ -329,7 +330,7 @@ class spectrum(object):
                 for i in range(len(self.log_function_2D)):
                     self._log_value_2D.append(
                         self._data_file.add_value_matrix(self.log_name_2D[i], x=self._data_x, y=self._log_y_value_2D[i], unit=self.log_unit_2D[i],
-                                                         dtype=self.log_dtype_2D[i]))
+                                                         dtype=self.log_dtype_2D[i], folder='data'))  # possibly use "data1"
 
         if self.comment:
             self._data_file.add_comment(self.comment)
