@@ -2,6 +2,10 @@ from abc import ABC, abstractmethod
 
 class PlotterInterface(ABC):
     @abstractmethod
+    def load_data():
+        pass
+    
+    @abstractmethod
     def validate_input():
         pass
 

@@ -140,6 +140,13 @@
           </widget>
          </item>
          <item>
+          <widget class="QPushButton" name="button_plot">
+           <property name="text">
+            <string>open plot window</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QPushButton" name="button_analyze">
            <property name="text">
             <string>analyze</string>
@@ -147,9 +154,9 @@
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="button_plot">
+          <widget class="QPushButton" name="button_replot_reanalyze">
            <property name="text">
-            <string>plot</string>
+            <string>re-analyze and re-plot</string>
            </property>
           </widget>
          </item>
