@@ -51,10 +51,8 @@ class Mpl_canvas(FigureCanvasQTAgg):
         self.axes = figure.gca()
         super().__init__(figure)
 
-    def update_plot(self):
+    def update_canvas(self):
         self.axes.cla()
-        self.plotter.validate_input()
-        self.plotter.plot()
         self.draw()
 
 class Plot_widget(QWidget):
@@ -78,7 +76,9 @@ class Plot_window(QWidget):
         self.plot_widget = Plot_widget(plotter)
 
         self.layout().addWidget(self.plot_widget)
-        self.plot_widget.canvas.update_plot()
+
+class Notification_window():
+    pass
 
 class Model:
     files = []
@@ -123,7 +123,7 @@ class Controller:
     
     def load_data(self):
         self.loader.set_filepath(self.model.files)
-        self.data_raw = self.loader.load()
+        self.model.data_raw = self.loader.load()
 
     def analyze_data(self):
         self.analyzer.load_data(self.model.data_raw)
@@ -152,7 +152,7 @@ class View(QMainWindow):
         self.button_settings.clicked.connect(self.open_settings_window)
         self.button_plot.clicked.connect(self.open_plot_window)      
         self.button_analyze.clicked.connect(controller.analyze_data)
-        self.button_replot_reanalyze.clicked.connect(controller.re_analyze_re_plot)
+        self.button_replot_reanalyze.clicked.connect(self.update_plot)
         
         
         self.action_Save_Settings.triggered.connect(controller.save_settings)
@@ -179,7 +179,7 @@ class View(QMainWindow):
 
     def get_loader_file(self):
         file = "loader"
-        fname, _ = QFileDialog.getOpenFileName(self, f"Choose {file}", os.path.join(f"{file}"), "Python files(*py)")
+        fname, _ = QFileDialog.getOpenFileName(self, f"Choose {file}", os.path.join(f"{file}s"), "Python files(*py)")
         self.model.loader_path = fname
         self.controller.choose_loader()
     
@@ -193,14 +193,25 @@ class View(QMainWindow):
         file = "plotter"
         fname, _ = QFileDialog.getOpenFileName(self, f"Choose {file}", os.path.join(f"{file}s"), "Python files(*py)")
         self.model.plotter_path = fname
-        self.controller.choose_plotter()
+        self.controller.choose_plotter()    
+
+    def update_plot(self):
+        self.plot_window.plot_widget.canvas.axes.cla()
+        self.controller.plot_data()
+        self.plot_window.plot_widget.canvas.draw()
+
+    def re_analyze_re_plot(self):
+        self.controller.analyze_data()
+        self.update_plot()
 
     def open_settings_window(self):
         self.settings_window = Settings_window(self.controller.loader, self.controller.analyzer, self.controller.plotter)
+        self.controller.plot_data()
         self.settings_window.show()
 
     def open_plot_window(self):
-        self.plot_window = Plot_window(self.plotter)
+        self.plot_window = Plot_window(self.controller.plotter)
+        self.update_plot()
         self.plot_window.show()
 
 class App(QApplication):
