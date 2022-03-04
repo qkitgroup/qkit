@@ -1,10 +1,10 @@
-from importlib.machinery import ModuleSpec
 import sys
 import os
+import json
 import importlib.util
 
 from PyQt5 import uic
-from PyQt5.QtWidgets import QWidget, QMainWindow, QLineEdit, QApplication, QVBoxLayout, QGridLayout, QLabel, QPushButton, QFileDialog
+from PyQt5.QtWidgets import QWidget, QMainWindow, QLineEdit, QApplication, QVBoxLayout, QGridLayout, QLabel, QFileDialog, QMessageBox, QTableWidget, QTableWidgetItem
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 
 test_mode = True
@@ -13,21 +13,38 @@ if test_mode:
     import matplotlib.pyplot as plt
     from itertools import cycle
 
+class Mask:
+    def __init__(self, mask):
+        self.mask = mask
+    def postive_mask(self, obj):
+        if obj in self.mask:
+            return True
+        else:
+            return False
+
+    def negative_mask(self, obj):
+        if obj in self.mask:
+            return False
+        else:
+            return True
+
 class Settings_tab(QWidget):
     def __init__(self, obj):
         super().__init__()
         self.obj = obj
         self.grid = QGridLayout(self)
+        self.masking = Mask([int, float, str])
 
         for i, (name, value) in enumerate(obj.__dict__.items()):
 
-            label = QLabel(f"{name}:")
-            entry = QLineEdit()
-            entry.setText(str(value))
-            entry.textEdited.connect(self.create_setter(entry, name, value))
+            if self.masking.postive_mask(type(value)):
+                label = QLabel(f"{name}:")
+                entry = QLineEdit()
+                entry.setText(str(value))
+                entry.textEdited.connect(self.create_setter(entry, name, value))
 
-            self.grid.addWidget(label, i, 1)
-            self.grid.addWidget(entry, i, 2)
+                self.grid.addWidget(label, i, 1)
+                self.grid.addWidget(entry, i, 2)
 
     def create_setter(self, entry, name, value):
         def setter():
@@ -77,20 +94,48 @@ class Plot_window(QWidget):
 
         self.layout().addWidget(self.plot_widget)
 
-class Notification_window():
-    pass
+class Table_widget(QTableWidget):
+    def __init__(self):
+        super().__init__(3, 1)
+        self.setVerticalHeaderLabels(["Loader", "Analyzer", "Plotter"])
+    
+    def show_loader(self, path):
+        self.setItem(1, 1, os.path.basename(path))
+
+    def show_analyzer(self, path):
+        self.setItem(2, 1, os.path.basename(path))
+
+    def show_plotter(self, path):
+        self.setItem(3, 1, os.path.basename(path))
+
+class Notification_window(QMessageBox):
+    def __init__(self, text):
+        super().__init__()
+        self.setWindowTitle("Error")
+        self.setText(text)
+        self.exec_()
 
 class Model:
-    files = []
-    data_raw = {}
-    data_analyzed = {}
-    plotter_path = None
-    analzyer_path = None
-    loader_path = None
+    def __init__(self) -> None:
+        self.settings = {"files" : [],
+        "plotter_path" : "",
+        "analyzer_path" : "",
+        "loader_path" : ""}
+
+        self.data_raw = {}
+        self.data_analyzed = {}
+
+    def save_settings(self):
+        with open(os.path.join("main", "configuration.ini"), "w+") as configfile:
+            configfile.write(json.dumps(self.settings, indent= 2))
+
+    def load_settings(self):
+        with open(os.path.join("main", "configuration.ini")) as configfile:
+            self.settings= json.load(configfile)
 
 class Controller:
     def __init__(self, model):
-        self.model = model  
+        self.model = model
     
     @staticmethod
     def load_module_from_filepath(fname):
@@ -100,29 +145,28 @@ class Controller:
         module_spec.loader.exec_module(module) #pyright: reportOptionalMemberAccess=false
         return module
     
-    def save_settings(self):
-        raise NotImplementedError("Still gotta finish this bad boy. Your princess is in another castle.")
-    
-    def load_settings(self):
-        raise NotImplementedError("Still gotta finish this bad boy. Your princess is in another castle.")
+    def load_LAP(self):
+        self.choose_loader()
+        self.choose_analyzer()
+        self.choose_plotter()
 
     def choose_loader(self):
-        if self.model.loader_path:
-            module = self.load_module_from_filepath(self.model.loader_path)
+        if self.model.settings["loader_path"]:
+            module = self.load_module_from_filepath(self.model.settings["loader_path"])
             self.loader = module.Loader()
 
     def choose_analyzer(self):
-        if self.model.analyzer_path:
-            module = self.load_module_from_filepath(self.model.analyzer_path)
+        if self.model.settings["analyzer_path"]:
+            module = self.load_module_from_filepath(self.model.settings["analyzer_path"])
             self.analyzer = module.Analyzer()
     
     def choose_plotter(self):
-        if self.model.plotter_path:
-            module = self.load_module_from_filepath(self.model.plotter_path)
+        if self.model.settings["plotter_path"]:
+            module = self.load_module_from_filepath(self.model.settings["plotter_path"])
             self.plotter = module.Plotter()
     
     def load_data(self):
-        self.loader.set_filepath(self.model.files)
+        self.loader.set_filepath(self.model.settings["files"])
         self.model.data_raw = self.loader.load()
 
     def analyze_data(self):
@@ -134,9 +178,6 @@ class Controller:
         self.plotter.load_data(self.model.data_analyzed)
         self.plotter.validate_input()
         self.plotter.plot()
-    
-    def re_analyze_re_plot(self):
-        raise NotImplementedError("Still gotta finish this bad boy. Your princess is in another castle.")
 
 class View(QMainWindow):
     def __init__(self, controller, model):
@@ -145,21 +186,23 @@ class View(QMainWindow):
         self.model = model
         uic.loadUi(os.path.join("main", "ui", "main_window.ui"), self)
 
-        self.button_load.clicked.connect(controller.load_data)
+        self.button_load.clicked.connect(self.controller.load_data)
         self.button_add_files.clicked.connect(self.add_files)
         self.button_reset_files.clicked.connect(self.reset_files)
 
         self.button_settings.clicked.connect(self.open_settings_window)
         self.button_plot.clicked.connect(self.open_plot_window)      
-        self.button_analyze.clicked.connect(controller.analyze_data)
-        self.button_replot_reanalyze.clicked.connect(self.update_plot)
+        self.button_analyze.clicked.connect(self.controller.analyze_data)
+        self.button_replot_reanalyze.clicked.connect(self.update_plot)        
         
-        
-        self.action_Save_Settings.triggered.connect(controller.save_settings)
-        self.action_Load_Settings.triggered.connect(controller.load_settings)
+        self.action_Save_Settings.triggered.connect(self.save_settings)
+        self.action_Load_Settings.triggered.connect(self.load_settings)
         self.action_Choose_Loader.triggered.connect(self.get_loader_file)
         self.action_Choose_Analyzer.triggered.connect(self.get_analyzer_file)
         self.action_Choose_Plotter.triggered.connect(self.get_plotter_file)
+        self.action_Reload_Modules.triggered.connect(self.controller.load_LAP)
+
+        self.load_settings()
 
     def add_to_textbrowser(self, entry):
         self.text_browser_file_display.append(entry)
@@ -171,29 +214,57 @@ class View(QMainWindow):
         fnames, _ = QFileDialog.getOpenFileNames(self, "Choose files to load")
         for name in fnames:
             self.add_to_textbrowser(os.path.basename(name))
-        self.model.files.extend(fnames)
+        self.model.settings["files"].extend(fnames)
 
     def reset_files(self):
-        self.model.files = []
+        self.model.settings["files"] = []
         self.clear_textbrowser()
 
     def get_loader_file(self):
         file = "loader"
         fname, _ = QFileDialog.getOpenFileName(self, f"Choose {file}", os.path.join(f"{file}s"), "Python files(*py)")
-        self.model.loader_path = fname
+        item = QTableWidgetItem(os.path.basename(fname))
+        self.Table_LAP.setItem(0, 0, item)
+        self.model.settings["loader_path"] = fname
         self.controller.choose_loader()
     
     def get_analyzer_file(self):
         file = "analyzer"
-        fname, _ = QFileDialog.getOpenFileName(self, f"Choose {file}", os.path.join(f"{file}s"), "Python files(*py)")        
-        self.model.analyzer_path = fname
+        fname, _ = QFileDialog.getOpenFileName(self, f"Choose {file}", os.path.join(f"{file}s"), "Python files(*py)")
+        item = QTableWidgetItem(os.path.basename(fname))
+        self.Table_LAP.setItem(1, 0, item)        
+        self.model.settings["analyzer_path"] = fname
         self.controller.choose_analyzer()
 
     def get_plotter_file(self):
         file = "plotter"
         fname, _ = QFileDialog.getOpenFileName(self, f"Choose {file}", os.path.join(f"{file}s"), "Python files(*py)")
-        self.model.plotter_path = fname
+        item = QTableWidgetItem(os.path.basename(fname))
+        self.Table_LAP.setItem(2, 0, item)
+        self.model.settings["plotter_path"] = fname
         self.controller.choose_plotter()    
+
+    def save_settings(self):
+        self.model.save_settings()
+
+    def load_settings(self):
+        self.model.load_settings()
+        self.controller.load_LAP()
+        
+        fname = self.model.settings["loader_path"]
+        item = QTableWidgetItem(os.path.basename(fname))
+        self.Table_LAP.setItem(0, 0, item)
+
+        fname = self.model.settings["analyzer_path"]
+        item = QTableWidgetItem(os.path.basename(fname))
+        self.Table_LAP.setItem(1, 0, item)
+
+        fname = self.model.settings["plotter_path"]
+        item = QTableWidgetItem(os.path.basename(fname))
+        self.Table_LAP.setItem(2, 0, item)
+
+        for file in self.model.settings["files"]:
+            self.add_to_textbrowser(os.path.basename(file))
 
     def update_plot(self):
         self.plot_window.plot_widget.canvas.axes.cla()
@@ -357,6 +428,7 @@ def main_old():
 def main():
     app = App(sys.argv)
     sys.exit(app.exec_())
+    pass
 
 if __name__ == "__main__":
     main()

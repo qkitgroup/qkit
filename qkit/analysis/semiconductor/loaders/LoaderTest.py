@@ -4,6 +4,7 @@ import numpy as np
 class Loader(LoaderInterface):
     def __init__(self):
         self.filepath = ""
+        self.number = 12
 
     def set_filepath(self, path):
         self.filepath = path
