@@ -42,6 +42,12 @@ class tip2_client(Instrument):
         Usage:
         Initialize with
         <name> = instruments.create('<name>', 'tip2_client', url = "tcp://localhost:5000")
+        # The controled devices are automatically provided as parameters. Currently only supported for thermometers.
+        # If you want to control the temperature of a device called 'mxc', you can do:
+        name.get_mxc_temperature()
+        name.enable_PID('mxc')
+        name.r_set_T(0.050) # temperature in Kelvin
+        
     """
 
     def __init__(self, name, url = "tcp://localhost:5000"):
@@ -56,8 +62,9 @@ class tip2_client(Instrument):
         self.socket = self.context.socket(zmq.REQ)
         self.socket.setsockopt(zmq.LINGER, 0)
         self.setup_connection(url=url)
-        self.default_device = ''
+        self.default_device = "mxc"
         self.control_device = ''
+        self.T = 0.0
 
         self.add_function('set_param')
         self.add_function('get_param')
@@ -66,6 +73,7 @@ class tip2_client(Instrument):
         self.add_function('get_config')
         self.add_function('get_controled_thermometers')
         self.add_function('define_default_thermometer')
+        self.add_function("setup_devices")
 
         self.add_function('r_get_T')
         self.add_function('r_get_R')
@@ -73,40 +81,15 @@ class tip2_client(Instrument):
         self.add_function('close')
         
         
-        # self.add_parameter('T',
-        #                    flags=Instrument.FLAG_GETSET,
-        #                    type=float,
-        #                    units='K'
-        #                    )
-        # self.add_parameter('P',
-        #                    flags=Instrument.FLAG_GETSET,
-        #                    type=float,
-        #                    units=''
-        #                    )
-        # self.add_parameter('I',
-        #                    flags=Instrument.FLAG_GETSET,
-        #                    type=float,
-        #                    units=''
-        #                    )
-        # self.add_parameter('D',
-        #                    flags=Instrument.FLAG_GETSET,
-        #                    type=float,
-        #                    units=''
-        #                    )
-        # self.add_parameter('interval', type=float,
-        #                    flags=Instrument.FLAG_GETSET, units="s")
+        self.add_parameter('P',flags=Instrument.FLAG_GETSET,type=float,units='')
+        self.add_parameter('I',flags=Instrument.FLAG_GETSET,type=float,units='')
+        self.add_parameter('D',flags=Instrument.FLAG_GETSET,type=float,units='')
         # self.add_parameter('range', type=int,
         #                    flags=Instrument.FLAG_GETSET)
         # self.add_parameter('excitation', type=int,
         #                    flags=Instrument.FLAG_GETSET)
-        # self.add_parameter('temperature', type=float,
-        #                    flags=Instrument.FLAG_GET, units="K")
-        # self.add_parameter('resistance', type=float,
-        #                    flags=Instrument.FLAG_GET, units="Ohm")
-
-        self.T = 0.0
-        self.default_device = ""
-    
+        
+        self.setup_devices()
 
     def close(self):
         print ("closing zmq socket")
@@ -115,6 +98,21 @@ class tip2_client(Instrument):
     def setup_connection(self,url="tcp://localhost:5000"):
         print("Connecting to TIP server...")
         self.socket.connect(url)
+    
+    def setup_devices(self):
+        for d in self.get_devices():
+            i = self.get_device(d)
+            if i['type'] == "thermometer":
+                self.add_parameter("%s_temperature"%d,type=float,flags=Instrument.FLAG_GET,
+                                   units=i['unit'],get_func=lambda d=d:self.get_param(d,'temperature'))
+                self.add_parameter("%s_active"%d, type=bool, flags=Instrument.FLAG_GETSET,
+                                   get_func=lambda d=d:self._boolean(self.get_param(d,"active")),
+                                   set_func=lambda x,d=d: self.set_param(d,"active",str(x)))
+                self.add_parameter("%s_interval" % d, type=float, flags=Instrument.FLAG_GETSET,
+                                   get_func=lambda d=d: self.get_param(d, "interval"),
+                                   set_func=lambda x, d=d: self.set_param(d, "interval", str(x)))
+                self.get(["%s_temperature"%d,"%s_active"%d,"%s_interval" % d])
+    
 
     def set_param(self,device, param, value):
         self.socket.send_string("set/"+device+"/"+param+"/"+str(value))
@@ -154,18 +152,36 @@ class tip2_client(Instrument):
     def define_default_thermometer(self,thermometer):
         self.default_device = thermometer
     
+    def enable_PID(self,channel):
+        """
+        Enables the PID control for the given channel.
+        :param channel: Channel name, i.e. "mxc"
+        :return:
+        """
+        rv = self.set_param(channel,"control_active",True)
+        if not self._boolean(rv):
+            raise ValueError("enable_PID not successful, device responded '%s'"%rv)
+        self.default_device = channel
+        
+    def disable_PID(self,channel=None):
+        if channel is None:
+            channel = self.default_device
+        self.set_param(channel, "control_active", False)
+        return self.get_controled_thermometers()
+    
     # get and set Temperature
 
-    def r_set_T(self, T, thermometer = None):
-        if thermometer is None: thermometer = self.default_device
+    def r_set_T(self, T, thermometer = None, safety_checks = True):
+        if thermometer is None:
+            thermometer = self.default_device
         self.T = T
-        if T > 1.0: return None
-        self.set_param(self.default_device,'control_temperature',T)
-        # if not int(self.recv()) == 1:
-        #    raise Error("communication error")
+        if T > 1.0 and safety_checks:
+            raise  ValueError(__name__+": r_set_T cancelled. Target temperature > 1K. Make sure what you are doing and disable safety checks.")
+        self.set_param(thermometer,'control_temperature',T)
 
     def r_get_T(self,thermometer = None):
-        if thermometer is None: thermometer = self.default_device
+        if thermometer is None:
+            thermometer = self.default_device
         return float(self.get_param(thermometer,'temperature'))
 
     def r_get_R(self, thermometer = None):
@@ -201,7 +217,6 @@ class tip2_client(Instrument):
     
 
     def do_set_T(self, val):
-        if thermometer is None: thermometer = self.default_device
         try:
             self.r_set_T(val)
             self.T = self.r_get_T()
@@ -239,17 +254,6 @@ class tip2_client(Instrument):
         return float(self.set_param(thermometer,'control_D',D))
 
     # bridge settings for different channels
-
-    def do_get_interval(self, thermometer = None):
-        if thermometer is None: thermometer = self.default_device
-        return float(self.get_param(thermometer,'interval'))
-
-    def do_set_interval(self, interval, thermometer = None):
-        """
-        set the measurement interval of the specified channel. Unit is seconds.
-        """
-        if thermometer is None: thermometer = self.default_device
-        return float(self.set_param(thermometer,'interval',interval))
 
     def do_get_range(self, thermometer = None):
         if thermometer is None: thermometer = self.default_device
@@ -296,21 +300,3 @@ class tip2_client(Instrument):
         return float(self.get_param(thermometer,'resistance'))
 
     def _boolean(self,s): return s.lower() in ("yes", "true", "t", "1")
-
-    # def autorange(self):
-    #     '''
-    #     Does one single autorange cycle by looking at all resistance values. THIS IS NOT A PERMANENT SETTING!
-    #     Prints if it changes something
-    #     '''
-    #     self.send('G/T/:/ALL')
-    #     time.sleep(.1)
-    #     #x = pickle.loads(self.recv())
-    #     for y in x:
-    #         if (y['last_Res'] / RANGE[y['range']]) < 0.01 or (y['last_Res'] / RANGE[y['range']]) > 50:
-    #             newrange = max(4, RANGE.keys()[
-    #                 argmin(abs(y['last_Res'] / array(RANGE.values()) - 1))])  # we take a minimum RANGE setting of 4
-    #             print ("%s has a R_meas/R_ref value of %.4f and is set to range %i but I would set it to %i." % (
-    #                 y['name'], y['last_Res'] / RANGE[y['range']], y['range'], newrange))
-    #             self.do_set_range(newrange, y['channel'])
-
-    

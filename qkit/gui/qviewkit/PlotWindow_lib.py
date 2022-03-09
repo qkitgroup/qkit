@@ -35,6 +35,7 @@ import pyqtgraph as pg
 import qkit
 from qkit.storage.hdf_constants import ds_types
 import pprint
+from qkit.core.lib.misc import str3
 
 
 def _display_1D_view(self, graphicsView):
@@ -64,7 +65,7 @@ def _display_1D_view(self, graphicsView):
     ## displayed.
     view_params = json.loads(self.ds.attrs.get("view_params", {}))
     for i in range(overlay_num + 1):
-        xyurls = self.ds.attrs.get("xy_" + str(i), "").decode()
+        xyurls = str3(self.ds.attrs.get("xy_" + str(i), ""))
         ds_urls = [xyurls.split(":")[0], xyurls.split(":")[1]]
         if xyurls:
             err_url = self.ds.attrs.get("xy_" + str(i) + "_error", "")
@@ -342,10 +343,12 @@ def _display_1D_data(self, graphicsView):
     
     elif self.ds_type == ds_types['box']:
         """
-        For a box type the data to be displayed on the x-axis is the z-axis (highest coordinate) of the ds
+        For a box type. Z data is displayed along the chosen axes in the viewer
         """
-        dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['z_ds_url'])
-        
+        self.TraceXSelector.setRange(-1 * self.ds.shape[0], self.ds.shape[0] - 1)
+        self.TraceYSelector.setRange(-1 * self.ds.shape[1], self.ds.shape[1] - 1)
+        self.TraceZSelector.setRange(-1 * self.ds.shape[2], self.ds.shape[2] - 1)
+
         if self.TraceXValueChanged:
             """
             If the trace to be displayed has been changed, the correct dataslice and the displayed
@@ -369,35 +372,61 @@ def _display_1D_data(self, graphicsView):
             self.TraceYNum = num
             self.TraceYSelector.setValue(self.TraceYNum)
             self.TraceYValueChanged = False
+
+        if self.TraceZValueChanged:
+            """
+            If the trace to be displayed has been changed, the correct dataslice and the displayed
+            text has to be adjusted.
+            """
+            # calc trace number from entered value
+            (z0, dz) = _get_axis_scale(_get_ds(self.ds, _get_ds_url(self.ds, 'z_ds_url')))
+            num = int((self._traceZ_value - z0) / dz)
+            self.TraceZNum = num
+            self.TraceZSelector.setValue(self.TraceZNum)
+            self.TraceZValueChanged = False
         
         self.TraceXValue.setText(self._getXValueFromTraceNum(self.ds, self.TraceXNum))
         self.TraceYValue.setText(self._getYValueFromTraceNum(self.ds, self.TraceYNum))
-        
-        x_data = dss[0][()][:dss[1].shape[-1]]  # x_data gets truncated to y_data shape if neccessary
-        y_data = dss[1][()][self.TraceXNum, self.TraceYNum, :]
+        self.TraceZValue.setText(self._getZValueFromTraceNum(self.ds, self.TraceZNum))
+
+        if self.PlotTypeSelector.currentIndex() == 5:
+            dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['z_ds_url'])
+            x_data = dss[0][()][:dss[1].shape[2]]  # x_data gets truncated to y_data shape if neccessary
+            y_data = dss[1][()][self.TraceXNum, self.TraceYNum, :]
+        if self.PlotTypeSelector.currentIndex() == 4:
+            dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['y_ds_url'])
+            x_data = dss[0][()][:dss[1].shape[1]]
+            y_data = dss[1][()][self.TraceXNum, :, self.TraceZNum]
+        if self.PlotTypeSelector.currentIndex() == 3:
+            dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url'])
+            x_data = dss[0][()][:dss[1].shape[0]]
+            y_data = dss[1][()][:, self.TraceYNum, self.TraceZNum]
+
     
     ## Any data manipulation (dB <-> lin scale, etc) is done here
-    x_data, y_data, names[0], names[1], units[0], units[1] = _do_data_manipulation(x_data, y_data, names[0], names[1], units[0], units[1], ds_types['vector'], self.manipulation, self.manipulations)
+    x_data, y_data, names[0], names[1], units[0], units[1] = _do_data_manipulation(x_data,
+                                                                                   y_data, names[0], names[1], units[0],
+                                                                                   units[1], ds_types['vector'],
+                                                                                   self.manipulation, self.manipulations)
 
     if _axis_timestamp_formatting(graphicsView, x_data, units[0], names[0], "bottom") or \
             _axis_timestamp_formatting(graphicsView, y_data, units[1], names[1],"left"):
         if not self.user_setting_changed:
             self.plot_style = self.plot_styles['linepoint']
-            self.linestyle_selector.pointLine.setChecked(True)
     
     # if only one entry in the dataset --> point-style
     elif y_data.shape[-1] == 1:
         self.plot_style = self.plot_styles['point']
-        self.linestyle_selector.point.setChecked(True)
-    else:
-        self.linestyle_selector.line.setChecked(True)
 
     if self.plot_style == self.plot_styles['line']:
         graphicsView.plot(y=y_data, x=x_data, clear=True, pen=(200, 200, 100), connect='finite')
+        self.linestyle_selector.line.setChecked(True)
     elif self.plot_style == self.plot_styles['linepoint']:
         graphicsView.plot(y=y_data, x=x_data, clear=True, pen=(200, 200, 100), connect='finite', symbol='+')
+        self.linestyle_selector.pointLine.setChecked(True)
     elif self.plot_style == self.plot_styles['point']:
         graphicsView.plot(y=y_data, x=x_data, clear=True, pen=None, symbol='+')
+        self.linestyle_selector.point.setChecked(True)
     
     plIt = graphicsView.getPlotItem()
     plVi = plIt.getViewBox()
@@ -423,8 +452,54 @@ def _display_1D_data(self, graphicsView):
                 pass
             
             self._last_x_pos = xval
-    
+            if self.distance_measure[0] == 1: # a ROI is open
+                _, x0, y0, [roi, tx, ty,td] = self.distance_measure
+                roi.setSize((xval - x0, yval - y0))
+                tx.setText("%s" % pg.siFormat(xval - x0, suffix=units[0]))
+                tx.setPos((xval + x0) / 2, min(yval, y0))
+                ty.setText("%s" % pg.siFormat(-y0 + yval, suffix=units[1]))
+                ty.setPos(max(xval, x0), (yval + y0) / 2)
+                try:
+                    sx, Sx = pg.siScale((xval - x0))
+                    td.setText("%s/%s%s" % (pg.siFormat((yval - y0) / (xval - x0) / sx, suffix=units[1]), Sx, units[0]))
+                except ZeroDivisionError:
+                    td.setText("--")
+                td.setPos(min(xval, x0), max(yval, y0))
+
     self.proxy = pg.SignalProxy(plVi.scene().sigMouseMoved, rateLimit=15, slot=mouseMoved)
+    
+    def middleClick(mce):
+        mce = mce[0]
+        if mce.button() == 4:
+            mce.accept()
+            mousePoint = plVi.mapSceneToView(mce.scenePos())
+            xval = mousePoint.x()
+            yval = mousePoint.y()
+            if plIt.ctrl.logXCheck.isChecked():  # logarithmic scale on x axis
+                xval = 10 ** xval
+            if plIt.ctrl.logYCheck.isChecked():  # logarithmic scale on x axis
+                yval = 10 ** yval
+            
+            if self.distance_measure[0] is False:
+                roi = pg.RectROI((xval, yval), (0, 0))
+                tx = pg.TextItem("")
+                tx.setPos(xval, yval)
+                ty = pg.TextItem("")
+                ty.setPos(xval, yval)
+                td = pg.TextItem("")
+                td.setPos(xval, yval)
+                self.distance_measure = [1, xval, yval, [roi, tx, ty,td]]
+                [plVi.addItem(i) for i in self.distance_measure[-1]]
+            elif self.distance_measure[0] == 1:
+                self.distance_measure[0] = 2 # hold distance measure ROI
+            else:
+                if len(self.distance_measure) >= 4: # remove ROI
+                    [plVi.removeItem(i) for i in self.distance_measure[-1]]
+                self.distance_measure[0] = False
+
+    self.distance_measure = self.__dict__.get('distance_measure', [False])
+
+    self.proxy2 = pg.SignalProxy(plVi.scene().sigMouseClicked,slot=middleClick)
 
 
 def _display_2D_data(self, graphicsView):
@@ -465,7 +540,6 @@ def _display_2D_data(self, graphicsView):
         
         fill_x = dss[2].shape[0]
         fill_y = dss[2].shape[1]
-        
         self.TraceXValue.setText(self._getXValueFromTraceNum(self.ds, self.TraceXNum))
         self.TraceYValue.setText(self._getYValueFromTraceNum(self.ds, self.TraceYNum))
     if self.ds_type == ds_types['box']:
@@ -474,6 +548,8 @@ def _display_2D_data(self, graphicsView):
         setting the x- and y-axis are set.
         The ds-type box also has a z_ds_url.
         """
+        self.TraceXSelector.setRange(-1 * self.ds.shape[0], self.ds.shape[0] - 1)
+        self.TraceYSelector.setRange(-1 * self.ds.shape[-1], self.ds.shape[-1] - 1)
         if self.PlotTypeSelector.currentIndex() == 0:  # y_ds on x-axis; z_ds on y-axis
             if self.TraceXValueChanged:
                 # calc trace number from entered value
@@ -566,34 +642,63 @@ def _display_2D_data(self, graphicsView):
     
     def mouseMoved(mpos):
         mpos = mpos[0]
-        if not self.obj_parent.liveCheckBox.isChecked():
-            if imIt.sceneBoundingRect().contains(mpos):
-                mousePoint = imIt.mapFromScene(mpos)
-                x_index = int(mousePoint.x())
-                y_index = int(mousePoint.y())
-                if x_index >= 0 and y_index >= 0:
-                    if x_index < fill_x and y_index < fill_y:
-                        # Check this for < or <=
-                        # Also the x0s and dxs
-                        
-                        xval = scales[0][0] + x_index * scales[0][1]
-                        yval = scales[1][0] + y_index * scales[1][1]
-                        zval = data[x_index][y_index]
-                        self.PointX.setText("X: %.6e %s" % (xval, units[0]))
-                        self.PointY.setText("Y: %.6e %s" % (yval, units[1]))
-                        self.PointZ.setText("Z: %.6e %s" % (zval, units[2]))
-                        self.data_coord = "%g\t%g\t%g" % (xval, yval, zval)
+        mousePoint = imIt.mapFromScene(mpos)
+        x_index = int(mousePoint.x())
+        y_index = int(mousePoint.y())
         
+        xval = scales[0][0] + x_index * scales[0][1]
+        yval = scales[1][0] + y_index * scales[1][1]
+        if 0<= x_index < fill_x and 0 <= y_index < fill_y:
+            zval = data[x_index][y_index]
         else:
-            xval = 0
-            yval = 0
             zval = 0
-            self.PointX.setText("X: %.6e %s" % (xval, units[0]))
-            self.PointY.setText("Y: %.6e %s" % (yval, units[1]))
-            self.PointZ.setText("Z: %.6e %s" % (zval, units[2]))
-            self.data_coord = "%g\t%g\t%g" % (xval, yval, zval)
-    
+        self.PointX.setText("X: %.6e %s" % (xval, units[0]))
+        self.PointY.setText("Y: %.6e %s" % (yval, units[1]))
+        self.PointZ.setText("Z: %.6e %s" % (zval, units[2]))
+        self.data_coord = "%g\t%g\t%g" % (xval, yval, zval)
+
+        if self.distance_measure[0] == 1: # a ROI is open
+            _, x0, y0, [roi, tx, ty, td] = self.distance_measure
+            roi.setSize((xval - x0, yval - y0))
+            tx.setText("%s" % pg.siFormat(xval - x0, suffix=units[0]))
+            tx.setPos((xval + x0) / 2, min(yval, y0))
+            ty.setText("%s" % pg.siFormat(-y0 + yval, suffix=units[1]))
+            ty.setPos(max(xval, x0), (yval + y0) / 2)
+            try:
+                sx,Sx = pg.siScale((xval - x0))
+                td.setText("%s/%s%s" % (pg.siFormat((yval - y0) / (xval - x0)/sx, suffix=units[1]), Sx, units[0]))
+            except ZeroDivisionError:
+                td.setText("--")
+            td.setPos(min(xval, x0), max(yval, y0))
+        
     self.proxy = pg.SignalProxy(imVi.scene().sigMouseMoved, rateLimit=15, slot=mouseMoved)
+    def middleClick(mce):
+        mce = mce[0]
+        if mce.button() == 4:
+            mce.accept()
+            mousePoint = imIt.mapFromScene(mce.scenePos())
+            xval = scales[0][0] + int(mousePoint.x()) * scales[0][1]
+            yval = scales[1][0] + int(mousePoint.y()) * scales[1][1]
+
+            if self.distance_measure[0] is False:
+                roi = pg.RectROI((xval, yval), (0,0))
+                tx = pg.TextItem("")
+                tx.setPos(xval, yval)
+                ty = pg.TextItem("")
+                ty.setPos(xval,yval)
+                td = pg.TextItem("")
+                td.setPos(xval, yval)
+                self.distance_measure = [1,xval,yval,[roi, tx, ty, td]]
+                [imVi.addItem(i) for i in self.distance_measure[-1]]
+            elif self.distance_measure[0] == 1:
+                self.distance_measure[0] = 2  # hold distance measure ROI
+            else:
+                if len(self.distance_measure) >= 4:  # remove ROI
+                    [imVi.removeItem(i) for i in self.distance_measure[-1]]
+                self.distance_measure[0] = False
+                
+    self.distance_measure = self.__dict__.get('distance_measure',[False])
+    self.proxy2 = pg.SignalProxy(imVi.scene().sigMouseClicked,slot=middleClick)
 
 
 def _display_table(self, graphicsView):
@@ -739,7 +844,7 @@ def _get_unit(ds):
         String with unit.
     """
     try:
-        return ds.attrs.get('unit', b'_none_').decode('utf-8')
+        return str3(ds.attrs.get('unit', b'_none_'))
     except AttributeError as e:
         #print(ds)
         print("Qviewkit _get_unit:",e)
@@ -757,7 +862,7 @@ def _get_name(ds):
     if ds is None:
         return '_none_'
     try:
-        return ds.attrs.get('name', b'_none_').decode("utf-8")
+        return str3(ds.attrs.get('name', b'_none_'))
     except AttributeError as e:
         #print(ds)
         print("Qviewkit _get_name:",e)

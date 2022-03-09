@@ -11,6 +11,13 @@ import h5py
 import numpy as np
 import qkit
 from qkit.storage.hdf_constants import ds_types
+from distutils.version import LooseVersion
+
+file_kwargs = dict()
+if LooseVersion(h5py.__version__) >= LooseVersion("3.5.0"): # new file locking
+    file_kwargs = dict(locking=False)
+elif LooseVersion(h5py.__version__) >= LooseVersion("3.0.0"): # intermediate
+    logging.error("Qkit HDF file handling: In h5py between 3.0 and 3.5, there are problems with file locking handling. Please update to h5py==3.5.0")
 
 class H5_file(object):
     """Base hdf5 class intended for qkit.
@@ -45,7 +52,7 @@ class H5_file(object):
                 self.grp.attrs[k] = kw[k]
         
     def create_file(self,output_file, mode):
-        self.hf = h5py.File(output_file, mode)
+        self.hf = h5py.File(output_file, mode,**file_kwargs )
 
     def set_base_attributes(self):
         "stores some attributes and creates the default data group"
@@ -157,6 +164,7 @@ class H5_file(object):
             ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype, fillvalue = np.nan)
         
         ds.attrs.create("name",name.encode())
+        ds.attrs.create("ds_type", ds_type)
         if ds_type == ds_types['matrix'] or ds_type == ds_types['box']:
             ## fill value only needed for >1D datasets
             ds.attrs.create("fill", [0,0,0])
@@ -167,7 +175,7 @@ class H5_file(object):
         self.flush()
         return ds
         
-    def append(self,ds,data, next_matrix=False, reset = False):
+    def append(self,ds,data, next_matrix=False, reset=False, pointwise=False):
         """Method for appending hdf5 data. 
         
         A simple append method for data traces.
@@ -179,12 +187,11 @@ class H5_file(object):
             hdf_dataset 'ds'
             numpy array 'data'
             boolean 'next_matrix'
-            
+            pointwise (Boolean): if True, the data is appended pointwise, i.e. to the innermost dimension
         Returns:
             The function operates on the given variables.
         """
         # it gets a little ugly with all the different user-cases here ...
-        
         if len(ds.shape) == 1:
             ## 1dim dataset (text, coordinate, vector)
             ## multiple inputs: text, scalar (not needed?), list/np.array with one or multiple entries
@@ -227,7 +234,7 @@ class H5_file(object):
             ## multiple inputs: list/np.array with one or multiple entries
             fill = ds.attrs.get('fill')
             dim1 = ds.shape[1]
-            if len(data) == 1:
+            if len(data) == 1 and pointwise:
                 dim0 = max(1, ds.shape[0])
                 ## single entry; sorting like in the 'len(ds.shape) == 3' case
                 if next_matrix:

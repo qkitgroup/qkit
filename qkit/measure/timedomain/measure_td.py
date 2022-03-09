@@ -193,8 +193,8 @@ class Measure_td(object):
                 hdf_pha_avg = hdf_file.add_value_matrix('phase_avg_%i' % i, x=self._hdf_y, y=self._hdf_x, unit='rad')
                 
                 for i in range(len(self.y_vec)):
-                    hdf_amp_avg.append(amp_avg[i])
-                    hdf_pha_avg.append(pha_avg[i])
+                    hdf_amp_avg.append(amp_avg[i], pointwise=True)
+                    hdf_pha_avg.append(pha_avg[i], pointwise=True)
             hdf_file.close_file()
         
         else:
@@ -476,38 +476,38 @@ class Measure_td(object):
         
         if len(ampliData.shape) < 3:  # "normal" measurements
             for i in range(self.ndev):
-                self._hdf_amp[i].append(np.atleast_1d(ampliData.T[i]))
-                self._hdf_pha[i].append(np.atleast_1d(phaseData.T[i]))
+                self._hdf_amp[i].append(np.atleast_1d(ampliData.T[i]), pointwise=True)
+                self._hdf_pha[i].append(np.atleast_1d(phaseData.T[i]), pointwise=True)
                 if self.state_0_cal and self.state_1_cal and self.mode > 2:
                     I_iter = np.atleast_1d(ampliData.T[i])*np.sin(np.atleast_1d(phaseData.T[i]))
                     Q_iter = np.atleast_1d(ampliData.T[i])*np.cos(np.atleast_1d(phaseData.T[i]))
                     self._hdf_p1[i].append(((self.state_1_cal[0][0]-self.state_0_cal[0][0])*(I_iter-self.state_0_cal[0][0])+(self.state_1_cal[1][0]-self.state_0_cal[1][0])*(Q_iter-self.state_0_cal[1][0]))/((self.state_1_cal[0][0]-self.state_0_cal[0][0])**2+(self.state_1_cal[1][0]-self.state_0_cal[1][0])**2))
             if self.ReadoutTrace:
                 if self.mode < 3:  # mode 2 not yet fully supported but working for DDC timetrace experiments
-                    self._hdf_I.append(Is)
-                    self._hdf_Q.append(Qs)
+                    self._hdf_I.append(Is, pointwise=True)
+                    self._hdf_Q.append(Qs, pointwise=True)
                 elif self.mode == 3:  # mode 4 not supported for 3D_awg yet
                     for ix in range(len(self.x_vec)):
-                        self._hdf_I.append(Is[:, ix])
-                        self._hdf_Q.append(Qs[:, ix])
+                        self._hdf_I.append(Is[:, ix], pointwise=True)
+                        self._hdf_Q.append(Qs[:, ix], pointwise=True)
                     self._hdf_I.next_matrix()
                     self._hdf_Q.next_matrix()
         
         else:  # for AWG DDC ReadoutTrace, all data are there at once
             for i in range(self.ndev):
                 for j in range(ampliData.T.shape[2]):
-                    self._hdf_amp[i].append(np.atleast_1d(ampliData.T[i, :, j]))
-                    self._hdf_pha[i].append(np.atleast_1d(phaseData.T[i, :, j]))
+                    self._hdf_amp[i].append(np.atleast_1d(ampliData.T[i, :, j]), pointwise=True)
+                    self._hdf_pha[i].append(np.atleast_1d(phaseData.T[i, :, j]), pointwise=True)
                     if self.ReadoutTrace:
-                        self._hdf_I.append(Is[:, j])
-                        self._hdf_Q.append(Qs[:, j])
+                        self._hdf_I.append(Is[:, j], pointwise=True)
+                        self._hdf_Q.append(Qs[:, j], pointwise=True)
         
         if self.create_averaged_data:
             if iteration == 0:
                 self.avg_complex_sum = ampliData * np.exp(1j * phaseData)
                 for i in range(self.ndev):
-                    self._hdf_amp_avg[i].append(np.atleast_1d(ampliData.T[i]))
-                    self._hdf_pha_avg[i].append(np.atleast_1d(phaseData.T[i]))
+                    self._hdf_amp_avg[i].append(np.atleast_1d(ampliData.T[i]), pointwise=True)
+                    self._hdf_pha_avg[i].append(np.atleast_1d(phaseData.T[i]), pointwise=True)
             else:
                 self.avg_complex_sum += ampliData * np.exp(1j * phaseData)
                 amp_avg = np.abs(self.avg_complex_sum / (iteration + 1))

@@ -75,6 +75,11 @@ class virtual_MultiplexingReadout(Instrument):
 
         self.sample = sample
         self._mspec = sample.mspec
+        self._tone_relamp = None
+        self._tone_pha = None
+        self._LO = 0
+        self._tone_amp = 1
+        
         try:
             self._awg = sample.readout_awg
         except AttributeError:
@@ -416,7 +421,7 @@ class virtual_MultiplexingReadout(Instrument):
 
         # perform sanity check
         IFMax = max(abs(IFtones))
-        # print 'IF tones are ', (IFtones/1e6), 'MHz'
+        # print('IF tones are ', (IFtones/1e6), 'MHz')
         # this is only a quick check as the maximum bandwidth of an ADC card is lower than half of the sampling rate
         if IFMax > self._awg.get_clock()/2:
             logging.warning(__name__ + ' : maximum IF frequency of %fMHz is above the limit of the DAC.'%(IFMax/1e6))

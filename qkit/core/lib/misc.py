@@ -58,3 +58,13 @@ def str3(string,encoding='UTF-8'):
         return string.decode(encoding)
     except AttributeError:
         return str(string)
+
+def concat(*args):
+    """
+    Concatenates any number of strings or bytestrings together to a string.
+    This function can be helpful for code migration from py2
+    """
+    s = ""
+    for a in args:
+        s+=str3(a)
+    return s

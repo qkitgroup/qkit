@@ -32,7 +32,7 @@ class QuantumJumpMonitoring(QmQkitWrapper):
         self.qm_config = qm_config
 
         # global experiment settings
-        self.wait_before = 250000  # times 4 for ns
+        self.wait_before = 250  # times 4 for ns
 
         self.program = None
 
@@ -974,85 +974,109 @@ class QuantumJumpMonitoring(QmQkitWrapper):
                     save(state, "state")
 
                 align("qubit", "signal", "reference")
-                wait(2500000, "qubit")  # 10ms
+                wait(250, "qubit")  # 10ms
 
         self.program = quantumJumps
-        job = self.qm_config.qm.execute(self.program, duration_limit=0, data_limit=0)
-        job.wait_for_all_results()
-        res = job.get_results()
+        job = self.qm_config.qm.simulate(self.program, SimulationConfig(100000))
+        samples = job.get_simulated_samples()
 
-        self.I = np.reshape(res.variable_results.I.values, (avg, n_measure))
-        self.Q = np.reshape(res.variable_results.Q.values, (avg, n_measure))
-        self.state = np.reshape(res.variable_results.state.values, (avg, n_measure))
-        self.t = np.reshape(res.variable_results.state.ts_nsec, (avg, n_measure))
-        self.t -= self.t[:, 0, np.newaxis]
+        result = job.result_handles
+        j_handle = result.get("flip")
+        print(j_handle.fetch_all())
 
-        list_up = res.variable_results.hist_up.values
-        list_down = res.variable_results.hist_down.values
-        hist_up_avg, _ = np.histogram(list_up[:-1], bins=np.arange(list_up.max() + 1) + 0.5)
-        hist_down_avg, _ = np.histogram(list_down[:-1], bins=np.arange(list_down.max() + 1) + 0.5)
+        samples.con1.plot()
+        plt.show()
 
-        flip = res.variable_results.flip.values
-        t_flip = res.variable_results.flip.ts_nsec
-        flip_hist, _ = np.histogram(flip, bins=np.arange(n_stab + 1) - 0.5)
 
-        # qkit data storage
-        self.exp_name = "quantum_jump_hist_stabilized_{}_{}_{}".format(n_stab, stab_state, start_state)
-        self.coords = {"avg": [np.arange(avg), "#"],
-                       "n_measure": [np.arange(n_measure), "#"],
-                       "list_up": [list_up, "1"],
-                       "list_down": [list_down, "1"],
-                       "hist_up_avg": [hist_up_avg, "1"],
-                       "hist_down_avg": [hist_down_avg, "1"],
-                       "flip_index": [np.arange(n_stab), "#"],
-                       "flip": [flip, "1"],
-                       "t_flip": [t_flip / 1000, "ns"]}
-        self.values = {"state": [self.state, ["avg", "n_measure"], "state"],
-                       "t": [self.t / 1000, ["avg", "n_measure"], "us"],
-                       "I": [self.I, ["avg", "n_measure"], "V"], "Q": [self.Q, ["avg", "n_measure"], "V"],
-                       "flip_hist": [flip_hist, ["flip_index"], "1"]}
+        #if plot:
+        #    self.fig.clear()
+        #    grid = self.fig.add_gridspec(ncols=1, nrows=3, height_ratios=[2, 1, 1])
+        #
+        #    ax1 = self.fig.add_subplot(grid[0, 0])
+        #    ax1.plot(samples., self.Q, 0.1)
+        #    # s = np.linspace(0, 2 * np.pi)
+        #    # self.ax1.plot(ref_pos[0, 0] + np.sqrt(var) * np.cos(s), ref_pos[0, 1] + np.sqrt(var) * np.sin(s), 'k')
+        #    # self.ax1.plot(ref_pos[1, 0] + np.sqrt(var) * np.cos(s), ref_pos[1, 1] + np.sqrt(var) * np.sin(s), 'k')
+        #    ax1.plot(0.0, 0.0, 'r.')
 
-        if plot:
 
-            t_rep = np.mean(self.t[:, 1:] - self.t[:, :-1]) / 1000
+        #job = self.qm_config.qm.execute(self.program, duration_limit=0, data_limit=0)
 
-            self.fig.clear()
-            grid = self.fig.add_gridspec(ncols=1, nrows=3, height_ratios=[2, 1, 1])
-
-            ax1 = self.fig.add_subplot(grid[0, 0])
-            ax1.scatter(self.I, self.Q, 0.1)
-            # s = np.linspace(0, 2 * np.pi)
-            # self.ax1.plot(ref_pos[0, 0] + np.sqrt(var) * np.cos(s), ref_pos[0, 1] + np.sqrt(var) * np.sin(s), 'k')
-            # self.ax1.plot(ref_pos[1, 0] + np.sqrt(var) * np.cos(s), ref_pos[1, 1] + np.sqrt(var) * np.sin(s), 'k')
-            ax1.plot(0.0, 0.0, 'r.')
-            ax1.axvline(pos1x - sigma1, color='C0')
-            ax1.axvline(pos2x + sigma2, color='C1')
-            ax1.axis("equal")
-
-            # Maximum likelihood fit
-
-            m = np.sum(hist_down_avg)
-            n = np.sum(hist_down_avg * np.arange(hist_down_avg.size))
-            p = n / (m + n)
-            t_up = - t_rep / np.log(p)
-            p_down = m * (1 - p) * p ** np.arange(hist_down_avg.size)
-
-            ax2 = self.fig.add_subplot(grid[1, 0])
-            ax2.text(0.9, 0.9, r'$p$ = {:.6f}'.format(p) + "\n" + r'$t_\uparrow$= {:.6f}'.format(t_up),
-                     horizontalalignment='right', verticalalignment='top', transform=ax2.transAxes)
-            ax2.bar(np.arange(hist_down_avg.size), hist_down_avg, color="C0", width=1.0, alpha=0.8)
-            ax2.plot(np.arange(hist_down_avg.size), p_down, color="C0")
-            ax2.set_yscale("symlog")
-
-            m = np.sum(hist_up_avg)
-            n = np.sum(hist_up_avg * np.arange(hist_up_avg.size))
-            p = n / (m + n)
-            t_down = - t_rep / np.log(p)
-            p_up = m * (1 - p) * p ** np.arange(hist_up_avg.size)
-
-            ax3 = self.fig.add_subplot(grid[2, 0])
-            ax3.text(0.9, 0.9, r'$p$ = {:.6f}'.format(p) + "\n" + r'$t_\downarrow$ = {:.6f}'.format(t_down),
-                     horizontalalignment='right', verticalalignment='top', transform=ax3.transAxes)
-            ax3.bar(np.arange(hist_up_avg.size), hist_up_avg, color="C1", width=1.0, alpha=0.8)
-            ax3.plot(np.arange(hist_up_avg.size), p_up, color="C1")
-            ax3.set_yscale("symlog")
+        # job.wait_for_all_results()
+        # res = job.get_results()
+        #
+        # self.I = np.reshape(res.variable_results.I.values, (avg, n_measure))
+        # self.Q = np.reshape(res.variable_results.Q.values, (avg, n_measure))
+        # self.state = np.reshape(res.variable_results.state.values, (avg, n_measure))
+        # self.t = np.reshape(res.variable_results.state.ts_nsec, (avg, n_measure))
+        # self.t -= self.t[:, 0, np.newaxis]
+        #
+        # list_up = res.variable_results.hist_up.values
+        # list_down = res.variable_results.hist_down.values
+        # hist_up_avg, _ = np.histogram(list_up[:-1], bins=np.arange(list_up.max() + 1) + 0.5)
+        # hist_down_avg, _ = np.histogram(list_down[:-1], bins=np.arange(list_down.max() + 1) + 0.5)
+        #
+        # flip = res.variable_results.flip.values
+        # t_flip = res.variable_results.flip.ts_nsec
+        # flip_hist, _ = np.histogram(flip, bins=np.arange(n_stab + 1) - 0.5)
+        #
+        # # qkit data storage
+        # self.exp_name = "quantum_jump_hist_stabilized_{}_{}_{}".format(n_stab, stab_state, start_state)
+        # self.coords = {"avg": [np.arange(avg), "#"],
+        #                "n_measure": [np.arange(n_measure), "#"],
+        #                "list_up": [list_up, "1"],
+        #                "list_down": [list_down, "1"],
+        #                "hist_up_avg": [hist_up_avg, "1"],
+        #                "hist_down_avg": [hist_down_avg, "1"],
+        #                "flip_index": [np.arange(n_stab), "#"],
+        #                "flip": [flip, "1"],
+        #                "t_flip": [t_flip / 1000, "ns"]}
+        # self.values = {"state": [self.state, ["avg", "n_measure"], "state"],
+        #                "t": [self.t / 1000, ["avg", "n_measure"], "us"],
+        #                "I": [self.I, ["avg", "n_measure"], "V"], "Q": [self.Q, ["avg", "n_measure"], "V"],
+        #                "flip_hist": [flip_hist, ["flip_index"], "1"]}
+        #
+        # if plot:
+        #
+        #     t_rep = np.mean(self.t[:, 1:] - self.t[:, :-1]) / 1000
+        #
+        #     self.fig.clear()
+        #     grid = self.fig.add_gridspec(ncols=1, nrows=3, height_ratios=[2, 1, 1])
+        #
+        #     ax1 = self.fig.add_subplot(grid[0, 0])
+        #     ax1.scatter(self.I, self.Q, 0.1)
+        #     # s = np.linspace(0, 2 * np.pi)
+        #     # self.ax1.plot(ref_pos[0, 0] + np.sqrt(var) * np.cos(s), ref_pos[0, 1] + np.sqrt(var) * np.sin(s), 'k')
+        #     # self.ax1.plot(ref_pos[1, 0] + np.sqrt(var) * np.cos(s), ref_pos[1, 1] + np.sqrt(var) * np.sin(s), 'k')
+        #     ax1.plot(0.0, 0.0, 'r.')
+        #     ax1.axvline(pos1x - sigma1, color='C0')
+        #     ax1.axvline(pos2x + sigma2, color='C1')
+        #     ax1.axis("equal")
+        #
+        #     # Maximum likelihood fit
+        #
+        #     m = np.sum(hist_down_avg)
+        #     n = np.sum(hist_down_avg * np.arange(hist_down_avg.size))
+        #     p = n / (m + n)
+        #     t_up = - t_rep / np.log(p)
+        #     p_down = m * (1 - p) * p ** np.arange(hist_down_avg.size)
+        #
+        #     ax2 = self.fig.add_subplot(grid[1, 0])
+        #     ax2.text(0.9, 0.9, r'$p$ = {:.6f}'.format(p) + "\n" + r'$t_\uparrow$= {:.6f}'.format(t_up),
+        #              horizontalalignment='right', verticalalignment='top', transform=ax2.transAxes)
+        #     ax2.bar(np.arange(hist_down_avg.size), hist_down_avg, color="C0", width=1.0, alpha=0.8)
+        #     ax2.plot(np.arange(hist_down_avg.size), p_down, color="C0")
+        #     ax2.set_yscale("symlog")
+        #
+        #     m = np.sum(hist_up_avg)
+        #     n = np.sum(hist_up_avg * np.arange(hist_up_avg.size))
+        #     p = n / (m + n)
+        #     t_down = - t_rep / np.log(p)
+        #     p_up = m * (1 - p) * p ** np.arange(hist_up_avg.size)
+        #
+        #     ax3 = self.fig.add_subplot(grid[2, 0])
+        #     ax3.text(0.9, 0.9, r'$p$ = {:.6f}'.format(p) + "\n" + r'$t_\downarrow$ = {:.6f}'.format(t_down),
+        #              horizontalalignment='right', verticalalignment='top', transform=ax3.transAxes)
+        #     ax3.bar(np.arange(hist_up_avg.size), hist_up_avg, color="C1", width=1.0, alpha=0.8)
+        #     ax3.plot(np.arange(hist_up_avg.size), p_up, color="C1")
+        #     ax3.set_yscale("symlog")

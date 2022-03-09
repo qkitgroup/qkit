@@ -75,7 +75,7 @@ class QMQubitConfig:
     # TODO set dc offset mixers
     def load_config(self):
 
-        opx_one = "Opx"
+        opx_one = "con1"
 
         self.config = {
             'version': 1,

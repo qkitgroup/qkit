@@ -187,7 +187,7 @@ class Keysight_VNA_E5071C(Instrument):
             self.hold(True)
             sleep(float(self.ask('SENS1:SWE:TIME?')))
         
-        sleep(0.1) # required to avoid timing issues    MW August 2013   ???
+        #sleep(0.1) # required to avoid timing issues    MW August 2013   ???
         
         self.write('FORM:DATA REAL')
         self.write('FORM:BORD SWAPPED')

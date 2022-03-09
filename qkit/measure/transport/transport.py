@@ -1447,9 +1447,10 @@ class transport(object):
         start = float(sweep[0])
         stop = float(sweep[1])
         step = float(sweep[2])
-        nop = int(round(abs((stop-start)/step)+1))
-        arr = np.linspace(start, np.sign(stop-start)*(np.floor(np.abs(np.round(float(stop-start)/step)))*step)+start, nop)  # stop is rounded down to multiples of step
-        return np.array([np.sign(val)*round(np.abs(val), -int(np.floor(np.log10(np.abs(step))))+1) for val in arr])  # round to overcome missing precision of numpy linspace
+        ndigits = -int(np.floor(np.log10(np.abs(step)))) + 1
+        nop = int(abs((stop - start) / step + np.sign(stop - start) * step / 100)) + 1
+        return np.round(np.linspace(start, np.sign(stop - start) * (nop - 1) * step + start, nop), # stop is rounded down to multiples of step
+                        decimals=ndigits)  # every element is rounded to overcome missing precision of numpy linspace
     
     def _get_numder_comment(self, name):
         """
