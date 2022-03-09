@@ -268,7 +268,7 @@ class PlotWindow(QWidget,Ui_Form):
         ## Some look-up dicts for manipulation and plot styles.
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
         self.manipulations = {'dB':1, 'wrap':2, 'linear':4, 'remove_zeros':8,
-                              'sub_offset_avg_y':16, 'norm_data_avg_x':32, 'histogram':64 } #BITMASK for manipulation
+                              'sub_offset_avg_x':16, 'sub_offset_avg_y':32, 'norm_data_avg_x':64, 'norm_data_avg_y':128, 'histogram':256} #BITMASK for manipulation
 
         self.plot_style = 0
         self.manipulation = 8
@@ -615,14 +615,22 @@ class PlotWindow(QWidget,Ui_Form):
         linear_correction = QAction('linearly correct data', self.qvkMenu, checkable=True)
         self.qvkMenu.addAction(linear_correction)
         linear_correction.triggered.connect(self.setLinearCorrection)
+
+        offset_correction_x = QAction('data-<data:x>', self.qvkMenu, checkable=True)
+        self.qvkMenu.addAction(offset_correction_x)
+        offset_correction_x.triggered.connect(self.setOffsetCorrectionX)
         
-        offset_correction = QAction('data-<data:y>', self.qvkMenu, checkable=True)
-        self.qvkMenu.addAction(offset_correction)
-        offset_correction.triggered.connect(self.setOffsetCorrection)
+        offset_correction_y = QAction('data-<data:y>', self.qvkMenu, checkable=True)
+        self.qvkMenu.addAction(offset_correction_y)
+        offset_correction_y.triggered.connect(self.setOffsetCorrectionY)
+
+        norm_correction_x = QAction('data/<data:x>', self.qvkMenu, checkable=True)
+        self.qvkMenu.addAction(norm_correction_x)
+        norm_correction_x.triggered.connect(self.setNormDataCorrectionX)
         
-        norm_correction = QAction('data/<data:x>', self.qvkMenu, checkable=True)
-        self.qvkMenu.addAction(norm_correction)
-        norm_correction.triggered.connect(self.setNormDataCorrection)
+        norm_correction_y = QAction('data/<data:y>', self.qvkMenu, checkable=True)
+        self.qvkMenu.addAction(norm_correction_y)
+        norm_correction_y.triggered.connect(self.setNormDataCorrectionY)
 
         dB_scale = QAction('dB / linear', self.qvkMenu, checkable=True)
         self.qvkMenu.addAction(dB_scale)
@@ -632,8 +640,14 @@ class PlotWindow(QWidget,Ui_Form):
         self.qvkMenu.addAction(histogram)
         histogram.triggered.connect(self.setHistogram)
 
-        self.manipulation_menu = {'dB': dB_scale, 'wrap': phase_wrap, 'linear': linear_correction, 'sub_offset_avg_y': offset_correction, 'norm_data_avg_x':
-            norm_correction, 'histogram': histogram}
+        self.manipulation_menu = {'dB': dB_scale,
+                                  'wrap': phase_wrap,
+                                  'linear': linear_correction,
+                                  'sub_offset_avg_x': offset_correction_x,
+                                  'sub_offset_avg_y': offset_correction_y,
+                                  'norm_data_avg_x': norm_correction_x,
+                                  'norm_data_avg_y': norm_correction_y,
+                                  'histogram': histogram}
         
         self.updateManipulationMenu()
         
@@ -696,15 +710,29 @@ class PlotWindow(QWidget,Ui_Form):
             self.obj_parent.pw_refresh_signal.emit()
             
     @pyqtSlot()
-    def setOffsetCorrection(self):
+    def setOffsetCorrectionX(self):
+        self.manipulation = self.manipulation ^ self.manipulations['sub_offset_avg_x']
+        #print "{:08b}".format(self.manipulation)
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+
+    @pyqtSlot()
+    def setOffsetCorrectionY(self):
         self.manipulation = self.manipulation ^ self.manipulations['sub_offset_avg_y']
         #print "{:08b}".format(self.manipulation)
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
 
     @pyqtSlot()
-    def setNormDataCorrection(self):
+    def setNormDataCorrectionX(self):
         self.manipulation = self.manipulation ^ self.manipulations['norm_data_avg_x']
+        #print "{:08b}".format(self.manipulation)
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+
+    @pyqtSlot()
+    def setNormDataCorrectionY(self):
+        self.manipulation = self.manipulation ^ self.manipulations['norm_data_avg_y']
         #print "{:08b}".format(self.manipulation)
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
