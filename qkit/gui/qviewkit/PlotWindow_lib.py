@@ -953,19 +953,34 @@ def _do_data_manipulation(x_data, y_data, x_name, y_name, x_unit, y_unit, ds_typ
             ## Only relevant for matrices and boxes in 2d
             if manipulation & manipulations['remove_zeros']:
                 y_data[np.where(y_data == 0)] = np.NaN  # replace all exact zeros in the hd5 y_data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
-    
+
+    # subtract mean value (offset correction) from the data along the x-axis
+    if manipulation & manipulations['sub_offset_avg_x']:
+        # ignore division by zero
+        old_warn = np.seterr(divide='print')
+        np.seterr(**old_warn)
+        y_data = y_data - np.nanmean(y_data, axis=0, keepdims=True)
+
+    # subtract mean value (offset correction) from the data along the y-axis
     if manipulation & manipulations['sub_offset_avg_y']:
         # ignore division by zero
         old_warn = np.seterr(divide='print')
         np.seterr(**old_warn)
         y_data = y_data - np.nanmean(y_data, axis=1, keepdims=True)
-    
-    # subtract offset from the y_data
+
+    # divide data by mean value (normalization) along the x-axis
     if manipulation & manipulations['norm_data_avg_x']:
         # ignore division by zero
         old_warn = np.seterr(divide='print')
         np.seterr(**old_warn)
         y_data = y_data / np.nanmean(y_data, axis=0, keepdims=True)
+
+    # divide data by mean value (normalization) along the y-axis
+    if manipulation & manipulations['norm_data_avg_y']:
+        # ignore division by zero
+        old_warn = np.seterr(divide='print')
+        np.seterr(**old_warn)
+        y_data = y_data / np.nanmean(y_data, axis=1, keepdims=True)
 
     if manipulation & manipulations['dB']:
         y_data = 20 * np.log10(y_data)
