@@ -4,7 +4,8 @@ import json
 import importlib.util
 
 from PyQt5 import uic
-from PyQt5.QtWidgets import QWidget, QMainWindow, QLineEdit, QApplication, QVBoxLayout, QGridLayout, QLabel, QFileDialog, QMessageBox, QTableWidget, QTableWidgetItem
+from PyQt5.QtWidgets import QTextBrowser, QWidget, QMainWindow, QLineEdit, QApplication, QVBoxLayout, QGridLayout, QLabel, QFileDialog, QMessageBox, QTableWidget, QTableWidgetItem
+from PyQt5.QtGui import QColor
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
 
 test_mode = True
@@ -121,6 +122,10 @@ class Model:
         "plotter_path" : "",
         "analyzer_path" : "",
         "loader_path" : ""}
+        
+        self.loader_exists = 0
+        self.analyzer_exists = 0
+        self.plotter_exists = 0
 
         self.data_raw = {}
         self.data_analyzed = {}
@@ -130,12 +135,18 @@ class Model:
             configfile.write(json.dumps(self.settings, indent= 2))
 
     def load_settings(self):
-        with open(os.path.join("main", "configuration.ini")) as configfile:
-            self.settings= json.load(configfile)
+        try:
+            with open(os.path.join("main", "configuration.ini")) as configfile:
+                self.settings= json.load(configfile)
+        except FileNotFoundError:
+            pass
 
 class Controller:
     def __init__(self, model):
         self.model = model
+        self.loader = None
+        self.analyzer = None
+        self.plotter = None
     
     @staticmethod
     def load_module_from_filepath(fname):
@@ -151,19 +162,25 @@ class Controller:
         self.choose_plotter()
 
     def choose_loader(self):
-        if self.model.settings["loader_path"]:
+        try:
             module = self.load_module_from_filepath(self.model.settings["loader_path"])
             self.loader = module.Loader()
+        except AttributeError:
+            self.loader = None
 
     def choose_analyzer(self):
-        if self.model.settings["analyzer_path"]:
+        try:
             module = self.load_module_from_filepath(self.model.settings["analyzer_path"])
             self.analyzer = module.Analyzer()
-    
+        except AttributeError:
+            self.analyzer = None
+
     def choose_plotter(self):
-        if self.model.settings["plotter_path"]:
+        try:
             module = self.load_module_from_filepath(self.model.settings["plotter_path"])
             self.plotter = module.Plotter()
+        except AttributeError:
+            self.plotter = None
     
     def load_data(self):
         self.loader.set_filepath(self.model.settings["files"])
@@ -186,13 +203,13 @@ class View(QMainWindow):
         self.model = model
         uic.loadUi(os.path.join("main", "ui", "main_window.ui"), self)
 
-        self.button_load.clicked.connect(self.controller.load_data)
+        self.button_load.clicked.connect(self.load_data)
         self.button_add_files.clicked.connect(self.add_files)
         self.button_reset_files.clicked.connect(self.reset_files)
 
         self.button_settings.clicked.connect(self.open_settings_window)
         self.button_plot.clicked.connect(self.open_plot_window)      
-        self.button_analyze.clicked.connect(self.controller.analyze_data)
+        self.button_analyze.clicked.connect(self.analyze_data)
         self.button_replot_reanalyze.clicked.connect(self.update_plot)        
         
         self.action_Save_Settings.triggered.connect(self.save_settings)
@@ -202,6 +219,7 @@ class View(QMainWindow):
         self.action_Choose_Plotter.triggered.connect(self.get_plotter_file)
         self.action_Reload_Modules.triggered.connect(self.controller.load_LAP)
 
+        self.a = QTextBrowser()
         self.load_settings()
 
     def add_to_textbrowser(self, entry):
@@ -220,13 +238,45 @@ class View(QMainWindow):
         self.model.settings["files"] = []
         self.clear_textbrowser()
 
+    def enable_load_button(self):
+        allowed = True
+        allowed = bool(self.controller.loader) and allowed
+        self.button_load.setEnabled(allowed)
+    
+    def enable_analyze_button(self):
+        allowed = True
+        allowed = bool(self.controller.analyzer) and allowed
+        allowed = bool(self.model.data_raw) and allowed
+        self.button_analyze.setEnabled(allowed)        
+
+    def enable_plot_button(self):
+        allowed = True
+        allowed = bool(self.controller.loader) and allowed
+        allowed = bool(self.model.data_analyzed) and allowed
+        self.button_plot.setEnabled(allowed)
+
+    def enable_settings_button(self):
+        allowed = True
+        allowed = bool(self.controller.loader) and allowed
+        allowed = bool(self.controller.analyzer) and allowed
+        allowed = bool(self.controller.plotter) and allowed
+        self.button_settings.setEnabled(allowed)
+
+    def enable_reanalyze_replot_button(self):
+        allowed = True
+        allowed = bool(self.plot_window) and allowed
+        self.button_replot_reanalyze.setEnabled(allowed)
+
     def get_loader_file(self):
         file = "loader"
         fname, _ = QFileDialog.getOpenFileName(self, f"Choose {file}", os.path.join(f"{file}s"), "Python files(*py)")
         item = QTableWidgetItem(os.path.basename(fname))
         self.Table_LAP.setItem(0, 0, item)
         self.model.settings["loader_path"] = fname
-        self.controller.choose_loader()
+        if self.model.settings["loader_path"]:
+            self.controller.choose_loader()
+        self.enable_load_button()
+        self.enable_settings_button()
     
     def get_analyzer_file(self):
         file = "analyzer"
@@ -234,7 +284,10 @@ class View(QMainWindow):
         item = QTableWidgetItem(os.path.basename(fname))
         self.Table_LAP.setItem(1, 0, item)        
         self.model.settings["analyzer_path"] = fname
-        self.controller.choose_analyzer()
+        if self.model.settings["analyzer_path"]:
+            self.controller.choose_analyzer()
+        self.enable_analyze_button()
+        self.enable_settings_button()
 
     def get_plotter_file(self):
         file = "plotter"
@@ -242,7 +295,10 @@ class View(QMainWindow):
         item = QTableWidgetItem(os.path.basename(fname))
         self.Table_LAP.setItem(2, 0, item)
         self.model.settings["plotter_path"] = fname
-        self.controller.choose_plotter()    
+        if self.model.settings["plotter_path"]:
+            self.controller.choose_plotter()
+        self.enable_plot_button()
+        self.enable_settings_button()
 
     def save_settings(self):
         self.model.save_settings()
@@ -254,15 +310,19 @@ class View(QMainWindow):
         fname = self.model.settings["loader_path"]
         item = QTableWidgetItem(os.path.basename(fname))
         self.Table_LAP.setItem(0, 0, item)
+        self.enable_load_button()
 
         fname = self.model.settings["analyzer_path"]
         item = QTableWidgetItem(os.path.basename(fname))
         self.Table_LAP.setItem(1, 0, item)
+        self.enable_analyze_button()
 
         fname = self.model.settings["plotter_path"]
         item = QTableWidgetItem(os.path.basename(fname))
         self.Table_LAP.setItem(2, 0, item)
+        self.enable_plot_button()
 
+        self.enable_settings_button()
         for file in self.model.settings["files"]:
             self.add_to_textbrowser(os.path.basename(file))
 
@@ -270,6 +330,17 @@ class View(QMainWindow):
         self.plot_window.plot_widget.canvas.axes.cla()
         self.controller.plot_data()
         self.plot_window.plot_widget.canvas.draw()
+
+    def load_data(self):
+        self.controller.load_data()
+        if self.model.settings["files"]:
+            self.text_browser_file_display.append("---------LOADED---------")
+            self.model.settings["files"] = []
+            self.enable_analyze_button()
+
+    def analyze_data(self):
+        self.controller.analyze_data()
+        self.enable_plot_button()
 
     def re_analyze_re_plot(self):
         self.controller.analyze_data()
@@ -284,6 +355,7 @@ class View(QMainWindow):
         self.plot_window = Plot_window(self.controller.plotter)
         self.update_plot()
         self.plot_window.show()
+        self.enable_reanalyze_replot_button()
 
 class App(QApplication):
     def __init__(self, sys_argv):

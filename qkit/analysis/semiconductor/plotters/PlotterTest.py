@@ -9,6 +9,7 @@ class Plotter(PlotterInterface):
         self.fig = plt.Figure()
         self.fig.subplots()
         self.ax = self.fig.gca()
+        self.mode = 0
 
     def load_data(self, data):
         self.data_analyzed = data
@@ -22,5 +23,8 @@ class Plotter(PlotterInterface):
     
     def plot(self):
         x = self.data_analyzed["x"]
-        y = self.data_analyzed["y"]
+        if self.mode:
+            y = self.data_analyzed["x"] **4 
+        else:
+            y = self.data_analyzed["y"]
         self.ax.plot(x, y, next(self.cycler))
