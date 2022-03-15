@@ -1,3 +1,4 @@
+#!/usr/bin/python python
 import sys
 import os
 import json
@@ -17,6 +18,7 @@ if test_mode:
 class Mask:
     def __init__(self, mask):
         self.mask = mask
+    
     def postive_mask(self, obj):
         if obj in self.mask:
             return True
@@ -159,12 +161,12 @@ class Controller:
     
     def load_data(self):
         self.loader.set_filepath(self.model.settings["files"])
-        self.model.data_raw = self.loader.load()
+        self.model.data_raw.update(self.loader.load())
 
     def analyze_data(self):
         self.analyzer.load_data(self.model.data_raw)
         self.analyzer.validate_input()
-        self.model.data_analyzed = self.analyzer.analyze()
+        self.model.data_analyzed.update(self.analyzer.analyze())
 
     def plot_data(self):
         self.plotter.load_data(self.model.data_analyzed)
