@@ -47,7 +47,7 @@ class Keysight_N5173B(Instrument):
 
         # Implement parameters
         self.add_parameter('power',
-            flags=Instrument.FLAG_GETSET, units='dBm', minval=-20, maxval=19, offset=True, type=float)
+            flags=Instrument.FLAG_GETSET, units='dBm', minval=-135, maxval=30, offset=True, type=float)
         #self.add_parameter('phase',
         #    flags=Instrument.FLAG_GETSET, units='rad', minval=-numpy.pi, maxval=numpy.pi, type=types.FloatType)
         self.add_parameter('frequency',

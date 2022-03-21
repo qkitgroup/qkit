@@ -1591,6 +1591,7 @@ class Keysight_B2900(Instrument):
             step = -step
         for val in np.arange(start, stop, step) + step:
             self.set_bias_value(val, channel=channel)
+            print('{:f}{:s}'.format(val, self._IV_units[self.get_bias_mode()]), end='\r')
             time.sleep(step_time)
 
     def ramp_voltage(self, stop, step, step_time=0.1, channel=1):
