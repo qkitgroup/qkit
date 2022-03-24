@@ -1591,6 +1591,7 @@ class Keysight_B2900(Instrument):
             step = -step
         for val in np.arange(start, stop, step) + step:
             self.set_bias_value(val, channel=channel)
+            print('{:f}{:s}'.format(val, self._IV_units[self.get_bias_mode()]), end='\r')
             time.sleep(step_time)
 
     def ramp_voltage(self, stop, step, step_time=0.1, channel=1):
@@ -2482,19 +2483,19 @@ class Keysight_B2900(Instrument):
         parlist: dict
             Parameter names as keys, corresponding channels of interest as values.
         """
-        parlist = {'measurement_mode': range(1, self._channels + 1),
-                   'bias_mode': range(1, self._channels + 1),
-                   'sense_mode': range(1, self._channels + 1),
-                   'bias_range': range(1, self._channels + 1),
-                   'sense_range': range(1, self._channels + 1),
-                   'bias_trigger': range(1, self._channels + 1),
-                   'sense_trigger': range(1, self._channels + 1),
-                   'bias_delay': range(1, self._channels + 1),
-                   'sense_delay': range(1, self._channels + 1),
-                   'bias_value': range(1, self._channels + 1),
-                   'plc': [None],
-                   'sense_nplc': range(1, self._channels + 1),
-                   'status': range(1, self._channels + 1),
+        parlist = {'measurement_mode': {'channels': range(1, self._channels + 1)},
+                   'bias_mode': {'channels': range(1, self._channels + 1)},
+                   'sense_mode': {'channels': range(1, self._channels + 1)},
+                   'bias_range': {'channels': range(1, self._channels + 1)},
+                   'sense_range': {'channels': range(1, self._channels + 1)},
+                   'bias_trigger': {'channels': range(1, self._channels + 1)},
+                   'sense_trigger': {'channels': range(1, self._channels + 1)},
+                   'bias_delay': {'channels': range(1, self._channels + 1)},
+                   'sense_delay': {'channels': range(1, self._channels + 1)},
+                   'bias_value': {'channels': range(1, self._channels + 1)},
+                   'plc': {'channels': [None]},
+                   'sense_nplc': {'channels': range(1, self._channels + 1)},
+                   'status': {'channels': range(1, self._channels + 1)},
                    }
         return parlist
 
@@ -2515,7 +2516,7 @@ class Keysight_B2900(Instrument):
         parlist: dict
             Parameter names as keys, values of corresponding channels as values.
         """
-        channels = kwargs.get('channels')
+        channels = kwargs.get('channels').get('channels')
         if channels == [None]:
             return getattr(self, 'get_{!s}'.format(param))()
         else:
