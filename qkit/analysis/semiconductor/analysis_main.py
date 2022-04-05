@@ -1,6 +1,7 @@
 #!/usr/bin/python python
 import sys
 import os
+import traceback
 import json
 import importlib.util
 
@@ -305,30 +306,45 @@ class View(QMainWindow):
         self.enable_settings_button()
         for file in self.model.settings["files"]:
             self.add_to_textbrowser(os.path.basename(file))
+    
+    def show_error_msg(self, msg):
+        msgBox = QMessageBox(self)
+        msgBox.setIcon(QMessageBox.Critical)
+        msgBox.setText(msg)
+        msgBox.setWindowTitle("Error")
+        msgBox.show()
+
+    def display_errors(self, func):
+        try:
+            func()
+        except:
+            error_msg = traceback.format_exc()
+            self.show_error_msg(error_msg)
 
     def update_plot(self):
         self.plot_window.plot_widget.canvas.axes.cla()
-        self.controller.plot_data()
+        self.display_errors(self.controller.plot_data)
         self.plot_window.plot_widget.canvas.draw()
-
+    
     def load_data(self):
-        self.controller.load_data()
+        self.display_errors(self.controller.load_data)
+        
         if self.model.settings["files"]:
             self.text_browser_file_display.append("---------LOADED---------")
             self.model.settings["files"] = []
             self.enable_analyze_button()
 
     def analyze_data(self):
-        self.controller.analyze_data()
+        self.display_errors(self.controller.analyze_data)
         self.enable_plot_button()
 
     def re_analyze_re_plot(self):
-        self.controller.analyze_data()
+        self.display_errors(self.controller.analyze_data)
         self.update_plot()
 
     def open_settings_window(self):
         self.settings_window = Settings_window(self.controller.loader, self.controller.analyzer, self.controller.plotter)
-        self.controller.plot_data()
+        self.display_errors(self.controller.plot_data())
         self.settings_window.show()
 
     def open_plot_window(self):
