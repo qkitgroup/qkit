@@ -41,8 +41,9 @@ class tip2_client(Instrument):
 
         Usage:
         Initialize with
-        <name> = instruments.create('<name>', 'tip2_client', url = "tcp://localhost:5000")
-        # The controled devices are automatically provided as parameters. Currently only supported for thermometers.
+        <name> = instruments.create('<name>', 'tip2_client', url = "tcp://localhost:5000",setup = True)
+        # If setup is True, the controled devices are automatically provided as parameters. Currently only supported for thermometers.
+        # If there is anything going wrong with this automatic process, you can set setup=False and create the devices manually.
         # If you want to control the temperature of a device called 'mxc', you can do:
         name.get_mxc_temperature()
         name.enable_PID('mxc')
@@ -50,13 +51,9 @@ class tip2_client(Instrument):
         
     """
 
-    def __init__(self, name, url = "tcp://localhost:5000"):
+    def __init__(self, name, url = "tcp://localhost:5000",setup = True):
         
         Instrument.__init__(self, name, tags=['physical'])
-
-        # Add some global constants
-        #self._address = address
-        #self._port = port
 
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REQ)
@@ -81,15 +78,12 @@ class tip2_client(Instrument):
         self.add_function('close')
         
         
-        self.add_parameter('P',flags=Instrument.FLAG_GETSET,type=float,units='')
-        self.add_parameter('I',flags=Instrument.FLAG_GETSET,type=float,units='')
-        self.add_parameter('D',flags=Instrument.FLAG_GETSET,type=float,units='')
         # self.add_parameter('range', type=int,
         #                    flags=Instrument.FLAG_GETSET)
         # self.add_parameter('excitation', type=int,
         #                    flags=Instrument.FLAG_GETSET)
-        
-        self.setup_devices()
+        if setup:
+            self.setup_devices()
 
     def close(self):
         print ("closing zmq socket")
@@ -112,6 +106,10 @@ class tip2_client(Instrument):
                                    get_func=lambda d=d: self.get_param(d, "interval"),
                                    set_func=lambda x, d=d: self.set_param(d, "interval", str(x)))
                 self.get(["%s_temperature"%d,"%s_active"%d,"%s_interval" % d])
+                if d==self.default_device:
+                    self.add_parameter('P', flags=Instrument.FLAG_GETSET, type=float, units='')
+                    self.add_parameter('I', flags=Instrument.FLAG_GETSET, type=float, units='')
+                    self.add_parameter('D', flags=Instrument.FLAG_GETSET, type=float, units='')
     
 
     def set_param(self,device, param, value):
@@ -200,8 +198,6 @@ class tip2_client(Instrument):
 
         T_current = self.r_get_T()
         print (T_current)
-        # qkit.flow.sleep(15)
-        # print T_current
         while True:
             T_current = self.r_get_T()
             Ts = delete(append(Ts, T_current), 0)
@@ -214,7 +210,6 @@ class tip2_client(Instrument):
                 break
         print ("settling time: %s"%(time.time() - settling_time))
 
-    
 
     def do_set_T(self, val):
         try:
@@ -264,7 +259,7 @@ class tip2_client(Instrument):
         Set the resistance range of the specified channel. Check RANGE dict for help.
         """
         if thermometer is None: thermometer = self.default_device
-        self.send("SET/T/%i/Range/%i" % (channel, range))
+        self.send("SET/T/%i/Range/%i" % (thermometer, range))
         return bool(self.recv())
 
     def do_get_excitation(self, thermometer = None):
@@ -287,7 +282,7 @@ class tip2_client(Instrument):
         8:30 mV
         """
         if thermometer is None: thermometer = self.default_device
-        self.send("SET/T/%i/EX/%i" % (channel, excitation))
+        self.send("SET/T/%i/EX/%i" % (thermometer, excitation))
         return bool(self.recv())
     
     def do_get_temperature(self, thermometer = None):
