@@ -83,7 +83,7 @@ class Tuning(mb.MeasureBase):
         
         self._z_parameter = None
         
-        self.meander_sweep = True
+        self.meander_sweep = False
         self.report_static_voltages = True
         
         self.multiplexer = Sequential_multiplexer()
