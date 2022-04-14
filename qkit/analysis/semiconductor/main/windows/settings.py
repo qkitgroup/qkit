@@ -2,6 +2,7 @@ import os
 from PyQt5 import uic
 from PyQt5.QtWidgets import QWidget, QLineEdit, QGridLayout, QLabel
 
+
 class Mask:
     def __init__(self, mask):
         self.mask = mask
@@ -43,9 +44,9 @@ class Settings_tab(QWidget):
         return setter
 
 class Settings_window(QWidget):
-    def __init__(self, *objects):
+    def __init__(self, main_dir, *objects):
         super().__init__()
-        uic.loadUi(os.path.join("main", "ui", "settings_window.ui"), self)
+        uic.loadUi(os.path.join(main_dir, "main", "ui", "settings_window.ui"), self)
 
         for obj in objects:
             new_tab = Settings_tab(obj)

@@ -1,14 +1,14 @@
 import matplotlib.pyplot as plt
 
 from itertools import cycle
-from interfaces import PlotterInterface
+from qkit.analysis.semiconductor.interfaces import PlotterInterface
 
 class Plotter(PlotterInterface):
     def __init__(self) -> None:
         self.cycler = cycle("rgb")
-        self.fig = plt.Figure()
-        self.fig.subplots()
-        self.ax = self.fig.gca()
+        self.figure = plt.Figure()
+        self.figure.subplots()
+        self.ax = self.figure.gca()
         self.mode = 0
 
     def load_data(self, data):

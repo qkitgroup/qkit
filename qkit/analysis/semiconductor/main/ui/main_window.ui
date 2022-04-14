@@ -87,7 +87,7 @@
          <item>
           <widget class="QPushButton" name="button_load">
            <property name="enabled">
-            <bool>false</bool>
+            <bool>true</bool>
            </property>
            <property name="text">
             <string>load</string>
@@ -188,7 +188,7 @@
          <item>
           <widget class="QPushButton" name="button_settings">
            <property name="enabled">
-            <bool>false</bool>
+            <bool>true</bool>
            </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -207,7 +207,7 @@
          <item>
           <widget class="QPushButton" name="button_analyze">
            <property name="enabled">
-            <bool>false</bool>
+            <bool>true</bool>
            </property>
            <property name="text">
             <string>analyze</string>
@@ -217,7 +217,7 @@
          <item>
           <widget class="QPushButton" name="button_plot">
            <property name="enabled">
-            <bool>false</bool>
+            <bool>true</bool>
            </property>
            <property name="text">
             <string>open plot window</string>
@@ -227,7 +227,7 @@
          <item>
           <widget class="QPushButton" name="button_replot_reanalyze">
            <property name="enabled">
-            <bool>false</bool>
+            <bool>true</bool>
            </property>
            <property name="text">
             <string>re-analyze and re-plot</string>

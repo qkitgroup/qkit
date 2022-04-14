@@ -1,4 +1,4 @@
-from interfaces import LoaderInterface
+from qkit.analysis.semiconductor.interfaces import LoaderInterface
 import numpy as np
 
 class Loader(LoaderInterface):

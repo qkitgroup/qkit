@@ -1,5 +1,5 @@
 import numpy as np
-from interfaces import AnalyzerInterface
+from qkit.analysis.semiconductor.interfaces import AnalyzerInterface
 from scipy import signal
 from scipy.optimize import curve_fit
 
