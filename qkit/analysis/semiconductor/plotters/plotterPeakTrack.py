@@ -34,7 +34,7 @@ class Plotter(PlotterInterface):
                 missing_entries += "\ndemod0&4.timestamp0"
             if "demod0&4.timestamp4" not in keys:
                 missing_entries += "\ndemod0&4.timestamp4"
-            if "peak_pos" not in keys:
+            if "peak_positions" not in keys:
                 missing_entries += "\npeak_pos"
             if "gates_6_16" not in keys:
                 missing_entries += "\ngates_6_16"
@@ -44,27 +44,27 @@ class Plotter(PlotterInterface):
             if missing_entries:
                 raise TypeError(f"{__name__}: Invalid input data. The following nodes are missing: {missing_entries}")
 
-    def plot2D(self):
+    def plot_measurement(self):
         for file in self.data_analyzed.values():
             (x_len, y_len) = np.shape(file["demod0&4.r0"])
             self.ax.pcolor(file["number"][:x_len], file["gates_6_16"][:y_len], np.transpose(file["demod0&4.r0"]))
             
     
-    def plot1D(self):
+    def plot_peaks(self):
         for file in self.data_analyzed.values():
-            self.ax.plot(file["peak_pos"], color = "r")
+            self.ax.scatter(file["peak_positions"]["x"], file["peak_positions"]["y"], s = 0.5, c = "r")
 
     
     def plot(self):
-        self.plot2D()
-        self.plot1D()
+        self.plot_measurement()
+        self.plot_peaks()
 
 def main():
     
     arr = [[1,2],[3,4]]
     plotter = Plotter()
     plotter.load_data(arr)
-    plotter.plot2D
+    plotter.plot()
 
 if __name__ == "__main__":
     from analysis_main_nu import main as start_GUI
