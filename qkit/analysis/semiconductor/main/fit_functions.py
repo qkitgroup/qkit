@@ -8,12 +8,12 @@ def sech(
     b: np.float_,
     c: np.float_,
 ) -> NDArray[np.float_]:
-    """Returns the hpyerbolic secant of the given x values"""
-    return a / np.cosh(x / b - c)
+    """Returns the hyperbolic secant of the given x values"""
+    return a / np.cosh((x - c) / b)
 
 
 def multi_sech(x: NDArray[np.float_], *params: np.float_) -> NDArray[np.float_]:
-    """Returns the sum of multiple hyperbolic sechants
+    """Returns the sum of multiple hyperbolic secants
     according to the number of given parameters"""
     y = np.zeros_like(x)
     for i in range(0, len(params), 3):
