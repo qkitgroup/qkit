@@ -28,6 +28,8 @@ class ZHInstQkitProperty(QkitProperty):
             test = self.fget(param)
         except LoggerModule.ToolkitConnectionError as tce:
             raise TypeError("Get not supported. Skip.", tce)
+        except LoggerModule.ToolkitNodeTreeError as tnte:
+            raise TypeError("Get not supported. Skip.", tnte)
                 
         access = param._properties # A set of strings describing access: Read, Write, Setting
         if 'Setting' in access:
