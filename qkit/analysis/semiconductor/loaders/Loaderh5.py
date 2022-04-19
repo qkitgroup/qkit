@@ -2,7 +2,7 @@ from typing import List
 import h5py
 import numpy as np
 from pathlib import Path
-from qkit.analysis.semiconductor.interfaces import LoaderInterface
+from qkit.analysis.semiconductor.main.interfaces import LoaderInterface
 
 class Loader(LoaderInterface):
     def __init__(self) :

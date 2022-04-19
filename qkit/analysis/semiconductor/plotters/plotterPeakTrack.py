@@ -1,8 +1,8 @@
 from typing import Any, Dict
 
 import numpy as np
-from qkit.analysis.semiconductor.interfaces import PlotterInterface
-from qkit.analysis.semiconductor.plotters.pre_formatted_figures import SemiFigure
+from qkit.analysis.semiconductor.main.interfaces import PlotterInterface
+from qkit.analysis.semiconductor.main.pre_formatted_figures import SemiFigure
 
 
 class Plotter(PlotterInterface):
@@ -67,16 +67,10 @@ class Plotter(PlotterInterface):
         # self.plot_peak_1D()
 
 
-def main():
-
-    arr = [[1, 2], [3, 4]]
+def main():    
     plotter = Plotter()
-    plotter.load_data(arr)
     plotter.plot()
 
 
 if __name__ == "__main__":
-    from analysis_main_nu import main as start_GUI
-
-    #%% start_GUI
-    start_GUI()
+    pass

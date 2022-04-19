@@ -1,8 +1,7 @@
 from typing import Any, Dict
 
 import numpy as np
-from numpy.typing import NDArray
-from qkit.analysis.semiconductor.interfaces import AnalyzerInterface
+from qkit.analysis.semiconductor.main.interfaces import AnalyzerInterface
 from scipy import signal
 from scipy.optimize import curve_fit
 

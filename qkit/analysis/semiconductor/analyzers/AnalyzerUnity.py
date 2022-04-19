@@ -1,4 +1,4 @@
-from qkit.analysis.semiconductor.interfaces import AnalyzerInterface
+from qkit.analysis.semiconductor.main.interfaces import AnalyzerInterface
 
 class Analyzer(AnalyzerInterface):
     def load_data(self, data):
