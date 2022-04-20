@@ -13,10 +13,10 @@ from PyQt5.QtWidgets import (
     QMessageBox,
     QTableWidgetItem,
 )
-from qkit.analysis.semiconductor.main.windows.plot import Plot_window
-from qkit.analysis.semiconductor.main.windows.settings import Settings_window
+from qkit.analysis.semiconductor.gui.windows.plot import Plot_window
+from qkit.analysis.semiconductor.gui.windows.settings import Settings_window
 
-HOMEDIR = os.path.dirname(__file__)
+HOMEDIR = os.path.dirname(os.path.dirname(__file__))
 
 
 class Model:
@@ -33,13 +33,13 @@ class Model:
 
     def save_settings(self):
         with open(
-            os.path.join(HOMEDIR, "main", "configuration.ini"), "w+"
+            os.path.join(HOMEDIR,"gui", "configuration.ini"), "w+"
         ) as configfile:
             configfile.write(json.dumps(self.settings, indent=2))
 
     def load_settings(self):
         try:
-            with open(os.path.join(HOMEDIR, "main", "configuration.ini")) as configfile:
+            with open(os.path.join(HOMEDIR, "gui", "configuration.ini")) as configfile:
                 self.settings = json.load(configfile)
         except FileNotFoundError:
             pass
@@ -60,7 +60,7 @@ class View(QMainWindow):
     def __init__(self, model):
         super().__init__()
         self.model = model
-        path = os.path.join(HOMEDIR, "main", "ui", "main_window.ui")
+        path = os.path.join(HOMEDIR, "gui", "ui", "main_window.ui")
         uic.loadUi(path, self)
 
     def add_to_file_browser(self, entry):

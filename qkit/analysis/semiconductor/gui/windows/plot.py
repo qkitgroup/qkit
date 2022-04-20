@@ -28,7 +28,7 @@ class Plot_widget(QWidget):
 class Plot_window(QWidget):
     def __init__(self, main_dir, figure):
         super().__init__()
-        uic.loadUi(os.path.join(main_dir, "main", "ui", "plot_window.ui"), self)
+        uic.loadUi(os.path.join(main_dir, "gui", "ui", "plot_window.ui"), self)
 
         self.plot_widget = Plot_widget(figure)
 

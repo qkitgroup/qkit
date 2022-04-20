@@ -46,7 +46,7 @@ class Settings_tab(QWidget):
 class Settings_window(QWidget):
     def __init__(self, main_dir, *objects):
         super().__init__()
-        uic.loadUi(os.path.join(main_dir, "main", "ui", "settings_window.ui"), self)
+        uic.loadUi(os.path.join(main_dir, "gui", "ui", "settings_window.ui"), self)
 
         for obj in objects:
             new_tab = Settings_tab(obj)
