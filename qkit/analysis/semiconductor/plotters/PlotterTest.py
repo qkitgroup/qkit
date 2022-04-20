@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
 from itertools import cycle
-from qkit.analysis.semiconductor.interfaces import PlotterInterface
+from qkit.analysis.semiconductor.main.interfaces import PlotterInterface
 
 class Plotter(PlotterInterface):
     def __init__(self) -> None:
