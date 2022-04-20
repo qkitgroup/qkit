@@ -8,7 +8,7 @@ Created on Mon Feb 15 12:17:39 2021
 import qkit
 import qkit.drivers.ZI_UHFLI as lolvl
 
-from time import sleep
+from warnings import warn
 from typing import Dict
 import numpy as np
 import logging
@@ -30,24 +30,21 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
                           flags = self.FLAG_SET | self.FLAG_SOFTGET)
         self.add_parameter("data_nodes", type = list,
                           flags = self.FLAG_SET | self.FLAG_SOFTGET)
-        self.add_parameter("step_recovery", type = str,
-                          flags = self.FLAG_SET | self.FLAG_SOFTGET)
         
         self.set_daq_sample_path([])
         self.set_data_nodes([])
-        self.set_step_recovery(r"99%")
+        
+        self._depr_warnings= {"sample_ch0" : True,
+                              "sample_ch1" : True,
+                              "sample_ch0and1" : True}
         
         self.add_function("create_daq_module")
         self.add_function("activate_ch0")
         self.add_function("activate_ch1")
-        self.add_function("sample_ch1")
-        self.add_function("sample_ch2")
         self.add_function("easy_sub")
         self.add_function("get_sample")
-        self.add_function("continuous_acquistion")
-        self.add_function("find_slowest_demod")
+        self.add_function("continuous_acquisition")
         self.add_function("sample_averaged")
-        self.add_function("get_sample")
     
     def create_daq_module(self):
         return self.daq.dataAcquisitionModule()
@@ -74,10 +71,28 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         
         self.set_data_nodes(["x", "y", "timestamp"])
         
+    def sample_dem(self, channel : int) -> Dict[str, np.ndarray]:
+        assert getattr(self, f"get_dem{channel}_demod_enable")(), f"{__name__}: Demod {channel} is not enabled."
+                    
+        raw = self.daq.getSample(f"/{self._device_id}/demods/{channel}/sample")
+        nodes = self.get_data_nodes()
+        gotten_sample = {}
+        for node in nodes:
+            gotten_sample[f"{node}{channel}"] = float(raw[node])
+            
+        if "x" in nodes and "y" in nodes:
+            gotten_sample[f"r{channel}"] = np.sqrt(gotten_sample[f"x{channel}"]**2 + gotten_sample[f"y{channel}"]**2)
+        return gotten_sample
+        
     def sample_ch0(self, wait_settle_time):
+        if self._depr_warnings["sample_ch0"]:
+            warn(f"{__name__}: sample_ch0 will deprecate with the next update. Use sample_dem(channel) instead.")
+            self._depr_warnings["sample_ch0"] = False
+        
         assert self.get_dem0_demod_enable(), f"{__name__}: Demod 0 is not enabled."
+        
         if wait_settle_time:
-            self.wait_settle_time(0, self.get_step_recovery())
+            self.wait_settle_time(0)
             
         raw = self.daq.getSample(f"/{self._device_id}/demods/0/sample")
         nodes = self.get_data_nodes()
@@ -90,9 +105,13 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         return gotten_sample
     
     def sample_ch1(self, wait_settle_time):
-        assert self.get_dem0_demod_enable(), f"{__name__}: Demod 4 is not enabled."
+        if self._depr_warnings["sample_ch1"]:
+            warn(f"{__name__}: sample_ch1 will deprecate with the next update. Use sample_dem(channel) instead.")
+            self._depr_warnings["sample_ch1"] = False
+        
+        assert self.get_dem4_demod_enable(), f"{__name__}: Demod 4 is not enabled."
         if wait_settle_time:
-            self.wait_settle_time(4, self.get_step_recovery())
+            self.wait_settle_time(4)
             
         raw = self.daq.getSample(f"/{self._device_id}/demods/4/sample")
         nodes = self.get_data_nodes()
@@ -104,6 +123,30 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
             gotten_sample["r4"] = np.sqrt(gotten_sample["x4"]**2 + gotten_sample["y4"]**2)
         return gotten_sample  
         
+    def sample_ch0and1(self, wait_settle_time):
+        if self._depr_warnings["sample_ch0and1"]:
+            warn(f"{__name__}: sample_ch0and1 will deprecate with the next update. Use sample_dem(channel) instead.")
+            self._depr_warnings["sample_ch0and1"] = False
+        
+        assert self.get_dem0_demod_enable(), f"{__name__}: Demod 0 is not enabled."
+        assert self.get_dem4_demod_enable(), f"{__name__}: Demod 4 is not enabled."
+        if wait_settle_time:
+            self.wait_settle_time(4)
+            
+        raw0 = self.daq.getSample(f"/{self._device_id}/demods/0/sample")
+        raw1 = self.daq.getSample(f"/{self._device_id}/demods/4/sample")
+        nodes = self.get_data_nodes()
+        gotten_sample = {}
+        for node in self.get_data_nodes():
+            gotten_sample[f"{node}0"] = float(raw0[node])
+            gotten_sample[f"{node}4"] = float(raw1[node])
+        
+        if "x" in nodes and "y" in nodes:
+            gotten_sample["r0"] = np.sqrt(gotten_sample["x0"]**2 + gotten_sample["y0"]**2)
+            gotten_sample["r4"] = np.sqrt(gotten_sample["x4"]**2 + gotten_sample["y4"]**2)
+        return gotten_sample  
+    
+    
     def easy_sub(self, demod_index):
        sub_list = [] 
        for element in demod_index:
@@ -131,7 +174,7 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         
         return channels
     
-    def continuous_acquisition(self) -> Dict[str, np.ndarray]:
+    def continuous_acquisition(self):
         """
         Polls samples for 50 ms.
         Intended to be used in a a loop which calls the function repeatedly.
@@ -160,25 +203,14 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
             if "x" in nodes and "y" in nodes:
                 gotten_traces[f"r{demod_index}"] = np.sqrt(gotten_traces[f"x{demod_index}"]**2 + gotten_traces[f"y{demod_index}"]**2)
         return gotten_traces
-    
-    def find_slowest_demod(self):
-        prev_settle_time = 0
-        for path in self.get_daq_sample_path():
-            demod_index = path.split('demods/')[1][0]
-            settle_time = self._calc_settle_time(demod_index, self.get_step_recovery())
-            if settle_time > prev_settle_time:
-                prev_settle_time = settle_time
-                self.slowest_demod = demod_index
-        return self.slowest_demod
                 
-    def sample_averaged(self, avgs : int, wait_settle_time : bool) -> Dict[str, np.float64]:
+    def sample_averaged(self, avgs):
         """
         Software averages samples before returning.
 
         Parameters
         ----------
         avgs : int
-        wait_settle_time : bool
 
         Returns
         -------
@@ -190,9 +222,6 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
         EOFerror
             If sample loss is dected.
         """
-        if wait_settle_time:
-            self.find_slowest_demod()
-            self.wait_settle_time(self.slowest_demod, self.get_step_recovery())
         
         node_lengths = {}
         cumulated_avgs = {}
@@ -243,12 +272,6 @@ class ZI_UHFLI_SemiCon(lolvl.ZI_UHFLI):
             if element not in allowed_nodes:
                 raise ValueError(f"{__name__}: {element} is not an allowed data_node. The allowed data_nodes are {allowed_nodes}.")
         logging.debug(__name__ + ' : setting data_nodes to %s' % (newnode))
-
-    def _do_set_step_recovery(self, new_rec):
-        allowed_recs = self._filter_settling_factors.keys()
-        if new_rec not in allowed_recs:
-            raise ValueError(f"{__name__}: {new_rec} is not a defined step recovery percentile. The allowed percentiles are {allowed_recs}.")
-        logging.debug(__name__ + ' : setting step_recovery to %s' % (new_rec))
         
 #%%
 if __name__ == "__main__":
@@ -282,12 +305,14 @@ if __name__ == "__main__":
     UHFLI.activate_ch1()
     UHFLI.daq.flush()
     print(UHFLI.sample_averaged(100)["x0"])
-    print(UHFLI._find_slowest_demod())
-    
+    #print(UHFLI.find_slowest_demod())
+
+    #%% Sample chx
+    print(UHFLI.sample_dem(4))
     #%% Time the sample_averaged command
     import timeit
     def avgs(num, wait):
-        UHFLI.sample_averaged(num, wait)
+        UHFLI.sample_averaged(num)
     num_exec = 20
     print(timeit.timeit("avgs(100, True)", "from __main__ import avgs", number = num_exec)/num_exec)
     #%% Print and save the instrument settings

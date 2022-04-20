@@ -116,7 +116,7 @@ class ADwin_Pro2_V2(Instrument):
 
     """
         
-    def __init__(self, name, processnumber, processpath, devicenumber, global_lower_limit_in_V=0, 
+    def __init__(self, name, processnumber, processpath, devicenumber, bootload=True, global_lower_limit_in_V=0, 
                  global_upper_limit_in_V=0, global_lower_limit_in_V_safe_port=0, global_upper_limit_in_V_safe_port=0):
         logging.info(__name__ + ' : Initializing instrument')
         Instrument.__init__(self, name, tags=['physical','ADwin_ProII'])
@@ -125,7 +125,7 @@ class ADwin_Pro2_V2(Instrument):
         self.name = name
         self.processnumber=processnumber
         self.process = processpath
-        self.adw = adw.ADwin(devicenumber,1)
+        self.adw = adw.ADwin(devicenumber,1) # 1 turns on raiseExceptions
         self.global_upper_limit_in_V = global_upper_limit_in_V
         self.global_lower_limit_in_V = global_lower_limit_in_V
         self.global_upper_limit_in_V_safe_port = global_upper_limit_in_V_safe_port
@@ -133,19 +133,21 @@ class ADwin_Pro2_V2(Instrument):
         
         if self.global_upper_limit_in_V<self.global_lower_limit_in_V or self.global_upper_limit_in_V_safe_port<self.global_lower_limit_in_V_safe_port:
             logging.error(__name__+': lower voltage limit higher than upper limit')
-            sys.exit()
         
-        #VERY IMPORTANT TO INCLUCE! stopping the running ADwin process before and give it time to go to the Finish part to ramp down voltages
-        self.stop_process()
-           
-        #bootload
-        self.bootload_process()
-        
-        #load and start process
-        self.processnumber=processnumber
-        self.adw.Load_Process(self.process)
-        time.sleep(1.0)
-        self.adw.Start_Process(self.processnumber)
+        if bootload: 
+            # IF the jupyter notebook crashed, you can set 'bootload' to False if you
+            # don't want the ADwin to boot and go back to 0V again. Do this only if you are initializing 
+            # with the same parameters! Also set self.initialize_gates(..,reset_to_0=False,..)
+            
+            self.stop_process() # VERY IMPORTANT TO INCLUCE! stopping the running ADwin process before and give it time to go to the Finish part to ramp down voltages
+               
+            #bootload
+            self.bootload_process()
+            
+            #load and start process
+            self.adw.Load_Process(self.process)
+            time.sleep(1.0)
+            self.adw.Start_Process(self.processnumber)
         
         
         #implement functions
@@ -391,8 +393,7 @@ class ADwin_Pro2_V2(Instrument):
             return voltvalue
         else:
             logging.warning(__name__+': number of averages must bigger than 0 and smaller than 10 000!.')
-            input("Press Enter to continue.")
-            sys.exit() 
+             
     
     def get_input(self, channel, averaging):
         '''Short version of get_gateX_input_voltage().
@@ -448,8 +449,7 @@ class ADwin_Pro2_V2(Instrument):
         V_max = self.get('gate%d_voltage_range'%gate)
         if abs(volt)>abs(V_max):
             logging.warning(__name__+': voltage bigger than voltage range of output.')
-            input("Press Enter to continue.")
-            sys.exit() 
+             
         else:
             result_bits= ((volt*(10/V_max) + 10) / (2*10/(2**bit_format)))
             #for oversampling:
@@ -496,10 +496,8 @@ class ADwin_Pro2_V2(Instrument):
         #check if voltage limit was exceeded. 
         if self.adw.GetData_Long(192,channel,1)[0] == 1:
             logging.warning(__name__+': voltage limit exceeded or individual voltage limit not set, output voltage will remain unchanged.')
-            input("Press Enter to continue.")
             #set limit error variable back to 0
             self.adw.SetData_Long([0], 192, channel, 1)
-            sys.exit() 
         else:
             logging.info(__name__+': voltage set to gate')
             
@@ -552,12 +550,8 @@ class ADwin_Pro2_V2(Instrument):
                 for gate in tmpChannels:
                     if (gate in field_gates):
                         logging.warning(__name__+': voltage at outputs for current sources cannot be changed with this funcion. ')
-                        input("Press Enter to continue.")
-                        sys.exit() 
                     elif tmpChannels.count(gate)>1:
                         logging.warning(__name__+': same gate used multiple times. ')
-                        input("Press Enter to continue.")
-                        sys.exit()
                     else:
                         index_channels = tmpChannels.index(gate)
                         channel_list[index_channels] = gate
@@ -594,10 +588,8 @@ class ADwin_Pro2_V2(Instrument):
                 #print("limit error Data: ", str(limit_error_Data))
                 if 1 in limit_error_Data:
                     logging.warning(__name__+': voltage limit exceeded or individual voltage limit not set on channels. ')
-                    input("Press Enter to continue.")
                     #set limit error variable back to 0
                     self.adw.SetData_Long([0], 192, 1, 200)
-                    sys.exit() 
                 else:
                     for gate in tmpChannels:
                         logging.info(__name__+': voltage set to gate %d.'%gate)
@@ -611,8 +603,6 @@ class ADwin_Pro2_V2(Instrument):
                
             else:
                 logging.warning(__name__+': voltage and channel must be a list of equal length!')
-                input("Press Enter to continue.")
-                sys.exit() 
             
  
     def set_out_dict(self, values_dict):
@@ -641,13 +631,9 @@ class ADwin_Pro2_V2(Instrument):
             channel_list = [0]*max_num_channels
             for gate in channels:
                 if (gate in field_gates):
-                    logging.warning(__name__+': voltage at outputs for current sources cannot be changed with this funcion. ')
-                    input("Press Enter to continue.")
-                    sys.exit() 
+                    logging.warning(__name__+': voltage at outputs for current sources cannot be changed with this funcion. ') 
                 elif channels.count(gate)>1:
                     logging.warning(__name__+': same gate used multiple times. ')
-                    input("Press Enter to continue.")
-                    sys.exit()
                 else:
                     index_channels = channels.index(gate)
                     channel_list[index_channels] = gate
@@ -684,10 +670,8 @@ class ADwin_Pro2_V2(Instrument):
             #print("limit error Data: ", str(limit_error_Data))
             if 1 in limit_error_Data:
                 logging.warning(__name__+': voltage limit exceeded or individual voltage limit not set on channels. ')
-                input("Press Enter to continue.")
                 #set limit error variable back to 0
                 self.adw.SetData_Long([0], 192, 1, 200)
-                sys.exit() 
             else:
                 for gate in channels:
                     logging.info(__name__+': voltage set to gate %d.'%gate)
@@ -701,8 +685,6 @@ class ADwin_Pro2_V2(Instrument):
                     
         else:
             logging.warning(__name__+': dictionary not processable!')
-            input("Press Enter to continue.")
-            sys.exit() 
                 
     
     def _do_set_output_current_voltage_in_V(self, new, channel): #For current sources! NO EXTERNAL USE!
@@ -727,10 +709,8 @@ class ADwin_Pro2_V2(Instrument):
         #check if voltage limit was exceeded. 
         if self.adw.GetData_Long(192,channel,1)[0] == 1:
             logging.warning(__name__+': voltage limit exceeded or individual voltage limit not set, output voltage will remain unchanged.')
-            input("Press Enter to continue.")
             #set limit error variable back to 0
             self.adw.SetData_Long([0], 192, channel, 1)
-            sys.exit() 
         else:
             logging.info(__name__+': voltage set to gate')
     
@@ -850,7 +830,6 @@ class ADwin_Pro2_V2(Instrument):
             logging.info(__name__ +': setting individual lower voltage limit gate %d to  %f V'%(channel,new))
         else:
             logging.error(__name__+': given lower voltage limit not in global limits')
-            sys.exit()
 
     def _do_get_individual_lower_voltage_limit_in_V(self, channel):
         """Read out individual lower voltage limit of gate 'X' in V (ADwin parameter: Data_194[X]).
@@ -889,7 +868,6 @@ class ADwin_Pro2_V2(Instrument):
             self.adw.SetData_Long([value], 195, channel, 1)
         else:
             logging.error(__name__+': given upper limit not in global limits')
-            sys.exit()
     
     def _do_get_individual_upper_voltage_limit_in_V(self, channel):
         """Read out individual upper voltage limit of gate 'X' in V (ADwin parameter: Data_195[X]).
@@ -975,12 +953,8 @@ class ADwin_Pro2_V2(Instrument):
                 
             else:
                 logging.warning(__name__+': oversampling state must be 0 (=off) or 1 (=on).')
-                input("Press Enter to continue.")
-                sys.exit() 
         else:
-            logging.warning(__name__+': gate is not defined!')
-            input("Press Enter to continue.")
-            sys.exit() 
+            logging.warning(__name__+': gate is not defined!') 
     
     def _do_get_oversampling_state(self, channel):
         '''Getting oversamping state of gate.
@@ -1013,8 +987,6 @@ class ADwin_Pro2_V2(Instrument):
             self.set_Par_68_global_long(divisions)  
         else:
             logging.warning(__name__+': divisions must be between 1 and 1000!')
-            input("Press Enter to continue.")
-            sys.exit()
     
     def _do_get_oversampling_divisions(self):
         '''Gets the global number of divisions between two bits.
@@ -1036,8 +1008,7 @@ class ADwin_Pro2_V2(Instrument):
             
             if V_range<abs(upper_limit) or V_range<abs(lower_limit):
                 logging.warning(__name__+': individual voltage limits are higher than voltage range! Please change them beforehand so they fit into the new voltage range!')
-                input("Press Enter to continue.")
-                sys.exit()
+
             else:    
                 logging.info(__name__ +': setting voltage range of gate %d to %f.' %(channel, V_range))
                 self.adw.SetData_Float([V_range], 186, channel, 1) 
@@ -1048,8 +1019,7 @@ class ADwin_Pro2_V2(Instrument):
   
         else:
             logging.warning(__name__+': voltage range or channel out of bounds!')
-            input("Press Enter to continue.")
-            sys.exit()
+
     
     def _do_get_voltage_range(self, channel):
         '''Gets the voltage range of gate "channel".
@@ -1059,7 +1029,7 @@ class ADwin_Pro2_V2(Instrument):
         return V_range
 
 
-    def initialize_gates(self, number,  lower_limit=0, upper_limit=0, speed=0.2):
+    def initialize_gates(self, number, reset_to_0=True, lower_limit=0, upper_limit=0, speed=0.2):
         '''This function sets the number of  gates (including current sources)
         and distributes them on the modules starting at module 1 and filling up
         all 8 outputs. Then module 2 etc. is filled up. The modules have to exist.
@@ -1078,8 +1048,7 @@ class ADwin_Pro2_V2(Instrument):
         #initailize gates 
         if number < 0:
             logging.warning(__name__+': number of gates must not be negative!')
-            input("Press Enter to continue.")
-            sys.exit()
+
         else:
             #set number of gates:
             self.set_number_of_gates(number)     
@@ -1119,8 +1088,6 @@ class ADwin_Pro2_V2(Instrument):
                 
             if (gate-1) != (number):
                 logging.warning(__name__+': Error while initializing voltage gates!')
-                input("Press Enter to continue.")
-                sys.exit()
        
             #initialize voltage limits 
             #limits for current sources:
@@ -1134,12 +1101,14 @@ class ADwin_Pro2_V2(Instrument):
             #set ramping speed. I don't know why self.set_ramping_speed_normal_ports(speed) does not work...
             self._do_set_ramping_speed_normal_ports(speed)
             
-            #set all outputs to 0 Volts
-            for gate in range(1, 3+1):  #current sources
-                self.set('gate%d_output_current_voltage_in_V'% gate, 0)
             
-            for gate in range(4, number+1):  
-                self.set('gate%d_out'% gate, 0)
+            if reset_to_0:
+                #set all outputs to 0 Volts
+                for gate in range(1, 3+1):  #current sources
+                    self.set('gate%d_output_current_voltage_in_V'% gate, 0)
+                
+                for gate in range(4, number+1):  
+                    self.set('gate%d_out'% gate, 0)
                 
             
             
@@ -1189,8 +1158,6 @@ class ADwin_Pro2_V2(Instrument):
                 self.set_gate1_output_current_voltage_in_V(voltage_x)
             else:
                 logging.warning(__name__+': voltage in x-direction out of limits.')
-                input("Press Enter to continue.")
-                sys.exit()
         
         if direction == 2:
             voltage_y = amplitude / y_calib / translation_factor_y
@@ -1198,8 +1165,6 @@ class ADwin_Pro2_V2(Instrument):
                 self.set_gate2_output_current_voltage_in_V(voltage_y)
             else:
                 logging.warning(__name__+': voltage in y-direction out of limits.')
-                input("Press Enter to continue.")
-                sys.exit()
         
         if direction == 3:
             voltage_z = amplitude / z_calib / translation_factor_z
@@ -1207,13 +1172,9 @@ class ADwin_Pro2_V2(Instrument):
                 self.set_gate3_output_current_voltage_in_V(voltage_z)
             else:
                 logging.warning(__name__+': voltage in z-direction out of limits.')
-                input("Press Enter to continue.")
-                sys.exit()
         
         if direction < 1 or direction > 3:
             logging.warning(__name__+': direction parameter has to be 1, 2, or 3.')
-            input("Press Enter to continue.")
-            sys.exit()
                      
     def set_field_3d(self, amplitude, theta, phi, theta_corr=0, phi_corr=0):
         '''Sets a magnetic field using spherical coordinates in degrees.
@@ -1251,8 +1212,6 @@ class ADwin_Pro2_V2(Instrument):
             self.set_gate1_output_current_voltage_in_V(voltage_x) 
         else:
             logging.warning(__name__+': voltage in x-direction out of limits.')
-            input("Press Enter to continue.")
-            sys.exit()
             
         #set y voltage 
         voltage_y = amplitude_y / y_calib / translation_factor_y
@@ -1260,8 +1219,6 @@ class ADwin_Pro2_V2(Instrument):
             self.set_gate2_output_current_voltage_in_V(voltage_y)
         else:
             logging.warning(__name__+': voltage in y-direction out of limits.')
-            input("Press Enter to continue.")
-            sys.exit()
             
         #set z voltage 
         voltage_z = amplitude_z / z_calib / translation_factor_z
@@ -1269,8 +1226,6 @@ class ADwin_Pro2_V2(Instrument):
             self.set_gate3_output_current_voltage_in_V(voltage_z)
         else:
             logging.warning(__name__+': voltage in z-direction out of limits.')
-            input("Press Enter to continue.")
-            sys.exit()
             
     def IV_curve(self, output=None, input_gate=None, V_min=0.0, V_max=0.001, V_div=1, samples=10, 
                  IV_gain=1e9, I_max=1e-9, averages=1000):

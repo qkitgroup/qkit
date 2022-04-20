@@ -250,7 +250,7 @@ class h5plot(object):
         #else:
         #    plot_style = '-'
         try:
-            self.ax.plot(np.array(self.x_data)*10**int(-self.x_exp), self.y_data[0:len(self.x_data)]*10**int(-self.y_exp), plot_style)   #JB: avoid crash after pressing the stop button when arrays are of different lengths
+            self.ax.plot(np.array(self.x_data)[0:len(self.y_data)]*10**int(-self.x_exp), self.y_data[0:len(self.x_data)]*10**int(-self.y_exp), plot_style) #JF: If measurement is stopped by watchdog, plots are still saved due to cropping of x-axis.
         except TypeError:
             self.ax.plot(0,self.y_data, plot_style)
 

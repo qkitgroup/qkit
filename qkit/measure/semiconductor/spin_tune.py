@@ -273,7 +273,21 @@ class Tuning(mb.MeasureBase):
         for name, values in latest_data.items():
             container[f"{name}"].append(values[::direction])
             
-    def measure_hyst1D():
+    def measure_hyst1D(self):
+        """Starts a 1D - hysteresis measurement, along the x coordinate."""
+        assert self._x_parameter, f"{__name__}: Cannot start measure1D. x_parameters required."
+        self._measurement_object.measurement_func = "%s: measure1D" % __name__
+        pb = Progress_Bar(len(self._x_parameter.values) * self.multiplexer.no_active_nodes)
+        
+        dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter])
+        self._prepare_measurement_file(dsets)
+        self._open_qviewkit()
+        
+        a = self._data_file.add_view("Hysteresis", x = self._datasets["Chain.a"], y = self._datasets["Block.1"])
+        print(a)
+        
+        #circ_view_amp = self._hf.add_view('circ_amp', x=self._y_co, y=self._ds_amp) # dein erstes x und y datenset
+        #circ_view_amp.add(x=self._frequency_co, y=self._circ_amp_gen) # hier kannst du weitere datensets adden (auch später noch) 
         pass
     
     def measure1D(self, data_to_show = None):
