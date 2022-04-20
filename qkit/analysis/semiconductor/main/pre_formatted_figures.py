@@ -16,3 +16,12 @@ class SemiFigure(Figure):
         
         if jumbo_data:
             plt.rcParams['agg.path.chunksize'] = 10000 # makes saving too big data sets possible.
+            
+    def close_delete(self):
+        """Closes fig and deletes instance to free RAM.
+        """
+        self.fig.clear()
+        plt.close(self.fig)
+        del self
+        gc.collect()
+        
