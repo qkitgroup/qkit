@@ -1,18 +1,13 @@
 import numpy as np
-import copy
-import matplotlib.pyplot as plt
-from scipy import signal
-from scipy.optimize import curve_fit
 
-from qkit.analysis.semiconductor.basic_functionality import PlotterSemiconInit, convert_conductance, map_array_to_index
-from qkit.analysis.semiconductor.basic_functionality import  convert_secs, create_saving_path, make_len_eq
+from qkit.analysis.semiconductor.main.find_index_of_value import map_array_to_index
+
 
 class AnalyzerPlungerSweep:
     """Fits a tangent to a point in a plunger gate sweep and returns the fit results. 
     Lock-in V used for calculations instead of conductance.
     Slope coef[0] in Volt / Volt.
     """
-    number_of_traces = 1
     
     def analyze(self, data, nodes, voltage, intervall):
         """Fits a linear function to values at voltage with intervall around it.

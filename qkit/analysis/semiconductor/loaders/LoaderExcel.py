@@ -1,11 +1,8 @@
-from qkit.analysis.semiconductor.basic_functionality import PlotterSemiconInit
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import pandas as pd
 import numpy as np
 
 class LoaderExcel():
-    """Loads our special Excel file.
+    """Loads our special Excel file and packs each column in a dict. 
     """
     def load(self, path, ignored_rows, sample_name):
         self.data = []

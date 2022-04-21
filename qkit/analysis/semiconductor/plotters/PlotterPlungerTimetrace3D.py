@@ -1,16 +1,15 @@
 import numpy as np
-import copy
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm
 from matplotlib.ticker import MaxNLocator
-from scipy.optimize import curve_fit
 
-from qkit.analysis.semiconductor.basic_functionality import PlotterSemiconInit, convert_conductance, map_array_to_index
-from qkit.analysis.semiconductor.basic_functionality import  convert_secs_2D, create_saving_path, make_len_eq
+from qkit.analysis.semiconductor.main.pre_formatted_figures import SemiFigure
+from qkit.analysis.semiconductor.main.saving import create_saving_path
+from qkit.analysis.semiconductor.main.conversion_lockin_conductance import convert_conductance
+from qkit.analysis.semiconductor.main.time_conversion import convert_secs_2D
 
 
-
-class PlotterPlungerTimetrace3D(PlotterSemiconInit):
+class PlotterPlungerTimetrace3D(SemiFigure):
     """Plots 3D data of plunger gate sweeps.
     """
     def __init__(self, *args, **kwargs):

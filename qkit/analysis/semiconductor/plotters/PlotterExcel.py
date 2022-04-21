@@ -1,11 +1,10 @@
-from qkit.analysis.semiconductor.basic_functionality import PlotterSemiconInit
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import pandas as pd
-import numpy as np
+
+from qkit.analysis.semiconductor.main.pre_formatted_figures import SemiFigure
 
 
-class PlotterBiascoolingAccumulation(PlotterSemiconInit):
+class PlotterBiascoolingAccumulation(SemiFigure):
     """Plots Accumulation voltages over bias cooling voltage.
     """
 
@@ -32,7 +31,7 @@ class PlotterBiascoolingAccumulation(PlotterSemiconInit):
         self.close_delete()
 
 
-class PlotterBiascoolingMinimalTopgate(PlotterSemiconInit):
+class PlotterBiascoolingMinimalTopgate(SemiFigure):
     """Plots the minimal topgate voltages over bias cooling voltage.
     """
 
@@ -61,7 +60,7 @@ class PlotterBiascoolingMinimalTopgate(PlotterSemiconInit):
         self.close_delete()
 
 
-class PlotterBiascoolingDifferenceTopgateGates(PlotterSemiconInit):
+class PlotterBiascoolingDifferenceTopgateGates(SemiFigure):
     """Plots difference of topgate and the middle gates over bias cooling voltage.
     """
 
@@ -90,7 +89,7 @@ class PlotterBiascoolingDifferenceTopgateGates(PlotterSemiconInit):
         self.close_delete()
 
 
-class PlotterBiascoolingDifferenceTopgateBarriers(PlotterSemiconInit):
+class PlotterBiascoolingDifferenceTopgateBarriers(SemiFigure):
     """Plots difference of topgate and the mean of barrier gates over bias cooling voltage.
     """
 
@@ -119,7 +118,7 @@ class PlotterBiascoolingDifferenceTopgateBarriers(PlotterSemiconInit):
         self.close_delete()
 
 
-class PlotterBiascoolingDifferenceBarrierGates(PlotterSemiconInit):
+class PlotterBiascoolingDifferenceBarrierGates(SemiFigure):
     """Plots difference of both barrier gates over bias cooling voltage.
     """
 
@@ -148,7 +147,7 @@ class PlotterBiascoolingDifferenceBarrierGates(PlotterSemiconInit):
         self.close_delete()
 
 
-class PlotterBiascoolingDifferenceTopgateAccumulation(PlotterSemiconInit):
+class PlotterBiascoolingDifferenceTopgateAccumulation(SemiFigure):
     """Plots difference of topgate and first accumulation voltage over bias cooling voltage.
     """
 

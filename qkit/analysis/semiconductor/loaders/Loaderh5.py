@@ -1,10 +1,9 @@
-from typing import List
 import h5py
 import numpy as np
 from pathlib import Path
 from qkit.analysis.semiconductor.main.interfaces import LoaderInterface
 
-class Loader(LoaderInterface):
+class Loaderh5(LoaderInterface):
     def __init__(self) :
         self.file_paths = []
 

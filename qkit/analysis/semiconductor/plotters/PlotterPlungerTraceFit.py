@@ -1,15 +1,13 @@
 import numpy as np
-import copy
 import matplotlib.pyplot as plt
-from matplotlib.colors import BoundaryNorm
-from matplotlib.ticker import MaxNLocator
-from scipy.optimize import curve_fit
 
-from qkit.analysis.semiconductor.basic_functionality import PlotterSemiconInit, convert_conductance, map_array_to_index
-from qkit.analysis.semiconductor.basic_functionality import  convert_secs_2D, create_saving_path, make_len_eq
+from qkit.analysis.semiconductor.main.pre_formatted_figures import SemiFigure
+from qkit.analysis.semiconductor.main.saving import create_saving_path
+from qkit.analysis.semiconductor.main.conversion_lockin_conductance import convert_conductance
+from qkit.analysis.semiconductor.main.equalize_length import make_len_eq
 
 
-class PlotterPlungerTraceFit(PlotterSemiconInit):
+class PlotterPlungerTraceFit(SemiFigure):
     """Plots a single plunger gate sweep trace and overlays the analyzed fit to see how shitty the fit is. 
     The sechans function uses as x values not voltages but indices of the voltages of the plunger gate array.
     """

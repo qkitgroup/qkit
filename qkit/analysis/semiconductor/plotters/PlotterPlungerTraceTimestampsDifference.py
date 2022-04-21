@@ -1,15 +1,12 @@
 import numpy as np
-import copy
 import matplotlib.pyplot as plt
-from matplotlib.colors import BoundaryNorm
-from matplotlib.ticker import MaxNLocator
-from scipy.optimize import curve_fit
-
-from qkit.analysis.semiconductor.basic_functionality import PlotterSemiconInit, convert_conductance, map_array_to_index
-from qkit.analysis.semiconductor.basic_functionality import  convert_secs_2D, create_saving_path, make_len_eq
 
 
-class PlotterPlungerTraceTimestampsDifference(PlotterSemiconInit):
+from qkit.analysis.semiconductor.main.pre_formatted_figures import SemiFigure
+from qkit.analysis.semiconductor.main.saving import create_saving_path
+
+
+class PlotterPlungerTraceTimestampsDifference(SemiFigure):
     """Plots the time difference between consecutive plunger traces.
     """
     def __init__(self, *args, **kwargs):

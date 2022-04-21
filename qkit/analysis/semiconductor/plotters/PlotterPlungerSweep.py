@@ -1,13 +1,13 @@
 import numpy as np
-import copy
 import matplotlib.pyplot as plt
-from scipy import signal
-from scipy.optimize import curve_fit
 
-from qkit.analysis.semiconductor.basic_functionality import PlotterSemiconInit, convert_conductance, map_array_to_index
-from qkit.analysis.semiconductor.basic_functionality import  convert_secs, create_saving_path, make_len_eq
 
-class PlotterPlungerSweep(PlotterSemiconInit):
+from qkit.analysis.semiconductor.main.pre_formatted_figures import SemiFigure
+from qkit.analysis.semiconductor.main.saving import create_saving_path
+from qkit.analysis.semiconductor.main.equalize_length import make_len_eq
+
+
+class PlotterPlungerSweep(SemiFigure):
     """Plots plunger gate sweeps and (if given) overlays tangent.
     """
     number_of_traces = 1

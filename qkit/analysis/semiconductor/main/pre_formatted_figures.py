@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
+import gc
+
 
 class SemiFigure(Figure):
     """Standard class for plots.

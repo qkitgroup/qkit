@@ -1,12 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from qkit.analysis.semiconductor.basic_functionality import PlotterSemiconInit
-from qkit.analysis.semiconductor.basic_functionality import  convert_secs, create_saving_path, make_len_eq
+from qkit.analysis.semiconductor.main.pre_formatted_figures import SemiFigure
+from qkit.analysis.semiconductor.main.saving import create_saving_path
+from qkit.analysis.semiconductor.main.time_conversion import convert_secs
+from qkit.analysis.semiconductor.main.equalize_length import make_len_eq
 
 
-
-class PlotterTimetracePhase(PlotterSemiconInit):
+class PlotterTimetracePhase(SemiFigure):
     """Plots the phase of the conductance of a timetrace over time. 
     phi = np.arctan2(data_y, data_x)
     """

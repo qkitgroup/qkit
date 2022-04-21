@@ -1,14 +1,13 @@
 import numpy as np
-import copy
 import matplotlib.pyplot as plt
-from scipy import signal
-from scipy.optimize import curve_fit
-
-from qkit.analysis.semiconductor.basic_functionality import PlotterSemiconInit, convert_conductance, map_array_to_index
-from qkit.analysis.semiconductor.basic_functionality import  convert_secs, create_saving_path, make_len_eq
 
 
-class PlotterTimetracePeakTrackingSND(PlotterSemiconInit):
+from qkit.analysis.semiconductor.main.pre_formatted_figures import SemiFigure
+from qkit.analysis.semiconductor.main.saving import create_saving_path
+from qkit.analysis.semiconductor.main.find_index_of_value import map_array_to_index
+
+
+class PlotterTimetracePeakTrackingSND(SemiFigure):
     """Plots the spectral noise density using the equivalent gate voltage found in fit_params['fit_coef'][0] if provided.
     """
     number_of_traces = 1

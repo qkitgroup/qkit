@@ -1,12 +1,8 @@
 import numpy as np
 import copy
-import matplotlib.pyplot as plt
-from matplotlib.colors import BoundaryNorm
-from matplotlib.ticker import MaxNLocator
-from scipy.optimize import curve_fit
 
-from qkit.analysis.semiconductor.basic_functionality import PlotterSemiconInit, convert_conductance, map_array_to_index
-from qkit.analysis.semiconductor.basic_functionality import  convert_secs_2D, create_saving_path, make_len_eq
+from qkit.analysis.semiconductor.main.find_index_of_value import  map_array_to_index
+from qkit.analysis.semiconductor.main.time_conversion import  convert_secs_2D
 
 
 

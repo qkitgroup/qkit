@@ -1,10 +1,13 @@
 import matplotlib.pyplot as plt
 
-from qkit.analysis.semiconductor.basic_functionality import PlotterSemiconInit, convert_conductance
-from qkit.analysis.semiconductor.basic_functionality import  convert_secs, create_saving_path, make_len_eq
+from qkit.analysis.semiconductor.main.pre_formatted_figures import SemiFigure
+from qkit.analysis.semiconductor.main.saving import create_saving_path
+from qkit.analysis.semiconductor.main.conversion_lockin_conductance import convert_conductance
+from qkit.analysis.semiconductor.main.equalize_length import make_len_eq
+from qkit.analysis.semiconductor.main.time_conversion import convert_secs
 
 
-class PlotterTimetraceCond(PlotterSemiconInit):
+class PlotterTimetraceCond(SemiFigure):
     """Plots a timetrace of the conductance over time. 
     """
     number_of_traces = 1

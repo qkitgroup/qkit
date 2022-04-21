@@ -1,15 +1,12 @@
-import numpy as np
-import h5py
-import pathlib
-import math
-import gc 
-import copy
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
+
+from qkit.analysis.semiconductor.main.pre_formatted_figures import SemiFigure
+from qkit.analysis.semiconductor.main.saving import create_saving_path
+from qkit.analysis.semiconductor.main.conversion_lockin_conductance import convert_conductance
+from qkit.analysis.semiconductor.main.equalize_length import make_len_eq
 
 
-
-class PlotterAccumulation(PlotterSemiconInit):
+class PlotterAccumulation(SemiFigure):
     """Plots Accumulation Traces over gate voltage.
     """
     
