@@ -78,7 +78,7 @@ class ZHInst_Virtual_VNAv2(ModernInstrument, AbstractVNA):
         Returns (SHF-Upconversion center frequency, Digital Modulation Frequency)
         """
         shfsg_out_freq = self.get_freqpoints()[0] - MINIMUM_UHFQA_FREQUENCY
-        base_mod = int(shfsg_out_freq / 0.5e9) * 0.5e9
+        base_mod = min(int(shfsg_out_freq / 0.5e9) * 0.5e9, 8.0e9) # The maximum CF for the SHFSG
         return base_mod, shfsg_out_freq - base_mod
 
     @QkitFunction
@@ -130,7 +130,10 @@ class ZHInst_Virtual_VNAv2(ModernInstrument, AbstractVNA):
         out_channel.sine.q.cos.amplitude(0.0)
         self.uhfqa.arm(length=self.repetitions, averages=1)
 
-        uhfqa_frequencies = self.get_freqpoints() - (self.get_freqpoints()[0] - MINIMUM_UHFQA_FREQUENCY)
+        base, digital = self._get_shfsg_frequencies()
+        shfsg_frequency = base + digital
+        uhfqa_frequencies = self.get_freqpoints() - shfsg_frequency
+        assert np.all(uhfqa_frequencies < 600e9), "Exceeding maximum UHFQA frequency!"
 
         for i, f in enumerate(uhfqa_frequencies):
             self.uhfqa.nodetree.osc.freq(f)  # set modulation frequency
