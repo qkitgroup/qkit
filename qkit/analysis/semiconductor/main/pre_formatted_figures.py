@@ -11,6 +11,7 @@ class SemiFigure(Figure):
         self.ax = self.subplots()
         self.set_dpi = 400
         self.set_bbox_inches = "tight"
+        self.save_as = ".png"
 
         self.ax.title.set_size(fontsize=14)
         self.ax.xaxis.label.set_size(fontsize=12)

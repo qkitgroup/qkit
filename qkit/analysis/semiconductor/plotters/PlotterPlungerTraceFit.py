@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 
 from qkit.analysis.semiconductor.main.pre_formatted_figures import SemiFigure
 from qkit.analysis.semiconductor.main.saving import create_saving_path
-from qkit.analysis.semiconductor.main.conversion_lockin_conductance import convert_conductance
-from qkit.analysis.semiconductor.main.equalize_length import make_len_eq
 
 
 class PlotterPlungerTraceFit(SemiFigure):
@@ -13,8 +11,10 @@ class PlotterPlungerTraceFit(SemiFigure):
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.plot_fit = True
+        self.savename = "one_plunger_fit"
 
-    def plot(self, settings:dict, data:dict, nodes, trace_num, plot_fit=True, savename="one_plunger_fit"):
+    def plot(self, settings:dict, data:dict, nodes, trace_num):
         def sech(x, a, b, c, d):
             '''hyperbolic secans function'''
             return a * (1 / np.cosh(b * (x - c))) + d
@@ -23,7 +23,7 @@ class PlotterPlungerTraceFit(SemiFigure):
         self.ax.set_xlabel("Plunger Voltage (V)")
         self.ax.set_ylabel("Lock-in (mV)")
 
-        if plot_fit:
+        if self.plot_fit:
             #plotting the fit only in the used intervall 
             fit_peak_index = int(round(data["peaks_fit_popts"][trace_num][2])) # value of c in sech(x, *[a, b, c, d]) as an INDEX of the array
             fit_intervall_half_index = data["peaks_fit_intervall_half"]
@@ -34,6 +34,6 @@ class PlotterPlungerTraceFit(SemiFigure):
 
         self.ax.plot(data[nodes[0]], data[nodes[1]][trace_num]*1000)
         plt.legend()
-        plt.savefig(f"{create_saving_path(settings)}/{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
+        plt.savefig(create_saving_path(settings, self.savename, self.save_as), dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
         plt.show()
         self.close_delete()

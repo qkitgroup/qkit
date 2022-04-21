@@ -8,12 +8,19 @@ from qkit.analysis.semiconductor.main.saving import create_saving_path
 class PlotterDifferenceTimetraceSpectralNoiseDensity(SemiFigure):
     """Plots the spectral noise density difference of two SNDs using the equivalent gate voltage found in fit_params['fit_coef'][0] if provided.
     """
-    number_of_traces = 1
-
+   
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fit_params_plunger_in = None,
+        self.fit_vals = None
+        self.savename = None
+        self.xlim = None
+        self.ylim = None
+        self.dotsize = 0.5
+        self.fiftyHz = False
 
-    def plot(self, settings:dict, data_calib:dict, data_no_calib:dict, fit_params_plunger_in=None, fit_vals=None, savename=None, xlim:list=None, ylim:list=None, dotsize=0.5, fiftyHz:bool=False, log=True):
+
+    def plot(self, settings:dict, data_calib:dict, data_no_calib:dict):
         """Plots the sqrt of a spectrum (data["spectrogram"]). Respecting scaling with the slope of a plunger gate sweep (fit_params_plunger). 
             data: spectral data in dictionary with keys "freq", "times", "spectorgram"
             fit_params_plunger_in: dict including key "fit_coef" 
@@ -21,39 +28,38 @@ class PlotterDifferenceTimetraceSpectralNoiseDensity(SemiFigure):
             fifyHz: bool that overlays the first 30 50Hz multiples
         """
         self.ax.set_title("Spectral Noise Density")
-        if log == True:
-            self.ax.set_xscale("log")
-            self.ax.set_yscale("log")
+        self.ax.set_xscale("log")
+        self.ax.set_yscale("log")
         self.ax.set_xlabel("Frequency (Hz)")
         self.ax.set_ylabel("Spectral Density ($V/\sqrt{\mathrm{Hz}}$)")
-        if xlim != None:
-            self.ax.set_xlim(xlim)
-        if ylim != None:
-            self.ax.set_ylim(ylim)
-        if fit_params_plunger_in is None: # for reference measurements without plunger gate sweeps the slope is 1
+        if self.xlim != None:
+            self.ax.set_xlim(self.xlim)
+        if self.ylim != None:
+            self.ax.set_ylim(self.ylim)
+        if self.fit_params_plunger_in is None: # for reference measurements without plunger gate sweeps the slope is 1
             fit_params_plunger = {}
             fit_params_plunger["fit_coef"] = [1]
         else:
-            fit_params_plunger = fit_params_plunger_in
-        if savename == None:
-            savename = f"SND_without_background_slope_{fit_params_plunger['fit_coef'][0]:.3f}"
+            fit_params_plunger = self.fit_params_plunger_in
+        if self.savename == None:
+            self.savename = f"SND_without_background_slope_{self.fit_params_plunger['fit_coef'][0]:.3f}"
 
-        if fiftyHz == True: # plotting 50Hz multiples
-            savename += "_50Hz"
+        if self.fiftyHz == True: # plotting 50Hz multiples
+            self.savename += "_50Hz"
             freqs = []
             signals = []
             for f in [i*50 for i in range(13)]:
                 freqs.extend([f]*1000 )
                 signals.extend(np.logspace(-8, -1, 1000))
-            self.ax.plot(freqs, signals, "yo", markersize=dotsize)
+            self.ax.plot(freqs, signals, "yo", markersize=self.dotsize)
 
         if np.array_equal(data_calib["freq"], data_no_calib["freq"]):
-            self.spectrum = (data_calib["spectrogram"]  - data_no_calib["spectrogram"] ) / np.abs(fit_params_plunger['fit_coef'][0])
+            self.spectrum = (data_calib["spectrogram"]  - data_no_calib["spectrogram"] ) / np.abs(self.fit_params_plunger['fit_coef'][0])
             
-            self.ax.plot(data_calib["freq"], np.sqrt(self.spectrum), "ok", markersize=dotsize)
+            self.ax.plot(data_calib["freq"], np.sqrt(self.spectrum), "ok", markersize=self.dotsize)
 
             plt.grid()
-            plt.savefig(f"{create_saving_path(settings)}/{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
+            plt.savefig(create_saving_path(settings, self.savename, self.save_as), dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
             plt.show()
         else:
             print("Error: Frequency arrays of both data inputs not equal!")
