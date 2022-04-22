@@ -8,7 +8,7 @@ from qkit.analysis.semiconductor.main.find_index_of_value import map_array_to_in
 class AnalyzerTimetraceSpecralNoiseDensity:
    
     def __init__(self):
-        self.guess = None
+        self.guess = [1e-5, -1]
         self.max_iter = 10000000
         self.segment_length = 5e5
 

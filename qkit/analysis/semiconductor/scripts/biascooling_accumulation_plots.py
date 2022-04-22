@@ -1,5 +1,5 @@
 #%%
-from qkit.analysis.semiconductor.basic_functionality import PlotterBiascoolingAccumulation
+from qkit.analysis.semiconductor.plotters import PlotterBiascoolingAccumulation
 
 bias_cool_data = [
     {"date" : "04.01.22", "sample" : "P35_B1", "bias_V" : -3, "first_acc_V" : -0.355, 
@@ -34,5 +34,5 @@ bias_cool_data = [
 
 #%%
 plotter = PlotterBiascoolingAccumulation()
-plotter.plot(bias_cool_data, shape="*", size=500, transparency=1)
+plotter.plot(bias_cool_data)
 # %%

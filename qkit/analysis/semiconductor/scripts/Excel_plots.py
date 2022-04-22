@@ -1,5 +1,7 @@
 #%%
-from qkit.analysis.semiconductor.Excel_basics import LoaderExcel, PlotterBiascoolingAccumulation, PlotterBiascoolingDifferenceBarrierGates, PlotterBiascoolingDifferenceTopgateGates, PlotterBiascoolingMinimalTopgate, PlotterBiascoolingDifferenceTopgateBarriers, PlotterBiascoolingDifferenceTopgateAccumulation 
+from qkit.analysis.semiconductor.loaders import LoaderExcel 
+from qkit.analysis.semiconductor.plotters import PlotterBiascoolingAccumulation
+from qkit.analysis.semiconductor.plotters.PlotterExcel import PlotterBiascoolingDifferenceBarrierGates, PlotterBiascoolingDifferenceTopgateGates, PlotterBiascoolingMinimalTopgate, PlotterBiascoolingDifferenceTopgateBarriers, PlotterBiascoolingDifferenceTopgateAccumulation 
 
 
 #%%

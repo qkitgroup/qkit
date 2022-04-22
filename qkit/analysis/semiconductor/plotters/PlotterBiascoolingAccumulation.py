@@ -9,10 +9,10 @@ class PlotterBiascoolingAccumulation(SemiFigure):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.savename="accumulations_biascooling"
-        self.shape="^"
-        self.size=100
-        self.transparency=1
+        self.savename = "accumulations_biascooling"
+        self.shape = "*"
+        self.size = 500
+        self.transparency = 1
 
     def plot(self, settings, data):
         self.ax.set_title("Accumulation Voltages depending on Bias Cooling")

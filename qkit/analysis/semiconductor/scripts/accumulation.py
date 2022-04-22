@@ -1,5 +1,6 @@
 #%%
-from qkit.analysis.semiconductor.basic_functionality import Loaderh5, PlotterAccumulation
+from qkit.analysis.semiconductor.loaders import Loaderh5
+from qkit.analysis.semiconductor.plotters import  PlotterAccumulation
 
 settings = {"file_info" : {
                 "absolute_path" : "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/-3V/cooldown_1/",
