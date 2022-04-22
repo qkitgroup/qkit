@@ -1,4 +1,6 @@
 #%%
+%gui qt
+
 from PyQt5.QtWidgets import QFileDialog
 import os
 
@@ -20,5 +22,6 @@ def open_python_file_dialog(title="Choose file to load", *dir):
 
 
 if __name__== "__main__":
-    open_files_dialog()
+    path_gui()
+
 # %%
