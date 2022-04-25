@@ -1,6 +1,6 @@
 #%%
-from qkit.analysis.semiconductor.loaders import LoaderExcel 
-from qkit.analysis.semiconductor.plotters import PlotterBiascoolingAccumulation
+from qkit.analysis.semiconductor.loaders.LoaderExcel import LoaderExcel
+from qkit.analysis.semiconductor.plotters.PlotterBiascoolingAccumulation import PlotterBiascoolingAccumulation, PlotterBiascoolingAccumulationColors
 from qkit.analysis.semiconductor.plotters.PlotterExcel import PlotterBiascoolingDifferenceBarrierGates, PlotterBiascoolingDifferenceTopgateGates, PlotterBiascoolingMinimalTopgate, PlotterBiascoolingDifferenceTopgateBarriers, PlotterBiascoolingDifferenceTopgateAccumulation 
 
 
@@ -9,13 +9,40 @@ path = "/V/GroupWernsdorfer/SEMICONDUCTOR_SYSTEMS/Bias_cooling_Project/Data_over
 ignored_rows = 4
 sample_name = "P35_B1"
 loader = LoaderExcel()
-data = loader.load(path, ignored_rows, sample_name)
+data_B1 = loader.load(path, ignored_rows, sample_name)
 
-room_temp_cooldown = "yes" # decide if all data or only room temp cooldowns with "yes" or "both"
 
 #%%
-plotter = PlotterBiascoolingAccumulation()
-plotter.plot(data, shape="*", size=300, transparency=0.8)
+path = "/V/GroupWernsdorfer/SEMICONDUCTOR_SYSTEMS/Bias_cooling_Project/Data_overview_P35_B4.xlsx"
+ignored_rows = 4
+sample_name = "P35_B4"
+loader = LoaderExcel()
+data_B4 = loader.load(path, ignored_rows, sample_name)
+
+
+
+#%%
+data = dict(**data_B1, **data_B4)
+room_temp_cooldown = "both" # decide if all data or only room temp cooldowns with "yes" or "both"
+
+#plotter = PlotterBiascoolingAccumulation()
+plotter = PlotterBiascoolingAccumulationColors()
+plotter.shape = "*"
+plotter.size = 200
+plotter.transparency = 1
+plotter.plot(data)
+
+
+
+
+
+
+
+
+
+
+
+#####################################################
 
 #%%
 plotter = PlotterBiascoolingMinimalTopgate()

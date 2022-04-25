@@ -8,7 +8,8 @@ class SemiFigure(Figure):
     """
     def __init__(self, *args, jumbo_data = False, **kwargs): 
         super().__init__(*args, **kwargs)
-        self.ax = self.subplots()
+        self.fig = plt.figure()
+        self.ax = self.fig.subplots()
         self.set_dpi = 400
         self.set_bbox_inches = "tight"
         self.save_as = ".png"
