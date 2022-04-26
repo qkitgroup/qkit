@@ -21,6 +21,7 @@ class PlotterBiascoolingAccumulation(SemiFigure):
         for sample in data:
             for cooldown in data[sample]:
                 self.ax.scatter(cooldown["bias_V"], cooldown["first_acc_V"], marker=self.shape, s=self.size, alpha=self.transparency)
+        
         plt.grid()
         savepath = self.savename + self.save_as
         plt.savefig(savepath, dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
@@ -43,7 +44,6 @@ class PlotterBiascoolingAccumulationColors(SemiFigure):
         self.ax.set_title("Accumulation Voltages depending on Bias Cooling")
         self.ax.set_xlabel("Bias Cooling Voltage (V)")
         self.ax.set_ylabel("Accumulation Voltage (V)")
-        plt.grid()
 
         color_palette = ["r", "b", "k", "g"]
         i = 0
@@ -61,6 +61,9 @@ class PlotterBiascoolingAccumulationColors(SemiFigure):
 
         red_patch = mpatches.Patch(color='red', label='Sample B1')
         blue_patch = mpatches.Patch(color='blue', label='Sample B4')
+
+        
+        plt.grid()
         plt.legend(handles=[ red_patch, blue_patch])
         plt.savefig(f"{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
         plt.show() 

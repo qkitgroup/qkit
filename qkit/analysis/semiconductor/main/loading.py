@@ -9,5 +9,13 @@ def browseFiles():
                                           filetypes = (("Text files","*.txt*"),("all files","*.*")))
     return filenames
 
-browseFiles()
 
+
+def print_nodes(file):
+    print("\nData nodes:\n" + str([key for key in file.keys()]))
+
+def main():
+    browseFiles()
+
+if __name__ == "__main__":
+    main()

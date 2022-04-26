@@ -5,7 +5,7 @@ from scipy.optimize import curve_fit
 from qkit.analysis.semiconductor.main.find_index_of_value import map_array_to_index
 
 
-class AnalyzerTimetraceSpecralNoiseDensity:
+class AnalyzerTimetraceSpectralNoiseDensity:
    
     def __init__(self):
         self.guess = [1e-5, -1]

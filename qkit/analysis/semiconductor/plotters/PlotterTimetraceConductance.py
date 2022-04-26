@@ -7,7 +7,7 @@ from qkit.analysis.semiconductor.main.equalize_length import make_len_eq
 from qkit.analysis.semiconductor.main.time_conversion import convert_secs
 
 
-class PlotterTimetraceCond(SemiFigure):
+class PlotterTimetraceConductance(SemiFigure):
     """Plots a timetrace of the conductance over time. 
     """
     

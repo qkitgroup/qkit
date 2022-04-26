@@ -11,7 +11,7 @@ class PlotterDifferenceTimetraceSpectralNoiseDensity(SemiFigure):
    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fit_params_plunger_in = None,
+        self.fit_params_plunger = None,
         self.fit_vals = None
         self.savename = None
         self.xlim = None
@@ -36,13 +36,13 @@ class PlotterDifferenceTimetraceSpectralNoiseDensity(SemiFigure):
             self.ax.set_xlim(self.xlim)
         if self.ylim != None:
             self.ax.set_ylim(self.ylim)
-        if self.fit_params_plunger_in is None: # for reference measurements without plunger gate sweeps the slope is 1
+        if self.fit_params_plunger is None: # for reference measurements without plunger gate sweeps the slope is 1
             fit_params_plunger = {}
             fit_params_plunger["fit_coef"] = [1]
         else:
-            fit_params_plunger = self.fit_params_plunger_in
+            fit_params_plunger = self.fit_params_plunger
         if self.savename == None:
-            self.savename = f"SND_without_background_slope_{self.fit_params_plunger['fit_coef'][0]:.3f}"
+            self.savename = f"SND_without_background_slope_{fit_params_plunger['fit_coef'][0]:.3f}"
 
         if self.fiftyHz == True: # plotting 50Hz multiples
             self.savename += "_50Hz"
@@ -54,7 +54,7 @@ class PlotterDifferenceTimetraceSpectralNoiseDensity(SemiFigure):
             self.ax.plot(freqs, signals, "yo", markersize=self.dotsize)
 
         if np.array_equal(data_calib["freq"], data_no_calib["freq"]):
-            self.spectrum = (data_calib["spectrogram"]  - data_no_calib["spectrogram"] ) / np.abs(self.fit_params_plunger['fit_coef'][0])
+            self.spectrum = (data_calib["spectrogram"]  - data_no_calib["spectrogram"] ) / np.abs(fit_params_plunger['fit_coef'][0])
             
             self.ax.plot(data_calib["freq"], np.sqrt(self.spectrum), "ok", markersize=self.dotsize)
 

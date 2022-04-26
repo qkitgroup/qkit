@@ -12,7 +12,7 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fit_params_plunger_in = None
+        self.fit_params_plunger = None
         self.fit_vals = None
         self.savename = None
         self.xlim = None
@@ -37,11 +37,11 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
             self.ax.set_xlim(self.xlim)
         if self.ylim != None:
             self.ax.set_ylim(self.ylim)
-        if self.fit_params_plunger_in is None: # for reference measurements without plunger gate sweeps the slope is 1
+        if self.fit_params_plunger is None: # for reference measurements without plunger gate sweeps the slope is 1
             fit_params_plunger = {}
             fit_params_plunger["fit_coef"] = [1]
         else:
-            fit_params_plunger = self.fit_params_plunger_in
+            fit_params_plunger = self.fit_params_plunger
         if self.savename == None:
             self.savename = f"SND_slope_{fit_params_plunger['fit_coef'][0]:.3f}"
 

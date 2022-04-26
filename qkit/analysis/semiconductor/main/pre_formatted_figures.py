@@ -1,19 +1,18 @@
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
 import gc
 
 
-class SemiFigure(Figure):
+class SemiFigure():
     """Standard class for plots.
     """
-    def __init__(self, *args, jumbo_data = False, **kwargs): 
-        super().__init__(*args, **kwargs)
+    def __init__(self, jumbo_data = False): 
         self.fig = plt.figure()
         self.ax = self.fig.subplots()
         self.set_dpi = 400
         self.set_bbox_inches = "tight"
         self.save_as = ".png"
-
+        self.ax.set_axisbelow(True) # pushes grid to background
+        self.fig.set_facecolor("White")
         self.ax.title.set_size(fontsize=14)
         self.ax.xaxis.label.set_size(fontsize=12)
         self.ax.yaxis.label.set_size(fontsize=12)
