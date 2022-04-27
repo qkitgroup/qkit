@@ -209,14 +209,14 @@ plotter_SND.plot(settings, spectral_result_welch)
 ################################################
 #Background noise
 settings_background = {"file_info" : {
-                "absolute_path" : "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/-0.5V/",
+                "absolute_path" : "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/background/",
                 "filetype" : ".h5",
-                "date_stamp" : "20220128",
-                "filename" : "175941_1D_measurement_time",
+                "date_stamp" : "20220125",
+                "filename" : "092647_1D_measurement_time",
                 "savepath" : "analysis/",
                 "analysis" : "noise_timetrace"},
             "meas_params" : {
-                "measurement_amp" : 200e-6,
+                "measurement_amp" : 100e-6,
                 "voltage_divider" : 3,
                 "IVgain" : 1e8,
                 "in_line_R": 42e3}
@@ -243,16 +243,20 @@ phase_correction_background = phase_correction
 data_sliced_rotated_background = rotate_phase(data_sliced_background, [node_background_x, node_background_y], phase_correction_background)
 
 plotter_timetrace = PlotterTimetrace()
+plotter_timetrace.jumbo_data = True
+print(plotter_timetrace.jumbo_data)
 plotter_timetrace.savename = "timetrace_background_sliced_rotated_x"
 plotter_timetrace.title = "Timetrace x"
 plotter_timetrace.plot(settings_background, data_sliced_rotated_background, [node_background_timestamp, node_background_x])
 
 plotter_timetrace = PlotterTimetrace()
+plotter_timetrace.jumbo_data = True
 plotter_timetrace.savename = "timetrace_background_sliced_rotated_y"
 plotter_timetrace.title = "Timetrace y"
 plotter_timetrace.plot(settings_background, data_sliced_rotated_background, [node_background_timestamp, node_background_y])
 
 plotter_phase = PlotterTimetracePhase()
+plotter_timetrace.jumbo_data = True
 plotter_timetrace.savename = "timetrace_background_sliced_rotated_phase"
 plotter_phase.plot(settings_background, data_sliced_rotated_background, [node_background_timestamp, node_background_x, node_background_y])
 
@@ -268,7 +272,7 @@ analyzer_SND = AnalyzerTimetraceSpectralNoiseDensity()
 spectral_result_background = analyzer_SND.analyze(sampling_f_background, data_sliced_rotated_background, [node_background_x])
 power_fit_params_background = None
 plotter_SND = PlotterTimetraceSpectralNoiseDensity()
-plotter_SND.fit_params_plunger = plunger_fit_params
+plotter_SND.fit_params_plunger = None
 plotter_SND.fit_vals = power_fit_params_background
 plotter_SND.savename = "SND_fourier_background"
 plotter_SND.plot(settings_background, spectral_result_background)
@@ -280,7 +284,7 @@ analyzer_SND.segment_length = 5e5 # length of each segment that is used for Welc
 spectral_result_welch_background = analyzer_SND.analyze_welch(sampling_f_background, data_sliced_rotated_background, [node_background_x])
 power_fit_params_welch_background = None 
 plotter_SND = PlotterTimetraceSpectralNoiseDensity()
-plotter_SND.fit_params_plunger = plunger_fit_params_background
+plotter_SND.fit_params_plunger = None
 plotter_SND.fit_vals = power_fit_params_background
 plotter_SND.savename = "SND_welch_background"
 plotter_SND.plot(settings_background, spectral_result_welch_background)
@@ -290,8 +294,7 @@ plotter_SND.plot(settings_background, spectral_result_welch_background)
 #%%
 plotter_SND = PlotterDifferenceTimetraceSpectralNoiseDensity()
 plotter_SND.savename = "SND_Fourier_NO_background"
-plotter_SND.fit_params_plunger = None #plunger_fit_params
-spectral_result_background["spectrogram"] = spectral_result_background["spectrogram"] - 1
+plotter_SND.fit_params_plunger = plunger_fit_params
 plotter_SND.plot(settings, spectral_result, spectral_result_background)
 
 
@@ -302,3 +305,4 @@ plotter_SND.fit_params_plunger = plunger_fit_params
 plotter_SND.plot(settings, spectral_result_welch, spectral_result_welch_background)
 
 #%%
+# %%
