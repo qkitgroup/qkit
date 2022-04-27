@@ -1,8 +1,13 @@
 #%%
-from qkit.analysis.semiconductor.loaders import Loaderh5
-from qkit.analysis.semiconductor.analyzers import AnalyzerTimetraceSpectralNoiseDensity, AnalyzerPeakTracker_Daniel
-from qkit.analysis.semiconductor.plotters import PlotterTimetraceSpectralNoiseDensity, PlotterPlungerTimetrace3D, PlotterPlungerTraceFit, PlotterPlungerTraceTimestampsDifference
-from qkit.analysis.semiconductor.main import SlicerPlungerTimetrace
+from qkit.analysis.semiconductor.loaders.Loaderh5 import Loaderh5
+from qkit.analysis.semiconductor.main.loading import print_nodes
+from qkit.analysis.semiconductor.analyzers.AnalyzerTimetraceSpectralNoiseDensity import AnalyzerTimetraceSpectralNoiseDensity
+from qkit.analysis.semiconductor.plotters.PlotterTimetraceSpectralNoiseDensity import PlotterTimetraceSpectralNoiseDensity
+from qkit.analysis.semiconductor.analyzers.AnalyzerPeakTracker_Daniel import AnalyzerPeakTracker
+from qkit.analysis.semiconductor.plotters.PlotterPlungerTimetrace3D import PlotterPlungerTimetrace3D
+from qkit.analysis.semiconductor.plotters.PlotterPlungerTraceFit import PlotterPlungerTraceFit
+from qkit.analysis.semiconductor.plotters.PlotterPlungerTraceTimestampsDifference import PlotterPlungerTraceTimestampsDifference
+from qkit.analysis.semiconductor.main.SlicerPlungerTimetrace import SlicerPlungerTimetrace
 
 settings = {"file_info" : {
                 "absolute_path" : "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/test/",
@@ -19,32 +24,40 @@ settings = {"file_info" : {
             }
 
 
-
 #%% Load Timetrace
 loader = Loaderh5()
 data = loader.load(settings)
-print("\nData nodes:\n" + str([key for key in data.keys()]))
+print_nodes(data)
+
+#%% Define nodes
+node_timestamp = "demod0.timestamp0"
+node_x = "demod0.x0"
+node_y = "demod0.y0"
+node_r = "demod0.r0"
+
+gates = "gates_6_16"
+
 
 #%% Plot Data
 plotter = PlotterPlungerTimetrace3D()
 plotter.max_cond = 10
-plotter.plot(settings, data, ["demod0.timestamp0", "gates_6_16", "demod0.r0"])
+plotter.plot(settings, data, [node_timestamp, gates , node_r])
 
 #%% Slice Data and Plot
 slicer = SlicerPlungerTimetrace()
 slicer.beginning, slicer.ending = 0, 6 # in hours
-data_sliced = slicer.slice(data, ["demod0.timestamp0", "gates_6_16", "demod0.r0"])
+data_sliced = slicer.slice(data, [node_timestamp, gates , node_r])
 
 plotter = PlotterPlungerTimetrace3D()
 plotter.max_cond = 10
 plotter.savename = "plunger_timetrace_sliced"
-plotter.plot(settings, data_sliced, ["demod0.timestamp0", "gates_6_16", "demod0.r0"])
+plotter.plot(settings, data_sliced, [node_timestamp, gates , node_r])
 
 #%% Analyze  Data
-analyzer = AnalyzerPeakTracker_Daniel()
+analyzer = AnalyzerPeakTracker()
 analyzer.intervall1 = 0.1
 analyzer.intervall2 = 0.05
-analyzer.analyze( data_sliced, ["demod0.timestamp0", "gates_6_16", "demod0.r0"], peak_V=0.725)
+analyzer.analyze( data_sliced, [node_timestamp, gates , node_r], peak_V=0.725)
 
 #%% Plot Analyzed Data
 plotter = PlotterPlungerTimetrace3D()
@@ -52,7 +65,7 @@ plotter.point_size = 0.5
 plotter.marker_shape = "or"
 plotter.max_cond = 10
 plotter.savename = "plunger_timetrace_sliced_fitted"
-plotter.plot(settings, data_sliced, ["demod0.timestamp0", "gates_6_16", "demod0.r0"])
+plotter.plot(settings, data_sliced, [node_timestamp, gates , node_r])
 
 #%% Plot time difference between consecutive plunger sweeps 
 plotter = PlotterPlungerTraceTimestampsDifference()
@@ -61,7 +74,7 @@ plotter.plot(settings, data_sliced)
 
 #%% Plot a single plunger trace
 plotter = PlotterPlungerTraceFit()
-plotter.plot(settings, data_sliced,  ["gates_6_16", "demod0.r0"],  trace_num=10)
+plotter.plot(settings, data_sliced,  [gates , node_r],  trace_num=10)
 
 
 #%% SND

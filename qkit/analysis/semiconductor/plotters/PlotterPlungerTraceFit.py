@@ -13,8 +13,9 @@ class PlotterPlungerTraceFit(SemiFigure):
         super().__init__(*args, **kwargs)
         self.plot_fit = True
         self.savename = "one_plunger_fit"
+        self.trace_num = 0
 
-    def plot(self, settings:dict, data:dict, nodes, trace_num):
+    def plot(self, settings:dict, data:dict, nodes):
         def sech(x, a, b, c, d):
             '''hyperbolic secans function'''
             return a * (1 / np.cosh(b * (x - c))) + d
@@ -25,14 +26,14 @@ class PlotterPlungerTraceFit(SemiFigure):
 
         if self.plot_fit:
             #plotting the fit only in the used intervall 
-            fit_peak_index = int(round(data["peaks_fit_popts"][trace_num][2])) # value of c in sech(x, *[a, b, c, d]) as an INDEX of the array
+            fit_peak_index = int(round(data["peaks_fit_popts"][self.trace_num][2])) # value of c in sech(x, *[a, b, c, d]) as an INDEX of the array
             fit_intervall_half_index = data["peaks_fit_intervall_half"]
             fit_x_indices = np.arange(fit_peak_index - fit_intervall_half_index, fit_peak_index + fit_intervall_half_index+1)
             fit_x = data[nodes[0]][fit_x_indices[0] : fit_x_indices[-1]+1]
-            fit_y = 1000 * sech(fit_x_indices, *data["peaks_fit_popts"][trace_num])
+            fit_y = 1000 * sech(fit_x_indices, *data["peaks_fit_popts"][self.trace_num])
             self.ax.plot(fit_x, fit_y, "r", label="fit")
 
-        self.ax.plot(data[nodes[0]], data[nodes[1]][trace_num]*1000)
+        self.ax.plot(data[nodes[0]], data[nodes[1]][self.trace_num]*1000)
         plt.legend()
         plt.savefig(create_saving_path(settings, self.savename, self.save_as), dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
         plt.show()

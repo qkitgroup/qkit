@@ -9,17 +9,18 @@ class AnalyzerPeakTracker:
     """Fits a sechans function to a plunger gate sweep in two iterations.
     """
     def __init__(self) -> None:
-        self.init_params=None
-        self.intervall1=0.01
-        self.intervall2=0.01
-        self.max_iter=10000
+        self.init_params = None
+        self.intervall1 = 0.01
+        self.intervall2 = 0.01
+        self.max_iter = 10000
+        self.peak_voltage = 0
 
-    def analyze(self, data:dict, nodes, peak_V:float):
-        """peak_V is the Voltage of the peak eyeballed.
+    def analyze(self, data:dict, nodes):
+        """self.peak_voltage is the Voltage of the peak eyeballed.
         width and width2 are the intervalls of idices used to fit the data to.  Better in Volts in future? 
         The sechans fit is NOT using Volt values as x values but instead indices of the array. 
         init_params: first values [a, b, d] of f(x) = a * (1 / np.cosh(b * (x - c))) + d
-        peak_V: first value of c 
+        self.peak_voltage: first value of c 
         """
         def sech(x, a, b, c, d):
             '''hyperbolic secans function'''
@@ -31,7 +32,7 @@ class AnalyzerPeakTracker:
         else:
             a, b, d = self.init_params[0], self.init_params[1], self.init_params[2]
 
-        peak_index = map_array_to_index(data[nodes[1]], peak_V)
+        peak_index = map_array_to_index(data[nodes[1]], self.peak_voltage)
         intervall1_half_index = map_array_to_index(data[nodes[1]], abs(self.intervall1 / 2) + data[nodes[1]][0])
         intervall2_half_index= map_array_to_index(data[nodes[1]], abs(self.intervall2 / 2) + data[nodes[1]][0])
 
