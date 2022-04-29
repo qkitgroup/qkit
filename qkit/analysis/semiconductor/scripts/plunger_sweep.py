@@ -8,6 +8,8 @@ from qkit.analysis.semiconductor.plotters.PlotterPlungerTimetrace3D import Plott
 from qkit.analysis.semiconductor.plotters.PlotterPlungerTraceFit import PlotterPlungerTraceFit
 from qkit.analysis.semiconductor.plotters.PlotterPlungerTraceTimestampsDifference import PlotterPlungerTraceTimestampsDifference
 from qkit.analysis.semiconductor.main.SlicerPlungerTimetrace import SlicerPlungerTimetrace
+from qkit.analysis.semiconductor.loaders.Loader_spectrum_np import Loader_spectrum_np
+from qkit.analysis.semiconductor.savers.Saver_spectrum_np import Saver_spectrum_np
 
 settings = {"file_info" : {
                 "absolute_path" : "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/test/",
@@ -57,7 +59,8 @@ plotter.plot(settings, data_sliced, [node_timestamp, gates , node_r])
 analyzer = AnalyzerPeakTracker()
 analyzer.intervall1 = 0.1
 analyzer.intervall2 = 0.05
-analyzer.analyze( data_sliced, [node_timestamp, gates , node_r], peak_V=0.725)
+analyzer.peak_voltage = 0.725
+analyzer.analyze( data_sliced, [node_timestamp, gates , node_r])
 
 #%% Plot Analyzed Data
 plotter = PlotterPlungerTimetrace3D()
@@ -74,15 +77,23 @@ plotter.plot(settings, data_sliced)
 
 #%% Plot a single plunger trace
 plotter = PlotterPlungerTraceFit()
-plotter.plot(settings, data_sliced,  [gates , node_r],  trace_num=10)
+plotter.trace_num = 10
+plotter.plot(settings, data_sliced,  [gates , node_r])
 
 
 #%% SND
 sampling_f = 1/data_sliced["avg_sweep_time"]  
 analyzer_SND = AnalyzerTimetraceSpectralNoiseDensity()
 spectral_result = analyzer_SND.analyze(sampling_f, data_sliced, ["peaks_plunger_V"]) # classic Fourier
+
+saver = Saver_spectrum_np() # Saving Data
+saver.save(settings, spectral_result, ending="Fourier")
+
 analyzer_SND.segment_length = 50 # length of each segment for Welch
 spectral_result_welch = analyzer_SND.analyze_welch(sampling_f, data_sliced, ["peaks_plunger_V"]) # Welch's method
+
+saver = Saver_spectrum_np() # Saving Data
+saver.save(settings, spectral_result_welch, ending="Welch")
 
 #%% 
 plotter_SND = PlotterTimetraceSpectralNoiseDensity()

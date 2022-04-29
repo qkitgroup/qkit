@@ -20,13 +20,22 @@ loader = LoaderExcel()
 data_B4 = loader.load(path, ignored_rows, sample_name)
 
 
+#%%
+path = "/V/GroupWernsdorfer/SEMICONDUCTOR_SYSTEMS/Bias_cooling_Project/Data_overview_P35_B3.xlsx"
+ignored_rows = 4
+sample_name = "P35_B3"
+loader = LoaderExcel()
+data_B3 = loader.load(path, ignored_rows, sample_name)
+
+
+
 
 #%%
-data = dict(**data_B1, **data_B4)
-room_temp_cooldown = "both" # decide if all data or only room temp cooldowns with "yes" or "both"
+data = dict(**data_B1, **data_B4, **data_B3)
 
 #plotter = PlotterBiascoolingAccumulation()
 plotter = PlotterBiascoolingAccumulationColors()
+plotter.cooldown_perfect = True
 plotter.shape = "*"
 plotter.size = 200
 plotter.transparency = 1
@@ -68,4 +77,6 @@ plotter.plot(data, shape="*", size=300, transparency=0.8, RT=room_temp_cooldown)
 # %%
 plotter = PlotterBiascoolingDifferenceTopgateAccumulation()
 plotter.plot(data, shape="*", size=300, transparency=0.8, RT=room_temp_cooldown)
+# %%
+
 # %%

@@ -42,8 +42,11 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
             fit_params_plunger["fit_coef"] = [1]
         else:
             fit_params_plunger = self.fit_params_plunger
+        
+        plunger_calib = fit_params_plunger['fit_coef'][0]
+
         if self.savename == None:
-            self.savename = f"SND_slope_{fit_params_plunger['fit_coef'][0]:.3f}"
+            self.savename = f"SND_slope_{plunger_calib:.3f}"
 
         if self.fiftyHz == True: # plotting 50Hz multiples
             self.savename += "_50Hz"
@@ -53,8 +56,10 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
                 freqs.extend([f]*1000 )
                 signals.extend(np.logspace(-8, -1, 1000))
             self.ax.plot(freqs, signals, "yo", markersize=self.dotsize)
+        
+        
 
-        self.ax.plot(data["freq"], np.sqrt(data["spectrogram"] / np.abs(fit_params_plunger['fit_coef'][0])), "ok", markersize=self.dotsize)
+        self.ax.plot(data["freq"], np.sqrt(data["spectrogram"] / np.abs(plunger_calib)), "ok", markersize=self.dotsize)
 
         if self.fit_vals is not None:
             def func(x, a, b):
@@ -62,8 +67,10 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
             index_begin = map_array_to_index(data["freq"], 1e-1)
             index_end = map_array_to_index(data["freq"], 1e1)
             freqs = data["freq"][index_begin : index_end]
-            text = f"SD(1Hz): {self.fit_vals['popt'][0]*1e6:.1f} " + "$\mathrm{\mu V}/\sqrt{\mathrm{Hz}}$"
-            self.ax.plot(freqs, func(freqs, *self.fit_vals["popt"]), label=text)
+            SND_1Hz = 1e6 * np.sqrt(func(1, *self.fit_vals["popt"])/ np.abs(plunger_calib))
+            text = f"SD(1Hz): {SND_1Hz:.0f} " + "$\mathrm{\mu V}/\sqrt{\mathrm{Hz}}$"
+            fit_spectrum = np.sqrt(func(freqs, *self.fit_vals["popt"])/ np.abs(plunger_calib))
+            self.ax.plot(freqs, fit_spectrum, label=text)
             self.ax.legend(loc="lower left")
 
         plt.grid()

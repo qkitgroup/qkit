@@ -10,6 +10,3 @@ def create_saving_path(settings, name, filetype=".png"):
     path = os.path.join(path, name) + filetype
       
     return path
-
-    #path = f"{settings['file_info']['absolute_path']}{settings['file_info']['date_stamp']}/{settings['file_info']['filename']}/{settings['file_info']['savepath']}"
-    #return path + "/" 

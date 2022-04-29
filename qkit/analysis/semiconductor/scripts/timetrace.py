@@ -285,7 +285,7 @@ spectral_result_welch_background = analyzer_SND.analyze_welch(sampling_f_backgro
 power_fit_params_welch_background = None 
 plotter_SND = PlotterTimetraceSpectralNoiseDensity()
 plotter_SND.fit_params_plunger = None
-plotter_SND.fit_vals = power_fit_params_background
+plotter_SND.fit_vals = power_fit_params_welch_background
 plotter_SND.savename = "SND_welch_background"
 plotter_SND.plot(settings_background, spectral_result_welch_background)
 

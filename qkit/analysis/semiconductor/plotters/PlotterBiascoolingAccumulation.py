@@ -39,32 +39,36 @@ class PlotterBiascoolingAccumulationColors(SemiFigure):
         self.shape = "*"
         self.size = 500
         self.transparency = 1
+        self.cooldown_perfect = "False"
 
     def plot(self, data, savename="accumulations_biascooling"):
         self.ax.set_title("Accumulation Voltages depending on Bias Cooling")
         self.ax.set_xlabel("Bias Cooling Voltage (V)")
         self.ax.set_ylabel("Accumulation Voltage (V)")
 
-        color_palette = ["r", "b", "k", "g"]
+        color_palette = ["r", "b", "g", "k"]
         i = 0
 
         for sample in data:
             color_plot = color_palette[i]
             for cooldown in data[sample]:
                 if cooldown["RT_cooldown"] == "y" or cooldown["RT_cooldown"] == "new":
-                    self.ax.scatter(cooldown["bias_V"], cooldown["first_acc_V"], marker="*", s=self.size, alpha=self.transparency, color=color_plot)
+                    self.ax.scatter(cooldown["bias_V"], cooldown["first_acc_V"], marker=self.shape, s=self.size, alpha=self.transparency, color=color_plot)
                 elif cooldown["RT_cooldown"] == "n":
-                    self.ax.scatter(cooldown["bias_V"], cooldown["first_acc_V"], marker="3", s=self.size, alpha=self.transparency, color=color_plot)
+                    if self.cooldown_perfect == False: 
+                        self.ax.scatter(cooldown["bias_V"], cooldown["first_acc_V"], marker="3", s=self.size, alpha=self.transparency, color=color_plot)
                 else:
+                    # Plot what is not labled
                     self.ax.scatter(cooldown["bias_V"], cooldown["first_acc_V"], marker="s", s=self.size, alpha=self.transparency, color=color_plot)
             i+=1
 
         red_patch = mpatches.Patch(color='red', label='Sample B1')
         blue_patch = mpatches.Patch(color='blue', label='Sample B4')
+        black_patch = mpatches.Patch(color='green', label='Sample B3')
 
         
         plt.grid()
-        plt.legend(handles=[ red_patch, blue_patch])
+        plt.legend(handles=[ red_patch, blue_patch, black_patch])
         plt.savefig(f"{savename}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
         plt.show() 
         self.close_delete()

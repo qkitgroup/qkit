@@ -47,6 +47,6 @@ class AnalyzerTimetraceSpectralNoiseDensity:
 
         def func(x, a, b):
             return a * np.power(x, b)
-        popt, cov = curve_fit(func, freqs, np.sqrt(spec), p0=self.guess, maxfev=self.max_iter)
+        popt, cov = curve_fit(func, freqs, spec, p0=self.guess, maxfev=self.max_iter)
     
-        return {"popt" : popt, "cov" : cov, "SND1Hz" : func(1, *popt)} # freqs[0]=0 ; The 0Hz value is cut off:
+        return {"popt" : popt, "cov" : cov} # freqs[0]=0 ; The 0Hz value is cut off:
