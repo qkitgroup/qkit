@@ -12,8 +12,11 @@ from qkit.analysis.semiconductor.plotters.PlotterTimetrace import PlotterTimetra
 from qkit.analysis.semiconductor.plotters.PlotterTimetracePhase import PlotterTimetracePhase
 from qkit.analysis.semiconductor.main.rotate_phase import rotate_phase
 from qkit.analysis.semiconductor.main.SlicerTimetrace import SlicerTimetrace
+from qkit.analysis.semiconductor.loaders.Loader_spectrum_np import Loader_spectrum_np
+from qkit.analysis.semiconductor.savers.Saver_spectrum_np import Saver_spectrum_np
 
 
+#%%
 settings = {"file_info" : {
                 "absolute_path" : "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/-0.5V/",
                 "filetype" : ".h5",
@@ -42,6 +45,8 @@ node_timestamp = "demod0&4.timestamp0"
 node_x = "demod0&4.x0"
 node_y = "demod0&4.y0"
 node_r = "demod0&4.r0"
+
+
 #%% Plot Timetrace Lock-in R
 
 plotter_timetrace = PlotterTimetrace()
@@ -163,7 +168,9 @@ plotter_plunger.plot(settings, settings_plunger, data_plunger_rotated, ["gate_6"
 
 #%% Analyze Equvalent Gate Voltage 
 analyzer_plunger = AnalyzerPlungerSweep()
-plunger_fit_params = analyzer_plunger.analyze(data_plunger_rotated, ["gate_6", node_plunger_x], voltage=0.074, intervall=0.005)
+analyzer_plunger.voltage_fit = 0.074
+analyzer_plunger.intervall_fit = 5e-3
+plunger_fit_params = analyzer_plunger.analyze(data_plunger_rotated, ["gate_6", node_plunger_x])
 
 plotter_plunger = PlotterPlungerSweep()
 plotter_plunger.fit_params = plunger_fit_params
@@ -174,9 +181,13 @@ plotter_plunger.plot(settings, settings_plunger, data_plunger_rotated, ["gate_6"
 #%% Analyze and Plot SND with classic Fourier Trafo
 sampling_f = 13732.91015625   #data["  "]
 analyzer_SND = AnalyzerTimetraceSpectralNoiseDensity()
-spectral_result = analyzer_SND.analyze(sampling_f,  data_sliced_rotated, [node_x])
 analyzer_SND.guess = [1e-5, -1]
+spectral_result = analyzer_SND.analyze(sampling_f,  data_sliced_rotated, [node_x])
 power_fit_params = analyzer_SND.fit(spectral_result)
+
+saver = Saver_spectrum_np() # Saving Data
+saver.save(settings, spectral_result, plunger_fit_params, power_fit_params, ending="Fourier")
+
 plotter_SND = PlotterTimetraceSpectralNoiseDensity()
 plotter_SND.fit_params_plunger = plunger_fit_params
 plotter_SND.fit_vals = power_fit_params
@@ -184,17 +195,22 @@ plotter_SND.savename = "SND_fourier"
 plotter_SND.plot(settings, spectral_result)
 
 
+
+
 #%% Analyze and Plot SND with Welch's method
 analyzer_SND = AnalyzerTimetraceSpectralNoiseDensity()
 analyzer_SND.segment_length = 5e5 # length of each segment that is used for Welch
 spectral_result_welch = analyzer_SND.analyze_welch(sampling_f,  data_sliced_rotated, [node_x])
 power_fit_params_welch = analyzer_SND.fit(spectral_result_welch)
+
+saver = Saver_spectrum_np() # Saving Data
+saver.save(settings, spectral_result_welch, plunger_fit_params, power_fit_params_welch, ending="Welch")
+
 plotter_SND = PlotterTimetraceSpectralNoiseDensity()
 plotter_SND.fit_params_plunger = plunger_fit_params
 plotter_SND.fit_vals = power_fit_params_welch
 plotter_SND.savename = "SND_welch"
 plotter_SND.plot(settings, spectral_result_welch)
-
 
 
 
@@ -211,12 +227,12 @@ plotter_SND.plot(settings, spectral_result_welch)
 settings_background = {"file_info" : {
                 "absolute_path" : "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/background/",
                 "filetype" : ".h5",
-                "date_stamp" : "20220125",
-                "filename" : "092647_1D_measurement_time",
+                "date_stamp" : "20220427",
+                "filename" : "154538_1D_measurement_time",
                 "savepath" : "analysis/",
                 "analysis" : "noise_timetrace"},
             "meas_params" : {
-                "measurement_amp" : 100e-6,
+                "measurement_amp" : 200e-6,
                 "voltage_divider" : 3,
                 "IVgain" : 1e8,
                 "in_line_R": 42e3}
@@ -234,12 +250,13 @@ node_background_y = "demod0&4.y0"
 node_background_r = "demod0&4.r0"
 
 #%% Slice Timetrace
-begin, end = 0, 100 #seconds
-slicer = SlicerTimetrace(begin, end)
-data_sliced_background = slicer.make_slice_timetrace(data_background, [node_background_timestamp, node_background_r, node_background_x, node_background_y])
+#begin, end = 0, 100 #seconds
+#slicer = SlicerTimetrace(begin, end)
+#data_sliced_background = slicer.make_slice_timetrace(data_background, [node_background_timestamp, node_background_r, node_background_x, node_background_y])
+data_sliced_background = data_background
 
 #%% Rotate Data
-phase_correction_background = phase_correction
+phase_correction_background = +75
 data_sliced_rotated_background = rotate_phase(data_sliced_background, [node_background_x, node_background_y], phase_correction_background)
 
 plotter_timetrace = PlotterTimetrace()
@@ -267,10 +284,14 @@ analyzer_plunger = AnalyzerPlungerSweep()
 plunger_fit_params_background = None 
 
 #%% Analyze and Plot SND with classic Fourier Trafo
-sampling_f_background = 13732.91015625   #data["  "]
+sampling_f_background = 858.306884765625  #data["  "]
 analyzer_SND = AnalyzerTimetraceSpectralNoiseDensity()
 spectral_result_background = analyzer_SND.analyze(sampling_f_background, data_sliced_rotated_background, [node_background_x])
 power_fit_params_background = None
+
+saver = Saver_spectrum_np() # Saving Data
+saver.save(settings_background, spectral_result_background, plunger_fit_params_background, power_fit_params_background, ending="Fourier")
+
 plotter_SND = PlotterTimetraceSpectralNoiseDensity()
 plotter_SND.fit_params_plunger = None
 plotter_SND.fit_vals = power_fit_params_background
@@ -280,13 +301,20 @@ plotter_SND.plot(settings_background, spectral_result_background)
 
 #%% Analyze and Plot SND with Welch's method
 analyzer_SND = AnalyzerTimetraceSpectralNoiseDensity() 
-analyzer_SND.segment_length = 5e5 # length of each segment that is used for Welch
+sampling_f_background = 858.306884765625
+analyzer_SND.segment_length = 1e7 # length of each segment that is used for Welch
 spectral_result_welch_background = analyzer_SND.analyze_welch(sampling_f_background, data_sliced_rotated_background, [node_background_x])
 power_fit_params_welch_background = None 
+
+saver = Saver_spectrum_np() # Saving Data
+saver.save(settings_background, spectral_result_welch_background, plunger_fit_params_background, power_fit_params_welch_background, ending="Welch")
+
 plotter_SND = PlotterTimetraceSpectralNoiseDensity()
 plotter_SND.fit_params_plunger = None
 plotter_SND.fit_vals = power_fit_params_welch_background
-plotter_SND.savename = "SND_welch_background"
+plotter_SND.savename = "SND_welch_background_8"
+plotter_SND.xlim = [5e-5,1e0]
+plotter_SND.ylim = [1e-6,1e-1]
 plotter_SND.plot(settings_background, spectral_result_welch_background)
 
 
@@ -304,5 +332,5 @@ plotter_SND.savename = "SND_Welch_NO_background"
 plotter_SND.fit_params_plunger = plunger_fit_params
 plotter_SND.plot(settings, spectral_result_welch, spectral_result_welch_background)
 
-#%%
+
 # %%
