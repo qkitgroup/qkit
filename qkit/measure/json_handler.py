@@ -22,8 +22,15 @@ class QkitJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if type(obj) == np.ndarray:
             return {'dtype': type(obj).__name__, 'content': obj.tolist()}
+        if np.issubdtype(obj, np.integer):
+            return {'dtype': type(obj).__name__, 'content': int(obj)}
+        if np.issubdtype(obj, np.floating):
+            return {'dtype': type(obj).__name__, 'content': float(obj)}
+        if np.issubdtype(obj, np.complexfloating):
+            return {'dtype': type(obj).__name__, 'content': complex(obj)}
         # if type(obj) == types.InstanceType:  # no valid synatx in python 3 and probably not needed (MMW)
         #    return {'dtype' : type(obj).__name__, 'content': str(obj.get_name())}
+        
         if uncertainties_enable or qkit.module_available('uncertainties'):
             if type(obj) in (uncertainties.core.Variable, uncertainties.core.AffineScalarFunc):
                 return {'dtype': 'ufloat',
