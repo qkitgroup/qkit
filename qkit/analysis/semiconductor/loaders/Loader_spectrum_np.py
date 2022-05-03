@@ -18,11 +18,11 @@ class Loader_spectrum_np():
             fit_params_plunger['fit_coef'] = np.loadtxt(create_saving_path(settings, "plunger_fit_data"+ending, filetype=".txt"))
         except FileNotFoundError:
             print("No plunger data found.")    
-            fit_params_plunger['fit_coef'] = None  
+            fit_params_plunger = None  
         try:
             power_fit_params["popt"] = np.loadtxt(create_saving_path(settings, "power_fit_data"+ending, filetype=".txt"))
         except FileNotFoundError:
             print("No power fit data found.") 
-            power_fit_params["popt"] = None     
+            power_fit_params = None     
 
         return (data, fit_params_plunger, power_fit_params)

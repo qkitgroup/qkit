@@ -30,7 +30,8 @@ settings_timetrace = {"file_info" : {
                 "measurement_amp" : 200e-6,
                 "voltage_divider" : 3,
                 "IVgain" : 1e8,
-                "in_line_R": 42e3}
+                "in_line_R": 42e3,
+                "sampling_rate" : 13732.91015625}
             }
 
 
@@ -54,6 +55,22 @@ settings_background = {"file_info" : {
                 "absolute_path" : "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/background/",
                 "filetype" : ".h5",
                 "date_stamp" : "20220427",
+                "filename" : "143444_1D_measurement_time",
+                "savepath" : "analysis/",
+                "analysis" : "noise_timetrace"},
+            "meas_params" : {
+                "measurement_amp" : 200e-6,
+                "voltage_divider" : 3,
+                "IVgain" : 1e8,
+                "in_line_R": 42e3,
+                "sampling_rate" : 13732.91015625}
+            }
+
+#%%
+settings_background_long = {"file_info" : {
+                "absolute_path" : "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/background/",
+                "filetype" : ".h5",
+                "date_stamp" : "20220427",
                 "filename" : "154538_1D_measurement_time",
                 "savepath" : "analysis/",
                 "analysis" : "noise_timetrace"},
@@ -61,7 +78,8 @@ settings_background = {"file_info" : {
                 "measurement_amp" : 200e-6,
                 "voltage_divider" : 3,
                 "IVgain" : 1e8,
-                "in_line_R": 42e3}
+                "in_line_R": 42e3,
+                "sampling_rate" : 858.306884765625}
             }
 
 
@@ -77,6 +95,10 @@ settings_background = {"file_info" : {
 #%% Loading background spectrum 
 (data_background_Fourier, _, power_fit_params_background_Fourier) = loader.load(settings_background, ending="Fourier")
 (data_background_Welch, _, power_fit_params_background_Welch) = loader.load(settings_background, ending="Welch")
+
+#%% Loading long 5h background spectrum 
+(data_background_long_Fourier, _, power_fit_params_background_long_Fourier) = loader.load(settings_background_long, ending="Fourier")
+(data_background_long_Welch, _, power_fit_params_background_long_Welch) = loader.load(settings_background_long, ending="Welch")
 
 
 
@@ -132,10 +154,30 @@ plotter_SND = PlotterTimetraceSpectralNoiseDensity()
 plotter_SND.fit_params_plunger = None
 plotter_SND.fit_vals = power_fit_params_background_Fourier
 plotter_SND.savename = "SND_fourier"
+plotter_SND.fiftyHz = True
 plotter_SND.plot(settings_background, data_background_Fourier)
 
 plotter_SND = PlotterTimetraceSpectralNoiseDensity()
 plotter_SND.fit_params_plunger = None
 plotter_SND.fit_vals = power_fit_params_background_Welch
 plotter_SND.savename = "SND_welch"
+plotter_SND.fiftyHz = True
 plotter_SND.plot(settings_background, data_background_Welch)
+
+
+#%% Plotting long Background
+plotter_SND = PlotterTimetraceSpectralNoiseDensity()
+plotter_SND.fit_params_plunger = None
+plotter_SND.fit_vals = power_fit_params_background_long_Fourier
+plotter_SND.savename = "SND_fourier"
+plotter_SND.plot(settings_background_long, data_background_long_Fourier)
+
+plotter_SND = PlotterTimetraceSpectralNoiseDensity()
+plotter_SND.fit_params_plunger = None
+plotter_SND.fit_vals = power_fit_params_background_long_Welch
+plotter_SND.savename = "SND_welch"
+plotter_SND.plot(settings_background_long, data_background_long_Welch)
+
+
+
+#%%
