@@ -13,6 +13,9 @@ class Saver_json():
     
     def add_info(self, fname, info):
         self.additional_info[fname] = info
+    
+    def remove_info(self, fname):
+        self.add_info.pop(fname, None)
 
     def _save(self, fname, data):
         full_path = os.path.join(self.saving_path, fname + ".json")
