@@ -27,11 +27,11 @@ class PlotterDifferenceTimetraceSpectralNoiseDensity(SemiFigure):
             fit_vals: dict with keys "popt" and "SND1Hz" that is used to plot a linear fit to the data
             fifyHz: bool that overlays the first 30 50Hz multiples
         """
-        self.ax.set_title("Spectral Noise Density")
+        self.ax.set_title("Power Spectral Noise Density")
         self.ax.set_xscale("log")
         self.ax.set_yscale("log")
         self.ax.set_xlabel("Frequency (Hz)")
-        self.ax.set_ylabel("Spectral Density ($V/\sqrt{\mathrm{Hz}}$)")
+        self.ax.set_ylabel("PSD (V²/Hz)")
         if self.xlim != None:
             self.ax.set_xlim(self.xlim)
         if self.ylim != None:
@@ -42,7 +42,7 @@ class PlotterDifferenceTimetraceSpectralNoiseDensity(SemiFigure):
         else:
             fit_params_plunger = self.fit_params_plunger
         if self.savename == None:
-            self.savename = f"SND_without_background_slope_{fit_params_plunger['fit_coef'][0]:.3f}"
+            self.savename = f"PSD_without_background_slope_{fit_params_plunger['fit_coef'][0]:.3f}"
 
         if self.fiftyHz == True: # plotting 50Hz multiples
             self.savename += "_50Hz"
@@ -50,13 +50,13 @@ class PlotterDifferenceTimetraceSpectralNoiseDensity(SemiFigure):
             signals = []
             for f in [i*50 for i in range(13)]:
                 freqs.extend([f]*1000 )
-                signals.extend(np.logspace(-8, -1, 1000))
+                signals.extend(np.logspace(-11, -4, 1000))
             self.ax.plot(freqs, signals, "yo", markersize=self.dotsize)
 
         if np.array_equal(data_calib["freq"], data_no_calib["freq"]):
             self.spectrum = (data_calib["spectrogram"]  - data_no_calib["spectrogram"] ) / np.abs(fit_params_plunger['fit_coef'][0])
             
-            self.ax.plot(data_calib["freq"], np.sqrt(self.spectrum), "ok", markersize=self.dotsize)
+            self.ax.plot(data_calib["freq"], self.spectrum, "ok", markersize=self.dotsize)
 
             plt.grid()
             plt.savefig(create_saving_path(settings, self.savename, self.save_as), dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
