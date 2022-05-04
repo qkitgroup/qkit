@@ -22,3 +22,10 @@ def multi_sech(x: NDArray[np.float_], *params: np.float_) -> NDArray[np.float_]:
         c = params[i + 2]
         y = y + sech(x, a, b, c)
     return y
+
+
+def gauss_function(x, a, x0, sigma):
+    """prefactor "a" takes non-normalized data into account. 
+    """
+    return a * np.exp(-1 * ((x-x0)**2/(2*sigma**2)))
+    
