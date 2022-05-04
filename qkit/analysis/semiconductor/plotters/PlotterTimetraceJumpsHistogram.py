@@ -34,8 +34,8 @@ class PlotterTimetraceJumpsHistogram(SemiFigure):
 
         gauss_function_0 = lambda x, a, sigma: gauss_function(x, a, 0, sigma)
         
-        popt, pcov = curve_fit(gauss_function_0, data_x, data_y) #, maxfev = 1000000000)
-        self.ax.plot(data_x, gauss_function_0(data_x, *popt), label=f"Gaussian fit\nsigma : {popt[1]:.3f} mV")
+        popt, pcov = curve_fit(gauss_function_0, data_x, data_y) 
+        self.ax.plot(data_x, gauss_function_0(data_x, *popt), label=f"Gaussian fit\nsigma : {abs(popt[1]):.3f} mV")
         self.popt = popt
         self.ax.legend()
         plt.savefig(create_saving_path(settings, self.savename, self.save_as), dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)

@@ -54,7 +54,7 @@ class PlotterDifferenceTimetraceSpectralNoiseDensity(SemiFigure):
             self.ax.plot(freqs, signals, "yo", markersize=self.dotsize)
 
         if np.array_equal(data_calib["freq"], data_no_calib["freq"]):
-            self.spectrum = (data_calib["spectrogram"]  - data_no_calib["spectrogram"] ) / np.abs(fit_params_plunger['fit_coef'][0])
+            self.spectrum = (data_calib["spectrogram"]  - data_no_calib["spectrogram"] ) / (fit_params_plunger['fit_coef'][0])**2
             
             self.ax.plot(data_calib["freq"], self.spectrum, "ok", markersize=self.dotsize)
 
