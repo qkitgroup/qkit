@@ -6,23 +6,23 @@ from qkit.measure.json_handler import QkitJSONEncoder
 class Saver_json():
     """Saves data in a folder that is set by "settings". 
     """
-    def __init__(self, settings:dict, data:dict) -> None:
+    def __init__(self, settings:dict) -> None:
         self.settings = settings
-        self.data = data
         self.additional_info = {}
         self.saving_path = create_saving_path(settings, "", filetype="")
     
     def add_info(self, fname, info):
         self.additional_info[fname] = info
+    
+    def remove_info(self, fname):
+        self.add_info.pop(fname, None)
 
     def _save(self, fname, data):
         full_path = os.path.join(self.saving_path, fname + ".json")
         with open(full_path, "w+") as file: 
-            json.dump(data, file, cls = QkitJSONEncoder)
+            json.dump(data, file, cls = QkitJSONEncoder, indent = 4)
     
-    def save(self):
-        self._save(self.settings["file_info"]["filename"], self.data)
-        
+    def save(self):        
         for fname, info in self.additional_info.items():
             self._save(fname, info)
      
@@ -41,8 +41,17 @@ if __name__ == "__main__":
                 "IVgain" : 1e8,
                 "in_line_R": 42e3}
             }
-    data = {"ads" : [12,3]}
+    a = np.int64(10)
+    b = complex(1,2)
+    #
+
+    print(type(b))
+    print(b)
+    print(type(a))
+    if type(a) == np.integer:
+        print("Yass")
+    data = {"ads" : [12,3], "das" : a}
     plunger = {'fit_coef': np.array([-2.87297491,  2.60734095]), 'index_begin': 158, 'index_end': 204}
-    saver = Saver_json(settings, data)
-    saver.add_info("plungasd", plunger)
+    saver = Saver_json(settings)
+    saver.add_info("data", data)
     saver.save()
