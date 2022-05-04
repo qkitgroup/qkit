@@ -17,7 +17,8 @@ class Plotter3D(SemiFigure):
         self.savename = "plot3D"
         self.conductance = True
         self.min = None
-        self.max = None    
+        self.max = None
+        self.y_axis_in_mV = False    
 
 
 
