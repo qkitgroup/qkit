@@ -26,14 +26,22 @@ class Plotter3D(SemiFigure):
         good color codes might be viridis, PiYG, plasma, gist_rainbow...
         """
         data_x = data[nodes[0]]
-        data_y = data[nodes[1]]
+        plt.xlabel(axis_labels[0] + " (V)")
+        
+        if self.y_axis_in_mV == True:
+            data_y = 1e3 * data[nodes[1]]
+            plt.ylabel(axis_labels[1] + " (mV)")
+        else:
+            data_y = data[nodes[1]]
+            plt.ylabel(axis_labels[1] + " (V)")
+            
         if self.conductance == True:
             data_z = np.transpose(convert_conductance(data[nodes[2]], settings, 1e6))
         else: 
-            data_z = 1e3 * data[nodes[2]]
+            data_z = np.transpose(1e3 * data[nodes[2]])
         
-        plt.xlabel(axis_labels[0] + " (V)")
-        plt.ylabel(axis_labels[1] + " (V)")
+        
+        
         
         if self.min is None:
                 min = data_z.min()
@@ -51,7 +59,7 @@ class Plotter3D(SemiFigure):
         if self.conductance == True:
             plt.colorbar(label='Conductance ($\mu$S)')
         else: 
-            plt.colorbar(label='Lock-in R (mV)')
+            plt.colorbar(label='Lock-in Amplitude (mV)')
 
         plt.savefig(create_saving_path(settings, self.savename, self.save_as), dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
         plt.show()
