@@ -10,22 +10,27 @@ class Saver_json():
         self.settings = settings
         self.additional_info = {}
         self.saving_path = create_saving_path(settings, "", filetype="")
+        self.single_file = True
     
     def add_info(self, fname, info):
         self.additional_info[fname] = info
     
     def remove_info(self, fname):
-        self.add_info.pop(fname, None)
+        self.additional_info.pop(fname, None)
 
     def _save(self, fname, data):
         full_path = os.path.join(self.saving_path, fname + ".json")
         with open(full_path, "w+") as file: 
             json.dump(data, file, cls = QkitJSONEncoder, indent = 4)
     
-    def save(self):        
-        for fname, info in self.additional_info.items():
-            self._save(fname, info)
-     
+    def save(self):
+        if self.single_file:
+            fname = f'{self.settings["file_info"]["filename"]}_analysis'
+            self._save(fname, self.additional_info)
+        else:
+            for fname, info in self.additional_info.items():
+                self._save(fname, info)
+        
 if __name__ == "__main__":
     import numpy as np
     settings = {"file_info" : {
