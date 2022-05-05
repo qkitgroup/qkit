@@ -16,12 +16,9 @@ class SemiFigure():
         self.ax.title.set_size(fontsize=14)
         self.ax.xaxis.label.set_size(fontsize=12)
         self.ax.yaxis.label.set_size(fontsize=12)
-        self._jumbo_data = jumbo_data
+        self.jumbo_data = jumbo_data
         
-        if jumbo_data:
-            plt.rcParams['agg.path.chunksize'] = 10000 # makes saving too big data sets possible.
-
-
+        
     @property
     def jumbo_data(self):
         return self._jumbo_data

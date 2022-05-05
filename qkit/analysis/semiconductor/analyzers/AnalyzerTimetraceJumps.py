@@ -9,8 +9,7 @@ class AnalyzerTimetraceJumps:
     def __init__(self):
         self.bin_count = 10
         self.bin_range = None
-
-
+       
     def analyze_difference(self, data, nodes:list):
         """Analyzes a timetrace and counts jumps.
         """
