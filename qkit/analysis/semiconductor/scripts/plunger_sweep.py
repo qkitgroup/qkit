@@ -4,9 +4,11 @@ from qkit.analysis.semiconductor.main.loading import print_nodes
 from qkit.analysis.semiconductor.analyzers.AnalyzerTimetraceSpectralNoiseDensity import AnalyzerTimetraceSpectralNoiseDensity
 from qkit.analysis.semiconductor.plotters.PlotterTimetraceSpectralNoiseDensity import PlotterTimetraceSpectralNoiseDensity
 from qkit.analysis.semiconductor.analyzers.AnalyzerPeakTracker_Daniel import AnalyzerPeakTracker
+from qkit.analysis.semiconductor.analyzers.AnalyzerTimetraceJumps import AnalyzerTimetraceJumps
 from qkit.analysis.semiconductor.plotters.PlotterPlungerTimetrace3D import PlotterPlungerTimetrace3D
 from qkit.analysis.semiconductor.plotters.PlotterPlungerTraceFit import PlotterPlungerTraceFit
 from qkit.analysis.semiconductor.plotters.PlotterPlungerTraceTimestampsDifference import PlotterPlungerTraceTimestampsDifference
+from qkit.analysis.semiconductor.plotters.PlotterTimetraceJumpsHistogram import PlotterTimetraceJumpsHistogram
 from qkit.analysis.semiconductor.main.SlicerPlungerTimetrace import SlicerPlungerTimetrace
 from qkit.analysis.semiconductor.loaders.Loader_spectrum_np import Loader_spectrum_np
 from qkit.analysis.semiconductor.savers.Saver_spectrum_np import Saver_spectrum_np
@@ -81,6 +83,18 @@ plotter.trace_num = 10
 plotter.plot(settings, data_sliced,  [gates , node_r])
 
 
+
+#%% Analyze Jumps of Timetrace
+analyzer_jumps = AnalyzerTimetraceJumps()
+analyzer_jumps.bin_count = 50
+jumps_hist = analyzer_jumps.analyze_difference(data_sliced, ["peaks_value", node_timestamp])
+
+plotter_hist = PlotterTimetraceJumpsHistogram()
+plotter_hist.marker_size = 8
+plotter_hist.plot(settings, jumps_hist)
+
+
+
 #%% SND
 sampling_f = 1/data_sliced["avg_sweep_time"]  
 analyzer_SND = AnalyzerTimetraceSpectralNoiseDensity()
@@ -106,4 +120,3 @@ plotter_SND.plot(settings, spectral_result_welch) # Welch's method
 
 
 
-# %%

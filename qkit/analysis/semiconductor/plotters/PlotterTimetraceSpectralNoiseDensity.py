@@ -59,7 +59,7 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
         
         
 
-        self.ax.plot(data["freq"], data["spectrogram"] / np.abs(plunger_calib), "ok", markersize=self.dotsize)
+        self.ax.plot(data["freq"], data["spectrogram"] / (plunger_calib)**2, "ok", markersize=self.dotsize)
 
         if self.fit_vals is not None:
             def func(x, a, b):
@@ -67,11 +67,11 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
             index_begin = map_array_to_index(data["freq"], 1e-1)
             index_end = map_array_to_index(data["freq"], 1e1)
             freqs = data["freq"][index_begin : index_end]
-            SND_1Hz = func([1], *self.fit_vals["popt"]) / np.abs(plunger_calib)
+            SND_1Hz = func([1], *self.fit_vals["popt"]) / (plunger_calib)**2
             exponent_1Hz = self.fit_vals["popt"][1] 
             text = f"PSD(1Hz) : {1e9 * SND_1Hz[0]:.1f} " + "nV²/Hz"
             text = text + f"\nexponent(1Hz) : {exponent_1Hz:.3f} "
-            fit_spectrum = func(freqs, *self.fit_vals["popt"]) / np.abs(plunger_calib)
+            fit_spectrum = func(freqs, *self.fit_vals["popt"]) / (plunger_calib)**2
             self.ax.plot(freqs, fit_spectrum, label=text)
             self.ax.legend(loc="lower left")
 
