@@ -14,6 +14,8 @@ from qkit.analysis.semiconductor.main.rotate_phase import rotate_phase
 from qkit.analysis.semiconductor.main.SlicerTimetrace import SlicerTimetrace
 from qkit.analysis.semiconductor.loaders.Loader_spectrum_np import Loader_spectrum_np
 from qkit.analysis.semiconductor.savers.Saver_spectrum_np import Saver_spectrum_np
+from qkit.analysis.semiconductor.loaders.LoaderPickle import LoaderPickle
+from qkit.analysis.semiconductor.savers.SaverPickle import SaverPickle
 
 
 #%%
@@ -40,6 +42,15 @@ settings_plunger["file_info"]["filename"] = "175259_1D_Plunger_sweep_left"
 loader = Loaderh5()
 data = loader.load(settings)
 print_nodes(data)
+
+#%% save as Pickle
+saver = SaverPickle()
+saver.save(settings, data)
+
+#%% load from Pickle
+loader = LoaderPickle()
+data = loader.load(settings)
+
 
 #%% Define nodes
 node_timestamp = "demod0&4.timestamp0"
