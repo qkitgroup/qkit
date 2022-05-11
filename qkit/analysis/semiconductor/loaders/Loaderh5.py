@@ -1,7 +1,9 @@
 import h5py
 import numpy as np
 from pathlib import Path
+
 from qkit.analysis.semiconductor.main.interfaces import LoaderInterface
+
 
 class Loaderh5_julian(LoaderInterface):
     def __init__(self) :
@@ -38,10 +40,12 @@ class Loaderh5:
         path = f"{settings['file_info']['absolute_path']}{settings['file_info']['date_stamp']}/{settings['file_info']['filename']}/{settings['file_info']['filename']}.h5"
         data = h5py.File(path,'r')["entry"]["data0"]
         self.data_dict = {}
+        print("Done loading file, formatting now...")
         for key in data.keys():
             self.data_dict[key] = np.array(data.get(u'/entry/data0/' + key)[()])
         return self.data_dict
-        
+
+
 class H5filemerger():
     """Sonjas first class -whoop-whoop- merges data from several .h5 files with the same nodes and returns them as dict
     See accumulation_many_files.py in the scripts folder for an application

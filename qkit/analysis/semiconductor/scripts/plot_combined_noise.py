@@ -180,4 +180,17 @@ plotter_SND.plot(settings_background_long, data_background_long_Welch)
 
 
 
-#%%
+#%% Plotting Background and long Background in one Plot
+plotter_SND = PlotterTimetracePeakTrackingSND()
+plotter_SND.fit_params_plunger = None
+plotter_SND.fit_vals = power_fit_params_background_Fourier
+plotter_SND.fiftyHz = True
+plotter_SND.savename = "SND_combined_fourier"
+plotter_SND.plot(settings_background, data_background_Fourier, data_background_long_Fourier)
+
+plotter_SND = PlotterTimetracePeakTrackingSND()
+plotter_SND.fit_params_plunger = None
+plotter_SND.fit_vals = power_fit_params_background_Welch
+plotter_SND.fiftyHz = True
+plotter_SND.savename = "SND_combined_welch"
+plotter_SND.plot(settings_background, data_background_Welch, data_background_long_Welch)

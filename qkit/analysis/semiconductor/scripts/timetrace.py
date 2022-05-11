@@ -20,7 +20,7 @@ from qkit.analysis.semiconductor.savers.SaverPickle import SaverPickle
 
 #%%
 settings = {"file_info" : {
-                "absolute_path" : "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/-0.5V/",
+                "absolute_path" : "/var/tmp/-0.5V/",
                 "filetype" : ".h5",
                 "date_stamp" : "20220128",
                 "filename" : "175941_1D_measurement_time",

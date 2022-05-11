@@ -10,4 +10,3 @@ class LoaderPickle:
         file.close()
 
         return data
-

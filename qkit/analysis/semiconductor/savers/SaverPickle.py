@@ -9,5 +9,3 @@ class SaverPickle:
         pickle.dump(data, file, pickle.HIGHEST_PROTOCOL)
         file.close()
 
-
-

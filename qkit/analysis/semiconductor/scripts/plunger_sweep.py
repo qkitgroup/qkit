@@ -14,7 +14,7 @@ from qkit.analysis.semiconductor.loaders.Loader_spectrum_np import Loader_spectr
 from qkit.analysis.semiconductor.savers.Saver_spectrum_np import Saver_spectrum_np
 
 settings = {"file_info" : {
-                "absolute_path" : "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/test/",
+                "absolute_path" : "smb://phi-ndus/o/data/",
                 "filetype" : ".h5",
                 "date_stamp" : "20220214",
                 "filename" : "184856_2D_Peak_tracking",
