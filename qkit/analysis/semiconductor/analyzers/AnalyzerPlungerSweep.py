@@ -19,6 +19,7 @@ class AnalyzerPlungerSweep:
         self.data_y = data[nodes[1]]
         index_begin = map_array_to_index(self.data_x, self.voltage_fit - abs(self.intervall_fit))
         index_end = map_array_to_index(self.data_x, self.voltage_fit +  abs(self.intervall_fit))
+        print(index_begin, index_end)
         if index_begin > index_end: # array was in descending order
             index_begin, index_end = index_end, index_begin
         self.data_x_cut = self.data_x[index_begin : index_end]

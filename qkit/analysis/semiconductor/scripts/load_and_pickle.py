@@ -1,7 +1,6 @@
 #%%
 import copy
 from qkit.analysis.semiconductor.loaders.Loaderh5 import Loaderh5
-from qkit.analysis.semiconductor.loaders.LoaderPickle import LoaderPickle_samba
 from qkit.analysis.semiconductor.savers.SaverPickle import SaverPickle
 
 settings_list = []

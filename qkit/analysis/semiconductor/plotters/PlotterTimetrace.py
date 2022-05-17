@@ -15,7 +15,8 @@ class PlotterTimetrace(SemiFigure):
         self.savename = "timetrace"
         self.label = "-"
         self.title = "Timetrace"
-               
+        self.jumbo_data = True
+                       
     def plot(self, settings, data_in, nodes):
         """nodes are time and x,y,R of lock-in like ["demod0.timestamp0", "demod0.x0"].
         """

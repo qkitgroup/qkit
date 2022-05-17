@@ -63,7 +63,7 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
 
         if self.fit_vals is not None:
             def func(x, a, b):
-                return a * np.power(x, b) 
+                return a * np.power(x, b)
             index_begin = map_array_to_index(data["freq"], 1e-1)
             index_end = map_array_to_index(data["freq"], 1e1)
             freqs = data["freq"][index_begin : index_end]
