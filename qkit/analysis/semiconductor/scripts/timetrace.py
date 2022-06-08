@@ -18,12 +18,11 @@ from qkit.analysis.semiconductor.loaders.LoaderPickle import LoaderPickle
 from qkit.analysis.semiconductor.savers.SaverPickle import SaverPickle
 
 
-#%%
 settings = {"file_info" : {
-                "absolute_path" : "/var/tmp/-0.5V/",
+                "absolute_path" : "/home/ws/oc0612/SEMICONDUCTOR/analysis/bias-cooling/P35_B3/",
                 "filetype" : ".h5",
-                "date_stamp" : "20220128",
-                "filename" : "175941_1D_measurement_time",
+                "date_stamp" : "20220501",
+                "filename" : "132507_1D_measurement_time",
                 "savepath" : "analysis/",
                 "analysis" : "noise_timetrace"},
             "meas_params" : {
@@ -36,7 +35,7 @@ settings = {"file_info" : {
 
 
 settings_plunger = copy.deepcopy(settings) 
-settings_plunger["file_info"]["filename"] = "175259_1D_Plunger_sweep_left"
+settings_plunger["file_info"]["filename"] = "131831_1D_Plunger_sweep_both"
 
 #%% Load Timetrace
 loader = Loaderh5()
@@ -52,84 +51,112 @@ loader = LoaderPickle()
 data = loader.load(settings)
 
 
-#%% Define nodes
-node_timestamp = "demod0&4.timestamp0"
-node_x = "demod0&4.x0"
-node_y = "demod0&4.y0"
-node_r = "demod0&4.r0"
+#%%
+side = "l"
+
+#Define nodes
+if side == "l":
+    node_timestamp = "demod0&4.timestamp0"
+    node_x = "demod0&4.x0"
+    node_y = "demod0&4.y0"
+    node_r = "demod0&4.r0"
+elif side == "r":
+    node_timestamp = "demod0&4.timestamp4"
+    node_x = "demod0&4.x4"
+    node_y = "demod0&4.y4"
+    node_r = "demod0&4.r4"
+else:
+    print("Idiot!")
+
+# define plunger notes
+if side == "l":
+    node_plunger_timestamp = "demod0&4.timestamp0"
+    node_plunger_x = "demod0&4.x0"
+    node_plunger_y = "demod0&4.y0"
+    node_plunger_r = "demod0&4.r0"
+elif side == "r":
+    node_plunger_timestamp = "demod0&4.timestamp4"
+    node_plunger_x = "demod0&4.x4"
+    node_plunger_y = "demod0&4.y4"
+    node_plunger_r = "demod0&4.r4"
+else:
+    print("Idiot!")
+    
+gate_plunger = "gates_6_12"
 
 
 #%% Plot Timetrace Lock-in R
 
 plotter_timetrace = PlotterTimetrace()
-plotter_timetrace.savename = "timetrace_R"
+plotter_timetrace.savename = "timetrace_R" + "_" + side
 plotter_timetrace.title = "Timetrace R"
 plotter_timetrace.plot(settings, data, [node_timestamp, node_x])
 
 #%% Plot Timetrace Lock-in x
 plotter_timetrace = PlotterTimetrace()
-plotter_timetrace.savename = "timetrace_x"
+plotter_timetrace.savename = "timetrace_x" + "_" + side
 plotter_timetrace.title = "Timetrace x"
 plotter_timetrace.plot(settings, data, [node_timestamp, node_x])
 
 #%% Plot Timetrace Lock-in y
 plotter_timetrace = PlotterTimetrace()
-plotter_timetrace.savename = "timetrace_y"
+plotter_timetrace.savename = "timetrace_y" + "_" + side
 plotter_timetrace.title = "Timetrace y"
 plotter_timetrace.plot(settings, data, [node_timestamp, node_y])
 
 
 #%% Plot Timetrace Cond R
 plotter_timetrace = PlotterTimetraceConductance()
-plotter_timetrace.savename = "timetraceCond_R"
+plotter_timetrace.savename = "timetraceCond_R" + "_" + side
 plotter_timetrace.title = "Timetrace R"
 plotter_timetrace.plot(settings, data, [node_timestamp, node_r])
 
 
 #%% Plot Timetrace Cond x
 plotter_timetrace = PlotterTimetraceConductance()
-plotter_timetrace.savename = "timetraceCond_x"
+plotter_timetrace.savename = "timetraceCond_x" + "_" + side
 plotter_timetrace.title = "Timetrace x"
 plotter_timetrace.plot(settings, data, [node_timestamp, node_x])
 
 #%% Plot Timetrace Cond y
 plotter_timetrace = PlotterTimetraceConductance()
-plotter_timetrace.savename = "timetraceCond_y"
+plotter_timetrace.savename = "timetraceCond_y" + "_" + side
 plotter_timetrace.title = "Timetrace y"
 plotter_timetrace.plot(settings, data, [node_timestamp, node_y])
 
 #%% Plot Phase of Timetrace
 plotter_phase = PlotterTimetracePhase()
+plotter_phase.savename = "phase" + "_" + side
 plotter_phase.plot(settings, data, [node_timestamp, node_x, node_y])
 
 
 #%% Slice Timetrace
-begin, end = 0, 100 #seconds
+begin, end = 0, 2000 #seconds
 slicer = SlicerTimetrace(begin, end)
 data_sliced = slicer.make_slice_timetrace(data, [node_timestamp, node_r, node_x, node_y])
 
 
 plotter_timetrace = PlotterTimetrace()
-plotter_timetrace.savename = "timetrace_sliced_R"
+plotter_timetrace.savename = "timetrace_sliced_R" + "_" + side
 plotter_timetrace.title = "Timetrace R"
 plotter_timetrace.plot(settings, data_sliced, [node_timestamp, node_r])
 
 plotter_timetrace = PlotterTimetrace()
-plotter_timetrace.savename = "timetrace_sliced_x"
+plotter_timetrace.savename = "timetrace_sliced_x" + "_" + side
 plotter_timetrace.title = "Timetrace x"
 plotter_timetrace.plot(settings, data_sliced, [node_timestamp, node_x])
 
 plotter_timetrace = PlotterTimetrace()
-plotter_timetrace.savename = "timetrace_sliced_y"
+plotter_timetrace.savename = "timetrace_sliced_y" + "_" + side
 plotter_timetrace.title = "Timetrace y"
 plotter_timetrace.plot(settings, data_sliced, [node_timestamp, node_y])
 
 plotter_timetrace = PlotterTimetraceConductance()
-plotter_timetrace.savename = "timetrace_sliced_R_Cond"
+plotter_timetrace.savename = "timetrace_sliced_R_Cond" + "_" + side
 plotter_timetrace.plot(settings, data_sliced, [node_timestamp, node_r])
 
 plotter_phase = PlotterTimetracePhase()
-plotter_phase.savename="timetrace_sliced_phase"
+plotter_phase.savename="timetrace_sliced_phase" + "_" + side
 plotter_phase.plot(settings, data_sliced, [node_timestamp, node_x, node_y])
 
 #%% Rotate Data
@@ -137,17 +164,17 @@ phase_correction = +75
 data_sliced_rotated = rotate_phase(data_sliced, [node_x, node_y], phase_correction)
 
 plotter_timetrace = PlotterTimetrace()
-plotter_timetrace.savename = "timetrace_sliced_rotated_x"
+plotter_timetrace.savename = "timetrace_sliced_rotated_x" + "_" + side
 plotter_timetrace.title = "Timetrace x"
 plotter_timetrace.plot(settings, data_sliced_rotated, [node_timestamp, node_x])
 
 plotter_timetrace = PlotterTimetrace()
-plotter_timetrace.savename = "timetrace_sliced_rotated_y"
+plotter_timetrace.savename = "timetrace_sliced_rotated_y" + "_" + side
 plotter_timetrace.title = "Timetrace y"
 plotter_timetrace.plot(settings, data_sliced_rotated, [node_timestamp, node_y])
 
 plotter_phase = PlotterTimetracePhase()
-plotter_phase.savename = "timetrace_sliced_rotated_phase"
+plotter_phase.savename = "timetrace_sliced_rotated_phase" + "_" + side
 plotter_phase.plot(settings, data_sliced_rotated, [node_timestamp, node_x, node_y])
 
 
@@ -163,32 +190,25 @@ loader = Loaderh5()
 data_plunger = loader.load(settings_plunger)
 print_nodes(data_plunger)
 
-#%% Define data nodes
-node_timestamp = "demod0.timestamp0"
-node_plunger_x = "demod0.x0"
-node_plunger_y = "demod0.y0"
-node_plunger_r = "demod0.r0"
-
-gate_plunger = "gate_6"
 
 #%% Rotate data
 data_plunger_rotated = rotate_phase(data_plunger, [node_plunger_x, node_plunger_y], phase_correction)
 
 #%% Plot Plunger Sweep
 plotter_plunger = PlotterPlungerSweep()
-plotter_plunger.savename = "plunger_sweep_x"
+plotter_plunger.savename = "plunger_sweep_x" + "_" + side
 plotter_plunger.plot(settings, settings_plunger, data_plunger_rotated, [gate_plunger, node_plunger_x])
 
 
 #%% Analyze Equvalent Gate Voltage 
 analyzer_plunger = AnalyzerPlungerSweep()
-analyzer_plunger.voltage_fit = 0.074
-analyzer_plunger.intervall_fit = 5e-3
+analyzer_plunger.voltage_fit = 0.5507
+analyzer_plunger.intervall_fit = 4e-3
 plunger_fit_params = analyzer_plunger.analyze(data_plunger_rotated, [gate_plunger, node_plunger_x])
 
 plotter_plunger = PlotterPlungerSweep()
 plotter_plunger.fit_params = plunger_fit_params
-plotter_plunger.savename = "plunger_sweep_fit_x"
+plotter_plunger.savename = "plunger_sweep_fit_x" + "_" + side
 plotter_plunger.plot(settings, settings_plunger, data_plunger_rotated, [gate_plunger, node_plunger_x])
 
 
@@ -200,12 +220,12 @@ spectral_result = analyzer_SND.analyze(sampling_f,  data_sliced_rotated, [node_x
 power_fit_params = analyzer_SND.fit(spectral_result)
 
 saver = Saver_spectrum_np() # Saving Data
-saver.save(settings, spectral_result, plunger_fit_params, power_fit_params, ending="Fourier")
+saver.save(settings, spectral_result, plunger_fit_params, power_fit_params, ending=f"Fourier_{side}")
 
 plotter_SND = PlotterTimetraceSpectralNoiseDensity()
 plotter_SND.fit_params_plunger = plunger_fit_params
 plotter_SND.fit_vals = power_fit_params
-plotter_SND.savename = "SND_fourier"
+plotter_SND.savename = "SND_fourier" + "_" + side
 plotter_SND.plot(settings, spectral_result)
 
 
@@ -219,12 +239,12 @@ spectral_result_welch = analyzer_SND.analyze_welch(sampling_f,  data_sliced_rota
 power_fit_params_welch = analyzer_SND.fit(spectral_result_welch)
 
 saver = Saver_spectrum_np() # Saving Data
-saver.save(settings, spectral_result_welch, plunger_fit_params, power_fit_params_welch, ending="Welch")
+saver.save(settings, spectral_result_welch, plunger_fit_params, power_fit_params_welch, ending=f"Welch_{side}")
 
 plotter_SND = PlotterTimetraceSpectralNoiseDensity()
 plotter_SND.fit_params_plunger = plunger_fit_params
 plotter_SND.fit_vals = power_fit_params_welch
-plotter_SND.savename = "SND_welch"
+plotter_SND.savename = "SND_welch" + "_" + side
 plotter_SND.plot(settings, spectral_result_welch)
 
 

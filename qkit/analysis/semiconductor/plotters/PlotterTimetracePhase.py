@@ -17,7 +17,8 @@ class PlotterTimetracePhase(SemiFigure):
         self.savename = "timetrace_phase"
         self.label = "-"
         self.x_limits = []
-        self.y_limits = []       
+        self.y_limits = []     
+        self.jumbo_data = True  
             
     def plot(self, settings, data_in, nodes):
         """nodes are t, x, y of lock-in like ["demod0.timestamp0", "demod0.x0", "demod0.y0"].

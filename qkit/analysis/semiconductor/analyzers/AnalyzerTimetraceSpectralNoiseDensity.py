@@ -44,7 +44,8 @@ class AnalyzerTimetraceSpectralNoiseDensity:
         index_end = map_array_to_index(spectrum["freq"], 1e1)
         freqs = spectrum["freq"][index_begin : index_end]
         spec = spectrum["spectrogram"][index_begin : index_end]
-
+        self._data_f = freqs
+        
         def func(x, a, b):
             return a * np.power(x, b)
         popt, cov = curve_fit(func, freqs, spec, p0=self.guess, maxfev=self.max_iter)
