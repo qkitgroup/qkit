@@ -4,16 +4,16 @@ from scipy.optimize import curve_fit
 
 from qkit.analysis.semiconductor.main.find_index_of_value import map_array_to_index
 
-def func(x, a, b):
-            return a * np.power(x, b)
+def func_linear(x, a, b):
+    return np.multiply(a, x) + b
 
 class AnalyzerTimetraceSpectralNoiseDensity:
    
     def __init__(self):
-        self.guess = [1e-7, -1]
+        self.guess = [-1, 1]
         self.max_iter = 10000000
         self.segment_length = 5e5
-        self.fit_func = func
+        self.fit_func = func_linear
 
     def analyze(self, sampling_freq, data, nodes):
         """Analyzes a sigle timetrace using consecutive Fourier transforms.
@@ -38,9 +38,9 @@ class AnalyzerTimetraceSpectralNoiseDensity:
 
 
     def fit(self, spectrum):
-        """Fits f(x)= a*x^b to data AROUND 1Hz. So the spectrum must include 1Hz...
+        """Fits f(x)= a*x + b to log10(data) AROUND 1Hz. So the spectrum must include 1Hz...
         Return is the parameters of the fit.
-        guess is an array or list of starting values for a, b of f(x)=a*x**b + c.  
+        guess is an array or list of starting values for a, b.  
         """
         #make data slice around 1Hz
         index_begin = map_array_to_index(spectrum["freq"], 1e-1)
@@ -48,7 +48,8 @@ class AnalyzerTimetraceSpectralNoiseDensity:
         freqs = spectrum["freq"][index_begin : index_end]
         spec = spectrum["spectrogram"][index_begin : index_end]
         self._data_f = freqs
-        
-        popt, cov = curve_fit(self.fit_func, freqs, spec, p0=self.guess, maxfev=self.max_iter)
+
+        #fitting of log10(spec)
+        popt, cov = curve_fit(self.fit_func, np.log10(freqs), np.log10(spec), p0=self.guess, maxfev=self.max_iter)
     
         return {"popt" : popt, "cov" : cov} # freqs[0]=0 ; The 0Hz value is cut off:

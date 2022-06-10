@@ -1,5 +1,4 @@
 import pickle
-import os
 
 class LoaderPickle:
     """Extracts all data from pickle files and returns it.
@@ -8,7 +7,7 @@ class LoaderPickle:
         path = (f"{settings['file_info']['absolute_path']}"
         f"{settings['file_info']['date_stamp']}/"
         f"{settings['file_info']['filename']}/"
-        f"{settings['file_info']['filename']}.p")
+        "data_pickle")
         
         with open(path, "rb") as file:
             data = pickle.load(file)

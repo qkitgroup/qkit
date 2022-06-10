@@ -19,6 +19,7 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
         self.ylim = None
         self.dotsize = 0.5
         self.fiftyHz = False
+        self.alpha = 1.0 # Transparency of plotted line
 
 
     def plot(self, settings:dict, data:dict):
@@ -57,22 +58,30 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
                 signals.extend(np.logspace(-11, -4, 1000))
             self.ax.plot(freqs, signals, "yo", markersize=self.dotsize)
         
-    
+        self.ax.plot(data["freq"], data["spectrogram"] / (plunger_calib)**2, "ok", markersize=self.dotsize)
+
         if self.fit_vals is not None:
-            def func(x, a, b):
-                return a * np.power(x, b)
+            '''self.fit_vals are the parameters of f(x)=a*x+b to the data_x=log10(freqencies), data_y=log10(PSD)
+            so plotting of f_power(x)=a'*x**b' leads to 
+            a' = 10^b
+            b'= a 
+            '''
+            def func_power(x, a, b):
+                return a * np.power(x, b) 
+
             index_begin = map_array_to_index(data["freq"], 1e-1)
             index_end = map_array_to_index(data["freq"], 1e1)
             freqs = data["freq"][index_begin : index_end]
-            SND_1Hz = func([1], *self.fit_vals["popt"]) / (plunger_calib)**2
-            exponent_1Hz = self.fit_vals["popt"][1] 
+
+            a, b = np.power(10, self.fit_vals["popt"][1]), self.fit_vals["popt"][0]
+
+            SND_1Hz = func_power([1], a, b) / (plunger_calib)**2
+            exponent_1Hz = self.fit_vals["popt"][0] 
             text = f"PSD(1Hz) : {1e9 * SND_1Hz[0]:.1f} * e-9 V²/Hz"
             text = text + f"\nexponent(1Hz) : {exponent_1Hz:.3f} "
-            fit_spectrum = func(freqs, *self.fit_vals["popt"]) / (plunger_calib)**2
-            self.ax.plot(freqs, fit_spectrum, label=text)
+            fit_spectrum = func_power(freqs, a, b) / (plunger_calib)**2
+            self.ax.plot(freqs, fit_spectrum, label=text, alpha=self.alpha)
             self.ax.legend(loc="lower left")
-
-        self.ax.plot(data["freq"], data["spectrogram"] / (plunger_calib)**2, "ok", markersize=self.dotsize)
 
         plt.grid()
         plt.savefig(create_saving_path(settings, self.savename, self.save_as), dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
