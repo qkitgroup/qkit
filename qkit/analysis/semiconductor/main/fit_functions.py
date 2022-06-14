@@ -1,18 +1,11 @@
 import numpy as np
-from numpy.typing import NDArray
 
 
-def sech(
-    x: NDArray[np.float_],
-    a: np.float_,
-    b: np.float_,
-    c: np.float_,
-) -> NDArray[np.float_]:
+def sech(x, a, b, c):
     """Returns the hyperbolic secant of the given x values"""
     return a / np.cosh((x - c) / b)
 
-
-def multi_sech(x: NDArray[np.float_], *params: np.float_) -> NDArray[np.float_]:
+def multi_sech(x, *params):
     """Returns the sum of multiple hyperbolic secants
     according to the number of given parameters"""
     y = np.zeros_like(x)
