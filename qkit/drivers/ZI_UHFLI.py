@@ -123,6 +123,10 @@ class ZI_UHFLI(Instrument):
                            channels = (0, 7), channel_prefix = "dem%d_",
                            minval = 0, maxval = 360,
                            units = "deg", tags = ["sweep"])
+
+        self.add_parameter("autophase", type = bool,
+                           flags = ZI_UHFLI.FLAG_GETSET,
+                           channels = (0, 7), channel_prefix = "dem%d_")
         
         self.add_parameter("filter_order", type = int,
                            flags = ZI_UHFLI.FLAG_GETSET,
@@ -286,8 +290,7 @@ class ZI_UHFLI(Instrument):
             return True
         else:
             return False
-        
-        
+    
     def _do_set_input_autorange(self, onoff, channel):
         if onoff:
             logging.debug(__name__ + ' : activating autorange on input channel %s' % channel)
@@ -347,7 +350,24 @@ class ZI_UHFLI(Instrument):
     
     def _do_get_phase_offs(self, channel):
         logging.debug(__name__ + ' : getting phase offset on demodulator %s' % channel)
-        return round(float(self.daq.getDouble("/%s/demods/%s/phaseshift" % (self._device_id, channel))), 3)
+        return round(float(self.daq.getDouble("/%s/demods/%s/phaseshift" % (self._device_id, channel))), 3)    
+        
+    def _do_set_input_autophase(self, onoff, channel):
+        if onoff:
+            logging.debug(__name__ + ' : activating autophase on input channel %s' % channel)
+            status = 1
+        else:
+            logging.debug(__name__ + ' : deactivating autophase on input channel %s' % channel)
+            status = 0
+        self.daq.setInt('/%s/demods/%s/phaseadjust' % (self._device_id, channel), status)
+        #self.daq.sync()
+    
+    def _do_get_input_autophase(self, channel):
+        logging.debug(__name__ + ' : getting the autorange status of input channel %s' % channel)
+        if self.daq.getInt('/%s/demods/%s/phaseadjust' % (self._device_id, channel)):
+            return True
+        else:
+            return False
     
     
     def _do_set_filter_order(self, neworder, channel):
