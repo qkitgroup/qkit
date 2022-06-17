@@ -3,7 +3,7 @@ import numpy as np
 from pathlib import Path
 import urllib
 from smb.SMBHandler import SMBHandler
-
+import paramiko
 from qkit.analysis.semiconductor.main.interfaces import LoaderInterface
 
 
@@ -47,6 +47,24 @@ class Loaderh5:
             opener = urllib.request.build_opener(SMBHandler)
             fh = opener.open(mod_path)
             data = h5py.File(fh,"r")["entry"]["data0"]
+            
+        elif path.startswith("sftp:"):
+            host = "os-login.lsdf.kit.edu"                   #hard-coded
+            port = 22
+            transport = paramiko.Transport((host, port))
+            
+            f=open(settings['authentication']['configpath'],"r")
+            lines=f.readlines()
+            username=lines[0][:-1]
+            password=lines[1][:-1]
+            f.close()
+            
+            transport.connect(username = username, password = password)
+            sftp = paramiko.SFTPClient.from_transport(transport)
+            mod_path = path.split(".lsdf.kit.edu")[1]
+            fh = sftp.open(mod_path)
+            data = h5py.File(fh,"r")["entry"]["data0"]
+            
         else:
             data = h5py.File(path,'r')["entry"]["data0"]
             
@@ -54,7 +72,7 @@ class Loaderh5:
         print("Done loading file, formatting now...")
         for key in data.keys():
             self.data_dict[key] = np.array(data.get(u'/entry/data0/' + key)[()])
-        return self.data_dict
+        return self.data_dict , data
 
 
 class H5filemerger():
