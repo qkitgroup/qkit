@@ -50,6 +50,6 @@ class AnalyzerTimetraceSpectralNoiseDensity:
         self._data_f = freqs
 
         #fitting of log10(spec)
-        popt, cov = curve_fit(self.fit_func, np.log10(freqs), np.log10(spec), p0=self.guess, maxfev=self.max_iter)
-    
-        return {"popt" : popt, "cov" : cov} # freqs[0]=0 ; The 0Hz value is cut off:
+        popt_raw, cov = curve_fit(self.fit_func, np.log10(freqs), np.log10(spec), p0=self.guess, maxfev=self.max_iter)
+        popt = np.array([popt_raw[0], 10**popt_raw[1]])
+        return {"popt" : popt, "cov" : cov} # freqs[0]=0 ; The 0Hz value is cut off
