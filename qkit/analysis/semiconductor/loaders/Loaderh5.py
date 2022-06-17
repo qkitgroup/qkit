@@ -42,7 +42,7 @@ class Loaderh5:
         
         path = settings['file_info']['filepath']
         
-        if "smb://nanospin@phi-ndus" in path:
+        if "smb:" in path:
             mod_path = path.replace("smb://nanospin@phi-ndus", "smb://nanospin:Hadamard_gate@phi-ndus")
             opener = urllib.request.build_opener(SMBHandler)
             fh = opener.open(mod_path)
