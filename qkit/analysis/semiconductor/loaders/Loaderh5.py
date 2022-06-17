@@ -5,7 +5,13 @@ import urllib
 from smb.SMBHandler import SMBHandler
 import paramiko
 from qkit.analysis.semiconductor.main.interfaces import LoaderInterface
+import base64
 
+def deobfuscate(obfuscatedText):
+    obfuscatedBytes = obfuscatedText.encode('ascii')
+    decodedBytes = base64.b64decode(obfuscatedBytes)
+    decodedText = decodedBytes.decode('ascii')
+    return decodedText
 
 class Loaderh5_julian(LoaderInterface):
     def __init__(self) :
@@ -52,11 +58,13 @@ class Loaderh5:
             host = "os-login.lsdf.kit.edu"                   #hard-coded
             port = 22
             transport = paramiko.Transport((host, port))
-            
-            f=open(settings['authentication']['configpath'],"r")
+            try:
+                f=open(settings['authorization']['configpath'],"r")
+            except:
+                raise AuthorizationError("sftp connection needs authorization infos. Missing authorization key in settings or wrong configpath.")
             lines=f.readlines()
-            username=lines[0][:-1]
-            password=lines[1][:-1]
+            username=deobfuscate(lines[0][:-1])
+            password=deobfuscate(lines[1][:-1])
             f.close()
             
             transport.connect(username = username, password = password)
@@ -99,3 +107,6 @@ class H5filemerger():
 
         return dictmerged
 
+class AuthorizationError(Exception):
+    """Exception raised for errors for missing authorization info.
+    """
