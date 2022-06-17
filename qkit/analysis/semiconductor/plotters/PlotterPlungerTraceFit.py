@@ -23,7 +23,9 @@ class PlotterPlungerTraceFit(SemiFigure):
         self.ax.set_title("One Plunger Sweep")
         self.ax.set_xlabel("Plunger Voltage (V)")
         self.ax.set_ylabel("Lock-in (mV)")
-
+        
+        self.ax.plot(data[nodes[0]], data[nodes[1]][self.trace_num]*1000,"+" ,markersize = 1)
+        
         if self.plot_fit:
             #plotting the fit only in the used intervall 
             fit_peak_index = int(round(data["peaks_fit_popts"][self.trace_num][2])) # value of c in sech(x, *[a, b, c, d]) as an INDEX of the array
@@ -33,7 +35,7 @@ class PlotterPlungerTraceFit(SemiFigure):
             fit_y = 1000 * sech(fit_x_indices, *data["peaks_fit_popts"][self.trace_num])
             self.ax.plot(fit_x, fit_y, "r", label="fit")
 
-        self.ax.plot(data[nodes[0]], data[nodes[1]][self.trace_num]*1000)
+        
         plt.legend()
         plt.savefig(create_saving_path(settings, self.savename, self.save_as), dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
         plt.show()

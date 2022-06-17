@@ -14,10 +14,7 @@ from qkit.analysis.semiconductor.loaders.Loader_spectrum_np import Loader_spectr
 from qkit.analysis.semiconductor.savers.Saver_spectrum_np import Saver_spectrum_np
 
 settings = {"file_info" : {
-                "absolute_path" : "smb://phi-ndus/o/data/",
-                "filetype" : ".h5",
-                "date_stamp" : "20220214",
-                "filename" : "184856_2D_Peak_tracking",
+                "filepath" : "/V/GroupWernsdorfer/SEMICONDUCTOR_SYSTEMS/Presentations/2022_06_13/Data/002320_2D_Peak_tracking_lowest_TG/002320_2D_Peak_tracking.h5",
                 "savepath" : "analysis/",
                 "analysis" : "plunger_sweep_timetrace"},
             "meas_params" : {
@@ -34,34 +31,35 @@ data = loader.load(settings)
 print_nodes(data)
 
 #%% Define nodes
-node_timestamp = "demod0.timestamp0"
-node_x = "demod0.x0"
-node_y = "demod0.y0"
-node_r = "demod0.r0"
+node_timestamp = "demod0&4.timestamp0"
+node_x = "demod0&4.x0"
+node_y = "demod0&4.y0"
+node_r = "demod0&4.r0"
 
 gates = "gates_6_16"
 
 
 #%% Plot Data
 plotter = PlotterPlungerTimetrace3D()
-plotter.max_cond = 10
+plotter.max_cond = None
 plotter.plot(settings, data, [node_timestamp, gates , node_r])
 
 #%% Slice Data and Plot
 slicer = SlicerPlungerTimetrace()
-slicer.beginning, slicer.ending = 0, 6 # in hours
+slicer.beginning, slicer.ending = 0, 10 # in hours
 data_sliced = slicer.slice(data, [node_timestamp, gates , node_r])
 
 plotter = PlotterPlungerTimetrace3D()
-plotter.max_cond = 10
+plotter.max_cond = None
 plotter.savename = "plunger_timetrace_sliced"
 plotter.plot(settings, data_sliced, [node_timestamp, gates , node_r])
 
 #%% Analyze  Data
 analyzer = AnalyzerPeakTracker()
-analyzer.intervall1 = 0.1
-analyzer.intervall2 = 0.05
-analyzer.peak_voltage = 0.725
+
+analyzer.intervall1 = 0.01
+analyzer.intervall2 = 0.005
+analyzer.peak_voltage = -0.305
 analyzer.analyze( data_sliced, [node_timestamp, gates , node_r])
 
 #%% Plot Analyzed Data

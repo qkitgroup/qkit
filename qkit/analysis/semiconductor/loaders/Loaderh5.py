@@ -1,6 +1,8 @@
 import h5py
 import numpy as np
 from pathlib import Path
+import urllib
+from smb.SMBHandler import SMBHandler
 
 from qkit.analysis.semiconductor.main.interfaces import LoaderInterface
 
@@ -37,8 +39,16 @@ class Loaderh5:
     def load(self, settings):
         """Loads the data of a .h5 file. Analysis and views are not loaded.
         """
-        path = f"{settings['file_info']['absolute_path']}{settings['file_info']['date_stamp']}/{settings['file_info']['filename']}/{settings['file_info']['filename']}.h5"
+        
+        path = settings['file_info']['filepath']
+        
+#        if "smb:" in path:
+#            opener = urllib.request.build_opener(SMBHandler)
+#            fh = opener.open("smb://nanospin:Hadamard_gate@phi-ndus/o/data/20220611/002320_2D_Peak_tracking/002320_2D_Peak_tracking.h5")
+#            data = h5py.File(fh,"r")["entry"]["data0"]
+#        else:
         data = h5py.File(path,'r')["entry"]["data0"]
+            
         self.data_dict = {}
         print("Done loading file, formatting now...")
         for key in data.keys():
