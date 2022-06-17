@@ -37,17 +37,18 @@ class Loaderh5:
     """Extracts all data from .h5 files in this folder and returns it as a dict.
     """  
     def load(self, settings):
-        """Loads the data of a .h5 file. Analysis and views are not loaded.
+        """Loads the data of a .h5 file. Analysis and views are not loaded. Is able to interprete smb connection to nanospin@phi-ndus"
         """
         
         path = settings['file_info']['filepath']
         
-#        if "smb:" in path:
-#            opener = urllib.request.build_opener(SMBHandler)
-#            fh = opener.open("smb://nanospin:Hadamard_gate@phi-ndus/o/data/20220611/002320_2D_Peak_tracking/002320_2D_Peak_tracking.h5")
-#            data = h5py.File(fh,"r")["entry"]["data0"]
-#        else:
-        data = h5py.File(path,'r')["entry"]["data0"]
+        if "smb://nanospin@phi-ndus" in path:
+            mod_path = path.replace("smb://nanospin@phi-ndus", "smb://nanospin:Hadamard_gate@phi-ndus")
+            opener = urllib.request.build_opener(SMBHandler)
+            fh = opener.open(mod_path)
+            data = h5py.File(fh,"r")["entry"]["data0"]
+        else:
+            data = h5py.File(path,'r')["entry"]["data0"]
             
         self.data_dict = {}
         print("Done loading file, formatting now...")
