@@ -6,10 +6,9 @@ from qkit.measure.json_handler import QkitJSONEncoder
 class Saver_json():
     """Saves data in a folder that is set by "settings". 
     """
-    def __init__(self, settings:dict) -> None:
-        self.settings = settings
+    def __init__(self, save_path) -> None:
         self.additional_info = {}
-        self.saving_path = create_saving_path(settings, "", filetype="")
+        self.saving_path = save_path
         self.single_file = True
     
     def add_info(self, fname, info):
@@ -25,7 +24,7 @@ class Saver_json():
     
     def save(self):
         if self.single_file:
-            fname = f'{self.settings["file_info"]["filename"]}_analysis'
+            fname = "analyzed_data"
             self._save(fname, self.additional_info)
         else:
             for fname, info in self.additional_info.items():

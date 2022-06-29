@@ -1,75 +1,180 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import numpy as np
-from qkit.analysis.semiconductor.main.interfaces import AnalyzerInterface
-from scipy import signal
+from qkit.analysis.semiconductor.main.fit_functions import sech
+from scipy.signal import find_peaks, peak_widths
 from scipy.optimize import curve_fit
 
+class ItsAllDanielsFaultError(Exception):
+    pass
 
-class Analyzer(AnalyzerInterface):
-    def __init__(self) -> None:
+class Peak_fit:
+    """Class for peak fits. Takes a callable argument f and assumes f(x, height, width, position) -> Peak.
+    width ist the full-width-half-maximum of Peak."""
+    def __init__(self, fit_func):
+        self.fit_func = fit_func
+        self.min_peak_height = 0.002
+        self.min_peak_width = 2
+        self.min_peak_distance = 30
+        self.fit_interval_peak_relheight = 0.5
+        
+    @property
+    def fit_interval_peak_relheight(self):
+        return self._fit_interval_peak_relheight
+    @fit_interval_peak_relheight.setter
+    def fit_interval_peak_relheight(self, new_height):
+        self._fit_interval_peak_relheight = new_height
+        if new_height == 0.5: self.find_fit_interval = self._calc_fit_interval_peak_width
+        else: self.find_fit_interval = self._calc_fit_interval_rel_height
+    
+    def construct_guess(self, single_trace):
+        self.peak_pos, params = find_peaks(single_trace, height = self.min_peak_height,\
+                                           width = self.min_peak_width,\
+                                           distance = self.min_peak_distance)
+        self.peak_heights = params["peak_heights"]
+        self.peak_fwhms = peak_widths(single_trace, self.peak_pos, rel_height = 0.5) [0]
+    
+    def _calc_fit_interval_rel_height(self, single_trace):
+        self.fit_idxs_left, self.fit_idxs_right = np.rint(\
+                                                peak_widths(single_trace, self.peak_pos, \
+                                                rel_height = self.fit_interval_peak_relheight)\
+                                                [2:]).astype(np.int_)
+    
+    def _calc_fit_interval_peak_width(self, single_trace):
+        self.fit_idxs_left = np.rint(self.peak_pos - self.peak_fwhms / 2).astype(np.int_)
+        self.fit_idxs_right = np.rint(self.peak_pos + self.peak_fwhms / 2).astype(np.int_)
+    
+    def fit(self, single_trace):
+        self.construct_guess(single_trace)
+        self.find_fit_interval(single_trace)
+        
+        x = range(len(single_trace))
+        popts, covs = [], []
+        
+        for i in range(len(self.peak_pos)):
+            guess = (self.peak_heights[i], self.peak_fwhms[i], self.peak_pos[i])
+            try:
+                popt, cov = curve_fit(self.fit_func, x[self.fit_idxs_left[i] : self.fit_idxs_right[i]],
+                                    single_trace[self.fit_idxs_left[i] : self.fit_idxs_right[i]], 
+                                    p0 = guess, maxfev = 10000)
+            except TypeError:
+                raise TypeError(f"{__name__}: Fit interval for peak {i} does not contain enough data points. Reconsider the min_peak_width.")
+            popts.append(popt)
+            covs.append(cov)
+            
+        return popts, covs
+
+def sech_fwhm(x, a, b, c):
+    return sech(x, a, b /2.634, c)
+
+class Analyzer:
+    def __init__(self, matrix_to_analyze, timestamps, gate_axis, peak_function = sech_fwhm) -> None:
+        self.pf = Peak_fit(peak_function)
         self.data = {}
 
-        self.node_to_analyze = "demod0.r0"
-        self.node_timestamps = "demod0.timestamp0"
-        self.min_peak_height = 0.01  # in V
-        self.min_peak_width = 0.001  # in V
+        self.matrix_to_analyze = matrix_to_analyze
+        self.timestamps = timestamps
+        self.gate_axis = gate_axis
 
-    def load_data(self, data: Dict[str, Dict[str, Any]]) -> None:
-        self.data = data
+        self.f_clock = 1.8e9
+        self.LR_offset = 0
+    
+    @property
+    def matrix_to_analyze(self):
+        return self._matrix_to_analyze
+    @matrix_to_analyze.setter
+    def matrix_to_analyze(self, new_matrix):
+        if not isinstance(new_matrix, np.ndarray):
+            raise TypeError(f"{__name__}: Invalid data matrix. Must be a 2D numpy array.")
+        if new_matrix.ndim != 2:
+            raise ValueError(f"{__name__}: Invalid data matrix. Must be a 2D numpy array.")
+        self._matrix_to_analyze = new_matrix
 
-    def validate_input(self):
-        for file in self.data.values():
-            keys = file.keys()
-            missing_entries = ""
+    @property
+    def timestamps(self):
+        return self._timestamps
+    @timestamps.setter
+    def timestamps(self, new_stamps):
+        if not isinstance(new_stamps, np.ndarray):
+            raise TypeError(f"{__name__}: Invalid timestamps. Must be a 2D numpy array.")
+        if new_stamps.shape != self.matrix_to_analyze.shape:
+            raise ValueError(f"{__name__}: Invalid timestamps. Must have the same shape as matrix_to_analyze.")
+        self._timestamps = new_stamps
 
-            if self.node_to_analyze not in keys:
-                missing_entries += self.node_to_analyze
-            if self.node_timestamps not in keys:
-                missing_entries += self.node_timestamps
-            if "gates_6_16" not in keys:
-                missing_entries += "\ngates_6_16"
-            if "number" not in keys:
-                missing_entries += "\nnumber"
+    @property
+    def gate_axis(self):
+        return self._gate_axis
 
-            if missing_entries:
-                raise TypeError(
-                    f"{__name__}: Invalid input data. The following nodes are missing: {missing_entries}"
-                )
+    @gate_axis.setter
+    def gate_axis(self, new_axis):
+        if not isinstance(new_axis, np.ndarray):
+            raise TypeError(f"{__name__}: Invalid gate_axis. Must be a numpy array.")
+        if len(new_axis) != len(self.matrix_to_analyze[0]):            
+            raise ValueError(f"{__name__}: Invalid gate_axis. Must have the same length as a trace from matrix_to_analyze.")
+        self._gate_axis = new_axis
+    
+    def _append_to_nearest(self, tracked_positions, position):
+        distances = []
+        for last_positions in tracked_positions:
+            distances.append(abs(np.average(last_positions[-5:]) - position))
 
-    def analyze(self):
-        for file in self.data.values():
-            file["peak_positions"] = {}
-            v_offset = file["gates_6_16"][0]
-            v_step = file["gates_6_16"][1] - v_offset
+        idx = distances.index(min(distances))     
+        tracked_positions[idx].append(position)
 
-            t_step = 1
+    def _append_to_nearest_2(self, tracked_positions, positions):
+        forbidden_tracks = []
+        for position in positions:
+            distances = []
+            for last_positions in tracked_positions:
+                distances.append(abs(np.average(last_positions[-5:]) - position))
+            idx = distances.index(min(distances))
+            if idx not in forbidden_tracks:
+                tracked_positions[idx].append(position)
+            forbidden_tracks.append(idx)
 
-            matrix = file[self.node_to_analyze]
-            peak_positions_y = []
-            peak_positions_x = []
-            peak_positions_index = []
+    def _translate_samples(self, tracked_positions : List[List[float]]) -> List[List[float]]:
+        v_offset = self.gate_axis[0]
+        v_step = self.gate_axis[1] - v_offset
+        translated_tracks = []
+        for track in tracked_positions:
+            trans_track = v_step * np.array(track) + v_offset
+            translated_tracks.append(trans_track)
+        return translated_tracks
 
-            for index, trace in enumerate(matrix):
-                peak_pos_y, _ = signal.find_peaks(
-                    trace,
-                    height=self.min_peak_height,
-                    width=self.min_peak_width / v_step,
-                )
-                peak_pos_x = np.array([index] * len(peak_pos_y))
-                peak_positions_y.extend(peak_pos_y * v_step + v_offset)
-                peak_positions_x.extend(peak_pos_x * t_step)
-                peak_positions_index.extend(peak_pos_y)
+    def _create_time_axis_avg(self):
+        durations = []
+        for timestamps in self.timestamps:
+            duration_of_trace = timestamps[-1] - timestamps[0]
+            durations.append(duration_of_trace)
+        translated_durations = np.array(durations)/self.f_clock
+        avg_duration = np.average(translated_durations)
+        time_axis = np.arange(0, len(translated_durations)) * avg_duration
+        return time_axis
+        
+    def analyze(self) ->  Dict[str, Any]:
+        raw = self.matrix_to_analyze
+        required_peaks = len(raw)
 
-            file["peak_positions"]["x"] = np.array(peak_positions_x)
-            file["peak_positions"]["y"] = np.array(peak_positions_y)
-            file["peak_positions"]["index"] = np.array(peak_positions_index)
+        tracked_positions = []        
+        trace = self.matrix_to_analyze[0]
+        peak_pars, _ = self.pf.fit(trace)
+        for peak_par in peak_pars:
+            peak_pos = peak_par[2]
+            tracked_positions.append([peak_pos])
+        
+        for trace in raw[1:]:
+            peak_pars, _ = self.pf.fit(trace)
+            peak_pos = [peak_par[2] for peak_par in peak_pars]            
+            self._append_to_nearest_2(tracked_positions, peak_pos)
+        
+        peak_pos = self._translate_samples(tracked_positions)
+        time_axis = self._create_time_axis_avg()
+        return {"tracked_peak_positions" : peak_pos, "time_axis" : time_axis}
 
-        return self.data
-
-
-if __name__ == "__main__":
+def main():
     pass
+if __name__ == "__main__":
+    main()
 # from scipy.signal import find_peaks, peak_widths
 # from scipy.optimize import curve_fit
 # from random import uniform
