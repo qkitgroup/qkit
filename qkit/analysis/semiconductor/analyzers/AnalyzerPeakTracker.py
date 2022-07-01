@@ -70,12 +70,12 @@ def sech_fwhm(x, a, b, c):
 class Analyzer:
     def __init__(self, matrix_to_analyze, timestamps, gate_axis, peak_function = sech_fwhm) -> None:
         self.pf = Peak_fit(peak_function)
-        self.data = {}
 
         self.matrix_to_analyze = matrix_to_analyze
         self.timestamps = timestamps
         self.gate_axis = gate_axis
 
+        self.rel_jump_height = 0.2
         self.f_clock = 1.8e9
         self.LR_offset = 0
     
@@ -131,7 +131,45 @@ class Analyzer:
             if idx not in forbidden_tracks:
                 tracked_positions[idx].append(position)
             forbidden_tracks.append(idx)
+    
+    def _find_nth_smallest(self, array, n):
+        nth_smallest = np.partition(array, n)[n]
+        idx = np.where(array == nth_smallest)[0][0]
+        return idx
 
+    def _append_to_nearest_3(self, peak_tracks, positions):
+        forbidden_tracks = []
+        for peak_track in peak_tracks:
+            #Calculate the distance of each newly found peak to the average of the
+            #last five positions.
+            distances = []
+            peak_track_avg = np.average(peak_track[-5:])
+            for position in positions:
+                distances.append(peak_track_avg - position)
+
+            distances = np.array(distances)
+            abs_distances = abs(distances)
+
+            #Append the value to one of the peak_tracks based on conditions:
+
+            #Did the peak position change by more then self.rel_jump_height * 100 percent?
+            sub_cond11 = (abs_distances > (peak_track_avg * self.rel_jump_height)).all()
+            sub_cond12 = (distances < 0).any()
+            sub_cond13 = len(distances) >= 2
+            condition1 = sub_cond11 and sub_cond12 and sub_cond13
+            if condition1:
+                #If this is the case, the jump went up therefore append the closest position
+                #above the current one.
+                idx = self._find_nth_smallest(abs_distances, 1)
+            #elif condition2:
+            #   ...
+            else:
+                idx = abs_distances.argmin()
+            
+            if idx not in forbidden_tracks:
+                peak_track.append(positions[idx])
+            forbidden_tracks.append(idx)
+    
     def _translate_samples(self, tracked_positions : List[List[float]]) -> List[List[float]]:
         v_offset = self.gate_axis[0]
         v_step = self.gate_axis[1] - v_offset
@@ -153,7 +191,6 @@ class Analyzer:
         
     def analyze(self) ->  Dict[str, Any]:
         raw = self.matrix_to_analyze
-        required_peaks = len(raw)
 
         tracked_positions = []        
         trace = self.matrix_to_analyze[0]
@@ -165,7 +202,7 @@ class Analyzer:
         for trace in raw[1:]:
             peak_pars, _ = self.pf.fit(trace)
             peak_pos = [peak_par[2] for peak_par in peak_pars]            
-            self._append_to_nearest_2(tracked_positions, peak_pos)
+            self._append_to_nearest_3(tracked_positions, peak_pos)
         
         peak_pos = self._translate_samples(tracked_positions)
         time_axis = self._create_time_axis_avg()
