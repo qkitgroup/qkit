@@ -88,6 +88,9 @@ class Keithley_2230(Instrument):
                            minval = 0.01, maxval = 60000,
                            channel_prefix = "ch%d")
         
+        self.add_parameter("remote_control", type = bool,
+                           flags = Instrument.FLAG_SET)
+        
         
         self.add_function("turn_on")
         self.add_function("turn_off")
@@ -177,6 +180,17 @@ class Keithley_2230(Instrument):
         logging.debug(__name__ + " : getting timer of channel %s" % channel)
         self.set_selected_channel(channel)
         return float(self._visainstrument.query("output:timer:delay?" )[:-1])
+    
+    
+    def _do_set_remote_control(self, on_off):
+        if on_off:
+            logging.debug(__name__ + ' : activating remote control.')
+            self._visainstrument.write("system:remote")
+            print("Remote control activated")
+        else:
+            logging.debug(__name__ + ' : deactivating remote control.')
+            self._visainstrument.write("system:local")
+            print("Remote control deactivated")
         
         
     def turn_on(self):
@@ -191,9 +205,9 @@ class Keithley_2230(Instrument):
         logging.debug(__name__ + " : getting device status.")
         status = int(self._visainstrument.query("output?")[:-1])
         if status:
-            return("Keithley 2230 ready for takeoff.")
+            print("Keithley 2230 ready for takeoff.")
         else:
-            return("Keithley 2230 is in a coffee break.")
+            print("Keithley 2230 is in a coffee break.")
     
     def set_out_V(self, channel, voltage):
         '''Allows easier access to set function for all channels

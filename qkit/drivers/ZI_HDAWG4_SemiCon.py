@@ -15,6 +15,7 @@ import qkit
 #from time import sleep
 import zhinst 
 import zhinst.utils
+import numbers
 
 class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
     def __init__(self,name,device_id, **kwargs):
@@ -250,7 +251,7 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
             samples_how_many_times_sixteen = self.totalwaveformlength
             
             # get rectangle frequency
-            if (type(f_waveform) != float and type(f_waveform) != int) or f_waveform <= 0:
+            if not isinstance(f_waveform, numbers.Number) or f_waveform <= 0:
                 logging.error("The given rectangle frequency has to be a positive integer or float number.")
                 raise
 

@@ -1,0 +1,256 @@
+# filename: IV_SP 983C.py
+# version 0.1 written by Viktor Adam, 2022
+# QKIT driver for parallely connected I to V Converter 
+
+##############################
+#INSTALLING INSTRUCTIONS
+#pip install ftdi
+#pip install usb
+#create global envornmant variable blinka
+
+##############################
+#IMPROVEMENT IDEAS
+#make board2 adressable, i.e. make connection to board via adress FTDI://ftdi:232h:0/1 
+#and make order in which usbs are recognized distinguishable!
+##############################
+import qkit
+from qkit.core.instrument_base import Instrument
+
+import logging
+import board 
+#import board2
+import digitalio
+#import numpy
+#import time,sys
+#import atexit
+#import serial
+
+
+
+def getbinary(x,n):                                   #getbinary = lambda x,n: format(x, 'b').zfill(n)
+    result = format(x,"b").zfill(n)
+    return result
+
+class IVConverter(Instrument):
+ 
+    PINS = ["G0","F0","G1","F1","G2","F2","F3","OVL_Paul","OVL_Carl"]
+    
+    ### OVL_C muss an positive Spannung angelegt werden, also 3.3 oder 5V
+    ### COM und der Ausgang von OVL_E müssen auf GND
+    ### Ein Widerstand muss den OVL Transistorkreis unterbrechen und von da aus ein Draht zu OVL_E gehen damit man das Potential detektieren kann
+
+    gain_pins = ["G2","G1","G0"]
+    filter_pins = ["F3","F2","F1","F0"]
+    
+ 
+    def __init__(self, name):
+        # Initialize wrapper functions
+        logging.info(__name__ + ' : Initializing instrument: IV-Converter SP 983C from Basel Instruments')
+        Instrument.__init__(self, name, tags=['physical'])
+        
+# =============================================================================
+#         device_found = False
+#         try:
+# 
+#             device_found = True
+#         except RuntimeError as e:
+#             board = None
+#             digitalio = None
+# 
+#             if str(e) == "BLINKA_FT232H environment variable set, but no FT232H device found":
+#                 print("No FT232H device found at startup.")
+#             else:
+#                 raise
+# =============================================================================
+                
+        self.PINS = ["G0","F0","G1","F1","G2","F2","F3","OVL_Paul","OVL_Carl"]
+        self.GPIOS = dir(board)[0:len(self.PINS):1]
+        #GPIOS2 = dir(board2)[0:len(self.PINS):1]
+        self.pin_map = dict(zip(self.PINS,self.GPIOS))
+        #self.pin_map2 = dict(zip(self.PINS,GPIOS2))
+        self.gain_pins = ["G2","G1","G0"]
+        self.filter_pins = ["F3","F2","F1","F0"]
+        
+        board.__name__ = "Paul"
+        print("Hi, I'm ",board.__name__ , ". Are you Jamaican? Because Ja-maican-me crazy! ;)")
+        
+        for pin,gpio in zip(self.PINS, self.GPIOS):
+            if pin == "OVL_Paul":
+                self.pin_map[pin] = digitalio.DigitalInOut(getattr(board, gpio))    
+                self.pin_map[pin].Direction = digitalio.Direction.INPUT
+                self.pin_map[pin].Pull = digitalio.Pull.DOWN
+                print(pin,self.pin_map[pin].direction) 
+            elif pin == "OVL_Carl":
+                self.pin_map[pin] = digitalio.DigitalInOut(getattr(board, gpio))    
+                self.pin_map[pin].Direction = digitalio.Direction.INPUT
+                self.pin_map[pin].Pull = digitalio.Pull.DOWN
+                print(pin,self.pin_map[pin].direction) 
+            else:    
+                self.pin_map[pin] = digitalio.DigitalInOut(getattr(board, gpio))    
+                self.pin_map[pin].direction = digitalio.Direction.OUTPUT
+                self.pin_map[pin].drive_mode = digitalio.DriveMode.PUSH_PULL
+                self.pin_map[pin].value = 0
+                print(pin,self.pin_map[pin].direction)   
+        
+        
+        self.add_parameter("gain", type = str,
+                           flags = Instrument.FLAG_GETSET)
+                           #,channel_prefix = "ch%d_")
+                           
+        self.add_parameter("lowpass_cutoff", type = str,
+                            flags = Instrument.FLAG_GETSET)
+                            #,channel_prefix = "ch%d_")
+        
+        self.add_parameter("overload", flags = Instrument.FLAG_GET)
+                            #,channel_prefix = "ch%d_")
+                           
+    def _do_set_gain(self, value: str):
+        
+        """
+        This function sets the gain of the IV-Converter to a given and possible value as long as the gain of the physical IV converter is set to the 'remote' of 1e5.
+
+        Parameters
+        ----------
+        value : str
+            Possible values are "1e9", "1e8", "1e7", "1e6", "1e5".
+
+        Raises
+        ------
+        TypeError
+            Input has to be a string.
+        ValueError
+            Input has to be in the range of available gains.
+
+        Returns
+        -------
+        value : str
+            Returns the set gain after completed task.
+
+        """
+        """ """
+        self.value = value
+        if type(self.value) != str: raise TypeError("\nPlease input gain as string, e.g. '1e9'.\n")
+        
+        
+       # gains = {"1e9": getbinary(4), "1e8": getbinary(3), "1e7": getbinary(2),"1e6": getbinary(1),"1e5": getbinary(0)}
+        switcher_gain = {"1e9":4, "1e8":3, "1e7":2, "1e6":1, "1e5":0}
+        
+        if value in switcher_gain.keys(): 
+            
+            bit_mask = getbinary(switcher_gain[value], len(self.gain_pins))
+            
+            for i,pin in enumerate(self.gain_pins):
+                    
+                    #locals()[pin].value = 1
+                    setattr(self.pin_map[pin],"value", int(bit_mask[i]))
+                
+                    print("Pin "+pin+" is set to "+ bit_mask[i])
+        else: raise ValueError('Possible gain values are "1e9", "1e8", "1e7", "1e6", "1e5".')
+        return logging.debug(__name__ + " : setting both gains to %s." %(value))
+            
+            
+    def _do_get_gain(self):
+        
+        """
+        This function gets the gain of the IV-Converters.
+
+        Returns
+        -------
+        value : str
+            Returns the current gain of both IV Converters
+
+        """
+        switcher_gain = {"1e9":4, "1e8":3, "1e7":2, "1e6":1, "1e5":0}
+        switcher_reversed = dict((v,k) for k, v in switcher_gain.items())
+        bitstate = ""
+        for pin in self.gain_pins: bitstate += str(int(self.pin_map[pin].value))
+        
+        print("The current gain is", switcher_reversed[int(bitstate,2)])
+            
+             
+            
+    def _do_set_lowpass_cutoff(self, value: str):
+        
+        """
+        This function sets the cutoff frequency of the lowpass in the IV-Converter to a given and possible value as long as the cutoff frequency of the physical IV converter is set to 'remote' or 3e1.
+
+        Parameters
+        ----------
+        value : str
+            Possible values are "1e6", "1e5", "3e4", "1e4","3e3", "1e3", "3e2", "1e2", "3e1".
+        Returns
+        -------
+        str
+            Returns the set cutoff frequency after completed task.
+
+        """
+        self.value = value
+        if type(self.value) != str: raise TypeError("\nPlease input gain as string, e.g. '1e6'.\n") #### doesn't work for some reason
+        
+        
+       # gains = {"1e9": getbinary(4), "1e8": getbinary(3), "1e7": getbinary(2),"1e6": getbinary(1),"1e5": getbinary(0)}
+        switcher_filter = {"1e6":8, "1e5":7, "3e4":6, "1e4":5,"3e3":4, "1e3":3, "3e2":2, "1e2":1, "3e1":0}
+        
+        if value in switcher_filter.keys(): 
+            
+            bit_mask = getbinary(switcher_filter[value], len(self.filter_pins))
+            
+            for i,pin in enumerate(self.filter_pins):
+                    
+                    #locals()[pin].value = 1
+                    setattr(self.pin_map[pin],"value", int(bit_mask[i]))
+                
+                    print("Pin "+pin+" is set to "+ bit_mask[i])
+        else: raise ValueError('Possible gain values are "1e9", "1e8", "1e7", "1e6", "1e5".')
+        return logging.debug(__name__ + " : setting both lowpass cutoff frequencies to %s Hz." %(value))
+            
+            
+    def _do_get_lowpass_cutoff(self):
+        
+        """
+        This function gets the lowpass cutoff frequency of the IV-Converters.
+
+        Returns
+        -------
+        value : str
+            Returns the current lowpass cutoff frequency of both IV Converters
+
+        """
+        """ """
+        switcher_filter = {"1e6":8, "1e5":7, "3e4":6, "1e4":5,"3e3":4, "1e3":3, "3e2":2, "1e2":1, "3e1":0}
+        switcher_reversed = dict((v,k) for k, v in switcher_filter.items())
+        bitstate = ""
+        for pin in self.filter_pins: bitstate += str(int(self.pin_map[pin].value))
+        
+        print("The current lowpass cutoff frequency is", switcher_reversed[int(bitstate,2)])
+
+    
+    def _do_get_overload(self):
+        count_carl = 0
+        count_paul = 0
+        for i in range(100):
+            if self.pin_map["OVL_Carl"].value == True:
+                count_carl += 1
+            if self.pin_map["OVL_Paul"].value == True:
+                count_paul += 1
+            i+=1    
+        if count_carl > 1:
+            message = "Yes, Carl does overload.\n"
+            if count_paul > 1:
+                message = message + "Yes, Paul does overload.\n"    
+        else:
+            message = "No everything seems fine."
+        
+        print(message,count_paul, count_carl)
+        
+        return logging.debug(__name__ + " : " + message)
+
+if __name__ == "__main__":
+    import qkit
+    qkit.start()
+    caharl = qkit.instruments.create("caharl", "IVConverter") ###er führt alle get befehle aus!!11!
+    #caharl.get_overload()
+
+
+    
+            
