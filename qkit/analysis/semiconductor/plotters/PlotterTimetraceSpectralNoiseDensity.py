@@ -7,6 +7,13 @@ from qkit.analysis.semiconductor.main.find_index_of_value import map_array_to_in
 
 def func_power(x, a, b):
     return b * x ** a
+def func_power2(x, *params):
+    if len(params) == 2:
+        return params[1] * x ** params[0]
+    else:
+        part1 = params[1] * x[x <= params[3]] ** params[0]
+        part2 = params[1]/(params[3] ** (params[2]-params[0])) * x[x > params[3]] ** params[2]
+        return np.concatenate((part1, part2))
 
 class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
     """Plots the spectral noise density using the equivalent gate voltage found in fit_params['fit_coef'][0] if provided.
@@ -70,11 +77,11 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
         index_end = map_array_to_index(self.spectrogram[0], self.fit["fit_range"][1])
         freqs = self.spectrogram[0][index_begin : index_end]
 
-        SND_1Hz = func_power(1, *self.fit["popt"]) / (self.plunger_calib)**2
-        exponent_1Hz = self.fit["popt"][0]
+        SND_1Hz = float(func_power2(np.array([1]), *self.fit["popt"]) / (self.plunger_calib)**2)
+        exponent_1Hz = self.fit["popt"][-2]
         text = f"PSD(1Hz) : {1e9 * SND_1Hz:.1f} * e-9 V²/Hz"
         text = text + f"\nexponent(1Hz) : {exponent_1Hz:.3f} "
-        fit_spectrum = func_power(freqs, *self.fit["popt"]) / (self.plunger_calib)**2
+        fit_spectrum = func_power2(freqs, *self.fit["popt"]) / (self.plunger_calib)**2
         self.ax.plot(freqs, fit_spectrum, label=text, alpha=self.alpha)
         self.ax.legend(loc="lower left")
 
@@ -105,11 +112,11 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
 
         if self.fit["popt"].any() and self.fit["fit_range"]:
             '''self.fit_vals are the parameters of f(x)=a*x+b to the data_x=log10(freqencies), data_y=log10(PSD)
-            so plotting of f_power(x)=a'*x**b' leads to 
-            a' = 10^b
-            b'= a 
+            so plotting of f_power(x)=b'*x**a' leads to 
+            b' = 10^b
+            a'= a 
             '''
-            self._plot_fit()            
+            self._plot_fit()          
 
         plt.grid()
         plt.savefig(self.saving_path + ".png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
