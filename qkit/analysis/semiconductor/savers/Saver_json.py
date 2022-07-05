@@ -19,7 +19,7 @@ class Saver_json():
 
     def _save(self, fname, data):
         full_path = os.path.join(self.saving_path, fname + ".json")
-        with open(full_path, "w+") as file: 
+        with open(full_path, "a+") as file: 
             json.dump(data, file, cls = QkitJSONEncoder, indent = 4)
     
     def save(self):
