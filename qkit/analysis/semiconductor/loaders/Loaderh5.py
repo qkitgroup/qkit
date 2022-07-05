@@ -5,7 +5,7 @@ import urllib
 from smb.SMBHandler import SMBHandler
 import paramiko
 from qkit.analysis.semiconductor.main.interfaces import LoaderInterface
-
+import base64
 
 class Loaderh5_julian(LoaderInterface):
     def __init__(self) :
@@ -36,11 +36,15 @@ class Loaderh5_julian(LoaderInterface):
 class Loaderh5:
     """Extracts all data from .h5 files in this folder and returns it as a dict.
     """  
-    def load(self, settings):
+    def load(self, Pathobj):
         """Loads the data of a .h5 file. Analysis and views are not loaded. Is able to interprete smb connection to nanospin@phi-ndus"
         """
-        
-        path = settings['file_info']['filepath']
+        if type(Pathobj) is dict:
+            path = Pathobj['file_info']['filepath']
+        elif type(Pathobj) is str:
+            path = Pathobj
+        else:
+            raise ValueError("Unknown data type of given path object.")
         
         if path.startswith("smb:"):
             mod_path = path.replace("smb://nanospin@phi-ndus", "smb://nanospin:Hadamard_gate@phi-ndus")
@@ -49,14 +53,16 @@ class Loaderh5:
             data = h5py.File(fh,"r")["entry"]["data0"]
             
         elif path.startswith("sftp:"):
+            if type(Pathobj) is not dict or 'authentication' not in Pathobj:
+                raise ValueError("sftp connection needs an authentication key and a configpath to a file with your encrypted credentials!")
+            
             host = "os-login.lsdf.kit.edu"                   #hard-coded
             port = 22
             transport = paramiko.Transport((host, port))
-            
-            f=open(settings['authentication']['configpath'],"r")
+            f=open(Pathobj['authentication']['configpath'],"r")
             lines=f.readlines()
-            username=lines[0][:-1]
-            password=lines[1][:-1]
+            username = self._decrypt_string(lines[0][:-1])
+            password = self._decrypt_string(lines[1][:-1])
             f.close()
             
             transport.connect(username = username, password = password)
@@ -73,6 +79,10 @@ class Loaderh5:
         for key in data.keys():
             self.data_dict[key] = np.array(data.get(u'/entry/data0/' + key)[()])
         return self.data_dict , data
+    
+    def _decrypt_string(self, string):
+        """Decodes a twofold encoded base64 string"""
+        return base64.b64decode(base64.b64decode(string)).decode("ascii")
 
 
 class H5filemerger():
