@@ -4,7 +4,7 @@ from qkit.analysis.semiconductor.main.saving import create_saving_path
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
 
 class Saver_json():
-    """Saves data in a folder that is set by "settings". 
+    """Saves data in a folder that is set by "save_path". 
     """
     def __init__(self, save_path) -> None:
         self.additional_info = {}
@@ -27,10 +27,10 @@ class Saver_json():
     def _append(self, fpath, data):
         #full_path = os.path.join(self.saving_path, fname + ".json")
         with open(fpath, "r") as file:
-            data_old = json.load(file, cls = QkitJSONDecoder)
-        data.update(data_old)
+            data_total= json.load(file, cls = QkitJSONDecoder)
+        data_total.update(data)
         with open(fpath, "w") as file:
-            json.dump(data, file, cls = QkitJSONEncoder, indent = 4)
+            json.dump(data_total, file, cls = QkitJSONEncoder, indent = 4)
     
     def _save(self, fname, data):
         full_path = os.path.join(self.saving_path, fname + ".json")
