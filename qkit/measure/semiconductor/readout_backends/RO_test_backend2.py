@@ -160,6 +160,7 @@ class RO_backend(RO_backend_base):
                 done += 1
         if done == self.all_done:
             self.all_done = 0
+            print("Readout backend here, all done!")
             self.is_finished = True
         return self.is_finished
     
