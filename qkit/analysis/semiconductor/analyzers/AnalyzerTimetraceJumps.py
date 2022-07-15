@@ -10,6 +10,7 @@ class Analyzer:
         self.bin_range = None
         self.big_jump_minimum_height = 2e-3
         self.hist = np.array([])
+        self.guess = None
        
     def analyze(self):
         """Analyzes a timetrace and counts jumps.
@@ -26,9 +27,9 @@ class Analyzer:
         {"number_of_big_jumps" : len(jumps), "height_of_big_jumps" : jumps, 
         "time_between_big_jumps" : jumps_t_difference, "time_of_big_jumps" : jumps_time}
    
-    def fit(self, guess = None):
+    def fit(self):
         assert self.hist.any(), f"{__name__}: Analyze trace first. No histogram available."
-        popt, _ = curve_fit(gauss_function, self.bin_edges[:-1], self.hist, guess)
+        popt, _ = curve_fit(gauss_function, self.bin_edges[:-1], self.hist, self.guess)
 
         return popt
 
