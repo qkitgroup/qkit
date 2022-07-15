@@ -482,7 +482,7 @@ class Exciting(mb.MeasureBase):
             latest_data = self._ro_backend.read()
             for measurement in latest_data.keys():
                 if self.divider[measurement] == 1:                            
-                    total_sum[measurement] = {}               
+                    total_sum[measurement] = {}            
                 first_node = list(latest_data[measurement].keys())[0]
                 #If latest data is empty for one measurement, skip it
                 if len(latest_data[measurement][first_node]) == 0: continue
@@ -510,6 +510,8 @@ class Exciting(mb.MeasureBase):
                 self.divider[measurement] += 1
             self._data_file.flush()
             progress_bar.iterate(addend = iterations - old_iterations)
+        for measurement in self.settings.measurement_settings.keys():
+            self.divider[measurement] = 1
         self._ro_backend.stop()
         self._ma_backend.stop()
     
