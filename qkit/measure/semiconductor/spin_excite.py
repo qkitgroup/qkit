@@ -28,6 +28,7 @@ from qupulse._program._loop import to_waveform
 import numpy as np
 import warnings
 import inspect
+import numbers
 
 def keytransform(original, transform):
     transformed = {}
@@ -208,7 +209,7 @@ class Qupulse_decoder2:
         key = pt.loop_range.start.original_expression
         if type(key) == str:
             loop_start_value = pars[key]
-        elif type(key) == int:
+        elif isinstance(key, numbers.Number):
             loop_start_value = key
         return loop_start_value
 
@@ -216,16 +217,17 @@ class Qupulse_decoder2:
         key = pt.loop_range.stop.original_expression
         if type(key) == str:
             loop_stop_value = pars[key]
-        elif type(key) == int:
+        elif isinstance(key, numbers.Number):
             loop_stop_value = key
         return loop_stop_value 
     
     def _get_loop_step(self, pt, pars):
         key = pt.loop_range.step.original_expression
+        print(type(key))
         if type(key) == str:
             loop_step_name = key
             loop_step_value = pars[key]
-        elif type(key) == int:
+        elif isinstance(key, numbers.Number):
             loop_step_name = "for_loop_step%d" % self._nameless_counter
             loop_step_value = key
             self._nameless_counter += 1
