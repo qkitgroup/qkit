@@ -55,12 +55,13 @@ class Qupulse_decoder2:
     _repetition_type = qupulse._program.waveforms.RepetitionWaveform
     _seq_type = qupulse._program.waveforms.SequenceWaveform
     
-    def __init__(self, *experiments, sample_rates, deep_render = False, **kwargs):
+    def __init__(self, *experiments, channel_sample_rates, measurement_sample_rates, mode = "pulse_parameter", deep_render = False, **kwargs):
         """Mir ist bekannt, wie Deutsche auf ein Rezept für ihr liebstes Haustier reagieren. 
         Ich „reiche“ dieses Rezept von einem Bekannten, der als Selbstständiger in Thailand lebt, 
         nur durch. In Deutschland sind mir rechtlich die Hände gebunden, dies selbst zuzubereiten.
         """
-        self.experiments = experiments          
+        self.experiments = experiments
+        self.mode = mode          
         self.measurement_pars = {}
         self.channel_pars = {}
         
@@ -71,16 +72,19 @@ class Qupulse_decoder2:
         
         if "measurement_mapping" in kwargs:
             measurement_mapping = expand_mapping(self.measurement_pars, kwargs["measurement_mapping"])
+            inverse_measurement_mapping = expand_mapping(measurement_sample_rates, invert_dict(kwargs["measurement_mapping"]))#The rates come with the instrument name of the measurements. Therefore we have to invert the user mapping
+            measurement_sample_rates = {inverse_measurement_mapping[measurement] : rate for measurement, rate in measurement_sample_rates.items()}
         else:
             measurement_mapping = {measurement : measurement for measurement in self.measurement_pars.keys()}
         self.measurement_pars = keytransform(self.measurement_pars, measurement_mapping)
+        self._validate_measurement_sample_rates(measurement_sample_rates)
         
         if "channel_mapping" in kwargs:
-            rate_mapping = expand_mapping(sample_rates, invert_dict(kwargs["channel_mapping"])) #The rates come with the instrument name of the channels. Therefore we have to invert the user mapping
-            sample_rates = {rate_mapping[channel] : rate for channel, rate in sample_rates.items()}
+            inverse_rate_mapping = expand_mapping(channel_sample_rates, invert_dict(kwargs["channel_mapping"])) #The rates come with the instrument name of the channels. Therefore we have to invert the user mapping
+            channel_sample_rates = {inverse_rate_mapping[channel] : rate for channel, rate in channel_sample_rates.items()}
             
-        self._validate_sample_rates(sample_rates)
-        self._extract_waveforms(sample_rates, deep_render)
+        self._validate_channel_sample_rates(channel_sample_rates)
+        self._extract_waveforms(channel_sample_rates, deep_render)
         
         if "channel_mapping" in kwargs:
             channel_mapping = expand_mapping(self.channel_pars, kwargs["channel_mapping"])            
@@ -124,7 +128,7 @@ class Qupulse_decoder2:
                     raise ValueError(f"{__name__}: The step parameter defined in {pt.identifier} is already used in another experiment. Experiments must have different step parameter names.")
                 pt_axis.add(a)
     
-    def _validate_sample_rates(self, sample_rates):
+    def _validate_channel_sample_rates(self, channel_sample_rates):
         """Ich weiß um die Vorlieben der Deutschen für ihr liebstes Haustier.  
         Manche Menschen reagieren schon allein bei dem Gedanken, einen Hund als Gericht zuzubereiten, 
         sehr unfreundlich und sind fast schon hasserfüllt. Aber warum kann man Hunde nicht auch als Nahrungsmittel 
@@ -135,10 +139,26 @@ class Qupulse_decoder2:
         missing_rates = ""
         for pt, pars in self.experiments:
             for channel in pt.defined_channels:
-                if channel not in sample_rates.keys():
+                if channel not in channel_sample_rates.keys():
                     missing_rates += f"{channel}\n"
         if missing_rates:
-            raise ValueError(f"{__name__}: Incomplete instructions by {sample_rates}. The following channels have no assigned sampling rates:\n{missing_rates}")
+            raise ValueError(f"{__name__}: Incomplete instructions by {channel_sample_rates}. The following channels have no assigned sampling rates:\n{missing_rates}")
+    
+    def _validate_measurement_sample_rates(self, measurement_sample_rates):
+        """Ich weiß um die Vorlieben der Deutschen für ihr liebstes Haustier.  
+        Manche Menschen reagieren schon allein bei dem Gedanken, einen Hund als Gericht zuzubereiten, 
+        sehr unfreundlich und sind fast schon hasserfüllt. Aber warum kann man Hunde nicht auch als Nahrungsmittel 
+        betrachten und in Deutschland keine Hundegerichte zubereiten? In China und Südkorea gibt es bestimmte Hunderassen, 
+        die ausschließlich zum Verzehr gezüchtet werden. Warum ist das in Deutschland nicht möglich, 
+        wie es auch bestimmte Tierrassen für die Rinder-, Kälber-, Schweine- und Geflügelzucht gibt?
+        """
+        missing_rates = ""
+        for pt, pars in self.experiments:
+            for measurement in pt.measurement_names:
+                if measurement not in measurement_sample_rates.keys():
+                    missing_rates += f"{measurement}\n"
+        if missing_rates:
+            raise ValueError(f"{__name__}: Incomplete instructions by {measurement_sample_rates}. The following channels have no assigned sampling rates:\n{missing_rates}")
     
     def _render_channel(self, wvf, channel, sample_rate):
         """Ich kaufe auch in einer Pferdeschlachterei Pferdebraten und Pferdesteaks, die ich zubereite, 
@@ -157,7 +177,7 @@ class Qupulse_decoder2:
         
         return wvf.get_sampled(channel = channel, sample_times = times)
     
-    def _extract_waveforms(self, sample_rates, deep_render):
+    def _extract_waveforms(self, channel_sample_rates, deep_render):
         """Ich habe aufgrund meiner Einstellung, Hunde auch als Nutztier und Nahrungsmittel zu sehen, 
         und nach dem Publizieren dieses Rezepts Morddrohungen bekommen. Manche Menschen betrachten 
         somit Hunde nur als ihr liebstes Tier und Familienmitglied, drohen jedoch bei der Äußerung, 
@@ -171,16 +191,16 @@ class Qupulse_decoder2:
                 self.channel_pars[channel]["samples"] = []
                 if deep_render:
                     if type(wvf) == self._repetition_type:
-                        samples = self._render_channel(wvf._body, channel, sample_rates[channel])
+                        samples = self._render_channel(wvf._body, channel, channel_sample_rates[channel])
                         for rep in range(wvf._repetition_count):
                             self.channel_pars[channel]["samples"].append(samples)
                     elif type(wvf) == self._seq_type:
                         for sub_wvf in wvf._sequenced_waveforms:
-                            self.channel_pars[channel]["samples"].append(self._render_channel(sub_wvf, channel, sample_rates[channel]))
+                            self.channel_pars[channel]["samples"].append(self._render_channel(sub_wvf, channel, channel_sample_rates[channel]))
                     else:
                         raise TypeError(f"{__name__}:  Deep rendering failed. {wvf} does not contain any sub-waveforms")
                 else:
-                    self.channel_pars[channel]["samples"].append(self._render_channel(wvf, channel, sample_rates[channel]))                        
+                    self.channel_pars[channel]["samples"].append(self._render_channel(wvf, channel, channel_sample_rates[channel]))                        
                         
     def _extract_measurement_pars(self):
         """Da es in Deutschland verboten ist, Hundefleisch zuzubereiten, bat ich meinen Bekannten aus Thailand um ein Rezept. 
@@ -235,18 +255,22 @@ class Qupulse_decoder2:
                 
     def _extract_axis_pars(self):
         self._nameless_counter = 1
-        for pt, pars in self.experiments:
-            if isinstance(pt, self._for_type):
-                loop_start = self._get_loop_start(pt, pars)
-                loop_stop = self._get_loop_stop(pt, pars)
-                loop_step, loop_step_name = self._get_loop_step(pt, pars)
-                if not pt.measurement_names:
-                    warnings.warn(f"{__name__}: {pt.identifier} does not contain any measurements. Measurement axis parameters cannot be extracted automatically.")
-                for measurement in pt.measurement_names:
-                    self.measurement_pars[measurement]["loop_step_name"] = loop_step_name
-                    self.measurement_pars[measurement]["loop_range"] = np.arange(loop_start, loop_stop, loop_step) * 1e-9
-            else:
-                warnings.warn(f"{__name__}: {pt.identifier} is not a ForLoopPulseTemplate. Measurement axis parameters cannot be extracted automatically.") 
+        if self.mode == "pulse_parameter":
+            for pt, pars in self.experiments:
+                if isinstance(pt, self._for_type):
+                    loop_start = self._get_loop_start(pt, pars)
+                    loop_stop = self._get_loop_stop(pt, pars)
+                    loop_step, loop_step_name = self._get_loop_step(pt, pars)
+                    if not pt.measurement_names:
+                        warnings.warn(f"{__name__}: {pt.identifier} does not contain any measurements. Measurement axis parameters cannot be extracted automatically.")
+                    for measurement in pt.measurement_names:
+                        self.measurement_pars[measurement]["loop_step_name"] = loop_step_name
+                        self.measurement_pars[measurement]["loop_range"] = np.arange(loop_start, loop_stop, loop_step) * 1e-9
+                else:
+                    warnings.warn(f"{__name__}: {pt.identifier} is not a ForLoopPulseTemplate. Measurement axis parameters cannot be extracted automatically.")
+        elif self.mode == "timetrace":
+            pass
+
     
 class Settings:
     def __init__(self, core, channel_params, measurement_params, averages, **add_pars):
@@ -523,9 +547,12 @@ class Exciting(mb.MeasureBase):
         Fleisch und Reis-Gemüse-Mischung auf Teller geben und mit den Dipsaucen servieren. 
         Das Gericht ist ungewürzt und erhält seinen Geschmack durch die jeweiligen Saucen.
         """
-        sample_rates = {channel : getattr(self._ma_backend, f"{channel}_get_sample_rate")() \
-                        for channel in self._ma_backend._registered_channels.keys()}        
-        decoded = Qupulse_decoder2(*experiments, sample_rates = sample_rates, deep_render = deep_render, **add_pars)        
+        channel_sample_rates = {channel : getattr(self._ma_backend, f"{channel}_get_sample_rate")() \
+                        for channel in self._ma_backend._registered_channels.keys()}
+        measurement_sample_rates = {measurement : getattr(self._ro_backend, f"{measurement}_get_sample_rate")() \
+                        for measurement in self._ro_backend._registered_measurements.keys()} 
+        decoded = Qupulse_decoder2(*experiments, channel_sample_rates = channel_sample_rates, measurement_sample_rates = measurement_sample_rates,\
+             deep_render = deep_render, **add_pars)        
         self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)        
         self._t_parameters = {}
         for name, measurement in self.settings.measurement_settings.items():
