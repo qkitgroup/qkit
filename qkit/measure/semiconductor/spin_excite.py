@@ -67,32 +67,36 @@ class Qupulse_decoder2:
         
         self._validate_entries()
         
-        self._extract_measurement_pars()
+        self._validate_measurement_sample_rates(measurement_sample_rates)
+        self._extract_measurement_pars(measurement_sample_rates)
+
+        self._validate_channel_sample_rates(channel_sample_rates)
+        self._extract_waveforms(channel_sample_rates, deep_render)
+
         self._extract_axis_pars()
-        
+        """        
         if "measurement_mapping" in kwargs:
             measurement_mapping = expand_mapping(self.measurement_pars, kwargs["measurement_mapping"])
             inverse_measurement_mapping = expand_mapping(measurement_sample_rates, invert_dict(kwargs["measurement_mapping"]))#The rates come with the instrument name of the measurements. Therefore we have to invert the user mapping
             measurement_sample_rates = {inverse_measurement_mapping[measurement] : rate for measurement, rate in measurement_sample_rates.items()}
         else:
             measurement_mapping = {measurement : measurement for measurement in self.measurement_pars.keys()}
-        self.measurement_pars = keytransform(self.measurement_pars, measurement_mapping)
-        self._validate_measurement_sample_rates(measurement_sample_rates)
+        self.measurement_pars = keytransform(self.measurement_pars, measurement_mapping) """
         
+        """
         if "channel_mapping" in kwargs:
             inverse_rate_mapping = expand_mapping(channel_sample_rates, invert_dict(kwargs["channel_mapping"])) #The rates come with the instrument name of the channels. Therefore we have to invert the user mapping
             channel_sample_rates = {inverse_rate_mapping[channel] : rate for channel, rate in channel_sample_rates.items()}
-            
-        self._validate_channel_sample_rates(channel_sample_rates)
-        self._extract_waveforms(channel_sample_rates, deep_render)
+        """
         
-        if "channel_mapping" in kwargs:
+        
+        """ if "channel_mapping" in kwargs:
             channel_mapping = expand_mapping(self.channel_pars, kwargs["channel_mapping"])            
         else:
             channel_mapping = {channel : channel for channel in self.channel_pars.keys()}
 
         self.channel_pars = keytransform(self.channel_pars, channel_mapping)
-
+        """
     def _validate_entries(self):
         """Das Fleisch von Hunden (und Katzen/Affen) darf laut deutschem Lebensmittelrecht a) 
         nicht zum menschlichen Verzehr gewonnen und b) nicht in den Verkehr gebracht werden. 
@@ -200,9 +204,9 @@ class Qupulse_decoder2:
                     else:
                         raise TypeError(f"{__name__}:  Deep rendering failed. {wvf} does not contain any sub-waveforms")
                 else:
-                    self.channel_pars[channel]["samples"].append(self._render_channel(wvf, channel, channel_sample_rates[channel]))                        
+                    self.channel_pars[channel]["samples"].append(self._render_channel(wvf, channel, channel_sample_rates[channel]))
                         
-    def _extract_measurement_pars(self):
+    def _extract_measurement_pars(self, measurement_sample_rates):
         """Da es in Deutschland verboten ist, Hundefleisch zuzubereiten, bat ich meinen Bekannten aus Thailand um ein Rezept. 
         Er hat mir ein Hunderezept übermittelt, das er in der „China Town“ in Bangkok erhalten hat.
         Bangkok hat wie jede Millionenmetropole auch eine „China Town“, in der mehrheitlich Chinesen leben und dort ihre Geschäfte
@@ -220,7 +224,10 @@ class Qupulse_decoder2:
                     different_window_lengths += f"{measurement}\n"
                 self.measurement_pars[measurement] = {}
                 self.measurement_pars[measurement]["measurement_count"] = len(measurement_durations)
-                self.measurement_pars[measurement]["measurement_duration"] = measurement_durations[0] * 1e-9
+                print(len(measurement_durations))
+                measurement_duration = measurement_durations[0] * 1e-9
+                self.measurement_pars[measurement]["sample_count"] = np.int32(np.floor(measurement_duration *\
+                     measurement_sample_rates[measurement]))
         if different_window_lengths:
             raise ValueError (f"{__name__}: All measurement windows for one measurement have to be of the same length. \
                               The following measurements have disparate measurement windows:\n {different_window_lengths}")
@@ -229,7 +236,7 @@ class Qupulse_decoder2:
         key = pt.loop_range.start.original_expression
         if type(key) == str:
             loop_start_value = pars[key]
-        elif isinstance(key, numbers.Number):
+        else:
             loop_start_value = key
         return loop_start_value
 
@@ -237,22 +244,22 @@ class Qupulse_decoder2:
         key = pt.loop_range.stop.original_expression
         if type(key) == str:
             loop_stop_value = pars[key]
-        elif isinstance(key, numbers.Number):
+        else:
             loop_stop_value = key
-        return loop_stop_value 
-    
+        return loop_stop_value
+
     def _get_loop_step(self, pt, pars):
         key = pt.loop_range.step.original_expression
         print(type(key))
         if type(key) == str:
             loop_step_name = key
             loop_step_value = pars[key]
-        elif isinstance(key, numbers.Number):
+        else:
             loop_step_name = "for_loop_step%d" % self._nameless_counter
             loop_step_value = key
             self._nameless_counter += 1
         return loop_step_value, loop_step_name
-                
+
     def _extract_axis_pars(self):
         self._nameless_counter = 1
         if self.mode == "pulse_parameter":
@@ -270,7 +277,6 @@ class Qupulse_decoder2:
                     warnings.warn(f"{__name__}: {pt.identifier} is not a ForLoopPulseTemplate. Measurement axis parameters cannot be extracted automatically.")
         elif self.mode == "timetrace":
             pass
-
     
 class Settings:
     def __init__(self, core, channel_params, measurement_params, averages, **add_pars):
@@ -292,7 +298,7 @@ class Settings:
                 
         self._get_measurement_units()
         self._get_measurement_nodes()
-        self._measurement_time_to_samples()
+        #self._measurement_time_to_samples()
     
     def _assert_measurement_averages(self, measurement_params, averages):
         missing_averages = ""
@@ -319,12 +325,12 @@ class Settings:
                 unsupported_measurements += f"{measurement}\n"
         if unsupported_measurements:
             raise AttributeError(f"{__name__}: Your readout backend does not support the following measurements:\n{unsupported_measurements}")
-                
+    """                 
     def _measurement_time_to_samples(self):        
         for measurement, settings in self.measurement_settings.items():
             settings["sample_count"] = np.int32(np.floor(settings["measurement_duration"] * \
                     getattr(self.core._ro_backend, f"{measurement}_get_sample_rate")()))
-            
+    """
     def _get_measurement_units(self):
         for measurement, settings in self.measurement_settings.items():
             settings["unit"] = self.core._ro_backend._registered_measurements[measurement]["unit"]
