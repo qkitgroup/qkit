@@ -55,13 +55,12 @@ class Qupulse_decoder2:
     _repetition_type = qupulse._program.waveforms.RepetitionWaveform
     _seq_type = qupulse._program.waveforms.SequenceWaveform
     
-    def __init__(self, *experiments, channel_sample_rates, measurement_sample_rates, mode = "pulse_parameter", deep_render = False, **kwargs):
+    def __init__(self, *experiments, channel_sample_rates, measurement_sample_rates, deep_render = False, **kwargs):
         """Mir ist bekannt, wie Deutsche auf ein Rezept für ihr liebstes Haustier reagieren. 
         Ich „reiche“ dieses Rezept von einem Bekannten, der als Selbstständiger in Thailand lebt, 
         nur durch. In Deutschland sind mir rechtlich die Hände gebunden, dies selbst zuzubereiten.
         """
-        self.experiments = experiments
-        self.mode = mode          
+        self.experiments = experiments  
         self.measurement_pars = {}
         self.channel_pars = {}
         
@@ -263,24 +262,23 @@ class Qupulse_decoder2:
 
     def _extract_axis_pars(self):
         self._nameless_counter = 1
-        if self.mode == "pulse_parameter":
-            for pt, pars in self.experiments:
-                if isinstance(pt, self._for_type):
-                    loop_start = self._get_loop_start(pt, pars)
-                    loop_stop = self._get_loop_stop(pt, pars)
-                    loop_step, loop_step_name = self._get_loop_step(pt, pars)
-                    if not pt.measurement_names:
-                        warnings.warn(f"{__name__}: {pt.identifier} does not contain any measurements. Measurement axis parameters cannot be extracted automatically.")
-                    for measurement in pt.measurement_names:
-                        self.measurement_pars[measurement]["loop_step_name"] = loop_step_name
-                        self.measurement_pars[measurement]["loop_range"] = np.arange(loop_start, loop_stop, loop_step) * 1e-9
-                else:
-                    warnings.warn(f"{__name__}: {pt.identifier} is not a ForLoopPulseTemplate. Measurement axis parameters cannot be extracted automatically.")
-        elif self.mode == "timetrace":
-            for measurement, settings in self.measurement_pars.items():
-                settings["loop_step_name"] = "measurement time"
-                t_sample = 1/self.measurement_sample_rates[measurement]
-                settings["loop_range"] = np.linspace(0, t_sample * settings["sample_count"], settings["sample_count"]) * 1e-9
+        for pt, pars in self.experiments:
+            if isinstance(pt, self._for_type):
+                loop_start = self._get_loop_start(pt, pars)
+                loop_stop = self._get_loop_stop(pt, pars)
+                loop_step, loop_step_name = self._get_loop_step(pt, pars)
+                if not pt.measurement_names:
+                    warnings.warn(f"{__name__}: {pt.identifier} does not contain any measurements. Pulse parameter axis cannot be extracted automatically.")
+                for measurement in pt.measurement_names:
+                    self.measurement_pars[measurement]["loop_step_name_pp"] = loop_step_name
+                    self.measurement_pars[measurement]["loop_range_pp"] = np.arange(loop_start, loop_stop, loop_step) * 1e-9
+            else:
+                warnings.warn(f"{__name__}: {pt.identifier} is not a ForLoopPulseTemplate. Pulse parameter axis cannot be extracted automatically.")
+        
+        for measurement, settings in self.measurement_pars.items():
+            settings["loop_step_name_tt"] = "measurement time"
+            t_sample = 1/self.measurement_sample_rates[measurement]
+            settings["loop_range_tt"] = np.linspace(0, t_sample * settings["sample_count"], settings["sample_count"])
     
 class Settings:
     def __init__(self, core, channel_params, measurement_params, averages, **add_pars):
@@ -433,9 +431,9 @@ class Exciting(mb.MeasureBase):
         if not issubclass(MA_backend.__class__, MA_backend_base):
             raise TypeError(f"{__name__}: Cannot set {MA_backend} as manipulation backend. The backend must be a subclass of MA_backend_base")
     
-    def update_t_parameters(self, vec, coordname, measurement):
+    def update_t_parameters(self, vec, coordname, measurement, unit = "s"):
             new_t_parameter = self.Coordinate(coordname, 
-                                                unit = "s", 
+                                                unit = unit, 
                                                 values = np.array(vec, dtype=float),
                                                 set_function = lambda val : True,
                                                 wait_time = 0)
@@ -501,6 +499,7 @@ class Exciting(mb.MeasureBase):
         self._prepare_measurement_file(datasets)
         if self.open_qviewkit:
             self._open_qviewkit()
+
     def _ready_hardware(self):
         self._ro_backend.stop()
         self._ma_backend.stop() #We do this to be ABSOLUTELY sure that the first trigger recieved also belongs to the first wavefrom
@@ -650,6 +649,26 @@ class Exciting(mb.MeasureBase):
         else:
             raise AttributeError(f"{__name__}: {self.mode} is not a valid measurement mode. Allowed modes are: \n{self.modes}")
     
+    def _create_axis(self):
+        if self.mode == "pulse_parameter":
+            for name, measurement in self.settings.measurement_settings.items():
+                self.update_t_parameters(measurement["loop_range_pp"], 
+                                            measurement["loop_step_name_pp"],
+                                            name, unit = "a.u.")
+        elif self.mode == "timetrace":
+            for name, measurement in self.settings.measurement_settings.items():
+                self.update_t_parameters(measurement["loop_range_tt"], 
+                                            measurement["loop_step_name_tt"],
+                                            name)
+        elif self.mode == "pp_vs_t":
+            for name, measurement in self.settings.measurement_settings.items():
+                self.update_t_parameters(measurement["loop_range_tt"], 
+                                            measurement["loop_step_name_tt"],
+                                            name)
+                self.update_t_parameters(measurement["loop_range_pp"], 
+                                            measurement["loop_step_name_pp"],
+                                            name, unit = "a.u.")
+
     def compile_qupulse(self, *experiments, averages, mode = "pulse_parameter", deep_render = False, **add_pars):   
         """Währenddessen Zwiebeln und Wurzeln schälen. Zwiebeln kleinschneiden. Wurzeln in kurze Stifte schneiden. 
         Öl in einem Wok erhitzen und Gemüse darin kurz pfannenrühren. Koriander kleinwiegen. Reis und Koriander dazugeben und alles vermischen. 
@@ -663,17 +682,15 @@ class Exciting(mb.MeasureBase):
                         for channel in self._ma_backend._registered_channels.keys()}
         measurement_sample_rates = {measurement : getattr(self._ro_backend, f"{measurement}_get_sample_rate")() \
                         for measurement in self._ro_backend._registered_measurements.keys()} 
+        
         decoded = Qupulse_decoder2(*experiments, channel_sample_rates = channel_sample_rates, measurement_sample_rates = measurement_sample_rates,\
-             mode = mode, deep_render = deep_render, **add_pars)        
+             deep_render = deep_render, **add_pars)        
+        
         self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)        
+        
         self._t_parameters = {}
-        for name, measurement in self.settings.measurement_settings.items():
-            try:
-                self.update_t_parameters(measurement["loop_range"], 
-                                         measurement["loop_step_name"],
-                                         name)
-            except KeyError:
-                warnings.warn(f"{__name__}: Measurement {name} does not have a defined time axis.")        
+
+        self._create_axis()       
         self.settings.load()
         
     def measure1D(self):
