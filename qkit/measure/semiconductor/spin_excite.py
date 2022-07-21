@@ -68,10 +68,12 @@ class Qupulse_decoder2:
         self._validate_entries()
         
         self._validate_measurement_sample_rates(measurement_sample_rates)
-        self._extract_measurement_pars(measurement_sample_rates)
+        self.measurement_sample_rates = measurement_sample_rates
+        self._extract_measurement_pars()
 
         self._validate_channel_sample_rates(channel_sample_rates)
-        self._extract_waveforms(channel_sample_rates, deep_render)
+        self.channel_sample_rates = channel_sample_rates
+        self._extract_waveforms(deep_render)
 
         self._extract_axis_pars()
         """        
@@ -181,7 +183,7 @@ class Qupulse_decoder2:
         
         return wvf.get_sampled(channel = channel, sample_times = times)
     
-    def _extract_waveforms(self, channel_sample_rates, deep_render):
+    def _extract_waveforms(self, deep_render):
         """Ich habe aufgrund meiner Einstellung, Hunde auch als Nutztier und Nahrungsmittel zu sehen, 
         und nach dem Publizieren dieses Rezepts Morddrohungen bekommen. Manche Menschen betrachten 
         somit Hunde nur als ihr liebstes Tier und Familienmitglied, drohen jedoch bei der Äußerung, 
@@ -195,18 +197,18 @@ class Qupulse_decoder2:
                 self.channel_pars[channel]["samples"] = []
                 if deep_render:
                     if type(wvf) == self._repetition_type:
-                        samples = self._render_channel(wvf._body, channel, channel_sample_rates[channel])
+                        samples = self._render_channel(wvf._body, channel, self.channel_sample_rates[channel])
                         for rep in range(wvf._repetition_count):
                             self.channel_pars[channel]["samples"].append(samples)
                     elif type(wvf) == self._seq_type:
                         for sub_wvf in wvf._sequenced_waveforms:
-                            self.channel_pars[channel]["samples"].append(self._render_channel(sub_wvf, channel, channel_sample_rates[channel]))
+                            self.channel_pars[channel]["samples"].append(self._render_channel(sub_wvf, channel, self.channel_sample_rates[channel]))
                     else:
                         raise TypeError(f"{__name__}:  Deep rendering failed. {wvf} does not contain any sub-waveforms")
                 else:
-                    self.channel_pars[channel]["samples"].append(self._render_channel(wvf, channel, channel_sample_rates[channel]))
+                    self.channel_pars[channel]["samples"].append(self._render_channel(wvf, channel, self.channel_sample_rates[channel]))
                         
-    def _extract_measurement_pars(self, measurement_sample_rates):
+    def _extract_measurement_pars(self):
         """Da es in Deutschland verboten ist, Hundefleisch zuzubereiten, bat ich meinen Bekannten aus Thailand um ein Rezept. 
         Er hat mir ein Hunderezept übermittelt, das er in der „China Town“ in Bangkok erhalten hat.
         Bangkok hat wie jede Millionenmetropole auch eine „China Town“, in der mehrheitlich Chinesen leben und dort ihre Geschäfte
@@ -224,10 +226,9 @@ class Qupulse_decoder2:
                     different_window_lengths += f"{measurement}\n"
                 self.measurement_pars[measurement] = {}
                 self.measurement_pars[measurement]["measurement_count"] = len(measurement_durations)
-                print(len(measurement_durations))
-                measurement_duration = measurement_durations[0] * 1e-9
-                self.measurement_pars[measurement]["sample_count"] = np.int32(np.floor(measurement_duration *\
-                     measurement_sample_rates[measurement]))
+                self.measurement_pars[measurement]["measurement_duration"] = measurement_durations[0] * 1e-9
+                self.measurement_pars[measurement]["sample_count"] = np.int32(np.floor(self.measurement_pars[measurement]["measurement_duration"] *\
+                     self.measurement_sample_rates[measurement]))
         if different_window_lengths:
             raise ValueError (f"{__name__}: All measurement windows for one measurement have to be of the same length. \
                               The following measurements have disparate measurement windows:\n {different_window_lengths}")
@@ -276,7 +277,10 @@ class Qupulse_decoder2:
                 else:
                     warnings.warn(f"{__name__}: {pt.identifier} is not a ForLoopPulseTemplate. Measurement axis parameters cannot be extracted automatically.")
         elif self.mode == "timetrace":
-            pass
+            for measurement, settings in self.measurement_pars.items():
+                settings["loop_step_name"] = "measurement time"
+                t_sample = 1/self.measurement_sample_rates[measurement]
+                settings["loop_range"] = np.linspace(0, t_sample * settings["sample_count"], settings["sample_count"]) * 1e-9
     
 class Settings:
     def __init__(self, core, channel_params, measurement_params, averages, **add_pars):
@@ -287,9 +291,6 @@ class Settings:
         Da es ein Wokgericht ist, gehe ich davon aus, dass es sich um Fleisch zum Kurzbraten handelt und nicht um Schmorfleisch.
         """
         self.core = core
-        if "measurement_mapping" in add_pars:
-            averages_mapping = expand_mapping(averages, add_pars["measurement_mapping"])
-            averages = {averages_mapping[meas] : avg for meas, avg in averages.items()}  
         self._assert_measurement_averages(measurement_params, averages)
         self.channel_settings = channel_params
         self._validate_channel_entries()
@@ -325,12 +326,6 @@ class Settings:
                 unsupported_measurements += f"{measurement}\n"
         if unsupported_measurements:
             raise AttributeError(f"{__name__}: Your readout backend does not support the following measurements:\n{unsupported_measurements}")
-    """                 
-    def _measurement_time_to_samples(self):        
-        for measurement, settings in self.measurement_settings.items():
-            settings["sample_count"] = np.int32(np.floor(settings["measurement_duration"] * \
-                    getattr(self.core._ro_backend, f"{measurement}_get_sample_rate")()))
-    """
     def _get_measurement_units(self):
         for measurement, settings in self.measurement_settings.items():
             settings["unit"] = self.core._ro_backend._registered_measurements[measurement]["unit"]
@@ -386,8 +381,9 @@ class Exciting(mb.MeasureBase):
     measure3D() :
         Starts a 3D measurement
     """
+    modes = {"pulse_parameter", "timetrace", "pp_vs_t"}
     def __init__(self, readout_backend, manipulation_backend,
-                 *experiments, averages, deep_render = False, exp_name = "", sample = None, **add_pars):
+                 *experiments, averages, mode = "pulse_parameter", deep_render = False, exp_name = "", sample = None, **add_pars):
         """
         Parameters
         ----------
@@ -404,7 +400,7 @@ class Exciting(mb.MeasureBase):
         self._validate_MA_backend(manipulation_backend)
         self._ma_backend = manipulation_backend   
         
-        self.compile_qupulse(*experiments, averages = averages, deep_render = deep_render, **add_pars)
+        self.compile_qupulse(*experiments, averages = averages, mode = mode, deep_render = deep_render, **add_pars)
         
         self.report_static_voltages = True
 
@@ -418,6 +414,16 @@ class Exciting(mb.MeasureBase):
         if not isinstance(yesno, bool):
             raise TypeError(f"{__name__}: Cannot use {yesno} as report_static_voltages. Must be a boolean value.")
         self._report_static_voltages = yesno
+    
+    @property
+    def mode(self):
+        return self._mode
+    
+    @mode.setter
+    def mode(self, new_mode):
+        if new_mode not in self.modes:
+            raise AttributeError(f"{__name__}: {new_mode} is not a valid measurement mode. Allowed modes are: \n {self.modes}")
+        self._mode = new_mode
     
     def _validate_RO_backend(self, RO_backend):
         if not issubclass(RO_backend.__class__, RO_backend_base):
@@ -488,23 +494,35 @@ class Exciting(mb.MeasureBase):
             self.divider[measurement] = 1
             for node in self.settings.measurement_settings[measurement]["data_nodes"]:
                 #Create one dataset for each Measurement node
-                datasets.append(self.Data(name = "%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node), coords = coords + [self._t_parameters[measurement]],
+                datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._t_parameters[measurement]],
                                       unit = self.settings.measurement_settings[measurement]["unit"], 
                                       save_timestamp = False))
         self._total_iterations = total_iterations
         self._prepare_measurement_file(datasets)
         if self.open_qviewkit:
             self._open_qviewkit()
-            
-    def _measure_vs_time(self, dimension, progress_bar):
+    def _ready_hardware(self):
+        self._ro_backend.stop()
+        self._ma_backend.stop() #We do this to be ABSOLUTELY sure that the first trigger recieved also belongs to the first wavefrom
+        self._ro_backend.arm()
+        self._ma_backend.run()
+    
+    def _stop_hardware(self):
+        self._ro_backend.stop()
+        self._ma_backend.stop()
+
+    def _check_node_data(self, latest_node_data):
+        if latest_node_data.ndim != 3:
+            raise IndexError(f"{__name__}: Invalid readout dimensions. {self._ro_backend} must return arrays with 3 dimensions.")
+        if np.size(latest_node_data, axis = 2) == 0:
+            raise ValueError(f"{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
+
+    def _measure_vs_pulse_parameter(self, dimension, progress_bar):
         """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
         Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
         Reis nach Anleitung zubereiten. Danach warmstellen.
         """
-        self._ro_backend.stop()
-        self._ma_backend.stop() #We do this to be ABSOLUTELY sure that the first trigger recieved also belongs to the first wavefrom
-        self._ro_backend.arm()
-        self._ma_backend.run()       
+        self._ready_hardware()      
         total_sum = {}
         iterations = 0
         while not self._ro_backend.finished():
@@ -520,32 +538,119 @@ class Exciting(mb.MeasureBase):
                 iterations += len(latest_data[measurement][first_node])
                 for node in latest_data[measurement].keys():
                     latest_node_data = np.array(latest_data[measurement][node])
-                    if latest_node_data.ndim != 3:
-                        raise IndexError(f"{__name__}: Invalid readout dimensions. {self._ro_backend} must return arrays with 3 dimensions.")
-                    if False in np.any(latest_node_data, axis = (0, 2)):
-                        raise ValueError(f"{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
+                    self._check_node_data(latest_node_data)
                     #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
                     if self.divider[measurement] == 1:
-                        total_sum[measurement][node] = np.average(latest_node_data, axis = (0, 2))
-                        self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].append(total_sum[measurement][node])
+                        total_sum[measurement][node] = np.average(latest_node_data, axis = (0,2))
+                        self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node])
                     else:
                         total_sum[measurement][node] += np.average(latest_node_data, axis = (0, 2))
                         #Divide through the number of finished iterations, since you accumulate all the averages
                         if dimension == 1:
-                            self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].ds[:] =  total_sum[measurement][node] / self.divider[measurement]
+                            self._datasets["%s.%s" % (measurement, node)].ds[:] =  total_sum[measurement][node] / self.divider[measurement]
                         elif dimension == 2:
-                            self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].ds[-1] = total_sum[measurement][node] / self.divider[measurement]
+                            self._datasets["%s.%s" % (measurement, node)].ds[-1] = total_sum[measurement][node] / self.divider[measurement]
                         elif dimension == 3:
-                            self._datasets["%s.%s" % (self.settings.measurement_settings[measurement]["display_name"], node)].ds[-1][-1] = total_sum[measurement][node] / self.divider[measurement]
+                            self._datasets["%s.%s" % (measurement, node)].ds[-1][-1] = total_sum[measurement][node] / self.divider[measurement]
                 self.divider[measurement] += 1
             self._data_file.flush()
             progress_bar.iterate(addend = iterations - old_iterations)
         for measurement in self.settings.measurement_settings.keys():
             self.divider[measurement] = 1
-        self._ro_backend.stop()
-        self._ma_backend.stop()
+        self._stop_hardware()
+
+    def _measure_vs_time(self, dimension, progress_bar):
+        """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
+        Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
+        Reis nach Anleitung zubereiten. Danach warmstellen.
+        """
+        self._ready_hardware()      
+        total_sum = {}
+        iterations = 0
+        while not self._ro_backend.finished():
+            old_iterations = iterations
+            latest_data = self._ro_backend.read()
+            for measurement in latest_data.keys():
+                if self.divider[measurement] == 1:                            
+                    total_sum[measurement] = {}            
+                first_node = list(latest_data[measurement].keys())[0]
+                #If latest data is empty for one measurement, skip it
+                if len(latest_data[measurement][first_node]) == 0: continue
+                #Count the number of iterations collected by the most recent call of read
+                iterations += len(latest_data[measurement][first_node])
+                for node in latest_data[measurement].keys():
+                    latest_node_data = np.array(latest_data[measurement][node])
+                    self._check_node_data(latest_node_data)
+                    #Calculate the average over all measurements (axis 0), and integrate along the pulse parameter axis (axis 1).
+                    if self.divider[measurement] == 1:
+                        total_sum[measurement][node] = np.average(latest_node_data, axis = (0,1))
+                        self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node])
+                    else:
+                        total_sum[measurement][node] += np.average(latest_node_data, axis = (0, 1))
+                        #Divide through the number of finished iterations, since you accumulate all the averages
+                        if dimension == 1:
+                            self._datasets["%s.%s" % (measurement, node)].ds[:] =  total_sum[measurement][node] / self.divider[measurement]
+                        elif dimension == 2:
+                            self._datasets["%s.%s" % (measurement, node)].ds[-1] = total_sum[measurement][node] / self.divider[measurement]
+                        elif dimension == 3:
+                            self._datasets["%s.%s" % (measurement, node)].ds[-1][-1] = total_sum[measurement][node] / self.divider[measurement]
+                self.divider[measurement] += 1
+            self._data_file.flush()
+            progress_bar.iterate(addend = iterations - old_iterations)
+        for measurement in self.settings.measurement_settings.keys():
+            self.divider[measurement] = 1
+        self._stop_hardware()
+
+    def _measure_pp_vs_time(self, dimension, progress_bar):
+        self._ready_hardware()      
+        total_sum = {}
+        iterations = 0
+        while not self._ro_backend.finished():
+            old_iterations = iterations
+            latest_data = self._ro_backend.read()
+            for measurement in latest_data.keys():
+                if self.divider[measurement] == 1:                            
+                    total_sum[measurement] = {}            
+                first_node = list(latest_data[measurement].keys())[0]
+                #If latest data is empty for one measurement, skip it
+                if len(latest_data[measurement][first_node]) == 0: continue
+                #Count the number of iterations collected by the most recent call of read
+                iterations += len(latest_data[measurement][first_node])
+                for node in latest_data[measurement].keys():
+                    latest_node_data = np.array(latest_data[measurement][node])
+                    self._check_node_data(latest_node_data)
+                    #Calculate the average over all measurements (axis 0), and integrate along the pulse parameter axis (axis 1).
+                    if self.divider[measurement] == 1:
+                        total_sum[measurement][node] = np.average(latest_node_data, axis = (0))
+                        for timetrace in total_sum[measurement][node]:                            
+                            self._datasets["%s.%s" % (measurement, node)].append(timetrace)
+                    else:
+                        total_sum[measurement][node] += np.average(latest_node_data, axis = (0, 1))
+                        #Divide through the number of finished iterations, since you accumulate all the averages
+                        if dimension == 2:
+                            self._datasets["%s.%s" % (measurement, node)].ds[:][:] = total_sum[measurement][node] / self.divider[measurement]
+                        elif dimension == 3:
+                            self._datasets["%s.%s" % (measurement, node)].ds[:][:][-1] = total_sum[measurement][node] / self.divider[measurement]
+                self.divider[measurement] += 1
+            self._data_file.flush()
+            progress_bar.iterate(addend = iterations - old_iterations)
+        for measurement in self.settings.measurement_settings.keys():
+            self.divider[measurement] = 1
+        self._stop_hardware()
+
+    def _choose_measurement_function(self, dimension, progress_bar):
+        if self.mode == "pulse_parameter":
+            self._measure_vs_pulse_parameter(dimension, progress_bar)
+        elif self.mode == "timetrace":
+            self._measure_vs_time(dimension, progress_bar)
+        elif self.mode == "pp_vs_t":
+            if dimension < 2:
+                raise ValueError(f"{__name__}: pp_vs_t mode requires at least a 2D measurement.")
+            self._measure_pp_vs_time(dimension, progress_bar)
+        else:
+            raise AttributeError(f"{__name__}: {self.mode} is not a valid measurement mode. Allowed modes are: \n{self.modes}")
     
-    def compile_qupulse(self, *experiments, averages, deep_render = False, **add_pars):   
+    def compile_qupulse(self, *experiments, averages, mode = "pulse_parameter", deep_render = False, **add_pars):   
         """Währenddessen Zwiebeln und Wurzeln schälen. Zwiebeln kleinschneiden. Wurzeln in kurze Stifte schneiden. 
         Öl in einem Wok erhitzen und Gemüse darin kurz pfannenrühren. Koriander kleinwiegen. Reis und Koriander dazugeben und alles vermischen. 
         Reis-Gemüse-Mischung herausheben und warmstellen.
@@ -553,12 +658,13 @@ class Exciting(mb.MeasureBase):
         Fleisch und Reis-Gemüse-Mischung auf Teller geben und mit den Dipsaucen servieren. 
         Das Gericht ist ungewürzt und erhält seinen Geschmack durch die jeweiligen Saucen.
         """
+        self.mode = mode
         channel_sample_rates = {channel : getattr(self._ma_backend, f"{channel}_get_sample_rate")() \
                         for channel in self._ma_backend._registered_channels.keys()}
         measurement_sample_rates = {measurement : getattr(self._ro_backend, f"{measurement}_get_sample_rate")() \
                         for measurement in self._ro_backend._registered_measurements.keys()} 
         decoded = Qupulse_decoder2(*experiments, channel_sample_rates = channel_sample_rates, measurement_sample_rates = measurement_sample_rates,\
-             deep_render = deep_render, **add_pars)        
+             mode = mode, deep_render = deep_render, **add_pars)        
         self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)        
         self._t_parameters = {}
         for name, measurement in self.settings.measurement_settings.items():
@@ -576,7 +682,7 @@ class Exciting(mb.MeasureBase):
         pb = Progress_Bar(self._total_iterations)
         try:
             #self._acquire_log_functions()
-            self._measure_vs_time(1, pb)
+            self._choose_measurement_function(1, pb)
         finally:
             self._ro_backend.stop()
             self._ma_backend.stop()
@@ -589,9 +695,9 @@ class Exciting(mb.MeasureBase):
         try:
             for x_val in self._x_parameter.values:
                 self._x_parameter.set_function(x_val)
-                self._acquire_log_functions()
+                #self._acquire_log_functions()
                 qkit.flow.sleep(self._x_parameter.wait_time)
-                self._measure_vs_time(2, pb)
+                self._choose_measurement_function(2, pb)
         finally:
             self._ro_backend.stop()
             self._ma_backend.stop()
@@ -604,13 +710,13 @@ class Exciting(mb.MeasureBase):
         try:            
             for x_val in self._x_parameter.values:
                 self._x_parameter.set_function(x_val)
-                self._acquire_log_functions()
+                #self._acquire_log_functions()
                 qkit.flow.sleep(self._x_parameter.wait_time)
                 
                 for y_val in self._y_parameter.values:
                     self._y_parameter.set_function(y_val)
                     qkit.flow.sleep(self._y_parameter.wait_time)
-                    self._measure_vs_time(3, pb)
+                    self._choose_measurement_function(3, pb)
                 
                 for dset in self._datasets.values():
                     dset.next_matrix()
