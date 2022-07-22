@@ -121,6 +121,9 @@ class ZI_UHFLI_backend(RO_backend_base):
             if settings["active"]:
                 data[demod] = {}
                 raw_data = settings["daqM"].read()
+                #print(raw_data)
+                if '/dev2587/demods/0/sample.r' in raw_data.keys():
+                    print("Backend print:", raw_data['/dev2587/demods/0/sample.r'])
                 for node in self._registered_measurements[demod]["data_nodes"]:
                     data[demod][node] = []
                     path = f"/{self._id}/demods/{settings['demod_index']}/sample.{node}"

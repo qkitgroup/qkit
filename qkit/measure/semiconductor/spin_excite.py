@@ -489,10 +489,11 @@ class Exciting(mb.MeasureBase):
                 #Count the number of iterations collected by the most recent call of read
                 iterations += len(latest_data[measurement][first_node])
                 for node in latest_data[measurement].keys():
+                    
                     latest_node_data = np.array(latest_data[measurement][node])
                     if latest_node_data.ndim != 3:
                         raise IndexError(f"{__name__}: Invalid readout dimensions. {self._ro_backend} must return arrays with 3 dimensions.")
-                    if False in np.any(latest_node_data, axis = (0, 2)):
+                    if np.size(latest_node_data, axis = 2) == 0: # Dieses Any zerscheppert die 0 Hz
                         raise ValueError(f"{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
                     #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
                     if self.divider[measurement] == 1:
