@@ -446,6 +446,20 @@ class Exciting(mb.MeasureBase):
                 if coordinate.name == new_t_parameter.name:
                     self._t_parameters[measurement] = self._t_parameters[meas]
 
+    def update_pulse_parameters(self, vec, coordname, measurement, unit = " a.u."):
+        new_pulse_parameter = self.Coordinate(coordname, 
+                                            unit = unit, 
+                                            values = np.array(vec, dtype=float),
+                                            set_function = lambda val : True,
+                                            wait_time = 0)
+        new_pulse_parameter.validate_parameters()
+        self._pulse_parameters[measurement] = new_pulse_parameter
+        
+        #If we have two measurements which use the same coordinate, we add a reference to that coordinate instead of adding a new nominally identical one.
+        #This saves us a lot of trouble during data creation.
+        for meas, coordinate in self._pulse_parameters.items():
+            if coordinate.name == new_pulse_parameter.name:
+                self._pulse_parameters[measurement] = self._pulse_parameters[meas]
                 
     def _prepare_measurement_file(self, data, coords=()):
         """Das Fleisch in der Sonne zu trocknen ist in unseren Breiten schwierig. 
@@ -469,6 +483,12 @@ class Exciting(mb.MeasureBase):
                     if string1 in key and string2 in key and abs(value) > 0.0004:
                         active_gates.update({key:value})
             self._static_voltages.append(active_gates)
+
+    def _create_dsets(self, coords, measurement):
+        datasets = []
+        for node in self.settings.measurement_settings[measurement]["data_nodes"]:
+            if self.mode == "timetrace": pass
+
     
     def _prepare_measurement(self, coords):
         """Zutaten:
@@ -492,9 +512,11 @@ class Exciting(mb.MeasureBase):
             self.divider[measurement] = 1
             for node in self.settings.measurement_settings[measurement]["data_nodes"]:
                 #Create one dataset for each Measurement node
-                datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._t_parameters[measurement]],
-                                      unit = self.settings.measurement_settings[measurement]["unit"], 
-                                      save_timestamp = False))
+                if self.mode == "timetrace":
+                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._t_parameters[measurement]],
+                                        unit = self.settings.measurement_settings[measurement]["unit"], 
+                                        save_timestamp = False))
+                            
         self._total_iterations = total_iterations
         self._prepare_measurement_file(datasets)
         if self.open_qviewkit:
@@ -650,24 +672,13 @@ class Exciting(mb.MeasureBase):
             raise AttributeError(f"{__name__}: {self.mode} is not a valid measurement mode. Allowed modes are: \n{self.modes}")
     
     def _create_axis(self):
-        if self.mode == "pulse_parameter":
-            for name, measurement in self.settings.measurement_settings.items():
-                self.update_t_parameters(measurement["loop_range_pp"], 
-                                            measurement["loop_step_name_pp"],
-                                            name, unit = "a.u.")
-        elif self.mode == "timetrace":
-            for name, measurement in self.settings.measurement_settings.items():
-                self.update_t_parameters(measurement["loop_range_tt"], 
-                                            measurement["loop_step_name_tt"],
-                                            name)
-        elif self.mode == "pp_vs_t":
-            for name, measurement in self.settings.measurement_settings.items():
-                self.update_t_parameters(measurement["loop_range_tt"], 
-                                            measurement["loop_step_name_tt"],
-                                            name)
-                self.update_t_parameters(measurement["loop_range_pp"], 
-                                            measurement["loop_step_name_pp"],
-                                            name, unit = "a.u.")
+        for name, measurement in self.settings.measurement_settings.items():
+            self.update_pulse_parameters(measurement["loop_range_pp"], 
+                                        measurement["loop_step_name_pp"],
+                                        name)
+            self.update_t_parameters(measurement["loop_range_tt"], 
+                                        measurement["loop_step_name_tt"],
+                                        name)
 
     def compile_qupulse(self, *experiments, averages, mode = "pulse_parameter", deep_render = False, **add_pars):   
         """Währenddessen Zwiebeln und Wurzeln schälen. Zwiebeln kleinschneiden. Wurzeln in kurze Stifte schneiden. 
@@ -689,6 +700,7 @@ class Exciting(mb.MeasureBase):
         self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)        
         
         self._t_parameters = {}
+        self._pulse_parameters = {}
 
         self._create_axis()       
         self.settings.load()
