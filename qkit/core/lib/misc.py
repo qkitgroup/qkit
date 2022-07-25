@@ -2,19 +2,22 @@ import numpy as np
 
 
 def seconds_to_str(secs):
-    '''Convert a number of seconds to hh:mm:ss string.'''
+    """Convert a number of seconds to hh:mm:ss string."""
     hours = np.floor(secs / 3600)
     secs -= hours * 3600
     mins = np.floor(secs / 60)
     secs = np.floor(secs - mins * 60)
-    return '%02d:%02d:%02d' % (hours, mins, secs)
+    return "%02d:%02d:%02d" % (hours, mins, secs)
+
 
 def get_ipython():
     import IPython
+
     if ipython_is_newer((0, 11)):
         return IPython.get_ipython()
     else:
         return IPython.ipapi.get()
+
 
 def get_traceback():
     if ipython_is_newer((0, 11)):
@@ -23,15 +26,17 @@ def get_traceback():
         from IPython.ultraTB import AutoFormattedTB
     return AutoFormattedTB
 
+
 def ipython_is_newer(vin):
     """
     vin is tuple of version (a,b,c) for version "a.b.c"
     result gives True for larger or equal version
     """
     import IPython
-    vs = IPython.__version__.split('.')
+
+    vs = IPython.__version__.split(".")
     for i in range(len(vs)):
-        if i > (len(vin)-1):
+        if i > (len(vin) - 1):
             return True
         if int(vs[i]) > vin[i]:
             return True
@@ -39,21 +44,29 @@ def ipython_is_newer(vin):
             return False
     return True
 
+
 def is_ipython():
     return get_ipython() != None
+
 
 def register_exit(func):
     if is_ipython():
         ip = get_ipython()
-        if ipython_is_newer((0, 11)):
-            ip.hooks['shutdown_hook'].add(func, 1)
+        if ipython_is_newer((5, 0)):
+            import atexit
+
+            atexit.register(func, 1)
+        elif ipython_is_newer((0, 11)):
+            ip.hooks["shutdown_hook"].add(func, 1)
         else:
             ip.IP.hooks.shutdown_hook.add(func, 1)
     else:
         import atexit
+
         atexit.register(func)
 
-def str3(string,encoding='UTF-8'):
+
+def str3(string, encoding="UTF-8"):
     try:
         return string.decode(encoding)
     except AttributeError:
