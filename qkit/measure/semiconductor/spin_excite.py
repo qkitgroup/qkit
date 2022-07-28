@@ -28,7 +28,7 @@ from qupulse._program._loop import to_waveform
 import numpy as np
 import warnings
 import inspect
-import numbers
+from time import sleep
 
 def keytransform(original, transform):
     transformed = {}
@@ -250,7 +250,6 @@ class Qupulse_decoder2:
 
     def _get_loop_step(self, pt, pars):
         key = pt.loop_range.step.original_expression
-        print(type(key))
         if type(key) == str:
             loop_step_name = key
             loop_step_value = pars[key]
@@ -262,7 +261,15 @@ class Qupulse_decoder2:
 
     def _extract_axis_pars(self):
         self._nameless_counter = 1
-        for pt, pars in self.experiments:
+        for measurement, settings in self.measurement_pars.items():
+            settings["loop_step_name_pp"] = "Default"
+            settings["loop_range_pp"] = np.linspace(0, 1, settings["measurement_count"])
+
+            settings["loop_step_name_tt"] = "measurement time"
+            t_sample = 1/self.measurement_sample_rates[measurement]
+            settings["loop_range_tt"] = np.linspace(0, t_sample * settings["sample_count"], settings["sample_count"])
+
+        for pt, pars in self.experiments:            
             if isinstance(pt, self._for_type):
                 loop_start = self._get_loop_start(pt, pars)
                 loop_stop = self._get_loop_stop(pt, pars)
@@ -271,14 +278,11 @@ class Qupulse_decoder2:
                     warnings.warn(f"{__name__}: {pt.identifier} does not contain any measurements. Pulse parameter axis cannot be extracted automatically.")
                 for measurement in pt.measurement_names:
                     self.measurement_pars[measurement]["loop_step_name_pp"] = loop_step_name
-                    self.measurement_pars[measurement]["loop_range_pp"] = np.arange(loop_start, loop_stop, loop_step) * 1e-9
+                    self.measurement_pars[measurement]["loop_range_pp"] = np.arange(loop_start, loop_stop, loop_step)
             else:
-                warnings.warn(f"{__name__}: {pt.identifier} is not a ForLoopPulseTemplate. Pulse parameter axis cannot be extracted automatically.")
+                warnings.warn(f"{__name__}: {pt.identifier} is not a ForLoopPulseTemplate. Pulse parameter axis will be displayed with default name.")
         
-        for measurement, settings in self.measurement_pars.items():
-            settings["loop_step_name_tt"] = "measurement time"
-            t_sample = 1/self.measurement_sample_rates[measurement]
-            settings["loop_range_tt"] = np.linspace(0, t_sample * settings["sample_count"], settings["sample_count"])
+        
     
 class Settings:
     def __init__(self, core, channel_params, measurement_params, averages, **add_pars):
@@ -432,21 +436,25 @@ class Exciting(mb.MeasureBase):
             raise TypeError(f"{__name__}: Cannot set {MA_backend} as manipulation backend. The backend must be a subclass of MA_backend_base")
     
     def update_t_parameters(self, vec, coordname, measurement, unit = "s"):
-            new_t_parameter = self.Coordinate(coordname, 
-                                                unit = unit, 
+            if len(vec) != self.settings.measurement_settings[measurement]["sample_count"]:
+                raise ValueError((f"{__name__}: Wrong timetrace parameter coordinate length." 
+                f"The given array must have" 
+                f"{self.settings.measurement_settings[measurement]['sample_count']} entries."))
+            
+            new_t_parameter = self.Coordinate(coordname,
+                                                unit = unit,
                                                 values = np.array(vec, dtype=float),
                                                 set_function = lambda val : True,
                                                 wait_time = 0)
             new_t_parameter.validate_parameters()
             self._t_parameters[measurement] = new_t_parameter
-            
-            #If we have two measurements which use the same coordinate, we add a reference to that coordinate instead of adding a new nominally identical one.
-            #This saves us a lot of trouble during data creation.
-            for meas, coordinate in self._t_parameters.items():
-                if coordinate.name == new_t_parameter.name:
-                    self._t_parameters[measurement] = self._t_parameters[meas]
 
     def update_pulse_parameters(self, vec, coordname, measurement, unit = " a.u."):
+        if len(vec) != self.settings.measurement_settings[measurement]["measurement_count"]:
+                raise ValueError((f"{__name__}: Wrong pulse parameter coordinate length."
+                f"The given array must have" 
+                f"{self.settings.measurement_settings[measurement]['measurement_count']} entries."))
+        
         new_pulse_parameter = self.Coordinate(coordname, 
                                             unit = unit, 
                                             values = np.array(vec, dtype=float),
@@ -454,12 +462,6 @@ class Exciting(mb.MeasureBase):
                                             wait_time = 0)
         new_pulse_parameter.validate_parameters()
         self._pulse_parameters[measurement] = new_pulse_parameter
-        
-        #If we have two measurements which use the same coordinate, we add a reference to that coordinate instead of adding a new nominally identical one.
-        #This saves us a lot of trouble during data creation.
-        for meas, coordinate in self._pulse_parameters.items():
-            if coordinate.name == new_pulse_parameter.name:
-                self._pulse_parameters[measurement] = self._pulse_parameters[meas]
                 
     def _prepare_measurement_file(self, data, coords=()):
         """Das Fleisch in der Sonne zu trocknen ist in unseren Breiten schwierig. 
@@ -484,12 +486,6 @@ class Exciting(mb.MeasureBase):
                         active_gates.update({key:value})
             self._static_voltages.append(active_gates)
 
-    def _create_dsets(self, coords, measurement):
-        datasets = []
-        for node in self.settings.measurement_settings[measurement]["data_nodes"]:
-            if self.mode == "timetrace": pass
-
-    
     def _prepare_measurement(self, coords):
         """Zutaten:
         Hundefleisch
@@ -516,7 +512,15 @@ class Exciting(mb.MeasureBase):
                     datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._t_parameters[measurement]],
                                         unit = self.settings.measurement_settings[measurement]["unit"], 
                                         save_timestamp = False))
-                            
+                elif self.mode == "pulse_parameter":
+                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._pulse_parameters[measurement]],
+                                        unit = self.settings.measurement_settings[measurement]["unit"], 
+                                        save_timestamp = False))
+                elif self.mode == "pp_vs_t":
+                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._pulse_parameters[measurement], self._t_parameters[measurement]],
+                                        unit = self.settings.measurement_settings[measurement]["unit"], 
+                                        save_timestamp = False))
+
         self._total_iterations = total_iterations
         self._prepare_measurement_file(datasets)
         if self.open_qviewkit:
@@ -538,7 +542,7 @@ class Exciting(mb.MeasureBase):
         if np.size(latest_node_data, axis = 2) == 0:
             raise ValueError(f"{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
 
-    def _measure_vs_pulse_parameter(self, dimension, progress_bar):
+    def _stream1D(self, dimension, progress_bar, avg_ax): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
         """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
         Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
         Reis nach Anleitung zubereiten. Danach warmstellen.
@@ -562,52 +566,10 @@ class Exciting(mb.MeasureBase):
                     self._check_node_data(latest_node_data)
                     #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
                     if self.divider[measurement] == 1:
-                        total_sum[measurement][node] = np.average(latest_node_data, axis = (0,2))
+                        total_sum[measurement][node] = np.average(latest_node_data, axis = avg_ax)
                         self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node])
                     else:
-                        total_sum[measurement][node] += np.average(latest_node_data, axis = (0, 2))
-                        #Divide through the number of finished iterations, since you accumulate all the averages
-                        if dimension == 1:
-                            self._datasets["%s.%s" % (measurement, node)].ds[:] =  total_sum[measurement][node] / self.divider[measurement]
-                        elif dimension == 2:
-                            self._datasets["%s.%s" % (measurement, node)].ds[-1] = total_sum[measurement][node] / self.divider[measurement]
-                        elif dimension == 3:
-                            self._datasets["%s.%s" % (measurement, node)].ds[-1][-1] = total_sum[measurement][node] / self.divider[measurement]
-                self.divider[measurement] += 1
-            self._data_file.flush()
-            progress_bar.iterate(addend = iterations - old_iterations)
-        for measurement in self.settings.measurement_settings.keys():
-            self.divider[measurement] = 1
-        self._stop_hardware()
-
-    def _measure_vs_time(self, dimension, progress_bar):
-        """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
-        Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
-        Reis nach Anleitung zubereiten. Danach warmstellen.
-        """
-        self._ready_hardware()      
-        total_sum = {}
-        iterations = 0
-        while not self._ro_backend.finished():
-            old_iterations = iterations
-            latest_data = self._ro_backend.read()
-            for measurement in latest_data.keys():
-                if self.divider[measurement] == 1:                            
-                    total_sum[measurement] = {}            
-                first_node = list(latest_data[measurement].keys())[0]
-                #If latest data is empty for one measurement, skip it
-                if len(latest_data[measurement][first_node]) == 0: continue
-                #Count the number of iterations collected by the most recent call of read
-                iterations += len(latest_data[measurement][first_node])
-                for node in latest_data[measurement].keys():
-                    latest_node_data = np.array(latest_data[measurement][node])
-                    self._check_node_data(latest_node_data)
-                    #Calculate the average over all measurements (axis 0), and integrate along the pulse parameter axis (axis 1).
-                    if self.divider[measurement] == 1:
-                        total_sum[measurement][node] = np.average(latest_node_data, axis = (0,1))
-                        self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node])
-                    else:
-                        total_sum[measurement][node] += np.average(latest_node_data, axis = (0, 1))
+                        total_sum[measurement][node] += np.average(latest_node_data, axis = avg_ax)
                         #Divide through the number of finished iterations, since you accumulate all the averages
                         if dimension == 1:
                             self._datasets["%s.%s" % (measurement, node)].ds[:] =  total_sum[measurement][node] / self.divider[measurement]
@@ -631,7 +593,7 @@ class Exciting(mb.MeasureBase):
             latest_data = self._ro_backend.read()
             for measurement in latest_data.keys():
                 if self.divider[measurement] == 1:                            
-                    total_sum[measurement] = {}            
+                    total_sum[measurement] = {}
                 first_node = list(latest_data[measurement].keys())[0]
                 #If latest data is empty for one measurement, skip it
                 if len(latest_data[measurement][first_node]) == 0: continue
@@ -643,15 +605,17 @@ class Exciting(mb.MeasureBase):
                     #Calculate the average over all measurements (axis 0), and integrate along the pulse parameter axis (axis 1).
                     if self.divider[measurement] == 1:
                         total_sum[measurement][node] = np.average(latest_node_data, axis = (0))
-                        for timetrace in total_sum[measurement][node]:                            
+                        for timetrace in total_sum[measurement][node]: 
                             self._datasets["%s.%s" % (measurement, node)].append(timetrace)
-                    else:
-                        total_sum[measurement][node] += np.average(latest_node_data, axis = (0, 1))
+                    else:                        
+                        total_sum[measurement][node] += np.average(latest_node_data, axis = (0))
                         #Divide through the number of finished iterations, since you accumulate all the averages
                         if dimension == 2:
-                            self._datasets["%s.%s" % (measurement, node)].ds[:][:] = total_sum[measurement][node] / self.divider[measurement]
+                            #print(total_sum[measurement][node].shape)
+                            self._datasets["%s.%s" % (measurement, node)].ds[:]=  total_sum[measurement][node]/ self.divider[measurement]
                         elif dimension == 3:
                             self._datasets["%s.%s" % (measurement, node)].ds[:][:][-1] = total_sum[measurement][node] / self.divider[measurement]
+                        pass
                 self.divider[measurement] += 1
             self._data_file.flush()
             progress_bar.iterate(addend = iterations - old_iterations)
@@ -661,9 +625,9 @@ class Exciting(mb.MeasureBase):
 
     def _choose_measurement_function(self, dimension, progress_bar):
         if self.mode == "pulse_parameter":
-            self._measure_vs_pulse_parameter(dimension, progress_bar)
+            self._stream1D(dimension, progress_bar, (0, 2))
         elif self.mode == "timetrace":
-            self._measure_vs_time(dimension, progress_bar)
+            self._stream1D(dimension, progress_bar, (0, 1))
         elif self.mode == "pp_vs_t":
             if dimension < 2:
                 raise ValueError(f"{__name__}: pp_vs_t mode requires at least a 2D measurement.")
@@ -674,10 +638,10 @@ class Exciting(mb.MeasureBase):
     def _create_axis(self):
         for name, measurement in self.settings.measurement_settings.items():
             self.update_pulse_parameters(measurement["loop_range_pp"], 
-                                        measurement["loop_step_name_pp"],
+                                        f"{measurement['loop_step_name_pp']}.{name}",
                                         name)
             self.update_t_parameters(measurement["loop_range_tt"], 
-                                        measurement["loop_step_name_tt"],
+                                        f"{measurement['loop_step_name_tt']}.{name}",
                                         name)
 
     def compile_qupulse(self, *experiments, averages, mode = "pulse_parameter", deep_render = False, **add_pars):   
@@ -689,6 +653,7 @@ class Exciting(mb.MeasureBase):
         Das Gericht ist ungewürzt und erhält seinen Geschmack durch die jeweiligen Saucen.
         """
         self.mode = mode
+
         channel_sample_rates = {channel : getattr(self._ma_backend, f"{channel}_get_sample_rate")() \
                         for channel in self._ma_backend._registered_channels.keys()}
         measurement_sample_rates = {measurement : getattr(self._ro_backend, f"{measurement}_get_sample_rate")() \
@@ -731,6 +696,18 @@ class Exciting(mb.MeasureBase):
             self._ro_backend.stop()
             self._ma_backend.stop()
             self._end_measurement()
+    
+    def measure2D_ppvst(self):        
+        self._measurement_object.measurement_func = "%s: measure2D_ppvst" % __name__        
+        self._prepare_measurement([])
+        pb = Progress_Bar(self._total_iterations)
+        try:
+            self._measure_pp_vs_time(2, pb)
+        finally:
+            self._ro_backend.stop()
+            self._ma_backend.stop()
+            self._end_measurement()
+        
     
     def measure3D(self):        
         self._measurement_object.measurement_func = "%s: measure3D" % __name__
