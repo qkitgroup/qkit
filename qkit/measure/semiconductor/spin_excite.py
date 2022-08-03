@@ -21,6 +21,7 @@ from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.write_additional_files import get_instrument_settings
 from qkit.measure.semiconductor.readout_backends.RO_backend_base import RO_backend_base
 from qkit.measure.semiconductor.manipulation_backends.MA_backend_base import MA_backend_base
+from qkit.measure.semiconductor.utils.utility_objects import Mapping_handler2
 
 import qupulse
 from qupulse._program._loop import to_waveform
@@ -653,15 +654,27 @@ class Exciting(mb.MeasureBase):
         Das Gericht ist ungewürzt und erhält seinen Geschmack durch die jeweiligen Saucen.
         """
         self.mode = mode
+        mapper = Mapping_handler2()
+        if "channel_mapping" in add_pars:
+            mapper.channel_mapping = add_pars["channel_mapping"]
+        if "measurement_mapping" in add_pars:
+            mapper.measurement_mapping = add_pars["measurement_mapping"]
 
-        channel_sample_rates = {channel : getattr(self._ma_backend, f"{channel}_get_sample_rate")() \
+        channel_sample_rates = {channel : getattr(self._ma_backend, f"{channel}_get_sample_rate")()
                         for channel in self._ma_backend._registered_channels.keys()}
         measurement_sample_rates = {measurement : getattr(self._ro_backend, f"{measurement}_get_sample_rate")() \
-                        for measurement in self._ro_backend._registered_measurements.keys()} 
+                        for measurement in self._ro_backend._registered_measurements.keys()}
+        
+        mapper.map_channels_inv(channel_sample_rates)
+        mapper.map_measurements_inv(measurement_sample_rates)
         
         decoded = Qupulse_decoder2(*experiments, channel_sample_rates = channel_sample_rates, measurement_sample_rates = measurement_sample_rates,\
              deep_render = deep_render, **add_pars)        
         
+        mapper.map_channels(decoded.channel_pars)
+        mapper.map_measurements(decoded.measurement_pars)
+        mapper.map_measurements(averages)
+
         self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)        
         
         self._t_parameters = {}
