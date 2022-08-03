@@ -24,8 +24,9 @@ class Analyzer:
         jumps_t_difference = np.diff(jumps_time)
 
         return {"jump_height" : self.bin_edges[:-1], "jumps_per_bin" : self.hist}, \
-        {"number_of_big_jumps" : len(jumps), "height_of_big_jumps" : jumps, 
-        "time_between_big_jumps" : jumps_t_difference, "time_of_big_jumps" : jumps_time}
+        {"number_of_big_jumps" : len(jumps), "height_of_big_jumps" : jumps,
+        "time_between_big_jumps" : jumps_t_difference, "time_of_big_jumps" : jumps_time,
+        "idx_of_big_jumps" : jumps_idx}
    
     def fit(self):
         assert self.hist.any(), f"{__name__}: Analyze trace first. No histogram available."
