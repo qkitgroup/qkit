@@ -76,29 +76,7 @@ class Qupulse_decoder2:
         self._extract_waveforms(deep_render)
 
         self._extract_axis_pars()
-        """        
-        if "measurement_mapping" in kwargs:
-            measurement_mapping = expand_mapping(self.measurement_pars, kwargs["measurement_mapping"])
-            inverse_measurement_mapping = expand_mapping(measurement_sample_rates, invert_dict(kwargs["measurement_mapping"]))#The rates come with the instrument name of the measurements. Therefore we have to invert the user mapping
-            measurement_sample_rates = {inverse_measurement_mapping[measurement] : rate for measurement, rate in measurement_sample_rates.items()}
-        else:
-            measurement_mapping = {measurement : measurement for measurement in self.measurement_pars.keys()}
-        self.measurement_pars = keytransform(self.measurement_pars, measurement_mapping) """
         
-        """
-        if "channel_mapping" in kwargs:
-            inverse_rate_mapping = expand_mapping(channel_sample_rates, invert_dict(kwargs["channel_mapping"])) #The rates come with the instrument name of the channels. Therefore we have to invert the user mapping
-            channel_sample_rates = {inverse_rate_mapping[channel] : rate for channel, rate in channel_sample_rates.items()}
-        """
-        
-        
-        """ if "channel_mapping" in kwargs:
-            channel_mapping = expand_mapping(self.channel_pars, kwargs["channel_mapping"])            
-        else:
-            channel_mapping = {channel : channel for channel in self.channel_pars.keys()}
-
-        self.channel_pars = keytransform(self.channel_pars, channel_mapping)
-        """
     def _validate_entries(self):
         """Das Fleisch von Hunden (und Katzen/Affen) darf laut deutschem Lebensmittelrecht a) 
         nicht zum menschlichen Verzehr gewonnen und b) nicht in den Verkehr gebracht werden. 
