@@ -94,10 +94,14 @@ class AnalyzerTimetraceSpectralNoiseDensity:
 
         #fitting of log10(spec)
         popt_raw, cov = curve_fit(self.fit_func, np.log10(freqs), np.log10(spectrogram), p0=self.guess, maxfev=self.max_iter)
-        print(len(popt_raw))
         popt = []
         for i in range(0, len(popt_raw), 2):
-            print(i)
             popt.extend([popt_raw[i], 10**popt_raw[i+1]])
-        
-        return {"popt" : np.array(popt), "cov" : cov, "fit_range" : [min(freqs), max(freqs)]} # freqs[0]=0 ; The 0Hz value is cut off
+            print(popt_raw[i+1])
+
+        sigma_raw = np.sqrt(np.diagonal(cov))
+        sigma = []
+        for i in range(0, len(sigma_raw), 2):
+            sigma.extend([sigma_raw[i], np.log(10) * sigma_raw[i +1] * 10**popt_raw[i+1]])
+
+        return {"popt" : np.array(popt), "cov" : cov, "fit_range" : [min(freqs), max(freqs)], "sigma" : np.array(sigma)} # freqs[0]=0 ; The 0Hz value is cut off

@@ -85,6 +85,18 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
         self.ax.plot(freqs, fit_spectrum, label=text, alpha=self.alpha)
         self.ax.legend(loc="lower left")
 
+    def _plot_error(self):
+
+        index_begin = map_array_to_index(self.spectrogram[0], self.fit["fit_range"][0])
+        index_end = map_array_to_index(self.spectrogram[0], self.fit["fit_range"][1])
+        freqs = self.spectrogram[0][index_begin : index_end]
+
+        bound_upper = func_power2(freqs, *(self.fit["popt"] + self.fit["sigma"]))
+        bound_lower = func_power2(freqs, *(self.fit["popt"] - self.fit["sigma"]))
+        # plotting the confidence intervals
+        self.ax.fill_between(freqs, bound_lower, bound_upper,
+                        color = 'black', alpha = 0.15)
+
     def plot(self):
         """Plots the sqrt of a spectrum (data["spectrogram"]). Respecting scaling with the slope of a plunger gate sweep (fit_params_plunger). 
             data: spectral data in dictionary with keys "freq", "times", "spectorgram"
@@ -116,7 +128,8 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
             b' = 10^b
             a'= a 
             '''
-            self._plot_fit()          
+            self._plot_fit()
+            #self._plot_error()          
 
         plt.grid()
         plt.savefig(self.saving_path + ".png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
