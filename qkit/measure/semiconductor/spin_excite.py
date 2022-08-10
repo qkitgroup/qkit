@@ -521,7 +521,7 @@ class Exciting(mb.MeasureBase):
         if np.size(latest_node_data, axis = 2) == 0:
             raise ValueError(f"{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
 
-    def _stream1D(self, dimension, progress_bar, avg_ax): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
+    def _stream1D(self, data_location, avg_ax, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
         """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
         Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
         Reis nach Anleitung zubereiten. Danach warmstellen.
@@ -549,13 +549,7 @@ class Exciting(mb.MeasureBase):
                         self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node])
                     else:
                         total_sum[measurement][node] += np.average(latest_node_data, axis = avg_ax)
-                        #Divide through the number of finished iterations, since you accumulate all the averages
-                        if dimension == 1:
-                            self._datasets["%s.%s" % (measurement, node)].ds[:] =  total_sum[measurement][node] / self.divider[measurement]
-                        elif dimension == 2:
-                            self._datasets["%s.%s" % (measurement, node)].ds[-1] = total_sum[measurement][node] / self.divider[measurement]
-                        elif dimension == 3:
-                            self._datasets["%s.%s" % (measurement, node)].ds[-1][-1] = total_sum[measurement][node] / self.divider[measurement]
+                        self._datasets["%s.%s" % (measurement, node)].ds[data_location] =  total_sum[measurement][node] / self.divider[measurement]
                 self.divider[measurement] += 1
             self._data_file.flush()
             progress_bar.iterate(addend = iterations - old_iterations)
@@ -563,7 +557,7 @@ class Exciting(mb.MeasureBase):
             self.divider[measurement] = 1
         self._stop_hardware()
 
-    def _measure_pp_vs_time(self, dimension, progress_bar):
+    def _stream2D(self, data_location, progress_bar):
         self._ready_hardware()      
         total_sum = {}
         iterations = 0
@@ -584,17 +578,13 @@ class Exciting(mb.MeasureBase):
                     #Calculate the average over all measurements (axis 0), and integrate along the pulse parameter axis (axis 1).
                     if self.divider[measurement] == 1:
                         total_sum[measurement][node] = np.average(latest_node_data, axis = (0))
-                        for timetrace in total_sum[measurement][node]: 
+                        for timetrace in total_sum[measurement][node]: # this is the difference to _steam1D. To initialize the 2D dataset, we have to pass each vector one by one.
                             self._datasets["%s.%s" % (measurement, node)].append(timetrace)
                     else:                        
                         total_sum[measurement][node] += np.average(latest_node_data, axis = (0))
-                        #Divide through the number of finished iterations, since you accumulate all the averages
-                        if dimension == 2:
-                            #print(total_sum[measurement][node].shape)
-                            self._datasets["%s.%s" % (measurement, node)].ds[:]=  total_sum[measurement][node]/ self.divider[measurement]
-                        elif dimension == 3:
-                            self._datasets["%s.%s" % (measurement, node)].ds[:][:][-1] = total_sum[measurement][node] / self.divider[measurement]
-                        pass
+                        #Divide through the number of finished iterations, since you accumulate all the averages                            
+                        #print(total_sum[measurement][node].shape)
+                        self._datasets["%s.%s" % (measurement, node)].ds[data_location]=  total_sum[measurement][node]/ self.divider[measurement]
                 self.divider[measurement] += 1
             self._data_file.flush()
             progress_bar.iterate(addend = iterations - old_iterations)
@@ -602,17 +592,13 @@ class Exciting(mb.MeasureBase):
             self.divider[measurement] = 1
         self._stop_hardware()
 
-    def _choose_measurement_function(self, dimension, progress_bar):
+    def _choose_measurement_function(self, data_location, progress_bar):
         if self.mode == "pulse_parameter":
-            self._stream1D(dimension, progress_bar, (0, 2))
+            self._stream1D(data_location, (0, 2), progress_bar)
         elif self.mode == "timetrace":
-            self._stream1D(dimension, progress_bar, (0, 1))
+            self._stream1D(data_location, (0, 1), progress_bar)
         elif self.mode == "pp_vs_t":
-            if dimension < 2:
-                raise ValueError(f"{__name__}: pp_vs_t mode requires at least a 2D measurement.")
-            self._measure_pp_vs_time(dimension, progress_bar)
-        else:
-            raise AttributeError(f"{__name__}: {self.mode} is not a valid measurement mode. Allowed modes are: \n{self.modes}")
+            self._stream2D(data_location, progress_bar)
     
     def _create_axis(self):
         for name, measurement in self.settings.measurement_settings.items():
@@ -667,7 +653,7 @@ class Exciting(mb.MeasureBase):
         pb = Progress_Bar(self._total_iterations)
         try:
             #self._acquire_log_functions()
-            self._choose_measurement_function(1, pb)
+            self._choose_measurement_function((), pb)
         finally:
             self._ro_backend.stop()
             self._ma_backend.stop()
@@ -682,7 +668,7 @@ class Exciting(mb.MeasureBase):
                 self._x_parameter.set_function(x_val)
                 #self._acquire_log_functions()
                 qkit.flow.sleep(self._x_parameter.wait_time)
-                self._choose_measurement_function(2, pb)
+                self._choose_measurement_function((-1), pb)
         finally:
             self._ro_backend.stop()
             self._ma_backend.stop()
@@ -710,10 +696,10 @@ class Exciting(mb.MeasureBase):
                 #self._acquire_log_functions()
                 qkit.flow.sleep(self._x_parameter.wait_time)
                 
-                for y_val in self._y_parameter.values:
+                for i, y_val in enumerate(self._y_parameter.values):
                     self._y_parameter.set_function(y_val)
                     qkit.flow.sleep(self._y_parameter.wait_time)
-                    self._choose_measurement_function(3, pb)
+                    self._choose_measurement_function((-1, i), pb)
                 
                 for dset in self._datasets.values():
                     dset.next_matrix()
