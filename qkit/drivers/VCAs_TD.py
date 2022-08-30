@@ -36,21 +36,21 @@ class VCAs_TD(Instrument):
 
 
         self.add_parameter('attenuation_i_manip', type=float, flags=Instrument.FLAG_SET|Instrument.FLAG_SOFTGET, units='dB', minval=0,
-                           maxval=20)
+                           maxval=20, offset=True)
         self.add_parameter('attenuation_q_manip', type=float, flags=Instrument.FLAG_SET|Instrument.FLAG_SOFTGET, units='dB', minval=0,
-                           maxval=20)
+                           maxval=20, offset=True)
         self.add_parameter('attenuation_i_readout', type=float, flags=Instrument.FLAG_SET|Instrument.FLAG_SOFTGET, units='dB', minval=0,
-                           maxval=20) 
+                           maxval=20, offset=True) 
         self.add_parameter('attenuation_q_readout', type=float, flags=Instrument.FLAG_SET|Instrument.FLAG_SOFTGET, units='dB', minval=0,
-                           maxval=20)
+                           maxval=20, offset=True)
         self.add_parameter('attenuation_rf_readout', type=float, flags=Instrument.FLAG_SET|Instrument.FLAG_SOFTGET, units='dB', minval=0,
-                           maxval=30)
+                           maxval=30, offset=True)
         self.add_parameter('attenuation_rf_manip', type=float, flags=Instrument.FLAG_SET|Instrument.FLAG_SOFTGET, units='dB', minval=0,
-                           maxval=30)
+                           maxval=30, offset=True)
         self.add_parameter('amplification_i_return', type=float, flags=Instrument.FLAG_SET|Instrument.FLAG_SOFTGET, units='dB', minval=-20,
-                           maxval=33)
+                           maxval=33, offset=True)
         self.add_parameter('amplification_q_return', type=float, flags=Instrument.FLAG_SET|Instrument.FLAG_SOFTGET, units='dB', minval=-20,
-                           maxval=33)                                                               
+                           maxval=33, offset=True)                                                               
         self._address=address         
 
         self._dac = zerorpc.Client()
