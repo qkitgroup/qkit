@@ -362,6 +362,8 @@ class Exciting(mb.MeasureBase):
     measure3D() :
         Starts a 3D measurement
     """
+    class MeasurementDimensionError(Exception):
+        pass
     modes = {"pulse_parameter", "timetrace", "pp_vs_t"}
     def __init__(self, readout_backend, manipulation_backend,
                  *experiments, averages, mode = "pulse_parameter", deep_render = False, exp_name = "", sample = None, **add_pars):
@@ -592,14 +594,6 @@ class Exciting(mb.MeasureBase):
             self.divider[measurement] = 1
         self._stop_hardware()
 
-    def _choose_measurement_function(self, data_location, progress_bar):
-        if self.mode == "pulse_parameter":
-            self._stream1D(data_location, (0, 2), progress_bar)
-        elif self.mode == "timetrace":
-            self._stream1D(data_location, (0, 1), progress_bar)
-        elif self.mode == "pp_vs_t":
-            self._stream2D(data_location, progress_bar)
-    
     def _create_axis(self):
         for name, measurement in self.settings.measurement_settings.items():
             self.update_pulse_parameters(measurement["loop_range_pp"], 
@@ -646,14 +640,42 @@ class Exciting(mb.MeasureBase):
 
         self._create_axis()       
         self.settings.load()
+
+    def _choose_measurement_function(self, dimension, progress_bar):
+        if self.mode == "pulse_parameter" and dimension == 1:
+            return lambda: self._stream1D((), (0, 2), progress_bar)
+        elif self.mode == "pulse_parameter" and dimension == 2:
+            return lambda: self._stream1D((-1), (0, 2), progress_bar)
+        elif self.mode == "pulse_parameter" and dimension == 3:
+            return lambda i : self._stream1D((-1, i), (0, 2), progress_bar)
         
+        elif self.mode == "timetrace" and dimension == 1:
+            return lambda: self._stream1D((), (0, 1), progress_bar)
+        elif self.mode == "timetrace" and dimension == 2:
+            return lambda: self._stream1D((-1), (0, 1), progress_bar)
+        elif self.mode == "timetrace" and dimension == 3:
+            return lambda i : self._stream1D((-1, i), (0, 1), progress_bar)
+        
+        elif self.mode == "pp_vs_t" and dimension == 1:
+            return lambda: self._stream2D((), progress_bar)
+        elif self.mode == "pp_vs_t" and dimension == 2:
+            def pp_vs_t_2D():
+                self._stream2D((-1), progress_bar)
+                for dset in self._datasets.values():
+                    dset.next_matrix()
+            return pp_vs_t_2D
+
+        else:
+            raise self.MeasurementDimensionError(f"{__name__}: Mode \"{self.mode}\" does not support a {dimension}D-measurement.")
+    
     def measure1D(self):
         self._measurement_object.measurement_func = "%s: measure1D" % __name__
         self._prepare_measurement([])
         pb = Progress_Bar(self._total_iterations)
+        meas_func = self._choose_measurement_function(1, pb)
         try:
             #self._acquire_log_functions()
-            self._choose_measurement_function((), pb)
+            meas_func()
         finally:
             self._ro_backend.stop()
             self._ma_backend.stop()
@@ -663,33 +685,23 @@ class Exciting(mb.MeasureBase):
         self._measurement_object.measurement_func = "%s: measure2D" % __name__        
         self._prepare_measurement([self._x_parameter])
         pb = Progress_Bar(len(self._x_parameter.values) * self._total_iterations)
+        meas_func = self._choose_measurement_function(2, pb)
         try:
             for x_val in self._x_parameter.values:
                 self._x_parameter.set_function(x_val)
                 #self._acquire_log_functions()
                 qkit.flow.sleep(self._x_parameter.wait_time)
-                self._choose_measurement_function((-1), pb)
+                meas_func()
         finally:
             self._ro_backend.stop()
             self._ma_backend.stop()
             self._end_measurement()
-    
-    def measure2D_ppvst(self):        
-        self._measurement_object.measurement_func = "%s: measure2D_ppvst" % __name__        
-        self._prepare_measurement([])
-        pb = Progress_Bar(self._total_iterations)
-        try:
-            self._measure_pp_vs_time(2, pb)
-        finally:
-            self._ro_backend.stop()
-            self._ma_backend.stop()
-            self._end_measurement()
-        
-    
+            
     def measure3D(self):        
         self._measurement_object.measurement_func = "%s: measure3D" % __name__
         self._prepare_measurement([self._x_parameter, self._y_parameter])
         pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * self._total_iterations)
+        meas_func = self._choose_measurement_function(3, pb)
         try:            
             for x_val in self._x_parameter.values:
                 self._x_parameter.set_function(x_val)
@@ -699,7 +711,7 @@ class Exciting(mb.MeasureBase):
                 for i, y_val in enumerate(self._y_parameter.values):
                     self._y_parameter.set_function(y_val)
                     qkit.flow.sleep(self._y_parameter.wait_time)
-                    self._choose_measurement_function((-1, i), pb)
+                    meas_func(i)
                 
                 for dset in self._datasets.values():
                     dset.next_matrix()
