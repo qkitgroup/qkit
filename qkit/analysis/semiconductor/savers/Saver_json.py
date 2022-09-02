@@ -1,7 +1,16 @@
 import os
 import json
+import collections.abc
 from qkit.analysis.semiconductor.main.saving import create_saving_path
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
+
+def update(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
 
 class Saver_json():
     """Saves data in a folder that is set by "save_path". 
@@ -14,7 +23,8 @@ class Saver_json():
         self.append_to_file = False
     
     def add_info(self, fname, info):
-        self.additional_info[fname] = info
+        new_info = {fname : info}
+        update(self.additional_info, new_info)
     
     def remove_info(self, fname):
         self.additional_info.pop(fname, None)
@@ -28,7 +38,7 @@ class Saver_json():
         #full_path = os.path.join(self.saving_path, fname + ".json")
         with open(fpath, "r") as file:
             data_total= json.load(file, cls = QkitJSONDecoder)
-        data_total.update(data)
+        update(data_total, data)
         with open(fpath, "w") as file:
             json.dump(data_total, file, cls = QkitJSONEncoder, indent = 4)
     
@@ -47,7 +57,7 @@ class Saver_json():
             return self._overwrite(full_path, data)
         
     def save(self):
-        if self.single_file: 
+        if self.single_file:
             self._save(self.fname, self.additional_info)
         else:
             for fname, info in self.additional_info.items():
