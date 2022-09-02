@@ -66,3 +66,40 @@ class Mapping_handler:
         
     def _create_inverse_mapping(self):
         self.inverse_mapping = {v : k for k, v in self.mapping.items()}
+
+class Mapping_handler2:
+    def __init__(self, channel_mapping = {}, measurement_mapping = {}) -> None:
+        self.channel_mapping = channel_mapping
+        self.measurement_mapping = measurement_mapping
+
+    def map_channels(self, dict):
+        for display_name, name in self.channel_mapping.items():
+            try:                
+                dict[name] = dict.pop(display_name)
+            except KeyError:
+                raise KeyError(f"{__name__}: Incorrect channel mapping. Could not map {display_name} to {name}. Check whether both keys exist.")
+        return dict
+
+    def map_measurements(self, dict):
+        for display_name, name in self.measurement_mapping.items():
+            try:                
+                dict[name] = dict.pop(display_name)
+            except KeyError:
+                raise KeyError(f"{__name__}: Incorrect measurement mapping. Could not map {display_name} to {name}. Check whether both keys exist.")
+        return dict
+    
+    def map_channels_inv(self, dict):
+        for display_name, name in self.channel_mapping.items():
+            try:                
+                dict[display_name] = dict.pop(name)
+            except KeyError:
+                raise KeyError(f"{__name__}: Incorrect channel mapping. Could not map {name} to {display_name}. Check whether both keys exist.")
+        return dict
+
+    def map_measurements_inv(self, dict):
+        for display_name, name in self.measurement_mapping.items():
+            try:                
+                dict[display_name] = dict.pop(name)
+            except KeyError:
+                raise KeyError(f"{__name__}: Incorrect measurement mapping. Could not map {name} to {display_name}. Check whether both keys exist.")
+        return dict
