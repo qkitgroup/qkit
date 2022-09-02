@@ -545,14 +545,7 @@ class Exciting(mb.MeasureBase):
                 for node in latest_data[measurement].keys():
                     
                     latest_node_data = np.array(latest_data[measurement][node])
-<<<<<<< HEAD
-                    if latest_node_data.ndim != 3:
-                        raise IndexError(f"{__name__}: Invalid readout dimensions. {self._ro_backend} must return arrays with 3 dimensions.")
-                    if np.size(latest_node_data, axis = 2) == 0: # Dieses Any zerscheppert die 0 Hz
-                        raise ValueError(f"{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
-=======
                     self._check_node_data(latest_node_data)
->>>>>>> spin_excite_timetrace
                     #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
                     if self.divider[measurement] == 1:
                         total_sum[measurement][node] = np.average(latest_node_data, axis = avg_ax)
