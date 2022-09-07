@@ -1,7 +1,7 @@
 '''
 ADwin ProII driver written by S. Fuhrmann und D. Schroller
 
-TO-DO: 
+TODO:
     -
 
 IMPORTANT:
@@ -9,6 +9,7 @@ This file is using the ADwin process ramp_input_V3.TC1
 
 If ADwin is not booted then it has to be booted manually with ADbasic once. 
 
+Triggered readout with ADC card: TODO
 
 Copy driver into qkit/drivers folder.
 
@@ -116,8 +117,20 @@ class ADwin_Pro2_V3(Instrument):
 
     """
         
-    def __init__(self, name, processnumber, processpath, devicenumber, bootload=True, global_lower_limit_in_V=0, 
-                 global_upper_limit_in_V=0, global_lower_limit_in_V_safe_port=-10, global_upper_limit_in_V_safe_port=10,
+    def __init__(self,
+                 name='ADwin_Pro2_V3',
+                 processnumber_main=1,
+                 processpath_main='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ramp_input_V3.TC1',
+                 process_number_triggered=2,
+                 process_path_triggered='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_Burst_Event_V3.TC2',
+                 process_number_aquisition=3,
+                 process_path_aquisition='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_Burst_Event_Stopp_V3.TC3',
+                 devicenumber=1,
+                 bootload=True,
+                 global_lower_limit_in_V=0,
+                 global_upper_limit_in_V=0,
+                 global_lower_limit_in_V_safe_port=-10,
+                 global_upper_limit_in_V_safe_port=10,
                  import_coil_params=False):
         
         logging.info(__name__ + ' : Initializing instrument')
@@ -125,13 +138,23 @@ class ADwin_Pro2_V3(Instrument):
         
         #create ADwin instance 
         self.name = name
-        self.processnumber=processnumber
-        self.process = processpath
+        self.processnumber = processnumber_main
+        self.process = processpath_main
         self.adw = adw.ADwin(devicenumber,1) # 1 turns on raiseExceptions
         self.global_upper_limit_in_V = global_upper_limit_in_V
         self.global_lower_limit_in_V = global_lower_limit_in_V
         self.global_upper_limit_in_V_safe_port = global_upper_limit_in_V_safe_port
         self.global_lower_limit_in_V_safe_port = global_lower_limit_in_V_safe_port
+
+        #parameters for triggered burst readout
+        self.process_number_triggered = process_number_triggered
+        self.process_path_triggered = process_path_triggered
+        self.process_number_aquisition = process_number_aquisition
+        self.process_path_aquisition = process_path_aquisition
+        self.repeats = None
+        self.measurement_count = None
+        self.sample_count = None
+
         
         if self.global_upper_limit_in_V<self.global_lower_limit_in_V or self.global_upper_limit_in_V_safe_port<self.global_lower_limit_in_V_safe_port:
             logging.error(__name__+': lower voltage limit higher than upper limit')
@@ -163,12 +186,20 @@ class ADwin_Pro2_V3(Instrument):
             #bootload
             self.bootload_process()
             
-            #load and start process
+            #load and start processes
+            logging.info(__name__ + ': loading process that does ramping and single input.')
             self.adw.Load_Process(self.process)
             time.sleep(1.0)
             self.adw.Start_Process(self.processnumber)
-        
-        
+            time.sleep(1.0)
+            logging.info(__name__ + ': loading process that does the burst readout.')
+            self.adw.Load_Process(process_path_triggered)
+            time.sleep(1)
+            logging.info(__name__ + ': loading process that reads out the ADC and fires a new trigger to the AWG.')
+            self.adw.Load_Process(process_path_aquisition)
+            time.sleep(1)
+
+
         #implement functions
         self.add_function('start_process')
         self.add_function('stop_process')
@@ -187,8 +218,15 @@ class ADwin_Pro2_V3(Instrument):
         self.add_function('set_output_current_voltage_parallel')
         self.add_function('initialize_gates')
         self.add_function('IV_curve')
-        
-        
+        self.add_function("initialize_triggered_readout")
+        # self.add_function("make_grid_triggered_readout")
+        self.add_function("start_triggered_readout")
+        self.add_function("check_finished_triggered_readout")
+        self.add_function("check_error_triggered_readout")
+        self.add_function("stop_triggered_readout")
+        self.add_function("read_triggered_readout")
+
+
         #implement parameters
 
         #process delay
@@ -298,7 +336,36 @@ class ADwin_Pro2_V3(Instrument):
             channels=(1,200), channel_prefix='gate%d_',
             minval=-10, maxval=10, units='V',
             tags=['sweep'])
-        
+
+        #sample_rate of the ADC input card
+        self.add_parameter('sample_rate_triggered_readout', type=float,
+                           flags=Instrument.FLAG_GETSET,
+                           channels=(1,), channel_prefix='input%d_',
+                           minval=1, maxval=1e9, units='Hz',
+                           tags=['sweep'])
+
+        # measurement count of the ADC input card. So the number of sequences
+        # in a pulse train that will trigger a readout by the ADwin.
+        self.add_parameter('measurement_count_triggered_readout', type=float,
+                           flags=Instrument.FLAG_GETSET,
+                           channels=(1,), channel_prefix='input%d_',
+                           minval=1, maxval=1e9, units='',
+                           tags=['sweep'])
+
+        # Samples of the ADC input card that will be aquired after a triggered event.
+        self.add_parameter('sample_count_triggered_readout', type=float,
+                           flags=Instrument.FLAG_GETSET,
+                           channels=(1,), channel_prefix='input%d_',
+                           minval=1, maxval=1e9, units='',
+                           tags=['sweep'])
+
+        # Number of repetitions (full AWG pulse trains) that are aquired by the ADwin.
+        self.add_parameter('repeats_triggered_readout', type=float,
+                           flags=Instrument.FLAG_GETSET,
+                           channels=(1,), channel_prefix='input%d_',
+                           minval=1, maxval=1e9, units='',
+                           tags=['sweep'])
+
 
         
     def bootload_process(self):
@@ -1355,13 +1422,127 @@ class ADwin_Pro2_V3(Instrument):
             
         return (data_V, data_I)
 
-    def start_triggered_readout(self, ):
-        """Starts"""
-        
 
-    
-   
-   
+####################################################################################
+    ################ TRIGGERED READOUT BY INPUT 1 at ADC CARD ##################
+
+    def _do_set_sample_rate_triggered_readout(self, rate, channel):
+        """sample rate is always at 4 MHz"""
+        pass
+
+    def _do_get_sample_rate_triggered_readout(self, channel):
+        return 4e6
+
+    def _do_set_measurement_count_triggered_readout(self, measurement_count:int, channel):
+        logging.info(__name__ + ': setting measurement count to: %d' % measurement_count)
+        self.measurement_count = int(measurement_count)
+        self.set_Par_11_global_long(measurement_count)
+
+    def _do_get_measurement_count_triggered_readout(self, channel):
+        logging.info(__name__ + ': getting measurement count')
+        count = self.get_Par_11_global_long()
+        return count
+
+    def _do_set_sample_count_triggered_readout(self, sample_count:int, channel):
+        """sample count has to be in bytes"""
+        if (sample_count % 8) != 0:
+            logging.warning(__name__ + ': sample count has to be a multiple of 8. \nNot changed.')
+            sys.exit()
+        else:
+            logging.info(__name__ + ': setting sample count to: %d' % sample_count)
+            self.sample_count = int(sample_count)
+            self.set_Par_10_global_long(sample_count)
+
+    def _do_get_sample_count_triggered_readout(self, channel):
+        logging.info(__name__ + ': getting sample count')
+        count = self.get_Par_10_global_long()
+        return count
+
+    def _do_set_repeats_triggered_readout(self, repeats:int, channel):
+        logging.info(__name__ + ': setting repeats to: %d' % repeats)
+        self.repeats =int(repeats)
+        self.set_Par_12_global_long(repeats)
+
+    def _do_get_repeats_triggered_readout(self, channel):
+        logging.info(__name__ + ': getting number of triggers')
+        count = self.get_Par_12_global_long()
+        return count
+
+    def initialize_triggered_readout(self):
+        """starts other processes to the ADwin that enable a triggered burst readout.
+        """
+        data_to_aquire = self.measurement_count * self.sample_count
+        if data_to_aquire>3e8:
+            logging.error(__name__ + ': to many samples to aquire. Max is probably 1min at 4MHz.')
+            sys.exit()
+
+        logging.info(__name__ + ': starting process that does the burst readout.')
+        self.adw.Start_Process(self.process_number_triggered)
+        time.sleep(1)
+        logging.info(__name__ + ': starting process that reads out the ADC and fires a new trigger to the AWG.')
+        self.adw.Start_Process(self.process_number_aquisition)
+        time.sleep(1)
+
+    # def make_grid_triggered_readout(self):
+    #     """sets up the 3d array of the measurement data."""
+    #     self.data_triggered_readout = np.empty(shape=(self.repeats, self.measurement_count, self.sample_count))
+
+    def start_triggered_readout(self):
+        """starts the measurement by sending a trigger to the AWG.
+        This is done by setting the ADwin flag_start_measurement=1
+        The old measurement counters are used. They need to be reinitialized with
+        self.initialize_triggered_readout beforehand.
+        """
+        logging.info(__name__ + ': starting measurement')
+        self.set_Par_18_global_long(1)
+
+    def check_finished_one_average_triggered_readout(self):
+        """checks a flag (Par_16) that the ADwin will set to 1 if measurement_count was finished
+        (This being one part of the number of repetitions).
+        Ideally there should be no more triggers sent by the AWG afterwards until the ADwin triggers the AWG again.
+        """
+        logging.info(__name__ + ': checking if data is ready.')
+        status = self.get_Par_16_global_long()
+        return status
+
+    def check_error_triggered_readout(self):
+        """checks a flag (Par_17) that the ADwin will set to 1. This function should be called after a measurement is done fully.
+        """
+        logging.info(__name__ + ': checking if an error occured.')
+        status = self.get_Par_17_global_long()
+        return status
+
+    def stop_triggered_readout(self):
+        """stops only the continuous processes of the ADwin that triggers the AWG and does the readout of the ADC.
+        Stopping the Event-In triggered process of the ADwin is impossible as there needs to be one more trigger from
+        the AWG in order to stopp the process which will not come. See ADwin manual Stop_Process."""
+        logging.info(__name__ + ': Stopping processes responsible for triggering the AWG and reading out data.')
+        self.adw.Stop_Process(self.process_number_aquisition)
+        time.sleep(0.2)
+        self.adw.Stop_Process(self.process_number_triggered)
+        time.sleep(0.2)
+
+    def read_triggered_readout(self):
+        """reads out Data_1 of ADwin which is the data of a full measurement_count"""
+        logging.info(__name__ + ': getting data from Adwin.')
+        size = int(self.sample_count * self.measurement_count)
+        data_raw = np.array(self.adw.GetData_Long(1, 1, size))
+        average_number = self.repeats - self.get_Par_14_global_long()
+        data_reshaped = data_raw.reshape(self.measurement_count, self.sample_count)
+        data_volts = (data_reshaped )#* 2*10/(2**16) - 10) # translating to volts
+        data_triggered_readout = np.empty(shape=(self.repeats, self.measurement_count, self.sample_count))
+        data_triggered_readout[average_number-1: average_number, :, :] = data_volts
+        self.start_triggered_readout()  # starting new average
+        return data_triggered_readout
+
+    def check_finished_triggered_readout(self):
+        """returns "True" if all data has been aquired by the ADwin.
+        """
+        logging.info(__name__ + ': checking if full measurement is done.')
+        status = self.get_Par_19_global_long()
+        return status
+
+
 if __name__ == "__main__":
 
     ##device test routine
@@ -1432,3 +1613,21 @@ if __name__ == "__main__":
             plt.ylabel("I in A")
             #plt.savefig(r"O:\data\20220803\gatecheckMOS\gate%dto%d.png"%(gate, IV_port), dpi = 300, bbox_inches='tight')
             plt.show()
+
+    #triggered readout:
+    print(bill.set_input1_measurement_count_triggered_readout(10))
+    print(bill.get_input1_measurement_count_triggered_readout())
+    print(bill.set_input1_sample_count_triggered_readout(80))
+    print(bill.get_input1_sample_count_triggered_readout())
+    print(bill.set_input1_repeats_triggered_readout(5))
+    print(bill.get_input1_repeats_triggered_readout())
+    bill.initialize_triggered_readout(process_number_triggered=2,
+                                      process_path_triggered='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_Burst_Event_V3.TC2',
+                                      process_number_aquisition=3,
+                                      process_path_aquisition='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_Burst_Event_Stopp_V3.TC3'
+                                      )
+    bill.start_triggered_readout()
+    bill.check_finished_triggered_readout()
+    bill.check_error_triggered_readout()
+    print(bill.read_triggered_readout())
+    bill.stop_triggered_readout()

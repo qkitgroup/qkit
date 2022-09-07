@@ -22,6 +22,7 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
     #logging.info(__name__ + ' : Initializing instrument')
         super(ZI_HDAWG4_SemiCon,self).__init__(name = name, device_id = device_id, tags = ['physical','ZI_HDAWG4'])
 
+        self.external_trigger = False # if True the AWG is triggered by the digital inputs on its back
         self.zshape_array = np.empty(0)#array containing the series of sequences
 
         self.add_function('zcreate_sequence_program')
@@ -142,6 +143,11 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
         else:
             logging.info(__name__ +': Repeating sequence %d times'%loop_or_single_or_repeat)
             self.awg_program = self.awg_program+"repeat(%d){\n"%loop_or_single_or_repeat
+
+        #if the AWG is to be triggered then activate Digital input 1:
+        if self.external_trigger==1:
+            self.awg_program = self.awg_program + "waitDigTrigger(1);"
+
 
         #make playWaves
 
