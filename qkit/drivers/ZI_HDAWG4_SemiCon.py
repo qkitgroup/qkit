@@ -146,7 +146,7 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
 
         #if the AWG is to be triggered then activate Digital input 1:
         if self.external_trigger==1:
-            self.awg_program = self.awg_program + "waitDigTrigger(1);"
+            self.awg_program = self.awg_program + "waitDigTrigger(1);\n"
 
 
         #make playWaves
