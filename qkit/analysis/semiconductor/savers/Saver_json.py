@@ -43,7 +43,9 @@ class Saver_json():
             json.dump(data_total, file, cls = QkitJSONEncoder, indent = 4)
     
     def _save(self, fname, data):
-        full_path = os.path.join(self.saving_path, fname + ".json")
+        if not os.path.exists(self.saving_path):
+            os.makedirs(self.saving_path)
+        full_path = os.path.join(self.saving_path, fname + ".json")        
         file_exists = os.path.isfile(full_path)
         file_has_content = False         
         if file_exists:
