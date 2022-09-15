@@ -20,7 +20,7 @@ class Saver_json():
         self.fname = "analyzed_data"
         self.saving_path = save_path
         self.single_file = True
-        self.append_to_file = False
+        self.append_to_file = True
     
     def add_info(self, fname, info):
         new_info = {fname : info}
