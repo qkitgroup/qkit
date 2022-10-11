@@ -45,7 +45,10 @@ def is_ipython():
 def register_exit(func):
     if is_ipython():
         ip = get_ipython()
-        if ipython_is_newer((0, 11)):
+        if ipython_is_newer((8, 0, 0)):
+            import atexit
+            atexit.register(func)
+        elif ipython_is_newer((0, 11)):
             ip.hooks['shutdown_hook'].add(func, 1)
         else:
             ip.IP.hooks.shutdown_hook.add(func, 1)
@@ -58,3 +61,13 @@ def str3(string,encoding='UTF-8'):
         return string.decode(encoding)
     except AttributeError:
         return str(string)
+
+def concat(*args):
+    """
+    Concatenates any number of strings or bytestrings together to a string.
+    This function can be helpful for code migration from py2
+    """
+    s = ""
+    for a in args:
+        s+=str3(a)
+    return s

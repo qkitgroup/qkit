@@ -33,6 +33,7 @@ from qkit.gui.qviewkit.plot_view import Ui_Form
 from qkit.storage.hdf_constants import ds_types, view_types
 from qkit.gui.qviewkit.PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
 from qkit.gui.qviewkit.PlotWindow_lib import _get_ds, _get_ds_url, _get_name, _get_unit
+from qkit.core.lib.misc import str3
 
 class PlotWindow(QWidget,Ui_Form):
     """PlotWindow class organizes the correct display of data in a h5 file.
@@ -108,8 +109,8 @@ class PlotWindow(QWidget,Ui_Form):
         z_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('z_ds_url', '')))
         try:
             if self.ds.attrs.get('xy_0', ''):
-                x_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').decode().split(':')[1]).attrs.get('x_ds_url', '')))
-                y_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, self.ds.attrs.get('xy_0', '').decode().split(':')[1]).attrs.get('y_ds_url', '')))
+                x_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, str3(self.ds.attrs.get('xy_0', '')).split(':')[1]).attrs.get('x_ds_url','')))
+                y_ds_name_view = _get_name(_get_ds(self.ds,_get_ds(self.ds, str3(self.ds.attrs.get('xy_0', '')).split(':')[1]).attrs.get('y_ds_url','')))
             else:
                 raise AttributeError
         except AttributeError:
@@ -202,6 +203,9 @@ class PlotWindow(QWidget,Ui_Form):
         except ValueError as e:
             print("PlotWindow: Value Error; Dataset not yet available", self.dataset_url)
             print(e)
+        except OSError as e:
+            print("PlotWindow: OS Error; Probably a read/write conflict occured", self.dataset_url)
+            print(e)
 
 
     def _setup_signal_slots(self):
@@ -264,7 +268,7 @@ class PlotWindow(QWidget,Ui_Form):
         ## Some look-up dicts for manipulation and plot styles.
         self.plot_styles = {'line':0,'linepoint':1,'point':2}
         self.manipulations = {'dB':1, 'wrap':2, 'linear':4, 'remove_zeros':8,
-                              'sub_offset_avg_y':16, 'norm_data_avg_x':32, 'histogram':64 } #BITMASK for manipulation
+                              'sub_offset_avg_x':16, 'sub_offset_avg_y':32, 'norm_data_avg_x':64, 'norm_data_avg_y':128, 'histogram':256} #BITMASK for manipulation
 
         self.plot_style = 0
         self.manipulation = 8
@@ -321,7 +325,7 @@ class PlotWindow(QWidget,Ui_Form):
         
         self.TraceZSelector.setEnabled(True)
         self.TraceZSelector.setRange(-1*shape[2],shape[2]-1)
-        self.TraceZSelector.setValue(shape[2]/2)
+        self.TraceZSelector.setValue(int(shape[2]/2))
         self.TraceZNum = int(shape[2]/2)
         
         self.TraceXSelector.setEnabled(False)
@@ -495,6 +499,16 @@ class PlotWindow(QWidget,Ui_Form):
             self.TraceZSelector.setEnabled(True)
         if index == 3:
             self.view_type = view_types['1D']
+            self.TraceXSelector.setEnabled(False)
+            self.TraceYSelector.setEnabled(True)
+            self.TraceZSelector.setEnabled(True)
+        if index == 4:
+            self.view_type = view_types['1D']
+            self.TraceXSelector.setEnabled(True)
+            self.TraceYSelector.setEnabled(False)
+            self.TraceZSelector.setEnabled(True)
+        if index == 5:
+            self.view_type = view_types['1D']
             self.TraceXSelector.setEnabled(True)
             self.TraceYSelector.setEnabled(True)
             self.TraceZSelector.setEnabled(False)
@@ -528,7 +542,10 @@ class PlotWindow(QWidget,Ui_Form):
         else:
             x_data = np.array(x_ds)[:ds.shape[0]]
         xunit = _get_unit(x_ds)
-        xval = x_data[num]
+        try:
+            xval = x_data[num]
+        except (KeyError,IndexError):
+            xval = "X"
         return str(xval)+" "+str(xunit)
 
     def _getYValueFromTraceNum(self,ds,num):
@@ -538,15 +555,22 @@ class PlotWindow(QWidget,Ui_Form):
         else:
             y_data = np.array(y_ds)[:ds.shape[1]]
         yunit = _get_unit(y_ds)
-        yval = y_data[num]
+        try:
+            yval = y_data[num]
+        except (KeyError,IndexError):
+            yval = "X"
         return str(yval)+" "+str(yunit)
 
     def _getZValueFromTraceNum(self,ds,num):
         z_ds = _get_ds(ds, ds.attrs.get('z_ds_url'))
         z_data = np.array(z_ds)[:ds.shape[2]]
         zunit = _get_unit(z_ds)
-        zval = z_data[num]
+        try:
+            zval = z_data[num]
+        except (KeyError,IndexError):
+            zval = "X"
         return str(zval)+" "+str(zunit)
+        
 
     def addQvkMenu(self,menu=None):
         """Add custom entry in the right-click menu.
@@ -591,14 +615,22 @@ class PlotWindow(QWidget,Ui_Form):
         linear_correction = QAction('linearly correct data', self.qvkMenu, checkable=True)
         self.qvkMenu.addAction(linear_correction)
         linear_correction.triggered.connect(self.setLinearCorrection)
+
+        offset_correction_x = QAction('data-<data:x>', self.qvkMenu, checkable=True)
+        self.qvkMenu.addAction(offset_correction_x)
+        offset_correction_x.triggered.connect(self.setOffsetCorrectionX)
         
-        offset_correction = QAction('data-<data:y>', self.qvkMenu, checkable=True)
-        self.qvkMenu.addAction(offset_correction)
-        offset_correction.triggered.connect(self.setOffsetCorrection)
+        offset_correction_y = QAction('data-<data:y>', self.qvkMenu, checkable=True)
+        self.qvkMenu.addAction(offset_correction_y)
+        offset_correction_y.triggered.connect(self.setOffsetCorrectionY)
+
+        norm_correction_x = QAction('data/<data:x>', self.qvkMenu, checkable=True)
+        self.qvkMenu.addAction(norm_correction_x)
+        norm_correction_x.triggered.connect(self.setNormDataCorrectionX)
         
-        norm_correction = QAction('data/<data:x>', self.qvkMenu, checkable=True)
-        self.qvkMenu.addAction(norm_correction)
-        norm_correction.triggered.connect(self.setNormDataCorrection)
+        norm_correction_y = QAction('data/<data:y>', self.qvkMenu, checkable=True)
+        self.qvkMenu.addAction(norm_correction_y)
+        norm_correction_y.triggered.connect(self.setNormDataCorrectionY)
 
         dB_scale = QAction('dB / linear', self.qvkMenu, checkable=True)
         self.qvkMenu.addAction(dB_scale)
@@ -607,6 +639,17 @@ class PlotWindow(QWidget,Ui_Form):
         histogram = QAction('Histogram', self.qvkMenu, checkable=True)
         self.qvkMenu.addAction(histogram)
         histogram.triggered.connect(self.setHistogram)
+
+        self.manipulation_menu = {'dB': dB_scale,
+                                  'wrap': phase_wrap,
+                                  'linear': linear_correction,
+                                  'sub_offset_avg_x': offset_correction_x,
+                                  'sub_offset_avg_y': offset_correction_y,
+                                  'norm_data_avg_x': norm_correction_x,
+                                  'norm_data_avg_y': norm_correction_y,
+                                  'histogram': histogram}
+        
+        self.updateManipulationMenu()
         
         self.qvkMenu.addSeparator()
         
@@ -619,6 +662,10 @@ class PlotWindow(QWidget,Ui_Form):
         
         if menu is not None:
             menu.addMenu(self.qvkMenu)
+    
+    def updateManipulationMenu(self):
+        for m in self.manipulation_menu:
+            self.manipulation_menu[m].setChecked(bool(self.manipulation & self.manipulations[m]))
 
     @pyqtSlot()
     def setPointMode(self):
@@ -663,15 +710,29 @@ class PlotWindow(QWidget,Ui_Form):
             self.obj_parent.pw_refresh_signal.emit()
             
     @pyqtSlot()
-    def setOffsetCorrection(self):
+    def setOffsetCorrectionX(self):
+        self.manipulation = self.manipulation ^ self.manipulations['sub_offset_avg_x']
+        #print "{:08b}".format(self.manipulation)
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+
+    @pyqtSlot()
+    def setOffsetCorrectionY(self):
         self.manipulation = self.manipulation ^ self.manipulations['sub_offset_avg_y']
         #print "{:08b}".format(self.manipulation)
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
 
     @pyqtSlot()
-    def setNormDataCorrection(self):
+    def setNormDataCorrectionX(self):
         self.manipulation = self.manipulation ^ self.manipulations['norm_data_avg_x']
+        #print "{:08b}".format(self.manipulation)
+        if not self._windowJustCreated:
+            self.obj_parent.pw_refresh_signal.emit()
+
+    @pyqtSlot()
+    def setNormDataCorrectionY(self):
+        self.manipulation = self.manipulation ^ self.manipulations['norm_data_avg_y']
         #print "{:08b}".format(self.manipulation)
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()

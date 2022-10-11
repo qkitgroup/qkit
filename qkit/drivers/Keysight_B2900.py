@@ -32,7 +32,7 @@ class Keysight_B2900(Instrument):
     def __init__(self, name, address, reset=False):
         """
         Initializes VISA communication with the instrument Keysight B2900.
-        
+
         Parameters
         ----------
         name: string
@@ -41,16 +41,16 @@ class Keysight_B2900(Instrument):
             GPIB address for the communication with the instrument.
         reset: bool, optional
             Resets the instrument to default conditions. Default is False.
-        
+
         Returns
         -------
         None
-        
+
         Examples
         --------
         >>> import qkit
         QKIT configuration initialized -> available as qkit.cfg[...]
-        
+
         >>> qkit.start()
         Starting QKIT framework ... -> qkit.core.startup
         Loading module ... S10_logging.py
@@ -65,8 +65,8 @@ class Keysight_B2900(Instrument):
         Loading module ... S85_init_measurement.py
         Loading module ... S98_started.py
         Loading module ... S99_init_user.py
-        
-        >>> IVD = qkit.instruments.create('IVD', 'Keysight_B2901A', address='TCPIP0::00.00.000.00::INSTR', reset=True)
+
+        >>> IVD = qkit.instruments.create('IVD', 'Keysight_B2900', address='TCPIP0::00.00.000.00::INSTR', reset=True)
         Initialized the file info database (qkit.fid) in 0.000 seconds.
         """
         # Corresponding Command: :SYSTem:BEEPer:STATe mode
@@ -82,57 +82,59 @@ class Keysight_B2900(Instrument):
         self._cmd_chans = {1: {1: ''}, 2: {1: '1', 2: '2'}}
         self._log_chans = {1: {1: ''}, 2: {1: ' of channel 1', 2: ' of channel 2'}}
         # initial variables
-        self._sweep_mode = 2-self._channels  # 1 (IV-mode) for single channel SMU and 0 (VV-mode) for two channel SMU
+        self._sweep_mode = 2 - self._channels  # 1 (IV-mode) for single channel SMU and 0 (VV-mode) for two channel SMU
         self._sweep_channels = (1,)
         self._measurement_modes = {0: '2-wire', 1: '4-wire'}
         self._IV_modes = {0: 'curr', 1: 'volt', 2: 'res'}
         self._IV_units = {0: 'A', 1: 'V', 2: 'Ohm'}
-        self._sense_mode = {i+1: 0 for i in range(self._channels)}
+        self._sense_mode = {i + 1: 0 for i in range(self._channels)}
         # dict of defaults values: defaults[<sweep_mode>][<channel>][<parameter>][<value>]
-        self._defaults = {0: [{'measurement_mode': 0,
-                               'bias_mode': 1,
-                               'sense_mode': 1,
-                               'bias_range': -1,
-                               'sense_range': -1,
-                               'bias_delay': 15e-6,
-                               'sense_delay': 15e-6,
-                               'sense_nplc': 1},
-                              {'measurement_mode': 0,
-                               'bias_mode': 0,
-                               'sense_mode': 1,
-                               'bias_range': -1,
-                               'sense_range': -1,
-                               'bias_delay': 15e-6,
-                               'sense_delay': 15e-6,
-                               'sense_nplc': 1}],
-                          1: [{'measurement_mode': 1,
-                               'bias_mode': 0,
-                               'sense_mode': 1,
-                               'bias_range': -1,
-                               'sense_range': -1,
-                               'bias_delay': 15e-6,
-                               'sense_delay': 15e-6,
-                               'sense_nplc': 1}],
-                          2: [{'measurement_mode': 1,
-                               'bias_mode': 1,
-                               'sense_mode': 0,
-                               'bias_range': -1,
-                               'sense_range': -1,
-                               'bias_delay': 15e-6,
-                               'sense_delay': 15e-6,
-                               'sense_nplc': 1}]}
+        self._defaults = {0: [{self.set_measurement_mode: 0,
+                               self.set_bias_mode: 1,
+                               self.set_sense_mode: 1,
+                               self.set_bias_range: -1,
+                               self.set_sense_range: -1,
+                               self.set_bias_delay: 15e-6,
+                               self.set_sense_delay: 15e-6,
+                               self.set_sense_nplc: 1},
+                              {self.set_measurement_mode: 1,
+                               self.set_bias_mode: 0,
+                               self.set_sense_mode: 1,
+                               self.set_bias_range: -1,
+                               self.set_sense_range: -1,
+                               self.set_bias_delay: 15e-6,
+                               self.set_sense_delay: 15e-6,
+                               self.set_sense_nplc: 1}],
+                          1: [{self.set_measurement_mode: 1,
+                               self.set_bias_mode: 0,
+                               self.set_sense_mode: 1,
+                               self.set_bias_range: -1,
+                               self.set_sense_range: -1,
+                               self.set_bias_delay: 15e-6,
+                               self.set_sense_delay: 15e-6,
+                               self.set_sense_nplc: 1}],
+                          2: [{self.set_measurement_mode: 1,
+                               self.set_bias_mode: 1,
+                               self.set_sense_mode: 0,
+                               self.set_bias_range: -1,
+                               self.set_sense_range: -1,
+                               self.set_bias_delay: 15e-6,
+                               self.set_sense_delay: 15e-6,
+                               self.set_sense_nplc: 1}]}
         self._default_str = 'default parameters'
         self._set_defaults_docstring()
         # condition code registers
         self.measurement_ccr = [('Ch1 Limit Test Summary', 'Channel 1 failed one or more limit tests.'),
                                 ('Ch1 Reading Available', 'Reading of channel 1 was taken normally.'),
-                                ('Ch1 Reading Overflow', 'Reading of channel 1 exceeds the selected measurement range.'),
+                                (
+                                'Ch1 Reading Overflow', 'Reading of channel 1 exceeds the selected measurement range.'),
                                 ('Ch1 Buffer Available', 'Trace buffer for channel 1 has data.'),
                                 ('Ch1 Buffer Full', 'Trace buffer for channel 1 is full.'),
                                 ('Not used', '0 is returned.'),
                                 ('Ch2 Limit Test Summary', 'Channel 2 failed one or more limit tests.'),
                                 ('Ch2 Reading Available', 'Reading of channel 2 was taken normally.'),
-                                ('Ch2 Reading Overflow', 'Reading of channel 2 exceeds the selected measurement range.'),
+                                (
+                                'Ch2 Reading Overflow', 'Reading of channel 2 exceeds the selected measurement range.'),
                                 ('Ch2 Buffer Available', 'Trace buffer for channel 2 has data.'),
                                 ('Ch2 Buffer Full', 'Trace buffer for channel 2 is full.'),
                                 ('Not used', '0 is returned.'),
@@ -142,24 +144,30 @@ class Keysight_B2900(Instrument):
                                 ('Not used', '0 is returned.')]
         self.operation_ccr = [('Calibration/Self-test Running', 'Self-calibration or Self-test is in progress.'),
                               ('Ch1 Transition Idle', 'Channel 1 is in the transition idle state.'),
-                              ('Ch1 Waiting for Transition Trigger', 'Channel 1 is waiting for the transition trigger.'),
+                              (
+                              'Ch1 Waiting for Transition Trigger', 'Channel 1 is waiting for the transition trigger.'),
                               ('Ch1 Waiting for Transition Arm', 'Channel 1 is waiting for the transition arm.'),
                               ('Ch1 Acquire Idle', 'Channel 1 is in the acquire idle state.'),
                               ('Ch1 Waiting for Acquire Trigger', 'Channel 1 is waiting for the acquire trigger.'),
                               ('Ch1 Waiting for Acquire Arm', 'Channel 1 is waiting for the acquire arm.'),
                               ('Ch2 Transition Idle', 'Channel 2 is in the transition idle state.'),
-                              ('Ch2 Waiting for Transition Trigger', 'Channel 2 is waiting for the transition trigger.'),
+                              (
+                              'Ch2 Waiting for Transition Trigger', 'Channel 2 is waiting for the transition trigger.'),
                               ('Ch2 Waiting for Transition Arm', 'Channel 2 is waiting for the transition arm.'),
                               ('Ch2 Acquire Idle', 'Channel 2 is in the acquire idle state.'),
                               ('Ch2 Waiting for Acquire Trigger', 'Channel 2 is waiting for the acquire trigger.'),
                               ('Ch2 Waiting for Acquire Arm', 'Channel 2 is waiting for the acquire arm.'),
-                              ('Instrument Locked', 'If a remote interface (GPIB, USB, or LAN) has a lock (see :SYSTem:LOCK:OWNer? command), this bit will be set. When a remote interface releases the lock (see :SYSTem:LOCK:NAME? command), this bit will be cleared.'),
-                              ('Program Running', 'Program is running. 0 is set during the program memory execution is stopped.'),
+                              ('Instrument Locked',
+                               'If a remote interface (GPIB, USB, or LAN) has a lock (see :SYSTem:LOCK:OWNer? command), this bit will be set. When a remote interface releases the lock (see :SYSTem:LOCK:NAME? command), this bit will be cleared.'),
+                              ('Program Running',
+                               'Program is running. 0 is set during the program memory execution is stopped.'),
                               ('Not used', '0 is returned.')]
         self.questionable_ccr = [('Voltage Summary', 'Over voltage in channel 1, and/or 2.'),
                                  ('Current Summary', 'Over current in channel 1, and/or 2.'),
-                                 ('Ch1 Output Protection', 'Output relay of the specified channel is opened by the automatic output off at compliance function.'),
-                                 ('Ch2 Output Protection', 'Output relay of the specified channel is opened by the automatic output off at compliance function.'),
+                                 ('Ch1 Output Protection',
+                                  'Output relay of the specified channel is opened by the automatic output off at compliance function.'),
+                                 ('Ch2 Output Protection',
+                                  'Output relay of the specified channel is opened by the automatic output off at compliance function.'),
                                  ('Temperature Summary', 'Over temperature in channel 1, and/or 2.'),
                                  ('Not used', '0 is returned.'),
                                  ('Not used', '0 is returned.'),
@@ -345,7 +353,7 @@ class Keysight_B2900(Instrument):
         # reset
         if reset:
             self.reset()
-            [self.set_sense_mode(channel=channel, mode=0) for channel in np.arange(self._channels)+1]
+            [self.set_sense_mode(channel=channel, mode=0) for channel in np.arange(self._channels) + 1]
         else:
             self.get_all()
         self._write(':syst:beep:stat 0')  # disable beeper
@@ -353,12 +361,12 @@ class Keysight_B2900(Instrument):
     def _write(self, cmd):
         """
         sends a visa command <cmd>, waits until "operation complete" and raises eventual errors of the device.
-        
+
         parameters
         ----------
         cmd: str
             command that is send to the instrument via pyvisa and ni-visa backend.
-        
+
         returns
         -------
         none
@@ -372,12 +380,12 @@ class Keysight_B2900(Instrument):
     def _ask(self, cmd):
         """
         sends a visa command <cmd>, waits until "operation complete", raises eventual errors of the device and returns the read answer <ans>.
-        
+
         parameters
         ----------
         cmd: str
             command that is send to the instrument via pyvisa and ni-visa backend.
-        
+
         returns
         -------
         answer: str
@@ -392,17 +400,106 @@ class Keysight_B2900(Instrument):
         self._raise_error()
         return ans
 
+    def set_gpio_mode(self, val, channel=-1):
+        """
+        Assigns the input/output function to the specified GPIO pin <channel> to <val>.
+
+        Parameters
+        ----------
+        val: str
+            GPIO specification. possible values are DINPut(default for the EXT1 to EXT13 pins) | DIO | HVOL(default for the EXT14 pin) | TINPut | TOUT
+        channel: int
+            Number of GPIO pin of interest. -1 means channel 1 to 14.
+        """
+        # Corresponding Command: [:SOURce]:DIGital:EXTernal[n][:FUNCtion] function
+        try:
+            logging.debug('{!s}: Set the GPIO mode of pin {!s} to {!s}'.format(__name__, channel, val))
+            if channel == -1:
+                for j in range(14):
+                    self._write('sour:dig:ext{:d}:func {:s}'.format(j + 1, val))
+            else:
+                self._write('sour:dig:ext{:d}:func {:s}'.format(channel, val))
+            self._write('SOUR:DIG:DATA 16383')
+            self.ccr = bin(16383)
+        except Exception as e:
+            logging.error('{!s}: Cannot set the GPIO mode of pin {!s} to {!s}'.format(__name__, channel, val))
+            raise type(e)('{!s}: Cannot set the GPIO mode of pin {!s} to {!s}\n{!s}'.format(__name__, channel, val, e))
+        return
+
+    def get_gpio_mode(self, channel):
+        """
+        Gets the assigned input/output function to the specified GPIO pin <channel>.
+
+        Parameters
+        ----------
+        channel: int
+            Number of GPIO pin of interest. -1 means channel 1 to 14.
+
+        Returns
+        -------
+        val: str
+            GPIO specification. possible values are DINPut(default for the EXT1 to EXT13 pins) | DIO | HVOL(default for the EXT14 pin) | TINPut | TOUT
+        """
+        # Corresponding Command: [:SOURce]:DIGital:EXTernal[n][:FUNCtion]?
+        try:
+            logging.debug('{!s}: Get the GPIO mode of pin {!s}'.format(__name__, channel))
+            return self._ask('SOUR:DIG:EXT{:d}:FUNC'.format(channel))
+        except Exception as e:
+            logging.error('{!s}: Cannot get the GPIO mode of pin {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get the GPIO mode of pin {!s}\n{!s}'.format(__name__, channel, e))
+
+    def set_digio(self, status, channel):
+        """
+        Sets the output data to GPIO pin (digital control port) <channel> to <status>.
+
+        Parameters
+        ----------
+        status: bool, int
+            Digital Output status.
+        channel: int
+            Number of GPIO pin of interest.
+        """
+        # Corresponding Command: [:SOURce]:DIGital:DATA data
+        try:
+            logging.debug('{!s}: Set the digital output of pin {!s} to {!s}'.format(__name__, channel, status))
+            self.ccr = (self.ccr[:-channel] + str(int(not (status))) + self.ccr[-channel + 1:])[:16]
+            self._write('sour:dig:data {:d}'.format(int(self.ccr, 2)))
+        except Exception as e:
+            logging.error('{!s}: Cannot set the digital output of pin {!s} to {!s}'.format(__name__, channel, status))
+            raise type(e)(
+                '{!s}: Cannot set the digital output of pin {!s} to {!s}\n{!s}'.format(__name__, channel, status, e))
+        return
+
+    def get_digio(self, channel):
+        """
+        Sets the output data to GPIO pin (digital control port) <channel> to <status>.
+
+        Parameters
+        ----------
+        status: bool, int
+            Digital Output status.
+        channel: int
+            Number of GPIO pin of interest.
+        """
+        # Corresponding Command: [:SOURce]:DIGital:DATA?
+        try:
+            logging.debug('{!s}: Get the digital output of pin {!s}'.format(__name__, channel))
+            return not (int(bin(int(self._ask('sour:dig:data?')))[-channel:][0]))
+        except Exception as e:
+            logging.error('{!s}: Cannot get the digital output of pin {!s}'.format(__name__, channel))
+            raise type(e)('{!s}: Cannot get the digital output of pin {!s}\n{!s}'.format(__name__, channel, e))
+
     def set_measurement_mode(self, mode, channel=1):
         """
         Sets measurement mode (wiring system) of channel <channel> to <mode>.
-        
+
         Parameters
         ----------
         mode: int
             State of the measurement sense mode. Must be 0 (2-wire) or 1 (4-wire).
         channel: int
             Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels. Default is 1.
-        
+
         Returns
         -------
         None
@@ -412,19 +509,66 @@ class Keysight_B2900(Instrument):
             logging.debug('{!s}: Set measurement mode{:s} to {:d}'.format(__name__, self._log_chans[self._channels][channel], mode))
             self._write(':sens{:s}:rem {:d}'.format(self._cmd_chans[self._channels][channel], mode))
         except Exception as e:
-            logging.error('{!s}: Cannot set measurement mode{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], mode))
-            raise type(e)('{!s}: Cannot set measurement mode{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], mode, e))
+            logging.error('{!s}: Cannot set measurement mode{:s} to {!s}'.format(__name__, self._log_chans[self._channels][ channel], mode))
+            raise type(e)('{!s}: Cannot set measurement mode{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][ channel], mode, e))
         return
+
+    def set_sync(self, status):
+        """
+        Sets the interchannel synchronization to <val>.
+
+        Parameters
+        ----------
+        status: bool
+            Inter-channel synchronization mode specifies whether two channels are to be operated in sync.
+
+        Returns
+        -------
+        None
+        """
+        # Corresponding Command: :SYSTem: GROup[:DEFine]
+        # Corresponding Command: :SYSTem: GROup:RESet
+        try:
+            logging.debug('{!s}: Set interchannel synchronization to {!r}'.format(__name__, status))
+            if status:
+                self._write(':syst:gro:def (@1,2)'.format(status))
+            else:
+                self._write(':syst:gro:res')
+        except Exception as e:
+            logging.error('{!s}: Cannot set interchannel synchronization to {!s}'.format(__name__, status))
+            raise type(e)('{!s}: Cannot set interchannel synchronization to {!s}\n{!s}'.format(__name__, status, e))
+        return
+
+    def get_sync(self):
+        """
+        Gets the interchannel synchronization.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        val: bool
+			Inter-channel synchronization mode specifies whether two channels are to be operated in sync.
+        """
+        # Corresponding Command: :SYSTem: GROup[:DEFine]?
+        try:
+            logging.debug('{!s}: Get interchannel synchronization'.format(__name__))
+            return bool(int(self._ask(':syst:gro:def?')))
+        except Exception as e:
+            logging.error('{!s}: Cannot get interchannel synchronization'.format(__name__))
+            raise type(e)('{!s}: Cannot get interchannel synchronization\n{!s}'.format(__name__, e))
 
     def get_measurement_mode(self, channel=1):
         """
         Gets measurement mode (wiring system) <mode> of channel <channel>.
-        
+
         Parameters
         ----------
         channel: int
             Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels. Default is 1.
-        
+
         Returns
         -------
         mode: int
@@ -435,20 +579,23 @@ class Keysight_B2900(Instrument):
             logging.debug('{!s}: Get measurement mode{:s}'.format(__name__, self._log_chans[self._channels][channel]))
             return int(self._ask(':sens{:s}:rem'.format(self._cmd_chans[self._channels][channel])))
         except Exception as e:
-            logging.error('{!s}: Cannot get measurement mode{:s}'.format(__name__, self._log_chans[self._channels][channel]))
-            raise type(e)('{!s}: Cannot get measurement mode{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], e))
+            logging.error(
+                '{!s}: Cannot get measurement mode{:s}'.format(__name__, self._log_chans[self._channels][channel]))
+            raise type(e)(
+                '{!s}: Cannot get measurement mode{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel],
+                                                                     e))
 
     def set_bias_mode(self, mode, channel=1):
         """
         Sets bias mode of channel <channel> to mode <mode>.
-        
+
         Parameters
         ----------
         mode: int
             Bias mode. Must be 0 (current) or 1 (voltage).
         channel: int
             Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels. Default is 1.
-        
+
         Returns
         -------
         None
@@ -467,14 +614,14 @@ class Keysight_B2900(Instrument):
     def get_bias_mode(self, channel=1):
         """
         Gets bias mode <mode> of channel <channel>.
-        
+
         Parameters
         ----------
         channel: int
             Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels. Default is 1.
         channel: int
             Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels. Default is 1.
-        
+
         Returns
         -------
         mode: int
@@ -549,8 +696,9 @@ class Keysight_B2900(Instrument):
         # Corresponding Command: [:SOURce[c]]:<CURRent|VOLTage>:RANGe:AUTO?
         try:
             logging.debug('{!s}: Get sense mode{:s}'.format(__name__, self._log_chans[self._channels][channel]))
-            #return str(self._ask(':sens:func:on?').replace('''"''', '')).lower().split(',')
-            return [key for key, val in self._IV_modes.items() if val in str(self._ask(":sens{:s}:func:on?".format(self._cmd_chans[self._channels][channel])).replace('''"''', '')).lower().split(',')]
+            # return str(self._ask(':sens:func:on?').replace('''"''', '')).lower().split(',')
+            return [key for key, val in self._IV_modes.items() if val in str(self._ask(":sens{:s}:func:on?".format(self._cmd_chans[self._channels][channel])).replace('''"''', '')).lower().split(
+                ',')]
         except Exception as e:
             logging.error('{!s}: Cannot get sense mode{:s}'.format(__name__, self._log_chans[self._channels][channel]))
             raise type(e)('{!s}: Cannot get sense mode{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], e))
@@ -558,14 +706,14 @@ class Keysight_B2900(Instrument):
     def set_bias_range(self, val, channel=1):
         """
         Sets bias range of channel <channel> to <val>.
-        
+
         Parameters
         ----------
         val: float
             Bias range. Possible values are -1 (auto), for currents 200nA, 2uA, 20uA, 200uA, 2mA, 20mA, 200mA, 1 A, 3A and for voltages 200mV, 2V, 7V, 18V.
         channel: int
             Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels. Default is 1.
-        
+
         Returns
         -------
         None
@@ -579,19 +727,20 @@ class Keysight_B2900(Instrument):
             else:
                 self._write(':sour{:s}:{:s}:rang {:g}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode()], val))
         except Exception as e:
-            logging.error('{!s}: Cannot set bias range{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], val))
+            logging.error(
+                '{!s}: Cannot set bias range{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], val))
             raise type(e)('{!s}: Cannot set bias range{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], val, e))
         return
 
     def get_bias_range(self, channel=1):
         """
         Gets bias mode <val> of channel <channel>.
-        
+
         Parameters
         ----------
         channel: int
             Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels. Default is 1.
-        
+
         Returns
         -------
         val: float
@@ -630,7 +779,8 @@ class Keysight_B2900(Instrument):
             else:
                 self._write(':sens{:s}:{:s}:rang:upp {:g}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self._sense_mode[channel]], val))
         except Exception as e:
-            logging.error('{!s}: Cannot set sense range{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], val))
+            logging.error(
+                '{!s}: Cannot set sense range{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], val))
             raise type(e)('{!s}: Cannot set sense range{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], val, e))
 
     def get_sense_range(self, channel=1):
@@ -918,10 +1068,11 @@ class Keysight_B2900(Instrument):
         # Corresponding Command: [:SOURce[c]]:WAIT[:STATe]?
         try:
             logging.debug('{!s}: Get bias delay{:s}'.format(__name__, self._log_chans[self._channels][channel]))
-            return {'status': bool(int(self._ask(':sour{:s}:wait:stat?'.format(self._cmd_chans[self._channels][channel])))),
-                    'offset': float(self._ask(':sour{:s}:wait:offs?'.format(self._cmd_chans[self._channels][channel]))),
-                    'auto': bool(int(self._ask(':sour{:s}:wait:auto?'.format(self._cmd_chans[self._channels][channel])))),
-                    'gain': float(self._ask(':sour{:s}:wait:gain?'.format(self._cmd_chans[self._channels][channel])))}
+            return {
+                'status': bool(int(self._ask(':sour{:s}:wait:stat?'.format(self._cmd_chans[self._channels][channel])))),
+                'offset': float(self._ask(':sour{:s}:wait:offs?'.format(self._cmd_chans[self._channels][channel]))),
+                'auto': bool(int(self._ask(':sour{:s}:wait:auto?'.format(self._cmd_chans[self._channels][channel])))),
+                'gain': float(self._ask(':sour{:s}:wait:gain?'.format(self._cmd_chans[self._channels][channel])))}
         except Exception as e:
             logging.error('{!s}: Cannot get bias delay{:s}'.format(__name__, self._log_chans[self._channels][channel]))
             raise type(e)('{!s}: Cannot get bias delay{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], e))
@@ -972,7 +1123,8 @@ class Keysight_B2900(Instrument):
         if 'auto' in kwargs:
             auto = kwargs.get('auto')
             try:
-                logging.debug('{!s}: Set auto sense delay{:s} to {!r}'.format(__name__, self._log_chans[self._channels][channel], auto))
+                logging.debug(
+                    '{!s}: Set auto sense delay{:s} to {!r}'.format(__name__, self._log_chans[self._channels][channel], auto))
                 self._write(':sens{:s}:wait:auto {:d}'.format(self._cmd_chans[self._channels][channel], int(auto)))
             except Exception as e:
                 logging.error('{!s}: Cannot set auto sense delay{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], auto))
@@ -1007,10 +1159,11 @@ class Keysight_B2900(Instrument):
         # Corresponding Command: [:SENSe[c]]:WAIT[:STATe]?
         try:
             logging.debug('{!s}: Get sense delay{:s}'.format(__name__, self._log_chans[self._channels][channel]))
-            return {'status': bool(int(self._ask(':sens{:s}:wait:stat?'.format(self._cmd_chans[self._channels][channel])))),
-                    'offset': float(self._ask(':sens{:s}:wait:offs?'.format(self._cmd_chans[self._channels][channel]))),
-                    'auto': bool(int(self._ask(':sens{:s}:wait:auto?'.format(self._cmd_chans[self._channels][channel])))),
-                    'gain': float(self._ask(':sens{:s}:wait:gain?'.format(self._cmd_chans[self._channels][channel])))}
+            return {
+                'status': bool(int(self._ask(':sens{:s}:wait:stat?'.format(self._cmd_chans[self._channels][channel])))),
+                'offset': float(self._ask(':sens{:s}:wait:offs?'.format(self._cmd_chans[self._channels][channel]))),
+                'auto': bool(int(self._ask(':sens{:s}:wait:auto?'.format(self._cmd_chans[self._channels][channel])))),
+                'gain': float(self._ask(':sens{:s}:wait:gain?'.format(self._cmd_chans[self._channels][channel])))}
         except Exception as e:
             logging.error('{!s}: Cannot get sense delay{:s}'.format(__name__, self._log_chans[self._channels][channel]))
             raise type(e)('{!s}: Cannot get sense delay{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], e))
@@ -1077,11 +1230,18 @@ class Keysight_B2900(Instrument):
         # Corresponding Command: :SENSe[c]:<CURRent[:DC]|RESistance|VOLTage[:DC]>:NPLCycles nplc
         # Corresponding Command: :SENSe[c]:<CURRent[:DC]|RESistance|VOLTage[:DC]>:NPLCycles:AUTO mode
         try:
-            logging.debug('{!s}: Set sense nplc{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], *['auto' if val == -1 else val]))
-            self._write(':sens{:s}:{:s}:nplc{!s}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self._sense_mode[channel]], *[':auto 1' if val == -1 else ' {!s}'.format(val)]))
+            logging.debug('{!s}: Set sense nplc{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel],
+                                                                    *['auto' if val == -1 else val]))
+            self._write(':sens{:s}:{:s}:nplc{!s}'.format(self._cmd_chans[self._channels][channel],
+                                                         self._IV_modes[self._sense_mode[channel]],
+                                                         *[':auto 1' if val == -1 else ' {!s}'.format(val)]))
         except Exception as e:
-            logging.error('{!s}: Cannot set sense nplc{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], val))
-            raise type(e)('{!s}: Cannot set sense nplc{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], val, e))
+            logging.error(
+                '{!s}: Cannot set sense nplc{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel],
+                                                                 val))
+            raise type(e)('{!s}: Cannot set sense nplc{:s} to {!s}\n{!s}'.format(__name__,
+                                                                                 self._log_chans[self._channels][
+                                                                                     channel], val, e))
         return
 
     def get_sense_nplc(self, channel=1):
@@ -1177,7 +1337,8 @@ class Keysight_B2900(Instrument):
             self._write(':sour{:s}:{:s}:lev {:g}'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode(channel=channel)], val))  # necessary to cast as scientific float! (otherwise only >= 1e-6 possible)
             self._write(':disp:view sing{:d}'.format(channel))
         except Exception as e:
-            logging.error('{!s}: Cannot set bias value{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], val))
+            logging.error(
+                '{!s}: Cannot set bias value{:s} to {!s}'.format(__name__, self._log_chans[self._channels][channel], val))
             raise type(e)('{!s}: Cannot set bias value{:s} to {!s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], val, e))
         return
 
@@ -1199,7 +1360,7 @@ class Keysight_B2900(Instrument):
         # Corresponding Command: :MEASure: < CURRent[:DC] | RESistance | VOLTage[:DC] >? [chanlist]
         try:
             logging.debug('{!s}: Get bias value{:s}'.format(__name__, self._log_chans[self._channels][channel]))
-            #return float(self._ask(':sour{:s}:{:s}?'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode(channel=channel)])))
+            # return float(self._ask(':sour{:s}:{:s}?'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode(channel=channel)])))
             self._write(':disp:view sing{:d}'.format(channel))
             if self.get_status(channel):
                 return float(self._ask(':meas:{:s}?'.format(self._IV_modes[self.get_bias_mode(channel=channel)])).replace('+9.910000E+37', 'nan').replace('9.900000E+37', 'inf'))
@@ -1258,14 +1419,14 @@ class Keysight_B2900(Instrument):
     def set_voltage(self, val, channel=1):
         """
         Sets voltage value of channel <channel> to <val>.
-        
+
         Parameters
         ----------
         val: float
             Bias voltage value.
         channel: int
             Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels. Default is 1.
-        
+
         Returns
         -------
         None
@@ -1299,7 +1460,7 @@ class Keysight_B2900(Instrument):
         try:
             logging.debug('{:s}: Get voltage value{:s}'.format(__name__, self._log_chans[self._channels][channel]))
             self._write(':disp:view sing{:d}'.format(channel))
-            #return float(self._ask(':sour{:s}:volt?'.format(self._cmd_chans[self._channels][channel])))
+            # return float(self._ask(':sour{:s}:volt?'.format(self._cmd_chans[self._channels][channel])))
             return float(self._ask(':meas:volt?').replace('+9.910000E+37', 'nan').replace('9.900000E+37', 'inf'))
         except Exception as e:
             logging.error('{!s}: Cannot get voltage value{:s}'.format(__name__, self._log_chans[self._channels][channel]))
@@ -1308,14 +1469,14 @@ class Keysight_B2900(Instrument):
     def set_current(self, val, channel=1):
         """
         Sets current value of channel <channel> to <val>.
-        
+
         Parameters
         ----------
         val: float
             Bias current value.
         channel: int
             Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels. Default is 1.
-        
+
         Returns
         -------
         None
@@ -1349,11 +1510,37 @@ class Keysight_B2900(Instrument):
         try:
             logging.debug('{:s}: Get current value{:s}'.format(__name__, self._log_chans[self._channels][channel]))
             self._write(':disp:view sing{:d}'.format(channel))
-            #return float(self._ask(':sour{:s}:curr?'.format(self._cmd_chans[self._channels][channel])))
+            # return float(self._ask(':sour{:s}:curr?'.format(self._cmd_chans[self._channels][channel])))
             return float(self._ask(':meas:curr?').replace('+9.910000E+37', 'nan').replace('9.900000E+37', 'inf'))
         except Exception as e:
             logging.error('{!s}: Cannot get current value{:s}'.format(__name__, self._log_chans[self._channels][channel]))
             raise type(e)('{!s}: Cannot get current value{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], e))
+
+    def get_resistance(self, channel=1):
+        """
+        Gets resistance value <val> of channel <channel>.
+
+        Parameters
+        ----------
+        channel: int
+            Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels. Default is 1.
+
+        Returns
+        -------
+        val: float
+            Sense resistance value.
+        """
+        # Corresponding Command: voltage = [:SOUR[c]]:VOLT?
+        # Corresponding Command: :READ[:SCALar]: <CURRent|RESistance|SOURce|STATus|TIME|VOLTage>? [chanlist]
+        # Corresponding Command: :MEASure:<CURRent[:DC]|RESistance|VOLTage[:DC]>? [chanlist]
+        try:
+            logging.debug('{:s}: Get resistance value{:s}'.format(__name__, self._log_chans[self._channels][channel]))
+            self._write(':disp:view sing{:d}'.format(channel))
+            # return float(self._ask(':sour{:s}:res?'.format(self._cmd_chans[self._channels][channel])))
+            return float(self._ask(':meas:res?').replace('+9.910000E+37', 'nan').replace('9.900000E+37', 'inf'))
+        except Exception as e:
+            logging.error('{!s}: Cannot get resistance value{:s}'.format(__name__, self._log_chans[self._channels][channel]))
+            raise type(e)('{!s}: Cannot get resistance value{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], e))
 
     def get_IV(self, channel=1):
         """
@@ -1404,6 +1591,7 @@ class Keysight_B2900(Instrument):
             step = -step
         for val in np.arange(start, stop, step) + step:
             self.set_bias_value(val, channel=channel)
+            print('{:f}{:s}'.format(val, self._IV_units[self.get_bias_mode()]), end='\r')
             time.sleep(step_time)
 
     def ramp_voltage(self, stop, step, step_time=0.1, channel=1):
@@ -1477,7 +1665,7 @@ class Keysight_B2900(Instrument):
         """
         default_channels = {0: (1, 2), 1: (1,), 2: (1,)}
         if mode in [0, 1, 2]:
-            if len(channels) == int(not mode)+1:
+            if len(channels) == int(not mode) + 1:
                 logging.debug('{!s}: Set sweep channels to {!s}'.format(__name__, channels))
                 self._sweep_channels = channels
             elif len(channels) == 0:
@@ -1697,7 +1885,8 @@ class Keysight_B2900(Instrument):
         # Corresponding Command: [:SOURce[c]]:<CURRent|VOLTage>:POINts? [points])
         try:
             logging.debug('{!s}: Get sweep nop{:s}'.format(__name__, self._log_chans[self._channels][channel]))
-            return int(self._ask(':sour{:s}:{:s}:poin'.format(self._cmd_chans[self._channels][channel], self._IV_modes[self.get_bias_mode(channel)])))
+            return int(self._ask(':sour{:s}:{:s}:poin'.format(self._cmd_chans[self._channels][channel],
+                                                              self._IV_modes[self.get_bias_mode(channel)])))
         except Exception as e:
             logging.error('{!s}: Cannot get sweep nop{:s}'.format(__name__, self._log_chans[self._channels][channel]))
             raise type(e)('{!s}: Cannot get sweep nop{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], e))
@@ -1726,28 +1915,59 @@ class Keysight_B2900(Instrument):
         # Corresponding Command: :DISPlay:VIEW mode
         if not self._sweep_mode:  # 0 (VV-mode)
             channel_bias, channel_sense = self._sweep_channels
-            raise NotImplementedError('Two channel sweep not yet implemented.')
+            try:
+                # bias channel
+                self._write(':sour{:s}:{:s}:mode swe'.format(self._cmd_chans[self._channels][channel_bias], self._IV_modes[self.get_bias_mode(channel_bias)]))
+                self._write(':sour{:s}:swe:rang best'.format(self._cmd_chans[self._channels][channel_bias]))
+                self._write(':sour{:s}:swe:spac lin'.format(self._cmd_chans[self._channels][channel_bias]))
+                self._write(':sour{:s}:swe:sta sing'.format(self._cmd_chans[self._channels][channel_bias]))
+                self._write(':sour{:s}:swe:dir up'.format(self._cmd_chans[self._channels][channel_bias]))
+                self._set_sweep_start(val=float(sweep[0]), channel=channel_bias)
+                self._set_sweep_stop(val=float(sweep[1]), channel=channel_bias)
+                self._set_sweep_step(val=float(sweep[2] * np.sign(float(sweep[1]) - float(sweep[0]))), channel=channel_bias)
+                self.set_bias_value(val=self._get_sweep_start(channel=channel_bias), channel=channel_bias)
+                self._write(':trig{:d}:acq:sour aint'.format(channel_bias))
+                self._write(':trig{:d}:tran:sour aint'.format(channel_bias))
+                self._write(':trig{:d}:all:count {:d}'.format(channel_bias, self._get_sweep_nop(channel=channel_bias)))
+                # sense channel
+                self._write(':sour{:s}:{:s}:mode swe'.format(self._cmd_chans[self._channels][channel_sense], self._IV_modes[self.get_bias_mode(channel_sense)]))
+                self._write(':sour{:s}:swe:rang best'.format(self._cmd_chans[self._channels][channel_sense]))
+                self._write(':sour{:s}:swe:spac lin'.format(self._cmd_chans[self._channels][channel_sense]))
+                self._write(':sour{:s}:swe:sta sing'.format(self._cmd_chans[self._channels][channel_sense]))
+                self._write(':sour{:s}:swe:dir up'.format(self._cmd_chans[self._channels][channel_sense]))
+                self._set_sweep_start(val=0, channel=channel_sense)
+                self._set_sweep_stop(val=0, channel=channel_sense)
+                self._write('sour{:d}:curr:poin {:d}'.format(channel_sense, self._get_sweep_nop()))
+                self._write(':trig{:d}:acq:sour aint'.format(channel_sense))
+                self._write(':trig{:d}:tran:sour aint'.format(channel_sense))
+                self._write(':trig{:d}:all:count {:d}'.format(channel_sense, self._get_sweep_nop(channel=channel_sense)))
+                # general
+                self.set_sync(True)
+                self.set_display('dual')
+            except Exception as e:
+                logging.error('{!s}: Cannot set sweep parameters of channels {!s} to {!s}'.format(__name__, self._sweep_channels, sweep))
+                raise type(e)('{!s}: Cannot set sweep parameters of channels {!s} to {!s}\n{!s}'.format(__name__, self._sweep_channels, sweep, e))
         elif self._sweep_mode in [1, 2]:  # 1 (IV-mode) | 2 (VI-mode)
-            channel_bias, channel_sense = self._sweep_channels*2
-        try:
-            logging.debug('{!s}: Set sweep parameters of channel {!s} to {!s}'.format(__name__, self._sweep_channels, sweep))
-            self._write(':sour{:s}:{:s}:mode swe'.format(self._cmd_chans[self._channels][channel_bias], self._IV_modes[self.get_bias_mode(channel_bias)]))
-            self._write(':sour{:s}:swe:rang best'.format(self._cmd_chans[self._channels][channel_bias]))
-            self._write(':sour{:s}:swe:spac lin'.format(self._cmd_chans[self._channels][channel_bias]))
-            self._write(':sour{:s}:swe:sta sing'.format(self._cmd_chans[self._channels][channel_bias]))
-            self._write(':sour{:s}:swe:dir up'.format(self._cmd_chans[self._channels][channel_bias]))
-            self._set_sweep_start(val=float(sweep[0]), channel=channel_bias)
-            self._set_sweep_stop(val=float(sweep[1]), channel=channel_bias)
-            self._set_sweep_step(val=float(sweep[2]*np.sign(float(sweep[1])-float(sweep[0]))), channel=channel_bias)
-            self.set_bias_value(val=self._get_sweep_start(channel=channel_bias), channel=channel_bias)
-            self._write(':trig:acq:sour aint')
-            self._write(':trig:tran:sour aint')
-            self._write(':trig:all:count {:d}'.format(self._get_sweep_nop(channel=channel_bias)))
-            self._write(':disp:view grap')
-            ### TODO: auto scale display
-        except Exception as e:
-            logging.error('{!s}: Cannot set sweep parameters of channel {!s} to {!s}'.format(__name__, self._sweep_channels, sweep))
-            raise type(e)('{!s}: Cannot set sweep parameters of channel {!s} to {!s}\n{!s}'.format(__name__, self._sweep_channels, sweep, e))
+            channel_bias, channel_sense = self._sweep_channels * 2
+            try:
+                logging.debug('{!s}: Set sweep parameters of channel {!s} to {!s}'.format(__name__, self._sweep_channels, sweep))
+                self._write(':sour{:s}:{:s}:mode swe'.format(self._cmd_chans[self._channels][channel_bias], self._IV_modes[self.get_bias_mode(channel_bias)]))
+                self._write(':sour{:s}:swe:rang best'.format(self._cmd_chans[self._channels][channel_bias]))
+                self._write(':sour{:s}:swe:spac lin'.format(self._cmd_chans[self._channels][channel_bias]))
+                self._write(':sour{:s}:swe:sta sing'.format(self._cmd_chans[self._channels][channel_bias]))
+                self._write(':sour{:s}:swe:dir up'.format(self._cmd_chans[self._channels][channel_bias]))
+                self._set_sweep_start(val=float(sweep[0]), channel=channel_bias)
+                self._set_sweep_stop(val=float(sweep[1]), channel=channel_bias)
+                self._set_sweep_step(val=float(sweep[2] * np.sign(float(sweep[1]) - float(sweep[0]))), channel=channel_bias)
+                self.set_bias_value(val=self._get_sweep_start(channel=channel_bias), channel=channel_bias)
+                self._write(':trig:acq:sour aint')
+                self._write(':trig:tran:sour aint')
+                self._write(':trig:all:count {:d}'.format(self._get_sweep_nop(channel=channel_bias)))
+                self.set_display('grap')
+                ### TODO: auto scale display
+            except Exception as e:
+                logging.error('{!s}: Cannot set sweep parameters of channel {!s} to {!s}'.format(__name__, self._sweep_channels, sweep))
+                raise type(e)('{!s}: Cannot set sweep parameters of channel {!s} to {!s}\n{!s}'.format(__name__, self._sweep_channels, sweep, e))
         return
 
     def get_tracedata(self):
@@ -1765,13 +1985,19 @@ class Keysight_B2900(Instrument):
         sense_values: numpy.array(float)
             Measured sense values.
         """
+        # Corresponding Command: :INITiate[:IMMediate]<:ACQuire|:TRANsient|[:ALL]> [chanlist]
         # Corresponding Command: :FETCh:ARRay:<CURRent|RESistance|SOURce|STATus|TIME|VOLTage>? [chanlist]
         try:
             if not self._sweep_mode:  # 0 (VV-mode)
                 channel_bias, channel_sense = self._sweep_channels
-                raise NotImplementedError('Two channel sweep not yet implemented.')
+                logging.debug('{!s}: Take sweep data of channels {!s}'.format(__name__, self._sweep_channels))
+                self._visainstrument.write(':init (@1,2)')
+                self._wait_for_transition_idle(channel=channel_bias)
+                bias_values = np.fromstring(self._ask(':fetc:arr:volt? (@{:d})'.format(channel_bias)).replace('+9.910000E+37', 'nan').replace('9.900000E+37', 'inf'), sep=',', dtype=float)
+                sense_values = np.fromstring(self._ask(':fetc:arr:volt? (@{:d})'.format(channel_sense)).replace('+9.910000E+37', 'nan').replace('9.900000E+37', 'inf'), sep=',', dtype=float)
+                return bias_values, sense_values
             elif self._sweep_mode in [1, 2]:  # 1 (IV-mode) | 2 (VI-mode)
-                channel_bias, channel_sense = self._sweep_channels*2
+                channel_bias, channel_sense = self._sweep_channels * 2
                 logging.debug('{!s}: Take sweep data of channel {!s}'.format(__name__, self._sweep_channels))
                 self._visainstrument.write(':init')
                 self._wait_for_transition_idle(channel=channel_bias)
@@ -2000,7 +2226,7 @@ class Keysight_B2900(Instrument):
         try:
             logging.debug('''{!s}: Get operation ccr condition "Transition idle"{:s}'''.format(__name__, self._log_chans[self._channels][channel]))
             self._visainstrument.write(':stat:oper:enab 1')
-            return bool((int(self._visainstrument.query(':stat:oper:cond?')) >> (1+6*(channel-1))) % 2)
+            return bool((int(self._visainstrument.query(':stat:oper:cond?')) >> (1 + 6 * (channel - 1))) % 2)
         except Exception as e:
             logging.error('{!s}: Cannot get operation ccr condition "Transition idle"{:s}'.format(__name__, self._log_chans[self._channels][channel]))
             raise type(e)('{!s}: Cannot get operation ccr condition "Transition idle"{:s}\n{!s}'.format(__name__, self._log_chans[self._channels][channel], e))
@@ -2021,6 +2247,27 @@ class Keysight_B2900(Instrument):
         while not (self.get_transition_idle(channel=channel)):
             time.sleep(100e-3)
         return
+
+    def set_display(self, mode):
+        """
+        Sets the display mode to <mode>.
+
+        Parameters
+        ----------
+        mode: str
+            Bias trigger mode. Must be 'SINGle1' (channel 1), 'SINGle2' (channel 2), 'DUAL' (channel 1 & 2), 'GRAPh' (xy-graph of sweeps).
+
+        Returns
+        -------
+        None
+        """
+        # Corresponding Command: :DISPlay:VIEW
+        if mode.lower() in ('sing1', 'single1', 'sing2', 'single2', 'dual', 'grap', 'graph'):
+            logging.debug('{!s}: Set display to {:s}'.format(__name__, mode))
+            self._write(':disp:view {:s}'.format(mode))
+        else:
+            logging.error('{:s}: Cannot set display to {!s}'.format(__name__, mode))
+            raise ValueError('{:s}: Cannot set display to {!s}'.format(__name__, mode))
 
     def set_defaults(self, sweep_mode=None):
         """
@@ -2046,9 +2293,10 @@ class Keysight_B2900(Instrument):
             self.set_sweep_mode(sweep_mode)
         # set values
         for i, channel in enumerate(self._sweep_channels[:self._channels]):
-            for key_parameter, val_parameter in self._defaults[self._sweep_mode][i].items():
-                eval('map(lambda channel, self=self: self.set_{:s}({!s}, channel=channel), [{:d}])'.format(key_parameter, val_parameter, channel))
-                #eval('self.set_{:s}({!s}, channel={:d})'.format(key_parameter, val_parameter, channel))
+            for func, param in self._defaults[self._sweep_mode][i].items():
+                func(param, channel=channel)
+                # eval('map(lambda channel, self=self: self.set_{:s}({!s}, channel=channel), [{:d}])'.format(key_parameter, val_parameter, channel))
+                # eval('self.set_{:s}({!s}, channel={:d})'.format(key_parameter, val_parameter, channel))
         return
 
     def _set_defaults_docstring(self):
@@ -2063,41 +2311,45 @@ class Keysight_B2900(Instrument):
         -------
         None
         '''
-        new = 'sweep mode: {:d}:\n'.format(self._sweep_mode) + ''.join(['\t    channel: {:d}\n'.format(channel) + ''.join(['\t\t{:s}: {!s}\n'.format(key_parameter, val_parameter) for key_parameter, val_parameter in self._defaults[self._sweep_mode][i].items()]) for i, channel in enumerate(self._sweep_channels)])
+        pass
+        new = 'sweep mode: {:d}:\n'.format(self._sweep_mode) + ''.join(['\t    channel: {:d}\n'.format(channel) + ''.join(['\t\t{:s}: {!s}\n'.format(func.__name__.replace('set_', ''), param) for func, param in self._defaults[self._sweep_mode][i].items()]) for i, channel in enumerate(self._sweep_channels)])
         self.set_defaults.__func__.__doc__ = self.set_defaults.__func__.__doc__.replace(self._default_str, new)
         self._default_str = new
         return
 
-    def get_all(self, channel=1):
+    def get_all(self, channel=None):
         """
         Prints all settings of channel <channel>.
-        
+
         Parameters
         ----------
-        None
-        
+        channel: int
+            Number of channel of interest. Must be 1 for SMUs with only one channel and 1 or 2 for SMUs with two channels or None for both channels. Default is None.
+
         Returns
         -------
         None
         """
         logging.debug('{:s}: Get all'.format(__name__))
-        print('measurement mode   = {:s}'.format(self._measurement_modes[self.get_measurement_mode()]))
-        print('bias mode          = {:s}'.format(self._IV_modes[self.get_bias_mode()]))
-        print('sense mode         = {:s}'.format(self._IV_modes[self.get_sense_mode()]))
-        print('bias range         = {:1.0e}{:s}'.format(self.get_bias_range(), self._IV_units[self.get_bias_mode()]))
-        print('sense range        = {:1.0e}{:s}'.format(self.get_sense_range(), self._IV_units[self.get_sense_mode()]))
-        print('bias delay         = {!s}'.format(self.get_bias_delay()))
-        print('sense delay        = {!s}'.format(self.get_sense_delay()))
+        for chan in np.arange(self._channels) + 1 if channel == None else [channel]:
+            print('channel: {:d}'.format(chan))
+            print('\tmeasurement mode   = {:s}'.format(self._measurement_modes[self.get_measurement_mode(channel=chan)]))
+            print('\tbias mode          = {:s}'.format(self._IV_modes[self.get_bias_mode(channel=chan)]))
+            print('\tsense mode         = {:s}'.format(self._IV_modes[self.get_sense_mode(channel=chan)]))
+            print('\tbias range         = {:1.0e}{:s}'.format(self.get_bias_range(), self._IV_units[self.get_bias_mode(channel=chan)]))
+            print('\tsense range        = {:1.0e}{:s}'.format(self.get_sense_range(), self._IV_units[self.get_sense_mode(channel=chan)]))
+            print('\tbias delay         = {!s}'.format(self.get_bias_delay(channel=chan)))
+            print('\tsense delay        = {!s}'.format(self.get_sense_delay(channel=chan)))
+            print('\tsense nplc         = {:f}'.format(self.get_sense_nplc(channel=chan)))
+            print('\tstatus             = {!r}'.format(self.get_status(channel=chan)))
+            if self.get_status(channel=chan):
+                print('\tbias value         = {:g}{:s}'.format(self.get_bias_value(channel=chan), self._IV_units[self.get_bias_mode(channel=chan)]))
+                print('\tsense value        = {:g}{:s}'.format(self.get_sense_value(channel=chan), self._IV_units[self.get_sense_mode(channel=chan)]))
+            print('\tsweep start        = {:g}{:s}'.format(self._get_sweep_start(channel=chan), self._IV_units[self.get_bias_mode(channel=chan)]))
+            print('\tsweep stop         = {:g}{:s}'.format(self._get_sweep_stop(channel=chan), self._IV_units[self.get_bias_mode(channel=chan)]))
+            print('\tsweep step         = {:g}{:s}'.format(self._get_sweep_step(channel=chan), self._IV_units[self.get_bias_mode(channel=chan)]))
+            print('\tsweep nop          = {:d}'.format(self._get_sweep_nop(channel=self._sweep_channels[0])))
         print('plc                = {:f}Hz'.format(self.get_plc()))
-        print('sense nplc         = {:f}'.format(self.get_sense_nplc()))
-        print('status             = {!r}'.format(self.get_status()))
-        if self.get_status():
-            print('bias value         = {:g}{:s}'.format(self.get_bias_value(), self._IV_units[self.get_bias_mode()]))
-            print('sense value        = {:g}{:s}'.format(self.get_sense_value(), self._IV_units[self.get_sense_mode()]))
-        print('sweep start        = {:g}{:s}'.format(self._get_sweep_start(), self._IV_units[self.get_bias_mode()]))
-        print('sweep stop         = {:g}{:s}'.format(self._get_sweep_stop(), self._IV_units[self.get_bias_mode()]))
-        print('sweep step         = {:g}{:s}'.format(self._get_sweep_step(), self._IV_units[self.get_bias_mode()]))
-        print('sweep nop          = {:d}'.format(self._get_sweep_nop()))
         for err in self.get_error():
             print('error              = {:d}\t{:s}'.format(err[0], err[1]))
         self.print_measurement_ccr()
@@ -2108,11 +2360,11 @@ class Keysight_B2900(Instrument):
     def reset(self):
         """
         Resets the instrument or a single channel to default conditions.
-        
+
         Parameters
         ----------
         None
-        
+
         Returns
         -------
         None
@@ -2129,7 +2381,7 @@ class Keysight_B2900(Instrument):
     def get_error(self):
         """
         Gets errors of instrument and removes them from the error queue.
-        
+
         Parameters
         ----------
         None
@@ -2158,7 +2410,7 @@ class Keysight_B2900(Instrument):
     def _raise_error(self):
         """
         Gets errors of instrument and as the case may be raises a python error.
-        
+
         Parameters
         ----------
         None
@@ -2168,7 +2420,7 @@ class Keysight_B2900(Instrument):
         None
         """
         errors = self.get_error()
-        if len(errors) == 1 and errors[0][0] is 0:  # no error
+        if len(errors) == 1 and errors[0][0] == 0:  # no error
             return
         else:
             msg = __name__ + ' raises the following errors:'
@@ -2231,19 +2483,20 @@ class Keysight_B2900(Instrument):
         parlist: dict
             Parameter names as keys, corresponding channels of interest as values.
         """
-        parlist = {'measurement_mode': np.arange(self._channels)+1,
-                   'bias_mode': np.arange(self._channels)+1,
-                   'sense_mode': np.arange(self._channels)+1,
-                   'bias_range': np.arange(self._channels)+1,
-                   'sense_range': np.arange(self._channels)+1,
-                   'bias_trigger': np.arange(self._channels)+1,
-                   'sense_trigger': np.arange(self._channels)+1,
-                   'bias_delay': np.arange(self._channels)+1,
-                   'sense_delay': np.arange(self._channels)+1,
-                   'bias_value': np.arange(self._channels)+1,
-                   'plc': [None],
-                   'sense_nplc': np.arange(self._channels)+1,
-                   'status': np.arange(self._channels)+1}
+        parlist = {'measurement_mode': {'channels': range(1, self._channels + 1)},
+                   'bias_mode': {'channels': range(1, self._channels + 1)},
+                   'sense_mode': {'channels': range(1, self._channels + 1)},
+                   'bias_range': {'channels': range(1, self._channels + 1)},
+                   'sense_range': {'channels': range(1, self._channels + 1)},
+                   'bias_trigger': {'channels': range(1, self._channels + 1)},
+                   'sense_trigger': {'channels': range(1, self._channels + 1)},
+                   'bias_delay': {'channels': range(1, self._channels + 1)},
+                   'sense_delay': {'channels': range(1, self._channels + 1)},
+                   'bias_value': {'channels': range(1, self._channels + 1)},
+                   'plc': {'channels': [None]},
+                   'sense_nplc': {'channels': range(1, self._channels + 1)},
+                   'status': {'channels': range(1, self._channels + 1)},
+                   }
         return parlist
 
     def get(self, param, **kwargs):
@@ -2263,10 +2516,8 @@ class Keysight_B2900(Instrument):
         parlist: dict
             Parameter names as keys, values of corresponding channels as values.
         """
-        channels = kwargs.get('channels')
+        channels = kwargs.get('channels').get('channels')
         if channels == [None]:
-            return tuple(eval('map(lambda channel, self=self: self.get_{:s}(), [None])'.format(param)))
-            #return eval('self.get_{:s}()'.format(param))
+            return getattr(self, 'get_{!s}'.format(param))()
         else:
-            return tuple(eval('map(lambda channel, self=self: self.get_{:s}(channel=channel), [{:s}])'.format(param, ', '.join(map(str, channels)))))
-            #return tuple([eval('self.get_{:s}(channel={!s})'.format(param, channel)) for channel in channels])
+            return tuple([getattr(self, 'get_{!s}'.format(param))(channel=channel) for channel in channels])

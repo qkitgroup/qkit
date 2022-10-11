@@ -11,7 +11,8 @@ import qkit
 in_pyqt5 = False
 in_pyqt4 = False
 try:
-    from PyQt5 import QtCore, QtGui
+    from PyQt5 import QtCore
+    import PyQt5.QtWidgets as QtGui
     from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject,QTimer
     from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog
     in_pyqt5 = True
@@ -122,15 +123,18 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                 
     def live_update_onoff(self):
         if self.liveCheckBox.isChecked():
-            self.timer.start(self.refreshTime_value)
+            self.timer.start(int(self.refreshTime_value))
             self.heardBeat.click()
         else:
             self.timer.stop()
     
     def _disable_live_update(self):
-        if not self._force_live_plot and not self.h5file['entry'].attrs.get('updating',True):
-            self.liveCheckBox.setChecked(False)
-            self._force_live_plot = True # don't disable the live plot if it is manually enabled again
+        try:
+            if not self._force_live_plot and not self.h5file['entry'].attrs.get('updating',True):
+                self.liveCheckBox.setChecked(False)
+                self._force_live_plot = True # don't disable the live plot if it is manually enabled again
+        except ValueError as e:
+            qkit.logging.error("Qviewkit/DatasetsWindow.py: Error on checking for live plot: "+str(e))
 
     def _refresh_time_handler(self,refreshTime):
         self.refreshTime_value = refreshTime*1000 # ms -> s

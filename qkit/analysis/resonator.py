@@ -6,7 +6,7 @@ import logging
 
 import qkit
 from qkit.storage import store
-from qkit.analysis.circle_fit.circle_fit_2019 import circuit
+from qkit.analysis.circle_fit import circuit
 from qkit.storage.hdf_constants import ds_types
 from scipy.optimize import leastsq
 from scipy.ndimage import gaussian_filter1d
@@ -160,14 +160,14 @@ class Resonator(object):
         self._frequency = np.array(self._hf[self.ds_url_freq],dtype=np.float64)
 
         try:
-            self._x_co = self._hf.get_dataset(self._ds_amp.x_ds_url.decode())
+            self._x_co = self._hf.get_dataset(self._ds_amp.x_ds_url)
         except:
             try:
                 self._x_co = self._hf.get_dataset(self.ds_url_power) # hardcode a std url
             except:
                 logging.warning('Unable to open any x_coordinate. Please set manually using \'set_x_coord()\'.')
         try:
-            self._y_co = self._hf.get_dataset(self._ds_amp.y_ds_url.decode())
+            self._y_co = self._hf.get_dataset(self._ds_amp.y_ds_url)
         except:
             try: self._y_co = self._hf.get_dataset(self.ds_url_freq) # hardcode a std url
             except:
@@ -252,7 +252,7 @@ class Resonator(object):
         self._get_data_circle()
         trace = 0
         self.debug("circle fit:")
-        for z_data_raw in self._z_data_raw:
+        for i,z_data_raw in enumerate(self._z_data_raw):
             
             z_data_raw.real = self._pre_filter_data(z_data_raw.real)
             z_data_raw.imag = self._pre_filter_data(z_data_raw.imag)
@@ -263,19 +263,20 @@ class Resonator(object):
                 self._circle_port.autofit()
             except:
                 err=np.array([np.nan for f in self._fit_frequency])
-                self._circ_amp_gen.append(err)
-                self._circ_pha_gen.append(err)
-                self._circ_real_gen.append(err)
-                self._circ_imag_gen.append(err)
+                self._circ_amp_gen.append(err,reset=(i==0))
+                self._circ_pha_gen.append(err,reset=(i==0))
+                self._circ_real_gen.append(err,reset=(i==0))
+                self._circ_imag_gen.append(err,reset=(i==0))
 
                 for key in iter(self._results):
                     self._results[str(key)].append(np.nan)
 
             else:
-                self._circ_amp_gen.append(np.absolute(self._circle_port.z_data_sim))
-                self._circ_pha_gen.append(np.angle(self._circle_port.z_data_sim))
-                self._circ_real_gen.append(np.real(self._circle_port.z_data_sim))
-                self._circ_imag_gen.append(np.imag(self._circle_port.z_data_sim))
+                self._circ_amp_gen.append(np.absolute(self._circle_port.z_data_sim),reset=(i==0))
+                self._circ_pha_gen.append(np.angle(self._circle_port.z_data_sim),reset=(i==0))
+                self._circ_real_gen.append(np.real(self._circle_port.z_data_sim),reset=(i==0))
+                self._circ_imag_gen.append(np.imag(self._circle_port.z_data_sim),reset=(i==0))
+                print(i,i==0)
 
                 for key in iter(self._results):
                     self._results[str(key)].append(float(self._circle_port.fitresults[str(key)]))

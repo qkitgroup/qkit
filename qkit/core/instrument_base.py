@@ -67,6 +67,7 @@ class Instrument(object):
         self._functions = {}
         self._added_methods = []
         self._probe_ids = []
+        self._offsets = {}
 
     def __str__(self):
         return "Instrument '%s'" % (self.get_name())
@@ -211,6 +212,8 @@ class Instrument(object):
             options['type'] = type(None)
         if 'tags' not in options:
             options['tags'] = []
+        if 'offset' not in options:
+            options['offset'] = False
 
         # If defining channels call add_parameter for each channel
         if 'channels' in options:
@@ -236,6 +239,7 @@ class Instrument(object):
             return
 
         self._parameters[name] = options
+        self._offsets[name] = None
 
         if 'channel' in options:
             ch = options['channel']
@@ -243,6 +247,20 @@ class Instrument(object):
             ch = None
 
         base_name = kwargs.get('base_name', name)
+
+        if options['offset']:
+            if options["type"] in (bool,bytes,str):
+                raise ValueError("%s.%s: Offset not available for parameter with type %s" % (self._name, name, options["type"].__name__))
+            else:
+                func = lambda value: self._offsets.update({name:value})
+                func.__doc__ = """Set an offset for parameter %s on device %s.
+                The offset is added on every get and substracted on every set command.
+                Use e.g. set_power_offset(-20) if you add 20dB attenuation at the device."""%(self._name,name)
+                setattr(self, 'set_%s_offset' % name, func)
+                self._added_methods.append('set_%s_offset' % name)
+    
+                setattr(self, 'get_%s_offset' % name, lambda : self._offsets[name])
+                self._added_methods.append('get_%s_offset' % name)
 
         if options['flags'] & Instrument.FLAG_GET:
             if ch is not None:
@@ -505,6 +523,11 @@ class Instrument(object):
         Return a dictionary with parameter group name -> group members.
         '''
         return self._parameter_groups
+    
+    def _offset(self,name,value,sign):
+        if self._offsets[name] is not None:
+            return value+sign*self._offsets[name]
+        return value
 
     def _get_value(self, name, query=True, **kwargs):
         '''
@@ -529,10 +552,12 @@ class Instrument(object):
         if not query or flags & 8: #self.FLAG_SOFTGET:
             if 'value' in p:
                 if p['type'] == np.ndarray:
-                    return np.array(p['value'])
+                    return self._offset(name,np.array(p['value']),+1)
                 else:
-                    return p['value']
+                    return self._offset(name,p['value'],+1)
             elif not query:
+                if not flags & 1: #Instrument.FLAG_GET, not gettable
+                    return None 
                 # if this value is not stored but gettable, don't throw an error but just get it.
                 logging.debug("%s.%s value not cached. I try getting it with query=True."%(self._name,name))
                 return self._get_value(name,query=True,**kwargs)
@@ -542,7 +567,8 @@ class Instrument(object):
 
         # Check this here; getting of cached values should work
         if not flags & 1: #Instrument.FLAG_GET:
-            print('Instrument does not support getting of %s' % name)
+            if query:
+                logging.error('Instrument %s does not support getting of %s' %(self._name, name))
             return None
 
         func = p['get_func']
@@ -559,7 +585,7 @@ class Instrument(object):
                 logging.warning('Unable to cast value "%s" to %s', value, p['type'])
 
         p['value'] = value
-        return value
+        return self._offset(name,value,+1)
 
     def get(self, name, query=True, fast=False, **kwargs):
         '''
@@ -640,13 +666,21 @@ class Instrument(object):
         if 'channel' in p and 'channel' not in kwargs:
             kwargs['channel'] = p['channel']
 
+        value = self._offset(name, value, -1)
+
         if 'type' in p:
             value = self._convert_value(value, p['type'])
 
         if 'minval' in p and value < p['minval']:
+            if self._offsets[name] is not None and self._offsets[name] != 0:
+                raise qkit.instruments.InstrumentBoundsError('Cannot set %s.%s to %g: With offset %g, %s at %s would be %g, which is too small (Minimum: '
+                                                             '%g)' % (self._name, name, value+self._offsets[name],self._offsets[name],name,self._name,value, p['maxval']))
             raise qkit.instruments.InstrumentBoundsError('Cannot set %s.%s to %s: value too small (Minimum: %g)' % (self._name, name,value, p['minval']))
 
         if 'maxval' in p and value > p['maxval']:
+            if self._offsets[name] is not None and self._offsets[name] != 0:
+                raise qkit.instruments.InstrumentBoundsError('Cannot set %s.%s to %g: With offset %g, %s at %s would be %g, which is too large (Maximum: '
+                                                             '%g)' % (self._name, name, value+self._offsets[name],self._offsets[name],name,self._name,value, p['maxval']))
             raise qkit.instruments.InstrumentBoundsError('Cannot set %s.%s to %s: value too large (Maximum: %g)' % (self._name, name, value, p['maxval']))
 
         func = p['set_func']
@@ -664,7 +698,7 @@ class Instrument(object):
         func(value, **kwargs)  # execute the set function to get the final value
 
         if p['flags'] & self.FLAG_GET_AFTER_SET:
-            newvalue = self._get_value(name, **kwargs)
+            newvalue = self._offset(name,self._get_value(name, **kwargs),-1)
             if newvalue != value:
                 logging.warning("%s.%s: actual value (%s) differs from set value (%s)"%(self._name,name,newvalue,value))
             value = newvalue

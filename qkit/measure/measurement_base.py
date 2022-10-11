@@ -59,6 +59,14 @@ class MeasureBase(object):
         self._measurement_object = Measurement()
         self._measurement_object.measurement_type = 'defaultMeasurement'
         self.web_visible = True
+
+    def __getattr__(self, item):
+        if item == "x_vec":
+            return self._x_parameter.values
+        elif item == "y_vec":
+            return self._y_parameter.values
+        else:
+            raise AttributeError("Measurement object has no attribute '{}'".format(item))
     
     def set_sample(self,sample):
         if sample is None:
@@ -268,7 +276,7 @@ class MeasureBase(object):
         self._dim = 0
         for d in data:
             for c in d.coordinates:
-                coordinates.add(c.name)
+                coordinates.add(c.name.rstrip("_0123456789")) # removes indices like frequency_0 from the file name
             self._dim = max(self._dim, len(d.coordinates))  # if you have several 2D scans, the dimension is still 2D
         if not self.measurement_name:
             self.measurement_name = ", ".join(coordinates)

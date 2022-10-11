@@ -162,6 +162,7 @@ class Spectrum_M3i2132(Instrument):
 
         if self.pf_64Bit:
             logging.debug(__name__ + ' : Loading spcm_win64.dll')
+            drv_handle= POINTER(c_uint64)
             self._spcm_win32 = windll.LoadLibrary('C:\\WINDOWS\\System32\\spcm_win64.dll')
 
             #function names are not decorated in the 64 bit version
@@ -178,6 +179,7 @@ class Spectrum_M3i2132(Instrument):
             self._spcm_win32.InValidateBuf  = self._spcm_win32["spcm_dwInvalidateBuf"]
             self._spcm_win32.GetErrorInfo   = self._spcm_win32["spcm_dwGetErrorInfo_i32"]
         else:
+            drv_handle = c_void_p
             logging.debug(__name__ + ' : Loading spcm_win32.dll')
             self._spcm_win32 = windll.LoadLibrary('C:\\WINDOWS\\System32\\spcm_win32.dll')
 
@@ -193,7 +195,28 @@ class Spectrum_M3i2132(Instrument):
             self._spcm_win32.DefTransfer64  = self._spcm_win32["_spcm_dwDefTransfer_i64@36"]
             self._spcm_win32.InValidateBuf  = self._spcm_win32["_spcm_dwInvalidateBuf@8"]
             self._spcm_win32.GetErrorInfo   = self._spcm_win32["_spcm_dwGetErrorInfo_i32@16"]
-
+        
+        self._spcm_win32.open.argtype = [c_char_p]
+        self._spcm_win32.open.restype = drv_handle
+        self._spcm_win32.close.argtype = [drv_handle]
+        self._spcm_win32.close.restype = None
+        self._spcm_win32.SetParam32.argtype = [drv_handle, c_int32, c_int32]
+        self._spcm_win32.SetParam32.restype = c_uint32
+        self._spcm_win32.SetParam64m.argtype = [drv_handle, c_int32, c_int32, c_int32]
+        self._spcm_win32.SetParam64m.restype = c_uint32
+        self._spcm_win32.SetParam64.argtype = [drv_handle, c_int32, c_int64]
+        self._spcm_win32.SetParam64.restye = c_uint32
+        self._spcm_win32.GetParam32.argtype = [drv_handle, c_int32, POINTER (c_int32)]
+        self._spcm_win32.GetParam32.restype = c_uint32
+        self._spcm_win32.GetParam64.argtype = [drv_handle, c_int32, POINTER (c_int64)]
+        self._spcm_win32.GetParam64.restype = c_uint32
+        self._spcm_win32.DefTransfer64.argtype = [drv_handle, c_uint32, c_uint32, c_uint32, c_void_p, c_uint64, c_uint64]
+        self._spcm_win32.DefTransfer64.restype = c_uint32
+        self._spcm_win32.InValidateBuf.argtype = [drv_handle, c_uint32]
+        self._spcm_win32.InValidateBuf.restype = c_uint32
+        self._spcm_win32.GetErrorInfo.argtype = [drv_handle, POINTER (c_uint32), POINTER (c_int32), c_char_p]
+        self._spcm_win32.GetErrorInfo.restype = c_uint32
+        
     def _open(self):
         '''
         Opens the card, and creates a handle.
@@ -207,7 +230,7 @@ class Spectrum_M3i2132(Instrument):
         '''
         logging.debug(__name__ + ' : Try to open card')
         if ( not self._card_is_open):
-          self._spcm_win32.handel = self._spcm_win32.open('spcm0')
+          self._spcm_win32.handel = self._spcm_win32.open(create_string_buffer (b'spcm0'))#'spcm0')
           self._card_is_open = True
         else:
           logging.warning(__name__ + ' : Card is already open !')
@@ -309,7 +332,7 @@ class Spectrum_M3i2132(Instrument):
             logging.error(__name__ + ' : Error %s while setting reg %s to %s' % (err, regnum, regval))
             self._get_error()
             raise ValueError('Error communicating with device')
-		# invalidate buffer
+        # invalidate buffer
         err = self._spcm_win32.InValidateBuf(self._spcm_win32.handel, buffertype)
         if (err==0):
             return 0
@@ -318,7 +341,7 @@ class Spectrum_M3i2132(Instrument):
             self._get_error()
             raise ValueError('Error communicating with device')
 
-    	del self._pbuffer
+        del self._pbuffer
 
     def _get_error(self):
         '''
@@ -344,7 +367,7 @@ class Spectrum_M3i2132(Instrument):
         tekst = ""
 
         for ii in range(200):
-            tekst  = tekst + p_errortekst.contents[ii]
+            tekst  = tekst + p_errortekst.contents[ii].decode()
         logging.error(__name__ + ' : ' + tekst)
         return tekst
 
@@ -415,7 +438,7 @@ class Spectrum_M3i2132(Instrument):
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CHENABLE, _spcm_regs.CHANNEL0)
         #self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_STD_SINGLE)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_FIFO_SINGLE)
-    	#self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_LOOPS, 1)
+        #self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_LOOPS, 1)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_MEMSIZE, memsize)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_POSTTRIGGER, posttrigger)
         self._spcm_win32.SetParam32(self._spcm_win32_handel, _spcm_regs.SPC_PATH0, 0) # zofo
@@ -494,7 +517,7 @@ class Spectrum_M3i2132(Instrument):
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CHENABLE, _spcm_regs.CHANNEL0)
         #self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_STD_MULTI)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_FIFO_MULTI)
-    	#self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_LOOPS, 1)
+        #self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_LOOPS, 1)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_SEGMENTSIZE, segsize)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_MEMSIZE, memsize)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_POSTTRIGGER, posttrigger)
@@ -548,7 +571,7 @@ class Spectrum_M3i2132(Instrument):
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CHENABLE, _spcm_regs.CHANNEL0 | _spcm_regs.CHANNEL1)
         #self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_STD_MULTI)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_FIFO_MULTI)
-    	#self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_LOOPS, 1)
+        #self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_LOOPS, 1)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_SEGMENTSIZE, segsize)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_MEMSIZE, memsize)
         self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_POSTTRIGGER, posttrigger)
@@ -653,7 +676,7 @@ class Spectrum_M3i2132(Instrument):
         logging.debug(__name__ + ' : Card started with trigger')
         self._buffer_setup()
         self._set_param(_spcm_regs.SPC_M2CMD,
-            _spcm_regs.M2CMD_CARD_START | _spcm_regs.M2CMD_CARD_ENABLETRIGGER)
+            _spcm_regs.M2CMD_CARD_START | _spcm_regs.M2CMD_CARD_ENABLETRIGGER | _spcm_regs.M2CMD_DATA_STARTDMA)
 
     def start_with_trigger_and_waitready(self):
         '''
@@ -946,8 +969,8 @@ class Spectrum_M3i2132(Instrument):
             None
         '''
         logging.debug(__name__ + ' : Set the card in single mode readout status')
-       	self._set_param(_spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_FIFO_SINGLE)
-       	#self._set_param(_spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_STD_SINGLE)
+        self._set_param(_spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_FIFO_SINGLE)
+        #self._set_param(_spcm_regs.SPC_CARDMODE, _spcm_regs.SPC_REC_STD_SINGLE)
 
     def set_multi_mode(self):
         '''
@@ -1190,42 +1213,42 @@ class Spectrum_M3i2132(Instrument):
 #######################
 
     def _buffer_setup(self):
-    	'''
-    	create a new data buffer
-    	(assuming the old one is now owned by another part of the program)
-    	'''
+        '''
+        create a new data buffer
+        (assuming the old one is now owned by another part of the program)
+        '''
         logging.debug(__name__ + ' : _buffer_setup')
         lMemsize = self.get_memsize()
         lBufsize = lMemsize * self._numchannels
 
         # setup buffer
         #if hasattr(self, '_pbuffer') and (len(self._pbuffer.contents) == lBufsize):
-        #	pass
-        	# tell the card that the buffer is now available again
-        	#err = self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_DATA_AVAIL_CARD_LEN,
-        	#	lBufsize)
-        	#if (err!=0):
-        	#	self._get_error()
-        	#	raise ValueError('Error communicating with device')
+        #   pass
+            # tell the card that the buffer is now available again
+            #err = self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_DATA_AVAIL_CARD_LEN,
+            #   lBufsize)
+            #if (err!=0):
+            #   self._get_error()
+            #   raise ValueError('Error communicating with device')
         #else:
         a = (c_int8 * lBufsize)()
         p_data = pointer(a)
 
-		# tell card to use buffer
+        # tell card to use buffer
         err = self._spcm_win32.DefTransfer64(self._spcm_win32.handel, _spcm_regs.SPCM_BUF_DATA, 1,
-        	0, p_data, c_int64(0), c_int64(lBufsize))
+            0, p_data, c_int64(0), c_int64(lBufsize))
         if (err!=0):
-        	logging.error(__name__ + ' : Error setting up buffer')
-        	self._get_error()
-        	raise ValueError('Error communicating with device')
+            logging.error(__name__ + ' : Error setting up buffer')
+            self._get_error()
+            raise ValueError('Error communicating with device')
 
         # start DMA transfers
         err = self._spcm_win32.SetParam32(self._spcm_win32.handel, _spcm_regs.SPC_M2CMD,
-        	_spcm_regs.M2CMD_DATA_STARTDMA)
+            _spcm_regs.M2CMD_DATA_STARTDMA)
         if (err!=0):
-        	logging.error(__name__ + ' : Error starting DMA transfer, error nr: %i' % err)
-        	self._get_error()
-        	raise ValueError('Error communicating with device')
+            logging.error(__name__ + ' : Error starting DMA transfer, error nr: %i' % err)
+            self._get_error()
+            raise ValueError('Error communicating with device')
 
         # save new buffer possibly freeing old one, will break if DMA is in progress
         self._pbuffer = p_data
@@ -1299,7 +1322,7 @@ class Spectrum_M3i2132(Instrument):
         lMemsize = self.get_memsize()
         lSegsize = self.get_segmentsize()
 
-        lnumber_of_segments = lMemsize / lSegsize
+        lnumber_of_segments = int(lMemsize / lSegsize)
 
         data = self.readout_raw_buffer()
         if data == 'timeout':
@@ -1314,7 +1337,7 @@ class Spectrum_M3i2132(Instrument):
         amp = float(self.get_input_amp_ch0())
         offset = float(self.get_input_offset_ch0())
 
-        lnumber_of_segments = lMemsize / lSegsize
+        lnumber_of_segments = int(lMemsize / lSegsize)
 
         data = self.readout_raw_buffer()
         if data == 'timeout':
@@ -1351,7 +1374,7 @@ class Spectrum_M3i2132(Instrument):
         lMemsize = self.get_memsize()
         lSegsize = self.get_segmentsize()
 
-        lnumber_of_segments = lMemsize / lSegsize
+        lnumber_of_segments = int(lMemsize / lSegsize)
 
         data = self.readout_raw_buffer(nr_of_channels=2)
         if data == 'timeout':
@@ -1369,7 +1392,7 @@ class Spectrum_M3i2132(Instrument):
         amp1 = float(self.get_input_amp_ch0())
         offset1 = float(self.get_input_offset_ch1())
 
-        lnumber_of_ssegments = lMemsize / lSegsize
+        lnumber_of_segments = int(lMemsize / lSegsize)
 
         data = self.readout_raw_buffer(nr_of_channels=2)
         if data == 'timeout':
@@ -1404,9 +1427,9 @@ class Spectrum_M3i2132(Instrument):
             data (int[memsize]): Measurement data
         '''
         self.init_default(memsize=memsize, posttrigger=posttrigger, amp=amp)
-        print 'starting card and waiting for trigger'
+        print('starting card and waiting for trigger')
         self.start_with_trigger_and_waitready()
-        print "received trigger"
+        print("received trigger")
         self.data = self.readout_singlemode_float()
         return self.data
 

@@ -64,9 +64,13 @@ class Keysight_E8267D(Instrument):
             self.reset()
         else:
             self.get_all()
-            
-        print('this is a copy of the Agilent E8257D driver, thourough testing of this driver in combination with the Keysight E8267D has NOT been done! proceed with caution!')
-        print('The max. output power and the frequency range depend on the order option of the Keysight E8267D! ')
+        
+        if self._visainstrument.query("*IDN?").split(",")[1].strip() == 'N5173B':
+            self.set_parameter_bounds("power",-20,19)
+            self.set_parameter_bounds("frequency",9e3,20e9)
+        else:
+            print('this is a copy of the Agilent E8257D driver, thourough testing of this driver in combination with the Keysight E8267D has NOT been done! proceed with caution!')
+            print('The max. output power and the frequency range depend on the order option of the Keysight E8267D! ')
     def reset(self):
         '''
         Resets the instrument to default values

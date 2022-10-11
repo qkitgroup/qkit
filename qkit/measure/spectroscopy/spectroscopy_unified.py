@@ -63,6 +63,7 @@ class spectrum(MeasureBase):
         self._measurement_object.measurement_type = 'SpectroscopyMeasurement'
         self._views = []
         self._scan_time = False
+        self._segments = [] # bool([]) == False
     
     def set_x_parameters(self, vec, coordname, set_obj, unit, dt=None):
         """
@@ -131,6 +132,10 @@ class spectrum(MeasureBase):
         self.vna.get_all()
         self._nop = self.vna.get_nop()
         self._sweeptime_averages = self.vna.get_sweeptime_averages()
+        try:
+            self._segments = self.vna.get_segments()
+        except AttributeError:
+            self._segments = []
         if self._dim == 1 or not self.landscape.xzlandscape_func:  # normal scan
             self._freqpoints = self.vna.get_freqpoints()
         else:
@@ -169,12 +174,18 @@ class spectrum(MeasureBase):
         self._measurement_object.measurement_func = 'measure_1D'
         
         self._prepare_measurement_devices()
-        f = self.Coordinate('frequency', unit='Hz', values=self._freqpoints)
-
-        self._prepare_measurement_file([self.Data("real", [f], ""), self.Data("imag", [f], ""), self.Data("amplitude", [f], "arb. unit", save_timestamp=True),
-            self.Data("phase", [f], "rad")])
+        if self._segments:
+            f =  [self.Coordinate('frequency_%i' % i, unit='Hz', values=self._freqpoints[0 if i == 0 else self._segments[i - 1]:self._segments[i]]) for i in range(len(self._segments))]
+            self._prepare_measurement_file(
+                    [self.Data(P[0] % i, [f[i]], P[1], save_timestamp=P[2] and not i)
+                     for i in range(len(self._segments)) for P in [["amplitude_%i","arb. unit",True],["phase_%i","rad",False],["real_%i","",False],["imag_%i","",False]]])
+        else:
+            f = self.Coordinate('frequency', unit='Hz', values=self._freqpoints)
+    
+            self._prepare_measurement_file([self.Data("real", [f], ""), self.Data("imag", [f], ""), self.Data("amplitude", [f], "arb. unit", save_timestamp=True),
+                self.Data("phase", [f], "rad")])
         
-        self._open_qviewkit()
+        self._open_qviewkit(datasets=[] if len(self._segments)>4 else None)
         
         qkit.flow.start()
         if rescan:
@@ -209,10 +220,7 @@ class spectrum(MeasureBase):
         data_amp, data_pha = self.vna.get_tracedata()
         data_real, data_imag = self.vna.get_tracedata('RealImag')
         
-        self._datasets['amplitude'].append(data_amp)
-        self._datasets['phase'].append(data_pha)
-        self._datasets['real'].append(data_real)
-        self._datasets['imag'].append(data_imag)
+        self._append(data_amp,data_pha,data_real,data_imag)
         if self._fit_resonator:
             self._do_fit_resonator()
         self._end_measurement()
@@ -230,10 +238,16 @@ class spectrum(MeasureBase):
         self._measurement_object.measurement_func = 'measure_2D'
         
         self._prepare_measurement_devices()
-        f = self.Coordinate('frequency', unit='Hz', values=self._freqpoints)
-
-        self._prepare_measurement_file(
-                [self.Data("amplitude", [self._x_parameter, f], "arb. unit", save_timestamp=True), self.Data("phase", [self._x_parameter, f], "rad")])
+        if self._segments:
+            f =  [self.Coordinate('frequency_%i' % i, unit='Hz', values=self._freqpoints[0 if i == 0 else self._segments[i - 1]:self._segments[i]]) for i in range(len(self._segments))]
+            self._prepare_measurement_file(
+                    [self.Data(P[0] % i, [self._x_parameter,f[i]], P[1], save_timestamp=P[2] and not i)
+                     for i in range(len(self._segments)) for P in [["amplitude_%i","arb. unit",True],["phase_%i","rad",False],["real_%i","",False],["imag_%i","",False]]])
+        else:
+            f = self.Coordinate('frequency', unit='Hz', values=self._freqpoints)
+    
+            self._prepare_measurement_file(
+                    [self.Data("amplitude", [self._x_parameter, f], "arb. unit", save_timestamp=True), self.Data("phase", [self._x_parameter, f], "rad")])
        
         self._pb = Progress_Bar(len(self._x_parameter.values), '2D VNA sweep ' + self.measurement_name, self.vna.get_sweeptime_averages(),
                                 dummy=not self.progress_bar)
@@ -247,7 +261,7 @@ class spectrum(MeasureBase):
             self._open_qviewkit(['views/amplitude_midpoint', 'views/phase_midpoint'])
         else:
             self._views = []
-            self._open_qviewkit(['data0/amplitude', 'data0/phase'])
+            self._open_qviewkit(datasets=[] if len(self._segments)>4 else None)
         
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath())
@@ -268,11 +282,17 @@ class spectrum(MeasureBase):
         self._measurement_object.measurement_func = 'measure_3D'
         
         self._prepare_measurement_devices()
-        f = self.Coordinate('frequency', unit='Hz', values=self._freqpoints)
-        self._prepare_measurement_file([self.Data("amplitude", [self._x_parameter, self._y_parameter, f], "arb. unit", save_timestamp=True),
-            self.Data("phase", [self._x_parameter, self._y_parameter, f], "rad")])
+        if self._segments:
+            f =  [self.Coordinate('frequency_%i' % i, unit='Hz', values=self._freqpoints[0 if i == 0 else self._segments[i - 1]:self._segments[i]]) for i in range(len(self._segments))]
+            self._prepare_measurement_file(
+                    [self.Data(P[0] % i, [self._x_parameter, self._y_parameter,f[i]], P[1], save_timestamp=P[2] and not i)
+                     for i in range(len(self._segments)) for P in [["amplitude_%i","arb. unit",True],["phase_%i","rad",False],["real_%i","",False],["imag_%i","",False]]])
+        else:
+            f = self.Coordinate('frequency', unit='Hz', values=self._freqpoints)
+            self._prepare_measurement_file([self.Data("amplitude", [self._x_parameter, self._y_parameter, f], "arb. unit", save_timestamp=True),
+                self.Data("phase", [self._x_parameter, self._y_parameter, f], "rad")])
         
-        self._open_qviewkit()
+        self._open_qviewkit(datasets=[] if len(self._segments)>4 else None)
         
         if self._fit_resonator:
             self._resonator = resonator(self._data_file.get_filepath())
@@ -366,6 +386,21 @@ class spectrum(MeasureBase):
         """ measurement """
         return self.vna.get_tracedata()
     
+    def _append(self,amplitude,phase,real=None,imag=None):
+        if self._segments:
+            for i in range(len(self._segments)):
+                self._datasets['amplitude_%i' % i].append(amplitude[0 if i == 0 else self._segments[i - 1]:self._segments[i]])
+                self._datasets['phase_%i' % i].append(phase[0 if i == 0 else self._segments[i - 1]:self._segments[i]])
+                if real is not None and imag is not None:
+                    self._datasets['real_%i' % i].append(real[0 if i == 0 else self._segments[i - 1]:self._segments[i]])
+                    self._datasets['imag_%i' % i].append(imag[0 if i == 0 else self._segments[i - 1]:self._segments[i]])
+        else:
+            self._datasets['amplitude'].append(amplitude)
+            self._datasets['phase'].append(phase)
+            if real is not None and imag is not None:
+                self._datasets['real'].append(real)
+                self._datasets['imag'].append(imag)
+        
     def _measure(self):
         """
         measures and plots the data depending on the measurement type.
@@ -397,8 +432,7 @@ class spectrum(MeasureBase):
                             else:
                                 data_amp, data_pha = self.landscape.get_tracedata_xz(x)
                             self._pb.iterate()
-                        self._datasets['amplitude'].append(data_amp)
-                        self._datasets['phase'].append(data_pha)
+                        self._append(data_amp,data_pha)
                         if self._fit_resonator:
                             self._do_fit_resonator()
                         qkit.flow.sleep()
@@ -406,13 +440,11 @@ class spectrum(MeasureBase):
                     filling of value-box is done here.
                     after every y-loop the data is stored the next 2d structure
                     """
-                    self._datasets['amplitude'].next_matrix()
-                    self._datasets['phase'].next_matrix()
+                    [d.next_matrix() for d in self._datasets.values()]
     
                 if self._dim == 2:
                     data_amp, data_pha = self._acquire_vna_data()
-                    self._datasets['amplitude'].append(data_amp)
-                    self._datasets['phase'].append(data_pha)
+                    self._append(data_amp, data_pha)
                     
                     if self._fit_resonator:
                         self._do_fit_resonator()

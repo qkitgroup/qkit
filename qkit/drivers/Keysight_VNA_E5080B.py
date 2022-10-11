@@ -82,32 +82,32 @@ class Keysight_VNA_E5080B(Instrument):
                     
         self.add_parameter('centerfreq', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=14e9,
+            minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])
 
         self.add_parameter('cwfreq', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=14e9,
+            minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])
             
         self.add_parameter('startfreq', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=14e9,
+            minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])            
             
         self.add_parameter('stopfreq', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=14e9,
+            minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])                        
             
         self.add_parameter('span', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=14e9,
+            minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])        
             
         self.add_parameter('power', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=-100, maxval=20,
+            minval=-100, maxval=20, offset=True,
             units='dBm', tags=['sweep'])
 
         self.add_parameter('startpower', type=float,
@@ -135,6 +135,9 @@ class Keysight_VNA_E5080B(Instrument):
             flags=Instrument.FLAG_GET,
             minval=0, maxval=1e3,
             units='s', tags=['sweep'])
+        
+        self.add_parameter('measurement_parameter', type=str,
+                           flags=Instrument.FLAG_GETSET)
     
         self.add_parameter('edel', type=float, # legacy name for parameter. This corresponds to the VNA's port extension values.
             flags=Instrument.FLAG_GETSET, 
@@ -261,12 +264,26 @@ class Keysight_VNA_E5080B(Instrument):
             return dataamp, datapha
         else:
             raise ValueError('get_tracedata(): Format must be AmpPha or RealImag')
+    
+    def get_segments(self):
+        if self.get_sweep_type(query=False) == "SEGM":
+            self._visainstrument.write('FORM:DATA REAL,64')
+            self._visainstrument.write('FORM:BORD SWAPPED')
+            segments =  [0]
+            for x in numpy.reshape(self._visainstrument.query_binary_values("sense:segment:list? SSTOP",datatype="d"),(-1,8)):
+                if x[0]>0.5: #the segment is active
+                    segments.append(int(x[1])+segments[-1])
+            return segments[1:]
+        else:
+            return []
       
     def get_freqpoints(self, query=False):
         if self.get_sweep_type(query=False) == "SEGM":
+            self._visainstrument.write('FORM:DATA REAL,64')
+            self._visainstrument.write('FORM:BORD SWAPPED')
             freqs = numpy.array([])
-            for x in numpy.reshape(self._visainstrument.query_binary_values("sense:segment:list? SSTOP"),(-1,8)):
-                if x[0]>0.5:
+            for x in numpy.reshape(self._visainstrument.query_binary_values("sense:segment:list? SSTOP",datatype="d"),(-1,8)):
+                if x[0]>0.5: #the segment is active
                     freqs = numpy.append(freqs,numpy.linspace(x[2],x[3],int(x[1])))
             self._freqpoints = freqs
             return self._freqpoints
@@ -288,6 +305,7 @@ class Keysight_VNA_E5080B(Instrument):
         single means only one single trace, not all the averages even if averages
          larger than 1 and Average==True
         """
+        mode=mode.lower()
         if mode == 'hold':
             self._visainstrument.write('SENS%i:SWE:MODE HOLD' % self._ci)
         elif mode == 'cont':
