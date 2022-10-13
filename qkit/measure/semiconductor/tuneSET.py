@@ -313,7 +313,7 @@ class TuneSET():
             if self.regf["sg_get"](self.B1[0])<self.regf["sg_get"](self.TG[0]):
                 print(f"Ramp up sweep_gates {self.sweep_gates} to value of gate {self.TG} or until feedback {self.accumulation_value} V is reached.")
                 self.regf["accumulation"](self.sweep_gates, self.regf["sg_get"](self.B1[0]), self.regf["sg_get"](self.TG[0]), self.accumulation_value)
-        print("Accumulation restored.")
+                
             
         
     def find_oscillation_window(self):
@@ -325,48 +325,129 @@ class TuneSET():
         self.check_whether_accumulated()
         if self.is_accumulated == False:
             self.restore_accumulation()
-        for i in range(self.number_iterations):        
-            while self.regf["feedback"]()>=self.shutoff_value:
-                self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B1[0])-self.shift_value)
-                x_start = self.regf["sg_get"](self.B1[0]) + self.spacer_right
-                print(f'Gate(s) {self.B1}: ', self.regf["sg_get"](self.B1[0]))
-                time.sleep(0.2)
             
-            self.regf["sg_set"](self.B1, x_start)
-    
-            while self.regf["feedback"]()>=self.shutoff_value:
-                self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B2[0])-self.shift_value)
-                y_start = self.regf["sg_get"](self.B2[0]) + self.spacer_up
-                print(f'Gate(s) {self.B2}: ', self.regf["sg_get"](self.B2[0]))
-                time.sleep(0.2)
-            
-            self.regf["sg_set"](self.B2, y_start)
+        self.check_whether_accumulated()
+        if self.is_accumulated == True:
+            print("Accumulation restored.")
+            print("Start search for oscillation window.")
+        
+            for i in range(self.number_iterations):        
+                while self.regf["feedback"]()>=self.shutoff_value:
+                    self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B1[0])-self.shift_value)
+                    x_start = self.regf["sg_get"](self.B1[0]) + self.spacer_right
+                    print(f'Gate(s) {self.B1}: ', self.regf["sg_get"](self.B1[0]))
+                    time.sleep(0.2)
                 
-            start_values_x.append(x_start)
-            start_values_y.append(y_start)
+                self.regf["sg_set"](self.B1, x_start)
+        
+                while self.regf["feedback"]()>=self.shutoff_value:
+                    self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B2[0])-self.shift_value)
+                    y_start = self.regf["sg_get"](self.B2[0]) + self.spacer_up
+                    print(f'Gate(s) {self.B2}: ', self.regf["sg_get"](self.B2[0]))
+                    time.sleep(0.2)
+                
+                self.regf["sg_set"](self.B2, y_start)
+                    
+                start_values_x.append(x_start)
+                start_values_y.append(y_start)
+                
+                if i>0 and round(start_values_x[i],2)==round(start_values_x[i-1],2) and round(start_values_y[i],2) == round(start_values_y[i-1],2):
+                    print('Same window found twice. Start 2D measurement.')
+                    break
+                elif i == self.number_iterations-1:
+                    print(f'Searched {self.number_iterations} times. Optimal window may have not been found yet. Start 2D measurement anyway.')
             
-            if i>0 and round(start_values_x[i],2)==round(start_values_x[i-1],2) and round(start_values_y[i],2) == round(start_values_y[i-1],2):
-                print('Same window found twice. Start 2D measurement.')
-                break
-            elif i == self.number_iterations-1:
-                print(f'Searched {self.number_iterations} times. Optimal window may have not been found yet. Start 2D measurement anyway.')
-        
-        self.x_start = x_start
-        self.y_start = y_start
-        self.x_shutoff = self.x_start - self.spacer_right #save for later
-        self.y_shutoff = self.y_start - self.spacer_up
-        
-        print("x_start: ", round(self.x_start, self.digits))
-        print("y_start: ", round(self.y_start, self.digits))
-        
-        print("\nx_shutoff: ", round(self.x_shutoff,self.digits))
-        print("y_shutoff: ", round(self.y_shutoff,self.digits))
-              
-        self.regf["2Dsweep"](self.B1, self.B2, self.vstep, self.vstep, self.x_start, self.x_start-self.windowsize, self.y_start, self.y_start-self.windowsize)
+            self.x_start = x_start
+            self.y_start = y_start
+            self.x_shutoff = self.x_start - self.spacer_right #save for later
+            self.y_shutoff = self.y_start - self.spacer_up
+            
+            print("x_start: ", round(self.x_start, self.digits))
+            print("y_start: ", round(self.y_start, self.digits))
+            
+            print("\nx_shutoff: ", round(self.x_shutoff,self.digits))
+            print("y_shutoff: ", round(self.y_shutoff,self.digits))
+                  
+            self.regf["2Dsweep"](self.B1, self.B2, self.vstep, self.vstep, self.x_start, self.x_start-self.windowsize, self.y_start, self.y_start-self.windowsize)
 
+        else:
+            print("Sample not accumulated. Try again with higher topgate voltage.")
         
+    def find_oscillation_window_test(self):
+        x_init = self.regf["sg_get"](self.B1[0])
+        y_init = self.regf["sg_get"](self.B2[0])
+        start_values_x = []
+        start_values_y = []
+        x_start = x_init
+        y_start = y_init
+        self.check_whether_accumulated()
+        if self.is_accumulated == False:
+            self.restore_accumulation()
+            
+        self.check_whether_accumulated()
+        if self.is_accumulated == True:
+            print("Accumulation restored.")
+            print("Start search for oscillation window.")
+            
+            for i in range(self.number_iterations):        
+                while self.regf["feedback"]()>=self.shutoff_value:
+                    self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B1[0])-self.shift_value)
+                    x_start = self.regf["sg_get"](self.B1[0]) + self.spacer_right
+                    print(f'Gate(s) {self.B1}: ', self.regf["sg_get"](self.B1[0]))
+                    time.sleep(0.2)
+                
+                self.x_shutoff = self.regf["sg_get"](self.B1[0])
+                print("x_shutoff: ", self.regf["sg_get"](self.B1[0]))
+                
+                if x_start >= x_init:
+                    self.regf["sg_set"](self.B1, x_init)
+                    while self.regf["sg_get"](self.B1[0]) <= x_start:
+                        self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B1[0])+self.shift_value)
+                        if self.regf["feedback"]()>=self.feedback_upper_bound:
+                            print("Upper bound of feedback reached.")
+                            x_start=self.regf["sg_get"](self.B1[0])
+                            break
+                        
+                self.regf["sg_set"](self.B1, x_start)
+                    
+               
+                while self.regf["feedback"]()>=self.shutoff_value:
+                    self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B2[0])-self.shift_value)
+                    y_start = self.regf["sg_get"](self.B2[0]) + self.spacer_up
+                    print(f'Gate(s) {self.B2}: ', self.regf["sg_get"](self.B2[0]))
+                    time.sleep(0.2)
+                
+                self.y_shutoff = round(self.regf["sg_get"](self.B2[0], self.digits))
+                print("y_shutoff: ", round(self.regf["sg_get"](self.B2[0]), self.digits))
+                
+                if y_start >= y_init:
+                    self.regf["sg_set"](self.B2, y_init)
+                    while self.regf["sg_get"](self.B2[0]) <= y_start:
+                        self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B2[0])+self.shift_value)
+                        if self.regf["feedback"]()>=self.feedback_upper_bound:
+                            print("Upper bound of feedback reached.")
+                            x_start=self.regf["sg_get"](self.B2[0])
+                            break
+                
+                self.regf["sg_set"](self.B2, y_start)
+                    
+                start_values_x.append(x_start)
+                start_values_y.append(y_start)
+                
+                if i>0 and round(start_values_x[i],2)==round(start_values_x[i-1],2) and round(start_values_y[i],2) == round(start_values_y[i-1],2):
+                    print('Same window found twice. Start 2D measurement.')
+                    break
+                elif i == self.number_iterations-1:
+                    print(f'Searched {self.number_iterations} times. Optimal window may have not been found yet. Start 2D measurement anyway.')
+                    
         
-    
+            self.regf["2Dsweep"](self.B1, self.B2, self.vstep, self.vstep, self.x_start, self.x_start-self.windowsize, self.y_start, self.y_start-self.windowsize)
+            
+            self.x_start = x_start
+            self.y_start = y_start
+            
+        else:
+            print("Sample not accumulated. Try again with higher topgate voltage.")
         
     def check_center(self, x,y, window_radius):
         if y >= x-window_radius and y<= x+window_radius:
@@ -492,7 +573,19 @@ class TuneSET():
         print('\n \n')
         print(f"Selected peak (values in 2D sweep): \n x: {round(sel_peak['x'],self.digits)}, y: {round(sel_peak['y'],self.digits)}, z: {round(sel_peak['z'],self.digits)} ")
         print('\n \n')
-       
-        self.regf["sg_set"](self.B1, sel_peak['x'])
-        self.regf["sg_set"](self.B2, sel_peak['y'])
+        user_input = input('Do you want to set the barrier gates to the values of the selected peak? (y/n): ')
+
+        if user_input.lower() == 'y':
+            self.regf["sg_set"](self.B1, sel_peak['x'])
+            self.regf["sg_set"](self.B2, sel_peak['y'])
+            print('user typed yes')
+        elif user_input.lower() == 'n':
+            print('Barrier gate voltages are not changed.')
+            for gate in self.B1:
+                print(f'\n Gate {gate}: {round(self.regf["sg_get"](gate),self.digits)} V')
+            for gate in self.B2:
+                print(f'\n Gate {gate}: {round(self.regf["sg_get"](gate),self.digits)} V')
+        else:
+            print('Type y or n, silly human being.')
+
         
