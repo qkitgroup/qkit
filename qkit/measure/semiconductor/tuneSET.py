@@ -1,3 +1,10 @@
+import qkit
+#from qkit.measure.semiconductor.utils.watchdog import Watchdog
+import time
+import numpy as np
+from findpeaks import findpeaks
+import h5py
+
 class TuneSET():
     def __init__(self, TG:list, B1:list, B2:list):
         self.TG = TG
@@ -11,9 +18,11 @@ class TuneSET():
         self.accumulation_threshold = 0.8
         self.shutoff_value = 1e-3
         self.shift_value = 10e-3
+        self.shift_value_bound = 2e-3
         self.spacer_right = 0.08
         self.spacer_up = 0.08
         self.windowsize = 0.1
+        self.feedback_upper_bound = 0.08
         
         self.number_iterations = 4
         
@@ -21,12 +30,12 @@ class TuneSET():
         self.vstep = 5e-3
 
         #parameters for finding peaks in 2D sweep
-        self.x_start = None 
+        self.x_start = None #to be found during the search for oscilaltion window
         self.y_start = None
         self.x_shutoff = None
         self.y_shutoff = None
         self.peak_threshold = 8e-3
-        self.max_distance_to_center = 0.01
+        self.max_distance_to_center = 0.09
         self.digits = 4 
         
         self.all_SET_gates = self.TG + self.B1 + self.B2
@@ -35,8 +44,8 @@ class TuneSET():
         
        
         self.regf = {} #registered functions
-        self.watchdog = Watchdog()
-        self.watchdog.register_node("feedback", 0, self.accumulation_value)
+        #self.watchdog = Watchdog()
+        #self.watchdog.register_node("feedback", 0, self.accumulation_value)
 
         """
         TG: list(int) 
@@ -60,12 +69,16 @@ class TuneSET():
             feedback value below which sample is considered as non-conducting
         shift_value: float
             amount by which the voltage is shifted during the search of the conduction shutoff point, recommended: 0.01 V
+        shift_value_bound: float
+            amount by which the voltage is shifted during the search of the start value for the 2D sweep, in order to avoid that feedback_upper_bound is exceeded by a lot, recommended: smaller than shift_value
         spacer_right: float
             distance from conduction-shutoff point to right end of 2D sweep window, recommended: 0.08 V for a 100x100 mV windowsize
         spacer_up: float
             distance from conduction-shutoff point to upper end of 2D sweep window, recommended: 0.08 V for a 100x100 mV windowsize
         windowsize: float
             length of an axis of a 2D sweep measurement (quadratic window)
+        feedback_upper_bound: float
+            maximum feedback value that is tolerated during the search for the oscillation window. x_start and y_start will be lowered if feedback_upper_bound is reached
         number_iterations: int
             number of iterations of the find-oscillation-window algorithm. The algorithm stops if the same window is found twice or the number of search iterations equals number_iterations
         
@@ -173,6 +186,17 @@ class TuneSET():
             self._shift_value = shift_value
             
     @property
+    def shift_value_bound(self):
+        return self._shift_value_bound
+    
+    @shift_value_bound.setter
+    def shift_value_bound(self, shift_value_bound):
+        if not isinstance(shift_value_bound, float):
+                raise TypeError('shift_value_bound must be a float.')
+        else:
+            self._shift_value_bound = shift_value_bound
+                        
+    @property
     def spacer_right(self):
         return self._spacer_right
     
@@ -204,6 +228,17 @@ class TuneSET():
                 raise TypeError('windowsize must be a float.')
         else:
             self._windowsize = windowsize
+            
+    @property
+    def feedback_upper_bound(self):
+        return self._feedback_upper_bound
+    
+    @feedback_upper_bound.setter
+    def feedback_upper_bound(self, feedback_upper_bound):
+        if not isinstance(feedback_upper_bound, float):
+                raise TypeError('feedback_upper_bound must be a float.')
+        else:
+            self._feedback_upper_bound = feedback_upper_bound
             
     @property
     def number_iterations(self):
@@ -314,66 +349,9 @@ class TuneSET():
                 print(f"Ramp up sweep_gates {self.sweep_gates} to value of gate {self.TG} or until feedback {self.accumulation_value} V is reached.")
                 self.regf["accumulation"](self.sweep_gates, self.regf["sg_get"](self.B1[0]), self.regf["sg_get"](self.TG[0]), self.accumulation_value)
                 
-            
+        
         
     def find_oscillation_window(self):
-        x_start = self.regf["sg_get"](self.B1[0])
-        y_start = self.regf["sg_get"](self.B2[0])
-        start_values_x = []
-        start_values_y = []
-        
-        self.check_whether_accumulated()
-        if self.is_accumulated == False:
-            self.restore_accumulation()
-            
-        self.check_whether_accumulated()
-        if self.is_accumulated == True:
-            print("Accumulation restored.")
-            print("Start search for oscillation window.")
-        
-            for i in range(self.number_iterations):        
-                while self.regf["feedback"]()>=self.shutoff_value:
-                    self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B1[0])-self.shift_value)
-                    x_start = self.regf["sg_get"](self.B1[0]) + self.spacer_right
-                    print(f'Gate(s) {self.B1}: ', self.regf["sg_get"](self.B1[0]))
-                    time.sleep(0.2)
-                
-                self.regf["sg_set"](self.B1, x_start)
-        
-                while self.regf["feedback"]()>=self.shutoff_value:
-                    self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B2[0])-self.shift_value)
-                    y_start = self.regf["sg_get"](self.B2[0]) + self.spacer_up
-                    print(f'Gate(s) {self.B2}: ', self.regf["sg_get"](self.B2[0]))
-                    time.sleep(0.2)
-                
-                self.regf["sg_set"](self.B2, y_start)
-                    
-                start_values_x.append(x_start)
-                start_values_y.append(y_start)
-                
-                if i>0 and round(start_values_x[i],2)==round(start_values_x[i-1],2) and round(start_values_y[i],2) == round(start_values_y[i-1],2):
-                    print('Same window found twice. Start 2D measurement.')
-                    break
-                elif i == self.number_iterations-1:
-                    print(f'Searched {self.number_iterations} times. Optimal window may have not been found yet. Start 2D measurement anyway.')
-            
-            self.x_start = x_start
-            self.y_start = y_start
-            self.x_shutoff = self.x_start - self.spacer_right #save for later
-            self.y_shutoff = self.y_start - self.spacer_up
-            
-            print("x_start: ", round(self.x_start, self.digits))
-            print("y_start: ", round(self.y_start, self.digits))
-            
-            print("\nx_shutoff: ", round(self.x_shutoff,self.digits))
-            print("y_shutoff: ", round(self.y_shutoff,self.digits))
-                  
-            self.regf["2Dsweep"](self.B1, self.B2, self.vstep, self.vstep, self.x_start, self.x_start-self.windowsize, self.y_start, self.y_start-self.windowsize)
-
-        else:
-            print("Sample not accumulated. Try again with higher topgate voltage.")
-        
-    def find_oscillation_window_test(self):
         x_init = self.regf["sg_get"](self.B1[0])
         y_init = self.regf["sg_get"](self.B2[0])
         start_values_x = []
@@ -383,11 +361,12 @@ class TuneSET():
         self.check_whether_accumulated()
         if self.is_accumulated == False:
             self.restore_accumulation()
+            self.check_whether_accumulated()
+            if self.is_accumulated == True:
+                print("Accumulation restored.")
             
-        self.check_whether_accumulated()
         if self.is_accumulated == True:
-            print("Accumulation restored.")
-            print("Start search for oscillation window.")
+            print("Sample is accumulated. Start search for oscillation window.")
             
             for i in range(self.number_iterations):        
                 while self.regf["feedback"]()>=self.shutoff_value:
@@ -399,14 +378,12 @@ class TuneSET():
                 self.x_shutoff = self.regf["sg_get"](self.B1[0])
                 print("x_shutoff: ", self.regf["sg_get"](self.B1[0]))
                 
-                if x_start >= x_init:
-                    self.regf["sg_set"](self.B1, x_init)
-                    while self.regf["sg_get"](self.B1[0]) <= x_start:
-                        self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B1[0])+self.shift_value)
-                        if self.regf["feedback"]()>=self.feedback_upper_bound:
-                            print("Upper bound of feedback reached.")
-                            x_start=self.regf["sg_get"](self.B1[0])
-                            break
+                while self.regf["sg_get"](self.B1[0]) <= x_start:
+                    self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B1[0])+self.shift_value_bound)
+                    if self.regf["feedback"]()>=self.feedback_upper_bound:
+                        print("Upper bound of feedback reached.")
+                        x_start=self.regf["sg_get"](self.B1[0])
+                        break
                         
                 self.regf["sg_set"](self.B1, x_start)
                     
@@ -417,17 +394,15 @@ class TuneSET():
                     print(f'Gate(s) {self.B2}: ', self.regf["sg_get"](self.B2[0]))
                     time.sleep(0.2)
                 
-                self.y_shutoff = round(self.regf["sg_get"](self.B2[0], self.digits))
+                self.y_shutoff = self.regf["sg_get"](self.B2[0])
                 print("y_shutoff: ", round(self.regf["sg_get"](self.B2[0]), self.digits))
                 
-                if y_start >= y_init:
-                    self.regf["sg_set"](self.B2, y_init)
-                    while self.regf["sg_get"](self.B2[0]) <= y_start:
-                        self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B2[0])+self.shift_value)
-                        if self.regf["feedback"]()>=self.feedback_upper_bound:
-                            print("Upper bound of feedback reached.")
-                            x_start=self.regf["sg_get"](self.B2[0])
-                            break
+                while self.regf["sg_get"](self.B2[0]) <= y_start:
+                    self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B2[0])+self.shift_value_bound)
+                    if self.regf["feedback"]()>=self.feedback_upper_bound:
+                        print("Upper bound of feedback reached.")
+                        y_start=self.regf["sg_get"](self.B2[0])
+                        break
                 
                 self.regf["sg_set"](self.B2, y_start)
                     
@@ -440,11 +415,11 @@ class TuneSET():
                 elif i == self.number_iterations-1:
                     print(f'Searched {self.number_iterations} times. Optimal window may have not been found yet. Start 2D measurement anyway.')
                     
-        
-            self.regf["2Dsweep"](self.B1, self.B2, self.vstep, self.vstep, self.x_start, self.x_start-self.windowsize, self.y_start, self.y_start-self.windowsize)
-            
             self.x_start = x_start
             self.y_start = y_start
+            
+            self.regf["2Dsweep"](self.B1, self.B2, self.vstep, self.vstep, self.x_start, self.x_start-self.windowsize, self.y_start, self.y_start-self.windowsize)
+            
             
         else:
             print("Sample not accumulated. Try again with higher topgate voltage.")
@@ -452,14 +427,20 @@ class TuneSET():
     def check_center(self, x,y, window_radius):
         if y >= x-window_radius and y<= x+window_radius:
             return True
+        else:
+            return False
             
     def check_height(self, z, threshold):
         if z>=threshold:
             return True
+        else:
+            return False
             
     def is_below_cutoff(self, x,y,cutoff_x, cutoff_y):
         if x <= cutoff_x or y<= cutoff_y:
             return True
+        else:
+            return False
         
     def myround(self,x):
         return self.vstep * round(x/self.vstep)
@@ -474,14 +455,14 @@ class TuneSET():
         x -= np.ones(len(x))*self.x_start
         y -= np.ones(len(y))*self.y_start
         
-        fp = findpeaks(method='topology', scale=True, denoise='fastnl', togray=False, imsize=(100,100))
+        fp = findpeaks(method='topology', scale=True, denoise='fastnl', togray=False, imsize=(int(1000*self.windowsize),int(1000*self.windowsize)))
         ## imsize must be (100,100)
         results = fp.fit(z)
         fp.plot(results)
         counter=0
         peak=[]
-        for yv in range(100):
-            for xv in range(100):
+        for yv in range(int(1000*self.windowsize)):
+            for xv in range(int(1000*self.windowsize)):
                 if((results['Xdetect'][xv][yv]))>0:
                     #print(f'Detected Peaks: xv: {xv}, yv: {yv}')
                     peak.append([-xv*0.001,-yv*0.001])
@@ -502,8 +483,8 @@ class TuneSET():
                     #print('found x value: ', x[i])
                     for j in range(len(y)):
                         if self.myround(y[j])==self.myround(peak[k][1]):
-                            x_values_peaks.append(x[i])
-                            y_values_peaks.append(y[j])
+                            x_values_peaks.append(x[i]+self.x_start)
+                            y_values_peaks.append(y[j]+self.y_start)
                             z_values_peaks.append(z[i][j])
                     #print('found y value: ', y [j])
 
@@ -548,44 +529,48 @@ class TuneSET():
         
 
         if len(x_good_peaks)==0:
-            print('No peaks found. Some possible reasons: \n A) 2D sweep window not centered. \n B) There is no dot formed yet.')         
+            print('No good peaks found. Some possible solutions: \n A) decrease peak_threshold \n B) increase shutoff_value and perform new 2D sweep')         
         
         sel_peak = dict()
         
+        
+        number_good_peaks=0
         for m in range(len(z_good_peaks)):
+            number_good_peaks += 1
             if z_good_peaks[m] == min(z_good_peaks):
                 sel_peak['x'] = x_good_peaks[m]
                 sel_peak['y'] = y_good_peaks[m]
                 sel_peak['z'] = z_good_peaks[m]
         print('\n')
-        #print(f"Selected peak (relative values): {sel_peak}")
          
-        ##Shift coordinate system back to get values in 2D sweep picture
-        sel_peak['x'] += self.x_start
-        sel_peak['y'] += self.y_start
         
         for m in range(len(z_good_peaks)):
-            x_good_peaks[m] += self.x_start
-            y_good_peaks[m] += self.y_start
-            print(f'Good peak: x: {round(x_good_peaks[m],self.digits)}, y: {round(y_good_peaks[m],self.digits)}, z: {round(z_good_peaks[m],self.digits)}')
-         #x_good_peaks += np.ones(len(x_good_peaks))*self.x_start
-        #y_good_peaks += np.ones(len(y_good_peaks))*self.y_start
+            print(f'Good peak number {m+1}: x: {round(x_good_peaks[m],self.digits)}, y: {round(y_good_peaks[m],self.digits)}, z: {round(z_good_peaks[m],self.digits)}')
+
         print('\n \n')
         print(f"Selected peak (values in 2D sweep): \n x: {round(sel_peak['x'],self.digits)}, y: {round(sel_peak['y'],self.digits)}, z: {round(sel_peak['z'],self.digits)} ")
         print('\n \n')
-        user_input = input('Do you want to set the barrier gates to the values of the selected peak? (y/n): ')
-
+        
+        user_input = input('Do you want to set the barrier gates to the values of the selected peak (type "y")? Or to the values of other good peaks (type in number of peak)? If you do not want to set a new barrier gate voltage, type "n".')
+            
         if user_input.lower() == 'y':
+            print('Set barrier gate voltages to values of selected peak.')
             self.regf["sg_set"](self.B1, sel_peak['x'])
             self.regf["sg_set"](self.B2, sel_peak['y'])
-            print('user typed yes')
+            
         elif user_input.lower() == 'n':
             print('Barrier gate voltages are not changed.')
             for gate in self.B1:
                 print(f'\n Gate {gate}: {round(self.regf["sg_get"](gate),self.digits)} V')
             for gate in self.B2:
                 print(f'\n Gate {gate}: {round(self.regf["sg_get"](gate),self.digits)} V')
+                
+        elif int(user_input) in range(1,number_good_peaks+1):
+            print('Set barrier gate voltages to values of good peak number ', user_input.lower() )
+            self.regf["sg_set"](self.B1, x_good_peaks[int(user_input)-1])
+            self.regf["sg_set"](self.B2, y_good_peaks[int(user_input)-1])
+                        
         else:
-            print('Type y or n, silly human being.')
+            print('Type y,n or a number, silly human being.')
 
         
