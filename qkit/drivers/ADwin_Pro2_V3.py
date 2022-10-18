@@ -9,7 +9,10 @@ This file is using the ADwin process ramp_input_V3.TC1
 
 If ADwin is not booted then it has to be booted manually with ADbasic once. 
 
-Triggered readout with ADC card: TODO
+Triggered readout with ADC card:
+    Process 2 and 3 are used to enable a burst readout.
+    Process 2 is only starting the burst ADC card
+    Process 3 is reading out the ADC card and triggers the AWG again for the next average of the puse train.
 
 Copy driver into qkit/drivers folder.
 
@@ -55,6 +58,8 @@ Copy driver into qkit/drivers folder.
 '''
 
 
+from itertools import count
+from textwrap import indent
 import ADwin as adw
 import qkit
 from qkit.core.instrument_base import Instrument
@@ -125,6 +130,12 @@ class ADwin_Pro2_V3(Instrument):
                  process_path_triggered='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_Burst_Event_V3.TC2',
                  process_number_aquisition=3,
                  process_path_aquisition='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_Burst_Event_Stopp_V3.TC3',
+                 process_number_continuous=4,
+                 process_path_continuous_2kHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_2kHz_V3.TC4',
+                 process_path_continuous_10kHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_10kHz_V3.TC4',
+                 process_path_continuous_100kHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_100kHz_V3.TC4',
+                 process_path_continuous_1MHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_1MHz_V3.TC4',
+                 process_path_continuous_4MHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_4MHz_V3.TC4',
                  devicenumber=1,
                  bootload=True,
                  global_lower_limit_in_V=0,
@@ -151,9 +162,20 @@ class ADwin_Pro2_V3(Instrument):
         self.process_path_triggered = process_path_triggered
         self.process_number_aquisition = process_number_aquisition
         self.process_path_aquisition = process_path_aquisition
-        self.repeats = None
-        self.measurement_count = None
-        self.sample_count = None
+        self.repeats = 0
+        self.measurement_count = 0
+        self.sample_count = 0
+        self.data = []  # test
+
+        #parameter for continuous readout
+        self.max_samples_continuous = 0
+        self.index_continuous_readout = 0
+        self.process_number_continuous = process_number_continuous
+        self.process_path_continuous_2kHz = process_path_continuous_2kHz
+        self.process_path_continuous_10kHz = process_path_continuous_10kHz
+        self.process_path_continuous_100kHz = process_path_continuous_100kHz
+        self.process_path_continuous_1MHz = process_path_continuous_1MHz
+        self.process_path_continuous_4MHz = process_path_continuous_4MHz
 
         
         if self.global_upper_limit_in_V<self.global_lower_limit_in_V or self.global_upper_limit_in_V_safe_port<self.global_lower_limit_in_V_safe_port:
@@ -190,14 +212,16 @@ class ADwin_Pro2_V3(Instrument):
             logging.info(__name__ + ': loading process that does ramping and single input.')
             self.adw.Load_Process(self.process)
             time.sleep(1.0)
+            logging.info(__name__ + ': starting process that does ramping and single input.')
             self.adw.Start_Process(self.processnumber)
             time.sleep(1.0)
             logging.info(__name__ + ': loading process that does the burst readout.')
-            self.adw.Load_Process(process_path_triggered)
+            self.adw.Load_Process(self.process_path_triggered)
             time.sleep(1)
             logging.info(__name__ + ': loading process that reads out the ADC and fires a new trigger to the AWG.')
-            self.adw.Load_Process(process_path_aquisition)
+            self.adw.Load_Process(self.process_path_aquisition)
             time.sleep(1)
+            # continuous readout loaded later to be able to choose between sampling frequencies
 
 
         #implement functions
@@ -211,6 +235,7 @@ class ADwin_Pro2_V3(Instrument):
         self.add_function('get_out')
         self.add_function('set_out_parallel')
         self.add_function('set_out_dict')
+        self.add_function('set_out_combined')
         self.add_function('oversampled_gates')
         self.add_function('get_input')
         self.add_function('set_field_1d')
@@ -225,6 +250,7 @@ class ADwin_Pro2_V3(Instrument):
         self.add_function("check_error_triggered_readout")
         self.add_function("stop_triggered_readout")
         self.add_function("read_triggered_readout")
+        # self.add_function("read_continuous")
 
 
         #implement parameters
@@ -528,17 +554,21 @@ class ADwin_Pro2_V3(Instrument):
         logging.debug(__name__ + ' : converting digits to V, voltage value: '+ str(result)+'\n')
         return result
 
-    def volt_to_digit(self, volt, gate, bit_format=16):
+    def volt_to_digit(self, volt, gate=None, bit_format=16):
         """function to convert voltage in digits. A list is returnd with the first entry being the
         digital value and the second being the step number to stay in the lower bit for 
         oversampling. 
         """
-        V_max = self.get('gate%d_voltage_range'%gate)
+        if gate==None:
+            V_max=10
+        else:
+            V_max = self.get('gate%d_voltage_range'%gate)
+
         if abs(volt)>abs(V_max):
             logging.warning(__name__+': voltage bigger than voltage range of output.')
              
         else:
-            result_bits= ((volt*(10/V_max) + 10) / (2*10/(2**bit_format)))
+            result_bits = ((volt*(10/V_max) + 10) / (2*10/(2**bit_format)))
             #for oversampling:
             oversampling_divisions = self.get_oversampling_divisions()
             #number of steps to stay in lower bit= round(overall_number_steps(1- (bits%1)))
@@ -608,6 +638,22 @@ class ADwin_Pro2_V3(Instrument):
         '''Allows easier access to get function for many gates.
         '''
         return self.get('gate%d_out'% gate)
+
+    def set_out_combined(self, gate_main, gate_fine, voltage, divider=895):
+        """Sets a output voltage to two different outputs that are connected with a voltage divider of "divider".
+        So e.g. R_gate_main=10 ; R_gate_fine = 10k.
+        It always holds: abs(voltage_fine) >= abs(voltage main)
+        """
+        bit_format = 16
+        bit_step = 2 * 10 / (2 ** bit_format)
+        voltage_bit_steps = voltage / bit_step
+        voltage_main = np.trunc(voltage_bit_steps) * bit_step
+        if voltage<0:
+            modulo = -1
+        else:
+            modulo = 1
+        voltage_fine = voltage_main + (voltage_bit_steps % modulo) * divider * bit_step
+        self.set_out_dict({gate_main:voltage_main, gate_fine:voltage_fine})
 
     def set_out_parallel(self, channels, voltages):
         '''set_out_parallel(channels, voltages)
@@ -1423,8 +1469,93 @@ class ADwin_Pro2_V3(Instrument):
         return (data_V, data_I)
 
 
+
 ####################################################################################
-    ################ TRIGGERED READOUT BY INPUT 1 at ADC CARD ##################
+    ################ Continuous READOUT of INPUT 1 at ADC CARD ##################
+
+    def start_continuous_readout(self, frequency="2kHz"):
+        """loads and starts ADwin process that has the sampling frequency and memory size hardcoded. 
+        Can be 2kHz, 10kHz, 100kHz, 1MHz, or 4MHz. If you use f>=1MHz then check if there is sample loss!!!
+        This depends on the bandwidth of the connection of ADwin and PC.
+        """
+        self.adw.Stop_Process(self.process_number_continuous)
+        logging.info(__name__ + ': laoding and starting process that does the continuous readout.')
+
+        if frequency == "2kHz":
+            self.max_samples_continuous = 4*8*50 
+            self.adw.Load_Process(self.process_path_continuous_2kHz)
+            
+        elif frequency == "10kHz":
+            self.max_samples_continuous = 4*8*300 
+            self.adw.Load_Process(self.process_path_continuous_10kHz)
+
+        elif frequency == "100kHz":
+            self.max_samples_continuous = 4*8*3000 
+            self.adw.Load_Process(self.process_path_continuous_100kHz)
+
+        elif frequency == "1MHz":
+            self.max_samples_continuous= 4*8*30000 
+            self.adw.Load_Process(self.process_path_continuous_1MHz)
+
+        elif frequency == "4MHz":
+            self.max_samples_continuous= 4*8*30000*4 
+            self.adw.Load_Process(self.process_path_continuous_4MHz)
+
+        else:
+            logging.error(__name__ + ': Choose between "2kHz", "10kHz", "100kHz", "1MHz", or "4MHz"!')
+            sys.exit()
+
+        self.index_continuous_readout = self.max_samples_continuous #reset to last data point in ADwin memory
+        time.sleep(1)
+        self.adw.Start_Process(self.process_number_continuous)
+        #the process aquires data now
+
+
+    def read_continuous(self):
+        """reads out continuously input 1 of the ADwin ADC module.
+        self.max_samples_continuous is the amount of samples the ADwin collects before starting to overwrite the old ones.
+        This takes about 1 second independend of frequency. So python needs to read out the (max_samples * 2 Byte) faster than that.
+        self.index_continuous_readout: current memory index between 1 and self.max_samples_continuous (see P2_Burst_Read_Unpacked for 
+        mandidatory quotients of 4 (startadr) and 8 (count)).
+        The ADbasic file uses a memory that is split in 4 segments to make sure that the writing of the ADC card to the ADwin 
+        memory does not conflict with the PC readout of the ADwin memory. 
+        """
+        segment_size = self.max_samples_continuous / 4 # full data aquisition split in 4 segments by ADbasic file
+        logging.info(__name__ + ': reading data from ADwin')
+        old_index = self.index_continuous_readout 
+        self.index_continuous_readout = int((self.get_Par_7_global_long() - 1) * segment_size) # highest index to be transferred
+        if self.index_continuous_readout == 0: # no zero addressable in memory of ADwin Data_2
+            self.index_continuous_readout = self.max_samples_continuous
+        #print("Index: ", self.index_continuous_readout)
+        count_new_samples = self.index_continuous_readout - old_index
+        #print("count_samples: ", count_new_samples)
+        data_volts = {}
+        data_volts["voltage"] = []
+        if count_new_samples>0:
+            data_bits = np.array(self.adw.GetData_Long(2, (old_index + 1), count_new_samples))
+            data_volts["voltage"] = (data_bits * 2*10/(2**16) - 10)
+        elif count_new_samples<0:
+            if old_index is self.max_samples_continuous:
+                data_bits = np.array(self.adw.GetData_Long(2, 1, int(self.index_continuous_readout)))
+                data_volts["voltage"] = (data_bits * 2*10/(2**16) - 10)
+            else:
+                data_bits_1 = np.array(self.adw.GetData_Long(2, (old_index + 1), int(self.max_samples_continuous - old_index)))
+                data_bits_2 = np.array(self.adw.GetData_Long(2, 1, int(self.index_continuous_readout)))
+                data_volts["voltage"] = (np.append(data_bits_1, data_bits_2) * 2*10/(2**16) - 10)            
+        #elif count_new_samples == 0:
+           # print("checked")
+            
+        return data_volts
+
+
+    def stop_continuous_readout(self):
+        logging.info(__name__ + ': stopping process that does the continuous readout.')
+        self.adw.Stop_Process(self.process_number_continuous)
+
+
+
+####################################################################################
+    ################ TRIGGERED READOUT of INPUT 1 at ADC CARD ##################
 
     def _do_set_sample_rate_triggered_readout(self, rate, channel):
         """sample rate is always at 4 MHz"""
@@ -1446,7 +1577,8 @@ class ADwin_Pro2_V3(Instrument):
     def _do_set_sample_count_triggered_readout(self, sample_count:int, channel):
         """sample count has to be in bytes"""
         if (sample_count % 8) != 0:
-            logging.warning(__name__ + ': sample count has to be a multiple of 8. \nNot changed.')
+            logging.warning(__name__ + ': sample count has to be a multiple of 8, so:  '
+                                       'meas_time * 4MHz mod 8 == 0\n')
             sys.exit()
         else:
             logging.info(__name__ + ': setting sample count to: %d' % sample_count)
@@ -1473,15 +1605,15 @@ class ADwin_Pro2_V3(Instrument):
         """
         data_to_aquire = self.measurement_count * self.sample_count
         if data_to_aquire>3e8:
-            logging.error(__name__ + ': to many samples to aquire. Max is probably 1min at 4MHz.')
+            logging.error(__name__ + ': to many samples to aquire. Max is probably 25s at 4MHz.')
             sys.exit()
 
         logging.info(__name__ + ': starting process that does the burst readout.')
         self.adw.Start_Process(self.process_number_triggered)
-        time.sleep(1)
+        time.sleep(0.2)
         logging.info(__name__ + ': starting process that reads out the ADC and fires a new trigger to the AWG.')
         self.adw.Start_Process(self.process_number_aquisition)
-        time.sleep(1)
+        time.sleep(0.2)
 
     # def make_grid_triggered_readout(self):
     #     """sets up the 3d array of the measurement data."""
@@ -1529,10 +1661,20 @@ class ADwin_Pro2_V3(Instrument):
         data_raw = np.array(self.adw.GetData_Long(1, 1, size))
         average_number = self.repeats - self.get_Par_14_global_long()
         data_reshaped = data_raw.reshape(self.measurement_count, self.sample_count)
-        data_volts = (data_reshaped )#* 2*10/(2**16) - 10) # translating to volts
-        data_triggered_readout = np.empty(shape=(self.repeats, self.measurement_count, self.sample_count))
-        data_triggered_readout[average_number-1: average_number, :, :] = data_volts
+        data_volts = (data_reshaped * 2*10/(2**16) - 10) # translating to volts
+
+        data_test = data_volts
+        for d1 in range(data_test.shape[0]):
+            for d2 in range(data_test.shape[1]):
+                if abs(data_test[d1][d2]) > 10 or data_test[d1][d2] < -10:
+                    print("FAIL")
+
+        #data_triggered_readout = np.empty(shape=(self.repeats, self.measurement_count, self.sample_count))
+        #data_triggered_readout[average_number-1: average_number, :, :] = data_volts
+        data_triggered_readout = np.empty(shape=(1, self.measurement_count, self.sample_count))
+        data_triggered_readout[0:1, :, :] = data_volts
         self.start_triggered_readout()  # starting new average
+        self.data.append(data_triggered_readout)
         return data_triggered_readout
 
     def check_finished_triggered_readout(self):
@@ -1541,6 +1683,8 @@ class ADwin_Pro2_V3(Instrument):
         logging.info(__name__ + ': checking if full measurement is done.')
         status = self.get_Par_19_global_long()
         return status
+
+
 
 
 if __name__ == "__main__":
