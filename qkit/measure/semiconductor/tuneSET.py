@@ -4,6 +4,7 @@ import time
 import numpy as np
 from findpeaks import findpeaks
 import h5py
+import matplotlib.pyplot as plt
 
 class TuneSET():
     def __init__(self, TG:list, B1:list, B2:list):
@@ -436,8 +437,8 @@ class TuneSET():
         else:
             return False
             
-    def is_below_cutoff(self, x,y,cutoff_x, cutoff_y):
-        if x <= cutoff_x or y<= cutoff_y:
+    def is_below_cutoff(self, x,y, cutoff_x, cutoff_y):
+        if (x-self.x_start+self.windowsize)**2+(y-self.y_start+self.windowsize)**2 <= (0.5*(-self.x_start+cutoff_x) +self.windowsize)**2 + (0.5*(-self.y_start+cutoff_y) + self.windowsize)**2:
             return True
         else:
             return False
@@ -449,14 +450,14 @@ class TuneSET():
         data = self.regf["access_data"]()
         x = data['x']
         y = data['y']
-        z =  data['z']
+        z = data['z']
    
         #change coordinate system: x_start = 0, y_start = 0
         x -= np.ones(len(x))*self.x_start
         y -= np.ones(len(y))*self.y_start
         
         fp = findpeaks(method='topology', scale=True, denoise='fastnl', togray=False, imsize=(int(1000*self.windowsize),int(1000*self.windowsize)))
-        ## imsize must be (100,100)
+
         results = fp.fit(z)
         fp.plot(results)
         counter=0
@@ -464,36 +465,36 @@ class TuneSET():
         for yv in range(int(1000*self.windowsize)):
             for xv in range(int(1000*self.windowsize)):
                 if((results['Xdetect'][xv][yv]))>0:
-                    #print(f'Detected Peaks: xv: {xv}, yv: {yv}')
                     peak.append([-xv*0.001,-yv*0.001])
                     counter += 1
 
         #print('\nNumber of peaks found: ', counter)
        
-        
         z_values_peaks = []
         x_values_peaks = []
         y_values_peaks = []
-        
-        
+
         #check whether peak values coincide with data and save the peaks
         for k in range(counter-1):
             for i in range(len(x)):
                 if self.myround(x[i])==self.myround(peak[k][0]):
-                    #print('found x value: ', x[i])
                     for j in range(len(y)):
                         if self.myround(y[j])==self.myround(peak[k][1]):
                             x_values_peaks.append(x[i]+self.x_start)
                             y_values_peaks.append(y[j]+self.y_start)
                             z_values_peaks.append(z[i][j])
-                    #print('found y value: ', y [j])
-
+                            
+        #change coordinate system back:
+        x += np.ones(len(x))*self.x_start
+        y += np.ones(len(y))*self.y_start
+                            
         x_good_peaks =[]
         y_good_peaks =[]
         z_good_peaks =[]
+        
         if self.x_shutoff != None and self.y_shutoff != None:
             for l in range(len(z_values_peaks)):
-                if self.check_center(x_values_peaks[l], y_values_peaks[l], self.max_distance_to_center)==True and self.check_height(z_values_peaks[l], self.peak_threshold) == True and self.is_below_cutoff(x_values_peaks[l], y_values_peaks[l], self.x_shutoff,self.y_shutoff):
+                if self.check_center(x_values_peaks[l], y_values_peaks[l], self.max_distance_to_center)==True and self.check_height(z_values_peaks[l], self.peak_threshold) == True and self.is_below_cutoff(x_values_peaks[l], y_values_peaks[l], self.x_shutoff, self.y_shutoff):
                     #print(f'Good Peak found. x={x_values_peaks[l]}, y={y_values_peaks[l]}, z={z_values_peaks[l]}')
                     x_good_peaks.append(x_values_peaks[l])
                     y_good_peaks.append(y_values_peaks[l])
@@ -511,7 +512,7 @@ class TuneSET():
         if len(x_good_peaks)==0:
             if self.x_shutoff != None and self.y_shutoff != None:
                 for l in range(len(z_values_peaks)):
-                    if self.check_center(x_values_peaks[l], y_values_peaks[l], self.max_distance_to_center*3)==True and self.check_height(z_values_peaks[l], self.peak_threshold) == True and self.is_below_cutoff(x_values_peaks[l], y_values_peaks[l],self.x_shutoff,self.y_shutoff):
+                    if self.check_center(x_values_peaks[l], y_values_peaks[l], self.max_distance_to_center*3)==True and self.check_height(z_values_peaks[l], self.peak_threshold) == True and self.is_below_cutoff(x_values_peaks[l], y_values_peaks[l], self.x_shutoff, self.y_shutoff):
                         print(f'\nNo peak found in center of picture. Peak found for increased search radius from {self.max_distance_to_center} V to 3*{self.max_distance_to_center} V:')
                         print(f'x={x_values_peaks[l]}, y={y_values_peaks[l]}, r={z_values_peaks[l]}')
                         x_good_peaks.append(x_values_peaks[l])
@@ -526,8 +527,16 @@ class TuneSET():
                     y_good_peaks.append(y_values_peaks[l])
                     z_good_peaks.append(z_values_peaks[l])
         
+        if len(x_good_peaks)==0:
+            print(f'\nNo peak found below shutoff. Neglect shutoff criterium.')
+            for l in range(len(z_values_peaks)):
+                if self.check_center(x_values_peaks[l], y_values_peaks[l], self.max_distance_to_center)==True and self.check_height(z_values_peaks[l], self.peak_threshold) == True:
+                    x_good_peaks.append(x_values_peaks[l])
+                    y_good_peaks.append(y_values_peaks[l])
+                    z_good_peaks.append(z_values_peaks[l])
+            
+            
         
-
         if len(x_good_peaks)==0:
             print('No good peaks found. Some possible solutions: \n A) decrease peak_threshold \n B) increase shutoff_value and perform new 2D sweep')         
         
@@ -535,12 +544,14 @@ class TuneSET():
         
         
         number_good_peaks=0
+        
         for m in range(len(z_good_peaks)):
             number_good_peaks += 1
             if z_good_peaks[m] == min(z_good_peaks):
                 sel_peak['x'] = x_good_peaks[m]
                 sel_peak['y'] = y_good_peaks[m]
                 sel_peak['z'] = z_good_peaks[m]
+                selpeaknumber = m+1
         print('\n')
          
         
@@ -548,10 +559,16 @@ class TuneSET():
             print(f'Good peak number {m+1}: x: {round(x_good_peaks[m],self.digits)}, y: {round(y_good_peaks[m],self.digits)}, z: {round(z_good_peaks[m],self.digits)}')
 
         print('\n \n')
-        print(f"Selected peak (values in 2D sweep): \n x: {round(sel_peak['x'],self.digits)}, y: {round(sel_peak['y'],self.digits)}, z: {round(sel_peak['z'],self.digits)} ")
+        print(f"Selected peak: Good peak number {selpeaknumber} \n x: {round(sel_peak['x'],self.digits)}, y: {round(sel_peak['y'],self.digits)}, z: {round(sel_peak['z'],self.digits)} ")
         print('\n \n')
         
-        user_input = input('Do you want to set the barrier gates to the values of the selected peak (type "y")? Or to the values of other good peaks (type in number of peak)? If you do not want to set a new barrier gate voltage, type "n".')
+        
+        plt.pcolor(x,y, z)
+        for m in range(0,len(z_good_peaks)):
+            plt.scatter(x_good_peaks[m], y_good_peaks[m], marker='*', color='w')
+            plt.annotate(m+1, xy = (x_good_peaks[m]*1.001, y_good_peaks[m]*1.001), color='w')
+        plt.show()
+        user_input = input(f'Do you want to set the barrier gates to the values of the selected peak (Number {selpeaknumber}) (type "y")? Or to the values of other good peaks (type in number of peak)? If you do not want to set a new barrier gate voltage, type "n".')
             
         if user_input.lower() == 'y':
             print('Set barrier gate voltages to values of selected peak.')
@@ -571,6 +588,6 @@ class TuneSET():
             self.regf["sg_set"](self.B2, y_good_peaks[int(user_input)-1])
                         
         else:
-            print('Type y,n or a number, silly human being.')
+            raise TypeError('Rerun the cell and type y,n or a number, silly human being.')
 
         
