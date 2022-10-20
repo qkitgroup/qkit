@@ -165,7 +165,6 @@ class ADwin_Pro2_V3(Instrument):
         self.repeats = 0
         self.measurement_count = 0
         self.sample_count = 0
-        self.data = []  # test
 
         #parameter for continuous readout
         self.max_samples_continuous = 0
@@ -1556,6 +1555,11 @@ class ADwin_Pro2_V3(Instrument):
 
 ####################################################################################
     ################ TRIGGERED READOUT of INPUT 1 at ADC CARD ##################
+    # Explained: The ADwin sends a trigger to the AWG in order to trigger the pulse train for one average
+    # The AWG does the manipulation and sends triggers back to the ADwin to trigger the ADC card for readout. 
+    # After a full pulse train is completed, the AWG sleeps while the ADwin is reading out the ADC card and 
+    # transfers the data to its main memory (Data_1). Then the PC reads it out and tells the ADwin when 
+    # it finished the data transfer. The ADwin then triggers the AWG again and so on...
 
     def _do_set_sample_rate_triggered_readout(self, rate, channel):
         """sample rate is always at 4 MHz"""
@@ -1616,10 +1620,6 @@ class ADwin_Pro2_V3(Instrument):
         self.adw.Start_Process(self.process_number_aquisition)
         time.sleep(0.2)
 
-    # def make_grid_triggered_readout(self):
-    #     """sets up the 3d array of the measurement data."""
-    #     self.data_triggered_readout = np.empty(shape=(self.repeats, self.measurement_count, self.sample_count))
-
     def start_triggered_readout(self):
         """starts the measurement by sending a trigger to the AWG.
         This is done by setting the ADwin flag_start_measurement=1
@@ -1660,23 +1660,11 @@ class ADwin_Pro2_V3(Instrument):
         logging.info(__name__ + ': getting data from Adwin.')
         size = int(self.sample_count * self.measurement_count)
         data_raw = np.array(self.adw.GetData_Long(1, 1, size))
-        average_number = self.repeats - self.get_Par_14_global_long()
         data_reshaped = data_raw.reshape(self.measurement_count, self.sample_count)
         data_volts = (data_reshaped * 2*10/(2**16) - 10) # translating to volts
-
-        self.data_test = data_raw * 2*10/(2**16) - 10
-        data_test = data_volts
-        for d1 in range(data_test.shape[0]):
-            for d2 in range(data_test.shape[1]):
-                if abs(data_test[d1][d2]) > 10 or data_test[d1][d2] < -10:
-                    print("FAIL")
-
-        #data_triggered_readout = np.empty(shape=(self.repeats, self.measurement_count, self.sample_count))
-        #data_triggered_readout[average_number-1: average_number, :, :] = data_volts
         data_triggered_readout = np.empty(shape=(1, self.measurement_count, self.sample_count))
         data_triggered_readout[0:1, :, :] = data_volts
         self.start_triggered_readout()  # starting new average
-        self.data.append(data_triggered_readout)
         return data_triggered_readout
 
     def check_finished_triggered_readout(self):
