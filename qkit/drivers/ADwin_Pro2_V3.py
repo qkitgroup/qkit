@@ -1559,7 +1559,8 @@ class ADwin_Pro2_V3(Instrument):
 
     def _do_set_sample_rate_triggered_readout(self, rate, channel):
         """sample rate is always at 4 MHz"""
-        pass
+        if rate != 4e6:
+            loggin.error(__name__ +  ': sampling frequency is fixed to 4 MHz!')
 
     def _do_get_sample_rate_triggered_readout(self, channel):
         return 4e6
@@ -1605,7 +1606,7 @@ class ADwin_Pro2_V3(Instrument):
         """
         data_to_aquire = self.measurement_count * self.sample_count
         if data_to_aquire>3e8:
-            logging.error(__name__ + ': to many samples to aquire. Max is probably 25s at 4MHz.')
+            logging.error(__name__ + ': to many samples to aquire in one pulse train. Max is probably 25s at 4MHz.')
             sys.exit()
 
         logging.info(__name__ + ': starting process that does the burst readout.')
@@ -1655,7 +1656,7 @@ class ADwin_Pro2_V3(Instrument):
         time.sleep(0.2)
 
     def read_triggered_readout(self):
-        """reads out Data_1 of ADwin which is the data of a full measurement_count"""
+        """reads out Data_1 of ADwin which is the data of a full measurement_count, so one average of a pulse train."""
         logging.info(__name__ + ': getting data from Adwin.')
         size = int(self.sample_count * self.measurement_count)
         data_raw = np.array(self.adw.GetData_Long(1, 1, size))
@@ -1663,6 +1664,7 @@ class ADwin_Pro2_V3(Instrument):
         data_reshaped = data_raw.reshape(self.measurement_count, self.sample_count)
         data_volts = (data_reshaped * 2*10/(2**16) - 10) # translating to volts
 
+        self.data_test = data_raw * 2*10/(2**16) - 10
         data_test = data_volts
         for d1 in range(data_test.shape[0]):
             for d2 in range(data_test.shape[1]):
