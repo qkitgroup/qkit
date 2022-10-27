@@ -362,36 +362,61 @@ class TuneSET():
                 if self.regf["sg_get"](self.B1[0])>=self.regf["sg_get"](self.TG[0]) or self.regf["sg_get"](self.B2[0])>=self.regf["sg_get"](self.TG[0]):
                     print("One barrier gate reached the topgate value.")
                     break
+                self.X.append(self.regf["sg_get"](self.B1[0]))
+                self.Y.append(self.regf["sg_get"](self.B2[0]))
                 self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B1[0])+self.shift_value_accumulation)
+                self.X.append(self.regf["sg_get"](self.B1[0]))
+                self.Y.append(self.Y[-1])
                 self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B2[0])+self.shift_value_accumulation)
-                print(f'gate(s) {self.B1}: {self.regf["sg_get"](self.B1[0])},    gate(s) {B2}: {self.regf["sg_get"](self.B2[0])})
-         self.check_whether_accumulated()
-         if self.is_accumulated:
-            print("Accumulation restored.")
-            print(f'gate(s) {self.B1}: {self.regf["sg_get"](self.B1[0])},    gate(s) {B2}: {self.regf["sg_get"](self.B2[0])})
-         else:
-            print(f'gate(s) {self.B1}: {self.regf["sg_get"](self.B1[0])},    gate(s) {B2}: {self.regf["sg_get"](self.B2[0])})
-            print("Still not accumulated. Trying to restore accumulation by making both barrier gates equal to topgate.")
-            if self.regf["sg_get"](self.B1[0])>self.regf["sg_get"](self.B2[0]):
-                print("Set sweep_gate(s) {self.B2} to value of sweep_gate {self.B1[0]}")
-                self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B1[0]))
+                self.X.append(self.X[-1])
+                self.Y.append(self.regf["sg_get"](self.B2[0]))
+                print(f'gate(s) {self.B1}: {self.X[-1]},    gate(s) {self.B2}: {self.Y[-1]}')
+            self.check_whether_accumulated()
+            if self.is_accumulated:
+                print("Accumulation restored.")
+                self.X.append(self.regf["sg_get"](self.B1[0]))
+                self.Y.append(self.regf["sg_get"](self.B2[0]))
+                print(f'gate(s) {self.B1}: {self.X[-1]},    gate(s) {self.B2}: {self.Y[-1]}')
             else:
-                print(f"Set sweep_gate(s) {self.B1} to value of sweep_gate {self.B2[0]}")
-                self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B2[0]))
+                self.X.append(self.regf["sg_get"](self.B1[0]))
+                self.Y.append(self.regf["sg_get"](self.B2[0]))
+                print(f'gate(s) {self.B1}: {self.X[-1]},    gate(s) {self.B2}: {self.Y[-1]}')
+                print("Still not accumulated. Trying to restore accumulation by making both barrier gates equal to topgate.")
+                if self.regf["sg_get"](self.B1[0])>self.regf["sg_get"](self.B2[0]):
+                    print(f"Set sweep_gate(s) {self.B2} to value of sweep_gate(s) {self.B1")
+                    self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B1[0]))
+                    self.X.append(X[-1])
+                    self.Y.append(self.regf["sg_get"](self.B2[0]))
+                else:
+                    print(f"Set sweep_gate(s) {self.B1} to value of sweep_gate(s) {self.B2}")
+                    self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B2[0]))
+                    self.X.append(self.regf["sg_get"](self.B1[0]))
+                    self.Y.append(Y[-1])
+            
+            self.check_whether_accumulated()
+            if self.is_accumulated == True:
+                print("Accumulation restored.")
+            else:
+                print("Could not restore accumulation.")
+                        
+            plt.scatter(self.X, self.Y, marker='x')
+            plt.plot(self.X, self.Y)
+            plt.annotate('Go!', xy = (self.X[0]*1.001, self.Y[0]*1.001), color='b')
+            plt.grid(True)
+            plt.show()
                 
     def find_oscillation_window(self):
         x_init = self.regf["sg_get"](self.B1[0])
         y_init = self.regf["sg_get"](self.B2[0])
         start_values_x = []
         start_values_y = []
+        self.X.append(x_init)
+        self.Y.append(y_init)
         x_start = x_init
         y_start = y_init
-        self.check_whether_accumulated()
-        if self.is_accumulated == False:
-            self.restore_accumulation()
-            self.check_whether_accumulated()
-            if self.is_accumulated == True:
-                print("Accumulation restored.")
+
+        self.restore_accumulation()
+            
             
         if self.is_accumulated == True:
             print("Sample is accumulated. Start search for oscillation window.")
@@ -400,17 +425,24 @@ class TuneSET():
                 if i==0:
                     while self.regf["feedback"]()>=self.shutoff_value:
                         self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B1[0])-self.shift_value)
+                        self.X.append(self.regf["sg_get"](self.B1[0]))
+                        self.Y.append(self.Y[-1])
                         self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B2[0])-self.shift_value)
-                        x_start = self.regf["sg_get"](self.B1[0]) + self.spacer_right
-                        print(f'Gate(s) {self.B1}: ', self.regf["sg_get"](self.B1[0]))
-                        y_start = self.regf["sg_get"](self.B2[0]) + self.spacer_up
-                        print(f'Gate(s) {self.B2}: ', self.regf["sg_get"](self.B2[0]))
+                        self.X.append(self.X[-1])
+                        self.Y.append(self.regf["sg_get"](self.B2[0]))
+                        x_start = self.X[-1] + self.spacer_right
+                        print(f'Gate(s) {self.B1}: ', self.X[-1])
+                        y_start = self.Y[-1] + self.spacer_up
+                        print(f'Gate(s) {self.B2}: ', self.Y[-1])
                         time.sleep(0.2)
                         
                     while self.regf["sg_get"](self.B1[0]) < x_start and self.regf["sg_get"](self.B2[0]) < y_start:
                         self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B1[0])+self.shift_value_bound)
+                        self.Y.append(self.Y[-1])
+                        self.X.append(self.regf["sg_get"](self.B1[0]))
                         self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B2[0])+self.shift_value_bound)
-                        
+                        self.Y.append(self.regf["sg_get"](self.B2[0]))
+                        self.X.append(self.X[-1])
                         if self.regf["feedback"]()>=self.feedback_upper_bound:
                             print("Upper bound of feedback reached.")
                             x_start=self.regf["sg_get"](self.B1[0])
@@ -418,47 +450,59 @@ class TuneSET():
                             break
                             
                     self.regf["sg_set"](self.B1, x_start)
+                    self.X.append(x_start)
+                    self.Y.append(self.Y[-1])
                     self.regf["sg_set"](self.B2, y_start)
+                    self.Y.append(y_start)
+                    self.X.append(self.X[-1])
                     start_values_x.append(x_start)
                     start_values_y.append(y_start)
                         
                 else:
                     while self.regf["feedback"]()>=self.shutoff_value:
                         self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B1[0])-self.shift_value)
-                        x_start = self.regf["sg_get"](self.B1[0]) + self.spacer_right
-                        print(f'Gate(s) {self.B1}: ', self.regf["sg_get"](self.B1[0]))
+                        self.X.append(self.regf["sg_get"](self.B1[0]))
+                        self.Y.append(self.Y[-1])
+                        x_start = self.X[-1] + self.spacer_right
+                        print(f'Gate(s) {self.B1}: ', self.X[-1])
                         time.sleep(0.2)
                     
                     self.x_shutoff = self.regf["sg_get"](self.B1[0])
-                    print("x_shutoff: ", self.regf["sg_get"](self.B1[0]))
+                    print("x_shutoff: ", round(self.x_shutoff,self.digits))
                     
                     while self.regf["sg_get"](self.B1[0]) <= x_start:
                         self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B1[0])+self.shift_value_bound)
+                        self.X.append(self.regf["sg_get"](self.B1[0]))
+                        self.Y.append(self.Y[-1])
                         if self.regf["feedback"]()>=self.feedback_upper_bound:
                             print("Upper bound of feedback reached.")
-                            x_start=self.regf["sg_get"](self.B1[0])
+                            x_start=self.X[-1]
                             break
                             
-                    self.regf["sg_set"](self.B1, x_start)
+                    #self.regf["sg_set"](self.B1, x_start)
                         
                    
                     while self.regf["feedback"]()>=self.shutoff_value:
                         self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B2[0])-self.shift_value)
-                        y_start = self.regf["sg_get"](self.B2[0]) + self.spacer_up
-                        print(f'Gate(s) {self.B2}: ', self.regf["sg_get"](self.B2[0]))
+                        self.Y.append(self.regf["sg_get"](self.B2[0]))
+                        self.X.append(self.X[-1])
+                        y_start = self.Y[-1] + self.spacer_up
+                        print(f'Gate(s) {self.B2}: ', self.Y[-1])
                         time.sleep(0.2)
                     
                     self.y_shutoff = self.regf["sg_get"](self.B2[0])
-                    print("y_shutoff: ", round(self.regf["sg_get"](self.B2[0]), self.digits))
+                    print("y_shutoff: ", round(self.y_shutoff, self.digits))
                     
                     while self.regf["sg_get"](self.B2[0]) <= y_start:
                         self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B2[0])+self.shift_value_bound)
+                        self.Y.append(self.regf["sg_get"](self.B2[0]))
+                        self.X.append(self.X[-1])
                         if self.regf["feedback"]()>=self.feedback_upper_bound:
                             print("Upper bound of feedback reached.")
-                            y_start=self.regf["sg_get"](self.B2[0])
+                            y_start=self.Y[-1]
                             break
                     
-                    self.regf["sg_set"](self.B2, y_start)
+                    #self.regf["sg_set"](self.B2, y_start)
                         
                     start_values_x.append(x_start)
                     start_values_y.append(y_start)
@@ -477,6 +521,8 @@ class TuneSET():
             
         else:
             print("Sample not accumulated. Try again with higher topgate voltage.")
+     
+        
         
     def check_center(self, x,y, window_radius):
         if y >= x-window_radius and y<= x+window_radius:
