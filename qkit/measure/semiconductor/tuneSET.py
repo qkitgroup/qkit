@@ -564,12 +564,7 @@ class TuneSET():
             print('No good peaks found. Some possible solutions: \n A) decrease peak_threshold \n B) increase shutoff_value and perform new 2D sweep')         
         
         sel_peak = dict()
-        
-        
-        number_good_peaks=0
-        
         for m in range(len(z_good_peaks)):
-            number_good_peaks += 1
             if z_good_peaks[m] == min(z_good_peaks):
                 sel_peak['x'] = x_good_peaks[m]
                 sel_peak['y'] = y_good_peaks[m]
@@ -591,26 +586,30 @@ class TuneSET():
             plt.scatter(x_good_peaks[m], y_good_peaks[m], marker='*', color='w')
             plt.annotate(m+1, xy = (x_good_peaks[m]*1.001, y_good_peaks[m]*1.001), color='w')
         plt.show()
-        user_input = input(f'Do you want to set the barrier gates to the values of the selected peak (Number {selpeaknumber}) (type "y")? Or to the values of other good peaks (type in number of peak)? If you do not want to set a new barrier gate voltage, type "n".')
+        
+        self.good_peaks = dict()
+        for m in range(0,len(z_good_peaks)):
+            self.good_peaks[m+1] = {'x': x_good_peaks[m], 'y': y_good_peaks[m], 'z': z_good_peaks[m]}
             
-        if user_input.lower() == 'y':
-            print('Set barrier gate voltages to values of selected peak.')
-            self.regf["sg_set"](self.B1, sel_peak['x'])
-            self.regf["sg_set"](self.B2, sel_peak['y'])
+        return self.good_peaks
+        
+        
+    def set_barriers_to_peak_value(self):
+        user_input = input(f'Please select a peak (type in number). If you do not want to set a new barrier gate voltage, type "n".')
             
-        elif user_input.lower() == 'n':
+        if user_input.lower() == 'n':
             print('Barrier gate voltages are not changed.')
             for gate in self.B1:
                 print(f'\n Gate {gate}: {round(self.regf["sg_get"](gate),self.digits)} V')
             for gate in self.B2:
                 print(f'\n Gate {gate}: {round(self.regf["sg_get"](gate),self.digits)} V')
                 
-        elif int(user_input) in range(1,number_good_peaks+1):
+        elif int(user_input) in range(1,len(self.good_peaks)+1):
             print('Set barrier gate voltages to values of good peak number ', user_input.lower() )
-            self.regf["sg_set"](self.B1, x_good_peaks[int(user_input)-1])
-            self.regf["sg_set"](self.B2, y_good_peaks[int(user_input)-1])
+            self.regf["sg_set"](self.B1, self.good_peaks[int(user_input)-1]['x'])
+            self.regf["sg_set"](self.B2, self.good_peaks[int(user_input)-1]['y'])
                         
         else:
-            raise TypeError('Rerun the cell and type y,n or a number, silly human being.')
+            raise TypeError('Rerun the cell and type n or a number, silly human being.')
 
         
