@@ -375,7 +375,6 @@ class TuneSET():
                 print(f"Set sweep_gate(s) {self.B1} to value of sweep_gate {self.B2[0]}")
                 self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B2[0]))
                 
-        
     def find_oscillation_window(self):
         x_init = self.regf["sg_get"](self.B1[0])
         y_init = self.regf["sg_get"](self.B2[0])
