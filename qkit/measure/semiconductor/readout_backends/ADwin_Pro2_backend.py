@@ -6,6 +6,8 @@ Created on Sept 2022
 @author: oc0612
 """
 from qkit.measure.semiconductor.readout_backends.RO_backend_base import RO_backend_base
+import logging 
+
 
 class ADwin_Pro2_backend(RO_backend_base):
     def __init__(self, ADwin_Pro2):
@@ -44,7 +46,6 @@ class ADwin_Pro2_backend(RO_backend_base):
     
     def arm(self):
         self.ADwinPro2.initialize_triggered_readout()
-        #self.ADwinPro2.make_grid_triggered_readout()
 
     def finished(self):
         """returns "True" if full measurment is done."""
@@ -57,12 +58,12 @@ class ADwin_Pro2_backend(RO_backend_base):
     def read(self):
         """This function is supposed to read out each average (full pulse train) so that spin-excite can show a live plot"""
         data = {}
-        if self.finished_single_average():
-            if self.ADwinPro2.check_error_triggered_readout():
+        if self.ADwinPro2.check_error_triggered_readout():
                 logging.error(__name__ + ': error flag thrown by ADwin.')
-            else:
-                data["input1"] = {}
-                data["input1"]["amplitude"] = self.ADwinPro2.read_triggered_readout()
+                sys.extit()
+        elif self.finished_single_average():
+            data["input1"] = {}
+            data["input1"]["amplitude"] = self.ADwinPro2.read_triggered_readout()
         return data
     
     def stop(self):
@@ -70,6 +71,7 @@ class ADwin_Pro2_backend(RO_backend_base):
         To restart better self.initialize_triggered_readout()"""
         self.ADwinPro2.stop_triggered_readout()
     
+
 #%%
 if __name__ == "__main__":
     from time import sleep
