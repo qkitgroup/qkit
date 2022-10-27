@@ -12,11 +12,13 @@ class TuneSET():
         self.B1 = B1
         self.B2 = B2
         
+        #parameters for accumulation
         self.accumulation_value = 0.03
         self.is_accumulated = None
+        self.accumulation_threshold = 0.8
+        self.shift_value_accumulation = 1e-3
         
         #parameters for finding oscillation window
-        self.accumulation_threshold = 0.8
         self.shutoff_value = 1e-3
         self.shift_value = 10e-3
         self.shift_value_bound = 2e-3
@@ -65,6 +67,8 @@ class TuneSET():
         accumulation_threshold: float
            share of accumulation_value below which sample is not considered as fully "accumulated", meaning that restore_accumulation
            can take place before the find_oscillation_window function is called, raising the feedback value to 100% accumulation_value
+        shift_value_accumulation: float
+            voltage steps during the accumulation process
         
         shutoff_value: float
             feedback value below which sample is considered as non-conducting
@@ -100,13 +104,14 @@ class TuneSET():
 
         
         regf["feedback"]: getter function of signal output, in case of locke: get_r_value(0) or get_r_value(4)
-        regf["sg_get"]: getter function of gate input, in case of adwin: bill.get_out()
-        regf["sg_set"] : setter function of gate input, in case of adwin: bill.set_out_parallel()
-        regf["accumulation"](sweep_gates, accumulation_value): accumulation with selected gates until accumulation_value is reached
+        regf["sg_get"](gate) : getter function of gate input, in case of adwin: bill.get_out()
+        regf["sg_set"](gates, value) : setter function of gate input, in case of adwin: bill.set_out_parallel(), takes as arguments a list of gate numbers and a set value
+        regf["accumulation"](sweep_gates, accumulation_value): accumulation, ramp up voltage of sweep_gates until accumulation_value is reached
         regf["restore_accumulation"]: ramps sweepgates up until sweep_gates reach topgate value or feeadback reaches accumulation_value
-        regf["2Dsweep"]: executes a 2D sweep
+        regf["2Dsweep"]: executes a 2D sweep, measuring feedback in a 2D gate voltage landscape
         self.find_oscillation_window: finds a measurement window containing a Coulomb oscillation of an SET
-        self.find_peaks_in_2Dsweep: finds a peak in the Coulomb oscillation and sets the gates according to this peak
+        self.find_peaks_in_2Dsweep: finds a peak in the Coulomb oscillation
+        self.set_barriers_to_peak_value: sets the barrier gates voltages according to the peak selected by the user
         
         """ 
     @property
@@ -163,6 +168,17 @@ class TuneSET():
                 raise TypeError('accumulation_threshold must be a float.')
         else:
             self._accumulation_threshold = accumulation_threshold
+            
+    @property
+    def shift_value_accumulation(self):
+        return self._shift_value_accumulation
+    
+    @shift_value_accumulation.setter
+    def shift_value_accumulation(self, shift_value_accumulation):
+        if not isinstance(shift_value_accumulation, float):
+                raise TypeError('shift_value_accumulation must be a float.')
+        else:
+            self._shift_value_accumulation = shift_value_accumulation
             
     @property
     def shutoff_value(self):
@@ -335,22 +351,30 @@ class TuneSET():
             print(f"Sample feedback is below {100*self.accumulation_threshold} \% of {self.accumulation_value} V, feedback is {self.regf['feedback']()} V")
     
     def restore_accumulation(self):
+        self.check_whether_accumulated()
         if self.is_accumulated == False:
-            print("Restore accumulation")
+            print(f"Ramp up sweep_gates {self.sweep_gates} alternately in steps of {self.shift_value_accumulation} V until one gate reaches the value of topgate {self.TG} or until feedback {self.accumulation_value} is reached.")
+            while self.regf["feedback"] < self.accumulation_value:
+                if self.regf["sg_get"](self.B1[0])>=self.regf["sg_get"](self.TG[0]) or self.regf["sg_get"](self.B2[0])>=self.regf["sg_get"](self.TG[0]):
+                    print("One barrier gate reached the topgate value.")
+                    break
+                self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B1[0])+self.shift_value_accumulation)
+                self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B2[0])+self.shift_value_accumulation)
+                print(f'gate(s) {self.B1}: {self.regf["sg_get"](self.B1[0])},    gate(s) {B2}: {self.regf["sg_get"](self.B2[0])})
+         self.check_whether_accumulated()
+         if self.is_accumulated:
+            print("Accumulation restored.")
+            print(f'gate(s) {self.B1}: {self.regf["sg_get"](self.B1[0])},    gate(s) {B2}: {self.regf["sg_get"](self.B2[0])})
+         else:
+            print(f'gate(s) {self.B1}: {self.regf["sg_get"](self.B1[0])},    gate(s) {B2}: {self.regf["sg_get"](self.B2[0])})
+            print("Still not accumulated. Trying to restore accumulation by making both barrier gates equal to topgate.")
             if self.regf["sg_get"](self.B1[0])>self.regf["sg_get"](self.B2[0]):
                 print("Set sweep_gate(s) {self.B2} to value of sweep_gate {self.B1[0]}")
                 self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B1[0]))
             else:
                 print(f"Set sweep_gate(s) {self.B1} to value of sweep_gate {self.B2[0]}")
                 self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B2[0]))
-        
-        self.check_whether_accumulated()
-        if self.is_accumulated == False:
-            if self.regf["sg_get"](self.B1[0])<self.regf["sg_get"](self.TG[0]):
-                print(f"Ramp up sweep_gates {self.sweep_gates} to value of gate {self.TG} or until feedback {self.accumulation_value} V is reached.")
-                self.regf["accumulation"](self.sweep_gates, self.regf["sg_get"](self.B1[0]), self.regf["sg_get"](self.TG[0]), self.accumulation_value)
                 
-        
         
     def find_oscillation_window(self):
         x_init = self.regf["sg_get"](self.B1[0])
