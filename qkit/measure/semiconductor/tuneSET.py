@@ -507,6 +507,12 @@ class TuneSET():
                     start_values_x.append(x_start)
                     start_values_y.append(y_start)
                     
+                    plt.scatter(self.X, self.Y, marker='x')
+                    plt.plot(self.X, self.Y)
+                    plt.annotate('Go!', xy = (self.X[0]*1.001, self.Y[0]*1.001), color='b')
+                    plt.grid(True)
+                    plt.show()
+                    
                     if round(start_values_x[i],2)==round(start_values_x[i-1],2) and round(start_values_y[i],2) == round(start_values_y[i-1],2):
                         print('Same window found twice. Start 2D measurement.')
                         break
@@ -516,7 +522,10 @@ class TuneSET():
                 self.x_start = x_start
                 self.y_start = y_start
                 
+                
+                
                 self.regf["2Dsweep"](self.B1, self.B2, self.vstep, self.vstep, self.x_start, self.x_start-self.windowsize, self.y_start, self.y_start-self.windowsize)
+                
                 
             
         else:
