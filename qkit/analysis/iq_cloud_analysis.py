@@ -305,12 +305,12 @@ class IQCloudAnalysis:
 
                 label[j] = np.argmin(dist)
 
-        self.positions[i, :, :] = self.positions[i, label, :]
-        self.weights[i, :] = self.weights[i, label]
-        if self.covariance_type != "tied":
-            self.covariances[i][:] = self.covariances[i][label]
-            self.precisions[i][:] = self.precisions[i][label]
-        self.generalized_variance[i, :] = self.generalized_variance[i, label]
+            self.positions[i, :, :] = self.positions[i, label, :]
+            self.weights[i, :] = self.weights[i, label]
+            if self.covariance_type != "tied":
+                self.covariances[i][:] = self.covariances[i][label]
+                self.precisions[i][:] = self.precisions[i][label]
+            self.generalized_variance[i, :] = self.generalized_variance[i, label]
 
 
     def sort_clouds_weights(self):
