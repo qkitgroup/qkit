@@ -1,0 +1,9 @@
+pyqtgraph
+zerorpc
+jupyterlab
+ipywidgets
+h5py
+pywin32
+pandas
+numpy
+zmq

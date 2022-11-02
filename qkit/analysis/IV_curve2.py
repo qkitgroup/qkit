@@ -528,10 +528,10 @@ class IV_curve2(object):
             slices = map(lambda peaks1D:
                          slice(*np.sort(peaks1D[0][peaks1D[1]['prominences'].argsort()[-2:][::-1]])),
                          peaks)
-            popts = map(lambda (I1D, V1D, s1D):
+            popts = map(lambda I1D, V1D, s1D:
                         lin_fit(I1D[s1D], V1D[s1D]),
                         zip(I, V, slices))
-            self.V_corr = np.array(map(lambda (I1D, V1D, popt1D):
+            self.V_corr = np.array(map(lambda I1D, V1D, popt1D:
                                        V1D - (popt1D[0] * I1D + popt1D[1]),
                                        zip(I, V, popts)))
             return self.V_corr
@@ -545,13 +545,13 @@ class IV_curve2(object):
                              slice(*np.sort(peaks1D[0][peaks1D[1]['prominences'].argsort()[-2:][::-1]])),
                              peaks2D),
                          peaks)
-            popts = map(lambda (I2D, V2D, s2D):
-                        map(lambda (I1D, V1D, s1D):
+            popts = map(lambda I2D, V2D, s2D:
+                        map(lambda I1D, V1D, s1D:
                             lin_fit(I1D[s1D], V1D[s1D]),
                             zip(I2D, V2D, s2D)),
                         zip(I, V, slices))
-            self.V_corr = np.array(map(lambda (I2D, V2D, popt2D):
-                                       map(lambda (I1D, V1D, popt1D):
+            self.V_corr = np.array(map(lambda I2D, V2D, popt2D:
+                                       map(lambda I1D, V1D, popt1D:
                                            V1D - (popt1D[0] * I1D + popt1D[1]),
                                            zip(I2D, V2D, popt2D)),
                                        zip(I, V, popts)))
@@ -571,16 +571,16 @@ class IV_curve2(object):
                                  peaks2D),
                              peaks3D),
                          peaks)
-            popts = map(lambda (I3D, V3D, s3D):
-                        map(lambda (I2D, V2D, s2D):
-                            map(lambda (I1D, V1D, s1D):
+            popts = map(lambda I3D, V3D, s3D:
+                        map(lambda I2D, V2D, s2D:
+                            map(lambda I1D, V1D, s1D:
                                 lin_fit(I1D[s1D], V1D[s1D]),
                                 zip(I2D, V2D, s2D)),
                             zip(I3D, V3D, s3D)),
                         zip(I, V, slices))
-            self.V_corr = np.array(map(lambda (I3D, V3D, popt3D):
-                                       map(lambda (I2D, V2D, popt2D):
-                                           map(lambda (I1D, V1D, popt1D):
+            self.V_corr = np.array(map(lambda I3D, V3D, popt3D:
+                                       map(lambda I2D, V2D, popt2D:
+                                           map(lambda I1D, V1D, popt1D:
                                                V1D - (popt1D[0] * I1D + popt1D[1]),
                                                zip(I2D, V2D, popt2D)),
                                            zip(I3D, V3D, popt3D)),
@@ -890,19 +890,19 @@ class IV_curve2(object):
                     return {k: v for k, v in zip(('I', 'V', Y_name, 'index'),
                                                  (np.array([np.nan]), np.array([np.nan]), np.array([np.nan]), np.array([np.nan])))}
             if self.scan_dim == 1:
-                return np.array(map(lambda ((ind1D, prop1D), I1D, V1D, Y1D):
+                return np.array(map(lambda (ind1D, prop1D), I1D, V1D, Y1D:
                                          f(ind1D, prop1D, I1D, V1D, Y1D),
                                          zip(peaks, I, V, Y)))
             elif self.scan_dim == 2:
-                return np.array(map(lambda (peaks2D, I2D, V2D, Y2D):
+                return np.array(map(lambda peaks2D, I2D, V2D, Y2D:
                                     map(lambda ((ind1D, prop1D), I1D, V1D, Y1D):
                                         f(ind1D, prop1D, I1D, V1D, Y1D),
                                         zip(peaks2D, I2D, V2D, Y2D)),
                                     zip(peaks, I, V, Y)))
             elif self.scan_dim == 3:
-                return np.array(map(lambda (peaks3D, I3D, V3D, Y3D):
-                                    map(lambda (peaks2D, I2D, V2D, Y2D):
-                                        map(lambda ((ind1D, prop1D), I1D, V1D, Y1D):
+                return np.array(map(lambda peaks3D, I3D, V3D, Y3D:
+                                    map(lambda peaks2D, I2D, V2D, Y2D:
+                                        map(lambda (ind1D, prop1D), I1D, V1D, Y1D:
                                             f(ind1D, prop1D, I1D, V1D, Y1D),
                                             zip(peaks2D, I2D, V2D, Y2D)),
                                         zip(peaks3D, I3D, V3D, Y3D)),

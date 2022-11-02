@@ -30,3 +30,7 @@
 ### Installation:
   * copy the qkit archive to an apropriate place
   * and add the qkit/qkit directory to your systems PYTHONPATH variable
+  * (ideally) use a conda environment
+  * run `pip install -r ./qkit/requirements.txt`
+  * run the shell-scripts in the `install` folder
+  * in a python shell ,run `import qkit` and `qkit.start()` to check proper functioning
