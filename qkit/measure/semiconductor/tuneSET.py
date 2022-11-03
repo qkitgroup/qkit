@@ -20,7 +20,7 @@ class TuneSET():
         
         #parameters for finding oscillation window
         self.shutoff_value = 1e-3
-        self.shift_value = 10e-3
+        self.shift_value = 5e-3
         self.shift_value_bound = 2e-3
         self.spacer_right = 0.08
         self.spacer_up = 0.08
@@ -49,6 +49,10 @@ class TuneSET():
         self.regf = {} #registered functions
         #self.watchdog = Watchdog()
         #self.watchdog.register_node("feedback", 0, self.accumulation_value)
+        
+        ##for visualization of accumulation process: X: gate voltages of barrier 1, Y: gate voltages of barrier 2
+        self.x = []
+        self.y = []
         
         ##for visualization of tuning process X: gate voltages of barrier 1, Y: gate voltages of barrier 2
         self.X = []
@@ -110,12 +114,11 @@ class TuneSET():
         regf["feedback"]: getter function of signal output, in case of locke: get_r_value(0) or get_r_value(4)
         regf["sg_get"](gate) : getter function of gate input, in case of adwin: bill.get_out()
         regf["sg_set"](gates, value) : setter function of gate input, in case of adwin: bill.set_out_parallel(), takes as arguments a list of gate numbers and a set value
-        regf["accumulation"](sweep_gates, accumulation_value): accumulation, ramp up voltage of sweep_gates until accumulation_value is reached
         regf["restore_accumulation"]: ramps sweepgates up until sweep_gates reach topgate value or feeadback reaches accumulation_value
         regf["2Dsweep"]: executes a 2D sweep, measuring feedback in a 2D gate voltage landscape
         self.find_oscillation_window: finds a measurement window containing a Coulomb oscillation of an SET
         self.find_peaks_in_2Dsweep: finds a peak in the Coulomb oscillation
-        self.set_barriers_to_peak_value: sets the barrier gates voltages according to the peak selected by the user
+        self.set_barriers_to_peak_value: sets the barrier gates voltages according to the peak selected by the user, needs user input
         
         """ 
     @property
@@ -349,49 +352,46 @@ class TuneSET():
     def check_whether_accumulated(self):
         if self.regf["feedback"]() >= self.accumulation_threshold*self.accumulation_value:
             self.is_accumulated = True
-            print(f"Sample feedback is above {100*self.accumulation_threshold} \% of {self.accumulation_value} V, feedback is {self.regf['feedback']()} V")
+            print(f"Sample feedback is above {100*self.accumulation_threshold} % of {self.accumulation_value} V, feedback is {self.regf['feedback']()} V")
         else:
             self.is_accumulated = False
-            print(f"Sample feedback is below {100*self.accumulation_threshold} \% of {self.accumulation_value} V, feedback is {self.regf['feedback']()} V")
+            print(f"Sample feedback is below {100*self.accumulation_threshold} % of {self.accumulation_value} V, feedback is {self.regf['feedback']()} V")
     
     def restore_accumulation(self):
         self.check_whether_accumulated()
         if self.is_accumulated == False:
             print(f"Ramp up sweep_gates {self.sweep_gates} alternately in steps of {self.shift_value_accumulation} V until one gate reaches the value of topgate {self.TG} or until feedback {self.accumulation_value} is reached.")
-            while self.regf["feedback"] < self.accumulation_value:
+            while self.regf["feedback"]() < self.accumulation_value:
                 if self.regf["sg_get"](self.B1[0])>=self.regf["sg_get"](self.TG[0]) or self.regf["sg_get"](self.B2[0])>=self.regf["sg_get"](self.TG[0]):
                     print("One barrier gate reached the topgate value.")
                     break
-                self.X.append(self.regf["sg_get"](self.B1[0]))
-                self.Y.append(self.regf["sg_get"](self.B2[0]))
+                self.x.append(self.regf["sg_get"](self.B1[0]))
+                self.y.append(self.regf["sg_get"](self.B2[0]))
                 self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B1[0])+self.shift_value_accumulation)
-                self.X.append(self.regf["sg_get"](self.B1[0]))
-                self.Y.append(self.Y[-1])
+                self.x.append(self.regf["sg_get"](self.B1[0]))
+                self.y.append(self.y[-1])
                 self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B2[0])+self.shift_value_accumulation)
-                self.X.append(self.X[-1])
-                self.Y.append(self.regf["sg_get"](self.B2[0]))
-                print(f'gate(s) {self.B1}: {self.X[-1]},    gate(s) {self.B2}: {self.Y[-1]}')
+                self.x.append(self.x[-1])
+                self.y.append(self.regf["sg_get"](self.B2[0]))
             self.check_whether_accumulated()
             if self.is_accumulated:
                 print("Accumulation restored.")
-                self.X.append(self.regf["sg_get"](self.B1[0]))
-                self.Y.append(self.regf["sg_get"](self.B2[0]))
-                print(f'gate(s) {self.B1}: {self.X[-1]},    gate(s) {self.B2}: {self.Y[-1]}')
+                self.x.append(self.regf["sg_get"](self.B1[0]))
+                self.y.append(self.regf["sg_get"](self.B2[0]))
             else:
-                self.X.append(self.regf["sg_get"](self.B1[0]))
-                self.Y.append(self.regf["sg_get"](self.B2[0]))
-                print(f'gate(s) {self.B1}: {self.X[-1]},    gate(s) {self.B2}: {self.Y[-1]}')
+                self.x.append(self.regf["sg_get"](self.B1[0]))
+                self.y.append(self.regf["sg_get"](self.B2[0]))
                 print("Still not accumulated. Trying to restore accumulation by making both barrier gates equal to topgate.")
                 if self.regf["sg_get"](self.B1[0])>self.regf["sg_get"](self.B2[0]):
-                    print(f"Set sweep_gate(s) {self.B2} to value of sweep_gate(s) {self.B1")
+                    print(f"Set sweep_gate(s) {self.B2} to value of sweep_gate(s) {self.B1}")
                     self.regf["sg_set"](self.B2, self.regf["sg_get"](self.B1[0]))
-                    self.X.append(X[-1])
-                    self.Y.append(self.regf["sg_get"](self.B2[0]))
+                    self.x.append(self.x[-1])
+                    self.y.append(self.regf["sg_get"](self.B2[0]))
                 else:
                     print(f"Set sweep_gate(s) {self.B1} to value of sweep_gate(s) {self.B2}")
                     self.regf["sg_set"](self.B1, self.regf["sg_get"](self.B2[0]))
-                    self.X.append(self.regf["sg_get"](self.B1[0]))
-                    self.Y.append(Y[-1])
+                    self.x.append(self.regf["sg_get"](self.B1[0]))
+                    self.y.append(self.y[-1])
             
             self.check_whether_accumulated()
             if self.is_accumulated == True:
@@ -399,9 +399,9 @@ class TuneSET():
             else:
                 print("Could not restore accumulation.")
                         
-            plt.scatter(self.X, self.Y, marker='x')
-            plt.plot(self.X, self.Y)
-            plt.annotate('Go!', xy = (self.X[0]*1.001, self.Y[0]*1.001), color='b')
+            plt.scatter(self.x, self.y, marker='x')
+            plt.plot(self.x, self.y)
+            plt.annotate('Go!', xy = (self.x[0]*1.001, self.y[0]*1.001), color='b')
             plt.grid(True)
             plt.show()
                 
@@ -519,13 +519,10 @@ class TuneSET():
                     elif i == self.number_iterations-1:
                         print(f'Searched {self.number_iterations} times. Optimal window may have not been found yet. Start 2D measurement anyway.')
                         
-                self.x_start = x_start
-                self.y_start = y_start
-                
-                
-                
-                self.regf["2Dsweep"](self.B1, self.B2, self.vstep, self.vstep, self.x_start, self.x_start-self.windowsize, self.y_start, self.y_start-self.windowsize)
-                
+            self.x_start = x_start
+            self.y_start = y_start
+            self.regf["2Dsweep"](self.TG, self.B1, self.B2, self.vstep, self.vstep, self.x_start, self.x_start-self.windowsize, self.y_start, self.y_start-self.windowsize)
+            
                 
             
         else:
@@ -636,7 +633,7 @@ class TuneSET():
                     z_good_peaks.append(z_values_peaks[l])
         
         if len(x_good_peaks)==0:
-            print(f'\nNo peak found below shutoff. Neglect shutoff criterium.')
+            print('\nNo peak found below shutoff. Neglect shutoff criterium.')
             for l in range(len(z_values_peaks)):
                 if self.check_center(x_values_peaks[l], y_values_peaks[l], self.max_distance_to_center)==True and self.check_height(z_values_peaks[l], self.peak_threshold) == True:
                     x_good_peaks.append(x_values_peaks[l])
@@ -680,7 +677,7 @@ class TuneSET():
         
         
     def set_barriers_to_peak_value(self):
-        user_input = input(f'Please select a peak (type in number). If you do not want to set a new barrier gate voltage, type "n".')
+        user_input = input('Please select a peak (type in number). If you do not want to set a new barrier gate voltage, type "n".')
             
         if user_input.lower() == 'n':
             print('Barrier gate voltages are not changed.')
@@ -691,8 +688,8 @@ class TuneSET():
                 
         elif int(user_input) in range(1,len(self.good_peaks)+1):
             print('Set barrier gate voltages to values of good peak number ', user_input.lower() )
-            self.regf["sg_set"](self.B1, self.good_peaks[int(user_input)-1]['x'])
-            self.regf["sg_set"](self.B2, self.good_peaks[int(user_input)-1]['y'])
+            self.regf["sg_set"](self.B1, self.good_peaks[int(user_input)]['x'])
+            self.regf["sg_set"](self.B2, self.good_peaks[int(user_input)]['y'])
                         
         else:
             raise TypeError('Rerun the cell and type n or a number, silly human being.')
