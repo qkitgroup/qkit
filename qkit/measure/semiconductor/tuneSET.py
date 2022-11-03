@@ -431,9 +431,7 @@ class TuneSET():
                         self.X.append(self.X[-1])
                         self.Y.append(self.regf["sg_get"](self.B2[0]))
                         x_start = self.X[-1] + self.spacer_right
-                        print(f'Gate(s) {self.B1}: ', self.X[-1])
                         y_start = self.Y[-1] + self.spacer_up
-                        print(f'Gate(s) {self.B2}: ', self.Y[-1])
                         time.sleep(0.2)
                         
                     while self.regf["sg_get"](self.B1[0]) < x_start and self.regf["sg_get"](self.B2[0]) < y_start:
@@ -464,7 +462,6 @@ class TuneSET():
                         self.X.append(self.regf["sg_get"](self.B1[0]))
                         self.Y.append(self.Y[-1])
                         x_start = self.X[-1] + self.spacer_right
-                        print(f'Gate(s) {self.B1}: ', self.X[-1])
                         time.sleep(0.2)
                     
                     self.x_shutoff = self.regf["sg_get"](self.B1[0])
@@ -487,7 +484,6 @@ class TuneSET():
                         self.Y.append(self.regf["sg_get"](self.B2[0]))
                         self.X.append(self.X[-1])
                         y_start = self.Y[-1] + self.spacer_up
-                        print(f'Gate(s) {self.B2}: ', self.Y[-1])
                         time.sleep(0.2)
                     
                     self.y_shutoff = self.regf["sg_get"](self.B2[0])
@@ -537,7 +533,7 @@ class TuneSET():
             return False
             
     def check_height(self, z, threshold):
-        if z>=threshold:
+        if abs(z)>=threshold:
             return True
         else:
             return False
@@ -647,11 +643,18 @@ class TuneSET():
         
         sel_peak = dict()
         for m in range(len(z_good_peaks)):
-            if z_good_peaks[m] == min(z_good_peaks):
-                sel_peak['x'] = x_good_peaks[m]
-                sel_peak['y'] = y_good_peaks[m]
-                sel_peak['z'] = z_good_peaks[m]
-                selpeaknumber = m+1
+            if z_good_peaks[m] > 0:
+                if z_good_peaks[m] == min(z_good_peaks):
+                    sel_peak['x'] = x_good_peaks[m]
+                    sel_peak['y'] = y_good_peaks[m]
+                    sel_peak['z'] = z_good_peaks[m]
+                    selpeaknumber = m+1
+            else:
+                if z_good_peaks[m] == max(z_good_peaks):
+                    sel_peak['x'] = x_good_peaks[m]
+                    sel_peak['y'] = y_good_peaks[m]
+                    sel_peak['z'] = z_good_peaks[m]
+                    selpeaknumber = m+1
         print('\n')
          
         
