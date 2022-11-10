@@ -417,7 +417,7 @@ class IQCloudAnalysis:
         #    self.ax.plot(self.positions[step, i, 0] + np.dot(np.cos(s), self.positions[step, i, 0] + np.sin(s))
 
         # plot origin and position of states
-        self.ax.plot(0.0, 0.0, 'r.')
+        # self.ax.plot(0.0, 0.0, 'r.')
         for i in range(self.n_states):
             self.ax.plot(self.positions[step, i, 0], self.positions[step, i, 1], 'k.')
 
@@ -428,7 +428,7 @@ class IQCloudAnalysis:
         return im
 
 
-    def plot_weights_sweep(self):
+    def plot_weights(self):
 
         for i in range(self.n_states):
             self.ax.plot(self.sweep_param, self.weights[:, i], '.')
