@@ -97,7 +97,7 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
         self.ax.fill_between(freqs, bound_lower, bound_upper,
                         color = 'black', alpha = 0.15)
 
-    def plot(self):
+    def plot(self, save = True):
         """Plots the sqrt of a spectrum (data["spectrogram"]). Respecting scaling with the slope of a plunger gate sweep (fit_params_plunger). 
             data: spectral data in dictionary with keys "freq", "times", "spectorgram"
             fit_params_plunger_in: dict including key "fit_coef" 
@@ -132,6 +132,7 @@ class PlotterTimetraceSpectralNoiseDensity(SemiFigure):
             #self._plot_error()          
 
         plt.grid()
-        plt.savefig(self.saving_path + ".png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
+        if save:
+            plt.savefig(f"{self.saving_path}.png", dpi=self.set_dpi, bbox_inches=self.set_bbox_inches)
         plt.show()
         self.close_delete()
