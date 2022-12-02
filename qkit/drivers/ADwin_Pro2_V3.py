@@ -68,6 +68,7 @@ import time
 import numpy as np
 import sys
 import math
+#from scipy.signal import medfilt   # median filter for triggered readout averaging 
 
 
 class ADwin_Pro2_V3(Instrument):
@@ -165,6 +166,7 @@ class ADwin_Pro2_V3(Instrument):
         self.repeats = 0
         self.measurement_count = 0
         self.sample_count = 0
+        self.triggered_readout_averaging = 0
 
         #parameter for continuous readout
         self.max_samples_continuous = 0
@@ -1563,11 +1565,27 @@ class ADwin_Pro2_V3(Instrument):
 
     def _do_set_sample_rate_triggered_readout(self, rate, channel):
         """sample rate is always at 4 MHz"""
-        if rate != 4e6:
-            loggin.error(__name__ +  ': sampling frequency is fixed to 4 MHz!')
+        if rate == 1e6:
+            self.triggered_readout_averaging = 4
+        elif rate == 5e5:
+            self.triggered_readout_averaging = 8
+        elif rate == 1e5:
+            self.triggered_readout_averaging = 40
+        if rate == 4e6:
+            self.triggered_readout_averaging = 0
+        else:
+            logging.error(__name__ +  ': sampling frequency is wrongly chosen. Must be 4e6 or 1e6 or 5e5 or 1e5.')
 
     def _do_get_sample_rate_triggered_readout(self, channel):
-        return 4e6
+        if self.triggered_readout_averaging == 4:
+            rate = 1e6
+        if self.triggered_readout_averaging == 8:
+            rate = 5e5
+        elif self.triggered_readout_averaging == 40:
+            rate = 1e5
+        elif self.triggered_readout_averaging == 0:
+            rate = 4e6
+        return rate
 
     def _do_set_measurement_count_triggered_readout(self, measurement_count:int, channel):
         logging.info(__name__ + ': setting measurement count to: %d' % measurement_count)
@@ -1662,6 +1680,15 @@ class ADwin_Pro2_V3(Instrument):
         data_raw = np.array(self.adw.GetData_Long(1, 1, size))
         data_reshaped = data_raw.reshape(self.measurement_count, self.sample_count)
         data_volts = (data_reshaped * 2*10/(2**16) - 10) # translating to volts
+
+        #averaging in python
+        if self.triggered_readout_averaging != 0:
+            sample_count_averaged = int(self.sample_count / self.triggered_readout_averaging)
+            for measurement in range(self.measurement_count):
+                data_volts_reshaped = data_volts[measurement, :].reshape(sample_count_averaged, self.triggered_readout_averaging)
+                data_volts_averaged = np.average(data_volts_reshaped, axis=1)
+                data_volts[measurement, :sample_count_averaged] = data_volts_averaged
+
         data_triggered_readout = np.empty(shape=(1, self.measurement_count, self.sample_count))
         data_triggered_readout[0:1, :, :] = data_volts
         self.start_triggered_readout()  # starting new average
