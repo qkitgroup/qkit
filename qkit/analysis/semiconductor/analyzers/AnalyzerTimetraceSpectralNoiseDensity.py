@@ -74,7 +74,7 @@ class AnalyzerTimetraceSpectralNoiseDensity:
         self.spectrogram = spectrogram[1:]
         return {"freq" : self.freqs, "spectrogram": self.spectrogram} # freqs[0]=0 ; The 0Hz value is cut off:
 
-    def fit(self, freqs = None, spectrogram = None):
+    def fit(self, freqs = np.array([]), spectrogram = np.array([])):
         """Fits f(x)= a*x + b to log10(data) AROUND 1Hz. So the spectrum must include 1Hz...
         Return is the parameters of the fit.
         guess is an array or list of starting values for a, b.  
