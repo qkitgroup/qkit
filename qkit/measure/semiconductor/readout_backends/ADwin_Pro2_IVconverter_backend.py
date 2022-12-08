@@ -5,15 +5,14 @@ Created on Sept 2022
 
 @author: oc0612
 """
-from qkit.measure.semiconductor.readout_backends.RO_backend_base import RO_backend_base
 from qkit.measure.semiconductor.readout_backends.ADwin_Pro2_backend import ADwin_Pro2_backend
 import logging 
 import sys 
 
 
-class ADwin_Pro2_IVconverter_backend(RO_backend_base, ADwin_Pro2_backend):
+class ADwin_Pro2_IVconverter_backend(ADwin_Pro2_backend):
     def __init__(self, ADwin_Pro2, IV_converter=1e8):
-        super().__init__()
+        super().__init__(ADwin_Pro2)
         self.register_measurement("input1", "A", ["amplitude"])
         self.IV_converter = IV_converter # in V/A
 
