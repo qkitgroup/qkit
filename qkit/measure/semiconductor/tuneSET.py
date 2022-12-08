@@ -13,13 +13,13 @@ class TuneSET():
         self.B2 = B2
         
         #parameters for accumulation
-        self.accumulation_value = 0.03
-        self.is_accumulated = None
+        self.accumulation_value = np.nan
+        self.is_accumulated = np.nan
         self.accumulation_threshold = 0.8
         self.shift_value_accumulation = 1e-3
         
         #parameters for finding oscillation window
-        self.shutoff_value = 1e-3
+        self.shutoff_value = np.nan
         self.shift_value = 5e-3
         self.shift_value_bound = 2e-3
         self.spacer_right = 0.08
@@ -33,10 +33,10 @@ class TuneSET():
         self.vstep = 5e-3
 
         #parameters for finding peaks in 2D sweep
-        self.x_start = None #to be found during the search for oscilaltion window
-        self.y_start = None
-        self.x_shutoff = None
-        self.y_shutoff = None
+        self.x_start = np.nan #to be found during the search for oscilaltion window
+        self.y_start = np.nan
+        self.x_shutoff = np.nan
+        self.y_shutoff = np.nan
         self.peak_threshold = 8e-3
         self.max_distance_to_center = 0.09
         self.digits = 4 
@@ -69,7 +69,7 @@ class TuneSET():
             usually barrier gate to the right of the sensor dot
             
         accumulation_value: float
-            feedback value above which sample is considered as "accumulated", meaning conducting
+            feedback value above which sample is considered as "accumulated", meaning conducting. Must be defined by user.
         is_accumulated: NoneType or Boolean
             accumulation status of the sample. Default: None. 
         accumulation_threshold: float
@@ -79,7 +79,7 @@ class TuneSET():
             voltage steps during the accumulation process
         
         shutoff_value: float
-            feedback value below which sample is considered as non-conducting
+            feedback value below which sample is considered as non-conducting and the program stops ramping down the barrier gate values during the search for an oscillation window. Must be defined by user to avoid unreasonably far ramping down.
         shift_value: float
             amount by which the voltage is shifted during the search of the conduction shutoff point, recommended: 0.01 V
         shift_value_bound: float
@@ -350,6 +350,8 @@ class TuneSET():
         self._register_function_preloaded("access_data", func,  *args, **kwargs)
 
     def check_whether_accumulated(self):
+        if self.accumulation_value == None:
+            raise ValueError("You didn't define accumulation_value. It is the feedback value above which sample is considered as accumulated.")
         if self.regf["feedback"]() >= self.accumulation_threshold*self.accumulation_value:
             self.is_accumulated = True
             print(f"Sample feedback is above {100*self.accumulation_threshold} % of {self.accumulation_value} V, feedback is {self.regf['feedback']()} V")
@@ -358,6 +360,8 @@ class TuneSET():
             print(f"Sample feedback is below {100*self.accumulation_threshold} % of {self.accumulation_value} V, feedback is {self.regf['feedback']()} V")
     
     def restore_accumulation(self):
+        if self.accumulation_value == None:
+            raise ValueError("You didn't define accumulation_value. It is the feedback value above which sample is considered as accumulated.")
         self.check_whether_accumulated()
         if self.is_accumulated == False:
             print(f"Ramp up sweep_gates {self.sweep_gates} alternately in steps of {self.shift_value_accumulation} V until one gate reaches the value of topgate {self.TG} or until feedback {self.accumulation_value} is reached.")
@@ -406,6 +410,10 @@ class TuneSET():
             plt.show()
                 
     def find_oscillation_window(self):
+        if self.accumulation_value == None:
+            raise ValueError("You didn't define accumulation_value. It is the feedback value above which sample is considered as accumulated.")
+        if self.shutoff_value == None:
+            raise ValueError("You didn't define shutoff_value. It is the feedback value below which sample is considered as non-conducting and the program stops ramping down the barrier gate values during the search for an oscillation window.")
         x_init = self.regf["sg_get"](self.B1[0])
         y_init = self.regf["sg_get"](self.B2[0])
         start_values_x = []
@@ -666,7 +674,7 @@ class TuneSET():
         print('\n \n')
         
         
-        plt.pcolor(x,y, z)
+        plt.pcolor(x,y, np.transpose(z))
         for m in range(0,len(z_good_peaks)):
             plt.scatter(x_good_peaks[m], y_good_peaks[m], marker='*', color='w')
             plt.annotate(m+1, xy = (x_good_peaks[m]*1.001, y_good_peaks[m]*1.001), color='w')
