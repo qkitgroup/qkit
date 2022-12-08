@@ -7,6 +7,7 @@ Created on Sept 2022
 """
 from qkit.measure.semiconductor.readout_backends.RO_backend_base import RO_backend_base
 import logging 
+import sys 
 
 
 class ADwin_Pro2_backend(RO_backend_base):
@@ -60,7 +61,7 @@ class ADwin_Pro2_backend(RO_backend_base):
         data = {}
         if self.ADwinPro2.check_error_triggered_readout():
                 logging.error(__name__ + ': error flag thrown by ADwin.')
-                sys.extit()
+                sys.exit()
         elif self.finished_single_average():
             data["input1"] = {}
             data["input1"]["amplitude"] = self.ADwinPro2.read_triggered_readout()
