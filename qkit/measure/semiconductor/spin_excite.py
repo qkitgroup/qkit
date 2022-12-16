@@ -458,7 +458,7 @@ class Exciting(mb.MeasureBase):
             _instr_settings_dict = get_instrument_settings(self._data_file.get_filepath())
            
             string1 = "gate"
-            string2 = "_output_voltage_in_V"
+            string2 = "_out"
             active_gates = {}
             
             for parameters in _instr_settings_dict.values():
