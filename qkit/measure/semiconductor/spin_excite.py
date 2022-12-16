@@ -381,7 +381,9 @@ class Exciting(mb.MeasureBase):
         self._validate_RO_backend(readout_backend)
         self._ro_backend = readout_backend
         self._validate_MA_backend(manipulation_backend)
-        self._ma_backend = manipulation_backend   
+        self._ma_backend = manipulation_backend
+        self.gate_search_string1 = "gate"
+        self.gate_search_string2 = "_out"
         
         self.compile_qupulse(*experiments, averages = averages, mode = mode, deep_render = deep_render, **add_pars)
         
@@ -456,14 +458,12 @@ class Exciting(mb.MeasureBase):
         if self.report_static_voltages:
             self._static_voltages = self._data_file.add_textlist("static_voltages")
             _instr_settings_dict = get_instrument_settings(self._data_file.get_filepath())
-           
-            string1 = "gate"
-            string2 = "_out"
+
             active_gates = {}
             
             for parameters in _instr_settings_dict.values():
                 for (key, value) in parameters.items():
-                    if string1 in key and string2 in key and abs(value) > 0.0004:
+                    if self.gate_search_string1 in key and self.gate_search_string2 in key and abs(value) > 0.0004:
                         active_gates.update({key:value})
             self._static_voltages.append(active_gates)
 
