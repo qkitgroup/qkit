@@ -68,6 +68,7 @@ import time
 import numpy as np
 import sys
 import math
+#from scipy.signal import medfilt   # median filter for triggered readout averaging 
 
 
 class ADwin_Pro2_V3(Instrument):
@@ -165,6 +166,7 @@ class ADwin_Pro2_V3(Instrument):
         self.repeats = 0
         self.measurement_count = 0
         self.sample_count = 0
+        self.triggered_readout_averaging = 1
 
         #parameter for continuous readout
         self.max_samples_continuous = 0
@@ -1562,12 +1564,28 @@ class ADwin_Pro2_V3(Instrument):
     # it finished the data transfer. The ADwin then triggers the AWG again and so on...
 
     def _do_set_sample_rate_triggered_readout(self, rate, channel):
-        """sample rate is always at 4 MHz"""
-        if rate != 4e6:
-            loggin.error(__name__ +  ': sampling frequency is fixed to 4 MHz!')
+        if rate == 1e6:
+            self.triggered_readout_averaging = 4
+        elif rate == 5e5:
+            self.triggered_readout_averaging = 8
+        elif rate == 1e5:
+            self.triggered_readout_averaging = 40
+        elif rate == 4e6:
+            self.triggered_readout_averaging = 1
+        else:
+            logging.error(__name__ +  ': sampling frequency is wrongly chosen. Must be 4e6 or 1e6 or 5e5 or 1e5.')
+            sys.exit()
 
     def _do_get_sample_rate_triggered_readout(self, channel):
-        return 4e6
+        if self.triggered_readout_averaging == 4:
+            rate = 1e6
+        elif self.triggered_readout_averaging == 8:
+            rate = 5e5
+        elif self.triggered_readout_averaging == 40:
+            rate = 1e5
+        elif self.triggered_readout_averaging == 1:
+            rate = 4e6
+        return rate
 
     def _do_set_measurement_count_triggered_readout(self, measurement_count:int, channel):
         logging.info(__name__ + ': setting measurement count to: %d' % measurement_count)
@@ -1579,15 +1597,16 @@ class ADwin_Pro2_V3(Instrument):
         count = self.get_Par_11_global_long()
         return count
 
-    def _do_set_sample_count_triggered_readout(self, sample_count:int, channel):
+    def _do_set_sample_count_triggered_readout(self, sample_count_without_averaging:int, channel):
         """sample count has to be in bytes"""
+        sample_count = sample_count_without_averaging * self.triggered_readout_averaging
         if (sample_count % 8) != 0:
-            logging.warning(__name__ + ': sample count has to be a multiple of 8, so:  '
+            logging.warning(__name__ + ': sample count (spin excite) * averaging (=ADwin samples) has to be a multiple of 8, so:  '
                                        'meas_time * 4MHz mod 8 == 0\n')
             sys.exit()
         else:
             logging.info(__name__ + ': setting sample count to: %d' % sample_count)
-            self.sample_count = int(sample_count)
+            self.sample_count = int(sample_count_without_averaging) # the amount of averaged samples that spin excite knows about
             self.set_Par_10_global_long(sample_count)
 
     def _do_get_sample_count_triggered_readout(self, channel):
@@ -1608,7 +1627,7 @@ class ADwin_Pro2_V3(Instrument):
     def initialize_triggered_readout(self):
         """starts other processes to the ADwin that enable a triggered burst readout.
         """
-        data_to_aquire = self.measurement_count * self.sample_count
+        data_to_aquire = self.measurement_count * self.sample_count *self.triggered_readout_averaging
         if data_to_aquire>3e8:
             logging.error(__name__ + ': to many samples to aquire in one pulse train. Max is probably 25s at 4MHz.')
             sys.exit()
@@ -1658,10 +1677,22 @@ class ADwin_Pro2_V3(Instrument):
     def read_triggered_readout(self):
         """reads out Data_1 of ADwin which is the data of a full measurement_count, so one average of a pulse train."""
         logging.info(__name__ + ': getting data from Adwin.')
-        size = int(self.sample_count * self.measurement_count)
+        sample_count_averaging = self.sample_count * self.triggered_readout_averaging
+        size = int(sample_count_averaging * self.measurement_count)
         data_raw = np.array(self.adw.GetData_Long(1, 1, size))
-        data_reshaped = data_raw.reshape(self.measurement_count, self.sample_count)
-        data_volts = (data_reshaped * 2*10/(2**16) - 10) # translating to volts
+        data_reshaped = data_raw.reshape(self.measurement_count, sample_count_averaging)
+        data_volts = data_reshaped * 2*10/(2**16) - 10 # translating to volts
+
+        #averaging in python
+        if self.triggered_readout_averaging != 1:
+            data_volts_averaged = np.empty(shape=(self.measurement_count, self.sample_count))
+            for measurement in range(self.measurement_count):
+                one_measurement_reshaped = data_volts[measurement, :sample_count_averaging].reshape(self.sample_count, self.triggered_readout_averaging)
+                one_measurement_averaged = np.average(one_measurement_reshaped, axis=1)
+                data_volts_averaged[measurement, :] = one_measurement_averaged
+            del data_volts
+            data_volts = data_volts_averaged
+
         data_triggered_readout = np.empty(shape=(1, self.measurement_count, self.sample_count))
         data_triggered_readout[0:1, :, :] = data_volts
         self.start_triggered_readout()  # starting new average
