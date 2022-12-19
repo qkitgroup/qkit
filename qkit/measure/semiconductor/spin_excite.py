@@ -381,7 +381,9 @@ class Exciting(mb.MeasureBase):
         self._validate_RO_backend(readout_backend)
         self._ro_backend = readout_backend
         self._validate_MA_backend(manipulation_backend)
-        self._ma_backend = manipulation_backend   
+        self._ma_backend = manipulation_backend
+        self.gate_search_string1 = "gate"
+        self.gate_search_string2 = "_out"
         
         self.compile_qupulse(*experiments, averages = averages, mode = mode, deep_render = deep_render, **add_pars)
         
@@ -443,6 +445,19 @@ class Exciting(mb.MeasureBase):
                                             wait_time = 0)
         new_pulse_parameter.validate_parameters()
         self._pulse_parameters[measurement] = new_pulse_parameter
+
+    def change_averages(self, measurement, new_avg):
+        if not isinstance(measurement, str):
+            raise TypeError(f"{__name__}: Cannot change averages, {measurement} must be a string containing the name of the measurement whose averages you wish to change.")
+        if measurement not in self.settings.measurement_settings.keys():
+            raise ValueError(f"{__name__}: Cannot change averages, {measurement} is not an active measurement.")
+        if not isinstance(new_avg, int):
+            raise TypeError(f"{__name__}: Cannot change averages, {new_avg} must be an integer containing the number of averages you wish to set.")
+        if new_avg < 1:
+            raise ValueError(f"{__name__}: Cannot change averages, {new_avg} must be at least 1 and not negative. Sorry to ask, but are you retarded?")
+
+        self.settings.measurement_settings[measurement]["averages"] = new_avg
+        getattr(self._ro_backend, f"{measurement}_set_averages")(new_avg)
                 
     def _prepare_measurement_file(self, data, coords=()):
         """Das Fleisch in der Sonne zu trocknen ist in unseren Breiten schwierig. 
@@ -456,14 +471,12 @@ class Exciting(mb.MeasureBase):
         if self.report_static_voltages:
             self._static_voltages = self._data_file.add_textlist("static_voltages")
             _instr_settings_dict = get_instrument_settings(self._data_file.get_filepath())
-           
-            string1 = "gate"
-            string2 = "_output_voltage_in_V"
+
             active_gates = {}
             
             for parameters in _instr_settings_dict.values():
                 for (key, value) in parameters.items():
-                    if string1 in key and string2 in key and abs(value) > 0.0004:
+                    if self.gate_search_string1 in key and self.gate_search_string2 in key and abs(value) > 0.0004:
                         active_gates.update({key:value})
             self._static_voltages.append(active_gates)
 
