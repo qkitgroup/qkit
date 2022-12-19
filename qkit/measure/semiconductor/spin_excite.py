@@ -384,6 +384,7 @@ class Exciting(mb.MeasureBase):
         self._ma_backend = manipulation_backend
         self.gate_search_string1 = "gate"
         self.gate_search_string2 = "_out"
+        self.gate_ignore_string1 = "_output_number"
         
         self.compile_qupulse(*experiments, averages = averages, mode = mode, deep_render = deep_render, **add_pars)
         
@@ -476,7 +477,7 @@ class Exciting(mb.MeasureBase):
             
             for parameters in _instr_settings_dict.values():
                 for (key, value) in parameters.items():
-                    if self.gate_search_string1 in key and self.gate_search_string2 in key and abs(value) > 0.0004:
+                    if self.gate_search_string1 in key and self.gate_search_string2 in key and self.gate_ignore_string1 not in key and abs(value) > 0.0004:
                         active_gates.update({key:value})
             self._static_voltages.append(active_gates)
 
