@@ -446,19 +446,19 @@ class Exciting(mb.MeasureBase):
         new_pulse_parameter.validate_parameters()
         self._pulse_parameters[measurement] = new_pulse_parameter
 
-    def change_averages(self, measurement, new_avg):
-        if not isinstance(measurement, str):
-            raise TypeError(f"{__name__}: Cannot change averages, {measurement} must be a string containing the name of the measurement whose averages you wish to change.")
-        if measurement not in self.settings.measurement_settings.keys():
-            raise ValueError(f"{__name__}: Cannot change averages, {measurement} is not an active measurement.")
-        if not isinstance(new_avg, int):
-            raise TypeError(f"{__name__}: Cannot change averages, {new_avg} must be an integer containing the number of averages you wish to set.")
-        if new_avg < 1:
-            raise ValueError(f"{__name__}: Cannot change averages, {new_avg} must be at least 1 and not negative. Sorry to ask, but are you retarded?")
+    def change_averages(self, averages):
+        for measurement, new_avg in averages:
+            if not isinstance(measurement, str):
+                raise TypeError(f"{__name__}: Cannot change averages, {measurement} must be a string containing the name of the measurement whose averages you wish to change.")
+            if measurement not in self.settings.measurement_settings.keys():
+                raise ValueError(f"{__name__}: Cannot change averages, {measurement} is not an active measurement.")
+            if not isinstance(new_avg, int):
+                raise TypeError(f"{__name__}: Cannot change averages, {new_avg} must be an integer containing the number of averages you wish to set.")
+            if new_avg < 1:
+                raise ValueError(f"{__name__}: Cannot change averages, {new_avg} must be at least 1 and not negative. Sorry to ask, but are you retarded?")
+            self.settings.measurement_settings[measurement]["averages"] = new_avg
+            getattr(self._ro_backend, f"{measurement}_set_averages")(new_avg)
 
-        self.settings.measurement_settings[measurement]["averages"] = new_avg
-        getattr(self._ro_backend, f"{measurement}_set_averages")(new_avg)
-                
     def _prepare_measurement_file(self, data, coords=()):
         """Das Fleisch in der Sonne zu trocknen ist in unseren Breiten schwierig. 
         Das geht nur in heißen Sommermonaten wie Juli oder August, wenn man das Fleisch ausgebreitet auf einer Platte – 
