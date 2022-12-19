@@ -1022,7 +1022,8 @@ class ADwin_Pro2_V3(Instrument):
         return output
 
     def individual_voltage_limits_setter_in_V(self, value1, value2, gate):
-        """Set individual upper and lower voltage limits for a gate 'X' and prevent from 
+        """ individual_voltage_limits_setter_in_V(value1, value2, gate):
+        Set individual upper and lower voltage limits for a gate 'X' and prevent from 
         initial error caused if the voltage limits are not set (Error variable - ADwin parameter: Data_192[X]).
         The minimum and the maximum of (value1, value2) are determined and set as lower or 
         upper voltage limits using individual_lower(upper)_voltage_limit_in_V(), respectively.
