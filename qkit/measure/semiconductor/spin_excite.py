@@ -382,14 +382,14 @@ class Exciting(mb.MeasureBase):
         self._ro_backend = readout_backend
         self._validate_MA_backend(manipulation_backend)
         self._ma_backend = manipulation_backend
-        self.gate_search_string1 = "gate"
-        self.gate_search_string2 = "_out"
-        self.gate_ignore_string1 = "_output_number"
+        
         
         self.compile_qupulse(*experiments, averages = averages, mode = mode, deep_render = deep_render, **add_pars)
         
-        self.report_static_voltages = True
-
+        self.report_static_voltages = True        
+        self.par_search_placeholder = "$$"
+        self.par_search_string = "gate$$_out"
+        
     
     @property
     def report_static_voltages(self):
@@ -410,6 +410,29 @@ class Exciting(mb.MeasureBase):
         if new_mode not in self.modes:
             raise AttributeError(f"{__name__}: {new_mode} is not a valid measurement mode. Allowed modes are: \n {self.modes}")
         self._mode = new_mode
+
+    @property
+    def par_search_placeholder(self):
+        return self._par_search_placeholder
+    
+    @par_search_placeholder.setter
+    def par_search_placeholder(self, new_str):
+        if not isinstance(new_str, str):
+            raise TypeError(f"{__name__}: {new_str} is not a valid search string placeholder. Must be a string")
+        self._par_search_placeholder = new_str
+    
+    @property
+    def par_search_string(self):
+        return self._par_search_string
+    
+    @par_search_string.setter
+    def par_search_string(self, new_str):
+        if not isinstance(new_str, str):
+            raise TypeError(f"{__name__}: {new_str} is not a valid parameter search string. Must be a string")
+        if self.par_search_placeholder not in new_str:
+            raise ValueError(f"{__name__}: {new_str} is not a valid parameter search string. It does not contain the placeholder {self.par_search_placeholder}.")
+        self._par_search_string = new_str
+        self._display_pars = {self.par_search_string.replace(self.par_search_placeholder, str(i)) for i in range(1000)}
     
     def _validate_RO_backend(self, RO_backend):
         if not issubclass(RO_backend.__class__, RO_backend_base):
@@ -477,7 +500,7 @@ class Exciting(mb.MeasureBase):
             
             for parameters in _instr_settings_dict.values():
                 for (key, value) in parameters.items():
-                    if self.gate_search_string1 in key and self.gate_search_string2 in key and self.gate_ignore_string1 not in key and abs(value) > 0.0004:
+                    if key in self._display_pars and abs(value) > 0.0004:
                         active_gates.update({key:value})
             self._static_voltages.append(active_gates)
 
