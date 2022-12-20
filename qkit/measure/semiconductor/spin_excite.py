@@ -567,8 +567,31 @@ class Exciting(mb.MeasureBase):
             raise IndexError(f"{__name__}: Invalid readout dimensions. {self._ro_backend} must return arrays with 3 dimensions.")
         if np.size(latest_node_data, axis = 2) == 0:
             raise ValueError(f"{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
+    
+    def _stream1D(self, data_location, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
+        """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
+        Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
+        Reis nach Anleitung zubereiten. Danach warmstellen.
+        """
+        self._ready_hardware()
+        iterations = 0
+        while not self._ro_backend.finished():
+            old_iterations = iterations
+            latest_data = self._ro_backend.read()
+            for measurement in latest_data.keys():    
+                first_node = list(latest_data[measurement].keys())[0]
+                #If latest data is empty for one measurement, skip it
+                if len(latest_data[measurement][first_node]) == 0: continue
+                #Count the number of iterations collected by the most recent call of read
+                iterations += len(latest_data[measurement][first_node])
+                for node in latest_data[measurement].keys():                    
+                    latest_node_data = np.array(latest_data[measurement][node])
+                    self._check_node_data(latest_node_data)
+                    self._datasets["%s.%s" % (measurement, node)].append(latest_node_data)
+            progress_bar.iterate(addend = iterations - old_iterations)
+        self._stop_hardware()
 
-    def _stream1D(self, data_location, avg_ax, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
+    def _stream1D_avg(self, data_location, avg_ax, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
         """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
         Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
         Reis nach Anleitung zubereiten. Danach warmstellen.
@@ -605,7 +628,7 @@ class Exciting(mb.MeasureBase):
             self.divider[measurement] = 1
         self._stop_hardware()
 
-    def _stream2D(self, data_location, progress_bar):
+    def _stream2D_avg(self, data_location, progress_bar):
         self._ready_hardware()      
         total_sum = {}
         iterations = 0
@@ -689,24 +712,24 @@ class Exciting(mb.MeasureBase):
 
     def _choose_measurement_function(self, dimension, progress_bar):
         if self.mode == "pulse_parameter" and dimension == 1:
-            return lambda: self._stream1D((), (0, 2), progress_bar)
+            return lambda: self._stream1D_avg((), (0, 2), progress_bar)
         elif self.mode == "pulse_parameter" and dimension == 2:
-            return lambda: self._stream1D((-1), (0, 2), progress_bar)
+            return lambda: self._stream1D_avg((-1), (0, 2), progress_bar)
         elif self.mode == "pulse_parameter" and dimension == 3:
-            return lambda i : self._stream1D((-1, i), (0, 2), progress_bar)
+            return lambda i : self._stream1D_avg((-1, i), (0, 2), progress_bar)
         
         elif self.mode == "timetrace" and dimension == 1:
-            return lambda: self._stream1D((), (0, 1), progress_bar)
+            return lambda: self._stream1D_avg((), (0, 1), progress_bar)
         elif self.mode == "timetrace" and dimension == 2:
-            return lambda: self._stream1D((-1), (0, 1), progress_bar)
+            return lambda: self._stream1D_avg((-1), (0, 1), progress_bar)
         elif self.mode == "timetrace" and dimension == 3:
-            return lambda i : self._stream1D((-1, i), (0, 1), progress_bar)
+            return lambda i : self._stream1D_avg((-1, i), (0, 1), progress_bar)
         
         elif self.mode == "pp_vs_t" and dimension == 1:
-            return lambda: self._stream2D((), progress_bar)
+            return lambda: self._stream2D_avg((), progress_bar)
         elif self.mode == "pp_vs_t" and dimension == 2:
             def pp_vs_t_2D():
-                self._stream2D((-1), progress_bar)
+                self._stream2D_avg((-1), progress_bar)
                 for dset in self._datasets.values():
                     dset.next_matrix()
             return pp_vs_t_2D
