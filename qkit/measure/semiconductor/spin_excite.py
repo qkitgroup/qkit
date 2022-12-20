@@ -471,7 +471,8 @@ class Exciting(mb.MeasureBase):
         self._pulse_parameters[measurement] = new_pulse_parameter
 
     def change_averages(self, averages):
-        for measurement, new_avg in averages:
+        self.mapper.map_measurements(averages)
+        for measurement, new_avg in averages.items():
             if not isinstance(measurement, str):
                 raise TypeError(f"{__name__}: Cannot change averages, {measurement} must be a string containing the name of the measurement whose averages you wish to change.")
             if measurement not in self.settings.measurement_settings.keys():
@@ -482,6 +483,13 @@ class Exciting(mb.MeasureBase):
                 raise ValueError(f"{__name__}: Cannot change averages, {new_avg} must be at least 1 and not negative. Sorry to ask, but are you retarded?")
             self.settings.measurement_settings[measurement]["averages"] = new_avg
             getattr(self._ro_backend, f"{measurement}_set_averages")(new_avg)
+    
+    def _filter_parameter(self, parameter):
+        preamble, postamble = self.par_search_string.split(self.par_search_placeholder)
+        if parameter.startswith(preamble) and parameter.endswith(postamble):
+            parameter = parameter.replace(preamble, "")
+            parameter = parameter.replace(postamble, "")
+        return parameter.isdigit()
 
     def _prepare_measurement_file(self, data, coords=()):
         """Das Fleisch in der Sonne zu trocknen ist in unseren Breiten schwierig. 
@@ -500,7 +508,7 @@ class Exciting(mb.MeasureBase):
             
             for parameters in _instr_settings_dict.values():
                 for (key, value) in parameters.items():
-                    if key in self._display_pars and abs(value) > 0.0004:
+                    if self._filter_parameter(key) and abs(value) > 0.0004:
                         active_gates.update({key:value})
             self._static_voltages.append(active_gates)
 
@@ -650,26 +658,26 @@ class Exciting(mb.MeasureBase):
         Das Gericht ist ungewürzt und erhält seinen Geschmack durch die jeweiligen Saucen.
         """
         self.mode = mode
-        mapper = Mapping_handler2()
+        self.mapper = Mapping_handler2()
         if "channel_mapping" in add_pars:
-            mapper.channel_mapping = add_pars["channel_mapping"]
+            self.mapper.channel_mapping = add_pars["channel_mapping"]
         if "measurement_mapping" in add_pars:
-            mapper.measurement_mapping = add_pars["measurement_mapping"]
+            self.mapper.measurement_mapping = add_pars["measurement_mapping"]
 
         channel_sample_rates = {channel : getattr(self._ma_backend, f"{channel}_get_sample_rate")()
                         for channel in self._ma_backend._registered_channels.keys()}
         measurement_sample_rates = {measurement : getattr(self._ro_backend, f"{measurement}_get_sample_rate")() \
                         for measurement in self._ro_backend._registered_measurements.keys()}
         
-        mapper.map_channels_inv(channel_sample_rates)
-        mapper.map_measurements_inv(measurement_sample_rates)
+        self.mapper.map_channels_inv(channel_sample_rates)
+        self.mapper.map_measurements_inv(measurement_sample_rates)
         
         decoded = Qupulse_decoder2(*experiments, channel_sample_rates = channel_sample_rates, measurement_sample_rates = measurement_sample_rates,\
              deep_render = deep_render, **add_pars)        
         
-        mapper.map_channels(decoded.channel_pars)
-        mapper.map_measurements(decoded.measurement_pars)
-        mapper.map_measurements(averages)
+        self.mapper.map_channels(decoded.channel_pars)
+        self.mapper.map_measurements(decoded.measurement_pars)
+        self.mapper.map_measurements(averages)
 
         self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)        
         
