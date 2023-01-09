@@ -307,6 +307,7 @@ class Settings:
                 unsupported_measurements += f"{measurement}\n"
         if unsupported_measurements:
             raise AttributeError(f"{__name__}: Your readout backend does not support the following measurements:\n{unsupported_measurements}")
+    
     def _get_measurement_units(self):
         for measurement, settings in self.measurement_settings.items():
             settings["unit"] = self.core._ro_backend._registered_measurements[measurement]["unit"]
@@ -364,7 +365,8 @@ class Exciting(mb.MeasureBase):
     """
     class MeasurementDimensionError(Exception):
         pass
-    modes = {"pulse_parameter", "timetrace", "pp_vs_t"}
+    modes = {"pulse_parameter", "timetrace", "timetrace_no_avg", "pp_vs_t"}
+
     def __init__(self, readout_backend, manipulation_backend,
                  *experiments, averages, mode = "pulse_parameter", deep_render = False, exp_name = "", sample = None, **add_pars):
         """
@@ -457,9 +459,9 @@ class Exciting(mb.MeasureBase):
             self._t_parameters[measurement] = new_t_parameter
 
     def update_pulse_parameters(self, vec, coordname, measurement, unit = " a.u."):
-        if len(vec) != self.settings.measurement_settings[measurement]["measurement_count"]:
+        if len(vec) != self.settings.measurement_settings[measurement]["measurement_count"] / self._iterations[measurement]:
                 raise ValueError((f"{__name__}: Wrong pulse parameter coordinate length."
-                f"The given array must have" 
+                "The given array must have" 
                 f"{self.settings.measurement_settings[measurement]['measurement_count']} entries."))
         
         new_pulse_parameter = self.Coordinate(coordname, 
@@ -470,7 +472,23 @@ class Exciting(mb.MeasureBase):
         new_pulse_parameter.validate_parameters()
         self._pulse_parameters[measurement] = new_pulse_parameter
 
+    def update_iteration_parameters(self, vec, coordname, measurement, unit = ""):
+        if len(vec) != self.settings.measurement_settings[measurement]["measurement_count"]:
+                raise ValueError((f"{__name__}: Wrong iteration parameter coordinate length."
+                "The given array must have" 
+                f"{self.settings.measurement_settings[measurement]['measurement_count']} entries."))
+
+        new_iteration_parameter = self.Coordinate(coordname, 
+                                            unit = unit, 
+                                            values = np.array(vec, dtype=float),
+                                            set_function = lambda val : True,
+                                            wait_time = 0)
+        new_iteration_parameter.validate_parameters()
+        self._pulse_parameters[measurement] = new_iteration_parameter
+
     def change_averages(self, averages):
+        if self.mode.endswith("no_avg"):
+            raise NotImplementedError()
         self.mapper.map_measurements(averages)
         for measurement, new_avg in averages.items():
             if not isinstance(measurement, str):
@@ -568,7 +586,7 @@ class Exciting(mb.MeasureBase):
         if np.size(latest_node_data, axis = 2) == 0:
             raise ValueError(f"{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
     
-    def _stream1D(self, data_location, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
+    def _stream1D(self, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
         """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
         Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
         Reis nach Anleitung zubereiten. Danach warmstellen.
@@ -671,6 +689,9 @@ class Exciting(mb.MeasureBase):
             self.update_t_parameters(measurement["loop_range_tt"], 
                                         f"{measurement['loop_step_name_tt']}.{name}",
                                         name)
+            self.update_iteration_parameters(measurement["averages"], 
+                                        "Iterations",
+                                        name)
 
     def compile_qupulse(self, *experiments, averages, mode = "pulse_parameter", deep_render = False, **add_pars):   
         """Währenddessen Zwiebeln und Wurzeln schälen. Zwiebeln kleinschneiden. Wurzeln in kurze Stifte schneiden. 
@@ -696,18 +717,24 @@ class Exciting(mb.MeasureBase):
         self.mapper.map_measurements_inv(measurement_sample_rates)
         
         decoded = Qupulse_decoder2(*experiments, channel_sample_rates = channel_sample_rates, measurement_sample_rates = measurement_sample_rates,\
-             deep_render = deep_render, **add_pars)        
-        
+             deep_render = deep_render, **add_pars)
+
+        if self.mode.endswith("no_avg"):
+            for measurement, settings in decoded.measurement_pars.items():
+                settings["measurement_count"] = averages[measurement]
+                averages[measurement] = 1
+
         self.mapper.map_channels(decoded.channel_pars)
         self.mapper.map_measurements(decoded.measurement_pars)
         self.mapper.map_measurements(averages)
 
-        self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)        
+        self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)
         
         self._t_parameters = {}
         self._pulse_parameters = {}
+        self._iteration_parameters = {}
 
-        self._create_axis()       
+        self._create_axis()
         self.settings.load()
 
     def _choose_measurement_function(self, dimension, progress_bar):
