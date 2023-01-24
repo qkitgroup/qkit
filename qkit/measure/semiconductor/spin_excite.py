@@ -458,8 +458,8 @@ class Exciting(mb.MeasureBase):
             new_t_parameter.validate_parameters()
             self._t_parameters[measurement] = new_t_parameter
 
-    def update_pulse_parameters(self, vec, coordname, measurement, unit = " a.u."):
-        if len(vec) != self.settings.measurement_settings[measurement]["measurement_count"] / self._iterations[measurement]:
+    def update_pulse_parameters(self, vec, coordname, measurement, unit = "a.u."):
+        if len(vec) != self.settings.measurement_settings[measurement]["measurement_count"]:
                 raise ValueError((f"{__name__}: Wrong pulse parameter coordinate length."
                 "The given array must have" 
                 f"{self.settings.measurement_settings[measurement]['measurement_count']} entries."))
@@ -473,10 +473,11 @@ class Exciting(mb.MeasureBase):
         self._pulse_parameters[measurement] = new_pulse_parameter
 
     def update_iteration_parameters(self, vec, coordname, measurement, unit = ""):
-        if len(vec) != self.settings.measurement_settings[measurement]["measurement_count"]:
+        total_measurements = self.settings.measurement_settings[measurement]['measurement_count'] * self.settings.measurement_settings[measurement]['averages']
+        if len(vec) != total_measurements:
                 raise ValueError((f"{__name__}: Wrong iteration parameter coordinate length."
                 "The given array must have" 
-                f"{self.settings.measurement_settings[measurement]['measurement_count']} entries."))
+                f"{total_measurements} entries."))
 
         new_iteration_parameter = self.Coordinate(coordname, 
                                             unit = unit, 
@@ -484,7 +485,7 @@ class Exciting(mb.MeasureBase):
                                             set_function = lambda val : True,
                                             wait_time = 0)
         new_iteration_parameter.validate_parameters()
-        self._pulse_parameters[measurement] = new_iteration_parameter
+        self._iteration_parameters[measurement] = new_iteration_parameter
 
     def change_averages(self, averages):
         if self.mode.endswith("no_avg"):
@@ -564,7 +565,10 @@ class Exciting(mb.MeasureBase):
                     datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._pulse_parameters[measurement], self._t_parameters[measurement]],
                                         unit = self.settings.measurement_settings[measurement]["unit"], 
                                         save_timestamp = False))
-
+                elif self.mode == "timetrace_no_avg":
+                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._t_parameters[measurement], self._iteration_parameters[measurement]],
+                                        unit = self.settings.measurement_settings[measurement]["unit"], 
+                                        save_timestamp = False))
         self._total_iterations = total_iterations
         self._prepare_measurement_file(datasets)
         if self.open_qviewkit:
@@ -605,7 +609,10 @@ class Exciting(mb.MeasureBase):
                 for node in latest_data[measurement].keys():                    
                     latest_node_data = np.array(latest_data[measurement][node])
                     self._check_node_data(latest_node_data)
-                    self._datasets["%s.%s" % (measurement, node)].append(latest_node_data)
+                    for grid in latest_node_data:
+                        for single_trace in grid:
+                            #print(single_trace.shape)                        
+                            self._datasets["%s.%s" % (measurement, node)].append(single_trace)
             progress_bar.iterate(addend = iterations - old_iterations)
         self._stop_hardware()
 
@@ -673,7 +680,7 @@ class Exciting(mb.MeasureBase):
                         total_sum[measurement][node] += np.average(latest_node_data, axis = (0))
                         #Divide through the number of finished iterations, since you accumulate all the averages                            
                         #print(total_sum[measurement][node].shape)
-                        self._datasets["%s.%s" % (measurement, node)].ds[data_location]=  total_sum[measurement][node]/ self.divider[measurement]
+                        self._datasets["%s.%s" % (measurement, node)].ds[data_location] = total_sum[measurement][node]/ self.divider[measurement]
                 self.divider[measurement] += 1
             self._data_file.flush()
             progress_bar.iterate(addend = iterations - old_iterations)
@@ -689,8 +696,8 @@ class Exciting(mb.MeasureBase):
             self.update_t_parameters(measurement["loop_range_tt"], 
                                         f"{measurement['loop_step_name_tt']}.{name}",
                                         name)
-            self.update_iteration_parameters(measurement["averages"], 
-                                        "Iterations",
+            self.update_iteration_parameters(np.arange(measurement["averages"] * measurement["measurement_count"]), 
+                                        f"iterations.{name}",
                                         name)
 
     def compile_qupulse(self, *experiments, averages, mode = "pulse_parameter", deep_render = False, **add_pars):   
@@ -718,11 +725,6 @@ class Exciting(mb.MeasureBase):
         
         decoded = Qupulse_decoder2(*experiments, channel_sample_rates = channel_sample_rates, measurement_sample_rates = measurement_sample_rates,\
              deep_render = deep_render, **add_pars)
-
-        if self.mode.endswith("no_avg"):
-            for measurement, settings in decoded.measurement_pars.items():
-                settings["measurement_count"] = averages[measurement]
-                averages[measurement] = 1
 
         self.mapper.map_channels(decoded.channel_pars)
         self.mapper.map_measurements(decoded.measurement_pars)
@@ -760,7 +762,10 @@ class Exciting(mb.MeasureBase):
                 for dset in self._datasets.values():
                     dset.next_matrix()
             return pp_vs_t_2D
-
+        
+        elif self.mode == "timetrace_no_avg":
+            return lambda: self._stream1D(progress_bar)
+        
         else:
             raise self.MeasurementDimensionError(f"{__name__}: Mode \"{self.mode}\" does not support a {dimension}D-measurement.")
     
