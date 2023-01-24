@@ -7,31 +7,6 @@ import paramiko
 from qkit.analysis.semiconductor.main.interfaces import LoaderInterface
 import base64
 
-class Loaderh5_julian(LoaderInterface):
-    def __init__(self) :
-        self.file_paths = []
-
-    def set_filepath(self, paths:list):
-        for path in paths:
-            if not path.endswith(".h5"):
-                raise TypeError("Invalid data format. File must be of type h5.")
-        self.file_paths = paths
-
-    def load(self):
-        """Loads the data0 entry of an h5 file.
-        """
-        data_dict = {}
-        for element in self.file_paths:
-            path = Path(element)
-            data = h5py.File(path,'r')["entry"]["data0"]
-            
-            fname = path.stem
-            data_dict[fname] = {}
-            for key in data.keys():
-                data_dict[fname][key] = np.array(data[key])
-
-        return data_dict
-
 
 class Loaderh5:
     """Extracts all data from .h5 files in this folder and returns it as a dict.
@@ -40,7 +15,7 @@ class Loaderh5:
         """Loads the data of a .h5 file. Analysis and views are not loaded. Is able to interprete smb connection to nanospin@phi-ndus"
         """
         if type(Pathobj) is dict:
-            path = Pathobj['file_info']['filepath']
+            path = str(Pathobj['file_info']['filepath'])
         elif type(Pathobj) is str:
             path = Pathobj
         else:
