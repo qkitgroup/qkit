@@ -172,7 +172,7 @@ class Yokogawa_GS200(Instrument):
         Gets output state
         '''
         logging.debug('Get status of output')
-        ans = self._query(':outp?')
+        ans = self._ask(':outp?')
         
         if ans=='zero':    # TODO what is this
             return 'off'
@@ -197,7 +197,7 @@ class Yokogawa_GS200(Instrument):
     def do_get_source_mode(self):
         
         logging.debug('Get source function mode')
-        return self._query(':sour:func?')
+        return self._ask(':sour:func?')
         
     def do_set_source_mode(self, mode):
         
@@ -477,7 +477,7 @@ class Yokogawa_GS200(Instrument):
         Get measuring level
         '''
         logging.debug('Get measuring level')
-        return self._query(':sour:lev?')
+        return self._ask(':sour:lev?')
         
 #
 #    def do_get_value(self, channel):
@@ -523,7 +523,7 @@ class Yokogawa_GS200(Instrument):
         return self._visainstrument.write(msg)
     
     
-    def _query(self, msg):
+    def _ask(self, msg):
         '''
         Sends a visa command <msg> and returns the read answer <ans>
         
@@ -571,7 +571,7 @@ class Yokogawa_GS200(Instrument):
             val (string) :
         '''
         string = ':%s:%s?' %(func, par)
-        ans = self._visainstrument.query(string)
+        ans = self._visainstrument.ask(string)
         logging.debug(__name__ + ' : ask instrument for %s (result %s)' % \
             (string, ans))
         return ans.lower()
