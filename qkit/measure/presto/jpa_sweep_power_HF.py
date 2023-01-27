@@ -18,7 +18,7 @@ CONVERTER_CONFIGURATION = {
     "adc_mode": AdcMode.Mixed,
     "adc_fsample": AdcFSample.G4,
     "dac_mode": DacMode.Mixed04,
-    "dac_fsample": DacFSample.G8,
+    "dac_fsample": DacFSample.G8
 }
 
 

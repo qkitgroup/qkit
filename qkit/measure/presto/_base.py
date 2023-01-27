@@ -63,14 +63,15 @@ class Base:
                     continue
                 elif attribute in ["jpa_params", "clear"]:
                     h5f.attrs[attribute] = str(self.__dict__[attribute])
-                # elif "converter_config":
-                    # if self.__dict__["converter_config"] == None:
-                        # pass
-                    # else:
-                        # converter_settings = self.__dict__["converter_config"]
-                        # grp_settings = h5f.create_group("converter_config")
-                        # for key in dict_settings:
-                            # dset = grp_settings.create_dataset(key,0)
+                elif attribute in ["converter_config"]:
+                    if self.__dict__["converter_config"] == None:
+                        pass
+                    else:
+                        converter_settings = self.__dict__["converter_config"]
+                        grp_converter = h5f.create_group("converter_config")
+                        for key,val in converter_settings.items():
+                            
+                            dset = grp_converter.create_dataset(key,data=converter_settings[key])
                 elif attribute in ["settings"]:
                     if self.__dict__["settings"] == None:
                         pass
@@ -86,6 +87,9 @@ class Base:
                                     
                                 elif (value_)==None:
                                     dset.attrs[key_] = 'none'
+                                    
+                
+                        
                 elif np.isscalar(self.__dict__[attribute]):
                     h5f.attrs[attribute] = self.__dict__[attribute]
                 else:
@@ -126,6 +130,14 @@ class Base:
                                 dict_instr[key_] = val_
                         dict_settings[key] = dict_instr
                     setattr(self, "settings",dict_settings)
+            if "converter_config" in dict(h5f.items()):
+                if h5f["converter_config"] == None:
+                        pass
+                else:
+                    converter_settings = {}
+                    for key in list(h5f["converter_config"].keys()):
+                        converter_settings[key] = h5f["converter_config"][key][:]
+                    setattr(self, "converter_config",converter_settings)
         return self
 
     def get_instr_dict(self):
@@ -148,18 +160,20 @@ class Base:
             
             
             
-    # def converter_config(self,n):
-        # [DacFSample.G8, DacFSample.G6, DacFSample.G8, DacFSample.G6]
-        # CONVERTER_CONFIGURATION = {
-            # "adc_mode": AdcMode.Mixed,
-            # "adc_fsample": [AdcFSample.G4,]
-            #"dac_mode": [DacMode.Mixed04, DacMode.Mixed02, DacMode.Mixed02, DacMode.Mixed02],
-            #"dac_fsample": [DacFSample.G8, DacFSample.G6, DacFSample.G6, DacFSample.G6],
-            # "dac_mode": [DacMode.Mixed04, DacMode.Mixed02, DacMode.Mixed42, DacMode.Mixed02],
-            # "dac_fsample": [DacFSample.G8, DacFSample.G6, DacFSample.G8, DacFSample.G6],}
+    def create_converter_config(self,config):
         
-        
-        #return CONVERTER_CONFIGURATION
+        CONVERTER_CONFIGURATION = {}
+
+        modes = ["adc_mode","adc_fsample","dac_mode","dac_fsample"]
+        functions = [AdcMode,AdcFSample,DacMode,DacFSample]
+        for key,func in zip(modes,functions):
+            A = []
+            for j in range(4):
+                A.append(func(config[key][j]))
+            CONVERTER_CONFIGURATION[key]= A
+        #print(CONVERTER_CONFIGURATION)
+
+        return CONVERTER_CONFIGURATION
         
         
         

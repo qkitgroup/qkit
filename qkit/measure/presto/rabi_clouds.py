@@ -18,12 +18,11 @@ from presto.utils import rotate_opt, sin2
 from qkit.measure.presto._base import Base
 
 DAC_CURRENT = 32_000  # uA
-CONVERTER_CONFIGURATION = {
-    "adc_mode": AdcMode.Mixed,
-    "adc_fsample": AdcFSample.G4,
-    "dac_mode": [DacMode.Mixed04, DacMode.Mixed02, DacMode.Mixed02, DacMode.Mixed02],
-    "dac_fsample": [DacFSample.G8, DacFSample.G6, DacFSample.G6, DacFSample.G6],
-}
+config_0 = {
+    "adc_mode": [1,1,1,1],
+    "adc_fsample": [2,2,2,2],
+    "dac_mode": [2,2,2,2],
+    "dac_fsample": [2,2,2,2]}
 
 IDX_LOW = 1_500
 IDX_HIGH = 2_000
@@ -58,6 +57,7 @@ class RabiCloud(Base):
                 
         for key, value in self._default_vals.items():
             setattr(self, key, dict_param.get(key, value))
+        self.converter_config = config_0
 
     def run(
         self,
@@ -67,6 +67,7 @@ class RabiCloud(Base):
         print_time: bool = True,
     ) -> str:
         self.settings  = self.get_instr_dict()
+        CONVERTER_CONFIGURATION = self.create_converter_config(self.converter_config)
         # Instantiate interface class
         with pulsed.Pulsed(
             address=presto_address,

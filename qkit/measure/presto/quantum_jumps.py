@@ -18,14 +18,18 @@ from presto.utils import rotate_opt, sin2
 from qkit.measure.presto._base import Base 
 
 DAC_CURRENT = 32_000  # uA
-CONVERTER_CONFIGURATION = {
-    "adc_mode": AdcMode.Mixed,
-    "adc_fsample": AdcFSample.G4,
-    #"dac_mode": [DacMode.Mixed04, DacMode.Mixed02, DacMode.Mixed02, DacMode.Mixed02],
-    #"dac_fsample": [DacFSample.G8, DacFSample.G6, DacFSample.G6, DacFSample.G6],
-    "dac_mode": [DacMode.Mixed04, DacMode.Mixed02, DacMode.Mixed42, DacMode.Mixed02],
-    "dac_fsample": [DacFSample.G8, DacFSample.G6, DacFSample.G8, DacFSample.G6],
-}
+# CONVERTER_CONFIGURATION = {
+    # "adc_mode": AdcMode.Mixed,
+    # "adc_fsample": AdcFSample.G4,
+    # "dac_mode": [DacMode.Mixed04, DacMode.Mixed02, DacMode.Mixed42, DacMode.Mixed02],
+    # "dac_fsample": [DacFSample.G8, DacFSample.G6, DacFSample.G8, DacFSample.G6],
+# }
+
+config_0 = {
+    "adc_mode": [1,1,1,1],
+    "adc_fsample": [2,2,2,2],
+    "dac_mode": [2,1,3,0],
+    "dac_fsample": [2,2,2,2]}
 
 IDX_LOW = 1_500
 IDX_HIGH = 2_000
@@ -68,6 +72,11 @@ class QuantumJumps(Base):
             print(f'total_number of points set to 4500*{self.total_repeat}')
         else:
             self._n_sub_repeat = self.n_repeat
+            
+        self.converter_config = config_0
+        
+        
+            
 
     def run(
         self,
@@ -78,6 +87,7 @@ class QuantumJumps(Base):
         print_save = True,
     ) -> str:
         self.settings  = self.get_instr_dict()
+        CONVERTER_CONFIGURATION = self.create_converter_config(self.converter_config)
         # Instantiate interface class
         with pulsed.Pulsed(
             address=presto_address,

@@ -12,18 +12,20 @@ from presto.utils import ProgressBar
 from qkit.measure.presto._base import Base 
 
 DAC_CURRENT = 32_000  # uA
-CONVERTER_CONFIGURATION = {
-    "adc_mode": AdcMode.Mixed,
-    "adc_fsample": AdcFSample.G4,
-    "dac_mode": DacMode.Mixed04,
-    "dac_fsample": DacFSample.G8,
-    
-    #"dac_mode": DacMode.Mixed02,
-    #"dac_fsample": DacFSample.G10,
+# CONVERTER_CONFIGURATION_0 = {
+    # "adc_mode": AdcMode.Mixed,
+    # "adc_fsample": AdcFSample.G4,
+    # "dac_mode": DacMode.Mixed04,
+    # "dac_fsample": DacFSample.G8,
+# }
+config_0 = {
+    "adc_mode": [1,1,1,1],
+    "adc_fsample": [2,2,2,2],
+    "dac_mode": [2,2,2,2],
+    "dac_fsample": [4,4,4,4]}
 
-}
 
-  
+
 class Sweep(Base):
     '''
     ###### Define the experiment as such :
@@ -44,7 +46,8 @@ class Sweep(Base):
     def __init__(
         self,dict_param = {}
      ) -> None:
-    
+            
+
         self._default_vals = {
             'freq_center' : 6e9,
             'freq_span' : 100e6,
@@ -58,13 +61,14 @@ class Sweep(Base):
             'experiment_name': "0.h5",
             'freq_arr': [None],
             'resp_arr':[None]}
-        
         for key,value in dict_param.items():
             if key  not in self._default_vals :
                 print(key ,'is unnecessary')
         
         for key, value in self._default_vals.items():
             setattr(self, key, dict_param.get(key, value))
+        
+        self.converter_config = config_0
         
         
         
@@ -75,7 +79,7 @@ class Sweep(Base):
         ext_ref_clk: bool = False,
     ) -> str:
         self.settings  = self.get_instr_dict()
-        #print(self.settings)
+        CONVERTER_CONFIGURATION = self.create_converter_config(self.converter_config)
         with lockin.Lockin(
             address=presto_address,
             port=presto_port,
