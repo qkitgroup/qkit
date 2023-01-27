@@ -1,6 +1,7 @@
 # HP_3245A.py driver for Hewlett Packard 3245A Universal Source (current / voltage).
 # Sergey Danilin @University of Glasgow, 01/2020
 
+import qkit
 from qkit.core.instrument_base import Instrument
 from qkit import visa
 import types
@@ -34,6 +35,8 @@ class HP_3245A(Instrument):
                 
         self._address = address
         self._visainstrument = visa.instrument(self._address)
+        self._visainstrument.timeout=5000
+        self._visainstrument.read_termination="\n"
 
         # Implement parameters
         self.add_parameter("current", type=float, units='A', flags=Instrument.FLAG_GETSET)
