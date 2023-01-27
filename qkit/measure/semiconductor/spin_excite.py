@@ -365,7 +365,7 @@ class Exciting(mb.MeasureBase):
     """
     class MeasurementDimensionError(Exception):
         pass
-    modes = {"pulse_parameter", "timetrace", "timetrace_no_avg", "pp_vs_t"}
+    modes = {"pulse_parameter", "timetrace", "no_avg", "pp_vs_t"}
 
     def __init__(self, readout_backend, manipulation_backend,
                  *experiments, averages, mode = "pulse_parameter", deep_render = False, exp_name = "", sample = None, **add_pars):
@@ -548,10 +548,13 @@ class Exciting(mb.MeasureBase):
         total_iterations = 0 #setup the progress bar
         datasets = []
         self.divider = {}
+        self.column = {}
         for measurement in self.settings.measurement_settings.keys():
             total_iterations += self.settings.measurement_settings[measurement]["averages"]
             self.divider[measurement] = 1
+            self.column[measurement] = {}
             for node in self.settings.measurement_settings[measurement]["data_nodes"]:
+                self.column[measurement][node] = 0
                 #Create one dataset for each Measurement node
                 if self.mode == "timetrace":
                     datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._t_parameters[measurement]],
@@ -566,7 +569,7 @@ class Exciting(mb.MeasureBase):
                                         unit = self.settings.measurement_settings[measurement]["unit"], 
                                         save_timestamp = False))
                 elif self.mode == "timetrace_no_avg":
-                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._t_parameters[measurement], self._iteration_parameters[measurement]],
+                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._iteration_parameters[measurement], self._t_parameters[measurement]],
                                         unit = self.settings.measurement_settings[measurement]["unit"], 
                                         save_timestamp = False))
         self._total_iterations = total_iterations
@@ -590,11 +593,15 @@ class Exciting(mb.MeasureBase):
         if np.size(latest_node_data, axis = 2) == 0:
             raise ValueError(f"{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
     
-    def _stream1D(self, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
+    def _stream2D(self, progress_bar):
         """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
         Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
         Reis nach Anleitung zubereiten. Danach warmstellen.
         """
+        for name, measurement in self.settings.measurement_settings.items(): #Allocate the needed memory
+            for node in measurement["data_nodes"]:
+                self._datasets[f"{name}.{node}"].append(np.full(measurement["sample_count"], np.nan))
+                self._datasets[f"{name}.{node}"].ds.resize((measurement["averages"] * measurement["measurement_count"], measurement["sample_count"]))
         self._ready_hardware()
         iterations = 0
         while not self._ro_backend.finished():
@@ -610,9 +617,10 @@ class Exciting(mb.MeasureBase):
                     latest_node_data = np.array(latest_data[measurement][node])
                     self._check_node_data(latest_node_data)
                     for grid in latest_node_data:
-                        for single_trace in grid:
-                            #print(single_trace.shape)                        
-                            self._datasets["%s.%s" % (measurement, node)].append(single_trace)
+                        for single_trace in grid:                            
+                            self._datasets[f"{measurement}.{node}"].ds[self.column[measurement][node]] = single_trace
+                            self.column[measurement][node] += 1
+            self._data_file.flush()
             progress_bar.iterate(addend = iterations - old_iterations)
         self._stop_hardware()
 
@@ -763,9 +771,14 @@ class Exciting(mb.MeasureBase):
                     dset.next_matrix()
             return pp_vs_t_2D
         
-        elif self.mode == "timetrace_no_avg":
-            return lambda: self._stream1D(progress_bar)
-        
+        elif self.mode == "no_avg" and dimension == 1:
+            return lambda: self._stream2D(progress_bar)
+        elif self.mode == "no_avg" and dimension == 2:
+            def no_avg_2D():
+                self._stream2D( progress_bar)
+                for dset in self._datasets.values():
+                    dset.next_matrix()
+            return no_avg_2D
         else:
             raise self.MeasurementDimensionError(f"{__name__}: Mode \"{self.mode}\" does not support a {dimension}D-measurement.")
     
