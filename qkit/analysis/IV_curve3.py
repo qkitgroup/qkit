@@ -20,7 +20,8 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy as sp
-from scipy import stats, signal as sig, optimize as opt
+from scipy import stats, signal as sig, optimize as opt, constants as const
+const.Phi_0 = const.h / (2 * const.e)
 from collections import defaultdict
 import itertools
 
@@ -477,6 +478,8 @@ class IV_curve3(object):
         self.df = Data(self.path)
         try:
             self.settings = dict2obj(json.loads(self.df.data.settings[0], cls=QkitJSONDecoder))
+        except AttributeError:
+            self.settings = None
         except:
             self.settings = self.df.data.settings[:]
         self.scm.settings = self.settings
@@ -2255,13 +2258,11 @@ class IV_curve3(object):
             ''' escape rate '''
             self.Delta_I = np.nanmean(np.diff(self.edges))
             if dIdt is None:
-                self.dIdt = self.sweeps[0][2] * np.squeeze(
-                    np.unique(self.settings.IVD.sense_nplc)) / self.settings.IVD.plc
+                self.dIdt = self.sweeps[0][2] * np.squeeze(np.unique(self.settings.IVD.sense_nplc)) / self.settings.IVD.plc
             else:
                 self.dIdt = dIdt
-            with np.errstate(divide='ignore'):  # raises warning due divide by zero
-                self.Gamma = self.dIdt / self.Delta_I * np.array(
-                    [np.log(np.sum(self.P[k:]) / np.sum(self.P[k + 1:])) for k, _ in enumerate(self.P)])
+            with np.errstate(divide='ignore'):  # raises warning due to divide by zero
+                self.Gamma = self.dIdt / self.Delta_I * np.array([np.log(np.sum(self.P[k:]) / np.sum(self.P[k + 1:])) for k, _ in enumerate(self.P)])
             ''' fit norm. escape rate '''
             self.x = self.bins
             with np.errstate(divide='ignore'):  # raises warning due divide by zero
@@ -2273,11 +2274,13 @@ class IV_curve3(object):
             self.fit_res = unp.uarray(nominal_values=self.popt,
                                       std_devs=np.sqrt(np.diagonal(self.pcov)))
             self.I_c = -self.fit_res[1] / self.fit_res[0]
+            self.T_esc = -4 * np.sqrt(2) * const.Phi_0 / (3 * 2 * np.pi * const.k) / (self.fit_res[0] * unp.sqrt(self.fit_res[1]))
             return dict2obj({'P': self.P,
                              'Gamma': self.Gamma,
                              'popt': self.popt,
                              'pcov': self.pcov,
                              'I_c': self.I_c,
+                             'T_esc': self.T_esc,
                              })
 
         def plot(self,

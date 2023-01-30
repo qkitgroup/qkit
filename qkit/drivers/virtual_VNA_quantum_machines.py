@@ -18,19 +18,30 @@ import time
 import numpy as np
 from qm.qua import *
 from qm.QuantumMachinesManager import QuantumMachinesManager
+from qkit.measure.timedomain.quantum_machine.qm_qkit_wrapper import QmQkitWrapper
 from qkit.core.instrument_base import Instrument
+from qkit import visa
+import qkit
+import logging
 
 
 
 
-class VirtualVNAQuantumMachines(Instrument):
+class virtual_VNA_quantum_machines(Instrument, QmQkitWrapper):
     """
     Class to use the quantum machines card as a VNA in the spectroscopy script.
     For the readout a interferrometric setup is assmued.
     Feel free to extend the functionality # TODO
     """
-    def __init__(self, name):
-        Instrument.__init__(self, name, tags=['virtual'])
+
+    def __init__(self, name, qm_config, mw_drive_freq_func, avg = 100):
+
+        logging.info(__name__ + ' : Initializing instrument')
+        Instrument.__init__(self, name, tags=['physical'])
+        QmQkitWrapper.__init__(self)
+
+
+        '''QM and VNA variables'''
         self.nop = 1001
         self.startfreq = 4e9
         self.stopfreq = 5e9
@@ -38,6 +49,11 @@ class VirtualVNAQuantumMachines(Instrument):
         self.span = self.stopfreq - self.startfreq
         self.centerfreq = (self.startfreq + self.stopfreq) / 2
         self._ready = False
+        self.if_end = 100e6
+        self.if_start = 50e6
+        self.wait_before = 2500
+        self.avg = avg
+
         self.add_function('get_freqpoints')
         self.add_function('get_tracedata')
         self.add_function('get_sweeptime_averages')
@@ -45,14 +61,18 @@ class VirtualVNAQuantumMachines(Instrument):
         self.add_function('start_measurement')
         self.add_function('ready')
         self.add_function('post_measurement')
+        self.mw_drive_freq_func = mw_drive_freq_func #Function that changes the Lo drive. For example: anapico.set_ch1_frequency
 
-        self.qmm = QuantumMachinesManager()
+        #self.qmm = QuantumMachinesManager()
+        self.qm_config = qm_config
+        #self.qm = self.qmm.open_qm(self.qm_config)
 
-        config = self.config()
-        self.qm = self.qmm.open_qm(config)
 
-        self.load_card()
+        self.add_parameter('frequency',
+                           flags=super().FLAG_GETSET, units='Hz', minval=50e6, maxval=20e9+50e6, type=float)
 
+
+    '''
     def config(self):
 
         opx_one = "Opx"
@@ -72,12 +92,12 @@ class VirtualVNAQuantumMachines(Instrument):
                     'type': 'Opx',
                     'analog_outputs': {
                         # sweep offset of I,Q to see which combination best suppresses LO leakage
-                        1: {'offset': -0.01},  # I qubit
-                        2: {'offset': -0.006},  # Q qubit
+                        1: {'offset': 0.0},  # I qubit
+                        2: {'offset': 0.0},  # Q qubit
                     },
                     'analog_inputs': {
-                        1: {'offset': 0.2},  # Reference
-                        2: {'offset': 0}  # Signal
+                        1: {'offset': 0},  # I
+                        2: {'offset': 0}  # Q
                     },
                     'digital_outputs': {
                         1: {}
@@ -326,19 +346,55 @@ class VirtualVNAQuantumMachines(Instrument):
         }
 
         return config
+    '''
+
+    def get_all(self):
+        pass
+
+    def qm_program(self,f_list):
+
+        f_list = f_list.astype(int).tolist()
+
+        with program() as IQ_demod:
+
+            f = declare(int)
+            N = declare(int)
+            I = declare(fixed)
+            Q = declare(fixed)
+
+            with for_(N, 0, N < self.avg, N + 1):
+
+                with for_each_(f, f_list):
+
+                    wait(self.wait_before, "resonator")
+                    update_frequency('resonator', f)
+                    measure("readout", "resonator", None, dual_demod.full('integ_w1_I', 'out1', 'integ_w2_I', 'out2', I)
+                            , dual_demod.full('integ_w1_Q', 'out1', 'integ_w2_Q', 'out2', Q))
+
+                    # save to client:
+                    save(I, "I")
+                    save(Q, "Q")
+        self.program = IQ_demod
 
 
-    def load_card(self):
+    def run_card(self):
+        job = self.qm_config.qm.execute(self.program, duration_limit=0, data_limit=0)
+        job.result_handles.get("I").wait_for_all_values()
+        job.result_handles.get("Q").wait_for_all_values()
 
-        with program() as adc:
-            # measurement block:
-            align("signal", "reference")
-            measure("readout_sig", "signal", "adcs")
-            measure("readout_ref", "reference", "adcr")
+        I, Q =  job.result_handles.get("I").fetch_all()["value"], job.result_handles.get("Q").fetch_all()["value"]
 
-        job = self.qm.execute(adc, duration_limit=0, data_limit=0, flags=['use-optimized-compiler'])
-        job.wait_for_all_results()
-        res = job.get_results()
+        I = np.reshape(I, (self.avg, len(self.qm_freqs)))
+        Q = np.reshape(Q, (self.avg, len(self.qm_freqs)))
+        I_avg = np.mean(I, axis=0)
+        Q_avg = np.mean(Q, axis=0)
+
+        while(len(I_avg) < self.nop_perblock):
+            I_avg = np.append(I_avg,[0])
+        while (len(Q_avg) < self.nop_perblock):
+            Q_avg = np.append(Q_avg, [0])
+
+        return I_avg, Q_avg
 
     def set_startfreq(self, startfreq):
         self.startfreq = startfreq
@@ -395,6 +451,34 @@ class VirtualVNAQuantumMachines(Instrument):
 
     def get_tracedata(self, RealImag=None):
 
+        '''Logic to define Sweep steps'''
+        self.frequencies, delta_f = np.linspace(self.startfreq, self.stopfreq, self.nop, endpoint=True, retstep=True)
+        nop_perblock = int((self.if_end - self.if_start) / delta_f)
+        self.qm_freqs = np.arange(nop_perblock) * delta_f + self.if_start
+        mw_freqlist = np.arange(self.startfreq, self.stopfreq, nop_perblock * delta_f) - self.if_start
+
+        if(self.nop > nop_perblock*len(mw_freqlist)):
+            mw_freqlist = np.append(mw_freqlist, mw_freqlist[-1] + nop_perblock * delta_f)
+
+        #DEBUG__
+        self.nop_perblock = nop_perblock
+        self.mw_freqlist = mw_freqlist
+
+
+        '''Actual tracedata getting'''
+        I = np.empty(nop_perblock*len(mw_freqlist))
+        Q = np.empty(nop_perblock*len(mw_freqlist))
+        self.qm_program(self.qm_freqs)
+
+        for i, mw in enumerate(mw_freqlist):
+            self.mw_drive_freq_func(mw)
+            time.sleep(0.5)
+            I[i*nop_perblock:(i+1)*nop_perblock], Q[i*nop_perblock:(i+1)*nop_perblock] = self.run_card()
+
+        return I[:self.nop-nop_perblock*len(mw_freqlist)],Q[:self.nop-nop_perblock*len(mw_freqlist)]
+
+
+        '''
         def S21_notch(f, fr, Ql, Qc):
             return 1. - Ql / Qc / (1. + 2j * Ql * (f - fr) / fr)
 
@@ -411,7 +495,7 @@ class VirtualVNAQuantumMachines(Instrument):
         else:
             I = S21_data.real
             Q = S21_data.imag
-            return I, Q
+            return I, Q'''
 
     def get_all(self):
         pass

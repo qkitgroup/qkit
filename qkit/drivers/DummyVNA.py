@@ -37,6 +37,7 @@ class DummyVNA(Instrument):
         self.span = self.stopfreq - self.startfreq
         self.centerfreq = (self.startfreq + self.stopfreq) / 2
         self._ready = False
+        self.add_parameter('power', type=float, minval=-85, maxval=10, units='dBm',offset=True,flags=Instrument.FLAG_GET_AFTER_SET|Instrument.FLAG_GETSET)
         self.add_function('get_freqpoints')
         self.add_function('get_tracedata')
         self.add_function('get_sweeptime_averages')
@@ -44,6 +45,14 @@ class DummyVNA(Instrument):
         self.add_function('start_measurement')
         self.add_function('ready')
         self.add_function('post_measurement')
+        self.power = 0
+        
+    def do_get_power(self):
+        return  self.power
+    
+    def do_set_power(self,value):
+        print("Setting VNA power to ",value)
+        self.power = value
 
     def set_startfreq(self, startfreq):
         self.startfreq = startfreq
