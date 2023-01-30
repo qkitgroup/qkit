@@ -623,7 +623,7 @@ class spectrum(object):
             self._fit_resonator = False
             return
         self._functions = {'lorentzian': 0, 'skewed_lorentzian': 1, 'circle_fit_reflection': 2, 'circle_fit_notch': 3,
-                           'fano': 5, 'all_fits': 5}
+                           'fano': 4, 'all_fits': 5}
         try:
             self._fit_function = self._functions[fit_function]
         except KeyError:
@@ -643,16 +643,18 @@ class spectrum(object):
 
         if self._fit_function == 0:  # lorentzian
             self._resonator.fit_lorentzian(f_min=self._f_min, f_max=self._f_max)
-        if self._fit_function == 1:  # skewed_lorentzian
+        elif self._fit_function == 1:  # skewed_lorentzian
             self._resonator.fit_skewed_lorentzian(f_min=self._f_min, f_max=self._f_max)
-        if self._fit_function == 2:  # circle_reflection
+        elif self._fit_function == 2:  # circle_reflection
             self._resonator.fit_circle(reflection=True, f_min=self._f_min, f_max=self._f_max)
-        if self._fit_function == 3:  # circle_notch
+        elif self._fit_function == 3:  # circle_notch
             self._resonator.fit_circle(notch=True, f_min=self._f_min, f_max=self._f_max)
-        if self._fit_function == 4:  # fano
+        elif self._fit_function == 4:  # fano
             self._resonator.fit_fano(f_min=self._f_min, f_max=self._f_max)
         # if self._fit_function == 5: #all fits
         # self._resonator.fit_all_fits(f_min=self._f_min, f_max = self._f_max)
+        else:
+            logging.error("Fit function {:d} not supported".format(self._fit_function))
 
     def set_tdx(self, tdx):
         self.tdx = tdx
