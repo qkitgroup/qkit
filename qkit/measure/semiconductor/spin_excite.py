@@ -568,7 +568,7 @@ class Exciting(mb.MeasureBase):
                     datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._pulse_parameters[measurement], self._t_parameters[measurement]],
                                         unit = self.settings.measurement_settings[measurement]["unit"], 
                                         save_timestamp = False))
-                elif self.mode == "timetrace_no_avg":
+                elif self.mode == "no_avg":
                     datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._iteration_parameters[measurement], self._t_parameters[measurement]],
                                         unit = self.settings.measurement_settings[measurement]["unit"], 
                                         save_timestamp = False))
