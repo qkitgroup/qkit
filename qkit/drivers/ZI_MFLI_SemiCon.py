@@ -1,4 +1,4 @@
-#This is a clone of the UHFLI driver that is being adapted to the MFLI, work under construcion
+#This is a clone of the UHFLI driver that is being adapted to the MFLI, work under construcion!
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
@@ -10,7 +10,6 @@ Created on Mon Feb 15 12:17:39 2021
 import qkit
 import qkit.drivers.ZI_MFLI as lolvl
 
-from warnings import warn
 from typing import Dict
 import numpy as np
 import logging
