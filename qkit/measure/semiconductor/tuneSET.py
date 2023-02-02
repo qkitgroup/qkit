@@ -13,13 +13,13 @@ class TuneSET():
         self.B2 = B2
         
         #parameters for accumulation
-        self.accumulation_value = None
-        self.is_accumulated = None
+        self.accumulation_value = np.nan
+        self.is_accumulated = np.nan
         self.accumulation_threshold = 0.8
         self.shift_value_accumulation = 1e-3
         
         #parameters for finding oscillation window
-        self.shutoff_value = None
+        self.shutoff_value = np.nan
         self.shift_value = 5e-3
         self.shift_value_bound = 2e-3
         self.spacer_right = 0.08
@@ -33,10 +33,10 @@ class TuneSET():
         self.vstep = 5e-3
 
         #parameters for finding peaks in 2D sweep
-        self.x_start = None #to be found during the search for oscilaltion window
-        self.y_start = None
-        self.x_shutoff = None
-        self.y_shutoff = None
+        self.x_start = np.nan #to be found during the search for oscilaltion window
+        self.y_start = np.nan
+        self.x_shutoff = np.nan
+        self.y_shutoff = np.nan
         self.peak_threshold = 8e-3
         self.max_distance_to_center = 0.09
         self.digits = 4 
