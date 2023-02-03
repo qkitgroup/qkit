@@ -17,7 +17,6 @@ config_0 = {
     "adc_fsample": [2,2,2,2],
     "dac_mode": [2,2,2,2],
     "dac_fsample": [2,2,2,2]}
-}
 
 class SweepCoil(Base):
     '''

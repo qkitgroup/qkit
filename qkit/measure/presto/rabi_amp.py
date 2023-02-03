@@ -78,7 +78,7 @@ class RabiAmp(Base):
         ) as pls:
             assert pls.hardware is not None
 
-            pls.hardware.set_adc_attenuation(self.sample_port, 25.0)
+            pls.hardware.set_adc_attenuation(self.sample_port, 20.0)
             pls.hardware.set_dac_current(self.readout_port, DAC_CURRENT)
             pls.hardware.set_dac_current(self.control_port, DAC_CURRENT)
             pls.hardware.set_inv_sinc(self.readout_port, 0)

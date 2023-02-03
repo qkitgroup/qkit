@@ -59,21 +59,20 @@ class TwoToneBiasSweep(Base):
             'bias_arr':[0],
             'bias_port':1,
             'input_port' : 1,
-            'control_port':3,
+            'control_port' :3,
             'readout_port': 1,
             'dither': True,
             'num_skip': 0,
+            'previous_val':0,
             'experiment_name': "0.h5",
             'control_freq_arr': [None],
             'resp_arr':[None]}
-            
         for key,value in dict_param.items():
             if key  not in self._default_vals :
                 print(key ,'is unnecessary')
         
         for key, value in self._default_vals.items():
             setattr(self, key, dict_param.get(key, value))
-
         self.converter_config = config_0
         
     def run(
@@ -84,6 +83,7 @@ class TwoToneBiasSweep(Base):
     ) -> str:
         self.settings  = self.get_instr_dict()
         CONVERTER_CONFIGURATION = self.create_converter_config(self.converter_config)
+        #print(CONVERTER_CONFIGURATION['dac_fsample'])
         with lockin.Lockin(
             address=presto_address,
             port=presto_port,
@@ -99,8 +99,8 @@ class TwoToneBiasSweep(Base):
                     lck.hardware.set_dc_bias(v, self.bias_port)
                     time.sleep(t/200)
                     
-            ramp_bias(-3.65,self.bias_arr[0],5)
-            lck.hardware.set_adc_attenuation(self.input_port, 25.0)
+            ramp_bias(self.previous_val,self.bias_arr[0],3)
+            lck.hardware.set_adc_attenuation(self.input_port, 20.0)
             lck.hardware.set_dac_current(self.readout_port, DAC_CURRENT)
             lck.hardware.set_dac_current(self.control_port, DAC_CURRENT)
             lck.hardware.set_inv_sinc(self.readout_port, 0)
@@ -150,8 +150,8 @@ class TwoToneBiasSweep(Base):
             t0 = time.time()
             for jj in range(n_coil):
                 if jj>0:
-                    ramp_bias(self.bias_arr[jj-1],self.bias_arr[jj],0.1)
-                lck.hardware.sleep(0.05, False)
+                    ramp_bias(self.bias_arr[jj-1],self.bias_arr[jj],0.00)
+                lck.hardware.sleep(0.0, False)
                 for ii in range(len(self.control_freq_arr)):
 
                     lck.hardware.configure_mixer(
@@ -185,18 +185,3 @@ class TwoToneBiasSweep(Base):
 
     def save(self, save_filename: str = None) -> str:
         return super().save(__file__, save_filename=save_filename)
-
-    @classmethod
-    def load(cls, load_filename: str) -> "two_tone_sweep_coil":
-        with h5py.File(load_filename, "r") as h5f:
-            dict_h5_attrs = dict(h5f.attrs.items())
-            dict_h5 = dict(h5f.items())
-            self = cls()
-            for key,val in self._default_vals.items():
-                if isinstance(val,( np.ndarray,list)):
-                    setattr(self, key, dict_h5[key][()])
-                elif key == "jpa_params":
-                    setattr(self, key, ast.literal_eval(dict_h5_attrs.get(key, self._default_vals[key])))
-                else:
-                    setattr(self, key, dict_h5_attrs.get(key, self._default_vals[key]))
-        return self
