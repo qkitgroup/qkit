@@ -138,6 +138,19 @@ class spectrum(object):
                 self.log_dtype.append(log_dtype[i])
     
     def set_log_function_2D(self, func=None, name=None, unit=None, y=None, y_name=None, y_unit=None, log_dtype=None):
+        '''
+        A function (object) can be passed to the measurement loop which is excecuted before every x iteration
+        but after executing the x_object setter in 2D measurements and before every line (but after setting
+        the x value) in 3D measurements.
+        The return values of the function of type 1D-list or similar is stored in a value matrix in the h5 file.
+
+        Call without any arguments to delete all log functions. The timestamp is automatically saved.
+
+        func: function object in list form, returning a list each
+        name: name of logging parameter appearing in h5 file, default: 'log_param'
+        unit: unit of logging parameter, default: ''
+        log_dtype: h5 data type, default: 'f' (float32)
+        '''
         if name == None:
             try:
                 name = ['log_param'] * len(func)
@@ -315,7 +328,6 @@ class spectrum(object):
                     self._log_value.append(
                         self._data_file.add_value_vector(self.log_name[i], x=self._data_x, unit=self.log_unit[i],
                                                          dtype=self.log_dtype[i]))
-
 
             if self.log_function_2D != None:  # use 2D logging
                 self._log_y_value_2D = []
