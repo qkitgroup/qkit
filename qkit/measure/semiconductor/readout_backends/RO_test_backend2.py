@@ -48,6 +48,9 @@ class RO_backend(RO_backend_base):
         self.register_measurement("M4", "V", ["a", "b", "c"])
         self.register_measurement("M1", "V", ["x", "y", "z"])
         self.register_measurement("M2", "V", ["d", "e", "f"])
+        
+        self.noise_multiplier = 1
+        self.testmode = "pp"
     
     def M4_get_sample_rate(self):
         rate = self.measurement_settings["M4"]["sampling_rate"]
@@ -146,10 +149,18 @@ class RO_backend(RO_backend_base):
                                    self.measurement_settings[measurement]["measurement_count"],
                                    self.measurement_settings[measurement]["sample_count"]))
                     for avg in range(self._return_length):
-                        for i in range(self.measurement_settings[measurement]["sample_count"]):
-                                cosine = np.cos(np.linspace(0, np.pi, self.measurement_settings[measurement]["measurement_count"]))
-                                noise = np.random.normal(0, 5, self.measurement_settings[measurement]["measurement_count"])
-                                arr[avg, :, i] = cosine + noise                    
+                        if self.testmode == "pp":
+                            for i in range(self.measurement_settings[measurement]["sample_count"]):
+                                    cosine = np.cos(np.linspace(0, np.pi, self.measurement_settings[measurement]["measurement_count"]))
+                                    noise = np.random.normal(0, 5, self.measurement_settings[measurement]["measurement_count"])
+                                    arr[avg, :, i] = cosine + noise * self.noise_multiplier
+                        elif self.testmode == "tt":
+                            for i in range(self.measurement_settings[measurement]["measurement_count"]):
+                                    cosine = np.cos(np.linspace(0, np.pi, self.measurement_settings[measurement]["sample_count"]))
+                                    noise = np.random.normal(0, 5, self.measurement_settings[measurement]["sample_count"])
+                                    arr[avg, i, :] = cosine + noise * self.noise_multiplier
+                        else:
+                            raise ValueError(f"{__name__} : Testmode {self.testmode} does not exist.")
                     data[measurement][node] = arr
         return data
         

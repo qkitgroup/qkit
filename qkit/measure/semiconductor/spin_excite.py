@@ -307,6 +307,7 @@ class Settings:
                 unsupported_measurements += f"{measurement}\n"
         if unsupported_measurements:
             raise AttributeError(f"{__name__}: Your readout backend does not support the following measurements:\n{unsupported_measurements}")
+    
     def _get_measurement_units(self):
         for measurement, settings in self.measurement_settings.items():
             settings["unit"] = self.core._ro_backend._registered_measurements[measurement]["unit"]
@@ -364,7 +365,8 @@ class Exciting(mb.MeasureBase):
     """
     class MeasurementDimensionError(Exception):
         pass
-    modes = {"pulse_parameter", "timetrace", "pp_vs_t"}
+    modes = {"pulse_parameter", "timetrace", "no_avg", "pp_vs_t"}
+
     def __init__(self, readout_backend, manipulation_backend,
                  *experiments, averages, mode = "pulse_parameter", deep_render = False, exp_name = "", sample = None, **add_pars):
         """
@@ -382,14 +384,14 @@ class Exciting(mb.MeasureBase):
         self._ro_backend = readout_backend
         self._validate_MA_backend(manipulation_backend)
         self._ma_backend = manipulation_backend
-        self.gate_search_string1 = "gate"
-        self.gate_search_string2 = "_out"
-        self.gate_ignore_string1 = "_output_number"
+        
         
         self.compile_qupulse(*experiments, averages = averages, mode = mode, deep_render = deep_render, **add_pars)
         
-        self.report_static_voltages = True
-
+        self.report_static_voltages = True        
+        self.par_search_placeholder = "$$"
+        self.par_search_string = "gate$$_out"
+        
     
     @property
     def report_static_voltages(self):
@@ -410,6 +412,29 @@ class Exciting(mb.MeasureBase):
         if new_mode not in self.modes:
             raise AttributeError(f"{__name__}: {new_mode} is not a valid measurement mode. Allowed modes are: \n {self.modes}")
         self._mode = new_mode
+
+    @property
+    def par_search_placeholder(self):
+        return self._par_search_placeholder
+    
+    @par_search_placeholder.setter
+    def par_search_placeholder(self, new_str):
+        if not isinstance(new_str, str):
+            raise TypeError(f"{__name__}: {new_str} is not a valid search string placeholder. Must be a string")
+        self._par_search_placeholder = new_str
+    
+    @property
+    def par_search_string(self):
+        return self._par_search_string
+    
+    @par_search_string.setter
+    def par_search_string(self, new_str):
+        if not isinstance(new_str, str):
+            raise TypeError(f"{__name__}: {new_str} is not a valid parameter search string. Must be a string")
+        if self.par_search_placeholder not in new_str:
+            raise ValueError(f"{__name__}: {new_str} is not a valid parameter search string. It does not contain the placeholder {self.par_search_placeholder}.")
+        self._par_search_string = new_str
+        self._display_pars = {self.par_search_string.replace(self.par_search_placeholder, str(i)) for i in range(1000)}
     
     def _validate_RO_backend(self, RO_backend):
         if not issubclass(RO_backend.__class__, RO_backend_base):
@@ -433,10 +458,10 @@ class Exciting(mb.MeasureBase):
             new_t_parameter.validate_parameters()
             self._t_parameters[measurement] = new_t_parameter
 
-    def update_pulse_parameters(self, vec, coordname, measurement, unit = " a.u."):
+    def update_pulse_parameters(self, vec, coordname, measurement, unit = "a.u."):
         if len(vec) != self.settings.measurement_settings[measurement]["measurement_count"]:
                 raise ValueError((f"{__name__}: Wrong pulse parameter coordinate length."
-                f"The given array must have" 
+                "The given array must have" 
                 f"{self.settings.measurement_settings[measurement]['measurement_count']} entries."))
         
         new_pulse_parameter = self.Coordinate(coordname, 
@@ -447,19 +472,44 @@ class Exciting(mb.MeasureBase):
         new_pulse_parameter.validate_parameters()
         self._pulse_parameters[measurement] = new_pulse_parameter
 
-    def change_averages(self, measurement, new_avg):
-        if not isinstance(measurement, str):
-            raise TypeError(f"{__name__}: Cannot change averages, {measurement} must be a string containing the name of the measurement whose averages you wish to change.")
-        if measurement not in self.settings.measurement_settings.keys():
-            raise ValueError(f"{__name__}: Cannot change averages, {measurement} is not an active measurement.")
-        if not isinstance(new_avg, int):
-            raise TypeError(f"{__name__}: Cannot change averages, {new_avg} must be an integer containing the number of averages you wish to set.")
-        if new_avg < 1:
-            raise ValueError(f"{__name__}: Cannot change averages, {new_avg} must be at least 1 and not negative. Sorry to ask, but are you retarded?")
+    def update_iteration_parameters(self, vec, coordname, measurement, unit = ""):
+        total_measurements = self.settings.measurement_settings[measurement]['measurement_count'] * self.settings.measurement_settings[measurement]['averages']
+        if len(vec) != total_measurements:
+                raise ValueError((f"{__name__}: Wrong iteration parameter coordinate length."
+                "The given array must have" 
+                f"{total_measurements} entries."))
 
-        self.settings.measurement_settings[measurement]["averages"] = new_avg
-        getattr(self._ro_backend, f"{measurement}_set_averages")(new_avg)
-                
+        new_iteration_parameter = self.Coordinate(coordname, 
+                                            unit = unit, 
+                                            values = np.array(vec, dtype=float),
+                                            set_function = lambda val : True,
+                                            wait_time = 0)
+        new_iteration_parameter.validate_parameters()
+        self._iteration_parameters[measurement] = new_iteration_parameter
+
+    def change_averages(self, averages):
+        if self.mode.endswith("no_avg"):
+            raise NotImplementedError()
+        self.mapper.map_measurements(averages)
+        for measurement, new_avg in averages.items():
+            if not isinstance(measurement, str):
+                raise TypeError(f"{__name__}: Cannot change averages, {measurement} must be a string containing the name of the measurement whose averages you wish to change.")
+            if measurement not in self.settings.measurement_settings.keys():
+                raise ValueError(f"{__name__}: Cannot change averages, {measurement} is not an active measurement.")
+            if not isinstance(new_avg, int):
+                raise TypeError(f"{__name__}: Cannot change averages, {new_avg} must be an integer containing the number of averages you wish to set.")
+            if new_avg < 1:
+                raise ValueError(f"{__name__}: Cannot change averages, {new_avg} must be at least 1 and not negative. Sorry to ask, but are you retarded?")
+            self.settings.measurement_settings[measurement]["averages"] = new_avg
+            getattr(self._ro_backend, f"{measurement}_set_averages")(new_avg)
+    
+    def _filter_parameter(self, parameter):
+        preamble, postamble = self.par_search_string.split(self.par_search_placeholder)
+        if parameter.startswith(preamble) and parameter.endswith(postamble):
+            parameter = parameter.replace(preamble, "")
+            parameter = parameter.replace(postamble, "")
+        return parameter.isdigit()
+
     def _prepare_measurement_file(self, data, coords=()):
         """Das Fleisch in der Sonne zu trocknen ist in unseren Breiten schwierig. 
         Das geht nur in heißen Sommermonaten wie Juli oder August, wenn man das Fleisch ausgebreitet auf einer Platte – 
@@ -477,7 +527,7 @@ class Exciting(mb.MeasureBase):
             
             for parameters in _instr_settings_dict.values():
                 for (key, value) in parameters.items():
-                    if self.gate_search_string1 in key and self.gate_search_string2 in key and self.gate_ignore_string1 not in key and abs(value) > 0.0004:
+                    if self._filter_parameter(key) and abs(value) > 0.0004:
                         active_gates.update({key:value})
             self._static_voltages.append(active_gates)
 
@@ -498,10 +548,13 @@ class Exciting(mb.MeasureBase):
         total_iterations = 0 #setup the progress bar
         datasets = []
         self.divider = {}
+        self.column = {}
         for measurement in self.settings.measurement_settings.keys():
             total_iterations += self.settings.measurement_settings[measurement]["averages"]
             self.divider[measurement] = 1
+            self.column[measurement] = {}
             for node in self.settings.measurement_settings[measurement]["data_nodes"]:
+                self.column[measurement][node] = 0
                 #Create one dataset for each Measurement node
                 if self.mode == "timetrace":
                     datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._t_parameters[measurement]],
@@ -515,7 +568,10 @@ class Exciting(mb.MeasureBase):
                     datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._pulse_parameters[measurement], self._t_parameters[measurement]],
                                         unit = self.settings.measurement_settings[measurement]["unit"], 
                                         save_timestamp = False))
-
+                elif self.mode == "no_avg":
+                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._iteration_parameters[measurement], self._t_parameters[measurement]],
+                                        unit = self.settings.measurement_settings[measurement]["unit"], 
+                                        save_timestamp = False))
         self._total_iterations = total_iterations
         self._prepare_measurement_file(datasets)
         if self.open_qviewkit:
@@ -536,8 +592,39 @@ class Exciting(mb.MeasureBase):
             raise IndexError(f"{__name__}: Invalid readout dimensions. {self._ro_backend} must return arrays with 3 dimensions.")
         if np.size(latest_node_data, axis = 2) == 0:
             raise ValueError(f"{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
+    
+    def _stream2D(self, progress_bar):
+        """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
+        Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
+        Reis nach Anleitung zubereiten. Danach warmstellen.
+        """
+        for name, measurement in self.settings.measurement_settings.items(): #Allocate the needed memory
+            for node in measurement["data_nodes"]:
+                self._datasets[f"{name}.{node}"].append(np.full(measurement["sample_count"], np.nan))
+                self._datasets[f"{name}.{node}"].ds.resize((measurement["averages"] * measurement["measurement_count"], measurement["sample_count"]))
+        self._ready_hardware()
+        iterations = 0
+        while not self._ro_backend.finished():
+            old_iterations = iterations
+            latest_data = self._ro_backend.read()
+            for measurement in latest_data.keys():    
+                first_node = list(latest_data[measurement].keys())[0]
+                #If latest data is empty for one measurement, skip it
+                if len(latest_data[measurement][first_node]) == 0: continue
+                #Count the number of iterations collected by the most recent call of read
+                iterations += len(latest_data[measurement][first_node])
+                for node in latest_data[measurement].keys():                    
+                    latest_node_data = np.array(latest_data[measurement][node])
+                    self._check_node_data(latest_node_data)
+                    for grid in latest_node_data:
+                        for single_trace in grid:                            
+                            self._datasets[f"{measurement}.{node}"].ds[self.column[measurement][node]] = single_trace
+                            self.column[measurement][node] += 1
+            self._data_file.flush()
+            progress_bar.iterate(addend = iterations - old_iterations)
+        self._stop_hardware()
 
-    def _stream1D(self, data_location, avg_ax, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
+    def _stream1D_avg(self, data_location, avg_ax, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
         """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
         Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
         Reis nach Anleitung zubereiten. Danach warmstellen.
@@ -574,7 +661,7 @@ class Exciting(mb.MeasureBase):
             self.divider[measurement] = 1
         self._stop_hardware()
 
-    def _stream2D(self, data_location, progress_bar):
+    def _stream2D_avg(self, data_location, progress_bar):
         self._ready_hardware()      
         total_sum = {}
         iterations = 0
@@ -601,7 +688,7 @@ class Exciting(mb.MeasureBase):
                         total_sum[measurement][node] += np.average(latest_node_data, axis = (0))
                         #Divide through the number of finished iterations, since you accumulate all the averages                            
                         #print(total_sum[measurement][node].shape)
-                        self._datasets["%s.%s" % (measurement, node)].ds[data_location]=  total_sum[measurement][node]/ self.divider[measurement]
+                        self._datasets["%s.%s" % (measurement, node)].ds[data_location] = total_sum[measurement][node]/ self.divider[measurement]
                 self.divider[measurement] += 1
             self._data_file.flush()
             progress_bar.iterate(addend = iterations - old_iterations)
@@ -617,6 +704,9 @@ class Exciting(mb.MeasureBase):
             self.update_t_parameters(measurement["loop_range_tt"], 
                                         f"{measurement['loop_step_name_tt']}.{name}",
                                         name)
+            self.update_iteration_parameters(np.arange(measurement["averages"] * measurement["measurement_count"]), 
+                                        f"iterations.{name}",
+                                        name)
 
     def compile_qupulse(self, *experiments, averages, mode = "pulse_parameter", deep_render = False, **add_pars):   
         """Währenddessen Zwiebeln und Wurzeln schälen. Zwiebeln kleinschneiden. Wurzeln in kurze Stifte schneiden. 
@@ -627,59 +717,68 @@ class Exciting(mb.MeasureBase):
         Das Gericht ist ungewürzt und erhält seinen Geschmack durch die jeweiligen Saucen.
         """
         self.mode = mode
-        mapper = Mapping_handler2()
+        self.mapper = Mapping_handler2()
         if "channel_mapping" in add_pars:
-            mapper.channel_mapping = add_pars["channel_mapping"]
+            self.mapper.channel_mapping = add_pars["channel_mapping"]
         if "measurement_mapping" in add_pars:
-            mapper.measurement_mapping = add_pars["measurement_mapping"]
+            self.mapper.measurement_mapping = add_pars["measurement_mapping"]
 
         channel_sample_rates = {channel : getattr(self._ma_backend, f"{channel}_get_sample_rate")()
                         for channel in self._ma_backend._registered_channels.keys()}
         measurement_sample_rates = {measurement : getattr(self._ro_backend, f"{measurement}_get_sample_rate")() \
                         for measurement in self._ro_backend._registered_measurements.keys()}
         
-        mapper.map_channels_inv(channel_sample_rates)
-        mapper.map_measurements_inv(measurement_sample_rates)
+        self.mapper.map_channels_inv(channel_sample_rates)
+        self.mapper.map_measurements_inv(measurement_sample_rates)
         
         decoded = Qupulse_decoder2(*experiments, channel_sample_rates = channel_sample_rates, measurement_sample_rates = measurement_sample_rates,\
-             deep_render = deep_render, **add_pars)        
-        
-        mapper.map_channels(decoded.channel_pars)
-        mapper.map_measurements(decoded.measurement_pars)
-        mapper.map_measurements(averages)
+             deep_render = deep_render, **add_pars)
 
-        self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)        
+        self.mapper.map_channels(decoded.channel_pars)
+        self.mapper.map_measurements(decoded.measurement_pars)
+        self.mapper.map_measurements(averages)
+
+        self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)
         
         self._t_parameters = {}
         self._pulse_parameters = {}
+        self._iteration_parameters = {}
 
-        self._create_axis()       
+        self._create_axis()
         self.settings.load()
 
     def _choose_measurement_function(self, dimension, progress_bar):
         if self.mode == "pulse_parameter" and dimension == 1:
-            return lambda: self._stream1D((), (0, 2), progress_bar)
+            return lambda: self._stream1D_avg((), (0, 2), progress_bar)
         elif self.mode == "pulse_parameter" and dimension == 2:
-            return lambda: self._stream1D((-1), (0, 2), progress_bar)
+            return lambda: self._stream1D_avg((-1), (0, 2), progress_bar)
         elif self.mode == "pulse_parameter" and dimension == 3:
-            return lambda i : self._stream1D((-1, i), (0, 2), progress_bar)
+            return lambda i : self._stream1D_avg((-1, i), (0, 2), progress_bar)
         
         elif self.mode == "timetrace" and dimension == 1:
-            return lambda: self._stream1D((), (0, 1), progress_bar)
+            return lambda: self._stream1D_avg((), (0, 1), progress_bar)
         elif self.mode == "timetrace" and dimension == 2:
-            return lambda: self._stream1D((-1), (0, 1), progress_bar)
+            return lambda: self._stream1D_avg((-1), (0, 1), progress_bar)
         elif self.mode == "timetrace" and dimension == 3:
-            return lambda i : self._stream1D((-1, i), (0, 1), progress_bar)
+            return lambda i : self._stream1D_avg((-1, i), (0, 1), progress_bar)
         
         elif self.mode == "pp_vs_t" and dimension == 1:
-            return lambda: self._stream2D((), progress_bar)
+            return lambda: self._stream2D_avg((), progress_bar)
         elif self.mode == "pp_vs_t" and dimension == 2:
             def pp_vs_t_2D():
-                self._stream2D((-1), progress_bar)
+                self._stream2D_avg((-1), progress_bar)
                 for dset in self._datasets.values():
                     dset.next_matrix()
             return pp_vs_t_2D
-
+        
+        elif self.mode == "no_avg" and dimension == 1:
+            return lambda: self._stream2D(progress_bar)
+        elif self.mode == "no_avg" and dimension == 2:
+            def no_avg_2D():
+                self._stream2D( progress_bar)
+                for dset in self._datasets.values():
+                    dset.next_matrix()
+            return no_avg_2D
         else:
             raise self.MeasurementDimensionError(f"{__name__}: Mode \"{self.mode}\" does not support a {dimension}D-measurement.")
     
