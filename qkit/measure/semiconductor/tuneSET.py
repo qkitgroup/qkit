@@ -560,7 +560,11 @@ class TuneSET():
         x = data['x']
         y = data['y']
         z = data['z']
-   
+        
+        #if not self.x_start or not self.y_start:
+        self.x_start=x[0]
+        self.y_start=y[0]
+            
         #change coordinate system: x_start = 0, y_start = 0
         x -= np.ones(len(x))*self.x_start
         y -= np.ones(len(y))*self.y_start
@@ -601,7 +605,7 @@ class TuneSET():
         y_good_peaks =[]
         z_good_peaks =[]
         
-        if self.x_shutoff != None and self.y_shutoff != None:
+        if self.x_shutoff != np.nan and self.y_shutoff != np.nan:
             for l in range(len(z_values_peaks)):
                 if self.check_center(x_values_peaks[l], y_values_peaks[l], self.max_distance_to_center)==True and self.check_height(z_values_peaks[l], self.peak_threshold) == True and self.is_below_cutoff(x_values_peaks[l], y_values_peaks[l], self.x_shutoff, self.y_shutoff):
                     #print(f'Good Peak found. x={x_values_peaks[l]}, y={y_values_peaks[l]}, z={z_values_peaks[l]}')
@@ -619,7 +623,7 @@ class TuneSET():
                     
                     
         if len(x_good_peaks)==0:
-            if self.x_shutoff != None and self.y_shutoff != None:
+            if self.x_shutoff != np.nan and self.y_shutoff != np.nan:
                 for l in range(len(z_values_peaks)):
                     if self.check_center(x_values_peaks[l], y_values_peaks[l], self.max_distance_to_center*3)==True and self.check_height(z_values_peaks[l], self.peak_threshold) == True and self.is_below_cutoff(x_values_peaks[l], y_values_peaks[l], self.x_shutoff, self.y_shutoff):
                         print(f'\nNo peak found in center of picture. Peak found for increased search radius from {self.max_distance_to_center} V to 3*{self.max_distance_to_center} V:')
