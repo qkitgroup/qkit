@@ -2,7 +2,6 @@
 # JSON en-/decoder for non-JSON standard data-types
 
 import json
-import types
 import numpy as np
 import logging
 import qkit
@@ -23,8 +22,15 @@ class QkitJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if type(obj) == np.ndarray:
             return {'dtype': type(obj).__name__, 'content': obj.tolist()}
+        elif np.issubdtype(obj, np.integer):
+            return {'dtype': type(obj).__name__, 'content': int(obj)}
+        elif np.issubdtype(obj, np.floating):
+            return {'dtype': type(obj).__name__, 'content': float(obj)}
+        elif np.issubdtype(obj, np.complexfloating):
+            return {'dtype': type(obj).__name__, 'content': complex(obj)}
         # if type(obj) == types.InstanceType:  # no valid synatx in python 3 and probably not needed (MMW)
         #    return {'dtype' : type(obj).__name__, 'content': str(obj.get_name())}
+        
         if uncertainties_enable or qkit.module_available('uncertainties'):
             if type(obj) in (uncertainties.core.Variable, uncertainties.core.AffineScalarFunc):
                 return {'dtype': 'ufloat',
@@ -43,15 +49,17 @@ class QkitJSONDecoder(json.JSONDecoder):
     def object_hook(self, obj):
         if 'content' in obj and 'dtype' in obj and len(obj) == 2:
             if obj['dtype'] == 'ndarray':
-                return np.array(obj['content'])
-            if obj['dtype'] == 'ufloat':
+                return np.array(obj['content'])              
+            elif obj['dtype'] == 'ufloat':
                 if uncertainties_enable or qkit.module_available('uncertainties'):
                     return uncertainties.ufloat(nominal_value=obj['content']['nominal_value'],
                                                 std_dev=obj['content']['std_dev'])
                 else:
                     logging.warning('Uncertainties package not installed. Only nominal value returned.')
                     return float(obj['content']['nominal_value'])
-            if obj['dtype'] == 'qkitInstrument':  # or obj['dtype'] == 'instance'
+            elif obj['dtype'] == 'qkitInstrument':  # or obj['dtype'] == 'instance'
                 return qkit.instruments.get(obj['content'])
+            else:
+                return np.dtype(obj['dtype']).type(obj['content'])
         else:
             return obj 

@@ -282,12 +282,13 @@ class MeasureBase(object):
             self.measurement_name = ", ".join(coordinates)
         self._file_name = '{}D_'.format(self._dim) + self.measurement_name.replace(' ', '').replace(',', '_')
 
-    def _prepare_measurement_file(self, data, coords=()):
+    def _prepare_measurement_file(self, data, coords=(), **kwargs):
         """
         creates the output .h5-file with distinct dataset structures for each measurement type.
         at this point all measurement parameters are known and put in the output file
         All nacessary coordinates are alread included in the data instances, but you can supply a list of additional coords, which will be created.
         """
+        
         for c in coords:
             if not isinstance(c, self.Coordinate):
                 raise TypeError('{:s}:  {!s} is no valid coordinate object'.format(__name__, c))
