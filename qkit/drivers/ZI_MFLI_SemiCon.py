@@ -20,8 +20,8 @@ class ZI_MFLI_SemiCon(lolvl.ZI_MFLI):
         self._device_id = device_id
         super().__init__(name, self._device_id)
         self.daqM1 = qkit.instruments.create("MFLI_daqM1", "ZI_DAQ_module", unmanaged_daq_module = self.create_daq_module(), device_id = self._device_id)
-        self.daqM2 = qkit.instruments.create("MFLI_daqM2", "ZI_DAQ_module", unmanaged_daq_module = self.create_daq_module(), device_id = self._device_id)
-
+        #self.daqM2 = qkit.instruments.create("MFLI_daqM2", "ZI_DAQ_module", unmanaged_daq_module = self.create_daq_module(), device_id = self._device_id)
+        
         self._FLAG_THROW = 0x0004
         self._FLAG_DETECT = 0x0008
         self.integration_time = 0.05 #in s
@@ -35,13 +35,8 @@ class ZI_MFLI_SemiCon(lolvl.ZI_MFLI):
         self.set_daq_sample_path([])
         self.set_data_nodes([])
         
-        self._depr_warnings= {"sample_ch0" : True,
-                              "sample_ch1" : True,
-                              "sample_ch0and1" : True}
-        
         self.add_function("create_daq_module")
         self.add_function("activate_ch0")
-    #    self.add_function("activate_ch1")
         self.add_function("easy_sub")
         self.add_function("get_sample")
         self.add_function("continuous_acquisition")
@@ -70,28 +65,7 @@ class ZI_MFLI_SemiCon(lolvl.ZI_MFLI):
             new_path = [f"/{self._device_id}/demods/4/sample"]
         self.set_daq_sample_path("")
         self.set_daq_sample_path(new_path)
-    """    
-    def activate_ch1(self):
-        self.set_dem4_demod_enable(True)
-        self.set_ch1_output(True)
-        
-        if any([True for path in self.get_daq_sample_path() if "/demods/0" in path]):
-            self.set_daq_sample_path([f"/{self._device_id}/demods/0/sample",
-                                      f"/{self._device_id}/demods/4/sample"])
-        else: self.set_daq_sample_path([f"/{self._device_id}/demods/4/sample"])
-        
-        self.set_data_nodes(["x", "y", "timestamp"])
-    
-    def deactivate_ch1(self):
-        self.set_dem1_demod_enable(False)
-        self.set_ch1_output(False)
-        new_path = ""
-        
-        if any([True for path in self.get_daq_sample_path() if "/demods/0" in path]):
-            new_path = [f"/{self._device_id}/demods/0/sample"]
-        self.set_daq_sample_path("")
-        self.set_daq_sample_path(new_path)
-    """    
+  
     def sample_dem(self, channel : int) -> Dict[str, np.ndarray]:
         assert getattr(self, f"get_dem{channel}_demod_enable")(), f"{__name__}: Demod {channel} is not enabled."
                     
@@ -105,70 +79,6 @@ class ZI_MFLI_SemiCon(lolvl.ZI_MFLI):
             gotten_sample[f"r{channel}"] = np.sqrt(gotten_sample[f"x{channel}"]**2 + gotten_sample[f"y{channel}"]**2)
         return gotten_sample
         
-# =============================================================================
-#     def sample_ch0(self, wait_settle_time):
-#         if self._depr_warnings["sample_ch0"]:
-#             warn(f"{__name__}: sample_ch0 will deprecate with the next update. Use sample_dem(channel) instead.")
-#             self._depr_warnings["sample_ch0"] = False
-#         
-#         assert self.get_dem0_demod_enable(), f"{__name__}: Demod 0 is not enabled."
-#         
-#         if wait_settle_time:
-#             self.wait_settle_time(0)
-#             
-#         raw = self.daq.getSample(f"/{self._device_id}/demods/0/sample")
-#         nodes = self.get_data_nodes()
-#         gotten_sample = {}
-#         for node in nodes:
-#             gotten_sample[f"{node}0"] = float(raw[node])
-#             
-#         if "x" in nodes and "y" in nodes:
-#             gotten_sample["r0"] = np.sqrt(gotten_sample["x0"]**2 + gotten_sample["y0"]**2)
-#         return gotten_sample
-#     
-#     def sample_ch1(self, wait_settle_time):
-#         if self._depr_warnings["sample_ch1"]:
-#             warn(f"{__name__}: sample_ch1 will deprecate with the next update. Use sample_dem(channel) instead.")
-#             self._depr_warnings["sample_ch1"] = False
-#         
-#         assert self.get_dem4_demod_enable(), f"{__name__}: Demod 4 is not enabled."
-#         if wait_settle_time:
-#             self.wait_settle_time(4)
-#             
-#         raw = self.daq.getSample(f"/{self._device_id}/demods/4/sample")
-#         nodes = self.get_data_nodes()
-#         gotten_sample = {}
-#         for node in self.get_data_nodes():
-#             gotten_sample[f"{node}4"] = float(raw[node])
-#         
-#         if "x" in nodes and "y" in nodes:
-#             gotten_sample["r4"] = np.sqrt(gotten_sample["x4"]**2 + gotten_sample["y4"]**2)
-#         return gotten_sample  
-#         
-#     def sample_ch0and1(self, wait_settle_time):
-#         if self._depr_warnings["sample_ch0and1"]:
-#             warn(f"{__name__}: sample_ch0and1 will deprecate with the next update. Use sample_dem(channel) instead.")
-#             self._depr_warnings["sample_ch0and1"] = False
-#         
-#         assert self.get_dem0_demod_enable(), f"{__name__}: Demod 0 is not enabled."
-#         assert self.get_dem4_demod_enable(), f"{__name__}: Demod 4 is not enabled."
-#         if wait_settle_time:
-#             self.wait_settle_time(4)
-#             
-#         raw0 = self.daq.getSample(f"/{self._device_id}/demods/0/sample")
-#         raw1 = self.daq.getSample(f"/{self._device_id}/demods/4/sample")
-#         nodes = self.get_data_nodes()
-#         gotten_sample = {}
-#         for node in self.get_data_nodes():
-#             gotten_sample[f"{node}0"] = float(raw0[node])
-#             gotten_sample[f"{node}4"] = float(raw1[node])
-#         
-#         if "x" in nodes and "y" in nodes:
-#             gotten_sample["r0"] = np.sqrt(gotten_sample["x0"]**2 + gotten_sample["y0"]**2)
-#             gotten_sample["r4"] = np.sqrt(gotten_sample["x4"]**2 + gotten_sample["y4"]**2)
-#         return gotten_sample  
-# =============================================================================
-    
     
     def easy_sub(self, demod_index):
        sub_list = [] 
