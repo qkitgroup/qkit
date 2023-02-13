@@ -82,32 +82,32 @@ class Keysight_VNA_E5080B(Instrument):
                     
         self.add_parameter('centerfreq', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=14e9,
+            minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])
 
         self.add_parameter('cwfreq', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=14e9,
+            minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])
             
         self.add_parameter('startfreq', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=14e9,
+            minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])            
             
         self.add_parameter('stopfreq', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=14e9,
+            minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])                        
             
         self.add_parameter('span', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=0, maxval=14e9,
+            minval=0, maxval=20e9,
             units='Hz', tags=['sweep'])        
             
         self.add_parameter('power', type=float,
             flags=Instrument.FLAG_GETSET,
-            minval=-100, maxval=20,
+            minval=-100, maxval=20, offset=True,
             units='dBm', tags=['sweep'])
 
         self.add_parameter('startpower', type=float,

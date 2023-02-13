@@ -11,6 +11,13 @@ import h5py
 import numpy as np
 import qkit
 from qkit.storage.hdf_constants import ds_types
+from distutils.version import LooseVersion
+
+file_kwargs = dict()
+if LooseVersion(h5py.__version__) >= LooseVersion("3.5.0"): # new file locking
+    file_kwargs = dict(locking=False)
+elif LooseVersion(h5py.__version__) >= LooseVersion("3.0.0"): # intermediate
+    logging.error("Qkit HDF file handling: In h5py between 3.0 and 3.5, there are problems with file locking handling. Please update to h5py==3.5.0")
 
 class H5_file(object):
     """Base hdf5 class intended for qkit.
@@ -45,7 +52,7 @@ class H5_file(object):
                 self.grp.attrs[k] = kw[k]
         
     def create_file(self,output_file, mode):
-        self.hf = h5py.File(output_file, mode)
+        self.hf = h5py.File(output_file, mode,**file_kwargs )
 
     def set_base_attributes(self):
         "stores some attributes and creates the default data group"

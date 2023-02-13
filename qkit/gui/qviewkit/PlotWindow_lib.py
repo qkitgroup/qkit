@@ -35,6 +35,7 @@ import pyqtgraph as pg
 import qkit
 from qkit.storage.hdf_constants import ds_types
 import pprint
+from qkit.core.lib.misc import str3
 
 
 def _display_1D_view(self, graphicsView):
@@ -64,7 +65,7 @@ def _display_1D_view(self, graphicsView):
     ## displayed.
     view_params = json.loads(self.ds.attrs.get("view_params", {}))
     for i in range(overlay_num + 1):
-        xyurls = self.ds.attrs.get("xy_" + str(i), "").decode()
+        xyurls = str3(self.ds.attrs.get("xy_" + str(i), ""))
         ds_urls = [xyurls.split(":")[0], xyurls.split(":")[1]]
         if xyurls:
             err_url = self.ds.attrs.get("xy_" + str(i) + "_error", "")
@@ -390,15 +391,15 @@ def _display_1D_data(self, graphicsView):
 
         if self.PlotTypeSelector.currentIndex() == 5:
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['z_ds_url'])
-            x_data = dss[0][()][:dss[1].shape[-1]]  # x_data gets truncated to y_data shape if neccessary
+            x_data = dss[0][()][:dss[1].shape[2]]  # x_data gets truncated to y_data shape if neccessary
             y_data = dss[1][()][self.TraceXNum, self.TraceYNum, :]
         if self.PlotTypeSelector.currentIndex() == 4:
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['y_ds_url'])
-            x_data = dss[0][()][:dss[1].shape[-1]]
+            x_data = dss[0][()][:dss[1].shape[1]]
             y_data = dss[1][()][self.TraceXNum, :, self.TraceZNum]
         if self.PlotTypeSelector.currentIndex() == 3:
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url'])
-            x_data = dss[0][()][:dss[1].shape[-1]]
+            x_data = dss[0][()][:dss[1].shape[0]]
             y_data = dss[1][()][:, self.TraceYNum, self.TraceZNum]
 
     
@@ -451,7 +452,7 @@ def _display_1D_data(self, graphicsView):
                 pass
             
             self._last_x_pos = xval
-            if self.distance_measure[0] is True: # a ROI is open
+            if self.distance_measure[0] == 1: # a ROI is open
                 _, x0, y0, [roi, tx, ty,td] = self.distance_measure
                 roi.setSize((xval - x0, yval - y0))
                 tx.setText("%s" % pg.siFormat(xval - x0, suffix=units[0]))
@@ -479,10 +480,7 @@ def _display_1D_data(self, graphicsView):
             if plIt.ctrl.logYCheck.isChecked():  # logarithmic scale on x axis
                 yval = 10 ** yval
             
-            
             if self.distance_measure[0] is False:
-                if len(self.distance_measure) >= 4:
-                    [plVi.removeItem(i) for i in self.distance_measure[-1]]
                 roi = pg.RectROI((xval, yval), (0, 0))
                 tx = pg.TextItem("")
                 tx.setPos(xval, yval)
@@ -490,9 +488,13 @@ def _display_1D_data(self, graphicsView):
                 ty.setPos(xval, yval)
                 td = pg.TextItem("")
                 td.setPos(xval, yval)
-                self.distance_measure = [True, xval, yval, [roi, tx, ty,td]]
+                self.distance_measure = [1, xval, yval, [roi, tx, ty,td]]
                 [plVi.addItem(i) for i in self.distance_measure[-1]]
+            elif self.distance_measure[0] == 1:
+                self.distance_measure[0] = 2 # hold distance measure ROI
             else:
+                if len(self.distance_measure) >= 4: # remove ROI
+                    [plVi.removeItem(i) for i in self.distance_measure[-1]]
                 self.distance_measure[0] = False
 
     self.distance_measure = self.__dict__.get('distance_measure', [False])
@@ -655,7 +657,7 @@ def _display_2D_data(self, graphicsView):
         self.PointZ.setText("Z: %.6e %s" % (zval, units[2]))
         self.data_coord = "%g\t%g\t%g" % (xval, yval, zval)
 
-        if self.distance_measure[0] is True: # a ROI is open
+        if self.distance_measure[0] == 1: # a ROI is open
             _, x0, y0, [roi, tx, ty, td] = self.distance_measure
             roi.setSize((xval - x0, yval - y0))
             tx.setText("%s" % pg.siFormat(xval - x0, suffix=units[0]))
@@ -679,8 +681,6 @@ def _display_2D_data(self, graphicsView):
             yval = scales[1][0] + int(mousePoint.y()) * scales[1][1]
 
             if self.distance_measure[0] is False:
-                if len(self.distance_measure) >=4:
-                    [imVi.removeItem(i) for i in self.distance_measure[-1]]
                 roi = pg.RectROI((xval, yval), (0,0))
                 tx = pg.TextItem("")
                 tx.setPos(xval, yval)
@@ -688,39 +688,17 @@ def _display_2D_data(self, graphicsView):
                 ty.setPos(xval,yval)
                 td = pg.TextItem("")
                 td.setPos(xval, yval)
-                self.distance_measure = [True,xval,yval,[roi, tx, ty, td]]
+                self.distance_measure = [1,xval,yval,[roi, tx, ty, td]]
                 [imVi.addItem(i) for i in self.distance_measure[-1]]
+            elif self.distance_measure[0] == 1:
+                self.distance_measure[0] = 2  # hold distance measure ROI
             else:
+                if len(self.distance_measure) >= 4:  # remove ROI
+                    [imVi.removeItem(i) for i in self.distance_measure[-1]]
                 self.distance_measure[0] = False
                 
     self.distance_measure = self.__dict__.get('distance_measure',[False])
     self.proxy2 = pg.SignalProxy(imVi.scene().sigMouseClicked,slot=middleClick)
-    
-    """
-        def middleClick(mce):
-        mce = mce[0]
-        if mce.button() == 4:
-            mce.accept()
-            mousePoint = imIt.mapFromScene(mce.scenePos())
-            xval = scales[0][0] + int(mousePoint.x()) * scales[0][1]
-            yval = scales[1][0] + int(mousePoint.y()) * scales[1][1]
-
-            if self.distance_measure is False:
-                self.distance_measure = [xval,yval]
-            elif type(self.distance_measure) is list and len(self.distance_measure) == 2:
-                roi = pg.RectROI((xval,yval),(self.distance_measure[0]-xval, self.distance_measure[1]-yval))
-                tx = pg.TextItem("%s" % pg.siFormat(-self.distance_measure[0] + xval, suffix=units[0]))
-                tx.setPos((xval+self.distance_measure[0])/2,min(yval,self.distance_measure[1]))
-                ty = pg.TextItem("%s" % pg.siFormat(-self.distance_measure[1] + yval, suffix=units[1]))
-                ty.setPos(max(xval,self.distance_measure[0]),(yval + self.distance_measure[1]) / 2)
-                self.distance_measure = [roi,tx,ty]
-                [imVi.addItem(i) for i in self.distance_measure]
-            else:
-                [imVi.removeItem(i) for i in self.distance_measure]
-                self.distance_measure = [xval, yval]
-    self.distance_measure = False
-    self.proxy2 = pg.SignalProxy(imVi.scene().sigMouseClicked,slot=middleClick)
-    """
 
 
 def _display_table(self, graphicsView):
@@ -866,7 +844,7 @@ def _get_unit(ds):
         String with unit.
     """
     try:
-        return ds.attrs.get('unit', b'_none_').decode('utf-8')
+        return str3(ds.attrs.get('unit', b'_none_'))
     except AttributeError as e:
         #print(ds)
         print("Qviewkit _get_unit:",e)
@@ -884,7 +862,7 @@ def _get_name(ds):
     if ds is None:
         return '_none_'
     try:
-        return ds.attrs.get('name', b'_none_').decode("utf-8")
+        return str3(ds.attrs.get('name', b'_none_'))
     except AttributeError as e:
         #print(ds)
         print("Qviewkit _get_name:",e)
@@ -975,19 +953,34 @@ def _do_data_manipulation(x_data, y_data, x_name, y_name, x_unit, y_unit, ds_typ
             ## Only relevant for matrices and boxes in 2d
             if manipulation & manipulations['remove_zeros']:
                 y_data[np.where(y_data == 0)] = np.NaN  # replace all exact zeros in the hd5 y_data with NaNs, otherwise the 0s in uncompleted files blow up the colorscale
-    
+
+    # subtract mean value (offset correction) from the data along the x-axis
+    if manipulation & manipulations['sub_offset_avg_x']:
+        # ignore division by zero
+        old_warn = np.seterr(divide='print')
+        np.seterr(**old_warn)
+        y_data = y_data - np.nanmean(y_data, axis=0, keepdims=True)
+
+    # subtract mean value (offset correction) from the data along the y-axis
     if manipulation & manipulations['sub_offset_avg_y']:
         # ignore division by zero
         old_warn = np.seterr(divide='print')
         np.seterr(**old_warn)
         y_data = y_data - np.nanmean(y_data, axis=1, keepdims=True)
-    
-    # subtract offset from the y_data
+
+    # divide data by mean value (normalization) along the x-axis
     if manipulation & manipulations['norm_data_avg_x']:
         # ignore division by zero
         old_warn = np.seterr(divide='print')
         np.seterr(**old_warn)
         y_data = y_data / np.nanmean(y_data, axis=0, keepdims=True)
+
+    # divide data by mean value (normalization) along the y-axis
+    if manipulation & manipulations['norm_data_avg_y']:
+        # ignore division by zero
+        old_warn = np.seterr(divide='print')
+        np.seterr(**old_warn)
+        y_data = y_data / np.nanmean(y_data, axis=1, keepdims=True)
 
     if manipulation & manipulations['dB']:
         y_data = 20 * np.log10(y_data)

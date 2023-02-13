@@ -94,46 +94,46 @@ class Keithley(Instrument):
         self._IV_units = {0: 'A', 1: 'V'}
         self._avg_types = ['moving average', 'repeat average', 'median']
         # dict of defaults values: defaults[<sweep_mode>][<channel>][<parameter>][<value>]
-        self._defaults = {0: [{'measurement_mode': 0,  # bias channel
-                               'bias_mode':  1,
-                               'sense_mode': 1,
-                               'bias_range': -1,
-                               'sense_range': -1,
-                               'bias_delay': 15e-6,
-                               'sense_delay': 15e-6,
-                               'sense_nplc': 1,
-                               'sense_average': 1,
-                               'sense_autozero': 0},
-                              {'measurement_mode': 0,  # sense channel
-                               'bias_mode': 0,
-                               'sense_mode': 1,
-                               'bias_range': -1,
-                               'sense_range': -1,
-                               'bias_delay': 15e-6,
-                               'sense_delay': 15e-6,
-                               'sense_nplc': 1,
-                               'sense_average': 1,
-                               'sense_autozero': 0}],
-                          1: [{'measurement_mode': 1,
-                               'bias_mode': 0,
-                               'sense_mode': 1,
-                               'bias_range': -1,
-                               'sense_range': -1,
-                               'bias_delay': 15e-6,
-                               'sense_delay': 15e-6,
-                               'sense_nplc': 1,
-                               'sense_average': 1,
-                               'sense_autozero': 0}],
-                          2: [{'measurement_mode': 1,
-                               'bias_mode': 1,
-                               'sense_mode': 0,
-                               'bias_range': -1,
-                               'sense_range': -1,
-                               'bias_delay': 15e-6,
-                               'sense_delay': 15e-6,
-                               'sense_nplc': 1,
-                               'sense_average': 1,
-                               'sense_autozero': 0}]}
+        self._defaults = {0: [{self.set_measurement_mode: 0,  # bias channel
+                               self.set_bias_mode:  1,
+                               self.set_sense_mode: 1,
+                               self.set_bias_range: -1,
+                               self.set_sense_range: -1,
+                               self.set_bias_delay: 15e-6,
+                               self.set_sense_delay: 15e-6,
+                               self.set_sense_nplc: 1,
+                               self.set_sense_average: 1,
+                               self.set_sense_autozero: 0},
+                              {self.set_measurement_mode: 0,  # sense channel
+                               self.set_bias_mode: 0,
+                               self.set_sense_mode: 1,
+                               self.set_bias_range: -1,
+                               self.set_sense_range: -1,
+                               self.set_bias_delay: 15e-6,
+                               self.set_sense_delay: 15e-6,
+                               self.set_sense_nplc: 1,
+                               self.set_sense_average: 1,
+                               self.set_sense_autozero: 0}],
+                          1: [{self.set_measurement_mode: 1,
+                               self.set_bias_mode: 0,
+                               self.set_sense_mode: 1,
+                               self.set_bias_range: -1,
+                               self.set_sense_range: -1,
+                               self.set_bias_delay: 15e-6,
+                               self.set_sense_delay: 15e-6,
+                               self.set_sense_nplc: 1,
+                               self.set_sense_average: 1,
+                               self.set_sense_autozero: 0}],
+                          2: [{self.set_measurement_mode: 1,
+                               self.set_bias_mode: 1,
+                               self.set_sense_mode: 0,
+                               self.set_bias_range: -1,
+                               self.set_sense_range: -1,
+                               self.set_bias_delay: 15e-6,
+                               self.set_sense_delay: 15e-6,
+                               self.set_sense_nplc: 1,
+                               self.set_sense_average: 1,
+                               self.set_sense_autozero: 0}]}
         self._default_str = 'default parameters'
         self.__set_defaults_docstring()
         # error messages
@@ -1276,6 +1276,7 @@ class Keithley(Instrument):
             step = -step
         for val in np.arange(start, stop, step)+step:
             self.set_bias_value(val, channel=channel)
+            print('{:f}{:s}'.format(val, self._IV_units[self.get_bias_mode()]), end='\r')
             time.sleep(step_time)
     
     def ramp_voltage(self, stop, step, step_time=0.1, channel=1):
@@ -1708,8 +1709,8 @@ class Keithley(Instrument):
             self.set_sweep_mode(sweep_mode)
         # set values
         for i, channel in enumerate(self._sweep_channels):
-            for key_parameter, val_parameter in self._defaults[self._sweep_mode][i].items():
-                eval('self.set_{:s}({!s}, channel={:d})'.format(key_parameter, val_parameter, channel))
+            for func, param in self._defaults[self._sweep_mode][i].items():
+                func(param, channel=channel)
         return
     
     def __set_defaults_docstring(self):
@@ -1917,42 +1918,40 @@ class Keithley(Instrument):
         parlist: dict
             Parameter names as keys, corresponding channels of interest as values.
         """
-        parlist = {'measurement_mode': [1, 2],
-                   'bias_mode': [1, 2],
-                   'sense_mode': [1, 2],
-                   'bias_range': [1, 2],
-                   'sense_range': [1, 2],
-                   'bias_delay': [1, 2],
-                   'sense_delay': [1, 2],
-                   'sense_average': [1, 2],
-                   'bias_value': [1, 2],
-                   'plc': [None],
-                   'sense_nplc': [1, 2],
-                   'sense_autozero': [1, 2],
-                   'status': [1, 2]}
+        parlist = {'measurement_mode': {'channels': [1, 2]},
+                   'bias_mode': {'channels': [1, 2]},
+                   'sense_mode': {'channels': [1, 2]},
+                   'bias_range': {'channels': [1, 2]},
+                   'sense_range': {'channels': [1, 2]},
+                   'bias_delay': {'channels': [1, 2]},
+                   'sense_delay': {'channels': [1, 2]},
+                   'sense_average': {'channels': [1, 2]},
+                   'bias_value': {'channels': [1, 2]},
+                   'plc': {'channels': [None]},
+                   'sense_nplc': {'channels': [1, 2]},
+                   'sense_autozero': {'channels': [1, 2]},
+                   'status': {'channels': [1, 2]}}
         return parlist
-    
+
     def get(self, param, **kwargs):
         """
         Gets the current parameter <param> by evaluation 'get_'+<param> and corresponding channel if needed
         In combination with <self.get_parameters> above.
-        
+
         Parameters
         ----------
         param: str
             Parameter of interest.
         channels: array_likes
-            Number of channels of interest. Must be in {1, 2} for channel specific parameters or None for channel independant (global) parameters.
-        
+            Number of channels of interest. Must be in {1, 2} for channel specific parameters or None for channel independent (global) parameters.
+
         Returns
         -------
         parlist: dict
             Parameter names as keys, values of corresponding channels as values.
         """
-        channels = kwargs.get('channels')
+        channels = kwargs.get('channels').get('channels')
         if channels == [None]:
-            return tuple(eval('map(lambda channel, self=self: self.get_{:s}(), [None])'.format(param)))
-            #return eval('self.get_{:s}()'.format(param))
+            return getattr(self, 'get_{!s}'.format(param))()
         else:
-            return tuple(eval('map(lambda channel, self=self: self.get_{:s}(channel=channel), [{:s}])'.format(param, ', '.join(map(str, channels)))))
-            #return tuple([eval('self.get_{:s}(channel={!s})'.format(param, channel)) for channel in channels])
+            return tuple([getattr(self, 'get_{!s}'.format(param))(channel=channel) for channel in channels])

@@ -70,131 +70,144 @@ class ZI_MFLI(Instrument):
         
         self.add_parameter("input_range", type = float,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 1), channel_prefix = "ch%d_",
+                           channels = (0,), channel_prefix = "ch%d_",
                            minval = 10e-3, maxval = 1.5, 
                            units = "V")
         
         self.add_parameter("input_scaling", type = float,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 1), channel_prefix = "ch%d_",
+                           channels = (0,), channel_prefix = "ch%d_",
                            minval = 1e-12, maxval = 1e12)
         
         self.add_parameter("input_ac_coupling", type = bool,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 1), channel_prefix = "ch%d_")
+                           channels = (0,), channel_prefix = "ch%d_")
         
         self.add_parameter("input_50ohm", type = bool,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 1), channel_prefix = "ch%d_") 
+                           channels = (0,), channel_prefix = "ch%d_") 
         
         self.add_parameter("input_autorange", type = bool,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 1), channel_prefix = "ch%d_")
+                           channels = (0,), channel_prefix = "ch%d_")
         
         self.add_parameter("input_difference", type = str,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 1), channel_prefix = "ch%d_")
+                           channels = (0,), channel_prefix = "ch%d_")
+        
+        self.add_parameter("input_float", type = bool,
+                           flags = ZI_MFLI.FLAG_GETSET,
+                           channels = (0,), channel_prefix = "ch%d_")
+        
         '''
         oscillators
         '''        
         self.add_parameter("carrier_freq", type = float, 
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 1), channel_prefix = "ch%d_",
-                           minval = 0, maxval = 600e6,
+                           channels = (0,), channel_prefix = "ch%d_",
+                           minval = 0, maxval = 510e3,
                            units = "Hz", tags = ["sweep"])
         '''
         demodulators:
         '''
         self.add_parameter("demod_harmonic", type = int,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 7), channel_prefix = "dem%d_",
+                           channels = (0, 1), channel_prefix = "dem%d_",
                            minval = 1, maxval = 1023)
         
         self.add_parameter("phase_offs", type = float,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 7), channel_prefix = "dem%d_",
+                           channels = (0, 1), channel_prefix = "dem%d_",
                            minval = 0, maxval = 360,
                            units = "deg", tags = ["sweep"])
 
-        self.add_parameter("autophase", type = bool,
+        self.add_parameter("input_autophase", type = bool,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 7), channel_prefix = "dem%d_")
+                           channels = (0, 1), channel_prefix = "dem%d_")
         
         self.add_parameter("filter_order", type = int,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 7), channel_prefix = "dem%d_",
+                           channels = (0, 1), channel_prefix = "dem%d_",
                            minval = 1, maxval = 8)
         
         self.add_parameter("filter_timeconst", type = float,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 7), channel_prefix = "dem%d_",
+                           channels = (0, 1), channel_prefix = "dem%d_",
                            minval = 102.6e-9, maxval = 76.35,
                            units = "s", tags = ["sweep"])
         
         self.add_parameter("filter_sinc", type = bool,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 7), channel_prefix = "dem%d_")
+                           channels = (0, 1), channel_prefix = "dem%d_")
         
         self.add_parameter("demod_enable", type = bool,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 7), channel_prefix = "dem%d_")
+                           channels = (0, ), channel_prefix = "dem%d_")
         
         self.add_parameter("sample_rate", type = float,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 7), channel_prefix = "dem%d_",
+                           channels = (0, 1), channel_prefix = "dem%d_",
                            minval = 1.676, maxval = 14.06e6, 
                            units = "Hz", tags = ["sweep"])
         
         self.add_parameter("trigger_mode", type = str,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 7), channel_prefix = "dem%d_")
+                           channels = (0, 1), channel_prefix = "dem%d_")
         '''
         signal outs:
         '''
         self.add_parameter("output", type = bool,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 1), channel_prefix = "ch%d_")
+                           channels = (0,), channel_prefix = "ch%d_")
 
         self.add_parameter("output_50ohm", type = bool,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 1), channel_prefix = "ch%d_")
+                           channels = (0,), channel_prefix = "ch%d_")
         
         self.add_parameter("output_range", type = float,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 1), channel_prefix = "ch%d_",
-                           minval = 75e-3, maxval = 1.5,
+                           channels = (0,), channel_prefix = "ch%d_",
+                           minval = 5e-3, maxval = 10,
                            units = "V")
         
         self.add_parameter("output_offset", type = float,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 1), channel_prefix = "ch%d_",
+                           channels = (0,), channel_prefix = "ch%d_",
                            minval = -1.5, maxval = 1.5,
                            units = "V")
         
         self.add_parameter("output_amplitude", type = float,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 1), channel_prefix = "ch%d_",
+                           channels = (0,), channel_prefix = "ch%d_",
                            minval = -1.5, maxval = 1.5,
                            units = "V")
         
         self.add_parameter("output_autorange", type = bool,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 1), channel_prefix = "ch%d_")
+                           channels = (0,), channel_prefix = "ch%d_")
                 
         self.add_parameter("output_amp_enable", type = bool,
                            flags = ZI_MFLI.FLAG_GETSET,
-                           channels = (0, 1), channel_prefix = "ch%d_")
+                           channels = (0,), channel_prefix = "ch%d_")
         
+        self.add_parameter("output_add", type = bool,
+                           flags = ZI_MFLI.FLAG_GETSET,
+                           channels = (0,), channel_prefix = "ch%d_")
+        
+        self.add_parameter("output_difference", type = bool,
+                           flags = ZI_MFLI.FLAG_GETSET,
+                           channels = (0,), channel_prefix = "ch%d_")
+    
         '''
         Software parameters:
         '''
         self.add_parameter("step_recovery", type = str,
                           flags = self.FLAG_SET | self.FLAG_SOFTGET,
-                          channels = (0, 7), channel_prefix = "dem%d_")
+                          channels = (0, 1), channel_prefix = "dem%d_")
         
-        for demod_index in range(8):
+        for demod_index in range(2):
             self.set(f"dem{demod_index}_step_recovery", r"99%")
-        self.settling_times = [0] * 8
+        self.settling_times = [0] * 2
         self.calc_all_settling_times()
         
         #Tell qkit which functions are intended for public use
@@ -222,12 +235,14 @@ class ZI_MFLI(Instrument):
         sleep(self.longest_settling_time)
         
     def calc_all_settling_times(self):
-        for demod_index in range(8):
+        for demod_index in range(2):
             self.settling_times[demod_index] = self.calc_settling_time(demod_index)
         self.longest_settling_time = max(self.settling_times)
         
     '''
     signal ins
+    
+    current input functions not implemented. 
     '''        
     def _do_set_input_range(self, newrange, channel):
         logging.debug(__name__ + ' : setting range on input channel %s to %s V' % (channel, newrange))
@@ -236,6 +251,9 @@ class ZI_MFLI(Instrument):
     
     def _do_get_input_range(self, channel):
         logging.debug(__name__ + ' : getting range on input channel %s' % channel)
+        #print(round(float(self.daq.getDouble("/%s/sigins/range" % (self._device_id))), 3))
+        #print(round(float(self.daq.getDouble("/%s/sigins/%s/range" % (self._device_id, channel))), 3))
+        
         return round(float(self.daq.getDouble("/%s/sigins/%s/range" % (self._device_id, channel))), 3)
     
     def _do_set_input_scaling(self, newscale, channel):
@@ -306,11 +324,24 @@ class ZI_MFLI(Instrument):
         try:
             self.daq.setInt('/%s/sigins/%s/diff' % (self._device_id, channel), self._difference_mode_dict[newmode])
         except:
-            logging.warning("Hahahaha. Your difference mode is invaliiiiid!")
+            logging.warning("Hahahaha. Your difference mode is invaliiiiid! Choose between 'off' and 'inverted'.")
     
     def _do_get_input_difference(self, channel):
         logging.debug(__name__ + ' : getting difference mode on input channel %s' % channel)
         return self._inv_difference_mode_dict[self.daq.getInt('/%s/sigins/%s/diff' % (self._device_id, channel))]
+    
+    def _do_set_input_float(self, newmode:bool, channel):
+        logging.debug(__name__ + " : setting floating mode on input channel %s to %s" % (channel, newmode))
+        if newmode:
+            self.daq.setInt('/%s/sigins/%s/float' % (self._device_id, channel), 1)
+        else:
+            self.daq.setInt('/%s/sigins/%s/float' % (self._device_id, channel), 0)
+    
+    def _do_get_input_float(self, channel):
+        logging.debug(__name__ + ' : getting floating mode on input channel %s' % channel)
+        return self.daq.getInt('/%s/sigins/%s/float' % (self._device_id, channel))
+    
+    
     '''
     oscillators
     '''    
@@ -322,6 +353,7 @@ class ZI_MFLI(Instrument):
     def _do_get_carrier_freq(self, channel):
         logging.debug(__name__ + ' : getting carrier frequency on channel %s' % channel)
         return round(float(self.daq.getDouble("/%s/oscs/%s/freq" % (self._device_id, channel))), 3)
+    
     '''
     demodulators
     '''
@@ -469,11 +501,11 @@ class ZI_MFLI(Instrument):
     def _do_set_output_50ohm(self, onoff, channel):
         if onoff:
             logging.debug(__name__ + ' : expecting a 50ohm load on output channel %s' % channel)
-            self.set_parameter_bounds("ch%d_output_range" % channel, 75e-3, 750e-3)
+            self.set_parameter_bounds("ch%d_output_range" % channel, 5e-3, 5)
             status = 1
         else:
             logging.debug(__name__ + ' : expecting a HiZ load on output channel %s' % channel)
-            self.set_parameter_bounds("ch%d_output_range" % channel, 150e-3, 1.5)
+            self.set_parameter_bounds("ch%d_output_range" % channel, 10e-3, 10)
             status = 0
         self.daq.setInt('/%s/sigouts/%s/imp50' % (self._device_id, channel), status)
         #self.daq.sync()
@@ -487,7 +519,7 @@ class ZI_MFLI(Instrument):
 
 
     def _do_set_output_range(self,newrange,channel):
-        valuesarray = np.array([75e-3, 750e-3])
+        valuesarray = np.array([5e-3, 50e-3, 500e-3, 5])
         if not self.daq.getInt('/%s/sigouts/%s/imp50' % (self._device_id, channel)):
             valuesarray = 2 * valuesarray
         if newrange not in valuesarray:
@@ -518,12 +550,12 @@ class ZI_MFLI(Instrument):
     
     def _do_set_output_amplitude(self, newampl, channel):
         logging.debug(__name__ + " : setting amplitude on output channel %s to %s s" % (channel, newampl))
-        self.daq.setDouble('/%s/sigouts/%s/amplitudes/%s' % (self._device_id, channel, 3 + 4 * (channel)), newampl)
+        self.daq.setDouble('/%s/sigouts/%s/amplitudes/%s' % (self._device_id, channel, 1), newampl)
         #self.daq.sync()
     
     def _do_get_output_amplitude(self, channel):
         logging.debug(__name__ + " : getting amplitude on output channel %s" % channel)
-        return float(self.daq.getDouble('/%s/sigouts/%s/amplitudes/%s' % (self._device_id, channel, 3 + 4 * (channel))))
+        return float(self.daq.getDouble('/%s/sigouts/%s/amplitudes/%s' % (self._device_id, channel, 1)))
     
 
     def _do_set_output_autorange(self, onoff, channel):
@@ -551,15 +583,38 @@ class ZI_MFLI(Instrument):
         else:
             logging.debug(__name__ + ' : deactivating amplitude on channel %s' % channel)
             status = 0
-        self.daq.setInt('/%s/sigouts/%s/enables/%s'  % (self._device_id, channel, 3 + 4 * (channel)), status)
+        self.daq.setInt('/%s/sigouts/%s/enables/%s'  % (self._device_id, channel, 1), status)
         #self.daq.sync()
     
     def _do_get_output_amp_enable(self, channel):
         logging.debug(__name__ + ' : getting amplitude status on output channel %s' % channel)
-        if self.daq.getInt('/%s/sigouts/%s/enables/%s'  % (self._device_id, channel, 3 + 4 * (channel))):
+        if self.daq.getInt('/%s/sigouts/%s/enables/%s'  % (self._device_id, channel, 1)):
             return True
         else:
             return False
+        
+    def _do_set_output_add(self, newmode:bool, channel):
+        logging.debug(__name__ + " : setting adding mode on output channel %s to %s" % (channel, newmode))
+        if newmode:
+            self.daq.setInt('/%s/sigouts/%s/add' % (self._device_id, channel), 1)
+        else:
+            self.daq.setInt('/%s/sigouts/%s/add' % (self._device_id, channel), 0)
+    
+    def _do_get_output_add(self, channel):
+        logging.debug(__name__ + ' : getting adding mode on input channel %s' % channel)
+        return self.daq.getInt('/%s/sigouts/%s/add' % (self._device_id, channel))
+    
+    def _do_set_output_difference(self, newmode:bool, channel):
+        logging.debug(__name__ + " : setting difference mode on output channel %s to %s" % (channel, newmode))
+        if newmode:
+            self.daq.setInt('/%s/sigouts/%s/diff' % (self._device_id, channel), 1)
+        else:
+            self.daq.setInt('/%s/sigouts/%s/diff' % (self._device_id, channel), 0)
+    
+    def _do_get_output_difference(self, channel):
+        logging.debug(__name__ + ' : getting difference mode on input channel %s' % channel)
+        return self.daq.getInt('/%s/sigouts/%s/diff' % (self._device_id, channel))
+    
     '''
     Software Parameters
     '''
@@ -633,3 +688,769 @@ if __name__ == "__main__":
     print(MFLI_test.get_ch1_input_difference())
     print("Done!")
     #MFLI_test.disable_everything()
+
+"""
+Node Documentation
+
+/DEV…​./AUXINS/n/AVERAGING
+
+/DEV…​./AUXINS/n/SAMPLE
+
+/DEV…​./AUXINS/n/VALUES/n
+
+AUXOUTS
+
+/DEV…​./AUXOUTS/n/DEMODSELECT
+
+/DEV…​./AUXOUTS/n/LIMITLOWER
+
+/DEV…​./AUXOUTS/n/LIMITUPPER
+
+/DEV…​./AUXOUTS/n/OFFSET
+
+/DEV…​./AUXOUTS/n/OUTPUTSELECT
+
+/DEV…​./AUXOUTS/n/PREOFFSET
+
+/DEV…​./AUXOUTS/n/SCALE
+
+/DEV…​./AUXOUTS/n/TIPPROTECT/ENABLE
+
+/DEV…​./AUXOUTS/n/TIPPROTECT/POLARITY
+
+/DEV…​./AUXOUTS/n/TIPPROTECT/SOURCE
+
+/DEV…​./AUXOUTS/n/TIPPROTECT/VALUE
+
+/DEV…​./AUXOUTS/n/VALUE
+
+CLOCKBASE
+
+/DEV…​./CLOCKBASE
+
+CURRINS
+
+/DEV…​./CURRINS/n/AUTORANGE
+
+/DEV…​./CURRINS/n/FLOAT
+
+/DEV…​./CURRINS/n/MAX
+
+/DEV…​./CURRINS/n/MIN
+
+/DEV…​./CURRINS/n/ON
+
+/DEV…​./CURRINS/n/RANGE
+
+/DEV…​./CURRINS/n/RANGESTEP/TRIGGER
+
+/DEV…​./CURRINS/n/SCALING
+
+DEMODS
+
+/DEV…​./DEMODS/n/ADCSELECT
+
+/DEV…​./DEMODS/n/ENABLE
+
+/DEV…​./DEMODS/n/FREQ
+
+/DEV…​./DEMODS/n/HARMONIC
+
+/DEV…​./DEMODS/n/ORDER
+
+/DEV…​./DEMODS/n/OSCSELECT
+
+/DEV…​./DEMODS/n/PHASEADJUST
+
+/DEV…​./DEMODS/n/PHASESHIFT
+
+/DEV…​./DEMODS/n/RATE
+
+/DEV…​./DEMODS/n/SAMPLE
+
+/DEV…​./DEMODS/n/SINC
+
+/DEV…​./DEMODS/n/TIMECONSTANT
+
+/DEV…​./DEMODS/n/TRIGGER
+
+DIOS (Digital I/O)
+
+/DEV…​./DIOS/n/AUXDRIVE
+
+/DEV…​./DIOS/n/DECIMATION
+
+/DEV…​./DIOS/n/DRIVE
+
+/DEV…​./DIOS/n/EXTCLK
+
+/DEV…​./DIOS/n/INPUT
+
+/DEV…​./DIOS/n/MODE
+
+/DEV…​./DIOS/n/OUTPUT
+
+EXTREFS
+
+/DEV…​./EXTREFS/n/ADCSELECT
+
+/DEV…​./EXTREFS/n/AUTOMODE
+
+/DEV…​./EXTREFS/n/DEMODSELECT
+
+/DEV…​./EXTREFS/n/ENABLE
+
+/DEV…​./EXTREFS/n/LOCKED
+
+/DEV…​./EXTREFS/n/OSCSELECT
+
+FEATURES
+
+/DEV…​./FEATURES/CODE
+
+/DEV…​./FEATURES/DEVTYPE
+
+/DEV…​./FEATURES/OPTIONS
+
+/DEV…​./FEATURES/SERIAL
+
+IMPS (Impedance)
+
+/DEV…​./IMPS/n/AC
+
+/DEV…​./IMPS/n/AUTO/BW
+
+/DEV…​./IMPS/n/AUTO/INPUTRANGE
+
+/DEV…​./IMPS/n/AUTO/OUTPUT
+
+/DEV…​./IMPS/n/AUTO/SUPPRESS
+
+/DEV…​./IMPS/n/BIAS/ENABLE
+
+/DEV…​./IMPS/n/BIAS/VALUE
+
+/DEV…​./IMPS/n/CALIB/INTERNAL/ACTIVE
+
+/DEV…​./IMPS/n/CALIB/INTERNAL/ENABLE
+
+/DEV…​./IMPS/n/CALIB/INTERNAL/SMOOTH
+
+/DEV…​./IMPS/n/CALIB/USER/ACTIVE
+
+/DEV…​./IMPS/n/CALIB/USER/ENABLE
+
+/DEV…​./IMPS/n/CALIB/USER/SMOOTH
+
+/DEV…​./IMPS/n/CONFIDENCE/COMPENSATION/ENABLE
+
+/DEV…​./IMPS/n/CONFIDENCE/COMPENSATION/RATIO
+
+/DEV…​./IMPS/n/CONFIDENCE/ENABLE
+
+/DEV…​./IMPS/n/CONFIDENCE/FREQLIMIT/ENABLE
+
+/DEV…​./IMPS/n/CONFIDENCE/LOWDUT2T/ENABLE
+
+/DEV…​./IMPS/n/CONFIDENCE/LOWDUT2T/RATIO
+
+/DEV…​./IMPS/n/CONFIDENCE/ONEPERIOD/ENABLE
+
+/DEV…​./IMPS/n/CONFIDENCE/OPENDETECT/ENABLE
+
+/DEV…​./IMPS/n/CONFIDENCE/OPENDETECT/RATIO
+
+/DEV…​./IMPS/n/CONFIDENCE/OVERFLOW/ENABLE
+
+/DEV…​./IMPS/n/CONFIDENCE/QFACTOR/ENABLE
+
+/DEV…​./IMPS/n/CONFIDENCE/SUPPRESSION/ENABLE
+
+/DEV…​./IMPS/n/CONFIDENCE/SUPPRESSION/RATIO
+
+/DEV…​./IMPS/n/CONFIDENCE/UNDERFLOW/ENABLE
+
+/DEV…​./IMPS/n/CONFIDENCE/UNDERFLOW/RATIO
+
+/DEV…​./IMPS/n/CURRENT/DEMODSELECT
+
+/DEV…​./IMPS/n/CURRENT/INPUTSELECT
+
+/DEV…​./IMPS/n/CURRENT/INVERT
+
+/DEV…​./IMPS/n/CURRENT/PID/ENABLE
+
+/DEV…​./IMPS/n/CURRENT/RANGE
+
+/DEV…​./IMPS/n/CURRENT/SCALING
+
+/DEV…​./IMPS/n/DEMOD/HARMONIC
+
+/DEV…​./IMPS/n/DEMOD/ORDER
+
+/DEV…​./IMPS/n/DEMOD/OSCSELECT
+
+/DEV…​./IMPS/n/DEMOD/RATE
+
+/DEV…​./IMPS/n/DEMOD/SINC
+
+/DEV…​./IMPS/n/DEMOD/TIMECONSTANT
+
+/DEV…​./IMPS/n/DISCARD/ENABLE
+
+/DEV…​./IMPS/n/DISCARD/LIMITLOWER
+
+/DEV…​./IMPS/n/DISCARD/LIMITUPPER
+
+/DEV…​./IMPS/n/ENABLE
+
+/DEV…​./IMPS/n/FREQ
+
+/DEV…​./IMPS/n/INTERPOLATION
+
+/DEV…​./IMPS/n/MAXBANDWIDTH
+
+/DEV…​./IMPS/n/MODE
+
+/DEV…​./IMPS/n/MODEL
+
+/DEV…​./IMPS/n/OMEGASUPPRESSION
+
+/DEV…​./IMPS/n/ONEPERIOD/ACTIVE
+
+/DEV…​./IMPS/n/ONEPERIOD/ENABLE
+
+/DEV…​./IMPS/n/OUTPUT/AMPLITUDE
+
+/DEV…​./IMPS/n/OUTPUT/DEMOD
+
+/DEV…​./IMPS/n/OUTPUT/ON
+
+/DEV…​./IMPS/n/OUTPUT/RANGE
+
+/DEV…​./IMPS/n/OUTPUT/SELECT
+
+/DEV…​./IMPS/n/SAMPLE
+
+/DEV…​./IMPS/n/VOLTAGE/DEMODSELECT
+
+/DEV…​./IMPS/n/VOLTAGE/INPUTSELECT
+
+/DEV…​./IMPS/n/VOLTAGE/INVERT
+
+/DEV…​./IMPS/n/VOLTAGE/RANGE
+
+/DEV…​./IMPS/n/VOLTAGE/SCALING
+
+MODS (Modulation)
+
+/DEV…​./MODS/n/CARRIER/AMPLITUDE
+
+/DEV…​./MODS/n/CARRIER/ENABLE
+
+/DEV…​./MODS/n/CARRIER/HARMONIC
+
+/DEV…​./MODS/n/CARRIER/INPUTSELECT
+
+/DEV…​./MODS/n/CARRIER/ORDER
+
+/DEV…​./MODS/n/CARRIER/OSCSELECT
+
+/DEV…​./MODS/n/CARRIER/PHASESHIFT
+
+/DEV…​./MODS/n/CARRIER/TIMECONSTANT
+
+/DEV…​./MODS/n/ENABLE
+
+/DEV…​./MODS/n/FREQDEV
+
+/DEV…​./MODS/n/FREQDEVENABLE
+
+/DEV…​./MODS/n/INDEX
+
+/DEV…​./MODS/n/MODE
+
+/DEV…​./MODS/n/OUTPUT
+
+/DEV…​./MODS/n/SIDEBANDS/n/AMPLITUDE
+
+/DEV…​./MODS/n/SIDEBANDS/n/ENABLE
+
+/DEV…​./MODS/n/SIDEBANDS/n/HARMONIC
+
+/DEV…​./MODS/n/SIDEBANDS/n/INPUTSELECT
+
+/DEV…​./MODS/n/SIDEBANDS/n/MODE
+
+/DEV…​./MODS/n/SIDEBANDS/n/ORDER
+
+/DEV…​./MODS/n/SIDEBANDS/n/OSCSELECT
+
+/DEV…​./MODS/n/SIDEBANDS/n/PHASESHIFT
+
+/DEV…​./MODS/n/SIDEBANDS/n/TIMECONSTANT
+
+OSCS (Oscillators)
+
+/DEV…​./OSCS/n/FREQ
+
+PIDS
+
+/DEV…​./PIDS/n/CENTER
+
+/DEV…​./PIDS/n/D
+
+/DEV…​./PIDS/n/DEMOD/ADCSELECT
+
+/DEV…​./PIDS/n/DEMOD/HARMONIC
+
+/DEV…​./PIDS/n/DEMOD/ORDER
+
+/DEV…​./PIDS/n/DEMOD/TIMECONSTANT
+
+/DEV…​./PIDS/n/DLIMITTIMECONSTANT
+
+/DEV…​./PIDS/n/ENABLE
+
+/DEV…​./PIDS/n/ERROR
+
+/DEV…​./PIDS/n/I
+
+/DEV…​./PIDS/n/INPUT
+
+/DEV…​./PIDS/n/INPUTCHANNEL
+
+/DEV…​./PIDS/n/KEEPINT
+
+/DEV…​./PIDS/n/LIMITLOWER
+
+/DEV…​./PIDS/n/LIMITUPPER
+
+/DEV…​./PIDS/n/MODE
+
+/DEV…​./PIDS/n/OUTPUT
+
+/DEV…​./PIDS/n/OUTPUTCHANNEL
+
+/DEV…​./PIDS/n/P
+
+/DEV…​./PIDS/n/PHASEUNWRAP
+
+/DEV…​./PIDS/n/PLL/AUTOMODE
+
+/DEV…​./PIDS/n/PLL/LOCKED
+
+/DEV…​./PIDS/n/RATE
+
+/DEV…​./PIDS/n/SETPOINT
+
+/DEV…​./PIDS/n/SETPOINTTOGGLE/ENABLE
+
+/DEV…​./PIDS/n/SETPOINTTOGGLE/RATE
+
+/DEV…​./PIDS/n/SETPOINTTOGGLE/SETPOINT
+
+/DEV…​./PIDS/n/SHIFT
+
+/DEV…​./PIDS/n/STREAM/EFFECTIVERATE
+
+/DEV…​./PIDS/n/STREAM/ERROR
+
+/DEV…​./PIDS/n/STREAM/OVERFLOW
+
+/DEV…​./PIDS/n/STREAM/RATE
+
+/DEV…​./PIDS/n/STREAM/SHIFT
+
+/DEV…​./PIDS/n/STREAM/VALUE
+
+/DEV…​./PIDS/n/VALUE
+
+SCOPES
+
+/DEV…​./SCOPES/n/CHANNEL
+
+/DEV…​./SCOPES/n/CHANNELS/n/BWLIMIT
+
+/DEV…​./SCOPES/n/CHANNELS/n/FULLSCALE
+
+/DEV…​./SCOPES/n/CHANNELS/n/INPUTSELECT
+
+/DEV…​./SCOPES/n/CHANNELS/n/LIMITLOWER
+
+/DEV…​./SCOPES/n/CHANNELS/n/LIMITUPPER
+
+/DEV…​./SCOPES/n/CHANNELS/n/OFFSET
+
+/DEV…​./SCOPES/n/ENABLE
+
+/DEV…​./SCOPES/n/LENGTH
+
+/DEV…​./SCOPES/n/SEGMENTS/COUNT
+
+/DEV…​./SCOPES/n/SEGMENTS/ENABLE
+
+/DEV…​./SCOPES/n/SINGLE
+
+/DEV…​./SCOPES/n/STREAM/ENABLES/n
+
+/DEV…​./SCOPES/n/STREAM/RATE
+
+/DEV…​./SCOPES/n/STREAM/SAMPLE
+
+/DEV…​./SCOPES/n/TIME
+
+/DEV…​./SCOPES/n/TRIGCHANNEL
+
+/DEV…​./SCOPES/n/TRIGDELAY
+
+/DEV…​./SCOPES/n/TRIGENABLE
+
+/DEV…​./SCOPES/n/TRIGFALLING
+
+/DEV…​./SCOPES/n/TRIGFORCE
+
+/DEV…​./SCOPES/n/TRIGGATE/ENABLE
+
+/DEV…​./SCOPES/n/TRIGGATE/INPUTSELECT
+
+/DEV…​./SCOPES/n/TRIGHOLDOFF
+
+/DEV…​./SCOPES/n/TRIGHOLDOFFCOUNT
+
+/DEV…​./SCOPES/n/TRIGHOLDOFFMODE
+
+/DEV…​./SCOPES/n/TRIGHYSTERESIS/ABSOLUTE
+
+/DEV…​./SCOPES/n/TRIGHYSTERESIS/MODE
+
+/DEV…​./SCOPES/n/TRIGHYSTERESIS/RELATIVE
+
+/DEV…​./SCOPES/n/TRIGLEVEL
+
+/DEV…​./SCOPES/n/TRIGREFERENCE
+
+/DEV…​./SCOPES/n/TRIGRISING
+
+/DEV…​./SCOPES/n/TRIGSLOPE
+
+/DEV…​./SCOPES/n/TRIGSTATE
+
+/DEV…​./SCOPES/n/WAVE
+
+SIGINS
+
+/DEV…​./SIGINS/n/AC
+
+/DEV…​./SIGINS/n/AUTORANGE
+
+/DEV…​./SIGINS/n/DIFF
+
+/DEV…​./SIGINS/n/FLOAT
+
+/DEV…​./SIGINS/n/IMP50
+
+/DEV…​./SIGINS/n/MAX
+
+/DEV…​./SIGINS/n/MIN
+
+/DEV…​./SIGINS/n/ON
+
+/DEV…​./SIGINS/n/RANGE
+
+/DEV…​./SIGINS/n/RANGESTEP/TRIGGER
+
+/DEV…​./SIGINS/n/SCALING
+
+SIGOUTS
+
+/DEV…​./SIGOUTS/n/ADD
+
+/DEV…​./SIGOUTS/n/AMPLITUDES/n
+
+/DEV…​./SIGOUTS/n/AUTORANGE
+
+/DEV…​./SIGOUTS/n/DIFF
+
+/DEV…​./SIGOUTS/n/ENABLES/n
+
+/DEV…​./SIGOUTS/n/IMP50
+
+/DEV…​./SIGOUTS/n/OFFSET
+
+/DEV…​./SIGOUTS/n/ON
+
+/DEV…​./SIGOUTS/n/OVER
+
+/DEV…​./SIGOUTS/n/RANGE
+
+STATS
+
+/DEV…​./STATS/CMDSTREAM/BANDWIDTH
+
+/DEV…​./STATS/CMDSTREAM/BYTESRECEIVED
+
+/DEV…​./STATS/CMDSTREAM/BYTESSENT
+
+/DEV…​./STATS/CMDSTREAM/PACKETSLOST
+
+/DEV…​./STATS/CMDSTREAM/PACKETSRECEIVED
+
+/DEV…​./STATS/CMDSTREAM/PACKETSSENT
+
+/DEV…​./STATS/CMDSTREAM/PENDING
+
+/DEV…​./STATS/CMDSTREAM/PROCESSING
+
+/DEV…​./STATS/CPULOAD
+
+/DEV…​./STATS/DATASERVERCPULOAD
+
+/DEV…​./STATS/DATASERVERMEMLOAD
+
+/DEV…​./STATS/DATASTREAM/BANDWIDTH
+
+/DEV…​./STATS/DATASTREAM/BYTESRECEIVED
+
+/DEV…​./STATS/DATASTREAM/PACKETSLOST
+
+/DEV…​./STATS/DATASTREAM/PACKETSRECEIVED
+
+/DEV…​./STATS/DATASTREAM/PENDING
+
+/DEV…​./STATS/DATASTREAM/PROCESSING
+
+/DEV…​./STATS/MEMLOAD
+
+/DEV…​./STATS/PHYSICAL/FANSPEED
+
+/DEV…​./STATS/PHYSICAL/FPGA/AUX
+
+/DEV…​./STATS/PHYSICAL/FPGA/CORE
+
+/DEV…​./STATS/PHYSICAL/FPGA/TEMP
+
+/DEV…​./STATS/PHYSICAL/OVERTEMPERATURE
+
+/DEV…​./STATS/PHYSICAL/TEMPERATURES/n
+
+/DEV…​./STATS/PHYSICAL/VOLTAGES/n
+
+STATUS
+
+/DEV…​./STATUS/ADC0MAX
+
+/DEV…​./STATUS/ADC0MIN
+
+/DEV…​./STATUS/ADC1MAX
+
+/DEV…​./STATUS/ADC1MIN
+
+/DEV…​./STATUS/FIFOLEVEL
+
+/DEV…​./STATUS/FLAGS/BINARY
+
+/DEV…​./STATUS/FLAGS/PACKETLOSSTCP
+
+/DEV…​./STATUS/FLAGS/PACKETLOSSUDP
+
+/DEV…​./STATUS/TIME
+
+SYSTEM
+
+/DEV…​./SYSTEM/ACTIVEINTERFACE
+
+/DEV…​./SYSTEM/BOARDREVISIONS/n
+
+/DEV…​./SYSTEM/COMPDELAY/CALIBRATE
+
+/DEV…​./SYSTEM/COMPDELAY/DELAYS/n
+
+/DEV…​./SYSTEM/EXTCLK
+
+/DEV…​./SYSTEM/FPGAREVISION
+
+/DEV…​./SYSTEM/FWLOG
+
+/DEV…​./SYSTEM/FWLOGENABLE
+
+/DEV…​./SYSTEM/FWREVISION
+
+/DEV…​./SYSTEM/IDENTIFY
+
+/DEV…​./SYSTEM/IMPEDANCE/APPLICATION
+
+/DEV…​./SYSTEM/IMPEDANCE/CALIB/CABLELENGTH
+
+/DEV…​./SYSTEM/IMPEDANCE/CALIB/INTERNAL/ALLOWSMOOTHING
+
+/DEV…​./SYSTEM/IMPEDANCE/CALIB/INTERNAL/DATA
+
+/DEV…​./SYSTEM/IMPEDANCE/CALIB/INTERNAL/INFO
+
+/DEV…​./SYSTEM/IMPEDANCE/CALIB/INTERNAL/STORE
+
+/DEV…​./SYSTEM/IMPEDANCE/CALIB/INTERNAL/VALID
+
+/DEV…​./SYSTEM/IMPEDANCE/CALIB/USER/ALLOWSMOOTHING
+
+/DEV…​./SYSTEM/IMPEDANCE/CALIB/USER/DATA
+
+/DEV…​./SYSTEM/IMPEDANCE/CALIB/USER/INFO
+
+/DEV…​./SYSTEM/IMPEDANCE/CALIB/USER/VALID
+
+/DEV…​./SYSTEM/IMPEDANCE/FILTER
+
+/DEV…​./SYSTEM/IMPEDANCE/FREQLIMIT2T/n/FREQ
+
+/DEV…​./SYSTEM/IMPEDANCE/FREQLIMIT2T/n/RANGE
+
+/DEV…​./SYSTEM/IMPEDANCE/FREQLIMIT4T/n/FREQ
+
+/DEV…​./SYSTEM/IMPEDANCE/FREQLIMIT4T/n/RANGE
+
+/DEV…​./SYSTEM/IMPEDANCE/PRECISION
+
+/DEV…​./SYSTEM/INTERFACESPEED
+
+/DEV…​./SYSTEM/JUMBO
+
+/DEV…​./SYSTEM/NICS/n/DEFAULTGATEWAY
+
+/DEV…​./SYSTEM/NICS/n/DEFAULTIP4
+
+/DEV…​./SYSTEM/NICS/n/DEFAULTMASK
+
+/DEV…​./SYSTEM/NICS/n/GATEWAY
+
+/DEV…​./SYSTEM/NICS/n/IP4
+
+/DEV…​./SYSTEM/NICS/n/JUMBO
+
+/DEV…​./SYSTEM/NICS/n/MAC
+
+/DEV…​./SYSTEM/NICS/n/MASK
+
+/DEV…​./SYSTEM/NICS/n/SAVEIP
+
+/DEV…​./SYSTEM/NICS/n/STATIC
+
+/DEV…​./SYSTEM/OWNER
+
+/DEV…​./SYSTEM/PORTTCP
+
+/DEV…​./SYSTEM/PORTUDP
+
+/DEV…​./SYSTEM/PREAMPENABLE
+
+/DEV…​./SYSTEM/PRESET/BUSY
+
+/DEV…​./SYSTEM/PRESET/DEFAULT
+
+/DEV…​./SYSTEM/PRESET/ERASE
+
+/DEV…​./SYSTEM/PRESET/ERROR
+
+/DEV…​./SYSTEM/PRESET/INDEX
+
+/DEV…​./SYSTEM/PRESET/LOAD
+
+/DEV…​./SYSTEM/PRESET/RECORDS/n/FEATURES
+
+/DEV…​./SYSTEM/PRESET/RECORDS/n/LABEL
+
+/DEV…​./SYSTEM/PRESET/RECORDS/n/TIMESTAMP
+
+/DEV…​./SYSTEM/PRESET/RECORDS/n/VALID
+
+/DEV…​./SYSTEM/PRESET/SAVE
+
+/DEV…​./SYSTEM/PROPERTIES/FREQRESOLUTION
+
+/DEV…​./SYSTEM/PROPERTIES/FREQSCALING
+
+/DEV…​./SYSTEM/PROPERTIES/MAXFREQ
+
+/DEV…​./SYSTEM/PROPERTIES/MAXTIMECONSTANT
+
+/DEV…​./SYSTEM/PROPERTIES/MINFREQ
+
+/DEV…​./SYSTEM/PROPERTIES/MINTIMECONSTANT
+
+/DEV…​./SYSTEM/PROPERTIES/NEGATIVEFREQ
+
+/DEV…​./SYSTEM/PROPERTIES/TIMEBASE
+
+/DEV…​./SYSTEM/SAVEPORTS
+
+/DEV…​./SYSTEM/SHUTDOWN
+
+/DEV…​./SYSTEM/STALL
+
+/DEV…​./SYSTEM/UPDATE/LABONE/BUSY
+
+/DEV…​./SYSTEM/UPDATE/LABONE/DATA
+
+/DEV…​./SYSTEM/UPDATE/LABONE/DONE
+
+/DEV…​./SYSTEM/UPDATE/LABONE/ERROR
+
+/DEV…​./SYSTEM/UPDATE/LABONE/PROGRESS
+
+/DEV…​./SYSTEM/UPDATE/LABONE/START
+
+TRIGGERS
+
+/DEV…​./TRIGGERS/IN/n/AUTOTHRESHOLD
+
+/DEV…​./TRIGGERS/IN/n/LEVEL
+
+/DEV…​./TRIGGERS/OUT/n/PULSEWIDTH
+
+/DEV…​./TRIGGERS/OUT/n/SOURCE
+
+TU (Threshold Unit)
+
+/DEV…​./TU/LOGICUNITS/n/INPUTS/n/CHANNEL
+
+/DEV…​./TU/LOGICUNITS/n/INPUTS/n/NOT
+
+/DEV…​./TU/LOGICUNITS/n/INTERNALVALUE
+
+/DEV…​./TU/LOGICUNITS/n/INVERT
+
+/DEV…​./TU/LOGICUNITS/n/KEEP
+
+/DEV…​./TU/LOGICUNITS/n/OPS/n/VALUE
+
+/DEV…​./TU/LOGICUNITS/n/PULSEWIDTH
+
+/DEV…​./TU/LOGICUNITS/n/VALUE
+
+/DEV…​./TU/THRESHOLDS/n/ACTIVATIONTIME
+
+/DEV…​./TU/THRESHOLDS/n/DEACTIVATIONTIME
+
+/DEV…​./TU/THRESHOLDS/n/FILTER/ABS
+
+/DEV…​./TU/THRESHOLDS/n/FILTER/ENABLE
+
+/DEV…​./TU/THRESHOLDS/n/FILTER/FILTEREDVALUE
+
+/DEV…​./TU/THRESHOLDS/n/FILTER/MODE
+
+/DEV…​./TU/THRESHOLDS/n/FILTER/THRESHOLDHIGH
+
+/DEV…​./TU/THRESHOLDS/n/FILTER/THRESHOLDLOW
+
+/DEV…​./TU/THRESHOLDS/n/FILTER/TIMECONSTANT
+
+/DEV…​./TU/THRESHOLDS/n/INPUT
+
+/DEV…​./TU/THRESHOLDS/n/INPUTCHANNEL
+
+/DEV…​./TU/THRESHOLDS/n/INTERNALVALUE
+
+/DEV…​./TU/THRESHOLDS/n/VALUE 
+"""

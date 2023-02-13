@@ -114,6 +114,8 @@ class fid(file_system_service):
         
     def __getitem__(self, key):
         with self.lock:
+            if type(key) == int:
+                return sorted(self.h5_db.keys())[key]
             try:
                 return self.h5_db[key]
             except KeyError as e:
@@ -275,7 +277,7 @@ class fid(file_system_service):
             for i in uid:
                 values = self._get_setting_from_set_file(self.h5_db[i].replace('.h5', '.set'), device, setting)
                 if update_hdf:
-                    for p, v in values.iteritems():
+                    for p, v in values.items():
                         self._set_hdf_attribute(i, p, v)
                 dfsetting = pd.concat([dfsetting,
                                        pd.DataFrame(values, index=[i])
@@ -393,7 +395,7 @@ class fid(file_system_service):
                 if show_raw or "rating" not in self.df.keys():
                     df = self.df.copy()
                 else:
-                    df = self.df.copy()[self.df['rating'] > 0]
+                    df = self.df.copy()[pd.to_numeric(self.df['rating']) > 0]
                 self.grid = qd.show_grid(df[rows], show_toolbar=False, grid_options={'enableColumnReorder': True})
                 self.grid.observe(self._on_row_selected, names=['_selected_rows'])
                 self.grid.observe(self._grid_observer, names=[
