@@ -34,18 +34,18 @@ class Loaderh5:
             
         elif path.startswith("sftp:"):
             if type(Pathobj) is not dict or 'authentication' not in Pathobj:
-                raise ValueError("sftp connection needs an authentication key and a configpath to a file with your encrypted credentials!")
+                raise ValueError("Could not find authentication data in you path object. Please make sure your pathobject is a dictionary containing an 'authentication' key.")
             
             host = "os-login.lsdf.kit.edu"                   #hard-coded
             port = 22
             transport = paramiko.Transport((host, port))
             try:
-                f=open(settings['authorization']['configpath'],"r")
-            except:
+                f=open(Pathobj['authentication']['configpath'],"r")
+            except KeyError:
                 raise AuthorizationError("sftp connection needs authorization infos. Missing authorization key in settings or wrong configpath.")
             lines=f.readlines()
-            username=deobfuscate(lines[0][:-1])
-            password=deobfuscate(lines[1][:-1])
+            username=deobfuscate(deobfuscate(lines[0][:-1]))
+            password=deobfuscate(deobfuscate(lines[1][:-1]))
             f.close()
             
             transport.connect(username = username, password = password)
@@ -58,7 +58,6 @@ class Loaderh5:
             data = h5py.File(path,'r')["entry"]["data0"]
             
         self.data_dict = {}
-        print("Done loading file, formatting now...")
         for key in data.keys():
             self.data_dict[key] = np.array(data.get(u'/entry/data0/' + key)[()])
         return self.data_dict , data
