@@ -1,32 +1,66 @@
 import os
 import json
+import collections.abc
 from qkit.analysis.semiconductor.main.saving import create_saving_path
-from qkit.measure.json_handler import QkitJSONEncoder
+from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
+
+def update(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
 
 class Saver_json():
-    """Saves data in a folder that is set by "settings". 
+    """Saves data in a folder that is set by "save_path". 
     """
-    def __init__(self, settings:dict) -> None:
-        self.settings = settings
+    def __init__(self, save_path) -> None:
         self.additional_info = {}
-        self.saving_path = create_saving_path(settings, "", filetype="")
+        self.fname = "analyzed_data"
+        self.saving_path = save_path
         self.single_file = True
+        self.append_to_file = True
     
     def add_info(self, fname, info):
-        self.additional_info[fname] = info
+        new_info = {fname : info}
+        update(self.additional_info, new_info)
     
     def remove_info(self, fname):
         self.additional_info.pop(fname, None)
 
-    def _save(self, fname, data):
-        full_path = os.path.join(self.saving_path, fname + ".json")
-        with open(full_path, "w+") as file: 
+    def _overwrite(self, fpath, data):
+        #full_path = os.path.join(self.saving_path, fname + ".json")
+        with open(fpath, "w") as file: 
             json.dump(data, file, cls = QkitJSONEncoder, indent = 4)
     
+    def _append(self, fpath, data):
+        #full_path = os.path.join(self.saving_path, fname + ".json")
+        with open(fpath, "r") as file:
+            data_total= json.load(file, cls = QkitJSONDecoder)
+        update(data_total, data)
+        with open(fpath, "w") as file:
+            json.dump(data_total, file, cls = QkitJSONEncoder, indent = 4)
+    
+    def _save(self, fname, data):
+        if not os.path.exists(self.saving_path):
+            os.makedirs(self.saving_path)
+        full_path = os.path.join(self.saving_path, fname + ".json")        
+        file_exists = os.path.isfile(full_path)
+        file_has_content = False         
+        if file_exists:
+            file_has_content = os.stat(full_path).st_size != 0
+
+        if file_has_content and self.append_to_file:
+            return self._append(full_path, data)
+        if not file_exists:
+            return self._overwrite(full_path, data)
+        if not self.append_to_file:
+            return self._overwrite(full_path, data)
+        
     def save(self):
         if self.single_file:
-            fname = f'{self.settings["file_info"]["filename"]}_analysis'
-            self._save(fname, self.additional_info)
+            self._save(self.fname, self.additional_info)
         else:
             for fname, info in self.additional_info.items():
                 self._save(fname, info)

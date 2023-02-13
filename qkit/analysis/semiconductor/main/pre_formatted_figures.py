@@ -6,8 +6,7 @@ class SemiFigure():
     """Standard class for plots of semiconducting people.
     """
     def __init__(self, jumbo_data = False): 
-        self.fig = plt.figure()
-        self.ax = self.fig.subplots()
+        self.fig, self.ax = plt.subplots()
         self.set_dpi = 400
         self.set_bbox_inches = "tight"
         self.save_as = ".png"

@@ -90,7 +90,7 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
     # define AWG program as string stored in the variable self.awg_program, equivalent to what
     # would be entered in the Sequence Editor window in the graphical UI.
     # before creating sequence, run load_config_file.
-    # set int loop_or_single_or_repeat to 0 (loop mode), 1 (single mode, default) or other positive integer as the number of repetitions (example: 3 => repeating 3 times)
+    # set int loop_or_single_or_repeat to 0 (loop mode, default), 1 (single mode) or other positive integer as the number of repetitions (example: 3 => repeating 3 times)
     def zcreate_sequence_program(self, loop_or_single_or_repeat = 0):
 
         #check input values
