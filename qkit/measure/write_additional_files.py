@@ -34,8 +34,11 @@ def get_instrument_settings(path):
         param_dict = {}
         for (param, popts) in _dict_to_ordered_tuples(ins.get_parameters()):
             param_dict.update({param:ins.get(param, query=False, channels=popts)})
-            if popts.get('offset',False):
-                param_dict.update({param+"_offset": ins._offsets[param]})
+            try:
+                if popts.get('offset',False):
+                    param_dict.update({param+"_offset": ins._offsets[param]})
+            except:
+                pass
         instr_dict.update({ins_name:param_dict})
     with open(fn+'.set','w+') as filehandler:
         json.dump(obj=instr_dict, fp=filehandler, cls=QkitJSONEncoder, indent = 4, sort_keys=True)
