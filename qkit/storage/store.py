@@ -63,7 +63,7 @@ class Data(object):
             if "user" in qkit.cfg:
                 self.hf.hf.attrs['_user'] = qkit.cfg.get('user')
             if "run_id" in qkit.cfg:
-                self.hf.hf.attrs['_run_id'] = qkit.cfg.get('run_id')
+                self.hf.hf.attrs['_run_id'] = qkit.cfg.get('run_id').upper()
         self._mapH5PathToObject()
         self.hf.flush()
         
