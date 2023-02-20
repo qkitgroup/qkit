@@ -35,7 +35,7 @@ else:
 
 import qkit
 from qkit import visa
-from time import sleep,clock
+from time import sleep
 import sys
 
 class HP_34401A(Instrument):
