@@ -246,18 +246,6 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
         except:
             logging.error(__name__+" : Rectangle sequence could not be created.")
 
-    def overwriteAWGprogram_hack(self):
-        # use join or similar AWG functions to actually make it work
-        awg_prog_list = []
-        awg_prog_list.append("wave w1 = 'wave1'; \n")
-        awg_prog_list.append("wave w2 = 'wave2'; \n")
-        awg_prog_list.append("while(true){\n")
-        awg_prog_list.append("playWave(1,w1,2,w2);\n")
-        awg_prog_list.append("}")
-        awg_program = "".join(awg_prog_list)
-        self.set_program_string(awg_program)
-        self.upload_to_device()
-
     def setclockandprescaler(self, f_waveform):
 
         '''Method to find and set the HDAWG clock frequency and the prescaler value for a frequency of a waveform with a specific number of samples. \n
