@@ -5,6 +5,7 @@ import numpy as np
 from findpeaks import findpeaks
 import h5py
 import matplotlib.pyplot as plt
+import math
 
 class TuneSET():
     def __init__(self, TG:list, B1:list, B2:list):
@@ -115,7 +116,10 @@ class TuneSET():
         regf["sg_get"](gate) : getter function of gate input, in case of adwin: bill.get_out()
         regf["sg_set"](gates, value) : setter function of gate input, in case of adwin: bill.set_out_parallel(), takes as arguments a list of gate numbers and a set value
         regf["restore_accumulation"]: ramps sweepgates up until sweep_gates reach topgate value or feeadback reaches accumulation_value
-        regf["2Dsweep"]: executes a 2D sweep, measuring feedback in a 2D gate voltage landscape
+        regf["2Dsweep"]: executes a 2D sweep, measuring feedback in a 2D gate voltage 
+        regf["acces_data"]: loader for previous measurement file
+        regf["acces_specific_data"]: loader for a specific measurement file
+        
         self.find_oscillation_window: finds a measurement window containing a Coulomb oscillation of an SET
         self.find_peaks_in_2Dsweep: finds a peak in the Coulomb oscillation
         self.set_barriers_to_peak_value: sets the barrier gates voltages according to the peak selected by the user, needs user input
@@ -349,6 +353,9 @@ class TuneSET():
     def register_access_data(self, func, *args, **kwargs):
         self._register_function_preloaded("access_data", func,  *args, **kwargs)
 
+    def register_access_specific_data(self, func, *args, **kwargs):
+        self._register_function_preloaded("access_specific_data", func,  *args, **kwargs)
+
     def check_whether_accumulated(self):
         if self.accumulation_value == None:
             raise ValueError("You didn't define accumulation_value. It is the feedback value above which sample is considered as accumulated.")
@@ -533,12 +540,12 @@ class TuneSET():
             print("Sample not accumulated. Try again with higher topgate voltage.")
      
         
-        
-    def check_center(self, x,y, window_radius):
-        if y >= x-window_radius and y<= x+window_radius:
-            return True
-        else:
-            return False
+    #to prefer symmetric barriers    
+    #def check_center(self, x,y, window_radius):
+     #   if y >= x-window_radius and y<= x+window_radius:
+      #      return True
+       # else:
+        #    return False
             
     def check_height(self, z, threshold):
         if abs(z)>=threshold:
@@ -557,13 +564,14 @@ class TuneSET():
         
     def find_peaks_in_2Dsweep(self):
         data = self.regf["access_data"]()
+            
         x = data['x']
         y = data['y']
         z = data['z']
         
-        #if not self.x_start or not self.y_start:
-        self.x_start=x[0]
-        self.y_start=y[0]
+        if math.isnan(self.x_start) or math.isnan(self.y_start):
+            self.x_start=x[0]
+            self.y_start=y[0]
             
         #change coordinate system: x_start = 0, y_start = 0
         x -= np.ones(len(x))*self.x_start
@@ -580,8 +588,8 @@ class TuneSET():
                 if((results['Xdetect'][xv][yv]))>0:
                     peak.append([-xv*0.001,-yv*0.001])
                     counter += 1
-
-        #print('\nNumber of peaks found: ', counter)
+        
+        print('\nNumber of peaks found by findpeaks: ', counter)
        
         z_values_peaks = []
         x_values_peaks = []
@@ -597,6 +605,8 @@ class TuneSET():
                             y_values_peaks.append(y[j]+self.y_start)
                             z_values_peaks.append(z[i][j])
                             
+        print('\nNumber of peaks found by findpeaks: ', len(x_values_peaks))                   
+                            
         #change coordinate system back:
         x += np.ones(len(x))*self.x_start
         y += np.ones(len(y))*self.y_start
@@ -605,9 +615,9 @@ class TuneSET():
         y_good_peaks =[]
         z_good_peaks =[]
         
-        if self.x_shutoff != np.nan and self.y_shutoff != np.nan:
+        if not math.isnan(self.x_shutoff) and not math.isnan(self.y_shutoff):
             for l in range(len(z_values_peaks)):
-                if self.check_center(x_values_peaks[l], y_values_peaks[l], self.max_distance_to_center)==True and self.check_height(z_values_peaks[l], self.peak_threshold) == True and self.is_below_cutoff(x_values_peaks[l], y_values_peaks[l], self.x_shutoff, self.y_shutoff):
+                if self.check_height(z_values_peaks[l], self.peak_threshold) == True and self.is_below_cutoff(x_values_peaks[l], y_values_peaks[l], self.x_shutoff, self.y_shutoff):
                     #print(f'Good Peak found. x={x_values_peaks[l]}, y={y_values_peaks[l]}, z={z_values_peaks[l]}')
                     x_good_peaks.append(x_values_peaks[l])
                     y_good_peaks.append(y_values_peaks[l])
@@ -615,27 +625,8 @@ class TuneSET():
         else:
             print("\nx_shutoff and y_shutoff  not given. In order to consider the below-cutoff-criteria, enter shutoff_x and shutoff_y or perform a new 2D sweep.")
             for l in range(len(z_values_peaks)):
-                if self.check_center(x_values_peaks[l], y_values_peaks[l], self.max_distance_to_center)==True and self.check_height(z_values_peaks[l], self.peak_threshold) == True:
+                if self.check_height(z_values_peaks[l], self.peak_threshold) == True:
                     #print(f'Good Peak found. x={x_values_peaks[l]}, y={y_values_peaks[l]}, z={z_values_peaks[l]}')
-                    x_good_peaks.append(x_values_peaks[l])
-                    y_good_peaks.append(y_values_peaks[l])
-                    z_good_peaks.append(z_values_peaks[l])
-                    
-                    
-        if len(x_good_peaks)==0:
-            if self.x_shutoff != np.nan and self.y_shutoff != np.nan:
-                for l in range(len(z_values_peaks)):
-                    if self.check_center(x_values_peaks[l], y_values_peaks[l], self.max_distance_to_center*3)==True and self.check_height(z_values_peaks[l], self.peak_threshold) == True and self.is_below_cutoff(x_values_peaks[l], y_values_peaks[l], self.x_shutoff, self.y_shutoff):
-                        print(f'\nNo peak found in center of picture. Peak found for increased search radius from {self.max_distance_to_center} V to 3*{self.max_distance_to_center} V:')
-                        print(f'x={x_values_peaks[l]}, y={y_values_peaks[l]}, r={z_values_peaks[l]}')
-                        x_good_peaks.append(x_values_peaks[l])
-                        y_good_peaks.append(y_values_peaks[l])
-                        z_good_peaks.append(z_values_peaks[l])
-            else: 
-                print("\nx_shutoff and y_shutoff not given. In order to consider the below-cutoff-criteria, enter shutoff_x and shutoff_y or perform a new 2D sweep.")
-                for l in range(len(z_values_peaks)):
-                    print(f'\n No peak found in center of picture. Peak found for increased search window radius from {self.max_distance_to_center} V to 3*{self.max_distance_to_center} V:')
-                    print(f'x={x_values_peaks[l]}, y={y_values_peaks[l]}, r={z_values_peaks[l]}')
                     x_good_peaks.append(x_values_peaks[l])
                     y_good_peaks.append(y_values_peaks[l])
                     z_good_peaks.append(z_values_peaks[l])
@@ -643,7 +634,7 @@ class TuneSET():
         if len(x_good_peaks)==0:
             print('\nNo peak found below shutoff. Neglect shutoff criterium.')
             for l in range(len(z_values_peaks)):
-                if self.check_center(x_values_peaks[l], y_values_peaks[l], self.max_distance_to_center)==True and self.check_height(z_values_peaks[l], self.peak_threshold) == True:
+                if self.check_height(z_values_peaks[l], self.peak_threshold) == True:
                     x_good_peaks.append(x_values_peaks[l])
                     y_good_peaks.append(y_values_peaks[l])
                     z_good_peaks.append(z_values_peaks[l])
@@ -651,7 +642,7 @@ class TuneSET():
             
         
         if len(x_good_peaks)==0:
-            print('No good peaks found. Some possible solutions: \n A) decrease peak_threshold \n B) increase shutoff_value and perform new 2D sweep')         
+            print('No good peaks found. Some possible solutions: \n A) decrease peak_threshold \n B) set self.x_shutoff = np.nan, self.y_shutoff = np.nan \n C) increase shutoff_value and perform new 2D sweep')         
         
         sel_peak = dict()
         for m in range(len(z_good_peaks)):
@@ -689,6 +680,9 @@ class TuneSET():
             self.good_peaks[m+1] = {'x': x_good_peaks[m], 'y': y_good_peaks[m], 'z': z_good_peaks[m]}
             
         return self.good_peaks
+    
+    
+    
         
         
     def set_barriers_to_peak_value(self):
