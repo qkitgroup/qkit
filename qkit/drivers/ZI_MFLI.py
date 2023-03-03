@@ -71,7 +71,7 @@ class ZI_MFLI(Instrument):
         self.add_parameter("input_range", type = float,
                            flags = ZI_MFLI.FLAG_GETSET,
                            channels = (0,), channel_prefix = "ch%d_",
-                           minval = 10e-3, maxval = 1.5, 
+                           minval = 10e-3, maxval = 3, 
                            units = "V")
         
         self.add_parameter("input_scaling", type = float,
