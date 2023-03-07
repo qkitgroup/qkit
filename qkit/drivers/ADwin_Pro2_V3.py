@@ -414,17 +414,18 @@ class ADwin_Pro2_V3(Instrument):
         logging.info(__name__ +': stopping process')
         self.adw.Stop_Process(self.processnumber)
         logging.debug(__name__+': process status: %d'%self.adw.Process_Status(self.processnumber))
-        print("Ramping down all outputs (gates + current sources) to 0 Volts if possible...\nGreen LED at DAC module indicates ongoing ramping action.")
+        print("Ramping down all outputs (gates + current sources) to 0 Volts IF ADwin IS NOT DEAD...\nGreen LED at DAC module would indicate ongoing ramping action.")
         while True:
             try:   #if all outputs were at 0V then the process is already dead
                 if self.adw.Get_Par(76)==-1:
                     time.sleep(0.1)
+                    logging.info(__name__+':ADwin is ramping down.')
                 else:
-                    print("All outputs are ramped down to 0 Volts. No exception.")
+                    logging.info(__name__+':ADwin not busy anymore.')
                     break
             except:
                 #The FINISH part in the ADwin has finished ramping down all outputs and the process is dead
-                print("All outputs are ramped down to 0 Volts.")
+                logging.info(__name__+':process stopped successfully.')
                 break
 
     def load_process(self):
@@ -1262,7 +1263,7 @@ class ADwin_Pro2_V3(Instrument):
         return V_range
 
 
-    def initialize_gates(self, number, reset_to_0=True, lower_limit=0, upper_limit=0, speed=0.2):
+    def initialize_gates(self, number, reset_to_0:bool=True, lower_limit=0, upper_limit=0, speed=0.2, init_V=None):
         '''This function sets the number of  gates (including current sources)
         and distributes them on the modules starting at module 1 and filling up
         all 8 outputs. Then module 2 etc. is filled up. The modules have to exist.
@@ -1273,6 +1274,8 @@ class ADwin_Pro2_V3(Instrument):
             number: number of voltage gates including current sources.
             lower_limit: initializes voltage gates with given lower limit
             upper_limit: initializes voltage gates with given uppper limit
+            speed: ramping speed of voltage outputs in V/s
+            init_V: dict of gates that should be set in form {4: 1.2, 5: -0.5, }
         '''
         #Since this function is excecuted mostly directly after creating the ADwin instrument, the low priority 
         #initialization of the ADwin should be given time to execute. A sleep of 2s should be sufficient. 
@@ -1343,7 +1346,18 @@ class ADwin_Pro2_V3(Instrument):
                 for gate in range(4, number+1):  
                     self.set('gate%d_out'% gate, 0)
                 
-            
+            else:
+                #initialize ADwin with Voltages
+                if isinstance(init_V, dict):
+                    #set voltages to memory of ADwin, this does NOT change voltage of outputs
+                    for gate in init_V.keys():
+                        V = self.volt_to_digit(init_V[gate], gate)[0]
+                        self.adw.SetData_Long([V], 197, gate, 1) #ramp_start_Data thats where the ramp will start
+                        self.adw.SetData_Long([V], 200, gate, 1) #ramp_stop_Data thats getted by self.get_out()
+                else:
+                    logging.warning(__name__+': Error with init_V')
+                    raise Exception('init_V has to be given and needs to be a dictionary!')
+                
             
     #The following functions are for the use of current sources that are set with a voltage 
     #by the ADwin
@@ -1718,22 +1732,25 @@ if __name__ == "__main__":
     #1)create instance - implement global voltage limits when creating instance
     
     #bill with oversampling and parallel gate setting
-    set_outputs_0 = True # standard value:True ; setting this to False wont ramp down outputs and DOESN'T boot a process. Do this only if reinitialized with same parameters! Also adjust bill.initialize_gates(set_to_0=False)
-
-    bill = qkit.instruments.create('bill', 'ADwin_Pro2_V3',processnumber=1, 
-                               processpath='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ramp_input_V3.TC1', 
-                               devicenumber=1, 
-                               bootload=set_outputs_0,
-                               global_lower_limit_in_V=-5, 
-                               global_upper_limit_in_V=+5,
-                               import_coil_params=True)
+    gate_num = 10
+    reboot = True  # reboots the ADwin process. IF ADwin is dead the outputs will not be affected by rebooting. 
+                   # IF ADwin is still alive the gates will be ramped to 0V.
+    reset_outputs = False # if False the outputs will be initilized with the values of memory_voltages and if not stated will be at -1*bit_step
     
-    gate_num = 24
-    ohmics = np.arange(24, gate_num+1)
+    #voltages used to write to ADwin memory if reset_output = False
+    memory_voltages = {4: 4,
+                      3: 1,
+                      }
     
-    bill.initialize_gates(gate_num,lower_limit=-2, upper_limit=0.8, speed=0.2)
-    for ohmic in ohmics:
-        bill.individual_voltage_limits_setter_in_V(-10e-3, 10e-3, ohmic)
+    bill = qkit.instruments.create('bill',
+        'ADwin_Pro2_V3',
+        bootload=reboot,
+        global_lower_limit_in_V=-5,
+        global_upper_limit_in_V=+5,
+        import_coil_params=True)
+    
+    bill.initialize_gates(gate_num, reset_to_0=reset_outputs, 
+                          lower_limit=-4.0, upper_limit=4, speed=0.2, init_V=memory_voltages)
         
     print(10*'*'+'Initialization complete'+10*'*')
     
