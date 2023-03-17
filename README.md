@@ -24,6 +24,8 @@
   * pyqtgraph is required by the viewer (qkit/gui/qviewkit) : http://www.pyqtgraph.org/
   * Optional: We use ipython/jupyter notebooks for the measurement scripts: http://jupyter.org
   * Optional: Messages are distributed with zmq: http://zeromq.org (also used by jupyter)
+  * Optional: To use Zurich Instruments devices, `zhinst-toolkit` is required
+  * Optional: `pyvisa` in combination with `pyvisa-py`
   
   
 

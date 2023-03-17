@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft-04/schema#",
+  "header": {
+    "version": "1.0"
+  },
+  "table": [
+    {
+      "index": 0,
+      "waveform": {
+        "index": 0
+      },
+      "amplitude00": {
+        "value": 0.0,
+        "increment": false
+      },
+      "amplitude01": {
+        "value": -0.0,
+        "increment": false
+      },
+      "amplitude10": {
+        "value": 0.0,
+        "increment": false
+      },
+      "amplitude11": {
+        "value": 0.0,
+        "increment": false
+      }
+    },
+    {
+      "index": 1,
+      "waveform": {
+        "index": 0
+      },
+      "amplitude00": {
+        "value": 0.007,
+        "increment": true
+      },
+      "amplitude01": {
+        "value": -0.007,
+        "increment": true
+      },
+      "amplitude10": {
+        "value": 0.007,
+        "increment": true
+      },
+      "amplitude11": {
+        "value": 0.007,
+        "increment": true
+      }
+    }
+  ]
+}

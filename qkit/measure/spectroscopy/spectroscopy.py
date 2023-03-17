@@ -80,6 +80,7 @@ class spectrum(object):
         self._plot_comment = ""
 
         self.set_log_function()
+        self.set_log_function_2D()
 
         self.open_qviewkit = True
         self.qviewkit_singleInstance = False
@@ -135,6 +136,54 @@ class spectrum(object):
                 self.log_name.append(name[i])
                 self.log_unit.append(unit[i])
                 self.log_dtype.append(log_dtype[i])
+    
+    def set_log_function_2D(self, func=None, name=None, unit=None, y=None, y_name=None, y_unit=None, log_dtype=None):
+        '''
+        A function (object) can be passed to the measurement loop which is excecuted before every x iteration
+        but after executing the x_object setter in 2D measurements and before every line (but after setting
+        the x value) in 3D measurements.
+        The return values of the function of type 1D-list or similar is stored in a value matrix in the h5 file.
+
+        Call without any arguments to delete all log functions. The timestamp is automatically saved.
+
+        func: function object in list form, returning a list each
+        name: name of logging parameter appearing in h5 file, default: 'log_param'
+        unit: unit of logging parameter, default: ''
+        log_dtype: h5 data type, default: 'f' (float32)
+        '''
+        if name == None:
+            try:
+                name = ['log_param'] * len(func)
+            except Exception:
+                name = None
+        if unit == None:
+            try:
+                unit = [''] * len(func)
+            except Exception:
+                unit = None
+        if log_dtype == None:
+            try:
+                log_dtype = ['f'] * len(func)
+            except Exception:
+                log_dtype = None
+
+        self.log_function_2D = []
+        self.log_name_2D = []
+        self.log_unit_2D = []
+        self.log_y_2D = []
+        self.log_y_name_2D = []
+        self.log_y_unit_2D = []
+        self.log_dtype_2D = []
+
+        if func != None:
+            for i, _ in enumerate(func):
+                self.log_function_2D.append(func[i])
+                self.log_name_2D.append(name[i])
+                self.log_unit_2D.append(unit[i])
+                self.log_dtype_2D.append(log_dtype[i])
+                self.log_y_2D.append(y[i])
+                self.log_y_name_2D.append(y_name[i])
+                self.log_y_unit_2D.append(y_unit[i])
 
     def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit=""):
         """
@@ -279,6 +328,21 @@ class spectrum(object):
                     self._log_value.append(
                         self._data_file.add_value_vector(self.log_name[i], x=self._data_x, unit=self.log_unit[i],
                                                          dtype=self.log_dtype[i]))
+
+            if self.log_function_2D != None:  # use 2D logging
+                self._log_y_value_2D = []
+                for i in range(len(self.log_y_name_2D)):
+                    if self.log_y_name_2D[i] not in self.log_y_name_2D[:i]:  # add y coordinate for 2D logging
+                        self._log_y_value_2D.append(self._data_file.add_coordinate(self.log_y_name_2D[i], unit=self.log_y_unit_2D[i], folder='data'))  # possibly use "data1"
+                        self._log_y_value_2D[i].add(self.log_y_2D[i])
+                    else:  # use y coordinate for 2D logging if it is already added
+                        self._log_y_value_2D.append(self._log_y_value_2D[np.squeeze(np.argwhere(self.log_y_name_2D[i] == np.array(self.log_y_name_2D[:i])))])
+                
+                self._log_value_2D = []
+                for i in range(len(self.log_function_2D)):
+                    self._log_value_2D.append(
+                        self._data_file.add_value_matrix(self.log_name_2D[i], x=self._data_x, y=self._log_y_value_2D[i], unit=self.log_unit_2D[i],
+                                                         dtype=self.log_dtype_2D[i], folder='data'))  # possibly use "data1"
 
         if self.comment:
             self._data_file.add_comment(self.comment)
@@ -513,6 +577,10 @@ class spectrum(object):
                     for i, f in enumerate(self.log_function):
                         self._log_value[i].append(float(f()))
 
+                if self.log_function_2D != None:
+                    for i, f in enumerate(self.log_function_2D):
+                        self._log_value_2D[i].append(f())
+
                 if self._scan_dim == 3:
                     for y in self.y_vec:
                         # loop: y_obj with parameters from y_vec (only 3D measurement)
@@ -623,7 +691,7 @@ class spectrum(object):
             self._fit_resonator = False
             return
         self._functions = {'lorentzian': 0, 'skewed_lorentzian': 1, 'circle_fit_reflection': 2, 'circle_fit_notch': 3,
-                           'fano': 5, 'all_fits': 5}
+                           'fano': 4, 'all_fits': 5}
         try:
             self._fit_function = self._functions[fit_function]
         except KeyError:
@@ -643,16 +711,18 @@ class spectrum(object):
 
         if self._fit_function == 0:  # lorentzian
             self._resonator.fit_lorentzian(f_min=self._f_min, f_max=self._f_max)
-        if self._fit_function == 1:  # skewed_lorentzian
+        elif self._fit_function == 1:  # skewed_lorentzian
             self._resonator.fit_skewed_lorentzian(f_min=self._f_min, f_max=self._f_max)
-        if self._fit_function == 2:  # circle_reflection
+        elif self._fit_function == 2:  # circle_reflection
             self._resonator.fit_circle(reflection=True, f_min=self._f_min, f_max=self._f_max)
-        if self._fit_function == 3:  # circle_notch
+        elif self._fit_function == 3:  # circle_notch
             self._resonator.fit_circle(notch=True, f_min=self._f_min, f_max=self._f_max)
-        if self._fit_function == 4:  # fano
+        elif self._fit_function == 4:  # fano
             self._resonator.fit_fano(f_min=self._f_min, f_max=self._f_max)
         # if self._fit_function == 5: #all fits
         # self._resonator.fit_all_fits(f_min=self._f_min, f_max = self._f_max)
+        else:
+            logging.error("Fit function {:d} not supported".format(self._fit_function))
 
     def set_tdx(self, tdx):
         self.tdx = tdx

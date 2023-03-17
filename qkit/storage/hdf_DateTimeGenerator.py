@@ -66,7 +66,7 @@ class DateTimeGenerator(object):
         '''New filename with datadir/run_id/user/uuid_name/uuid_name.h5'''
         
         self.returndict['_relfolder'] = os.path.join(
-                qkit.cfg.get('run_id', 'NO_RUN').strip().replace(" ", "_"),
+                qkit.cfg.get('run_id', 'NO_RUN').strip().replace(" ", "_").upper(),
                 qkit.cfg.get('user', 'John_Doe').strip().replace(" ", "_"),
                 filename
         )

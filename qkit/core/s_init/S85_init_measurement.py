@@ -16,7 +16,7 @@ if qkit.cfg.get('datafolder_structure', 1) == 2:
         )
         
         b.f1 = widgets.Text(
-                value=str(qkit.cfg.get('run_id', '')),
+                value=str(qkit.cfg.get('run_id', '')).upper(),
                 placeholder='***RUN_ID IS EMPTY***',
                 description='Please check: Run ID',
                 disabled=False,
@@ -44,7 +44,7 @@ if qkit.cfg.get('datafolder_structure', 1) == 2:
                 raise ValueError("RUN_ID is still empty!")
             if not b.f2.value:
                 raise ValueError("USER is still empty!")
-            qkit.cfg['run_id'] = b.f1.value
+            qkit.cfg['run_id'] = b.f1.value.upper()
             qkit.cfg['user'] = b.f2.value
             btn.f1.disabled = True  # close()
             btn.f1.border_color = '#cccccc'

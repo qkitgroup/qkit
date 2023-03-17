@@ -10,9 +10,9 @@ from time import time
 import qkit
 if qkit.cfg.get('check_for_updates',False):
     try:
-        with open(join(qkit.cfg['qkitdir'], '../.git/logs/HEAD'), 'r') as f:
+        with open(join(qkit.cfg['qkitdir'], '../.git/logs/HEAD'), 'rb') as f:
             f.seek(-1024, 2)
-            last_commit = f.readlines()[-1].split("\t")[0]  # The line looks like this: 0old_commit 1new_commit 2username 3mail 4timestamp 5timezone
+            last_commit = f.readlines()[-1].decode().split("\t")[0]  # The line looks like this: 0old_commit 1new_commit 2username 3mail 4timestamp 5timezone
             qkit.git = {
                 'timestamp': float(last_commit.split(" ")[-2]),
                 'commit_id': last_commit.split(" ")[1]

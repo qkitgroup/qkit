@@ -395,7 +395,7 @@ class fid(file_system_service):
                 if show_raw or "rating" not in self.df.keys():
                     df = self.df.copy()
                 else:
-                    df = self.df.copy()[self.df['rating'] > 0]
+                    df = self.df.copy()[pd.to_numeric(self.df['rating']) > 0]
                 self.grid = qd.show_grid(df[rows], show_toolbar=False, grid_options={'enableColumnReorder': True})
                 self.grid.observe(self._on_row_selected, names=['_selected_rows'])
                 self.grid.observe(self._grid_observer, names=[

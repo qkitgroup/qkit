@@ -33,7 +33,7 @@ class Measurement(object):
         self.z_axis = ''
         self.instruments = None
         self.user = qkit.cfg.get('user','John_Doe').strip().replace(" ","_")
-        self.run_id = qkit.cfg.get('run_id','NO_RUN').strip().replace(" ","_")
+        self.run_id = qkit.cfg.get('run_id','NO_RUN').strip().replace(" ","_").upper()
 
     def get_JSON(self):
         """

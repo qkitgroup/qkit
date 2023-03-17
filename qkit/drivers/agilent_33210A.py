@@ -34,7 +34,7 @@ else:
             pass
 
 from qkit import visa
-from time import sleep,clock
+from time import sleep
 import sys
 
 class agilent_33210A(Instrument):
@@ -101,7 +101,7 @@ class agilent_33210A(Instrument):
     def set_frequency(self, freq):
         freq = float(freq)
         if (freq<self.min_freq) or (freq>self.max_freq):
-            print >> sys.stderr, "agilent_33210A: frequency out of range!"
+            print("agilent_33210A: frequency out of range!", file=sys.stderr)
             return -1
         com_str = "FREQuency %f" % freq
         self._visainstrument.write(com_str)
@@ -116,7 +116,7 @@ class agilent_33210A(Instrument):
 
     def set_function(self,f_str):
         if (f_str != "SIN") and (f_str != "SQU"):
-            print >> sys.stderr, "agilent_33210A: selected function not recognized!"
+            print("agilent_33210A: selected function not recognized!", file=sys.stderr)
             # FUNCtion {SINusoid|SQUare|RAMP|PULSe|NOISe|DC|USER}, some not implemented
             return -1
         com_str = "FUNCtion %s" % f_str
@@ -145,7 +145,7 @@ class agilent_33210A(Instrument):
     def set_amplitude(self, ampl):
         ampl = float(ampl)
         if (ampl<self.min_ampl) or (ampl>self.max_ampl):
-            print >> sys.stderr, "agilent_33210A: amplitude out of range!"
+            print("agilent_33210A: amplitude out of range!", file=sys.stderr)
             return -1
         com_str = "VOLTage %f" % ampl
         self._visainstrument.write(com_str)
@@ -186,7 +186,7 @@ class agilent_33210A(Instrument):
     def set_offset(self, offs = 0):
         offs = float(offs)
         if (offs > self.max_offs) or (offs < self.min_offs):
-            print >> sys.stderr, "agilent_33210A: offset out of range!"
+            print("agilent_33210A: offset out of range!", file=sys.stderr)
             return -1
         com_str = "VOLTage:OFFset %f" % offs
         self._visainstrument.write(com_str)
@@ -201,7 +201,7 @@ class agilent_33210A(Instrument):
 
     def set_voltage_units(self, vunits = "VPP"):
         if (vunits != "VPP") and (vunits != "VRMS") and (vunits != "DBM"):
-            print >> sys.stderr, "agilent_33210A: input error in set_voltage_units()"
+            print("agilent_33210A: input error in set_voltage_units()", file=sys.stderr)
             return -1
         com_str = "VOLTage:UNIT %s" % vunits
         self._visainstrument.write(com_str)
@@ -222,7 +222,7 @@ class agilent_33210A(Instrument):
         elif float(load) > 1.0:
             com_str = "OUTPut:LOAD %f" % float(load)
         else:
-            print >> sys.stderr, "agilent_33210A: input error in set_output_load()"
+            print("agilent_33210A: input error in set_output_load()", file=sys.stderr)
             return -1
         self._visainstrument.write(com_str)
         sleep(0.05)
@@ -237,23 +237,23 @@ if __name__ == "__main__":
 
     agilent_AWG = agilent_33210A("agilent_AWG", "TCPIP::192.168.0.2")
 
-    print agilent_AWG._visainstrument.ask("*IDN?")
+    print( agilent_AWG._visainstrument.ask("*IDN?"))
     
-    print agilent_AWG.set_voltage_units("VRMS")
+    print( agilent_AWG.set_voltage_units("VRMS"))
         
-    print agilent_AWG.set_output_load("INF")
+    print( agilent_AWG.set_output_load("INF"))
 
-    print agilent_AWG.set_frequency(1000.0)
+    print( agilent_AWG.set_frequency(1000.0))
 
-    print agilent_AWG.set_amplitude(0.1)
+    print( agilent_AWG.set_amplitude(0.1))
 
-    print agilent_AWG.set_offset(0.1)
+    print( agilent_AWG.set_offset(0.1))
     
-    print agilent_AWG.set_output(1)
+    print( agilent_AWG.set_output(1))
 
     sleep(1)
 
-    print agilent_AWG.set_output(0)
+    print( agilent_AWG.set_output(0))
 
 #    start = float(clock())
 #    for i in range(100):

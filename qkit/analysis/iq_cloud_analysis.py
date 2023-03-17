@@ -66,7 +66,7 @@ class IQCloudAnalysis:
 
     #######  out of the box usage for the two qubit clouds ################
 
-    def analyse_qubit_clouds(self, I, Q, fq=-1, covariance_type='spherical',
+    def analyse_qubit_clouds(self, I, Q, fq=-1,
                              pos_init=None, weights_init=None, precisions_init=None):
         """
         This routine performs an IQ cloud analyis with the given gaussian mixture model and
@@ -81,7 +81,7 @@ class IQCloudAnalysis:
         self.set_IQ_data_sweep(I, Q)
 
         # 2. set up gaussian micture model
-        self.set_up_gaussian_mixture_model(2, covariance_type=covariance_type,
+        self.set_up_gaussian_mixture_model(self.n_states, covariance_type=self.covariance_type,
                                            pos_init=pos_init, weights_init=weights_init, precisions_init=precisions_init)
 
         # 3. fit clouds
@@ -114,15 +114,25 @@ class IQCloudAnalysis:
 
     ################ load and manipulate data  ##############
 
-    def set_IQ_data_sweep(self, I, Q, sweep_param=None):
+    def set_IQ_data_sweep(self, I, Q, sweep_param=None, dist_avg=-1):
+        """ Load 2-dimensional IQ data in the form [avg, sweep]
+            If needed scale the data with a given dist_avg
+        """
 
-        self.sweep_param = sweep_param
         data = np.dstack((I, Q))
         self.data = np.moveaxis(data, 1, 0)
         self.n_steps = self.data.shape[0]
 
+        if sweep_param is None:
+            self.sweep_param = np.arange(self.n_steps)
+        else:
+            self.sweep_param = sweep_param
+
         # scale data around unity - important for convergence
-        self.dist_avg = np.mean(np.sqrt(self.data[:, :, 0]**2 + self.data[:, :, 1]**2), axis=(0, 1))
+        if dist_avg == -1:
+            self.dist_avg = np.mean(np.sqrt(self.data[:, :, 0]**2 + self.data[:, :, 1]**2), axis=(0, 1))
+        else:
+            self.dist_avg = dist_avg
         self.data /= self.dist_avg
 
 
@@ -305,12 +315,12 @@ class IQCloudAnalysis:
 
                 label[j] = np.argmin(dist)
 
-        self.positions[i, :, :] = self.positions[i, label, :]
-        self.weights[i, :] = self.weights[i, label]
-        if self.covariance_type != "tied":
-            self.covariances[i][:] = self.covariances[i][label]
-            self.precisions[i][:] = self.precisions[i][label]
-        self.generalized_variance[i, :] = self.generalized_variance[i, label]
+            self.positions[i, :, :] = self.positions[i, label, :]
+            self.weights[i, :] = self.weights[i, label]
+            if self.covariance_type != "tied":
+                self.covariances[i][:] = self.covariances[i][label]
+                self.precisions[i][:] = self.precisions[i][label]
+            self.generalized_variance[i, :] = self.generalized_variance[i, label]
 
 
     def sort_clouds_weights(self):
@@ -365,6 +375,8 @@ class IQCloudAnalysis:
         bins_x = np.arange(x_range[0] - bin_size / 2, x_range[1] + bin_size, bin_size)
         bins_y = np.arange(y_range[0] - bin_size / 2, y_range[1] + bin_size, bin_size)
 
+        im = None
+
         if style == "scatter":
             if self.data.shape[1] < 1e6:
                 self.ax.scatter(self.data[step, :, 0], self.data[step, :, 1], 0.1)
@@ -379,7 +391,7 @@ class IQCloudAnalysis:
             hmax = np.max(H)
             H[H < 1] = hmax + 1   # trick to get a white color for all zero entries
 
-            self.ax.imshow(H.T, origin="lower", extent=(bins_x[0], bins_x[-1], bins_y[0], bins_y[-1]), cmap="terrain",
+            im = self.ax.imshow(H.T, origin="lower", extent=(bins_x[0], bins_x[-1], bins_y[0], bins_y[-1]), cmap="terrain",
                       norm=colors.LogNorm(vmin=1, vmax=hmax), interpolation="none")
 
         # contour plot
@@ -405,7 +417,7 @@ class IQCloudAnalysis:
         #    self.ax.plot(self.positions[step, i, 0] + np.dot(np.cos(s), self.positions[step, i, 0] + np.sin(s))
 
         # plot origin and position of states
-        self.ax.plot(0.0, 0.0, 'r.')
+        # self.ax.plot(0.0, 0.0, 'r.')
         for i in range(self.n_states):
             self.ax.plot(self.positions[step, i, 0], self.positions[step, i, 1], 'k.')
 
@@ -413,8 +425,10 @@ class IQCloudAnalysis:
         self.ax.set_ylim(bins_y[0], bins_y[-1])
         self.ax.axis("equal")
 
+        return im
 
-    def plot_probability_sweep(self):
+
+    def plot_weights(self):
 
         for i in range(self.n_states):
             self.ax.plot(self.sweep_param, self.weights[:, i], '.')

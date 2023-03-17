@@ -62,7 +62,7 @@ class QuickPlot(object):
                 self.ax = [self.ax]
             self.fig.canvas.draw()
             self.ax[0].set_title(uuid + " | " + qkit.fid.h5_info_db[uuid]["name"])
-            args = {"ds": [], "view": []}
+            args = {}
             if self.m_type == "spectroscopy":
                 if "amplitude_midpoint" in self.d["entry/data0"].keys():
                     self.plot_2D("amplitude_midpoint", "phase_midpoint")
@@ -77,18 +77,17 @@ class QuickPlot(object):
                     if self.ds_type == 1:
                         args["view"] = ["IV"]
                     else:
-                        args["ds"] = ("v_" + str(i) for i in range(self.overlays))
+                        args["ds"] = ["v_" + str(i) for i in range(self.overlays)]
                 else:
                     if len(self.args) != 0:
                         args["ds"] = list(self.args)
                     if "ds" in self.kwargs.keys():
-                        args["ds"].append(self.kwargs["ds"])
+                        if len(argss["ds"]) != 0:
+                            args["ds"] = list(self.kwargs["ds"])
+                        else:
+                            args["ds"].append(self.kwargs["ds"])
                     if "view" in self.kwargs.keys():
                         args["view"] = self.kwargs["view"] if type(self.kwargs["view"])==list else [self.kwargs["view"]]
-                # remove empty "ds" and "view"
-                for key, val in args.items():
-                    if val == []:
-                        del args[key]
                 [self.plot_1D, self.plot_2D, self.plot_3D][self.ds_type - 1](args)
             else:
                 print("No matching entries found for file %s" % uuid)
@@ -127,8 +126,8 @@ class QuickPlot(object):
                     x_index = int(self.d[x_url].shape[0] / 2)
                     y_index = int(self.d[x_url].shape[1] / 2)
                     ax.plot(self.d[x_url][x_index,y_index,:] / si_x[0], self.d[d_url][x_index,y_index,:] / si_d[0])
+                    ax.set_xlabel("%s (%s%s)" % (self.d[x_url].attrs["name"], si_x[2], self.d[x_url].attrs["unit"]))
                     ax.set_ylabel("%s (%s%s)" % (self.d[d_url].attrs["name"], si_d[2], self.d[d_url].attrs["unit"]))
-                    ax.set_xlabel("%s (%s%s)" % (self.d[x_url].attrs["name"], si_d[2], self.d[x_url].attrs["unit"]))
             elif key == "ds":
                 if "/" not in val:
                     val = "entry/data0/" + val
@@ -142,14 +141,14 @@ class QuickPlot(object):
                     data -= np.nanmean(data, axis=1, keepdims=True)
                 if self.remove_offset_y_avg:
                     data -= np.nanmean(data, axis=0, keepdims=True)
-                ax.pcolorfast(self.d[self.d[val].attrs["x_ds_url"]][:self.d[val].shape[0]] / si_x[0], self.d[self.d[val].attrs["y_ds_url"]][:self.d[val].shape[1]] / si_y[0], data)
+                ax.pcolormesh(self.d[self.d[val].attrs["x_ds_url"]][:self.d[val].shape[0]] / si_x[0], self.d[self.d[val].attrs["y_ds_url"]][:self.d[val].shape[1]] / si_y[0], data)
                 ax.set_xlabel("%s (%s%s)" % (self.d[self.d[val].attrs["x_ds_url"]].attrs["name"], si_x[2], self.d[self.d[val].attrs["x_ds_url"]].attrs["unit"]))
                 ax.set_ylabel("%s (%s%s)" % (self.d[self.d[val].attrs["y_ds_url"]].attrs["name"], si_y[2], self.d[self.d[val].attrs["y_ds_url"]].attrs["unit"]))
         ax_iter = iter(self.ax)
         for key, vals in args.items():
             for val in vals:
-                _plot(ax_iter.next(), key, val)
-    
+                _plot(next(ax_iter), key, val)
+
     def plot_2D(self, args):
         def _plot(ax, key, val):
             if key == "view":
@@ -159,8 +158,8 @@ class QuickPlot(object):
                     si_d = self.si_prefix(self.d[d_url])
                     y_index = int(self.d[x_url].shape[0] / 2)
                     ax.plot(self.d[x_url][y_index,:] / si_x[0], self.d[d_url][y_index,:] / si_d[0])
+                    ax.set_xlabel("%s (%s%s)" % (self.d[x_url].attrs["name"], si_x[2], self.d[x_url].attrs["unit"]))
                     ax.set_ylabel("%s (%s%s)" % (self.d[d_url].attrs["name"], si_d[2], self.d[d_url].attrs["unit"]))
-                    ax.set_xlabel("%s (%s%s)" % (self.d[x_url].attrs["name"], si_d[2], self.d[x_url].attrs["unit"]))
             elif key == "ds":
                 if "/" not in val:
                     val = "entry/data0/" + val
@@ -173,13 +172,15 @@ class QuickPlot(object):
                     data -= np.nanmean(data, axis=1, keepdims=True)
                 if self.remove_offset_y_avg:
                     data -= np.nanmean(data, axis=0, keepdims=True)
-                ax.pcolorfast(self.d[self.d[val].attrs["x_ds_url"]][:self.d[val].shape[0]] / si_x[0], self.d[self.d[val].attrs["y_ds_url"]][:self.d[val].shape[1]] / si_y[0], data)
+                ax.pcolormesh(self.d[self.d[val].attrs["x_ds_url"]][:self.d[val][:].shape[0]] / si_x[0],
+                              self.d[self.d[val].attrs["y_ds_url"]][:self.d[val][:].shape[1]] / si_y[0],
+                              data)
                 ax.set_xlabel("%s (%s%s)" % (self.d[self.d[val].attrs["x_ds_url"]].attrs["name"], si_x[2], self.d[self.d[val].attrs["x_ds_url"]].attrs["unit"]))
                 ax.set_ylabel("%s (%s%s)" % (self.d[self.d[val].attrs["y_ds_url"]].attrs["name"], si_y[2], self.d[self.d[val].attrs["y_ds_url"]].attrs["unit"]))
         ax_iter = iter(self.ax)
         for key, vals in args.items():
             for val in vals:
-                _plot(ax_iter.next(), key, val)
+                _plot(next(ax_iter), key, val)
     
     def plot_1D(self, args):
         def _plot(ax, key, val):
@@ -190,7 +191,7 @@ class QuickPlot(object):
                     si_d = self.si_prefix(self.d[d_url])
                     ax.plot(self.d[x_url][:] / si_x[0], self.d[d_url][:] / si_d[0])
                     ax.set_ylabel("%s (%s%s)" % (self.d[d_url].attrs["name"], si_d[2], self.d[d_url].attrs["unit"]))
-                    ax.set_xlabel("%s (%s%s)" % (self.d[x_url].attrs["name"], si_d[2], self.d[x_url].attrs["unit"]))
+                    ax.set_xlabel("%s (%s%s)" % (self.d[x_url].attrs["name"], si_x[2], self.d[x_url].attrs["unit"]))
             elif key == "ds":
                 if "/" not in val:
                     val = "entry/data0/" + val
@@ -203,7 +204,7 @@ class QuickPlot(object):
         ax_iter = iter(self.ax)
         for key, vals in args.items():
             for val in vals:
-                _plot(ax_iter.next(), key, val)
+                _plot(next(ax_iter), key, val)
 
     def show(self, *args, **kwargs):
         self.args = args
