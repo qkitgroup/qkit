@@ -414,19 +414,22 @@ class ADwin_Pro2_V3(Instrument):
         logging.info(__name__ +': stopping process')
         self.adw.Stop_Process(self.processnumber)
         logging.debug(__name__+': process status: %d'%self.adw.Process_Status(self.processnumber))
-        print("Ramping down all outputs (gates + current sources) to 0 Volts IF ADwin IS NOT DEAD...\nGreen LED at DAC module would indicate ongoing ramping action.")
-        while True:
-            try:   #if all outputs were at 0V then the process is already dead
-                if self.adw.Get_Par(76)==-1:
-                    time.sleep(0.1)
-                    logging.info(__name__+':ADwin is ramping down.')
-                else:
-                    logging.info(__name__+':ADwin not busy anymore.')
-                    break
-            except:
-                #The FINISH part in the ADwin has finished ramping down all outputs and the process is dead
-                logging.info(__name__+':process stopped successfully.')
-                break
+        time.sleep(0.5)
+        # The ADbasic file used to have a finish part that ramps down all voltages. If it is included
+        # include also the following lines
+        # print("Ramping down all outputs (gates + current sources) to 0 Volts IF ADwin IS NOT DEAD...\nGreen LED at DAC module would indicate ongoing ramping action.")
+        # while True:
+        #     try:   #if all outputs were at 0V then the process is already dead
+        #         if self.adw.Get_Par(76)==-1:
+        #             time.sleep(0.1)
+        #             logging.info(__name__+':ADwin is ramping down.')
+        #         else:
+        #             logging.info(__name__+':ADwin not busy anymore.')
+        #             break
+        #     except:
+        #         #The FINISH part in the ADwin has finished ramping down all outputs and the process is dead
+        #         logging.info(__name__+':process stopped successfully.')
+        #         break
 
     def load_process(self):
         logging.debug(__name__+': process status: %d'%self.adw.Process_Status(self.processnumber))
@@ -570,19 +573,23 @@ class ADwin_Pro2_V3(Instrument):
             logging.warning(__name__+': voltage bigger than voltage range of output.')
              
         else:
-            result_bits = ((volt*(10/V_max) + 10) / (2*10/(2**bit_format)))
-            #for oversampling:
-            oversampling_divisions = self.get_oversampling_divisions()
-            #number of steps to stay in lower bit= round(overall_number_steps(1- (bits%1)))
-            steps_lower_bit = int(round(oversampling_divisions*(1- (result_bits%1))))
-            result = [int(np.trunc(result_bits)), steps_lower_bit] 
-            if steps_lower_bit==0:
-                result[0] = result[0] + 1
-                result[1] = oversampling_divisions
-            #print(result)
-            logging.debug(__name__ + ' : converting V to digits, digit value: '+ str(result)+'\n')
-            return result
-    
+            try:
+                result_bits = ((volt*(10/V_max) + 10) / (2*10/(2**bit_format)))
+                #for oversampling:
+                oversampling_divisions = self.get_oversampling_divisions()
+                #number of steps to stay in lower bit= round(overall_number_steps(1- (bits%1)))
+                steps_lower_bit = int(round(oversampling_divisions*(1- (result_bits%1))))
+                result = [int(np.trunc(result_bits)), steps_lower_bit] 
+                if steps_lower_bit==0:
+                    result[0] = result[0] + 1
+                    result[1] = oversampling_divisions
+                #print(result)
+                logging.debug(__name__ + ' : converting V to digits, digit value: '+ str(result)+'\n')
+                return result
+        
+            except ZeroDivisionError:
+                logging.warning(__name__+': you are probably trying to ramp a gate which is no initialized.')
+            
     def _do_set_out(self, new, channel):
         """Set output voltage of gate 'X' (ADwin parameter: Data_200[X]). 
         Safe ports will respect the maximum ramping speed of 0.5V/s which is checked 
