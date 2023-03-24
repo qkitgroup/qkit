@@ -59,7 +59,7 @@ class circuit:
         - Qc: Coupling (aka external) quality factor. Calculated with
               diameter correction method, i.e. 1/Qc = Re{1/|Qc| * exp(i*phi)}
         - phi (opt.): Angle of the circle's rotation around the off-resonant
-                      point due to impedance mismatch
+                      point due to impedance mismatches or Fano interference.
         - a, alpha (opt.): Arbitrary scaling and rotation of the circle w.r.t. 
                            origin
         - delay (opt.): Time delay between output and input signal leading to
@@ -70,13 +70,12 @@ class circuit:
             1. - 2.*Ql / (complexQc * cls.n_ports * (1. + 2j*Ql*(f/fr-1.)))
         )
     
-    def autofit(self, calc_errors=True, fixed_delay=None):
+    def autofit(self, calc_errors=True, fixed_delay=None, isolation=15):
         """
         Automatically calibrate data, normalize it and extract quality factors.
         If the autofit fails or the results look bad, please discuss with
         author.
         """
-        # TODO: implement refine results?
         
         if fixed_delay is None:
             self._fit_delay()
@@ -87,6 +86,7 @@ class circuit:
         self._calibrate()
         self._normalize()
         self._extract_Qs(calc_errors=calc_errors)
+        self.calc_fano_range(isolation=isolation)
         
         # Prepare model data for plotting
         self.z_data_sim = self.Sij(
@@ -156,7 +156,7 @@ class circuit:
     def _calibrate(self):
         """
         Finds the parameters for normalization of the scattering data. See
-        Sij of port classes for explanation of parameters.
+        Sij for explanation of parameters.
         """
         
         # Correct for delay and translate circle to origin
@@ -272,6 +272,63 @@ class circuit:
             self.fitresults["chi_square"] = (1. / (len(self.f_data) - 4.)
                 * np.sum(np.abs(self._get_residuals_reflection)**2))
                 
+    def calc_fano_range(self, isolation=15, b=None):
+        """
+        Calculates the systematic Qi (and Qc) uncertainty range based on
+        Fano interference with given strength of the background path
+        (cf. Rieger & Guenzler et al., arXiv:2209.03036).
+        
+        inputs: either of
+        - isolation (dB): Suppression of the interference path by this value.
+                          The corresponding relative background amplitude b
+                          is calculated with b = 10**(-isolation/20).
+        - b (lin): Relative background path amplitude of Fano.
+
+        outputs (added to fitresults dictionary):
+        - Qi_min, Qi_max: Systematic uncertainty range for Qi
+        - Qc_min, Qc_max: Systematic uncertainty range for Qc
+        - fano_b: Relative background path amplitude of Fano.
+        """
+        
+        if b is None:
+            b = 10**(-isolation/20)
+            
+        b = b / (1 - b)
+        
+        if np.sin(self.phi) > b:
+            logging.warning(
+                "Measurement cannot be explained with assumed Fano leakage!"
+            )
+            self.Qi_min = np.nan
+            self.Qi_max = np.nan
+            self.Qc_min = np.nan
+            self.Qc_max = np.nan
+        
+        # Calculate error on radius of circle
+        R_mid = self.r0 * np.cos(self.phi)
+        R_err = self.r0 * np.sqrt(b**2 - np.sin(self.phi)**2)
+        R_min = R_mid - R_err
+        R_max = R_mid + R_err
+        
+        # Convert to ranges of quality factors
+        self.Qc_min = self.Ql / (self.n_ports*R_max)
+        self.Qc_max = self.Ql / (self.n_ports*R_min)
+        self.Qi_min = self.Ql / (1 - self.n_ports*R_min)
+        self.Qi_max = self.Ql / (1 - self.n_ports*R_max)
+        
+        # Handle unphysical results
+        if R_max >= 1./self.n_ports:
+            self.Qi_max = np.inf
+        
+        # Store results in dictionary
+        self.fitresults.update({
+            "Qc_min": self.Qc_min,
+            "Qc_max": self.Qc_max,
+            "Qi_min": self.Qi_min,
+            "Qi_max": self.Qi_max,
+            "fano_b": b
+        })
+    
     def _fit_circle(self, z_data, refine_results=False):
         """
         Analytical fit of a circle to  the scattering data z_data. Cf. Sebastian
@@ -376,8 +433,6 @@ class circuit:
         # Set useful starting parameters
         if guesses is None:
             # Use maximum of derivative of phase as guess for fr
-            #phase_smooth = splrep(self.f_data, phase, k=5, s=100)
-            #phase_derivative = splev(self.f_data, phase_smooth, der=1)
             phase_smooth = gaussian_filter1d(phase, 30)
             phase_derivative = np.gradient(phase_smooth)
             fr_guess = self.f_data[np.argmax(np.abs(phase_derivative))]
@@ -398,18 +453,12 @@ class circuit:
         def residuals_fr_theta(params):
             fr, theta = params
             return residuals_full((fr, Ql_guess, theta, delay_guess))
-        # def residuals_Ql_delay(params):
-            # Ql, delay = params
-            # return residuals_full((fr_guess, Ql, theta_guess, delay))
         def residuals_delay(params):
             delay, = params
             return residuals_full((fr_guess, Ql_guess, theta_guess, delay))
         def residuals_fr_Ql(params):
             fr, Ql = params
             return residuals_full((fr, Ql, theta_guess, delay_guess))
-        # def residuals_fr(params):
-            # fr, = params
-            # return residuals_full((fr, Ql_guess, theta_guess, delay_guess))
         def residuals_full(params):
             return self._phase_dist(
                 phase - circuit.phase_centered(self.f_data, *params)
@@ -423,10 +472,6 @@ class circuit:
         delay_guess, = p_final[0]
         p_final = spopt.leastsq(residuals_fr_Ql, [fr_guess, Ql_guess])
         fr_guess, Ql_guess = p_final[0]
-        # p_final = spopt.leastsq(residuals_fr, [fr_guess])
-        # fr_guess, = p_final[0]
-        # p_final = spopt.leastsq(residuals_Ql, [Ql_guess])
-        # Ql_guess, = p_final[0]
         p_final = spopt.leastsq(residuals_full, [
             fr_guess, Ql_guess, theta_guess, delay_guess
         ])
