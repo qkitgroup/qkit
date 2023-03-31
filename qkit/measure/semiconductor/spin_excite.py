@@ -551,7 +551,7 @@ class Exciting(mb.MeasureBase):
         self.column = {}
         for measurement in self.settings.measurement_settings.keys():
             total_iterations += self.settings.measurement_settings[measurement]["averages"]
-            self.divider[measurement] = 1
+            self.divider[measurement] = 0
             self.column[measurement] = {}
             for node in self.settings.measurement_settings[measurement]["data_nodes"]:
                 self.column[measurement][node] = 0
@@ -632,68 +632,73 @@ class Exciting(mb.MeasureBase):
         self._ready_hardware()      
         total_sum = {}
         iterations = 0
+        first = True
         while not self._ro_backend.finished():
             old_iterations = iterations
             latest_data = self._ro_backend.read()
             for measurement in latest_data.keys():
-                if self.divider[measurement] == 1:                            
+                if first:                            
                     total_sum[measurement] = {}            
                 first_node = list(latest_data[measurement].keys())[0]
                 #If latest data is empty for one measurement, skip it
-                if len(latest_data[measurement][first_node]) == 0: continue
-                #Count the number of iterations collected by the most recent call of read
-                iterations += len(latest_data[measurement][first_node])
-                for node in latest_data[measurement].keys():
-                    
+                collected_averages = len(latest_data[measurement][first_node])
+                if collected_averages== 0: continue
+                #Count the number of iterations collected by the most recent call of read                
+                iterations += collected_averages
+                self.divider[measurement] += collected_averages
+                for node in latest_data[measurement].keys():                    
                     latest_node_data = np.array(latest_data[measurement][node])
                     self._check_node_data(latest_node_data)
                     #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
-                    if self.divider[measurement] == 1:
-                        total_sum[measurement][node] = np.average(latest_node_data, axis = avg_ax)
-                        self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node])
+                    if first:                        
+                        total_sum[measurement][node] = np.sum(np.average(latest_node_data, axis = avg_ax), axis = 0)
+                        self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node] / self.divider[measurement])                        
                     else:
-                        total_sum[measurement][node] += np.average(latest_node_data, axis = avg_ax)
+                        total_sum[measurement][node] += np.sum(np.average(latest_node_data, axis = avg_ax), axis = 0)
+                        #self.divider[measurement] += len(latest_data[measurement][first_node])
                         self._datasets["%s.%s" % (measurement, node)].ds[data_location] =  total_sum[measurement][node] / self.divider[measurement]
-                self.divider[measurement] += 1
+            first = False
             self._data_file.flush()
             progress_bar.iterate(addend = iterations - old_iterations)
         for measurement in self.settings.measurement_settings.keys():
-            self.divider[measurement] = 1
+            self.divider[measurement] = 0
         self._stop_hardware()
 
     def _stream2D_avg(self, data_location, progress_bar):
         self._ready_hardware()      
         total_sum = {}
         iterations = 0
+        first = True
         while not self._ro_backend.finished():
             old_iterations = iterations
             latest_data = self._ro_backend.read()
             for measurement in latest_data.keys():
-                if self.divider[measurement] == 1:                            
+                if first:                            
                     total_sum[measurement] = {}
                 first_node = list(latest_data[measurement].keys())[0]
+                collected_averages = len(latest_data[measurement][first_node])
                 #If latest data is empty for one measurement, skip it
-                if len(latest_data[measurement][first_node]) == 0: continue
+                if collected_averages == 0: continue
                 #Count the number of iterations collected by the most recent call of read
-                iterations += len(latest_data[measurement][first_node])
+                iterations += collected_averages
+                self.divider[measurement] += collected_averages
                 for node in latest_data[measurement].keys():
                     latest_node_data = np.array(latest_data[measurement][node])
                     self._check_node_data(latest_node_data)
                     #Calculate the average over all measurements (axis 0), and integrate along the pulse parameter axis (axis 1).
-                    if self.divider[measurement] == 1:
-                        total_sum[measurement][node] = np.average(latest_node_data, axis = (0))
-                        for timetrace in total_sum[measurement][node]: # this is the difference to _steam1D. To initialize the 2D dataset, we have to pass each vector one by one.
+                    if first:
+                        total_sum[measurement][node] = np.sum(latest_node_data, axis = (0))
+                        for timetrace in total_sum[measurement][node]: # this is the difference to _stream1D. To initialize the 2D dataset, we have to pass each vector one by one.
                             self._datasets["%s.%s" % (measurement, node)].append(timetrace)
                     else:                        
-                        total_sum[measurement][node] += np.average(latest_node_data, axis = (0))
-                        #Divide through the number of finished iterations, since you accumulate all the averages                            
-                        #print(total_sum[measurement][node].shape)
+                        total_sum[measurement][node] += np.sum(latest_node_data, axis = (0))
+                        #Divide through the number of finished iterations, since you accumulate all the averages
                         self._datasets["%s.%s" % (measurement, node)].ds[data_location] = total_sum[measurement][node]/ self.divider[measurement]
-                self.divider[measurement] += 1
+            first = False
             self._data_file.flush()
             progress_bar.iterate(addend = iterations - old_iterations)
         for measurement in self.settings.measurement_settings.keys():
-            self.divider[measurement] = 1
+            self.divider[measurement] = 0
         self._stop_hardware()
 
     def _create_axis(self):
@@ -749,18 +754,18 @@ class Exciting(mb.MeasureBase):
 
     def _choose_measurement_function(self, dimension, progress_bar):
         if self.mode == "pulse_parameter" and dimension == 1:
-            return lambda: self._stream1D_avg((), (0, 2), progress_bar)
+            return lambda: self._stream1D_avg((), 2, progress_bar)
         elif self.mode == "pulse_parameter" and dimension == 2:
-            return lambda: self._stream1D_avg((-1), (0, 2), progress_bar)
+            return lambda: self._stream1D_avg((-1), 2, progress_bar)
         elif self.mode == "pulse_parameter" and dimension == 3:
-            return lambda i : self._stream1D_avg((-1, i), (0, 2), progress_bar)
+            return lambda i : self._stream1D_avg((-1, i), 2, progress_bar)
         
         elif self.mode == "timetrace" and dimension == 1:
-            return lambda: self._stream1D_avg((), (0, 1), progress_bar)
+            return lambda: self._stream1D_avg((), 1, progress_bar)
         elif self.mode == "timetrace" and dimension == 2:
-            return lambda: self._stream1D_avg((-1), (0, 1), progress_bar)
+            return lambda: self._stream1D_avg((-1), 1, progress_bar)
         elif self.mode == "timetrace" and dimension == 3:
-            return lambda i : self._stream1D_avg((-1, i), (0, 1), progress_bar)
+            return lambda i : self._stream1D_avg((-1, i), 1, progress_bar)
         
         elif self.mode == "pp_vs_t" and dimension == 1:
             return lambda: self._stream2D_avg((), progress_bar)
