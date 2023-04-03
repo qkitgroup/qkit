@@ -132,6 +132,7 @@ class ADwin_Pro2_V3(Instrument):
                  process_number_aquisition=3,
                  process_path_aquisition='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_Burst_Event_Stopp_V3.TC3',
                  process_number_continuous=4,
+                 watch_sampling_f="10kHz",
                  process_path_continuous_2kHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_2kHz_V3.TC4',
                  process_path_continuous_10kHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_10kHz_V3.TC4',
                  process_path_continuous_100kHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_100kHz_V3.TC4',
@@ -172,6 +173,7 @@ class ADwin_Pro2_V3(Instrument):
         self.max_samples_continuous = 0
         self.index_continuous_readout = 0
         self.process_number_continuous = process_number_continuous
+        self.sampling_frequency_continuous = watch_sampling_f
         self.process_path_continuous_2kHz = process_path_continuous_2kHz
         self.process_path_continuous_10kHz = process_path_continuous_10kHz
         self.process_path_continuous_100kHz = process_path_continuous_100kHz
@@ -212,18 +214,28 @@ class ADwin_Pro2_V3(Instrument):
             #load and start processes
             logging.info(__name__ + ': loading process that does ramping and single input.')
             self.adw.Load_Process(self.process)
-            time.sleep(1.0)
+            time.sleep(0.5)
             logging.info(__name__ + ': starting process that does ramping and single input.')
             self.adw.Start_Process(self.processnumber)
-            time.sleep(1.0)
+            time.sleep(0.5)
+            
+            logging.info(__name__ + ': loading process that does the continuous readout.')
+            self.load_continuous_readout(frequency=self.sampling_frequency_continuous) # loading another continuous process with different frequency can crash the ADwin. So f is fixed in the init.
+            time.sleep(0.5)
+            self.adw.Start_Process(self.process_number_continuous) # this process needs to be run once before the processes belonging to the triggered readout. Not exactly sure why.
+            time.sleep(0.5)
+            self.adw.Stop_Process(self.process_number_continuous)
+            time.sleep(0.5)
+        
             logging.info(__name__ + ': loading process that does the burst readout.')
             self.adw.Load_Process(self.process_path_triggered)
-            time.sleep(1)
+            time.sleep(0.5)
+            
             logging.info(__name__ + ': loading process that reads out the ADC and fires a new trigger to the AWG.')
             self.adw.Load_Process(self.process_path_aquisition)
-            time.sleep(1)
-            # continuous readout loaded later to be able to choose between sampling frequencies
-
+            time.sleep(0.5)
+            
+            
 
         #implement functions
         self.add_function('start_process')
@@ -244,14 +256,18 @@ class ADwin_Pro2_V3(Instrument):
         self.add_function('set_output_current_voltage_parallel')
         self.add_function('initialize_gates')
         self.add_function('IV_curve')
+        ################################
+        self.add_function("load_continuous_readout")
+        self.add_function("start_continuous_readout")
+        self.add_function("read_continuous")
+        ################################
         self.add_function("initialize_triggered_readout")
-        # self.add_function("make_grid_triggered_readout")
         self.add_function("start_triggered_readout")
         self.add_function("check_finished_triggered_readout")
         self.add_function("check_error_triggered_readout")
+        self.add_function("reset_error_triggered_readout")
         self.add_function("stop_triggered_readout")
         self.add_function("read_triggered_readout")
-        # self.add_function("read_continuous")
 
 
         #implement parameters
@@ -691,7 +707,7 @@ class ADwin_Pro2_V3(Instrument):
                 for gate in tmpChannels:
                     if (gate in field_gates):
                         logging.warning(__name__+': voltage at outputs for current sources cannot be changed with this funcion. ')
-                        sys.exit()
+                        raise Exception("voltage at outputs for current sources cannot be changed with this funcion.")
                         
                     elif tmpChannels.count(gate)>1:
                         logging.warning(__name__+': same gate used multiple times. ')
@@ -781,7 +797,7 @@ class ADwin_Pro2_V3(Instrument):
                 for gate in channels:
                     if (gate in field_gates):
                         logging.warning(__name__+': voltage at outputs for current sources cannot be changed with this funcion. ') 
-                        sys.exit()
+                        raise Exception("voltage at outputs for current sources cannot be changed with this funcion.")
                         
                     elif channels.count(gate)>1:
                         logging.warning(__name__+': same gate used multiple times. ')
@@ -909,7 +925,7 @@ class ADwin_Pro2_V3(Instrument):
                 for gate in tmpChannels:
                     if (gate not in field_gates):
                         logging.warning(__name__+': voltage at outputs cannot be changed with this funcion. ')
-                        sys.exit()
+                        raise Exception("voltage at outputs for current sources cannot be changed with this funcion.")
                     elif tmpChannels.count(gate)>1:
                         logging.warning(__name__+': same gate used multiple times. ')
                     else:
@@ -1363,7 +1379,7 @@ class ADwin_Pro2_V3(Instrument):
                         self.adw.SetData_Long([V], 200, gate, 1) #ramp_stop_Data thats getted by self.get_out()
                 else:
                     logging.warning(__name__+': Error with init_V')
-                    raise Exception('init_V has to be given and needs to be a dictionary!')
+                    raise Exception('init_V has to be a dictionary!')
                 
             
     #The following functions are for the use of current sources that are set with a voltage 
@@ -1495,15 +1511,12 @@ class ADwin_Pro2_V3(Instrument):
 
 ####################################################################################
     ################ Continuous READOUT of INPUT 1 at ADC CARD ##################
-
-    def start_continuous_readout(self, frequency="2kHz"):
-        """loads and starts ADwin process that has the sampling frequency and memory size hardcoded. 
+    def load_continuous_readout(self, frequency):
+        """loads an ADwin process for continuous readout that has the sampling frequency and memory size hardcoded. 
         Can be 2kHz, 10kHz, 100kHz, 1MHz, or 4MHz. If you use f>=1MHz then check if there is sample loss!!!
         This depends on the bandwidth of the connection of ADwin and PC.
         """
-        self.adw.Stop_Process(self.process_number_continuous)
-        logging.info(__name__ + ': laoding and starting process that does the continuous readout.')
-
+        logging.info(__name__ + ': laoding process that does the continuous readout.')
         if frequency == "2kHz":
             self.max_samples_continuous = 4*8*50 
             self.adw.Load_Process(self.process_path_continuous_2kHz)
@@ -1526,12 +1539,19 @@ class ADwin_Pro2_V3(Instrument):
 
         else:
             logging.error(__name__ + ': Choose between "2kHz", "10kHz", "100kHz", "1MHz", or "4MHz"!')
-            sys.exit()
+            raise Exception('Wrong frequency, hoose between "2kHz", "10kHz", "100kHz", "1MHz", or "4MHz"')
 
         self.index_continuous_readout = self.max_samples_continuous #reset to last data point in ADwin memory
-        time.sleep(1)
-        self.adw.Start_Process(self.process_number_continuous)
-        #the process aquires data now
+        time.sleep(0.5) 
+
+
+    def start_continuous_readout(self):
+        """starts ADwin process that has the sampling frequency and memory size hardcoded. 
+        Can be 2kHz, 10kHz, 100kHz, 1MHz, or 4MHz. If you use f>=1MHz then check if there is sample loss!!!
+        This depends on the bandwidth of the connection of ADwin and PC.
+        """
+        self.adw.Start_Process(self.process_number_continuous) #the process aquires data now
+        time.sleep(1.2) #safty to override full buffer
 
 
     def read_continuous(self):
@@ -1566,7 +1586,7 @@ class ADwin_Pro2_V3(Instrument):
                 data_bits_2 = np.array(self.adw.GetData_Long(2, 1, int(self.index_continuous_readout)))
                 data_volts["voltage"] = (np.append(data_bits_1, data_bits_2) * 2*10/(2**16) - 10)            
         #elif count_new_samples == 0:
-           # print("checked")
+           #print("checked")
             
         return data_volts
 
@@ -1596,7 +1616,7 @@ class ADwin_Pro2_V3(Instrument):
             self.triggered_readout_averaging = 1
         else:
             logging.error(__name__ +  ': sampling frequency is wrongly chosen. Must be 4e6 or 1e6 or 5e5 or 1e5.')
-            sys.exit()
+            raise Exception('sampling frequency is wrongly chosen. Must be 4e6 or 1e6 or 5e5 or 1e5.')
 
     def _do_get_sample_rate_triggered_readout(self, channel):
         if self.triggered_readout_averaging == 4:
@@ -1625,7 +1645,7 @@ class ADwin_Pro2_V3(Instrument):
         if (sample_count % 8) != 0:
             logging.warning(__name__ + ': sample count (spin excite) * averaging (=ADwin samples) has to be a multiple of 8, so:  '
                                        'meas_time * 4MHz mod 8 == 0\n')
-            sys.exit()
+            raise Exception("sample count (spin excite) * averaging (=ADwin samples) has to be a multiple of 8, so: meas_time * 4MHz mod 8 == 0")
         else:
             logging.info(__name__ + ': setting sample count to: %d' % sample_count)
             self.sample_count = int(sample_count_without_averaging) # the amount of averaged samples that spin excite knows about
@@ -1652,7 +1672,7 @@ class ADwin_Pro2_V3(Instrument):
         data_to_aquire = self.measurement_count * self.sample_count *self.triggered_readout_averaging
         if data_to_aquire>3e8:
             logging.error(__name__ + ': to many samples to aquire in one pulse train. Max is probably 25s at 4MHz.')
-            sys.exit()
+            raise Exception("to many samples to aquire in one pulse train. Max is probably 25s at 4MHz.")
 
         logging.info(__name__ + ': starting process that does the burst readout.')
         self.adw.Start_Process(self.process_number_triggered)
@@ -1685,7 +1705,13 @@ class ADwin_Pro2_V3(Instrument):
         logging.info(__name__ + ': checking if an error occured.')
         status = self.get_Par_17_global_long()
         return status
-
+    
+    def reset_error_triggered_readout(self):
+        """resets the error_flag Par 17 of the ADwin to 0.
+        """
+        logging.info(__name__ + ': resetting error flag of ADwin.')
+        self.set_Par_17_global_long(0)
+        
     def stop_triggered_readout(self):
         """stops only the continuous processes of the ADwin that triggers the AWG and does the readout of the ADC.
         Stopping the Event-In triggered process of the ADwin is impossible as there needs to be one more trigger from
@@ -1738,24 +1764,25 @@ if __name__ == "__main__":
     qkit.start()
     #1)create instance - implement global voltage limits when creating instance
     
-    #bill with oversampling and parallel gate setting
-    gate_num = 10
+    #bill with oversampling, parallel gate setting, continuous watching, and triggered readout
     reboot = True  # reboots the ADwin process. IF ADwin is dead the outputs will not be affected by rebooting. 
                    # IF ADwin is still alive the gates will be ramped to 0V.
-    reset_outputs = False # if False the outputs will be initilized with the values of memory_voltages and if not stated will be at -1*bit_step
+    bill = qkit.instruments.create('bill',
+        'ADwin_Pro2_V3',
+        bootload=reboot,
+        watch_sampling_f="10kHz",
+        global_lower_limit_in_V=-5,
+        global_upper_limit_in_V=+5,
+        import_coil_params=True)
+    
+    # initialize gates **************************************************************
+    gate_num = 10
+    reset_outputs = False # if False the outputs will be initilized with the values of memory_voltages and if not stated will be at -1*bit_step for the next ramp starting point.
     
     #voltages used to write to ADwin memory if reset_output = False
     memory_voltages = {4: 4,
                       3: 1,
                       }
-    
-    bill = qkit.instruments.create('bill',
-        'ADwin_Pro2_V3',
-        bootload=reboot,
-        global_lower_limit_in_V=-5,
-        global_upper_limit_in_V=+5,
-        import_coil_params=True)
-    
     bill.initialize_gates(gate_num, reset_to_0=reset_outputs, 
                           lower_limit=-4.0, upper_limit=4, speed=0.2, init_V=memory_voltages)
         
