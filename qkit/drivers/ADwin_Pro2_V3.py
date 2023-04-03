@@ -1766,7 +1766,7 @@ if __name__ == "__main__":
     
     #bill with oversampling, parallel gate setting, continuous watching, and triggered readout
     reboot = True  # reboots the ADwin process. IF ADwin is dead the outputs will not be affected by rebooting. 
-                   # IF ADwin is still alive the gates will be ramped to 0V.
+                   # IF ADwin is still alive the memory of voltage values of the outputs will be set to 0V. If they were not 0V use reset_outputs=False and memory_voltages.
     bill = qkit.instruments.create('bill',
         'ADwin_Pro2_V3',
         bootload=reboot,
