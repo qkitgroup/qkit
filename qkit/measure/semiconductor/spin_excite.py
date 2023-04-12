@@ -650,12 +650,10 @@ class Exciting(mb.MeasureBase):
                     latest_node_data = np.array(latest_data[measurement][node])
                     self._check_node_data(latest_node_data)
                     #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
-                    if first:
-                        print("Yes, doing it for the first time, daddy <3.")                        
+                    if first:                       
                         total_sum[measurement][node] = np.sum(np.average(latest_node_data, axis = avg_ax), axis = 0)
                         self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node] / self.divider[measurement])                        
                     else:
-                        print(total_sum)
                         total_sum[measurement][node] += np.sum(np.average(latest_node_data, axis = avg_ax), axis = 0)
                         #self.divider[measurement] += len(latest_data[measurement][first_node])
                         self._datasets["%s.%s" % (measurement, node)].ds[data_location] =  total_sum[measurement][node] / self.divider[measurement]
