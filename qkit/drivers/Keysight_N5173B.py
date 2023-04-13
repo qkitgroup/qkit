@@ -16,12 +16,16 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-from qkit.core.instrument_base import Instrument
-from qkit import visa
 #import types
 import logging
 
-class Keysight_N5173B(Instrument):
+from qkit import visa
+
+from qkit.core.instrument_base import Instrument
+from qkit.drivers.AbstractMicrowaveSource import AbstractMicrowaveSource
+
+
+class Keysight_N5173B(AbstractMicrowaveSource):
     '''
     This is the driver for the Keysight N5173B Signal Genarator
 
@@ -29,7 +33,6 @@ class Keysight_N5173B(Instrument):
     Initialize with
     <name> = instruments.create('<name>', 'Keysight_N5173B', address='<GBIP address>, reset=<bool>')
     '''
-
     def __init__(self, name, address, reset=False):
         '''
         Initializes the Keysight_N5173B, and communicates with the wrapper.
@@ -40,61 +43,15 @@ class Keysight_N5173B(Instrument):
             reset (bool)     : resets to default values, default=False
         '''
         logging.info(__name__ + ' : Initializing instrument Keysight_N5173B')
-        Instrument.__init__(self, name, tags=['physical'])
+        super().__init__(self, name, tags=['physical'])
 
         self._address = address
         self._visainstrument = visa.instrument(self._address)
-
-        # Implement parameters
-        self.add_parameter('power',
-            flags=Instrument.FLAG_GETSET, units='dBm', minval=-135, maxval=30, offset=True, type=float)
-        #self.add_parameter('phase',
-        #    flags=Instrument.FLAG_GETSET, units='rad', minval=-numpy.pi, maxval=numpy.pi, type=types.FloatType)
-        self.add_parameter('frequency',
-            flags=Instrument.FLAG_GETSET, units='Hz', minval=9e3, maxval=20e9, type=float)
-        self.add_parameter('status',
-            flags=Instrument.FLAG_GETSET, type=bool)
-
-        self.add_function('reset')
-        self.add_function ('get_all')
-
-
         if (reset):
             self.reset()
         else:
             self.get_all()
 
-    
-    def reset(self):
-        '''
-        Resets the instrument to default values
-
-        Input:
-            None
-
-        Output:
-            None
-        '''
-        logging.info(__name__ + ' : resetting instrument')
-        self._visainstrument.write('*RST')
-        self.get_all()
-
-    def get_all(self):
-        '''
-        Reads all implemented parameters from the instrument,
-        and updates the wrapper.
-
-        Input:
-            None
-
-        Output:
-            None
-        '''
-        logging.info(__name__ + ' : get all')
-        self.get_power()
-        #self.get_phase()
-        self.get_frequency()
-        self.get_status()
 
     def do_get_power(self):
         '''
@@ -208,27 +165,7 @@ class Keysight_N5173B(Instrument):
             raise ValueError('set_status(): can only set True or False')
 
 
-    # shortcuts
-    def off(self):
-        '''
-        Set status to 'off'
-
-        Input:
-            None
-
-        Output:
-            None
-        '''
-        self.set_status(False)
-
-    def on(self):
-        '''
-        Set status to 'on'
-
-        Input:
-            None
-
-        Output:
-            None
-        '''
-        self.set_status(True)
+    def reset(self):
+        logging.info(__name__ + ' : resetting instrument')
+        self._visainstrument.write('*RST')
+        self.get_all()
