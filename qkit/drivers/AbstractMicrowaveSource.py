@@ -7,7 +7,7 @@ from qkit.core.instrument_base import Instrument
 class AbstractMicrowaveSource(Instrument, metaclass=ABCMeta):
 
     def __init__(self, *args, **kwargs):
-        super().__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
         # Implement parameters
         self.add_parameter('power',
                            flags=Instrument.FLAG_GETSET, units='dBm', minval=-135, maxval=30, offset=True, type=float)

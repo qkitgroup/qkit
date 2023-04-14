@@ -43,7 +43,7 @@ class Keysight_N5173B(AbstractMicrowaveSource):
             reset (bool)     : resets to default values, default=False
         '''
         logging.info(__name__ + ' : Initializing instrument Keysight_N5173B')
-        super().__init__(self, name, tags=['physical'])
+        super().__init__(name, tags=['physical'])
 
         self._address = address
         self._visainstrument = visa.instrument(self._address)

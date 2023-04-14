@@ -9,7 +9,7 @@ class RS_SGMA(AbstractMicrowaveSource):
 
     def __init__(self, name, address, reset=False):
         logging.info(__name__ + ' : Initializing instrument R&S SGS100A Microwave Source')
-        super().__init__(self, name, tags=['physical'])
+        super().__init__(name, tags=['physical'])
 
         self._address = address
         self._visainstrument = visa.instrument(self._address)
