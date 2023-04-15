@@ -7,8 +7,8 @@ Created on Tue Apr 11 17:11:47 2023
 import time
 from qkit.measure.semiconductor.manipulation_backends.MA_backend_base import MA_backend_base
 
-class Moku_Pro_backend(MA_backend_base):
-    def __init__(self, instrument):
+class Moku_Pro_ADwin_Pro2_backend(MA_backend_base):
+    def __init__(self, Moku_Pro, ADwinPro2):
         self.register_channel("Ch1", "V")
         self.register_channel("Ch2", "V")
         self.register_channel("Ch3", "V")
@@ -19,7 +19,8 @@ class Moku_Pro_backend(MA_backend_base):
         self.register_channel("Trig3", "V")
         self.register_channel("Trig4", "V")
         
-        self.moku = instrument
+        self.moku = Moku_Pro
+        self.bill = ADwinPro2
         
     def Ch1_get_sample_rate(self):
         rate = self.moku.get_sampling_rate()*1e-9
@@ -65,4 +66,4 @@ class Moku_Pro_backend(MA_backend_base):
     
     def decode_qupulse(self, pulse_obj, parameters):
         self.moku._seq_prog = pulse_obj.create_program(parameters = parameters)
-        self.moku._frequency = 1/(int(self._seq_prog.duration)/1e9)
+        self.moku._frequency = 1/(int(self.moku._seq_prog.duration)/1e9)

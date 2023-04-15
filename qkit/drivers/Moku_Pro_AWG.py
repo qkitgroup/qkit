@@ -37,10 +37,11 @@ class Moku_Pro_AWG(Instrument):
         
         self.awg = ArbitraryWaveformGenerator('192.168.1.60', force_connect=True)
         
-        self._amplitudes [0, 0, 0, 0]
+        self._amplitudes = [0, 0, 0, 0]
         self._frequency = 250e6
         self._point_num = 2**16
-        self._offsets = [0, 0, 0, 0]
+        self._V_offsets = [0, 0, 0, 0]
+        self._update_rates = ["312.5Ms", "312.5Ms", "312.5Ms", "312.5Ms"]
         # Add parameters to wrapper
         
         self.add_parameter("amplitude", type = float,
@@ -49,10 +50,10 @@ class Moku_Pro_AWG(Instrument):
                            minval = 0, maxval = 10,
                            channel_prefix = "ch%d_")
         
-        self.add_parameter("frequency", type = int ,
+        self.add_parameter("frequency", type = float ,
                            flags = Instrument.FLAG_GETSET,
                            unit = "Hz",
-                           minval = 0, maxval = 250e6)
+                           minval = 0.001, maxval = 250e6)
         
         self.add_parameter("point_num", type = int,
                            flags = Instrument.FLAG_GETSET,
@@ -66,6 +67,11 @@ class Moku_Pro_AWG(Instrument):
         
         self.add_parameter("sampling_rate", type = int,
                            flags = Instrument.FLAG_GET)
+                           
+        self.add_parameter("update_rate", type = str,
+                           flags = Instrument.FLAG_GETSET,
+                           channels = (1,4),
+                           channel_prefix = "ch%d_")
         
         # Add functions to wrapper
         
@@ -83,7 +89,7 @@ class Moku_Pro_AWG(Instrument):
         logging.debug(__name__ + " : setting amplitude of channel %s to %s." %(channel, voltage))
         
     def _do_get_amplitude(self, channel):
-        return self._amplitudes(channel-1)
+        return self._amplitudes[channel-1]
     
     
     def _do_set_frequency(self, freq):
@@ -95,19 +101,31 @@ class Moku_Pro_AWG(Instrument):
     
 
     def _do_set_point_num(self, num):
-        self._point_num =self
+        self._point_num = num
         logging.debug(__name__ + " : setting number of points to %s." %num)
         
     def _do_get_point_num(self):
         return self._point_num
+        
+    def _do_set_update_rate(self, rate_string, channel):
+        if rate_string in ["1.25Gs", "600MS", "312.5Ms"]:
+            self._update_rates[channel-1] = rate_string
+            logging.debug(__name__ + " : update rate of channel %s changed to %s" %(channel, rate_string))
+        else:
+            raise Exception("The only possible update rates are 1.25Gs, 600MS and 312.5Ms")
+            
+        
+    def _do_get_update_rate(self, channel):
+        return self._update_rates[channel-1]
+    
     
     
     def _do_set_offset(self, voltage, channel):
-        self._offsets[channel-1] = voltage
+        self._V_offsets[channel-1] = voltage
         logging.debug(__name__ + " : setting offset voltage of channel %s to %s." %(channel, voltage))
         
     def _do_get_offset(self, channel):
-        return self._offsets[channel-1]
+        return self._V_offsets[channel-1]
     
     def _do_get_sampling_rate(self):
         return self._frequency * self._point_num
@@ -116,13 +134,13 @@ class Moku_Pro_AWG(Instrument):
         
     # functions   
     
-    def generate_waveform(self, channel, update_rate, pulse_array):
+    def generate_waveform(self, channel, pulse_array):
         
-        self.awg.generate_waveform(channel = channel, sample_rate = update_rate,
+        self.awg.generate_waveform(channel = channel, sample_rate = self._update_rates[channel-1],
                                    lut_data = list(pulse_array),
                                    frequency = self._frequency,
                                    amplitude = self._amplitudes[channel-1],
-                                   offset = self._offsets[channel-1])
+                                   offset = self._V_offsets[channel-1])
         
     def enable_output(self, channel):
         self.awg.enable_output(channel, True)
@@ -171,14 +189,15 @@ class Moku_Pro_AWG(Instrument):
                 
             maxV = max(abs(pulseArray))
             self._amplitudes[i] = maxV
-            self.generate_waveform(i+1, "1.25Gs", pulseArray/maxV)
+            
+            self.generate_waveform(i+1, pulseArray/maxV)
             
             if triggered:
-                self.burst_mode(channel = i, trigger_source = trigger_source,
+                self.burst_mode(channel = i+1, trigger_source = trigger_source,
                                 trigger_mode = trigger_mode, burst_cycles = burst_cycles, 
                                 trigger_level = trigger_level)
             else:
-                self.continuous_mode(channel = i)
+                self.continuous_mode(channel = i+1)
                 
             
 
