@@ -37,7 +37,7 @@ import json
 class ZI_HDAWG4(Instrument):
 
     #input to initialize instrument: name(string) - name of the instrument, device_id - serial numer of instrument
-    def __init__(self, name, device_id, **kwargs):
+    def __init__(self, name, device_id, disable_everything = False, **kwargs):
         """ 
         DOCUMENTATION
 
@@ -115,7 +115,8 @@ class ZI_HDAWG4(Instrument):
         logging.info(__name__+'Waveform folder set: '+self.wave_dir)
 
         # disable all outputs etc.
-        self.disable_everything()
+        if disable_everything:
+            self.disable_everything()
 
         #implement functions
         self.add_function("start_playback")
