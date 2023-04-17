@@ -61,16 +61,4 @@ class ZHInst_UHFQAv2(ZHInst_Abstract):
         self.nodetree.qa.integration.weights[channel].real(np.cos(phases))
         self.nodetree.qa.integration.weights[channel].imag(np.sin(phases))
 
-    def _do_set_readout_frequency(self, frequency, channel):
-        self._uhfqa.channels[channel].readout_frequency(frequency)
-
-    def _do_set_readout_amplitude(self, amplitude, channel):
-        self._uhfqa.channels[channel].readout_frequency(amplitude)
-
-    def _do_get_readout_frequency(self, channel):
-        return self._uhfqa.channels[channel].readout_frequency()
-
-    def _do_get_readout_amplitude(self, channel):
-        return self._uhfqa.channels[channel].readout_frequency()
-    
         

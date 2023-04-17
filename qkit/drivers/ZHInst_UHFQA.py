@@ -52,12 +52,12 @@ class ZHInst_UHFQA(ZHInst_Abstract):
         self._uhfqa.channels[channel].readout_frequency(frequency)
 
     def _do_set_readout_amplitude(self, amplitude, channel):
-        self._uhfqa.channels[channel].readout_frequency(amplitude)
+        self._uhfqa.channels[channel].readout_amplitude(amplitude)
 
     def _do_get_readout_frequency(self, channel):
         return self._uhfqa.channels[channel].readout_frequency()
 
     def _do_get_readout_amplitude(self, channel):
-        return self._uhfqa.channels[channel].readout_frequency()
+        return self._uhfqa.channels[channel].readout_amplitude()
     
         
