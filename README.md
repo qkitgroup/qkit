@@ -33,6 +33,7 @@ pip install -r requirements.txt
 | [pyvisa](https://pypi.org/project/PyVISA/), [pyvisa-py](https://pypi.org/project/PyVISA-py/) | Communication with Devices |
 | [zhinst](https://pypi.org/project/zhinst/) | Drivers for Zurich Instruments devices |
 | [zeromq](https://pypi.org/project/pyzmq/) | Messaging |  
+| [toml](https://pypi.org/project/toml/) | Configuration |
 
 ## Installation:
 Clone this repository with

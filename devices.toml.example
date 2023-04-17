@@ -1,0 +1,4 @@
+[probestation-multimeter]
+name="IVD"
+instype="Keysight_B2900"
+address="TCPIP0::1.2.3.4::INSTR"
