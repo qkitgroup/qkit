@@ -10,6 +10,14 @@ c.JupyterLabTemplates.template_dirs = [str(template_path)]
 c.JupyterLabTemplates.include_default = False
 c.JupyterLabTemplates.include_core_paths = False
 
+# Set Notebook directory
+notebook_dir = 'notebooks'
+try:
+    os.mkdir(notebook_dir)
+except(FileExistsError):
+    pass # This happens when the directory has already been created. This is expected and can be safely ignored.
+c.ServerApp.root_dir = notebook_dir
+
 #------------------------------------------------------------------------------
 # Application(SingletonConfigurable) configuration
 #------------------------------------------------------------------------------

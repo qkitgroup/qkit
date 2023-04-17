@@ -25,8 +25,8 @@ pip install -r requirements.txt
 | Library | Usage |
 | ------- | ----- |
 | [pyqt5](https://pypi.org/project/PyQt5/) | GUI   | 
-| [numpy](https://pypi.org/project/numpy/), [scipy](https://pypi.org/project/scipy/)   | General Usage |
-| [pyqtgraph](https://pypi.org/project/pyqtgraph/) | Plotting |
+| [numpy](https://pypi.org/project/numpy/), [scipy](https://pypi.org/project/scipy/), [uncertainties](https://pypi.org/project/uncertainties/) | General Usage |
+| [pyqtgraph](https://pypi.org/project/pyqtgraph/), [matplotlib](https://pypi.org/project/matplotlib/) | Plotting |
 | [h5py](https://pypi.org/project/h5py/) | Data Stroage |
 | [jupyterlab](https://pypi.org/project/jupyterlab/) | Interactive Notebooks |
 | [jupyterlab-templates](https://pypi.org/project/jupyterlab-templates/) | Notebook Templating |
@@ -65,3 +65,6 @@ pip install virtualenv
 Add the qkit/qkit directory to your systems PYTHONPATH variable.
 
 If you use the included scripts to run JupyterLab, then this step is not required.
+
+## Running
+Depending on your operating system, run `launch.ps1` (Windows) or `launch.sh`(Linux)
