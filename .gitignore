@@ -8,3 +8,6 @@ qkit/logs/qkit.log
 
 .vscode/
 .mypy_cache/
+.idea/
+venv
+.venv
