@@ -265,7 +265,7 @@ class Insttools(object):
                 f.write(descr)
         return self.get(name)
 
-    def lookup(self, name, **kwargs):
+    def create_from_config(self, name, **kwargs):
         """
         Check in the local config file for the device name. If it exists, take the config from there to create the device.
         
