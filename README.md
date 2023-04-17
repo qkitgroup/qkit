@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/qkitgroup/qkit/blob/master/images/Qkit_Logo.png" alt="QKIT" width="300">
+  <img src="./images/Qkit_Logo.png" alt="QKIT" width="300">
 </p>
 
 
