@@ -265,14 +265,14 @@ class Insttools(object):
                 f.write(descr)
         return self.get(name)
 
-    def lookup(self, lookup_name, **kwargs):
+    def lookup(self, name, **kwargs):
         """
         Check in the local config file for the device name. If it exists, take the config from there to create the device.
         
         Override with values from keyword arguments.
         """
         # This merges the configuration dict with
-        config = {**self._lookup_dict[lookup_name], **kwargs}
+        config = {**self._lookup_dict[name], **kwargs, 'name': name}
         return self.create(**config)
 
 
