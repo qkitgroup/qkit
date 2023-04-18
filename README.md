@@ -34,6 +34,19 @@ pip install -r requirements.txt
 | [zhinst](https://pypi.org/project/zhinst/) | Drivers for Zurich Instruments devices |
 | [zeromq](https://pypi.org/project/pyzmq/) | Messaging |  
 
+## Upgrading:
+If you use an existing installation of qkit, where the Jupyter Notebooks are not located in `./notebooks`, then you will need to change one line in `jupyter_lab_config.py`:
+
+```python 
+# Set Notebook directory
+notebook_dir = 'notebooks' # Change this line
+```
+On Windows, this might be set to:
+```python 
+# Set Notebook directory
+notebook_dir = r'C:\notebooks' # Change this line
+```
+
 ## Installation:
 Clone this repository with
 ```bash
