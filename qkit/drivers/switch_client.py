@@ -74,3 +74,16 @@ class switch_client(Instrument):
     def get_position(self,switch):
         self.socket.send_string("get/%i" % switch)
         return self.socket.recv_string()
+    
+    def is_at_position(self, switch, port):
+        self.socket.send_string("get/%i/%i" % (switch, port))
+        response = self.socket.recv_string() # This is a string of either "1" or "0", as per server code
+        return bool(int(response)) # convert string ("1"|"0") to in (1|0) to bool (True|False)
+    
+    def ensure_switch_at(self, switch, port):
+        """
+        Ensures that the switch is at the specified position.
+        Idempotent.
+        """
+        if not self.is_at_position(switch, port):
+            self.switch_to(switch, port)
