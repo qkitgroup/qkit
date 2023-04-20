@@ -35,6 +35,8 @@ class switch_client(Instrument):
         self.add_function('enable')
         self.add_function('disable')
         self.add_function('switch_to')
+        self.add_function('is_at_position')
+        self.add_function('ensure_switch_at')
     
     def close(self):
         print("closing zmq socket")
