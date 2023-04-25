@@ -1,0 +1,9 @@
+*.pyc
+qtlab.log
+qtlab.cfg
+qckit.log
+qckit.cfg
+data
+tmp
+userconfig_local.py
+userconfig.py
