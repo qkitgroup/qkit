@@ -30,7 +30,7 @@ dependencies = [
     "pyzmq>=25"
 ]
 
-[project.console_scripts]
+[project.scripts]
 qviewkit = "qkit.gui.qviewkit.main:main"
 
 [project.optional-dependencies] # Here goes stuff like qiclib

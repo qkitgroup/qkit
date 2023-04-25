@@ -121,7 +121,7 @@ class DATA(QObject):
 
 
 # Main entry to program.
-def main(argv):
+def main(argv=sys.argv):
     """Main function to open a h5 file with qviewkit.
 
     This function is called via command line. It opens the optional parsed
@@ -180,4 +180,4 @@ def main(argv):
     app.exec_()
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()
