@@ -52,6 +52,13 @@ To install this package, run (TODO the reference to github needs to be updated)
 ```bash
 pip install qkit[jupyter,analysis] @git+https://github.com/qkitgroup/qkit.git@master
 ```
+
+## Developing
+Clone this repository to wherever is convenient and run
+```bash
+python -m venv .venv
+pip install --editable .
+```
 ## Running
 You will most likely want to run a JupyterLab Server to work with qkit. Download `jupyter_lab_config.py`.
 In this file, you might want to change
