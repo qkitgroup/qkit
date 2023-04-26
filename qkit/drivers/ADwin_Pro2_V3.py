@@ -1765,8 +1765,9 @@ if __name__ == "__main__":
     #1)create instance - implement global voltage limits when creating instance
     
     #bill with oversampling, parallel gate setting, continuous watching, and triggered readout
-    reboot = True  # reboots the ADwin process. IF ADwin is dead the outputs will not be affected by rebooting. 
-                   # IF ADwin is still alive the memory of voltage values of the outputs will be set to 0V. If they were not 0V use reset_outputs=False and memory_voltages.
+    reboot = True  # reboots the ADwin process. IF ADwin is dead you have to boot manually over ADbasic once. 
+                   # IF reboot = True you have to use the next cell to initialize the gates. 
+
     bill = qkit.instruments.create('bill',
         'ADwin_Pro2_V3',
         bootload=reboot,
@@ -1776,15 +1777,18 @@ if __name__ == "__main__":
         import_coil_params=True)
     
     # initialize gates **************************************************************
-    gate_num = 10
-    reset_outputs = False # if False the outputs will be initilized with the values of memory_voltages and if not stated will be at -1*bit_step for the next ramp starting point.
+    # IF reset_outputs = False then the memory_voltages will be stored in the ADwin's memory. Ramping will continue from there.  
+    # IF reset_outputs = True then all voltage values will be set to 0V in memory and ramping will continue from there. 
     
-    #voltages used to write to ADwin memory if reset_output = False
+    gate_num = 24
+    reset_outputs = False # If False the outputs will be initilized with the values of memory_voltages and if not stated will be at -1*bit_step for the next ramp starting point.
+    
+    #voltages used to write to ADwin memory if reset_output = False; not specified means 0V.
     memory_voltages = {4: 4,
                       3: 1,
                       }
     bill.initialize_gates(gate_num, reset_to_0=reset_outputs, 
-                          lower_limit=-4.0, upper_limit=4, speed=0.2, init_V=memory_voltages)
+                          lower_limit=-1.0, upper_limit=3.8, speed=0.2, init_V=memory_voltages)
         
     print(10*'*'+'Initialization complete'+10*'*')
     
@@ -1848,3 +1852,31 @@ if __name__ == "__main__":
     bill.check_error_triggered_readout()
     print(bill.read_triggered_readout())
     bill.stop_triggered_readout()
+    
+    """
+gatelist = [[4,"S1"], 
+            [5,"S2"], 
+            [6,"B4"],
+            [7,"ST2"],
+            [8,"RB1"], 
+            [9,"RB2"], 
+            [10,"RTopgate"],
+            [11,"SB2"],
+            [12,"P2"], 
+            [13,"B3"], 
+            [14,"S3"],
+            [15,"S4"],
+            [16,"B1"], 
+            [17,"LB1"], 
+            [18,"LB2"],
+            [19,"LTopgate"],
+            [20,"P1"], 
+            [21,"B2"], 
+            [23,"IVOffset"],
+            [24,"OhmicBias"], 
+            ]
+
+for gate,name in gatelist:
+        bill.__dict__['set_%s_out'%name] = bill.__dict__['set_gate%i_out'%gate]
+        bill.__dict__['get_%s_out'%name] = bill.__dict__['get_gate%i_out'%gate]
+"""
