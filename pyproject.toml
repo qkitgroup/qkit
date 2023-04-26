@@ -49,6 +49,9 @@ analysis = [
     "SQcircuit>=0.0.17",
     "peakutils>=1.3"
 ]
+qgrid = [
+    "qgrid>=1.0"
+]
 timedomain = [
     # TODO: Git repository of Campus North group
 ]
