@@ -48,36 +48,23 @@ notebook_dir = r'C:\notebooks' # Change this line
 ```
 
 ## Installation:
-Clone this repository with
+To install this package, run
 ```bash
-git clone https://github.com/qkitgroup/qkit.git
+pip install qkit@git+https://github.com/qkitgroup/qkit.git@master#qkit[jupyter,analysis]
 ```
-In this directory, create a virtual environment with the required dependencies. Should you not have `virtualenv` installed, see below.
-```bash
-virtualenv .venv
-```
-Depending on your operating system you need to run (Linux)
-```bash
-source .\.venv/Scripts/activate
-```
-or (Windows):
-```ps1
-.\.venv\Scripts\Activate.ps1
-``` 
-Now install the dependencies using
-```bash
-pip install -r requirements.txt
-```
-
-### Installing venv
-If you don't have support for virtual environments, enable it by running
-```bash
-pip install virtualenv
-```
-### Optional: Adding QKIT to path
-Add the qkit/qkit directory to your systems PYTHONPATH variable.
-
-If you use the included scripts to run JupyterLab, then this step is not required.
-
 ## Running
-Depending on your operating system, run `launch.ps1` (Windows) or `launch.sh`(Linux)
+You will most likely want to run a JupyterLab Server to work with qkit. Download `jupyter_lab_config.py`.
+In this file, you might want to change
+```python 
+# Set Notebook directory
+notebook_dir = 'notebooks' # Change this line
+```
+to this (on windows)
+```python 
+# Set Notebook directory
+notebook_dir = r'C:\notebooks' # Change this line
+```
+to point to an existing notebook directory. Then run
+```bash
+jupyter lab --config=./jupyter_lab_config.py
+```

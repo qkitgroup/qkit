@@ -13,3 +13,6 @@ venv
 # QKit data
 notebooks/
 data/
+
+# Build
+dist/
