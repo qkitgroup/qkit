@@ -48,9 +48,9 @@ notebook_dir = r'C:\notebooks' # Change this line
 ```
 
 ## Installation:
-To install this package, run
+To install this package, run (TODO the reference to github needs to be updated)
 ```bash
-pip install qkit@git+https://github.com/qkitgroup/qkit.git@master#qkit[jupyter,analysis]
+pip install qkit[jupyter,analysis] @git+https://github.com/qkitgroup/qkit.git@master
 ```
 ## Running
 You will most likely want to run a JupyterLab Server to work with qkit. Download `jupyter_lab_config.py`.
