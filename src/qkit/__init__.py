@@ -67,6 +67,62 @@ try:
 except ImportError:
     pass
 
+
+def _load_user_config():
+    """
+    Loads user configuration from the file system, determined by known file names or environment variables.
+
+    We usually run in a jupyter notebook. If qkit is installed as a package, a local config is not possible,
+    and in the long run we should migrate towards a config not in the qkit directory.
+    We will use two strategies here:
+    1. Check if the environment variable 'QKIT_LOCAL_CONFIG' is set. Use the file it points to.
+    2. Use current working directory:
+      a. check if a qkit_conf.py file exists. If it does, use it.
+      b. Else go to parrent directory and repeat
+    If a file was found by either way, load it.
+
+    We log information to stdout, as logging is not yet available. This code is executed before S10_logging.py,
+    and will already have become unavailable once logging is initialized.
+    """
+    import os
+    from pathlib import Path
+    from itertools import chain
+
+    user_config = None
+    environment_vairable_name = 'QKIT_LOCAL_CONFIG'
+    config_file_names = ['qkit_local_config.py', 'local.py']
+
+    if environment_vairable_name in os.environ:
+        # Inspect environment variable, should it exist
+        print("Found environment variable '%s' for configuration." % environment_vairable_name)
+        user_config = os.environ(environment_vairable_name)
+    else:
+        current_directory = Path(os.getcwd())
+        for dir in chain([current_directory], current_directory.parents):
+            for (index, config_file_name) in enumerate(config_file_names):
+                test_path = dir / config_file_name
+                if test_path.exists():
+                    if test_path.is_file():
+                        user_config = test_path
+                        if index != 0:
+                            print("WARNING: Found legacy configuration file name. Consider migrating.")
+                        # We are done here
+                        break
+                    else:
+                        print("WARNING: Found correct file system name %s, but was not a file?!" % test_path)
+
+    # Load if found
+    if user_config is not None:
+        # https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("userconfig", user_config)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        cfg.update(module.cfg)
+
+_load_user_config()
+del _load_user_config
+
 # clean up 
 del cfg_local
 # init message
