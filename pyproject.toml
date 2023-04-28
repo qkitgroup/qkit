@@ -53,7 +53,7 @@ qgrid = [
     "qgrid>=1.0"
 ]
 timedomain = [
-    # TODO: Git repository of Campus North group
+    "qiclib@https://git.scc.kit.edu/ipe-sdr-dev/software/qup_client.git>=1.0"
 ]
 
 
