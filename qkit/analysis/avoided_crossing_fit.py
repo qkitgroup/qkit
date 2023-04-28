@@ -82,6 +82,21 @@ class ACF():
             An array with same length as x and return value: a*(x - b)**2 + c
         """
         return a * (x - b)**2 + c
+
+    def hyperbola(self, x, a, b, c):
+        """
+        A hyperbola around x = b with offset c.
+
+        Args:
+            x: x value
+            a:
+            b: Offset in x-direction
+            c: Offset in y-direction
+
+        Returns:
+            An array with same length as x and return value: a*(x - b)**2 + c
+        """
+        return np.sqrt(a * (x - b) ** 2 + c)
     
     def transmon_f01(self, x, w0, L, I_ext, djj):
         """
@@ -499,11 +514,11 @@ class ACF():
                 return
         for i in range(0, self._xlen):
             plt.plot(self.xdata[i], self.ydata[i], dat_cols[i], marker = mrkr, linewidth = 0)
-        xlin = np.linspace(np.amin(np.concatenate(self.xdata)), np.amax(np.concatenate(self.xdata)), 1000)
+        xlin = np.linspace(np.nanmin(np.concatenate(self.xdata)), np.nanmax(np.concatenate(self.xdata)), 1000)
         for i in range(self._flen):
             plt.plot(xlin, self.crossing_fct(xlin, pars)[:, i], fct_cols[i])
-        plt.xlim(np.amin(np.concatenate(self.xdata)), np.amax(np.concatenate(self.xdata)))
-        plt.ylim(np.amin(np.concatenate(self.ydata)), np.amax(np.concatenate(self.ydata)))
+        plt.xlim(np.nanmin(np.concatenate(self.xdata)), np.nanmax(np.concatenate(self.xdata)))
+        plt.ylim(np.nanmin(np.concatenate(self.ydata)), np.nanmax(np.concatenate(self.ydata)))
         plt.show()
         return
     

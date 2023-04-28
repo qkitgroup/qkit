@@ -1,0 +1,40 @@
+// Ramsey sequence file
+// Source: https://github.com/zhinst/labone-api-examples/blob/main/shfsg/python/Ramsey.seq
+// Define constants in time domain
+const amp = 1; //unitless scale factor
+const t_width = 50e-9; //FWHM of 50ns
+const t_length = 8*t_width; //temporal length in terms of FWHM
+const t_step = 100e-9; //step size of 100ns
+const n_evo = 50; //number of time steps
+const n_aves = 1000; //number of averages
+const t_readout = 1e-6; //readout time
+
+// Constants converted to samples
+const s_rate = 2.0e9; //sampling rate being used
+const s_length = round(s_rate*t_length/16)*16; //account for waveform granularity of 16 samples
+const s_width = s_rate*t_width;
+const s_readout = round(s_rate*t_readout/16)*16;
+const s_step = round(s_rate*t_step/16)*16;
+
+// Generate gaussian waveform
+wave w = gauss(s_length,amp,s_length/2,s_width);
+assignWaveIndex(1,2,w,1,2,w,0);
+
+//Repeat Ramsey loop n_aves times
+repeat (n_aves) {
+  // Reset modulation phase and set trigger
+  resetOscPhase();
+  setTrigger(1);
+  setTrigger(0);
+
+  //Ramsey loop
+  var i;
+  for (i = 0; i < n_evo; i += 1) {
+    // Play pi/2 pulse followed by evolution time and second pi/2 pulse, then readout
+    executeTableEntry(0);
+    playZero(32+i*s_step);
+    executeTableEntry(0);
+    playZero(s_readout);
+  }
+  playZero(s_readout);
+}

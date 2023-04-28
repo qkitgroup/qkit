@@ -300,7 +300,8 @@ class Resonator(object):
         elif circle_fit_version == 2:
             self._result_keys = ["delay", "delay_remaining", "a", "alpha", "theta", "phi", "fr", "Ql", "Qc",
                                  "Qc_no_dia_corr", "Qi", "Qi_no_dia_corr", "fr_err", "Ql_err", "absQc_err",
-                                 "phi_err", "Qi_err", "Qi_no_dia_corr_err", "chi_square"]
+                                 "phi_err", "Qi_err", "Qi_no_dia_corr_err", "chi_square", "Qi_min", "Qi_max",
+                                 "Qc_min", "Qc_max", "fano_b"]
         else:
             logging.warning("Circle fit version not properly set in configuration!")
 

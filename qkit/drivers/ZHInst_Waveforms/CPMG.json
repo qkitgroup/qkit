@@ -1,0 +1,50 @@
+{
+    "$schema": "https://json-schema.org/draft-04/schema#",
+    "header": {
+        "version": "1.0"
+    },
+    "table": [
+        {
+            "index": 0,
+            "waveform": {
+                "index": 0
+            },
+            "phase": {
+                "value": 0.0
+            },
+            "amplitude00": {
+                "value": 0.3
+            },
+            "amplitude01": {
+                "value": -0.3
+            },
+            "amplitude10": {
+                "value": 0.3
+            },
+            "amplitude11": {
+                "value": 0.3
+            }
+        },
+        {
+            "index": 1,
+            "waveform": {
+                "index": 0
+            },
+            "phase": {
+                "value": 90.0
+            },
+            "amplitude00": {
+                "value": 0.7
+            },
+            "amplitude01": {
+                "value": -0.7
+            },
+            "amplitude10": {
+                "value": 0.7
+            },
+            "amplitude11": {
+                "value": 0.7
+            }
+        }
+    ]
+}
