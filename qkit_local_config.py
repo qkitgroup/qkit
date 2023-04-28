@@ -9,7 +9,12 @@ cfg = {}
 #cfg['plot_engine'] = 'qkit.gui.qviewkit_x.main'
 
 # Where is your data located?
-cfg['datadir'] = r'C:\Users\Thilo\Desktop\Projekt Promotion\qkit\data'
+# We can't rely on os.getcwd(), because jupyter creates sub-processes.
+# Configuring relative to the configuration file:
+import pathlib
+this_dir = pathlib.Path(__file__).parent.resolve()
+cfg['datadir'] = str(this_dir / 'data')
+cfg['logdir'] = str(this_dir / 'logs')
 
 # Which version of datafolder structuring do you want?
 #  1 = YYYYMMDD/HHMMSS_NAME
