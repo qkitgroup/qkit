@@ -64,4 +64,7 @@ timedomain = [
 [tool.hatch.version]
 path = "src/qkit/__init__.py"
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.hatch.build]
