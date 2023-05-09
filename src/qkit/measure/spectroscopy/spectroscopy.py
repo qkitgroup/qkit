@@ -719,10 +719,11 @@ class spectrum(object):
             self._resonator.fit_circle(notch=True, f_min=self._f_min, f_max=self._f_max)
         elif self._fit_function == 4:  # fano
             self._resonator.fit_fano(f_min=self._f_min, f_max=self._f_max)
-        # if self._fit_function == 5: #all fits
+        elif self._fit_function == 5: #all fits
+            logging.warning("Please performe fits individually, fit all is currently not supported.")
         # self._resonator.fit_all_fits(f_min=self._f_min, f_max = self._f_max)
         else:
-            logging.error("Fit function {:d} not supported".format(self._fit_function))
+            logging.error("Fit function set in spectrum.set_resonator_fit is not supported. Must be either \'lorentzian\', \'skewed_lorentzian\', \'circle_fit_reflection\', \'circle_fit_notch\', \'fano\', or \'all_fits\'.")
 
     def set_tdx(self, tdx):
         self.tdx = tdx
