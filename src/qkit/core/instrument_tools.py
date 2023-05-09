@@ -21,6 +21,7 @@ import inspect
 import os
 import logging
 import sys
+import toml
 import qkit.core.instrument_base as instrument
 
 import importlib
@@ -68,6 +69,12 @@ class Insttools(object):
         self._tags = []
         self._instdir       = qkit.cfg.get('instruments_dir')
         self._user_instdir  = qkit.cfg.get('user_instruments_dir')
+        lookup_dict_location = qkit.cfg.get('device_lookup_config')
+        if lookup_dict_location is not None:
+            self._lookup_dict = toml.load(lookup_dict_location)
+        else:
+            self._lookup_dict = {}
+
 
     def __getitem__(self, key):
         return self.get(key)
@@ -257,6 +264,17 @@ class Insttools(object):
             if not descr.strip() in [r.strip() for r in f.readlines()]:
                 f.write(descr)
         return self.get(name)
+
+    def create_from_config(self, name, **kwargs):
+        """
+        Check in the local config file for the device name. If it exists, take the config from there to create the device.
+        
+        Override with values from keyword arguments.
+        """
+        # This merges the configuration dict with
+        config = {**self._lookup_dict[name], **kwargs, 'name': name}
+        return self.create(**config)
+
 
     def reload_module(self, instype):
         module = _get_driver_module(instype, do_reload=True)
