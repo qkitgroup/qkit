@@ -29,7 +29,14 @@ from qupulse._program._loop import to_waveform
 import numpy as np
 import warnings
 import inspect
-from time import sleep
+from collections import abc, defaultdict
+def update(d, u):
+    for k, v in u.items():
+        if isinstance(v, abc.Mapping):
+            d[k] = update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
 
 def keytransform(original, transform):
     transformed = {}
@@ -47,6 +54,8 @@ def expand_mapping(dictionary, mapping):
 def invert_dict(dict):        
         inverse_dict = {v : k for k, v in dict.items()}
         return inverse_dict
+
+
 
 class Qupulse_decoder2:
     """Gebratenes Hundefleisch mit Gemüse und Reis
@@ -326,8 +335,685 @@ class Settings:
             getattr(self.core._ro_backend, f"{measurement}_activate")()
             
         self.core._ma_backend.load_waveform(self.channel_settings)
+class No_avg:
+    name = "no_avg"
+    def __init__(self, core) -> None:
+        self.core = core
+    
+    def create_datasets(self, dsets, measurement, node, coords):
+        dsets.append(self.core.Data(name = "%s.%s" % (measurement, node), coords = coords + [self.core._iteration_parameters[measurement], self.core._t_parameters[measurement]],
+                                        unit = self.core.settings.measurement_settings[measurement]["unit"], 
+                                        save_timestamp = False))
+    
+    def create_file_structure(self, measurement, name, node):
+        self.core._datasets[f"{name}.{node}"].append(np.full(measurement["sample_count"], np.nan))
+        self.core._datasets[f"{name}.{node}"].ds.resize((measurement["averages"] * measurement["measurement_count"], measurement["sample_count"]))
+
+class PulseParameter:
+    name = "pulse_parameter"
+    def __init__(self) -> None:
+        self.unit = "a.u."
+        self.tag = "pulse_parameter"
+        self.first = True
+        self.total_sum = defaultdict(dict)
+        self.divider = defaultdict(dict)
+    def create_axis_name(self, measurement, measurement_name):
+        return f"{measurement['loop_step_name_pp']}.{measurement_name}"
+    def create_axis_vec(self, measurement):
+        return measurement["loop_range_pp"]
+    def create_axis_unit(self, measurement):
+        return self.unit
+    def check_axis_vec(self, measurement, vec):
+        if len(vec) != measurement["measurement_count"]:
+                raise ValueError((f"{__name__}: Wrong pulse parameter coordinate length."
+                "The given array must have" 
+                f"{measurement['measurement_count']} entries."))
+    def write_to_file(self, latest_node_data, datafile, data_location, collected_averages, measurement, node):
+        #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
+        if self.first:
+            self.divider[measurement] = collected_averages
+            self.total_sum[measurement][node] = np.sum(np.average(latest_node_data, axis = 2), axis = 0)
+            datafile["%s.%s" % (measurement, node)].append(self.total_sum[measurement][node] / self.divider[measurement])
+            self.first = False
+        else:
+            self.total_sum[measurement][node] += np.sum(np.average(latest_node_data, axis = 2), axis = 0)
+            #self.divider[measurement] += len(latest_data[measurement][first_node])
+            datafile["%s.%s" % (measurement, node)].ds[data_location] =  self.total_sum[measurement][node] / self.divider[measurement]
+
+class FileHandler:
+    def __init__(self) -> None:
+        self.mb = mb.MeasureBase()
+        self._multiplexer_parameters = defaultdict(dict)
+        self.report_static_voltages = True
+        self.open_qviewkit = True
+
+        self.par_search_placeholder = "$$"
+        self.par_search_string = "gate$$_out"
         
+        self.datasets = []
+
+    def update_multiplexer_parameters(self, tag, vec, coordname, measurement, unit = "s"):        
+        new_t_parameter = self.mb.Coordinate(coordname,
+                                            unit = unit,
+                                            values = np.array(vec, dtype=float),
+                                            set_function = lambda val : True,
+                                            wait_time = 0)
+        new_t_parameter.validate_parameters()
+        self._multiplexer_parameters[tag][measurement] = new_t_parameter
+    
+    def _filter_parameter(self, parameter):
+        preamble, postamble = self.par_search_string.split(self.par_search_placeholder)
+        if parameter.startswith(preamble) and parameter.endswith(postamble):
+            parameter = parameter.replace(preamble, "")
+            parameter = parameter.replace(postamble, "")
+        return parameter.isdigit()
+
+    def _prepare_measurement_file(self, data, coords=()):
+        """Das Fleisch in der Sonne zu trocknen ist in unseren Breiten schwierig. 
+        Das geht nur in heißen Sommermonaten wie Juli oder August, wenn man das Fleisch ausgebreitet auf einer Platte – 
+        mit Frischhaltefolie oder einem größeren Deckel abgedeckt – in der Sonne trocknen kann. In Thailand ist das sicherlich sehr viel einfacher. 
+        Alternativ bietet es sich an, das kleingeschnittene Fleisch abgedeckt einen Tag an einem kühlen Ort zu trocknen. 
+        Das Fleisch ist nach einem Tag noch nicht verdorben.
+        """
+        self.mb._prepare_measurement_file(data, coords)
+        
+        if self.report_static_voltages:
+            self._static_voltages = self.mb._data_file.add_textlist("static_voltages")
+            _instr_settings_dict = get_instrument_settings(self.mb._data_file.get_filepath())
+
+            active_gates = {}
+            
+            for parameters in _instr_settings_dict.values():
+                for (key, value) in parameters.items():
+                    if self._filter_parameter(key) and abs(value) > 0.0004:
+                        active_gates.update({key:value})
+            self._static_voltages.append(active_gates)
+
+    def add_dset(self, measurement, node, coords, unit):
+        """Zutaten:
+        Hundefleisch
+        Junge Zwiebeln
+        Wurzeln
+        Chinesischer Duftreis
+        frischer Koriander
+        Sesamöl
+        Chilisauce
+        Essig mit Chili
+        Sojasauce
+        Austernsauce
+        Fischsauce
+        """
+        self.datasets.append(self.mb.Data(name = f"{measurement}.{node}", coords = coords,
+                            unit = unit, 
+                            save_timestamp = False))
+
+    def prepare_measurement(self):
+        self._prepare_measurement_file(self.datasets)
+        if self.open_qviewkit:
+            self.mb._open_qviewkit()
+
 class Exciting(mb.MeasureBase):
+    """
+    A class containing measurement routines for spin qubit tuning.
+    
+    Parents
+    -------
+    Measurement_base
+    
+    Attributes
+    ----------
+    reverse2D : bool
+        Zig-zag sweeping during 2D Measurements
+    
+    report_static_voltages: bool
+        Create an extra entry in the .h5 file which reports the active (non-zero) gate voltages
+    
+    measurand : dict
+        Contains the name and the unit of the measurand
+    
+    Methods
+    -------
+    set_z_parameters(self, vec, coordname, set_obj, unit, dt=None): 
+        sets the z-axis for 3D Measurements.
+    
+    set_get_value_func(self, get_func, *args, **kwargs):
+        Sets the measurement function.
+    
+    measure1D() :
+        Starts a 1D measurement
+    
+    measure2D() :
+        Starts a 2D measurement
+        
+    measure3D() :
+        Starts a 3D measurement
+    """
+    modes = {"pulse_parameter", "timetrace", "no_avg", "pp_vs_t", "test"}
+    class MeasurementDimensionError(Exception):
+        pass
+    
+
+    def __init__(self, readout_backend, manipulation_backend,
+                 *experiments, averages, mode = "pulse_parameter", deep_render = False, exp_name = "", sample = None, **add_pars):
+        """
+        Parameters
+        ----------
+        exp_name : str, optional
+            Name of the current experiment
+        sample : qkit.measure.samples_class.Sample, optional
+            Sample used in the current experiment
+        
+        """
+        mb.MeasureBase.__init__(self, sample)
+        
+        self._validate_RO_backend(readout_backend)
+        self._ro_backend = readout_backend
+        self._validate_MA_backend(manipulation_backend)
+        self._ma_backend = manipulation_backend 
+        
+        self.report_static_voltages = True
+        self.mod_mode = No_avg(self)
+        self.par_search_placeholder = "$$"
+        self.par_search_string = "gate$$_out"
+
+        #Here there be testing stuff:
+        self.fh = FileHandler()
+        self.pp = PulseParameter()
+        
+        self.compile_qupulse(*experiments, averages = averages, mode = mode, deep_render = deep_render, **add_pars)
+        
+    
+    @property
+    def report_static_voltages(self):
+        return self._report_static_voltages
+    
+    @report_static_voltages.setter
+    def report_static_voltages(self, yesno):
+        if not isinstance(yesno, bool):
+            raise TypeError(f"{__name__}: Cannot use {yesno} as report_static_voltages. Must be a boolean value.")
+        self._report_static_voltages = yesno
+    
+    @property
+    def mode(self):
+        return self._mode
+    
+    @mode.setter
+    def mode(self, new_mode):
+        if new_mode not in self.modes:
+            raise AttributeError(f"{__name__}: {new_mode} is not a valid measurement mode. Allowed modes are: \n {self.modes}")
+        self._mode = new_mode
+
+    @property
+    def par_search_placeholder(self):
+        return self._par_search_placeholder
+    
+    @par_search_placeholder.setter
+    def par_search_placeholder(self, new_str):
+        if not isinstance(new_str, str):
+            raise TypeError(f"{__name__}: {new_str} is not a valid search string placeholder. Must be a string")
+        self._par_search_placeholder = new_str
+    
+    @property
+    def par_search_string(self):
+        return self._par_search_string
+    
+    @par_search_string.setter
+    def par_search_string(self, new_str):
+        if not isinstance(new_str, str):
+            raise TypeError(f"{__name__}: {new_str} is not a valid parameter search string. Must be a string")
+        if self.par_search_placeholder not in new_str:
+            raise ValueError(f"{__name__}: {new_str} is not a valid parameter search string. It does not contain the placeholder {self.par_search_placeholder}.")
+        self._par_search_string = new_str
+        self._display_pars = {self.par_search_string.replace(self.par_search_placeholder, str(i)) for i in range(1000)}
+    
+    def _validate_RO_backend(self, RO_backend):
+        if not issubclass(RO_backend.__class__, RO_backend_base):
+            raise TypeError(f"{__name__}: Cannot set {RO_backend} as readout backend. The backend must be a subclass of RO_backend_base")
+            
+    def _validate_MA_backend(self, MA_backend):
+        if not issubclass(MA_backend.__class__, MA_backend_base):
+            raise TypeError(f"{__name__}: Cannot set {MA_backend} as manipulation backend. The backend must be a subclass of MA_backend_base")
+    
+    def update_t_parameters(self, vec, coordname, measurement, unit = "s"):
+        if len(vec) != self.settings.measurement_settings[measurement]["sample_count"]:
+            raise ValueError((f"{__name__}: Wrong timetrace parameter coordinate length." 
+            f"The given array must have" 
+            f"{self.settings.measurement_settings[measurement]['sample_count']} entries."))
+        
+        new_t_parameter = self.Coordinate(coordname,
+                                            unit = unit,
+                                            values = np.array(vec, dtype=float),
+                                            set_function = lambda val : True,
+                                            wait_time = 0)
+        new_t_parameter.validate_parameters()
+        self._t_parameters[measurement] = new_t_parameter
+
+    def update_pulse_parameters(self, vec, coordname, measurement, unit = "a.u."):
+        if len(vec) != self.settings.measurement_settings[measurement]["measurement_count"]:
+                raise ValueError((f"{__name__}: Wrong pulse parameter coordinate length."
+                "The given array must have" 
+                f"{self.settings.measurement_settings[measurement]['measurement_count']} entries."))
+        
+        new_pulse_parameter = self.Coordinate(coordname, 
+                                            unit = unit, 
+                                            values = np.array(vec, dtype=float),
+                                            set_function = lambda val : True,
+                                            wait_time = 0)
+        new_pulse_parameter.validate_parameters()
+        self._pulse_parameters[measurement] = new_pulse_parameter
+
+    def update_iteration_parameters(self, vec, coordname, measurement, unit = ""):
+        total_measurements = self.settings.measurement_settings[measurement]['measurement_count'] * self.settings.measurement_settings[measurement]['averages']
+        if len(vec) != total_measurements:
+                raise ValueError((f"{__name__}: Wrong iteration parameter coordinate length."
+                "The given array must have" 
+                f"{total_measurements} entries."))
+
+        new_iteration_parameter = self.Coordinate(coordname, 
+                                            unit = unit, 
+                                            values = np.array(vec, dtype=float),
+                                            set_function = lambda val : True,
+                                            wait_time = 0)
+        new_iteration_parameter.validate_parameters()
+        self._iteration_parameters[measurement] = new_iteration_parameter
+
+    def change_averages(self, averages):
+        """"Changing averages"""
+        if self.mode.endswith("no_avg"):
+            raise NotImplementedError()
+        self.mapper.map_measurements(averages)
+        for measurement, new_avg in averages.items():
+            if not isinstance(measurement, str):
+                raise TypeError(f"{__name__}: Cannot change averages, {measurement} must be a string containing the name of the measurement whose averages you wish to change.")
+            if measurement not in self.settings.measurement_settings.keys():
+                raise ValueError(f"{__name__}: Cannot change averages, {measurement} is not an active measurement.")
+            if not isinstance(new_avg, int):
+                raise TypeError(f"{__name__}: Cannot change averages, {new_avg} must be an integer containing the number of averages you wish to set.")
+            if new_avg < 1:
+                raise ValueError(f"{__name__}: Cannot change averages, {new_avg} must be at least 1 and not negative. Sorry to ask, but are you retarded?")
+            self.settings.measurement_settings[measurement]["averages"] = new_avg
+            getattr(self._ro_backend, f"{measurement}_set_averages")(new_avg)
+    
+    def _filter_parameter(self, parameter):
+        preamble, postamble = self.par_search_string.split(self.par_search_placeholder)
+        if parameter.startswith(preamble) and parameter.endswith(postamble):
+            parameter = parameter.replace(preamble, "")
+            parameter = parameter.replace(postamble, "")
+        return parameter.isdigit()
+
+    def _prepare_measurement_file(self, data, coords=()):
+        """Das Fleisch in der Sonne zu trocknen ist in unseren Breiten schwierig. 
+        Das geht nur in heißen Sommermonaten wie Juli oder August, wenn man das Fleisch ausgebreitet auf einer Platte – 
+        mit Frischhaltefolie oder einem größeren Deckel abgedeckt – in der Sonne trocknen kann. In Thailand ist das sicherlich sehr viel einfacher. 
+        Alternativ bietet es sich an, das kleingeschnittene Fleisch abgedeckt einen Tag an einem kühlen Ort zu trocknen. 
+        Das Fleisch ist nach einem Tag noch nicht verdorben.
+        """
+        mb.MeasureBase._prepare_measurement_file(self, data, coords)
+        
+        if self.report_static_voltages:
+            self._static_voltages = self._data_file.add_textlist("static_voltages")
+            _instr_settings_dict = get_instrument_settings(self._data_file.get_filepath())
+
+            active_gates = {}
+            
+            for parameters in _instr_settings_dict.values():
+                for (key, value) in parameters.items():
+                    if self._filter_parameter(key) and abs(value) > 0.0004:
+                        active_gates.update({key:value})
+            self._static_voltages.append(active_gates)
+
+    def _prepare_measurement(self, coords):
+        """Zutaten:
+        Hundefleisch
+        Junge Zwiebeln
+        Wurzeln
+        Chinesischer Duftreis
+        frischer Koriander
+        Sesamöl
+        Chilisauce
+        Essig mit Chili
+        Sojasauce
+        Austernsauce
+        Fischsauce
+        """
+        total_iterations = 0 #setup the progress bar
+        datasets = []
+        self.divider = {}
+        self.column = {}
+        for measurement in self.settings.measurement_settings.keys():
+            total_iterations += self.settings.measurement_settings[measurement]["averages"]
+            self.divider[measurement] = 0
+            self.column[measurement] = {}
+            for node in self.settings.measurement_settings[measurement]["data_nodes"]:
+                self.column[measurement][node] = 0
+                #Create one dataset for each Measurement node
+                if self.mode == "timetrace":
+                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._t_parameters[measurement]],
+                                        unit = self.settings.measurement_settings[measurement]["unit"], 
+                                        save_timestamp = False))
+                elif self.mode == "pulse_parameter":
+                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._pulse_parameters[measurement]],
+                                        unit = self.settings.measurement_settings[measurement]["unit"], 
+                                        save_timestamp = False))
+                elif self.mode == "pp_vs_t":
+                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._pulse_parameters[measurement], self._t_parameters[measurement]],
+                                        unit = self.settings.measurement_settings[measurement]["unit"], 
+                                        save_timestamp = False))
+                elif self.mode == "no_avg":
+                    self.mod_mode.create_datasets(datasets, measurement, node, coords)
+                elif self.mode == "test":
+                    coords = coords + [self.fh._multiplexer_parameters[self.pp.tag][measurement]]
+                    self.fh.add_dset(measurement, node, coords, self.pp.create_axis_unit(measurement))
+                    
+        self._total_iterations = total_iterations
+        self.fh.prepare_measurement()
+        print("New version!")
+
+    def _ready_hardware(self):
+        self._ro_backend.stop()
+        self._ma_backend.stop() #We do this to be ABSOLUTELY sure that the first trigger recieved also belongs to the first wavefrom
+        self._ro_backend.arm()
+        self._ma_backend.run()
+    
+    def _stop_hardware(self):
+        self._ro_backend.stop()
+        self._ma_backend.stop()
+
+    def _check_node_data(self, latest_node_data):
+        if latest_node_data.ndim != 3:
+            raise IndexError(f"{__name__}: Invalid readout dimensions. {self._ro_backend} must return arrays with 3 dimensions.")
+        if np.size(latest_node_data, axis = 2) == 0:
+            raise ValueError(f"{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
+    
+    def _stream2D(self, progress_bar):
+        """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
+        Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
+        Reis nach Anleitung zubereiten. Danach warmstellen.
+        """
+        self._ready_hardware()
+        iterations = 0
+        while not self._ro_backend.finished():
+            old_iterations = iterations
+            latest_data = self._ro_backend.read()
+            for measurement in latest_data.keys():    
+                first_node = list(latest_data[measurement].keys())[0]
+                #If latest data is empty for one measurement, skip it
+                if len(latest_data[measurement][first_node]) == 0: continue
+                #Count the number of iterations collected by the most recent call of read
+                iterations += len(latest_data[measurement][first_node])
+                for node in latest_data[measurement].keys():                    
+                    latest_node_data = np.array(latest_data[measurement][node])
+                    self._check_node_data(latest_node_data)
+                    for grid in latest_node_data:
+                        for single_trace in grid:                            
+                            self._datasets[f"{measurement}.{node}"].ds[self.column[measurement][node]] = single_trace
+                            self.column[measurement][node] += 1
+            self._data_file.flush()
+            progress_bar.iterate(addend = iterations - old_iterations)
+        self._stop_hardware()
+
+    def _stream1D_modular(self, data_location, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
+        """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
+        Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
+        Reis nach Anleitung zubereiten. Danach warmstellen.
+        """
+        self._ready_hardware()      
+        total_sum = {}
+        iterations = 0
+        first = True
+        while not self._ro_backend.finished():
+            old_iterations = iterations
+            latest_data = self._ro_backend.read()
+            for measurement in latest_data.keys():
+                if first:                            
+                    total_sum[measurement] = {}            
+                first_node = list(latest_data[measurement].keys())[0]
+                #If latest data is empty for one measurement, skip it
+                collected_averages = len(latest_data[measurement][first_node])
+                if collected_averages== 0: continue
+                #Count the number of iterations collected by the most recent call of read                
+                iterations += collected_averages
+                self.divider[measurement] += collected_averages
+                for node in latest_data[measurement].keys():                    
+                    latest_node_data = np.array(latest_data[measurement][node])
+                    print(latest_node_data.shape)
+                    print(latest_node_data)
+                    self._check_node_data(latest_node_data)
+                    self.pp.write_to_file(latest_node_data, self.fh.mb._datasets, data_location, collected_averages, measurement, node)
+            self._data_file.flush()
+            progress_bar.iterate(addend = iterations - old_iterations)
+        for measurement in self.settings.measurement_settings.keys():
+            self.divider[measurement] = 0
+        self._stop_hardware()
+
+    def _stream1D_avg(self, data_location, avg_ax, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
+        """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
+        Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
+        Reis nach Anleitung zubereiten. Danach warmstellen.
+        """
+        self._ready_hardware()      
+        total_sum = {}
+        iterations = 0
+        first = True
+        while not self._ro_backend.finished():
+            old_iterations = iterations
+            latest_data = self._ro_backend.read()
+            for measurement in latest_data.keys():
+                if first:                            
+                    total_sum[measurement] = {}            
+                first_node = list(latest_data[measurement].keys())[0]
+                #If latest data is empty for one measurement, skip it
+                collected_averages = len(latest_data[measurement][first_node])
+                if collected_averages== 0: continue
+                #Count the number of iterations collected by the most recent call of read                
+                iterations += collected_averages
+                self.divider[measurement] += collected_averages
+                for node in latest_data[measurement].keys():                    
+                    latest_node_data = np.array(latest_data[measurement][node])
+                    self._check_node_data(latest_node_data)
+                    #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
+                    if first:                        
+                        total_sum[measurement][node] = np.sum(np.average(latest_node_data, axis = avg_ax), axis = 0)
+                        self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node] / self.divider[measurement])                        
+                    else:
+                        total_sum[measurement][node] += np.sum(np.average(latest_node_data, axis = avg_ax), axis = 0)
+                        #self.divider[measurement] += len(latest_data[measurement][first_node])
+                        self._datasets["%s.%s" % (measurement, node)].ds[data_location] =  total_sum[measurement][node] / self.divider[measurement]
+            first = False
+            self._data_file.flush()
+            progress_bar.iterate(addend = iterations - old_iterations)
+        for measurement in self.settings.measurement_settings.keys():
+            self.divider[measurement] = 0
+        self._stop_hardware()
+
+    def _stream2D_avg(self, data_location, progress_bar):
+        self._ready_hardware()      
+        total_sum = {}
+        iterations = 0
+        first = True
+        while not self._ro_backend.finished():
+            old_iterations = iterations
+            latest_data = self._ro_backend.read()
+            for measurement in latest_data.keys():
+                if first:                            
+                    total_sum[measurement] = {}
+                first_node = list(latest_data[measurement].keys())[0]
+                collected_averages = len(latest_data[measurement][first_node])
+                #If latest data is empty for one measurement, skip it
+                if collected_averages == 0: continue
+                #Count the number of iterations collected by the most recent call of read
+                iterations += collected_averages
+                self.divider[measurement] += collected_averages
+                for node in latest_data[measurement].keys():
+                    latest_node_data = np.array(latest_data[measurement][node])
+                    self._check_node_data(latest_node_data)
+                    #Calculate the average over all measurements (axis 0), and integrate along the pulse parameter axis (axis 1).
+                    if first:
+                        total_sum[measurement][node] = np.sum(latest_node_data, axis = (0))
+                        for timetrace in total_sum[measurement][node]: # this is the difference to _stream1D. To initialize the 2D dataset, we have to pass each vector one by one.
+                            self._datasets["%s.%s" % (measurement, node)].append(timetrace)
+                    else:                        
+                        total_sum[measurement][node] += np.sum(latest_node_data, axis = (0))
+                        #Divide through the number of finished iterations, since you accumulate all the averages
+                        self._datasets["%s.%s" % (measurement, node)].ds[data_location] = total_sum[measurement][node]/ self.divider[measurement]
+            first = False
+            self._data_file.flush()
+            progress_bar.iterate(addend = iterations - old_iterations)
+        for measurement in self.settings.measurement_settings.keys():
+            self.divider[measurement] = 0
+        self._stop_hardware()
+
+    def _create_axis(self):
+        for name, measurement in self.settings.measurement_settings.items():
+            self.update_pulse_parameters(measurement["loop_range_pp"], 
+                                        f"{measurement['loop_step_name_pp']}.{name}",
+                                        name)
+            self.update_t_parameters(measurement["loop_range_tt"], 
+                                        f"{measurement['loop_step_name_tt']}.{name}",
+                                        name)
+            self.update_iteration_parameters(np.arange(measurement["averages"] * measurement["measurement_count"]), 
+                                        f"iterations.{name}",
+                                        name)
+
+    def _create_axis_modular(self):
+        for name, measurement in self.settings.measurement_settings.items():
+            print(self.par_search_string)
+            vec = self.pp.create_axis_vec(measurement)
+            ax_name = self.pp.create_axis_name(measurement, name)
+            unit = self.pp.create_axis_unit(measurement)
+            self.pp.check_axis_vec(measurement, vec)
+            self.fh.update_multiplexer_parameters(self.pp.tag, vec, ax_name, name, unit)
+
+    def compile_qupulse(self, *experiments, averages, mode = "pulse_parameter", deep_render = False, **add_pars):   
+        """Währenddessen Zwiebeln und Wurzeln schälen. Zwiebeln kleinschneiden. Wurzeln in kurze Stifte schneiden. 
+        Öl in einem Wok erhitzen und Gemüse darin kurz pfannenrühren. Koriander kleinwiegen. Reis und Koriander dazugeben und alles vermischen. 
+        Reis-Gemüse-Mischung herausheben und warmstellen.
+        Nochmals Öl in den Wok geben und erhitzen. Fleisch hinzugeben und kurz pfannenrühren.
+        Fleisch und Reis-Gemüse-Mischung auf Teller geben und mit den Dipsaucen servieren. 
+        Das Gericht ist ungewürzt und erhält seinen Geschmack durch die jeweiligen Saucen.
+        """
+        self.mode = mode
+        self.mapper = Mapping_handler2()
+        if "channel_mapping" in add_pars:
+            self.mapper.channel_mapping = add_pars["channel_mapping"]
+        if "measurement_mapping" in add_pars:
+            self.mapper.measurement_mapping = add_pars["measurement_mapping"]
+
+        channel_sample_rates = {channel : getattr(self._ma_backend, f"{channel}_get_sample_rate")()
+                        for channel in self._ma_backend._registered_channels.keys()}
+        measurement_sample_rates = {measurement : getattr(self._ro_backend, f"{measurement}_get_sample_rate")() \
+                        for measurement in self._ro_backend._registered_measurements.keys()}
+        
+        self.mapper.map_channels_inv(channel_sample_rates)
+        self.mapper.map_measurements_inv(measurement_sample_rates)
+        
+        decoded = Qupulse_decoder2(*experiments, channel_sample_rates = channel_sample_rates, measurement_sample_rates = measurement_sample_rates,\
+             deep_render = deep_render, **add_pars)
+
+        self.mapper.map_channels(decoded.channel_pars)
+        self.mapper.map_measurements(decoded.measurement_pars)
+        self.mapper.map_measurements(averages)
+
+        self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)
+        
+        self._t_parameters = {}
+        self._pulse_parameters = {}
+        self._iteration_parameters = {}
+
+        self._create_axis()
+        self._create_axis_modular()
+        self.settings.load()
+
+    def _choose_measurement_function(self, dimension, progress_bar):
+        if self.mode == "pulse_parameter" and dimension == 1:
+            return lambda: self._stream1D_avg((), 2, progress_bar)
+        elif self.mode == "pulse_parameter" and dimension == 2:
+            return lambda: self._stream1D_avg((-1), 2, progress_bar)
+        elif self.mode == "pulse_parameter" and dimension == 3:
+            return lambda i : self._stream1D_avg((-1, i), 2, progress_bar)
+        
+        elif self.mode == "timetrace" and dimension == 1:
+            return lambda: self._stream1D_avg((), 1, progress_bar)
+        elif self.mode == "timetrace" and dimension == 2:
+            return lambda: self._stream1D_avg((-1), 1, progress_bar)
+        elif self.mode == "timetrace" and dimension == 3:
+            return lambda i : self._stream1D_avg((-1, i), 1, progress_bar)
+        
+        elif self.mode == "pp_vs_t" and dimension == 1:
+            return lambda: self._stream2D_avg((), progress_bar)
+        elif self.mode == "pp_vs_t" and dimension == 2:
+            def pp_vs_t_2D():
+                self._stream2D_avg((-1), progress_bar)
+                for dset in self._datasets.values():
+                    dset.next_matrix()
+            return pp_vs_t_2D
+        
+        elif self.mode == "no_avg" and dimension == 1:
+            return lambda: self._stream2D(progress_bar)
+        elif self.mode == "no_avg" and dimension == 2:
+            def no_avg_2D():
+                self._stream2D( progress_bar)
+                for dset in self._datasets.values():
+                    dset.next_matrix()
+            return no_avg_2D
+        elif self.mode == "test" and dimension == 1:
+            return self._stream1D_modular((), progress_bar)
+        else:
+            raise self.MeasurementDimensionError(f"{__name__}: Mode \"{self.mode}\" does not support a {dimension}D-measurement.")
+    
+    def measure1D(self):
+        self._measurement_object.measurement_func = "%s: measure1D" % __name__
+        self._prepare_measurement([])
+        pb = Progress_Bar(self._total_iterations)
+        meas_func = self._choose_measurement_function(1, pb)
+        try:
+            #self._acquire_log_functions()
+            meas_func()
+        finally:
+            self._ro_backend.stop()
+            self._ma_backend.stop()
+            self._end_measurement()
+            
+    def measure2D(self):        
+        self._measurement_object.measurement_func = "%s: measure2D" % __name__        
+        self._prepare_measurement([self._x_parameter])
+        pb = Progress_Bar(len(self._x_parameter.values) * self._total_iterations)
+        meas_func = self._choose_measurement_function(2, pb)
+        try:
+            for x_val in self._x_parameter.values:
+                self._x_parameter.set_function(x_val)
+                #self._acquire_log_functions()
+                qkit.flow.sleep(self._x_parameter.wait_time)
+                meas_func()
+        finally:
+            self._ro_backend.stop()
+            self._ma_backend.stop()
+            self._end_measurement()
+            
+    def measure3D(self):        
+        self._measurement_object.measurement_func = "%s: measure3D" % __name__
+        self._prepare_measurement([self._x_parameter, self._y_parameter])
+        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * self._total_iterations)
+        meas_func = self._choose_measurement_function(3, pb)
+        try:            
+            for x_val in self._x_parameter.values:
+                self._x_parameter.set_function(x_val)
+                #self._acquire_log_functions()
+                qkit.flow.sleep(self._x_parameter.wait_time)
+                
+                for i, y_val in enumerate(self._y_parameter.values):
+                    self._y_parameter.set_function(y_val)
+                    qkit.flow.sleep(self._y_parameter.wait_time)
+                    meas_func(i)
+                
+                for dset in self._datasets.values():
+                    dset.next_matrix()
+        finally:
+            self._ro_backend.stop()
+            self._ma_backend.stop()
+            self._end_measurement()
+
+class Exciting_old(mb.MeasureBase):
     """
     A class containing measurement routines for spin qubit tuning.
     
@@ -388,7 +1074,8 @@ class Exciting(mb.MeasureBase):
         
         self.compile_qupulse(*experiments, averages = averages, mode = mode, deep_render = deep_render, **add_pars)
         
-        self.report_static_voltages = True        
+        self.report_static_voltages = True
+        self.mod_mode = No_avg(self)
         self.par_search_placeholder = "$$"
         self.par_search_string = "gate$$_out"
         
@@ -445,18 +1132,18 @@ class Exciting(mb.MeasureBase):
             raise TypeError(f"{__name__}: Cannot set {MA_backend} as manipulation backend. The backend must be a subclass of MA_backend_base")
     
     def update_t_parameters(self, vec, coordname, measurement, unit = "s"):
-            if len(vec) != self.settings.measurement_settings[measurement]["sample_count"]:
-                raise ValueError((f"{__name__}: Wrong timetrace parameter coordinate length." 
-                f"The given array must have" 
-                f"{self.settings.measurement_settings[measurement]['sample_count']} entries."))
-            
-            new_t_parameter = self.Coordinate(coordname,
-                                                unit = unit,
-                                                values = np.array(vec, dtype=float),
-                                                set_function = lambda val : True,
-                                                wait_time = 0)
-            new_t_parameter.validate_parameters()
-            self._t_parameters[measurement] = new_t_parameter
+        if len(vec) != self.settings.measurement_settings[measurement]["sample_count"]:
+            raise ValueError((f"{__name__}: Wrong timetrace parameter coordinate length." 
+            f"The given array must have" 
+            f"{self.settings.measurement_settings[measurement]['sample_count']} entries."))
+        
+        new_t_parameter = self.Coordinate(coordname,
+                                            unit = unit,
+                                            values = np.array(vec, dtype=float),
+                                            set_function = lambda val : True,
+                                            wait_time = 0)
+        new_t_parameter.validate_parameters()
+        self._t_parameters[measurement] = new_t_parameter
 
     def update_pulse_parameters(self, vec, coordname, measurement, unit = "a.u."):
         if len(vec) != self.settings.measurement_settings[measurement]["measurement_count"]:
@@ -569,11 +1256,15 @@ class Exciting(mb.MeasureBase):
                                         unit = self.settings.measurement_settings[measurement]["unit"], 
                                         save_timestamp = False))
                 elif self.mode == "no_avg":
-                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._iteration_parameters[measurement], self._t_parameters[measurement]],
-                                        unit = self.settings.measurement_settings[measurement]["unit"], 
-                                        save_timestamp = False))
+                    self.mod_mode.create_datasets(datasets, measurement, node, coords)
+                    
         self._total_iterations = total_iterations
         self._prepare_measurement_file(datasets)
+        print("New version!")
+        for name, measurement in self.settings.measurement_settings.items(): #Allocate the needed memory
+            for node in measurement["data_nodes"]:
+                self.mod_mode.create_file_structure(measurement, name, node)
+
         if self.open_qviewkit:
             self._open_qviewkit()
 
@@ -598,10 +1289,6 @@ class Exciting(mb.MeasureBase):
         Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
         Reis nach Anleitung zubereiten. Danach warmstellen.
         """
-        for name, measurement in self.settings.measurement_settings.items(): #Allocate the needed memory
-            for node in measurement["data_nodes"]:
-                self._datasets[f"{name}.{node}"].append(np.full(measurement["sample_count"], np.nan))
-                self._datasets[f"{name}.{node}"].ds.resize((measurement["averages"] * measurement["measurement_count"], measurement["sample_count"]))
         self._ready_hardware()
         iterations = 0
         while not self._ro_backend.finished():
