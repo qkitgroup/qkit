@@ -29,14 +29,11 @@ from qupulse._program._loop import to_waveform
 import numpy as np
 import warnings
 import inspect
-from collections import abc, defaultdict
-def update(d, u):
-    for k, v in u.items():
-        if isinstance(v, abc.Mapping):
-            d[k] = update(d.get(k, {}), v)
-        else:
-            d[k] = v
-    return d
+import collections
+from abc import ABC, abstractmethod
+
+def makehash():
+    return collections.defaultdict(makehash)
 
 def keytransform(original, transform):
     transformed = {}
@@ -54,8 +51,6 @@ def expand_mapping(dictionary, mapping):
 def invert_dict(dict):        
         inverse_dict = {v : k for k, v in dict.items()}
         return inverse_dict
-
-
 
 class Qupulse_decoder2:
     """Gebratenes Hundefleisch mit Gemüse und Reis
@@ -348,7 +343,36 @@ class No_avg:
     def create_file_structure(self, measurement, name, node):
         self.core._datasets[f"{name}.{node}"].append(np.full(measurement["sample_count"], np.nan))
         self.core._datasets[f"{name}.{node}"].ds.resize((measurement["averages"] * measurement["measurement_count"], measurement["sample_count"]))
-
+class ModeBase(ABC):
+    @abstractmethod
+    def __init__(self) -> None:
+        self.divider = makehash()
+        self.total_sum = makehash()
+    def initialize(self, latest_data, datafile):
+        for measurement in latest_data.keys():
+            first_node = list(latest_data[measurement].keys())[0]
+            #If latest data is empty for one measurement, skip it
+            collected_averages = len(latest_data[measurement][first_node])
+            self.divider[measurement] = collected_averages
+            for node in latest_data[measurement].keys:
+                latest_node_data = latest_data[measurement][node]
+                datafile[f"{measurement}.{node}"]
+    @abstractmethod
+    def create_axis_name(self):
+        pass
+    @abstractmethod
+    def create_axis_vec(self):
+        pass
+    @abstractmethod
+    def create_axis_unit(self):
+        pass
+    @abstractmethod
+    def check_axis_vec(self):
+        pass
+    @abstractmethod
+    def data_operation(self):
+        pass
+    
 class PulseParameter:
     name = "pulse_parameter"
     def __init__(self) -> None:
@@ -618,7 +642,6 @@ class Exciting(mb.MeasureBase):
         self._iteration_parameters[measurement] = new_iteration_parameter
 
     def change_averages(self, averages):
-        """"Changing averages"""
         if self.mode.endswith("no_avg"):
             raise NotImplementedError()
         self.mapper.map_measurements(averages)
@@ -757,10 +780,13 @@ class Exciting(mb.MeasureBase):
         Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
         Reis nach Anleitung zubereiten. Danach warmstellen.
         """
-        self._ready_hardware()      
-        total_sum = {}
+        self._ready_hardware()
         iterations = 0
-        first = True
+        latest_data = self._ro_backend.read()
+        for measurement in latest_data.keys():
+            first_node = list(latest_data[measurement].keys())[0]
+            collected_averages = len(latest_data[measurement][first_node])
+
         while not self._ro_backend.finished():
             old_iterations = iterations
             latest_data = self._ro_backend.read()
