@@ -1612,11 +1612,15 @@ class ADwin_Pro2_V3(Instrument):
             self.triggered_readout_averaging = 8
         elif rate == 1e5:
             self.triggered_readout_averaging = 40
+        elif rate == 2.5e4:
+            self.triggered_readout_averaging = 160
+        elif rate == 1e4:
+            self.triggered_readout_averaging = 400
         elif rate == 4e6:
             self.triggered_readout_averaging = 1
         else:
-            logging.error(__name__ +  ': sampling frequency is wrongly chosen. Must be 4e6 or 1e6 or 5e5 or 1e5.')
-            raise Exception('sampling frequency is wrongly chosen. Must be 4e6 or 1e6 or 5e5 or 1e5.')
+            logging.error(__name__ +  ': sampling frequency is wrongly chosen. Must be 4e6 or 1e6 or 5e5 or 1e5 or 2.5e4 or 1e4.')
+            raise Exception('sampling frequency is wrongly chosen. Must be 4e6 or 1e6 or 5e5 or 1e5 or 2.5e4 or 1e4.')
 
     def _do_get_sample_rate_triggered_readout(self, channel):
         if self.triggered_readout_averaging == 4:
@@ -1625,6 +1629,10 @@ class ADwin_Pro2_V3(Instrument):
             rate = 5e5
         elif self.triggered_readout_averaging == 40:
             rate = 1e5
+        elif self.triggered_readout_averaging == 160:
+            rate = 2.5e4
+        elif self.triggered_readout_averaging == 400:
+            rate = 1e4
         elif self.triggered_readout_averaging == 1:
             rate = 4e6
         return rate
