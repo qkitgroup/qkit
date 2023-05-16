@@ -343,44 +343,67 @@ class No_avg:
     def create_file_structure(self, measurement, name, node):
         self.core._datasets[f"{name}.{node}"].append(np.full(measurement["sample_count"], np.nan))
         self.core._datasets[f"{name}.{node}"].ds.resize((measurement["averages"] * measurement["measurement_count"], measurement["sample_count"]))
-class ModeBase(ABC):
+
+class ModeBase(ABC):    
     @abstractmethod
-    def __init__(self) -> None:
-        self.divider = makehash()
+    def create_coordinates(self):
+        pass
+    @abstractmethod
+    def create_datasets(self):
+        pass
+    @abstractmethod
+    def initialize_file(self):
+        pass
+    @abstractmethod
+    def fill_file(self):
+        pass
+
+class PulseParameter(ModeBase):
+    name = "pulse_parameter"
+    def __init__(self, fh, measurement_settings) -> None:
+        self.fh = fh
+        self.measurement_settings = measurement_settings
+        self.unit = "a.u."
+        self.tag = "pulse_parameter"
+        self.first = True
         self.total_sum = makehash()
-    def initialize(self, latest_data, datafile):
-        for measurement in latest_data.keys():
-            first_node = list(latest_data[measurement].keys())[0]
-            #If latest data is empty for one measurement, skip it
-            collected_averages = len(latest_data[measurement][first_node])
-            self.divider[measurement] = collected_averages
-            for node in latest_data[measurement].keys:
-                latest_node_data = latest_data[measurement][node]
-                datafile[f"{measurement}.{node}"]
-    @abstractmethod
-    def create_axis_name(self):
-        pass
-    @abstractmethod
-    def create_axis_vec(self):
-        pass
-    @abstractmethod
-    def create_axis_unit(self):
-        pass
-    @abstractmethod
-    def check_axis_vec(self):
-        pass
-    @abstractmethod
-    def data_operation(self):
-        pass
+        self.divider = makehash()
+
+    def create_coordinates(self):
+        for name, measurement in self.measurement_settings.items():
+            self.fh.update_multiplexer_parameters(self.tag, measurement["loop_range_pp"], 
+                                        f"{measurement['loop_step_name_pp']}.{name}",
+                                        name)
     
-class PulseParameter:
+    def create_datasets(self, additional_coords):
+        for name, measurement in self.measurement_settings.items():
+            for node in measurement["data_nodes"]:
+                coords = [self.fh.multiplexer_coords[self.tag][measurement]] + additional_coords
+                self.fh.add_dset(name, node, coords, self.unit)
+    
+    def initialize_file(self):
+        for name, measurement in self.measurement_settings.items():
+            self.divider[name] = 0
+            for node in measurement["data_nodes"]:
+                self.fh.initialize_file_matrix(name, node, measurement["measurement_count"])                
+                self.total_sum[name][node] = 0
+
+    def fill_file(self, latest_data, collected_averages):
+        for measurement_name, node_values in latest_data.items():
+            self.divider[measurement_name] += collected_averages
+            for node_name, node_value in node_values.items():
+                self.total_sum[measurement_name][node_name] += np.sum(np.average(node_value, axis = 2), axis = 0)
+                #self.fh.
+
+        
+class PulseParameter_old:
     name = "pulse_parameter"
     def __init__(self) -> None:
         self.unit = "a.u."
         self.tag = "pulse_parameter"
         self.first = True
-        self.total_sum = defaultdict(dict)
-        self.divider = defaultdict(dict)
+        self.total_sum = makehash()
+        self.divider = makehash()
     def create_axis_name(self, measurement, measurement_name):
         return f"{measurement['loop_step_name_pp']}.{measurement_name}"
     def create_axis_vec(self, measurement):
@@ -407,14 +430,17 @@ class PulseParameter:
 class FileHandler:
     def __init__(self) -> None:
         self.mb = mb.MeasureBase()
-        self._multiplexer_parameters = defaultdict(dict)
+        
         self.report_static_voltages = True
         self.open_qviewkit = True
 
         self.par_search_placeholder = "$$"
         self.par_search_string = "gate$$_out"
         
+        self.multiplexer_coords = makehash()
         self.datasets = []
+        self._dataset_dimensions = {}
+
 
     def update_multiplexer_parameters(self, tag, vec, coordname, measurement, unit = "s"):        
         new_t_parameter = self.mb.Coordinate(coordname,
@@ -423,35 +449,7 @@ class FileHandler:
                                             set_function = lambda val : True,
                                             wait_time = 0)
         new_t_parameter.validate_parameters()
-        self._multiplexer_parameters[tag][measurement] = new_t_parameter
-    
-    def _filter_parameter(self, parameter):
-        preamble, postamble = self.par_search_string.split(self.par_search_placeholder)
-        if parameter.startswith(preamble) and parameter.endswith(postamble):
-            parameter = parameter.replace(preamble, "")
-            parameter = parameter.replace(postamble, "")
-        return parameter.isdigit()
-
-    def _prepare_measurement_file(self, data, coords=()):
-        """Das Fleisch in der Sonne zu trocknen ist in unseren Breiten schwierig. 
-        Das geht nur in heißen Sommermonaten wie Juli oder August, wenn man das Fleisch ausgebreitet auf einer Platte – 
-        mit Frischhaltefolie oder einem größeren Deckel abgedeckt – in der Sonne trocknen kann. In Thailand ist das sicherlich sehr viel einfacher. 
-        Alternativ bietet es sich an, das kleingeschnittene Fleisch abgedeckt einen Tag an einem kühlen Ort zu trocknen. 
-        Das Fleisch ist nach einem Tag noch nicht verdorben.
-        """
-        self.mb._prepare_measurement_file(data, coords)
-        
-        if self.report_static_voltages:
-            self._static_voltages = self.mb._data_file.add_textlist("static_voltages")
-            _instr_settings_dict = get_instrument_settings(self.mb._data_file.get_filepath())
-
-            active_gates = {}
-            
-            for parameters in _instr_settings_dict.values():
-                for (key, value) in parameters.items():
-                    if self._filter_parameter(key) and abs(value) > 0.0004:
-                        active_gates.update({key:value})
-            self._static_voltages.append(active_gates)
+        self.multiplexer_coords[tag][measurement] = new_t_parameter
 
     def add_dset(self, measurement, node, coords, unit):
         """Zutaten:
@@ -470,11 +468,41 @@ class FileHandler:
         self.datasets.append(self.mb.Data(name = f"{measurement}.{node}", coords = coords,
                             unit = unit, 
                             save_timestamp = False))
+   
+    def _filter_parameter(self, parameter):
+        preamble, postamble = self.par_search_string.split(self.par_search_placeholder)
+        if parameter.startswith(preamble) and parameter.endswith(postamble):
+            parameter = parameter.replace(preamble, "")
+            parameter = parameter.replace(postamble, "")
+        return parameter.isdigit()
 
-    def prepare_measurement(self):
-        self._prepare_measurement_file(self.datasets)
+    def prepare_measurement(self, coords = ()):
+        """Das Fleisch in der Sonne zu trocknen ist in unseren Breiten schwierig. 
+        Das geht nur in heißen Sommermonaten wie Juli oder August, wenn man das Fleisch ausgebreitet auf einer Platte – 
+        mit Frischhaltefolie oder einem größeren Deckel abgedeckt – in der Sonne trocknen kann. In Thailand ist das sicherlich sehr viel einfacher. 
+        Alternativ bietet es sich an, das kleingeschnittene Fleisch abgedeckt einen Tag an einem kühlen Ort zu trocknen. 
+        Das Fleisch ist nach einem Tag noch nicht verdorben.
+        """
+        self.mb._prepare_measurement_file(self.datasets, coords)
+        
+        if self.report_static_voltages:
+            self._static_voltages = self.mb._data_file.add_textlist("static_voltages")
+            _instr_settings_dict = get_instrument_settings(self.mb._data_file.get_filepath())
+
+            active_gates = {}
+            
+            for parameters in _instr_settings_dict.values():
+                for (key, value) in parameters.items():
+                    if self._filter_parameter(key) and abs(value) > 0.0004:
+                        active_gates.update({key:value})
+            self._static_voltages.append(active_gates)
         if self.open_qviewkit:
-            self.mb._open_qviewkit()
+            self.mb._open_qviewkit()        
+
+    def initialize_file_matrix(self, measurement, node, *args):
+            self.mb._datasets[f"{measurement}.{node}"].append(np.full(args, np.nan))
+            self.mb._datasets.ds.resize(args)
+            self._dataset_dimensions[f"{measurement}.{node}"] = len(args)
 
 class Exciting(mb.MeasureBase):
     """
