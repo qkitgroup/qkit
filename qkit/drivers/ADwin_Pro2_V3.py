@@ -1696,6 +1696,7 @@ class ADwin_Pro2_V3(Instrument):
         self.initialize_triggered_readout beforehand.
         """
         logging.info(__name__ + ': starting measurement')
+        self.set_Par_16_global_long(0) # resetting flag of check_finished_one_average_triggered_readout
         self.set_Par_18_global_long(1)
 
     def check_finished_one_average_triggered_readout(self):
@@ -1736,6 +1737,7 @@ class ADwin_Pro2_V3(Instrument):
         sample_count_averaging = self.sample_count * self.triggered_readout_averaging
         size = int(sample_count_averaging * self.measurement_count)
         data_raw = np.array(self.adw.GetData_Long(1, 1, size))
+        self.start_triggered_readout()  # starting new average
         data_reshaped = data_raw.reshape(self.measurement_count, sample_count_averaging)
         data_volts = data_reshaped * 2*10/(2**16) - 10 # translating to volts
 
@@ -1751,7 +1753,6 @@ class ADwin_Pro2_V3(Instrument):
 
         data_triggered_readout = np.empty(shape=(1, self.measurement_count, self.sample_count))
         data_triggered_readout[0:1, :, :] = data_volts
-        self.start_triggered_readout()  # starting new average
         return data_triggered_readout
 
     def check_finished_triggered_readout(self):
