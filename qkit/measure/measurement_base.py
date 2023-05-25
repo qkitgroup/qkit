@@ -110,7 +110,7 @@ class MeasureBase(object):
             self.log_functions.pop(index)
     
     class Coordinate:
-        def __init__(self, name, unit="", values=None, set_function=None, wait_time=0):
+        def __init__(self, name, unit="", values=np.array([]), set_function=lambda x: True, wait_time=0):
             if type(name) is not str:
                 raise TypeError('{:s}: Cannot set {!s} as name for coordinate: string needed'.format(__name__, self.name))
             self.name = name

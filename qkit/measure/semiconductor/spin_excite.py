@@ -17,6 +17,7 @@
 
 import qkit
 import qkit.measure.measurement_base as mb
+from qkit.measure.measurement_base import MeasureBase
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.write_additional_files import get_instrument_settings
 from qkit.measure.semiconductor.readout_backends.RO_backend_base import RO_backend_base
@@ -442,7 +443,7 @@ class FileHandler:
         self.par_search_string = "gate$$_out"
         
         self.multiplexer_coords = makehash()
-        self.datasets = []
+        self.datasets = {}
         self._dataset_dimensions = {}
 
 
@@ -469,9 +470,9 @@ class FileHandler:
         Austernsauce
         Fischsauce
         """
-        self.datasets.append(self.mb.Data(name = f"{measurement}.{node}", coords = coords,
-                            unit = unit, 
-                            save_timestamp = False))
+        set_name = f"{measurement}.{node}"
+        self.datasets[set_name] = self.mb.Data(name = set_name, coords = coords, unit = unit, 
+                            save_timestamp = False)
    
     def _filter_parameter(self, parameter):
         preamble, postamble = self.par_search_string.split(self.par_search_placeholder)
@@ -492,10 +493,11 @@ class FileHandler:
         Alternativ bietet es sich an, das kleingeschnittene Fleisch abgedeckt einen Tag an einem kühlen Ort zu trocknen. 
         Das Fleisch ist nach einem Tag noch nicht verdorben.
         """
-        self.mb._prepare_measurement_file(self.datasets, coords)
-        for dset in self.datasets:
-            dim = tuple(len(coordinate.values) for coordinate in dset.coordinates)
-            self._initialize_file_matrix(dset.name, dim)
+        dsets = [dset for dset in self.datasets.values()]
+        self.mb._prepare_measurement_file(dsets, coords)
+        for dset in dsets:
+            dim0 = tuple(len(coordinate.values) for coordinate in dset.coordinates[::-1])
+            self._initialize_file_matrix(dset.name, dim0)
         
         if self.report_static_voltages:
             self._static_voltages = self.mb._data_file.add_textlist("static_voltages")
@@ -583,6 +585,9 @@ class Exciting(mb.MeasureBase):
         self.report_static_voltages = True
         self.par_search_placeholder = "$$"
         self.par_search_string = "gate$$_out"
+
+        self._x_parameter = MeasureBase.Coordinate("x_empty")
+        self._y_parameter = MeasureBase.Coordinate("y_empty"), 
 
         #Here there be testing stuff:
         self.fh = FileHandler()        
@@ -747,34 +752,89 @@ class Exciting(mb.MeasureBase):
             self.mode.fill_file(latest_data, data_location)
             progress_bar.iterate(addend = iterations - old_iterations)
         self._stop_hardware()
+    
+    def set_x_parameters(self, vec, coordname, set_obj, unit, dt=0):
+        """
+        Sets x-parameters for 2D and 3D scan.
+        In a 3D measurement, the x-parameters will be the "outer" sweep meaning for every x value all y values are swept and for each (x,y) value the bias is swept according to the set sweep parameters.
+
+        Parameters
+        ----------
+        vec: array_likes
+            An N-dimensional array that contains the sweep values.
+        coordname: string
+            The coordinate name to be created as data series in the .h5 file.
+        set_obj: obj
+            An callable object to execute with vec-values.
+        unit: string
+            The unit name to be used in data series in the .h5 file.
+        dt: float, optional
+            The sleep time between x-iterations.
+
+        Returns
+        -------
+        None
+        """
+        try:
+            self._x_parameter = MeasureBase.Coordinate(coordname, unit, np.array(vec, dtype=float), set_obj, dt)
+            self._x_parameter.validate_parameters()
+        except Exception as e:
+            self._x_parameter = MeasureBase.Coordinate("x_empty")
+            raise e
+
+    def set_y_parameters(self, vec, coordname, set_obj, unit, dt=0):
+        """
+        Sets y-parameters for 2D and 3D scan.
+        In a 3D measurement, the y-parameters will be the "outer" sweep meaning for every y value all y values are swept and for each (y,y) value the bias is swept according to the set sweep parameters.
+
+        Parameters
+        ----------
+        vec: array_likes
+            An N-dimensional array that contains the sweep values.
+        coordname: string
+            The coordinate name to be created as data series in the .h5 file.
+        set_obj: obj
+            An callable object to execute with vec-values.
+        unit: string
+            The unit name to be used in data series in the .h5 file.
+        dt: float, optional
+            The sleep time between y-iterations.
+
+        Returns
+        -------
+        None
+        """
+        try:
+            self._y_parameter = MeasureBase.Coordinate(coordname, unit, np.array(vec, dtype=float), set_obj, dt)
+            self._y_parameter.validate_parameters()
+        except Exception as e:
+            self._y_parameter = MeasureBase.Coordinate("x_empty")
+            raise e
 
     def measure1D(self):
         self._measurement_object.measurement_func = "%s: measure1D" % __name__
         self._prepare_measurement()
         pb = Progress_Bar(self._total_iterations)
         try:
-            #self._acquire_log_functions()
             self._stream_modular((), pb)
         finally:
             self._ro_backend.stop()
             self._ma_backend.stop()
-            self.fh.end_measurement
-            
-    def measure2D(self):        
-        self._measurement_object.measurement_func = "%s: measure2D" % __name__        
+            self.fh.end_measurement()
+    
+    def measure2D(self):
+        self._measurement_object.measurement_func = "%s: measure1D" % __name__
         self._prepare_measurement([self._x_parameter])
         pb = Progress_Bar(len(self._x_parameter.values) * self._total_iterations)
-        meas_func = self._choose_measurement_function(2, pb)
         try:
-            for x_val in self._x_parameter.values:
+            for i, x_val in enumerate(self._x_parameter.values):
                 self._x_parameter.set_function(x_val)
-                #self._acquire_log_functions()
                 qkit.flow.sleep(self._x_parameter.wait_time)
-                meas_func()
+                self._stream_modular((i), pb)
         finally:
             self._ro_backend.stop()
             self._ma_backend.stop()
-            self._end_measurement()
+            self.fh.end_measurement()
             
     def measure3D(self):        
         self._measurement_object.measurement_func = "%s: measure3D" % __name__
