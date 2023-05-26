@@ -401,37 +401,6 @@ class PulseParameter(ModeBase):
                 value = self.total_sum[measurement_name][node_name]/self.divider[measurement_name]
                 self.fh.write_to_file(measurement_name, node_name, value, data_location)
 
-class PulseParameter_old:
-    name = "pulse_parameter"
-    def __init__(self) -> None:
-        self.unit = "a.u."
-        self.tag = "pulse_parameter"
-        self.first = True
-        self.total_sum = makehash()
-        self.divider = makehash()
-    def create_axis_name(self, measurement, measurement_name):
-        return f"{measurement['loop_step_name_pp']}.{measurement_name}"
-    def create_axis_vec(self, measurement):
-        return measurement["loop_range_pp"]
-    def create_axis_unit(self, measurement):
-        return self.unit
-    def check_axis_vec(self, measurement, vec):
-        if len(vec) != measurement["measurement_count"]:
-                raise ValueError((f"{__name__}: Wrong pulse parameter coordinate length."
-                "The given array must have" 
-                f"{measurement['measurement_count']} entries."))
-    def write_to_file(self, latest_node_data, datafile, data_location, collected_averages, measurement, node):
-        #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
-        if self.first:
-            self.divider[measurement] = collected_averages
-            self.total_sum[measurement][node] = np.sum(np.average(latest_node_data, axis = 2), axis = 0)
-            datafile["%s.%s" % (measurement, node)].append(self.total_sum[measurement][node] / self.divider[measurement])
-            self.first = False
-        else:
-            self.total_sum[measurement][node] += np.sum(np.average(latest_node_data, axis = 2), axis = 0)
-            #self.divider[measurement] += len(latest_data[measurement][first_node])
-            datafile["%s.%s" % (measurement, node)].ds[data_location] =  self.total_sum[measurement][node] / self.divider[measurement]
-
 class FileHandler:
     def __init__(self) -> None:
         self.mb = mb.MeasureBase()
@@ -441,17 +410,60 @@ class FileHandler:
 
         self.par_search_placeholder = "$$"
         self.par_search_string = "gate$$_out"
+        self.measurement_function_name = "default"
         
         self.multiplexer_coords = makehash()
         self.datasets = {}
         self._dataset_dimensions = {}
+    
+    @property
+    def report_static_voltages(self):
+        return self._report_static_voltages
+    
+    @report_static_voltages.setter
+    def report_static_voltages(self, yesno):
+        if not isinstance(yesno, bool):
+            raise TypeError(f"{__name__}: Cannot use {yesno} as report_static_voltages. Must be a boolean value.")
+        self._report_static_voltages = yesno
+    
+    @property
+    def par_search_placeholder(self):
+        return self._par_search_placeholder
+    
+    @par_search_placeholder.setter
+    def par_search_placeholder(self, new_str):
+        if not isinstance(new_str, str):
+            raise TypeError(f"{__name__}: {new_str} is not a valid search string placeholder. Must be a string")
+        self._par_search_placeholder = new_str
+    
+    @property
+    def par_search_string(self):
+        return self._par_search_string
+    
+    @par_search_string.setter
+    def par_search_string(self, new_str):
+        if not isinstance(new_str, str):
+            raise TypeError(f"{__name__}: {new_str} is not a valid parameter search string. Must be a string")
+        if self.par_search_placeholder not in new_str:
+            raise ValueError(f"{__name__}: {new_str} is not a valid parameter search string. It does not contain the placeholder {self.par_search_placeholder}.")
+        self._par_search_string = new_str
+        self._display_pars = {self.par_search_string.replace(self.par_search_placeholder, str(i)) for i in range(1000)}
 
+    @property
+    def measurement_function_name(self):
+        return self.mb._measurement_object.measurement_func
+
+    @measurement_function_name.setter
+    def measurement_function_name(self, new_name):
+        if not isinstance(new_name, str):
+            raise TypeError(f"{__name__}: Cannot use {new_name} as measurement_function_name. Must be a string.")
+        self.mb._measurement_object.measurement_func = new_name
 
     def update_coordinates(self, tag, vec, coordname, measurement, unit = "s"):        
         new_t_parameter = self.mb.Coordinate(coordname,
                                             unit = unit,
                                             values = np.array(vec, dtype=float),
-                                            set_function = lambda val : True,
+                                            set_function = lambda x : True,
                                             wait_time = 0)
         new_t_parameter.validate_parameters()
         self.multiplexer_coords[tag][measurement] = new_t_parameter
@@ -519,11 +531,14 @@ class FileHandler:
             self.mb._data_file.flush()
         else:
             pass 
+    
+    def next_matrix(self, dset_name):
+        self.mb._datasets[dset_name].next_matrix()
 
     def end_measurement(self):
         self.mb._end_measurement()
 
-class Exciting(mb.MeasureBase):
+class Exciting():
     """
     A class containing measurement routines for spin qubit tuning.
     
@@ -559,10 +574,6 @@ class Exciting(mb.MeasureBase):
     measure3D() :
         Starts a 3D measurement
     """
-    class MeasurementDimensionError(Exception):
-        pass
-    
-
     def __init__(self, readout_backend, manipulation_backend,
                  *experiments, averages, mode = "pulse_parameter", deep_render = False, exp_name = "", sample = None, **add_pars):
         """
@@ -574,72 +585,49 @@ class Exciting(mb.MeasureBase):
             Sample used in the current experiment
         
         """
-        mb.MeasureBase.__init__(self, sample)
         
         self._validate_RO_backend(readout_backend)
         self._ro_backend = readout_backend
         self._validate_MA_backend(manipulation_backend)
         self._ma_backend = manipulation_backend 
         self._load_modes()
+        print(self.modes.keys())
 
         self.report_static_voltages = True
         self.par_search_placeholder = "$$"
         self.par_search_string = "gate$$_out"
 
         self._x_parameter = MeasureBase.Coordinate("x_empty")
-        self._y_parameter = MeasureBase.Coordinate("y_empty"), 
+        self._y_parameter = MeasureBase.Coordinate("y_empty")
 
         #Here there be testing stuff:
         self.fh = FileHandler()        
-        self.compile_qupulse(*experiments, averages = averages, mode = mode, deep_render = deep_render, **add_pars)
-        
+        self.compile(*experiments, averages = averages, mode = mode, deep_render = deep_render, **add_pars)        
+   
     @property
-    def report_static_voltages(self):
-        return self._report_static_voltages
+    def active_modes(self):
+        return self._active_modes
     
-    @report_static_voltages.setter
-    def report_static_voltages(self, yesno):
-        if not isinstance(yesno, bool):
-            raise TypeError(f"{__name__}: Cannot use {yesno} as report_static_voltages. Must be a boolean value.")
-        self._report_static_voltages = yesno
-    
-    @property
-    def mode(self):
-        return self._mode
-    
-    @mode.setter
-    def mode(self, new_mode):
-        if new_mode.name not in self.modes.keys():
-            raise AttributeError(f"{__name__}: {new_mode} is not a valid measurement mode. Allowed modes are: \n {self.modes}")
-        self._mode = new_mode
+    @active_modes.setter
+    def active_modes(self, new_modes):
+        if isinstance(new_modes, str):
+            new_modes = (new_modes,)        
+        try:
+            print(new_modes)
+            for mode in new_modes:
+                print(mode)
+                if mode not in self.modes.keys():
+                    raise ValueError
+        except TypeError as te:
+            raise TypeError(f"{__name__}: {str(te)}")
 
-    @property
-    def par_search_placeholder(self):
-        return self._par_search_placeholder
-    
-    @par_search_placeholder.setter
-    def par_search_placeholder(self, new_str):
-        if not isinstance(new_str, str):
-            raise TypeError(f"{__name__}: {new_str} is not a valid search string placeholder. Must be a string")
-        self._par_search_placeholder = new_str
-    
-    @property
-    def par_search_string(self):
-        return self._par_search_string
-    
-    @par_search_string.setter
-    def par_search_string(self, new_str):
-        if not isinstance(new_str, str):
-            raise TypeError(f"{__name__}: {new_str} is not a valid parameter search string. Must be a string")
-        if self.par_search_placeholder not in new_str:
-            raise ValueError(f"{__name__}: {new_str} is not a valid parameter search string. It does not contain the placeholder {self.par_search_placeholder}.")
-        self._par_search_string = new_str
-        self._display_pars = {self.par_search_string.replace(self.par_search_placeholder, str(i)) for i in range(1000)}
+        self._active_modes = new_modes
     
     def _load_modes(self):
         #Do sth where there are loaded in a more general way from a specific repo,
         #but keep the same result, meaning the mode dictionary
         self.modes = {PulseParameter.name : PulseParameter}
+        self._mode_instances = {}
     
     def _validate_RO_backend(self, RO_backend):
         if not issubclass(RO_backend.__class__, RO_backend_base):
@@ -649,7 +637,7 @@ class Exciting(mb.MeasureBase):
         if not issubclass(MA_backend.__class__, MA_backend_base):
             raise TypeError(f"{__name__}: Cannot set {MA_backend} as manipulation backend. The backend must be a subclass of MA_backend_base")
     
-    def compile_qupulse(self, *experiments, averages, mode = "pulse_parameter", deep_render = False, **add_pars):   
+    def compile(self, *experiments, averages, active_modes = "pulse_parameter", deep_render = False, **add_pars):   
         """Währenddessen Zwiebeln und Wurzeln schälen. Zwiebeln kleinschneiden. Wurzeln in kurze Stifte schneiden. 
         Öl in einem Wok erhitzen und Gemüse darin kurz pfannenrühren. Koriander kleinwiegen. Reis und Koriander dazugeben und alles vermischen. 
         Reis-Gemüse-Mischung herausheben und warmstellen.
@@ -680,14 +668,14 @@ class Exciting(mb.MeasureBase):
         self.mapper.map_measurements(averages)
 
         self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)
-        self.mode = self.modes[mode](self.fh, self.settings.measurement_settings)
-        self.mode.create_coordinates()
+        self.active_modes = active_modes
+        for mode in self.active_modes:
+            self._mode_instances[mode] = self.modes[mode](self.fh, self.settings.measurement_settings)
+            self._mode_instances[mode].create_coordinates()
 
         self.settings.load()
 
     def change_averages(self, averages):
-        if self.mode.name.endswith("no_avg"):
-            raise NotImplementedError()
         self.mapper.map_measurements(averages)
         for measurement, new_avg in averages.items():
             if not isinstance(measurement, str):
@@ -734,7 +722,8 @@ class Exciting(mb.MeasureBase):
     
     def _prepare_measurement(self, additional_coords = []):
         self._count_total_iterations()
-        self.mode.create_datasets(additional_coords)
+        for mode in self._mode_instances.values():
+            mode.create_datasets(additional_coords)
         self.fh.prepare_measurement(additional_coords)
         
     def _stream_modular(self, data_location, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
@@ -749,7 +738,8 @@ class Exciting(mb.MeasureBase):
             old_iterations = iterations
             latest_data = self._ro_backend.read()
             iterations += self._count_recieved_iterations(latest_data)
-            self.mode.fill_file(latest_data, data_location)
+            for mode in self._mode_instances.values():
+                mode.fill_file(latest_data, data_location)
             progress_bar.iterate(addend = iterations - old_iterations)
         self._stop_hardware()
     
@@ -808,11 +798,11 @@ class Exciting(mb.MeasureBase):
             self._y_parameter = MeasureBase.Coordinate(coordname, unit, np.array(vec, dtype=float), set_obj, dt)
             self._y_parameter.validate_parameters()
         except Exception as e:
-            self._y_parameter = MeasureBase.Coordinate("x_empty")
+            self._y_parameter = MeasureBase.Coordinate("y_empty")
             raise e
 
     def measure1D(self):
-        self._measurement_object.measurement_func = "%s: measure1D" % __name__
+        self.fh.measurement_function_name = f"{__name__}: measure1D"
         self._prepare_measurement()
         pb = Progress_Bar(self._total_iterations)
         try:
@@ -823,7 +813,7 @@ class Exciting(mb.MeasureBase):
             self.fh.end_measurement()
     
     def measure2D(self):
-        self._measurement_object.measurement_func = "%s: measure1D" % __name__
+        self.fh.measurement_function_name = f"{__name__}: measure2D"
         self._prepare_measurement([self._x_parameter])
         pb = Progress_Bar(len(self._x_parameter.values) * self._total_iterations)
         try:
@@ -835,542 +825,27 @@ class Exciting(mb.MeasureBase):
             self._ro_backend.stop()
             self._ma_backend.stop()
             self.fh.end_measurement()
-            
+    
     def measure3D(self):        
-        self._measurement_object.measurement_func = "%s: measure3D" % __name__
+        self.fh.measurement_function_name = f"{__name__}: measure3D"
         self._prepare_measurement([self._x_parameter, self._y_parameter])
         pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * self._total_iterations)
-        meas_func = self._choose_measurement_function(3, pb)
         try:            
-            for x_val in self._x_parameter.values:
+            for i, x_val in enumerate(self._x_parameter.values):
                 self._x_parameter.set_function(x_val)
-                #self._acquire_log_functions()
                 qkit.flow.sleep(self._x_parameter.wait_time)
                 
-                for i, y_val in enumerate(self._y_parameter.values):
+                for j, y_val in enumerate(self._y_parameter.values):
                     self._y_parameter.set_function(y_val)
                     qkit.flow.sleep(self._y_parameter.wait_time)
-                    meas_func(i)
+                    self._stream_modular((j, i), pb)
                 
-                for dset in self._datasets.values():
-                    dset.next_matrix()
+                for dset in self.fh.datasets.keys():
+                    self.fh.next_matrix(dset)
         finally:
             self._ro_backend.stop()
             self._ma_backend.stop()
-            self._end_measurement()
-
-class Exciting_old(mb.MeasureBase):
-    """
-    A class containing measurement routines for spin qubit tuning.
-    
-    Parents
-    -------
-    Measurement_base
-    
-    Attributes
-    ----------
-    reverse2D : bool
-        Zig-zag sweeping during 2D Measurements
-    
-    report_static_voltages: bool
-        Create an extra entry in the .h5 file which reports the active (non-zero) gate voltages
-    
-    measurand : dict
-        Contains the name and the unit of the measurand
-    
-    Methods
-    -------
-    set_z_parameters(self, vec, coordname, set_obj, unit, dt=None): 
-        sets the z-axis for 3D Measurements.
-    
-    set_get_value_func(self, get_func, *args, **kwargs):
-        Sets the measurement function.
-    
-    measure1D() :
-        Starts a 1D measurement
-    
-    measure2D() :
-        Starts a 2D measurement
-        
-    measure3D() :
-        Starts a 3D measurement
-    """
-    class MeasurementDimensionError(Exception):
-        pass
-    modes = {"pulse_parameter", "timetrace", "no_avg", "pp_vs_t"}
-
-    def __init__(self, readout_backend, manipulation_backend,
-                 *experiments, averages, mode = "pulse_parameter", deep_render = False, exp_name = "", sample = None, **add_pars):
-        """
-        Parameters
-        ----------
-        exp_name : str, optional
-            Name of the current experiment
-        sample : qkit.measure.samples_class.Sample, optional
-            Sample used in the current experiment
-        
-        """
-        mb.MeasureBase.__init__(self, sample)
-        
-        self._validate_RO_backend(readout_backend)
-        self._ro_backend = readout_backend
-        self._validate_MA_backend(manipulation_backend)
-        self._ma_backend = manipulation_backend
-        
-        
-        self.compile_qupulse(*experiments, averages = averages, mode = mode, deep_render = deep_render, **add_pars)
-        
-        self.report_static_voltages = True
-        self.mod_mode = No_avg(self)
-        self.par_search_placeholder = "$$"
-        self.par_search_string = "gate$$_out"
-        
-    
-    @property
-    def report_static_voltages(self):
-        return self._report_static_voltages
-    
-    @report_static_voltages.setter
-    def report_static_voltages(self, yesno):
-        if not isinstance(yesno, bool):
-            raise TypeError(f"{__name__}: Cannot use {yesno} as report_static_voltages. Must be a boolean value.")
-        self._report_static_voltages = yesno
-    
-    @property
-    def mode(self):
-        return self._mode
-    
-    @mode.setter
-    def mode(self, new_mode):
-        if new_mode not in self.modes:
-            raise AttributeError(f"{__name__}: {new_mode} is not a valid measurement mode. Allowed modes are: \n {self.modes}")
-        self._mode = new_mode
-
-    @property
-    def par_search_placeholder(self):
-        return self._par_search_placeholder
-    
-    @par_search_placeholder.setter
-    def par_search_placeholder(self, new_str):
-        if not isinstance(new_str, str):
-            raise TypeError(f"{__name__}: {new_str} is not a valid search string placeholder. Must be a string")
-        self._par_search_placeholder = new_str
-    
-    @property
-    def par_search_string(self):
-        return self._par_search_string
-    
-    @par_search_string.setter
-    def par_search_string(self, new_str):
-        if not isinstance(new_str, str):
-            raise TypeError(f"{__name__}: {new_str} is not a valid parameter search string. Must be a string")
-        if self.par_search_placeholder not in new_str:
-            raise ValueError(f"{__name__}: {new_str} is not a valid parameter search string. It does not contain the placeholder {self.par_search_placeholder}.")
-        self._par_search_string = new_str
-        self._display_pars = {self.par_search_string.replace(self.par_search_placeholder, str(i)) for i in range(1000)}
-    
-    def _validate_RO_backend(self, RO_backend):
-        if not issubclass(RO_backend.__class__, RO_backend_base):
-            raise TypeError(f"{__name__}: Cannot set {RO_backend} as readout backend. The backend must be a subclass of RO_backend_base")
-            
-    def _validate_MA_backend(self, MA_backend):
-        if not issubclass(MA_backend.__class__, MA_backend_base):
-            raise TypeError(f"{__name__}: Cannot set {MA_backend} as manipulation backend. The backend must be a subclass of MA_backend_base")
-    
-    def update_t_parameters(self, vec, coordname, measurement, unit = "s"):
-        if len(vec) != self.settings.measurement_settings[measurement]["sample_count"]:
-            raise ValueError((f"{__name__}: Wrong timetrace parameter coordinate length." 
-            f"The given array must have" 
-            f"{self.settings.measurement_settings[measurement]['sample_count']} entries."))
-        
-        new_t_parameter = self.Coordinate(coordname,
-                                            unit = unit,
-                                            values = np.array(vec, dtype=float),
-                                            set_function = lambda val : True,
-                                            wait_time = 0)
-        new_t_parameter.validate_parameters()
-        self._t_parameters[measurement] = new_t_parameter
-
-    def update_pulse_parameters(self, vec, coordname, measurement, unit = "a.u."):
-        if len(vec) != self.settings.measurement_settings[measurement]["measurement_count"]:
-                raise ValueError((f"{__name__}: Wrong pulse parameter coordinate length."
-                "The given array must have" 
-                f"{self.settings.measurement_settings[measurement]['measurement_count']} entries."))
-        
-        new_pulse_parameter = self.Coordinate(coordname, 
-                                            unit = unit, 
-                                            values = np.array(vec, dtype=float),
-                                            set_function = lambda val : True,
-                                            wait_time = 0)
-        new_pulse_parameter.validate_parameters()
-        self._pulse_parameters[measurement] = new_pulse_parameter
-
-    def update_iteration_parameters(self, vec, coordname, measurement, unit = ""):
-        total_measurements = self.settings.measurement_settings[measurement]['measurement_count'] * self.settings.measurement_settings[measurement]['averages']
-        if len(vec) != total_measurements:
-                raise ValueError((f"{__name__}: Wrong iteration parameter coordinate length."
-                "The given array must have" 
-                f"{total_measurements} entries."))
-
-        new_iteration_parameter = self.Coordinate(coordname, 
-                                            unit = unit, 
-                                            values = np.array(vec, dtype=float),
-                                            set_function = lambda val : True,
-                                            wait_time = 0)
-        new_iteration_parameter.validate_parameters()
-        self._iteration_parameters[measurement] = new_iteration_parameter
-
-    def change_averages(self, averages):
-        if self.mode.endswith("no_avg"):
-            raise NotImplementedError()
-        self.mapper.map_measurements(averages)
-        for measurement, new_avg in averages.items():
-            if not isinstance(measurement, str):
-                raise TypeError(f"{__name__}: Cannot change averages, {measurement} must be a string containing the name of the measurement whose averages you wish to change.")
-            if measurement not in self.settings.measurement_settings.keys():
-                raise ValueError(f"{__name__}: Cannot change averages, {measurement} is not an active measurement.")
-            if not isinstance(new_avg, int):
-                raise TypeError(f"{__name__}: Cannot change averages, {new_avg} must be an integer containing the number of averages you wish to set.")
-            if new_avg < 1:
-                raise ValueError(f"{__name__}: Cannot change averages, {new_avg} must be at least 1 and not negative. Sorry to ask, but are you retarded?")
-            self.settings.measurement_settings[measurement]["averages"] = new_avg
-            getattr(self._ro_backend, f"{measurement}_set_averages")(new_avg)
-    
-    def _filter_parameter(self, parameter):
-        preamble, postamble = self.par_search_string.split(self.par_search_placeholder)
-        if parameter.startswith(preamble) and parameter.endswith(postamble):
-            parameter = parameter.replace(preamble, "")
-            parameter = parameter.replace(postamble, "")
-        return parameter.isdigit()
-
-    def _prepare_measurement_file(self, data, coords=()):
-        """Das Fleisch in der Sonne zu trocknen ist in unseren Breiten schwierig. 
-        Das geht nur in heißen Sommermonaten wie Juli oder August, wenn man das Fleisch ausgebreitet auf einer Platte – 
-        mit Frischhaltefolie oder einem größeren Deckel abgedeckt – in der Sonne trocknen kann. In Thailand ist das sicherlich sehr viel einfacher. 
-        Alternativ bietet es sich an, das kleingeschnittene Fleisch abgedeckt einen Tag an einem kühlen Ort zu trocknen. 
-        Das Fleisch ist nach einem Tag noch nicht verdorben.
-        """
-        mb.MeasureBase._prepare_measurement_file(self, data, coords=())
-        
-        if self.report_static_voltages:
-            self._static_voltages = self._data_file.add_textlist("static_voltages")
-            _instr_settings_dict = get_instrument_settings(self._data_file.get_filepath())
-
-            active_gates = {}
-            
-            for parameters in _instr_settings_dict.values():
-                for (key, value) in parameters.items():
-                    if self._filter_parameter(key) and abs(value) > 0.0004:
-                        active_gates.update({key:value})
-            self._static_voltages.append(active_gates)
-
-    def _prepare_measurement(self, coords):
-        """Zutaten:
-        Hundefleisch
-        Junge Zwiebeln
-        Wurzeln
-        Chinesischer Duftreis
-        frischer Koriander
-        Sesamöl
-        Chilisauce
-        Essig mit Chili
-        Sojasauce
-        Austernsauce
-        Fischsauce
-        """
-        total_iterations = 0 #setup the progress bar
-        datasets = []
-        self.divider = {}
-        self.column = {}
-        for measurement in self.settings.measurement_settings.keys():
-            total_iterations += self.settings.measurement_settings[measurement]["averages"]
-            self.divider[measurement] = 0
-            self.column[measurement] = {}
-            for node in self.settings.measurement_settings[measurement]["data_nodes"]:
-                self.column[measurement][node] = 0
-                #Create one dataset for each Measurement node
-                if self.mode == "timetrace":
-                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._t_parameters[measurement]],
-                                        unit = self.settings.measurement_settings[measurement]["unit"], 
-                                        save_timestamp = False))
-                elif self.mode == "pulse_parameter":
-                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._pulse_parameters[measurement]],
-                                        unit = self.settings.measurement_settings[measurement]["unit"], 
-                                        save_timestamp = False))
-                elif self.mode == "pp_vs_t":
-                    datasets.append(self.Data(name = "%s.%s" % (measurement, node), coords = coords + [self._pulse_parameters[measurement], self._t_parameters[measurement]],
-                                        unit = self.settings.measurement_settings[measurement]["unit"], 
-                                        save_timestamp = False))
-                elif self.mode == "no_avg":
-                    self.mod_mode.create_datasets(datasets, measurement, node, coords)
-                    
-        self._total_iterations = total_iterations
-        self._prepare_measurement_file(datasets)
-        print("New version!")
-        for name, measurement in self.settings.measurement_settings.items(): #Allocate the needed memory
-            for node in measurement["data_nodes"]:
-                self.mod_mode.create_file_structure(measurement, name, node)
-
-        if self.open_qviewkit:
-            self._open_qviewkit()
-
-    def _ready_hardware(self):
-        self._ro_backend.stop()
-        self._ma_backend.stop() #We do this to be ABSOLUTELY sure that the first trigger recieved also belongs to the first wavefrom
-        self._ro_backend.arm()
-        self._ma_backend.run()
-    
-    def _stop_hardware(self):
-        self._ro_backend.stop()
-        self._ma_backend.stop()
-
-    def _check_node_data(self, latest_node_data):
-        if latest_node_data.ndim != 3:
-            raise IndexError(f"{__name__}: Invalid readout dimensions. {self._ro_backend} must return arrays with 3 dimensions.")
-        if np.size(latest_node_data, axis = 2) == 0:
-            raise ValueError(f"{__name__}: The last call of {self._ro_backend}.read() returned an array with empty slices.")
-    
-    def _stream2D(self, progress_bar):
-        """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
-        Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
-        Reis nach Anleitung zubereiten. Danach warmstellen.
-        """
-        self._ready_hardware()
-        iterations = 0
-        while not self._ro_backend.finished():
-            old_iterations = iterations
-            latest_data = self._ro_backend.read()
-            for measurement in latest_data.keys():    
-                first_node = list(latest_data[measurement].keys())[0]
-                #If latest data is empty for one measurement, skip it
-                if len(latest_data[measurement][first_node]) == 0: continue
-                #Count the number of iterations collected by the most recent call of read
-                iterations += len(latest_data[measurement][first_node])
-                for node in latest_data[measurement].keys():                    
-                    latest_node_data = np.array(latest_data[measurement][node])
-                    self._check_node_data(latest_node_data)
-                    for grid in latest_node_data:
-                        for single_trace in grid:                            
-                            self._datasets[f"{measurement}.{node}"].ds[self.column[measurement][node]] = single_trace
-                            self.column[measurement][node] += 1
-            self._data_file.flush()
-            progress_bar.iterate(addend = iterations - old_iterations)
-        self._stop_hardware()
-
-    def _stream1D_avg(self, data_location, avg_ax, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
-        """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
-        Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
-        Reis nach Anleitung zubereiten. Danach warmstellen.
-        """
-        self._ready_hardware()      
-        total_sum = {}
-        iterations = 0
-        first = True
-        while not self._ro_backend.finished():
-            old_iterations = iterations
-            latest_data = self._ro_backend.read()
-            for measurement in latest_data.keys():
-                if first:                            
-                    total_sum[measurement] = {}            
-                first_node = list(latest_data[measurement].keys())[0]
-                #If latest data is empty for one measurement, skip it
-                collected_averages = len(latest_data[measurement][first_node])
-                if collected_averages== 0: continue
-                #Count the number of iterations collected by the most recent call of read                
-                iterations += collected_averages
-                self.divider[measurement] += collected_averages
-                for node in latest_data[measurement].keys():                    
-                    latest_node_data = np.array(latest_data[measurement][node])
-                    self._check_node_data(latest_node_data)
-                    #Calculate the average over all measurements (axis 0), and integrate the samples (axis 2)
-                    if first:                        
-                        total_sum[measurement][node] = np.sum(np.average(latest_node_data, axis = avg_ax), axis = 0)
-                        self._datasets["%s.%s" % (measurement, node)].append(total_sum[measurement][node] / self.divider[measurement])                        
-                    else:
-                        total_sum[measurement][node] += np.sum(np.average(latest_node_data, axis = avg_ax), axis = 0)
-                        #self.divider[measurement] += len(latest_data[measurement][first_node])
-                        self._datasets["%s.%s" % (measurement, node)].ds[data_location] =  total_sum[measurement][node] / self.divider[measurement]
-            first = False
-            self._data_file.flush()
-            progress_bar.iterate(addend = iterations - old_iterations)
-        for measurement in self.settings.measurement_settings.keys():
-            self.divider[measurement] = 0
-        self._stop_hardware()
-
-    def _stream2D_avg(self, data_location, progress_bar):
-        self._ready_hardware()      
-        total_sum = {}
-        iterations = 0
-        first = True
-        while not self._ro_backend.finished():
-            old_iterations = iterations
-            latest_data = self._ro_backend.read()
-            for measurement in latest_data.keys():
-                if first:                            
-                    total_sum[measurement] = {}
-                first_node = list(latest_data[measurement].keys())[0]
-                collected_averages = len(latest_data[measurement][first_node])
-                #If latest data is empty for one measurement, skip it
-                if collected_averages == 0: continue
-                #Count the number of iterations collected by the most recent call of read
-                iterations += collected_averages
-                self.divider[measurement] += collected_averages
-                for node in latest_data[measurement].keys():
-                    latest_node_data = np.array(latest_data[measurement][node])
-                    self._check_node_data(latest_node_data)
-                    #Calculate the average over all measurements (axis 0), and integrate along the pulse parameter axis (axis 1).
-                    if first:
-                        total_sum[measurement][node] = np.sum(latest_node_data, axis = (0))
-                        for timetrace in total_sum[measurement][node]: # this is the difference to _stream1D. To initialize the 2D dataset, we have to pass each vector one by one.
-                            self._datasets["%s.%s" % (measurement, node)].append(timetrace)
-                    else:                        
-                        total_sum[measurement][node] += np.sum(latest_node_data, axis = (0))
-                        #Divide through the number of finished iterations, since you accumulate all the averages
-                        self._datasets["%s.%s" % (measurement, node)].ds[data_location] = total_sum[measurement][node]/ self.divider[measurement]
-            first = False
-            self._data_file.flush()
-            progress_bar.iterate(addend = iterations - old_iterations)
-        for measurement in self.settings.measurement_settings.keys():
-            self.divider[measurement] = 0
-        self._stop_hardware()
-
-    def _create_axis(self):
-        for name, measurement in self.settings.measurement_settings.items():
-            self.update_pulse_parameters(measurement["loop_range_pp"], 
-                                        f"{measurement['loop_step_name_pp']}.{name}",
-                                        name)
-            self.update_t_parameters(measurement["loop_range_tt"], 
-                                        f"{measurement['loop_step_name_tt']}.{name}",
-                                        name)
-            self.update_iteration_parameters(np.arange(measurement["averages"] * measurement["measurement_count"]), 
-                                        f"iterations.{name}",
-                                        name)
-
-    def compile_qupulse(self, *experiments, averages, mode = "pulse_parameter", deep_render = False, **add_pars):   
-        """Währenddessen Zwiebeln und Wurzeln schälen. Zwiebeln kleinschneiden. Wurzeln in kurze Stifte schneiden. 
-        Öl in einem Wok erhitzen und Gemüse darin kurz pfannenrühren. Koriander kleinwiegen. Reis und Koriander dazugeben und alles vermischen. 
-        Reis-Gemüse-Mischung herausheben und warmstellen.
-        Nochmals Öl in den Wok geben und erhitzen. Fleisch hinzugeben und kurz pfannenrühren.
-        Fleisch und Reis-Gemüse-Mischung auf Teller geben und mit den Dipsaucen servieren. 
-        Das Gericht ist ungewürzt und erhält seinen Geschmack durch die jeweiligen Saucen.
-        """
-        self.mode = mode
-        self.mapper = Mapping_handler2()
-        if "channel_mapping" in add_pars:
-            self.mapper.channel_mapping = add_pars["channel_mapping"]
-        if "measurement_mapping" in add_pars:
-            self.mapper.measurement_mapping = add_pars["measurement_mapping"]
-
-        channel_sample_rates = {channel : getattr(self._ma_backend, f"{channel}_get_sample_rate")()
-                        for channel in self._ma_backend._registered_channels.keys()}
-        measurement_sample_rates = {measurement : getattr(self._ro_backend, f"{measurement}_get_sample_rate")() \
-                        for measurement in self._ro_backend._registered_measurements.keys()}
-        
-        self.mapper.map_channels_inv(channel_sample_rates)
-        self.mapper.map_measurements_inv(measurement_sample_rates)
-        
-        decoded = Qupulse_decoder2(*experiments, channel_sample_rates = channel_sample_rates, measurement_sample_rates = measurement_sample_rates,\
-             deep_render = deep_render, **add_pars)
-
-        self.mapper.map_channels(decoded.channel_pars)
-        self.mapper.map_measurements(decoded.measurement_pars)
-        self.mapper.map_measurements(averages)
-
-        self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)
-        
-        self._t_parameters = {}
-        self._pulse_parameters = {}
-        self._iteration_parameters = {}
-
-        self._create_axis()
-        self.settings.load()
-
-    def _choose_measurement_function(self, dimension, progress_bar):
-        if self.mode == "pulse_parameter" and dimension == 1:
-            return lambda: self._stream1D_avg((), 2, progress_bar)
-        elif self.mode == "pulse_parameter" and dimension == 2:
-            return lambda: self._stream1D_avg((-1), 2, progress_bar)
-        elif self.mode == "pulse_parameter" and dimension == 3:
-            return lambda i : self._stream1D_avg((-1, i), 2, progress_bar)
-        
-        elif self.mode == "timetrace" and dimension == 1:
-            return lambda: self._stream1D_avg((), 1, progress_bar)
-        elif self.mode == "timetrace" and dimension == 2:
-            return lambda: self._stream1D_avg((-1), 1, progress_bar)
-        elif self.mode == "timetrace" and dimension == 3:
-            return lambda i : self._stream1D_avg((-1, i), 1, progress_bar)
-        
-        elif self.mode == "pp_vs_t" and dimension == 1:
-            return lambda: self._stream2D_avg((), progress_bar)
-        elif self.mode == "pp_vs_t" and dimension == 2:
-            def pp_vs_t_2D():
-                self._stream2D_avg((-1), progress_bar)
-                for dset in self._datasets.values():
-                    dset.next_matrix()
-            return pp_vs_t_2D
-        
-        elif self.mode == "no_avg" and dimension == 1:
-            return lambda: self._stream2D(progress_bar)
-        elif self.mode == "no_avg" and dimension == 2:
-            def no_avg_2D():
-                self._stream2D( progress_bar)
-                for dset in self._datasets.values():
-                    dset.next_matrix()
-            return no_avg_2D
-        else:
-            raise self.MeasurementDimensionError(f"{__name__}: Mode \"{self.mode}\" does not support a {dimension}D-measurement.")
-    
-    def measure1D(self):
-        self._measurement_object.measurement_func = "%s: measure1D" % __name__
-        self._prepare_measurement([])
-        pb = Progress_Bar(self._total_iterations)
-        meas_func = self._choose_measurement_function(1, pb)
-        try:
-            #self._acquire_log_functions()
-            meas_func()
-        finally:
-            self._ro_backend.stop()
-            self._ma_backend.stop()
-            self._end_measurement()
-            
-    def measure2D(self):        
-        self._measurement_object.measurement_func = "%s: measure2D" % __name__        
-        self._prepare_measurement([self._x_parameter])
-        pb = Progress_Bar(len(self._x_parameter.values) * self._total_iterations)
-        meas_func = self._choose_measurement_function(2, pb)
-        try:
-            for x_val in self._x_parameter.values:
-                self._x_parameter.set_function(x_val)
-                #self._acquire_log_functions()
-                qkit.flow.sleep(self._x_parameter.wait_time)
-                meas_func()
-        finally:
-            self._ro_backend.stop()
-            self._ma_backend.stop()
-            self._end_measurement()
-            
-    def measure3D(self):        
-        self._measurement_object.measurement_func = "%s: measure3D" % __name__
-        self._prepare_measurement([self._x_parameter, self._y_parameter])
-        pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * self._total_iterations)
-        meas_func = self._choose_measurement_function(3, pb)
-        try:            
-            for x_val in self._x_parameter.values:
-                self._x_parameter.set_function(x_val)
-                #self._acquire_log_functions()
-                qkit.flow.sleep(self._x_parameter.wait_time)
-                
-                for i, y_val in enumerate(self._y_parameter.values):
-                    self._y_parameter.set_function(y_val)
-                    qkit.flow.sleep(self._y_parameter.wait_time)
-                    meas_func(i)
-                
-                for dset in self._datasets.values():
-                    dset.next_matrix()
-        finally:
-            self._ro_backend.stop()
-            self._ma_backend.stop()
-            self._end_measurement()
+            self.fh.end_measurement()
 
 if __name__ == "__main__":
 
