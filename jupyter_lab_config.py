@@ -12,9 +12,9 @@ import qkit
 qkit_path = os.path.dirname(qkit.__file__)
 qkit_templates = os.path.join(qkit_path, 'templates')
 contrib_templates = os.path.join(qkit_path, 'contrib/templates')
+documentation_templates = os.path.join(qkit_path, '..', '..', 'doc')
 
-
-c.JupyterLabTemplates.template_dirs = [str(user_templates), str(qkit_templates), str(contrib_templates)]
+c.JupyterLabTemplates.template_dirs = [str(user_templates), str(qkit_templates), str(contrib_templates), str(documentation_templates)]
 c.JupyterLabTemplates.include_default = False
 c.JupyterLabTemplates.include_core_paths = False
 
