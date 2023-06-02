@@ -15,6 +15,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+from importlib import import_module
+from os import stat
 import qkit
 import qkit.measure.measurement_base as mb
 from qkit.measure.measurement_base import MeasureBase
@@ -22,6 +24,7 @@ from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.write_additional_files import get_instrument_settings
 from qkit.measure.semiconductor.readout_backends.RO_backend_base import RO_backend_base
 from qkit.measure.semiconductor.manipulation_backends.MA_backend_base import MA_backend_base
+from qkit.measure.semiconductor.modes.mode_base import ModeBase
 from qkit.measure.semiconductor.utils.utility_objects import Mapping_handler2
 
 import qupulse
@@ -31,12 +34,14 @@ import numpy as np
 import warnings
 import inspect
 import collections
-from abc import ABC, abstractmethod
+import importlib.util
+from inspect import getmembers, isclass
+from pathlib import Path
 
 def makehash():
     return collections.defaultdict(makehash)
 
-def keytransform(original, transform):
+""" def keytransform(original, transform):
     transformed = {}
     for key, value in original.items():
         trans_key = transform[key]
@@ -51,7 +56,7 @@ def expand_mapping(dictionary, mapping):
         
 def invert_dict(dict):        
         inverse_dict = {v : k for k, v in dict.items()}
-        return inverse_dict
+        return inverse_dict """
 
 class Qupulse_decoder2:
     """Gebratenes Hundefleisch mit Gemüse und Reis
@@ -266,8 +271,6 @@ class Qupulse_decoder2:
             else:
                 warnings.warn(f"{__name__}: {pt.identifier} is not a ForLoopPulseTemplate. Pulse parameter axis will be displayed with default name.")
         
-        
-    
 class Settings:
     def __init__(self, core, channel_params, measurement_params, averages, **add_pars):
         """Das Rezept meines Bekannten war leider etwas kurz gefasst und enthielt keine Mengenangaben. 
@@ -331,6 +334,7 @@ class Settings:
             getattr(self.core._ro_backend, f"{measurement}_activate")()
             
         self.core._ma_backend.load_waveform(self.channel_settings)
+
 class No_avg:
     name = "no_avg"
     def __init__(self, core) -> None:
@@ -344,62 +348,6 @@ class No_avg:
     def create_file_structure(self, measurement, name, node):
         self.core._datasets[f"{name}.{node}"].append(np.full(measurement["sample_count"], np.nan))
         self.core._datasets[f"{name}.{node}"].ds.resize((measurement["averages"] * measurement["measurement_count"], measurement["sample_count"]))
-
-class ModeBase(ABC):    
-    @abstractmethod
-    def create_coordinates(self):
-        pass
-    @abstractmethod
-    def create_datasets(self):
-        pass
-    @abstractmethod
-    def reset(self):
-        pass
-    @abstractmethod
-    def fill_file(self):
-        pass
-
-class PulseParameter(ModeBase):
-    name = "pulse_parameter"
-    def __init__(self, fh, measurement_settings) -> None:
-        self.fh = fh
-        self.measurement_settings = measurement_settings
-        self.unit = "a.u."
-        self.tag = "pulse_parameter"
-        self.coord_lengths = []
-        self.total_sum = makehash()
-        self.divider = makehash()
-
-    def create_coordinates(self):
-        for name, measurement in self.measurement_settings.items():
-            self.fh.update_coordinates(self.tag, measurement["loop_range_pp"], 
-                                        f"{measurement['loop_step_name_pp']}.{name}",
-                                        name)
-    
-    def create_datasets(self, additional_coords):
-        self.coord_lengths = [len(coord.values) for coord in additional_coords]
-        for name, measurement in self.measurement_settings.items():
-            self.divider[name] = 0 
-            for node in measurement["data_nodes"]:
-                coords = [self.fh.multiplexer_coords[self.tag][name]] + additional_coords
-                self.fh.add_dset(name, node, coords, self.unit)
-                self.total_sum[name][node] = 0
-    
-    def reset(self):
-        self.total_sum = makehash()
-        self.divider = makehash()
-
-    def fill_file(self, latest_data, data_location):
-        for measurement_name, node_values in latest_data.items():
-            #If latest data is empty for one measurement, skip it
-            first_node = list(node_values.keys())[0]
-            collected_averages = len(node_values[first_node])
-            if collected_averages== 0: continue
-            self.divider[measurement_name] += collected_averages
-            for node_name, node_value in node_values.items():
-                self.total_sum[measurement_name][node_name] += np.sum(np.average(node_value, axis = 2), axis = 0)
-                value = self.total_sum[measurement_name][node_name]/self.divider[measurement_name]
-                self.fh.write_to_file(measurement_name, node_name, value, data_location)
 
 class FileHandler:
     def __init__(self) -> None:
@@ -468,7 +416,7 @@ class FileHandler:
         new_t_parameter.validate_parameters()
         self.multiplexer_coords[tag][measurement] = new_t_parameter
 
-    def add_dset(self, measurement, node, coords, unit):
+    def add_dset(self, set_name, coords, unit):
         """Zutaten:
         Hundefleisch
         Junge Zwiebeln
@@ -482,7 +430,6 @@ class FileHandler:
         Austernsauce
         Fischsauce
         """
-        set_name = f"{measurement}.{node}"
         self.datasets[set_name] = self.mb.Data(name = set_name, coords = coords, unit = unit, 
                             save_timestamp = False)
    
@@ -525,9 +472,9 @@ class FileHandler:
         if self.open_qviewkit:
             self.mb._open_qviewkit()
     
-    def write_to_file(self, measurement, node, value, data_location):
+    def write_to_file(self, set_name, value, data_location):
         if value.size != 0:
-            self.mb._datasets[f"{measurement}.{node}"].ds[data_location] = value
+            self.mb._datasets[set_name].ds[data_location] = value
             self.mb._data_file.flush()
         else:
             pass 
@@ -575,7 +522,7 @@ class Exciting():
         Starts a 3D measurement
     """
     def __init__(self, readout_backend, manipulation_backend,
-                 *experiments, averages, mode = "pulse_parameter", deep_render = False, exp_name = "", sample = None, **add_pars):
+                 *experiments, averages, mode = "PulseParameter", deep_render = False, exp_name = "", sample = None, **add_pars):
         """
         Parameters
         ----------
@@ -589,9 +536,9 @@ class Exciting():
         self._validate_RO_backend(readout_backend)
         self._ro_backend = readout_backend
         self._validate_MA_backend(manipulation_backend)
-        self._ma_backend = manipulation_backend 
+        self._ma_backend = manipulation_backend
+        self.mode_path = Path(__file__).parent / "modes"
         self._load_modes()
-        print(self.modes.keys())
 
         self.report_static_voltages = True
         self.par_search_placeholder = "$$"
@@ -613,20 +560,48 @@ class Exciting():
         if isinstance(new_modes, str):
             new_modes = (new_modes,)        
         try:
-            print(new_modes)
+            missing_modes = ""
             for mode in new_modes:
-                print(mode)
-                if mode not in self.modes.keys():
-                    raise ValueError
+                if mode not in self._modes.keys():
+                    missing_modes += f"{mode}\n"
+            if missing_modes:
+                raise ValueError(f"{__name__}: The following modes are not known by spin_excite: {missing_modes}")
         except TypeError as te:
-            raise TypeError(f"{__name__}: {str(te)}")
+            raise TypeError(f"{__name__}: Cannot use {new_modes} as active_modes, {te}")
 
         self._active_modes = new_modes
+
+    @property
+    def mode_path(self):
+        return self._mode_path
     
-    def _load_modes(self):
-        #Do sth where there are loaded in a more general way from a specific repo,
-        #but keep the same result, meaning the mode dictionary
-        self.modes = {PulseParameter.name : PulseParameter}
+    @mode_path.setter
+    def mode_path(self, new_path):
+        try:
+            self._mode_path = Path(new_path)
+        except TypeError as te:
+            raise TypeError(f"{__name__}: Cannot use {new_path} as mode_path, {te}.")
+        self._mode_path = new_path
+    
+    @staticmethod
+    def _load_module_from_filepath(module_name, fname):
+        module_spec = importlib.util.spec_from_file_location(module_name, fname)
+        module = importlib.util.module_from_spec(module_spec)  # type: ignore
+        module_spec.loader.exec_module(
+            module
+        )
+        return module
+
+    def _load_modes(self):        
+        self._modes = {}
+        for element in self.mode_path.iterdir():
+            if element.suffix == ".py":
+                module = self._load_module_from_filepath(str(element.stem), str(element))
+                for name, obj in getmembers(module):
+                    if isclass(obj):
+                        if ModeBase in obj.__bases__:                       
+                            self._modes[name] = obj
+        
         self._mode_instances = {}
     
     def _validate_RO_backend(self, RO_backend):
@@ -670,7 +645,7 @@ class Exciting():
         self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)
         self.active_modes = active_modes
         for mode in self.active_modes:
-            self._mode_instances[mode] = self.modes[mode](self.fh, self.settings.measurement_settings)
+            self._mode_instances[mode] = self._modes[mode](self.fh, self.settings.measurement_settings)
             self._mode_instances[mode].create_coordinates()
 
         self.settings.load()
@@ -709,8 +684,9 @@ class Exciting():
         self._total_iterations = 0
         for measurement in self.settings.measurement_settings.keys():
             self._total_iterations += self.settings.measurement_settings[measurement]["averages"]
-            
-    def _count_recieved_iterations(self, latest_data):
+    
+    @staticmethod
+    def _count_recieved_iterations(latest_data):
         iterations = 0
         for measurement in latest_data.keys():            
             first_node = list(latest_data[measurement].keys())[0]
@@ -847,33 +823,22 @@ class Exciting():
             self._ma_backend.stop()
             self.fh.end_measurement()
 
+def main():
+    print("This is run")
+    a = 5
+    everything = dir()
+    print(__file__)
+    print(type(__file__))
+    for obj in Path("modes").iterdir():
+        print(type(obj))
+        print(obj)
+        print(obj.name)
+    for element in everything:
+        print(type (element))
+        print(element)
+
 if __name__ == "__main__":
-
-    from qupulse.pulses import PointPT, ForLoopPT
-    # create our atomic "low-level" PointPTs
-    first_point_pt = PointPT([(0,   'v_0'),
-                            (1,   'v_1', 'linear'),
-                            ('t', 'v_0+v_1', 'jump')],
-                            channel_names={'patushka'},
-                            measurements={('Blurps', 1, 2)})
-
-    for_loop_pt = ForLoopPT(first_point_pt, 't', ('t_start', 't_end', 2))
-
-    parameters = dict(t=3,
-                    t_2=2,
-                    v_0=1,
-                    v_1=1.4,
-                    t_start = 4,
-                    t_end = 13)
-    
-    import qkit
-    from qkit.measure.semiconductor.manipulation_backends.MANIP_test_backend import MA_test_backend
-    from qkit.measure.semiconductor.readout_backends.RO_test_backend2 import RO_backend
-    qkit.start()
-    ma_backend = MA_test_backend()
-    ro_backend = RO_backend()
-    excitation = Exciting(ro_backend, ma_backend, (for_loop_pt, parameters), averages = {"Blurps" : 100}, channel_mapping = {"patushka" : "Ch1"},
-                        measurement_mapping = {"Blurps" : "M1"})
+    main()
 # =============================================================================
 # class Qupulse_decoder:
 #     def __init__(self, qupulse_pt, qupulse_pars):
