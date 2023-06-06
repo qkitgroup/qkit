@@ -20,7 +20,7 @@
 If you intend to actively work on the code, look at the section for developing this code.
 To install this package, run:
 ```bash
-pip install qkit[jupyter,analysis]@git+https://github.com/qkitgroup/qkit.git@master
+pip install 'qkit[jupyter,analysis] @ git+https://github.com/qkitgroup/qkit.git@master'
 ```
 
 ## Developing
