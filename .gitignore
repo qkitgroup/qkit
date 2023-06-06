@@ -1,18 +1,14 @@
 *.pyc
 *.DS_Store
 *.ipynb_checkpoints
-qkit/core/userconfig.py
-qkit/config/local.py
-qkit/config/services.py
-qkit/logs/qkit.log
 
 # IDEs and Python
+__pycache__
 .vscode/
 .mypy_cache/
 .idea/
 venv
 .venv
 
-# QKit data
-notebooks/
-data/
+# Build
+dist/
