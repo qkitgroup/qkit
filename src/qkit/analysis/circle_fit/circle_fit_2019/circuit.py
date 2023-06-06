@@ -105,7 +105,7 @@ class circuit:
         
         # Translate data to origin
         xc, yc, r0 = self._fit_circle(self.z_data_raw)
-        z_data = self.z_data_raw - np.complex(xc, yc)
+        z_data = self.z_data_raw - complex(xc, yc)
         # Find first estimate of parameters
         fr, Ql, theta, self.delay = self._fit_phase(z_data)
         
@@ -117,7 +117,7 @@ class circuit:
             # Translate new best fit data to origin
             z_data = self.z_data_raw * np.exp(2j*np.pi*self.delay*self.f_data)
             xc, yc, r0 = self._fit_circle(z_data)
-            z_data -= np.complex(xc, yc)
+            z_data -= complex(xc, yc)
             
             # Find correction to current delay
             guesses = (fr, Ql, 5e-11)
@@ -162,7 +162,7 @@ class circuit:
         # Correct for delay and translate circle to origin
         z_data = self.z_data_raw * np.exp(2j*np.pi*self.delay*self.f_data)
         xc, yc, self.r0 = self._fit_circle(z_data)
-        zc = np.complex(xc, yc)
+        zc = complex(xc, yc)
         z_data -= zc
         
         # Find off-resonant point by fitting offset phase
