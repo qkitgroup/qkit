@@ -1,0 +1,13 @@
+# Use sane defaults
+* text=auto
+
+# Most people use windows, so we use CRLF as line endings, to prevent erroneous line ending changes
+*.py text eol=crlf
+
+# Shell scripts need to end in LF only
+*.sh text eol=lf
+
+
+# Denote all files that are truly binary and should not be modified.
+*.png binary
+*.jpg binary
