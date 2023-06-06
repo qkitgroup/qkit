@@ -89,9 +89,9 @@ class Keithley_2450(Instrument):
             # flags=Instrument.FLAG_GETSET | Instrument.FLAG_GET_AFTER_SET,
             # type=float, units='A')
             
-        # self.add_parameter('4W',
-            # flags=Instrument.FLAG_GETSET ,
-            # units='', type=str)
+        self.add_parameter('4W',
+            flags=Instrument.FLAG_GETSET ,
+            units='', type=str)
 
         self.add_parameter('ramp_wait_time', 
             flags=Instrument.FLAG_GET,
@@ -149,7 +149,7 @@ class Keithley_2450(Instrument):
         self.get('level')
         # # self.get('voltage_protection')
         # # self.get('current_protection')
-        # # self.get('4W')
+        self.get('4W')
         self.get('ramp_wait_time')
 
     def set_defaults(self):
@@ -336,31 +336,46 @@ class Keithley_2450(Instrument):
         # return float(self._visainstrument.ask(':SENS:CURR:PROT?'))
         
         
-    # def do_set_4W(self, val):
-        # '''
-        # Sets measurement mode to 4-wire or 2-wire mode.
-        # Value should be on or off. 
-        # "On" devotes to 4-wire mode. "Off" devotes to 2-wire mode.
-        # In the instrument appropriate command is ":sens:rem on/off"
-        # '''
-        # if val in ['on','off']:
-            # logging.debug('Set 4W to %s' % val)
-            # ans = self._visainstrument.write(":SENS:REM %s" % val)
-        # else:
-            # logging.error('Invalid value %s' % val)
+    def do_set_4W(self, val):
+        '''
+        Sets measurement mode to 4-wire or 2-wire mode.
+        Value should be on or off. 
+        "On" devotes to 4-wire mode. "Off" devotes to 2-wire mode.
+        In the instrument appropriate command is ":RES:RSEN on/off"
+        '''
+        if val in ['on', 'off']:
+            logging.debug('Set 4W to %s' % val)
+            ans = self._visainstrument.write(":RES:RSEN %s" % val.upper())
+        else:
+            logging.error('Invalid value %s' % val)
 
-    # def do_get_4W(self):
-        # '''
-        # Gets measurement mode
-        # '''
-        # logging.debug('Get 4-wire measurement mode')
-        # ans = self._visainstrument.ask(":SENS:REM?")
+    def do_get_4W(self):
+        '''
+        Gets measurement mode
+        '''
+        logging.debug('Get 4-wire measurement mode')
+        ans = self._visainstrument.ask(":RES:RSEN?")
         
-        # if int(ans):
-            # return 'on'
-        # else:
-            # return 'off'
+        if int(ans):
+            return 'on'
+        else:
+            return 'off'
             
+    def do_set_sense_unit(self, val1, val2):
+        '''
+        Sets measurement mode to 4-wire or 2-wire mode.
+        Value should be on or off. 
+        "On" devotes to 4-wire mode. "Off" devotes to 2-wire mode.
+        In the instrument appropriate command is ":RES:RSEN on/off"
+        '''
+        if (val1 in ['CURR','RES', 'VOLT'])& (val2 in ['OHM','WATT', 'AMP', 'VOLT']):
+            # if (val1 == 'CURR') & (val2 ==)
+            # logging.debug('Set measure function to %s in %s' % (val1, val2))
+            logging.debug('Set measure function to %s in %s' % (val1, val2))
+            ans = self._visainstrument.write(":%s:UNIT %s" % (val1, val2))
+        else:
+            logging.error('Invalid value %s %s' % (val1, val2))
+    
     def do_get_ramp_wait_time(self):
         '''
         Get ramp time: Parameter is used for a current ramp and determines the waiting time 
@@ -378,7 +393,7 @@ class Keithley_2450(Instrument):
         self.ramp_wait_time = va
         
         
-    def ramp_current(self, target, step,  wait_time, showvalue=True, outp=True):
+    def ramp_current(self, target, step,  wait_time, showvalue=False, outp=True):
         '''
         Ramps the current starting from the actual value to a target value
         Attention: all values are given in mA
@@ -419,7 +434,7 @@ class Keithley_2450(Instrument):
         if showvalue==True:
             print()
 #
-#
+#      
 #    def do_get_value(self, channel):
 #        '''
 #        Gets measured value
