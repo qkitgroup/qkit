@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# IV_curve.py analysis class for IV like transport measurements
+# IV_curve.py analysis class for IV like transport measurement data
 # Micha Wildermuth, micha.wildermuth@kit.edu 2019
 
 # This program is free software; you can redistribute it and/or modify
@@ -22,347 +22,28 @@ import matplotlib.pyplot as plt
 import scipy as sp
 from scipy import stats, signal as sig, optimize as opt, constants as const
 const.Phi_0 = const.h / (2 * const.e)
-from collections import defaultdict
-import itertools
 
-import qkit
-from qkit.storage.store import Data
-import qkit.measure.measurement_class as mc
-from qkit.gui.plot import plot as qviewkit
-from qkit.storage import store as hdf
-from qkit.storage.hdf_constants import ds_types
 import json
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
+from qkit.analysis.qdata import qData, dict2obj
 
 """ Error calculations with uncertainties package """
 import uncertainties as uncert
 from uncertainties import ufloat, unumpy as unp
-
-
-def sem(a, **kwargs):
-    """
-    Compute the standard error of the mean along the specified axis.
-
-    Returns the standard error of the mean, that is per definition the standard deviation divided by sqrt(n-1). The
-    standard error of the mean is computed for the
-    flattened array by default, otherwise over the specified axis.
-
-    Parameters
-    ----------
-    a : array_like
-        Calculate the standard error of the mean of these values.
-    axis : None or int or tuple of ints, optional
-        Axis or axes along which the standard error of the mean is computed. The default is to compute the standard
-        error of the mean of the flattened array.
-
-        If this is a tuple of ints, a standard error of the mean is performed over multiple axes, instead of a single
-        axis or all the axes as before.
-    dtype : dtype, optional
-        Type to use in computing the standard error of the mean. For arrays of integer type the default is float64, for
-        arrays of float types it is the same as the array type.
-    out : ndarray, optional
-        Alternative output array in which to place the result. It must have the same shape as the expected output but
-        the type (of the calculated values) will be cast if necessary.
-    ddof : int, optional
-        Means Delta Degrees of Freedom.  The divisor used in calculations is ``N - ddof``, where ``N`` represents the
-        number of elements. By default `ddof` is zero.
-    keepdims : bool, optional
-        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this
-        option, the result will broadcast correctly against the input array.
-
-        If the default value is passed, then `keepdims` will not be passed through to the `std` method of sub-classes of
-        `ndarray`, however any non-default value will be.  If the sub-class' method does not implement `keepdims` any
-        exceptions will be raised.
-
-    Returns
-    -------
-    sem : ndarray, see dtype parameter above.
-        If `out` is None, return a new array containing the standard error of the mean, otherwise return a reference to
-        the output array.
-    """
-    n = a.shape[kwargs['axis']] if 'axis' in kwargs else np.prod(a.shape)
-    return np.std(unp.nominal_values(a), **kwargs) / np.sqrt(n - 1)
-
-
-def nansem(a, **kwargs):
-    """
-    Compute the standard error of the mean along the specified axis, while ignoring NaNs.
-
-    Returns the standard error of the mean, that is per definition the standard deviation divided by sqrt(n-1), of the
-    non-NaN array elements. The standard error of the mean is computed for the flattened array by default, otherwise
-    over the specified axis.
-
-    For all-NaN slices or slices with zero degrees of freedom, NaN is returned and a `RuntimeWarning` is raised.
-
-    Parameters
-    ----------
-    a : array_like
-        Calculate the standard error of the mean of the non-NaN values.
-    axis : {int, tuple of int, None}, optional
-        Axis or axes along which the standard error of the mean is computed. The default is to compute the standard
-        error of the mean of the flattened array.
-    dtype : dtype, optional
-        Type to use in computing the standard error of the mean. For arrays of integer type the default is float64, for
-        arrays of float types it is the same as the array type.
-    out : ndarray, optional
-        Alternative output array in which to place the result. It must have the same shape as the expected output but
-        the type (of the calculated values) will be cast if necessary.
-    ddof : int, optional
-        Means Delta Degrees of Freedom.  The divisor used in calculations is ``N - ddof``, where ``N`` represents the
-        number of non-NaN elements.  By default `ddof` is zero.
-
-    keepdims : bool, optional
-        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this
-        option, the result will broadcast correctly against the original `a`.
-
-        If this value is anything but the default it is passed through as-is to the relevant functions of the
-        sub-classes. If these functions do not have a `keepdims` kwarg, a RuntimeError will be raised.
-
-    Returns
-    -------
-    sem : ndarray, see dtype parameter above.
-        If `out` is None, return a new array containing the standard error of the mean, otherwise return a reference to
-        the output array. If ddof is >= the number of non-NaN elements in a slice or the slice contains only NaNs, then
-        the result for that slice is NaN.
-    """
-    n = a.shape[kwargs['axis']] if 'axis' in kwargs else np.prod(a.shape)
-    return np.nanstd(unp.nominal_values(a), **kwargs) / np.sqrt(n - 1)
-
-
-def umean(a, **kwargs):
-    """
-    Compute the arithmetic mean and its uncertainties of numbers with uncertainties along the specified axis.
-
-    Returns the average and its uncertainty of the array elements. The average is taken over the flattened array by
-    default, otherwise over the specified axis.
-    The uncertainty is calculated as standard error of the mean as well as the error propagated uncertainties of the
-    input array.
-    `float64` intermediate and return values are used for integer inputs.
-
-    Parameters
-    ----------
-    a : uncertainties.unumpy.ndarray
-        Array containing numbers with uncertainties whose mean is desired. If `a` is not an array, a conversion is
-        attempted.
-    axis : None or int or tuple of ints, optional
-        Axis or axes along which the means are computed. The default is to compute the mean of the flattened array.
-
-        If this is a tuple of ints, a mean is performed over multiple axes, instead of a single axis or all the axes as
-        before.
-    dtype : data-type, optional
-        Type to use in computing the mean. For integer inputs, the default is `float64`; for floating point inputs, it
-        is the same as the input dtype.
-    out : ndarray, optional
-        Alternate output array in which to place the result. The default is ``None``; if provided, it must have the same
-        shape as the expected output, but the type will be cast if necessary.
-        See `ufuncs-output-type` for more details.
-
-    keepdims : bool, optional
-        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this
-        option, the result will broadcast correctly against the input array.
-
-        If the default value is passed, then `keepdims` will not be passed through to the `mean` method of sub-classes
-        of `ndarray`, however any non-default value will be. If the sub-class' method does not implement `keepdims` any
-        exceptions will be raised.
-
-    Returns
-    -------
-    m : uncertainties.unumpy.ndarray
-        If `out=None`, returns a new array containing the mean values and its uncertainties, otherwise a reference to
-        the output array is returned.
-    """
-    avg = np.float64(np.squeeze(unp.nominal_values(np.mean(a, **kwargs))))
-    std = np.float64(np.squeeze(np.sqrt(unp.std_devs(np.mean(a, **kwargs)) ** 2 + sem(unp.nominal_values(a), **kwargs) ** 2)))
-    if isinstance(avg, np.floating) and isinstance(std, np.floating):
-        return ufloat(nominal_value=avg,
-                      std_dev=std)
-    elif isinstance(avg, np.ndarray) and isinstance(std, np.ndarray):
-        return unp.uarray(nominal_values=avg,
-                          std_devs=std)
-    else:
-        raise TypeError('average value and standard deviation do not have compatible dtypes.')
-
-
-def unanmean(a, **kwargs):
-    """
-    Compute the arithmetic mean and its uncertainties of numbers with uncertainties along the specified axis, ignoring
-    NaNs.
-
-    Returns the average and its uncertainty of the array elements. The average is taken over the flattened array by
-    default, otherwise over the specified axis. The uncertainty is calculated as standard error of the mean as well as
-    the error propagated uncertainties of the input array.
-    `float64` intermediate and return values are used for integer inputs.
-
-    For all-NaN slices, NaN is returned and a `RuntimeWarning` is raised.
-
-    Parameters
-    ----------
-    a : uncertainties.unumpy.ndarray
-        Array containing numbers with uncertainties whose mean is desired. If `a` is not an array, a conversion is
-        attempted.
-    axis : {int, tuple of int, None}, optional
-        Axis or axes along which the means are computed. The default is to compute the mean of the flattened array.
-        dtype : data-type, optional
-        Type to use in computing the mean. For integer inputs, the default is `float64`; for inexact inputs, it is the
-        same as the input dtype.
-    out : ndarray, optional
-        Alternate output array in which to place the result. The default is ``None``; if provided, it must have the same
-        shape as the expected output, but the type will be cast if necessary.
-        See `ufuncs-output-type` for more details.
-
-    keepdims : bool, optional
-        If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With this
-        option, the result will broadcast correctly against the original `a`.
-        If the value is anything but the default, then `keepdims` will be passed through to the `mean` or `sum` methods
-        of sub-classes of `ndarray`.  If the sub-classes methods does not implement `keepdims` any exceptions will be raised.
-
-    Returns
-    -------
-    retval : uncertainties.unumpy.ndarray, see dtype parameter above
-        If `out=None`, returns a new array containing the mean values and its uncertainties, otherwise a reference to
-        the output array is returned. Nan is returned for slices that contain only NaNs.
-    """
-    avg = np.float64(np.squeeze(unp.nominal_values(np.nanmean(a, **kwargs))))
-    std = np.float64(np.squeeze(np.sqrt(unp.std_devs(np.nanmean(a, **kwargs)) ** 2 + nansem(unp.nominal_values(a), **kwargs) ** 2)))
-    if isinstance(avg, np.floating) and isinstance(std, np.floating):
-        return ufloat(nominal_value=avg,
-                      std_dev=std)
-    elif isinstance(avg, np.ndarray) and isinstance(std, np.ndarray):
-        return unp.uarray(nominal_values=avg,
-                          std_devs=std)
-    else:
-        raise TypeError('average value and standard deviation do not have compatible dtypes.')
-
-
-def uaverage(a, axis=None):
-    """
-    Computes the average and its uncertainties of numbers with uncertainties along the specified axis considering the
-    uncertainties of each input value.
-
-    Returns the average and its uncertainty of the array elements weighted by the inverse variance of each input value
-    [1]_ that results from the maximum likelihood estimator applied to aGaussian distribution. The average is calculated
-    as weighted arithmetic mean [2]_ and the uncertainty is calculated as square root of the weighted sample variance of
-    the input array [3]_.
-    Both weighted arithmetic mean and weighted sample variance is taken over the flattened array by default, otherwise
-    over the specified axis.
-
-    Parameters
-    ----------
-    a : uncertainties.unumpy.ndarray
-        Array containing data with uncertainties to be averaged. If `a` is not an array, a conversion is attempted.
-    axis : None or int or tuple of ints, optional
-        Axis or axes along which to average `a`.  The default, axis=None, will average over all of the elements of the
-        input array.
-        If axis is negative it counts from the last to the first axis.
-        If axis is a tuple of ints, averaging is performed on all of the axes specified in the tuple instead of a single
-        axis or all the axes as before.
-
-    Returns
-    -------
-    retval : uncertainties.unumpy.ndarray or uncertainties.ufloat
-        Returns the averagea and its uncertainty along the specified axis weighted by the inverse variance of each input
-        value.
-        The result dtype follows a general pattern and is uncertainties.ufloat if `axis` is None or else
-        uncertainties.unumpy.ndarray.
-
-    References
-    ----------
-    [1] Guide to the expression of uncertainty in measurement: https://www.bipm.org/utils/common/documents/jcgm/JCGM_100_2008_E.pdf
-    [2] Wikipedia page about weighted arithmetic mean: https://en.wikipedia.org/wiki/Weighted_arithmetic_mean
-    [3] Wikipedia page about weighted sample variance: https://en.wikipedia.org/wiki/Weighted_arithmetic_mean#Weighted_sample_variance
-    """
-    w = 1 / unp.std_devs(a) ** 2
-    avg = np.sum(w * unp.nominal_values(a), axis=axis, keepdims=True) / np.sum(w, axis=axis, keepdims=True)
-    var = np.sum(w * np.subtract(avg, unp.nominal_values(a)) ** 2, axis=axis) / np.sum(w, axis=axis)
-    avg = np.float64(np.squeeze(avg))
-    if isinstance(avg, np.floating) and isinstance(var, np.floating):
-        return ufloat(nominal_value=avg,
-                      std_dev=np.sqrt(var))
-    elif isinstance(avg, np.ndarray) and isinstance(var, np.ndarray):
-        return unp.uarray(nominal_values=avg,
-                          std_devs=np.sqrt(var))
-    else:
-        raise TypeError('average value and variance do not have compatible dtypes.')
-
-
-def unanaverage(a, axis=None):
-    """
-    Computes the average and its uncertainties of numbers with uncertainties along the specified axis considering the
-    uncertainties of each input value, ignoring NaNs.
-
-    Returns the average and its uncertainty of the array elements weighted by the inverse variance of each input value
-    [1]_ that results from the maximum likelihood estimator applied to aGaussian distribution. The average is calculated
-    as weighted arithmetic mean [2]_ and the uncertainty is calculated as square root of the weighted sample variance of
-    the input array [3]_.
-    Both weighted arithmetic mean and weighted sample variance is taken over the flattened array by default, otherwise
-    over the specified axis.
-
-    Parameters
-    ----------
-    a : uncertainties.unumpy.ndarray
-        Array containing data with uncertainties to be averaged. If `a` is not an array, a conversion is attempted.
-    axis : None or int or tuple of ints, optional
-        Axis or axes along which to average `a`.  The default, axis=None, will average over all of the elements of the
-        input array.
-        If axis is negative it counts from the last to the first axis.
-        If axis is a tuple of ints, averaging is performed on all of the axes specified in the tuple instead of a single
-        axis or all the axes as before.
-
-    Returns
-    -------
-    retval : uncertainties.unumpy.ndarray or uncertainties.ufloat
-        Returns the averagea and its uncertainty along the specified axis weighted by the inverse variance of each input
-        value.
-        The result dtype follows a general pattern and is uncertainties.ufloat if `axis` is None or else
-
-    See Also
-    --------
-    uaverage : weighted uncertainty average across array propagating NaNs.
-    numpy.isnan : Show which elements are NaN.
-    numpy.isfinite: Show which elements are not NaN or +/-inf.
-
-    References
-    ----------
-    [1] Guide to the expression of uncertainty in measurement: https://www.bipm.org/utils/common/documents/jcgm/JCGM_100_2008_E.pdf
-    [2] Wikipedia page about weighted arithmetic mean: https://en.wikipedia.org/wiki/Weighted_arithmetic_mean
-    [3] Wikipedia page about weighted sample variance: https://en.wikipedia.org/wiki/Weighted_arithmetic_mean#Weighted_sample_variance
-    """
-    w = 1 / unp.std_devs(a) ** 2
-    avg = np.nansum(w * unp.nominal_values(a), axis=axis, keepdims=True) / np.nansum(w, axis=axis, keepdims=True)
-    var = np.nansum(w * np.subtract(avg, unp.nominal_values(a)) ** 2, axis=axis) / np.nansum(w, axis=axis)
-    avg = np.float64(np.squeeze(avg))
-    if isinstance(avg, np.floating) and isinstance(var, np.floating):
-        return ufloat(nominal_value=avg,
-                      std_dev=np.sqrt(var))
-    elif isinstance(avg, np.ndarray) and isinstance(var, np.ndarray):
-        return unp.uarray(nominal_values=avg,
-                          std_devs=np.sqrt(var))
-    else:
-        raise TypeError('average value and variance do not have compatible dtypes.')
-
-
+from qkit.analysis.uncertainties_utilities import sem, nansem, umean, unanmean, uaverage, unanaverage
 np.sem, np.nansem = sem, nansem
 uncert.umean, uncert.unanmean = umean, unanmean
 uncert.uaverage, uncert.unanaverage = uaverage, unanaverage
 
 
-class dict2obj(object):
-    def __init__(self, d):
-        for a, b in d.items():
-            if isinstance(b, (list, tuple)):
-                setattr(self, a, [dict2obj(x) if isinstance(x, dict) else x for x in b])
-            else:
-                setattr(self, a, dict2obj(b) if isinstance(b, dict) else b)
-
-
-class IV_curve3(object):
+class IV_curve3(qData):
     """
-    This is an analysis class IV like transport measurements taken by qkit.measure.transport.transport.py
+    This is an analysis class for IV-like transport measurements taken by `qkit.measure.transport.transport.py`.
     """
 
     def __init__(self):
         """
-        Initializes an analysis class IV like transport measurements taken by qkit.measure.transport.transport.py
+        Initializes an analysis class for IV-like transport measurements taken by `qkit.measure.transport.transport.py`.
 
         Parameters
         ----------
@@ -398,34 +79,10 @@ class IV_curve3(object):
         Initialized the file info database (qkit.fid) in 0.000 seconds.
         """
         # qkit.fid.update_file_db()  # update file database
-        self.uuid, self.path, self.df = None, None, None
-        self.settings = None
-        self.mo = mc.Measurement()  # qkit-sample object
-        self.m_type, self.scan_dim, self.sweeptype, self.sweeps, self.bias = None, None, None, None, None
-        self.I, self.V, self.V_corr, self.dVdI, self.R_n, self.d2VdI2 = None, None, None, None, None, None
-        self.I_offsets, self.V_offsets, self.I_offset, self.V_offset = None, None, None, None
-        self.x_ds, self.x_coordname, self.x_unit, self.x_vec = None, None, None, None
-        self.y_ds, self.y_coordname, self.y_unit, self.y_vec = None, None, None, None
-        self.si_prefix = {'y': 1e-24,  # yocto
-                          'z': 1e-21,  # zepto
-                          'a': 1e-18,  # atto
-                          'f': 1e-15,  # femto
-                          'p': 1e-12,  # pico
-                          'n': 1e-9,  # nano
-                          'u': 1e-6,  # micro
-                          'm': 1e-3,  # milli
-                          'c': 1e-2,  # centi
-                          'd': 1e-1,  # deci
-                          '': 1e0,
-                          'k': 1e3,  # kilo
-                          'M': 1e6,  # mega
-                          'G': 1e9,  # giga
-                          'T': 1e12,  # tera
-                          'P': 1e15,  # peta
-                          'E': 1e18,  # exa
-                          'Z': 1e21,  # zetta
-                          'Y': 1e24,  # yotta
-                          }
+        super().__init__()
+        self.sweeptype = self.sweeps = self.bias = None
+        self.I = self.V = self.V_corr = self.dVdI = self.R_n = self.d2VdI2 = None
+        self.I_offsets = self.V_offsets = self.I_offset = self.V_offset = None
         self.scm = self.switching_current(sweeps=self.sweeps,
                                           settings=self.settings)  # subclass for switching current measurement analysis
 
@@ -438,7 +95,8 @@ class IV_curve3(object):
         uuid: str
             Qkit identification name, that is looked for and loaded
         dVdI: str | boolean
-            Folder, where numerical derivative dV/dI is tried to load form datafile, if this was already analyzed during the measurement. If False, dV/dI is not loaded. Default is 'analysis0'.
+            Folder, where numerical derivative dV/dI is tried to load form datafile, if this was already analyzed during
+            the measurement. If False, dV/dI is not loaded. Default is 'analysis0'.
 
         Returns
         -------
@@ -448,291 +106,46 @@ class IV_curve3(object):
         --------
         >>> ivc.load(uuid='XXXXXX')
         """
-        def _get_xy_parameter():
-            if self.m_type == 'transport':
-                measurand = self.df.data.i_0
-            elif self.m_type == 'spectroscopy':
-                measurand = self.df.data.amplitude
-            if self.scan_dim >= 2:  # 2D or 3D scan
-                # x parameter
-                self.x_ds = self.df[measurand.attrs['x_ds_url']]
-                self.x_coordname = self.x_ds.attrs['name']
-                self.x_unit = self.x_ds.attrs['unit']
-                self.x_vec = self.x_ds[:]
-                if self.scan_dim == 3:  # 3D scan
-                    # y parameter
-                    self.y_ds = self.df[measurand.attrs['y_ds_url']]
-                    self.y_coordname = self.y_ds.attrs['name']
-                    self.y_unit = self.y_ds.attrs['unit']
-                    self.y_vec = self.y_ds[:]
-                else:
-                    self.y_ds, self.y_coordname, self.y_unit, self.y_vec = None, None, None, None
-            else:
-                self.x_ds, self.x_coordname, self.x_unit, self.x_vec = None, None, None, None
-            return
-
-        if uuid != self.uuid and self.uuid is not None:
-            self.__init__()
-        self.uuid = uuid
-        self.path = qkit.fid.get(self.uuid)
-        self.df = Data(self.path)
+        super().load(uuid=uuid)
+        if self.m_type != 'transport':
+            raise AttributeError('No transport data loaded. Use data acquired with transport measurement class or general qData class.')
+        self.scan_dim = self.df.data.i_0.attrs['ds_type']  # scan dimension (1D, 2D, ...)
+        self.bias = self.get_bias()
         try:
-            self.settings = dict2obj(json.loads(self.df.data.settings[0], cls=QkitJSONDecoder))
+            self.sweeps = self.measurement.sample.sweeps  # sweeps (start, stop, step)
+            self.sweeptype = self.get_sweeptype()
         except AttributeError:
-            self.settings = None
-        except:
-            self.settings = self.df.data.settings[:]
-        self.scm.settings = self.settings
-        try:
-            self.mo.load(qkit.fid.measure_db[self.uuid])
-        except:
-            self.mo = dict2obj(json.loads(self.df.data.measurement[0], cls=QkitJSONDecoder))
-        self.m_type = self.mo.measurement_type  # measurement type
-        if self.m_type == 'transport':
-            self.scan_dim = self.df.data.i_0.attrs['ds_type']  # scan dimension (1D, 2D, ...)
-            self.bias = self.get_bias()
-            try:
-                self.sweeps = self.mo.sample.sweeps  # sweeps (start, stop, step)
-                self.sweeptype = self.get_sweeptype()
-            except AttributeError:
-                self.sweeps = [sample.sweeps for sample in self.mo.sample]
-                self.sweeptype = np.unique([self.get_sweeptype(sweeps=sweep) for sweep in self.sweeps])
-            self.scm.sweeps = self.sweeps
-            shape = np.concatenate([[len(self.sweeps)], np.max(
-                [self.df['entry/data0/i_{:d}'.format(j)].shape for j in range(len(self.sweeps))],
-                axis=0)])  # (number of sweeps, eventually len y-values, eventually len x-values, maximal number of sweep points)
-            self.I, self.V, self.dVdI = np.empty(shape=shape), np.empty(shape=shape), np.empty(shape=shape)
-            for j in range(shape[0]):
-                i = self.df['entry/data0/i_{:d}'.format(j)][:]
-                v = self.df['entry/data0/v_{:d}'.format(j)][:]
+            self.sweeps = [sample.sweeps for sample in self.measurement.sample]
+            self.sweeptype = np.unique([self.get_sweeptype(sweeps=sweep) for sweep in self.sweeps])
+        shape = np.concatenate([[len(self.sweeps)],
+                                np.max([self.df['entry/data0/i_{:d}'.format(j)].shape for j in range(len(self.sweeps))],
+                                       axis=0)])  # (number of sweeps, eventually len y-values, eventually len x-values, maximal number of sweep points)
+        self.I, self.V, self.dVdI = np.empty(shape=shape), np.empty(shape=shape), np.empty(shape=shape)
+        for j in range(shape[0]):
+            i = self.df['entry/data0/i_{:d}'.format(j)][:]
+            v = self.df['entry/data0/v_{:d}'.format(j)][:]
+            if dVdI:
+                try:
+                    dvdi = self.df['entry/{:s}/dvdi_{:d}'.format(dVdI, j)][:]  # if analysis already done during measurement
+                except KeyError:
+                    dvdi = self.get_dydx(x=self.I[j], y=self.V[j])
+            pad_width = np.insert(np.diff([i.shape, shape[1:]], axis=0),
+                                  (0,),
+                                  np.zeros(self.scan_dim)).reshape(self.scan_dim, 2)
+            if pad_width.any():
+                self.I[j] = np.pad(i, pad_width, 'constant', constant_values=np.nan)  # fill with current values (eventually add nans at the end, if sweeps have different lengths)
+                self.V[j] = np.pad(v, pad_width, 'constant', constant_values=np.nan)  # fill with voltage values (eventually add nans at the end, if sweeps have different lengths)
                 if dVdI:
-                    try:
-                        dvdi = self.df['entry/{:s}/dvdi_{:d}'.format(dVdI, j)][
-                               :]  # if analysis already done during measurement
-                    except KeyError:
-                        dvdi = self.get_dydx(x=self.I[j], y=self.V[j])
-                pad_width = np.insert(np.diff([i.shape, shape[1:]], axis=0), (0,), np.zeros(self.scan_dim)).reshape(
-                    self.scan_dim, 2)
-                if pad_width.any():
-                    self.I[j] = np.pad(i, pad_width, 'constant',
-                                       constant_values=np.nan)  # fill with current values (eventually add nans at the end, if sweeps have different lengths)
-                    self.V[j] = np.pad(v, pad_width, 'constant',
-                                       constant_values=np.nan)  # fill with voltage values (eventually add nans at the end, if sweeps have different lengths)
-                    if dVdI:
-                        self.dVdI[j] = np.pad(dvdi, pad_width, 'constant',
-                                              constant_values=np.nan)  # fill with differential resistance values (eventually add nans at the end, if sweeps have different lengths)
-                else:
-                    self.I[j] = i
-                    self.V[j] = v
-                    if dVdI:
-                        self.dVdI[j] = dvdi
-            _get_xy_parameter()
-        elif self.m_type == 'spectroscopy':
-            self.frequency = self.df.data.frequency[:]
-            self.amplitude = self.df.data.amplitude[:]
-            self.phase = self.df.data.phase[:]
-            self.scan_dim = self.df.data.amplitude.attrs['ds_type']  # scan dimension (1D, 2D, ...)
-            _get_xy_parameter()
-        else:
-            raise ValueError('No data of transport measurements')
-        return
-
-    def merge(self, uuids, order=None):
-        """
-        Merges transport measurement data of several individual files with given uuids <uuids>.
-        * 1D: all sweep data are stacked and views are merged.
-        * 2D: values of x-parameter and its corresponding sweep data are merged in the order <order>.
-        * 3D: values of x- and y-parameters and its corresponding sweep data are merged in the order <order>.
-
-        Parameters
-        ----------
-        uuids: list of str
-            Qkit identification names, that are looked for, loaded and merged.
-        order: list of int (optional)
-            Order by which data are merged. It is used to slice the data np.arrays via [::<order>], where 1 means same  and -1 opposite direction. Default is 1 (same direction).
-
-        Returns
-        -------
-        uuid: str
-            Qkit identification names of created file
-
-        Examples
-        --------
-        >>> ivc.merge(uuid=['XXXXXX', 'YYYYYY'], order=[-1, 1])
-        """
-
-        def get_key(_key, _dict):
-            """
-            Check if key already exists and increases counter by one if so.
-            """
-            if _key in _dict.keys():
-                _parts = _key.split('_')
-                _key = '_'.join([str(int(_part) + 1) if _part.isdigit() else _part for _part in _parts])
-                return get_key(_key, _dict)
+                    self.dVdI[j] = np.pad(dvdi, pad_width, 'constant', constant_values=np.nan)  # fill with differential resistance values (eventually add nans at the end, if sweeps have different lengths)
             else:
-                return _key
+                self.I[j] = i
+                self.V[j] = v
+                if dVdI:
+                    self.dVdI[j] = dvdi
+        self._get_xy_parameter(self.df.data.i_0)
 
-        def remove_duplicates(_list):
-            _res = []
-            for _elem in _list:
-                if _elem not in _res:
-                    _res.append(_elem)
-            if len(_res) == 1:
-                return _res[0]
-            else:
-                return _res
-
-        def merge_dict(_listdict):
-            dict_merged = defaultdict(list)
-            for _dict in _listdict:
-                for _key, _val in _dict.items():
-                    dict_merged[_key].append(_val)
-            return dict_merged
-
-        # TODO: write additional files and plots
-        order = np.ones_like(uuids, dtype=int) if order is None else np.array(order, dtype=int)
-        ''' load data from input files '''
-        data = []
-        attrs = []
-        run_user = []
-        scan_dim = []
-        for i, uuid in enumerate(uuids):
-            data.append({})
-            attrs.append({})
-            self.load(uuid)
-            run_user.append([self.mo.run_id, self.mo.user])
-            scan_dim.append(self.scan_dim)
-            for group in self.df.hf.entry:
-                for dataset in self.df.hf.entry[group]:
-                    path = '/'.join((group, dataset))
-                    data[i][path] = self.df.hf.entry[path][:][::order[i]]
-                    attrs[i][path] = self.df.hf.entry[path].attrs.items()
-        ''' merge data '''
-        if set(scan_dim) == {1}:
-            keys, data_merged, attrs_merged = {}, {}, {}
-            for j, d in enumerate(data):
-                for key, val in d.items():
-                    ds_type = dict(attrs[j][key])['ds_type']
-                    if ds_type < 5:  # coordinate, vector, matrix or box
-                        k = get_key(_key=key, _dict=keys)
-                        keys[k] = (key, j)
-                        data_merged[k] = [data[j][key]] * 2
-                        attrs_merged[k] = (attrs[j][key],)
-                    elif ds_type == ds_types['txt']:
-                        keys[key] = (key,)
-                        data_merged[key] = [d[key] for d in data]
-                        attrs_merged[key] = [a[key] for a in attrs]
-                    elif ds_type == ds_types['view']:
-                        keys[key] = (key,)
-                        data_merged[key] = (data[j][key],)
-                        if j == 0:
-                            attrs_merged[key] = [dict(attrs[j][key])] * 2
-                        else:
-                            for k, v in dict(attrs[j][key]).items():
-                                # increase X of 'xy_X' and its values to the nex possible
-                                if 'xy_' in k and '_filter' not in k:
-                                    new_key = get_key(_key=k, _dict=attrs_merged[key][0])
-                                    attrs_merged[key][0][new_key] = ':'.join(
-                                        ['_'.join([new_key.strip('xy_') if s.isdigit() else s for s in ulr.split('_')])
-                                         for ulr in str(v, encoding='utf-8').split(':')]).encode()
-                                # increase X of 'xy_X_filter' to the nex possible
-                                elif 'xy_' in k and '_filter' in k:
-                                    attrs_merged[key][0][get_key(_key=k, _dict=attrs_merged[key][0])] = v
-        else:
-            keys = {key: (key,) for key in data[0].keys()}
-            data_merged = merge_dict(_listdict=data)
-            attrs_merged = merge_dict(_listdict=attrs)
-        ''' write data to new file '''
-        # create new file
-        qkit.cfg['run_id'], qkit.cfg['user'] = np.squeeze(np.vstack({tuple(row) for row in run_user}))
-        _data_file = hdf.Data(name='+'.join(uuids), mode='a')
-        # create and write measurement, settings and coordinates
-        ds = {}
-        for key, val in data_merged.items():
-            name = key.split('/')[1]
-            attr = dict(attrs_merged[key][0])
-            ds_type = attr['ds_type']
-            if ds_type == ds_types['txt']:  # measurement, settings
-                txt_merged = merge_dict(_listdict=[json.loads(d[0], cls=QkitJSONDecoder) for d in val])
-                ds[key] = _data_file.add_textlist(name)
-                if 'settings' in key:
-                    ds[key].append({kk: {k: remove_duplicates(_list=map(lambda x: x[k], dic)) for k in dic[0]}
-                                    for kk, dic in dict(txt_merged).items()})
-                elif 'measurement' in key:
-                    if set(scan_dim) == {1}:
-                        # merge sweeps in sample object
-                        for k, v in txt_merged.items():
-                            if np.iterable(v) and type(v[0]) is dict:
-                                txt_merged[k] = [{k: np.vstack(v) if 'sweeps' in k else remove_duplicates(_list=v) for
-                                                  k, v in merge_dict(_listdict=v).items()}] * 2
-                    ds[key].append({k: remove_duplicates(_list=v) for k, v in txt_merged.items()})
-            elif ds_type == ds_types['coordinate']:
-                ds[key] = _data_file.add_coordinate(name=name,
-                                                    unit=str(dict(attrs_merged[keys[key][0]][0])['unit'],
-                                                             encoding='utf-8'))
-                if np.array([np.array_equal(p[0], p[1])
-                             for p in
-                             itertools.combinations(np.array(list(itertools.zip_longest(*val, fillvalue=np.nan))).T,
-                                                    2)]).all():
-                    ds[key].add(val[0])
-                else:
-                    ds[key].add(np.concatenate(val))
-        # create datasets
-        for key, val in data_merged.items():
-            name = key.split('/')[1]
-            attr = dict(attrs_merged[key][0])
-            ds_type = attr['ds_type']
-            folder = key.split('0/')[0]
-            if ds_type == ds_types['vector']:
-                ds[key] = _data_file.add_value_vector(name=name,
-                                                      x=ds[str(attr['x_ds_url'], encoding='utf-8').strip('/entry')],
-                                                      unit=str(attr['unit'], encoding='utf-8'),
-                                                      folder=folder,
-                                                      save_timestamp=False)
-            elif ds_type == ds_types['matrix']:
-                ds[key] = _data_file.add_value_matrix(name=name,
-                                                      x=ds[str(attr['x_ds_url'], encoding='utf-8').strip('/entry')],
-                                                      y=ds[str(attr['y_ds_url'], encoding='utf-8').strip('/entry')],
-                                                      unit=str(attr['unit'], encoding='utf-8'),
-                                                      folder=folder,
-                                                      save_timestamp=False)
-            elif ds_type == ds_types['box']:
-                ds[key] = _data_file.add_value_box(name=name,
-                                                   x=ds[str(attr['x_ds_url'], encoding='utf-8').strip('/entry')],
-                                                   y=ds[str(attr['y_ds_url'], encoding='utf-8').strip('/entry')],
-                                                   z=ds[str(attr['z_ds_url'], encoding='utf-8').strip('/entry')],
-                                                   unit=str(attr['unit'], encoding='utf-8'),
-                                                   folder=folder,
-                                                   save_timestamp=False)
-        # write values to datasets and create and write views
-        for key, val in data_merged.items():
-            name = key.split('/')[1]
-            attr = dict(attrs_merged[key][0])
-            ds_type = attr['ds_type']
-            if ds_type == ds_types['vector']:
-                ds[key].append(val[0])
-            elif ds_type == ds_types['matrix']:
-                [ds[key].append(x) for x in np.concatenate(val)]
-            elif ds_type == ds_types['box']:
-                for xs in np.concatenate(val):
-                    [ds[key].append(x) for x in xs]
-                    ds[key].next_matrix()
-            elif ds_type == ds_types['view']:
-                if np.array([np.array_equal(p[0], p[1]) for p in
-                             itertools.combinations(list(map(list, attrs_merged[key])), 2)]).all():
-                    for j, xy in enumerate(
-                            filter(lambda k: 'xy_' in k and '_filter' not in k, dict(attrs_merged[key][0]).keys())):
-                        x, y = [i.strip('/entry') for i in
-                                str(dict(attrs_merged[key][0])[xy], encoding='utf-8').split(':')]
-                        if j == 0:
-                            ds[key] = _data_file.add_view(name=name, x=ds[x], y=ds[y],
-                                                          view_params=json.loads(
-                                                              dict(attrs_merged[key][0])['view_params']))
-                        else:
-                            ds[key].add(x=ds[x], y=ds[y])
-        # close new file
-        _data_file.close_file()
-        return _data_file.__dict__['_uuid']
+        self.scm.sweeps = self.sweeps
+        self.scm.settings = self.settings
 
     def save(self, filename, params=None):
         """
@@ -766,7 +179,7 @@ class IV_curve3(object):
         filename: str
             Filename of the .json-file that is created.
         params: dict
-            Additional variables that are saved. Default is None, so that only the above mentioned class variables are saved.
+            Additional variables that are saved. Default is None, so that only the class variables mentioned above are saved.
 
         Returns
         -------
@@ -775,7 +188,7 @@ class IV_curve3(object):
         params = params if params else {}
         params = {**{'uuid': self.uuid,
                      'path': self.path,
-                     'measurement_object': self.mo.get_JSON(),
+                     'measurement_object': self.measurement.get_JSON(),
                      'measurement_type': self.m_type,
                      'scan_dimension': self.scan_dim,
                      'sweep_type': self.sweeptype,
@@ -804,37 +217,37 @@ class IV_curve3(object):
 
     def open_qviewkit(self, uuid=None, ds=None):
         """
+        Opens qkit measurement data with given uuid <uuid> in qviewkit.
 
+        Parameters
+        ----------
         uuid: str
+            Qkit identification name, that is looked for and opened in qviewkit
         ds: str | list(str)
-            Datasets that are opened instantaneously. Default is 'views/IV'
+            Datasets that are opened instantaneously. Default is data 'views/IV' and sense values for 2D or 3D.
+
+        Returns
+        -------
+        None
         """
-        if uuid is None:
-            path = self.path
-        else:
-            path = qkit.fid.get(uuid)
-        if np.iterable(ds) and all(isinstance(x, str) for x in ds):
-            pass
-        elif type(ds) is str:
-            ds = [ds]
-        elif ds is None:
+        if ds is None:
             ds = ['views/IV']
-            # try:
-            #     if self.scan_dim > 1:
-            #         for i in range(len(self.sweeps)):
-            #             datasets.append('{:s}_{:d}'.format({0: 'I', 1: 'V'}[not self.bias].lower(), i))
-        else:
-            raise ValueError('Argument <ds> needs to be set properly.')
-        qviewkit.plot(path, datasets=ds, live=False)  # opens IV-view by default
+            if self.scan_dim > 1:  # for 2D and 3D: open sense values
+                for i in range(len(self.sweeps)):
+                    y = '{:s}_{:d}'.format({0: 'I', 1: 'V'}[not self.bias].lower(), i)
+                    if y in self.df.data.__dict__.keys():
+                        ds.append(y)
+        super().open_qviewkit(uuid=uuid, ds=ds)
 
     def get_bias(self, df=None):
         """
-        Gets bias mode of the measurement. Evaluate 'x_ds_url' (1D), 'y_ds_url' (2D), 'z_ds_url' (3D) of i_0 and v_0 and checks congruence.
+        Gets bias mode of the measurement. Evaluate 'x_ds_url' (1D), 'y_ds_url' (2D), 'z_ds_url' (3D) of i_0 and v_0 and
+        checks congruence.
 
         Parameters
         ----------
         df: qkit.storage.store.Data (optional)
-            Datafile of transport measurement. Default is None that means self.df
+            Datafile of transport measurement. Default is None that means <self.df>.
 
         Returns
         -------
@@ -844,19 +257,19 @@ class IV_curve3(object):
         #
         if df is None:
             df = self.df
-        self.bias = {'i': 0, 'v': 1}[str(
-            df.data.i_0.attrs.get('{:s}_ds_url'.format(chr(self.scan_dim + 119))) and
-            df.data.v_0.attrs.get('{:s}_ds_url'.format(chr(self.scan_dim + 119)))).split('/')[-1][0]]
+        self.bias = {'i': 0, 'v': 1}[str(df.data.i_0.attrs.get('{:s}_ds_url'.format(chr(self.scan_dim + 119))) and
+                                         df.data.v_0.attrs.get('{:s}_ds_url'.format(chr(self.scan_dim + 119)))).split('/')[-1][0]]
         return self.bias
 
     def get_sweeptype(self, sweeps=None):
         """
-        Gets the sweep type of predefined set of sweeps as generated by qkit.measure.transport.transport.py
+        Gets the sweep type of predefined set of sweeps as generated by `qkit.measure.transport.transport.py`.
 
         Parameters
         ----------
         sweeps: array_likes of array_likes of floats (optional)
-            Set of sweeps containing start, stop and step size (e.g. sweep object using qkit.measure.transport.transport.sweep class). Default is None that means self.sweeps.
+            Set of sweeps containing start, stop and step size (e.g. sweep object using 
+            `qkit.measure.transport.transport.sweep` class). Default is None that means self.sweeps.
 
         Returns
         -------
@@ -871,8 +284,8 @@ class IV_curve3(object):
                 self.sweeptype = 0
         # check if sweeps are 4quadrants
         elif len(sweeps) == 4:
-            if all(np.array(sweeps[0])[[1, 0, 2]] == np.array(sweeps[1])[:3]) and all(
-                    np.array(sweeps[2])[[1, 0, 2]] == np.array(sweeps[3])[:3]):
+            if all(np.array(sweeps[0])[[1, 0, 2]] == np.array(sweeps[1])[:3]) and \
+               all(np.array(sweeps[2])[[1, 0, 2]] == np.array(sweeps[3])[:3]):
                 self.sweeptype = 1
         else:
             self.sweeptype = None
@@ -885,11 +298,12 @@ class IV_curve3(object):
         Parameters
         ----------
         I: numpy.array (optional)
-            An N-dimensional array containing current values. Default is None that means self.I.
+            An N-dimensional array containing current values. Default is None that means <self.I>.
         V: numpy.array (optional)
-            An N-dimensional array containing voltage values. Default is None that means self.V.
+            An N-dimensional array containing voltage values. Default is None that means <self.V>.
         mode: function (optional)
-            Function that calculates the numerical gradient dx from a given array x. Default is scipy.signal.savgol_filter (Savitzky Golay filter).
+            Function that calculates the numerical gradient dx from a given array x.
+            Default is `scipy.signal.savgol_filter` (Savitzky Golay filter).
         kwargs:
             Keyword arguments forwarded to the function <mode>.
 
@@ -926,16 +340,19 @@ class IV_curve3(object):
         y: numpy.array
             An N-dimensional array containing y-values
         x: numpy.array (optional)
-            An N-dimensional array containing x-values. Default is None which means that x is considered as index.
+            An N-dimensional array containing x-values. Default is None which means that <x> is considered as index.
         mode: function (optional)
-            Function that calculates the numerical gradient dx from a given array x. Default is scipy.signal.savgol_filter (Savitzky Golay filter).
+            Function that calculates the numerical gradient dx from a given array <x>.
+            Default is `scipy.signal.savgol_filter` (Savitzky Golay filter).
         kwargs:
-            Keyword arguments forwarded to the function <mode>. Default for scipy.signal.savgol_filter is {'window_length': 15, 'polyorder': 3, 'deriv': 1} and for numpy.gradient {'axis': self.scan_dim}
+            Keyword arguments forwarded to the function <mode>. Default is for 
+            * `scipy.signal.savgol_filter`: {'window_length': 15, 'polyorder': 3, 'deriv': 1},
+            * `numpy.gradient`: {'axis': <self.scan_dim>}
 
         Returns
         -------
         dy/dx: numpy.array
-            Numerical gradient quotient. If no x is given, dx = np.ones(nop)
+            Numerical gradient quotient. If no <x> is given, dx = np.ones(nop)
 
         Examples
         --------
@@ -969,8 +386,7 @@ class IV_curve3(object):
             if np.isnan(x).any():
                 x_nans = np.isnan(x)  # mask for np.nan
                 y_nans = np.isnan(y)
-                dx = mode(np.nan_to_num(x, copy=True, nan=0.0),
-                          **kwargs)  # derivation function with np.nan replaced by 0
+                dx = mode(np.nan_to_num(x, copy=True, nan=0.0), **kwargs)  # derivation function with np.nan replaced by 0
                 dy = mode(np.nan_to_num(y, copy=True, nan=0.0), **kwargs)
                 np.place(dx, x_nans, np.nan)  # write np.nan using mask from above
                 np.place(dy, y_nans, np.nan)
@@ -980,20 +396,37 @@ class IV_curve3(object):
 
     def get_offsets(self, x=None, y=None, dxdy=None, threshold=20e-6, offset=None, yr=False, keepdims=np._NoValue):
         """
-        Calculates x- and y-offset for every trace. Therefore the branch where the y-values are nearly constant are evaluated. The average of all corresponding x-values is considered to be the x-offset and the average of the extreme y-values are considered as y-offset.
+        Calculates x- and y-offset for every trace. Therefore, the branch where the y-values are nearly constant are
+        evaluated. The average of all corresponding x-values is considered to be the x-offset and the average of the 
+        extreme y-values are considered as y-offset.
 
         Parameters
         ----------
         x: numpy.array (optional)
-            An N-dimensional array containing x-values. Default is None, where x is considered as self.V and self.I in the current and voltage bias, respectively.
+            An N-dimensional array containing x-values. Default is None, where <x> is considered as <self.V> or <self.I> 
+            in the current or voltage bias, respectively.
         y: numpy.array (optional)
-            An N-dimensional array containing y-values. Default is None, where y is considered as self.I and self.V in the current and voltage bias, respectively.
+            An N-dimensional array containing y-values. Default is None, where <y> is considered as <self.I> or <self.V> 
+            in the current or voltage bias, respectively.
+        dydx: numpy.array (optional)
+            Numerical gradient quotient. Default is None that means
+            * the differential resistance <self.dVdI> in the current bias,
+            * the differential conductance <self.dIdV> in the voltage bias.
         threshold: float (optional)
             Threshold voltage that limits the superconducting branch. Default is 20e-6.
         offset: float (optional)
-            Voltage offset that shifts the limits of the superconducting branch which is set by <threshold>. Default is None, which uses voltage at maximal slope dy/dx.
+            Voltage offset that shifts the limits of the superconducting branch which is set by <threshold>.
+            Default is None, which uses voltage at maximal slope dy/dx.
         yr: bool (optional)
             Condition, if critical or retrapping y-values are evaluated. Default is False.
+        keepdims : bool (optional)
+            If this is set to True, the axes which are reduced are left in the result as dimensions with size one. With
+            this option, the result will broadcast correctly against the input array.
+
+            If the default value is passed, then `keepdims` will not be passed through to the `mean` method of
+            subclasses of `ndarray`, however any non-default value will be.  If the subclass' method does not implement
+            `keepdims` any exceptions will be raised.
+
 
         Returns
         -------
@@ -1009,7 +442,8 @@ class IV_curve3(object):
         if dxdy is None:
             dxdy = [self.dVdI, 1/self.dVdI][self.bias]
         if offset is None:
-            amax = np.argmax(1 / sp.ndimage.uniform_filter(dxdy, size=3, mode='constant') if dxdy is not None else np.grandient(y)/np.grandient(x), axis=-1)  # maximal slope
+            amax = np.argmax(1 / sp.ndimage.uniform_filter(dxdy, size=3, mode='constant') if dxdy is not None
+                   else np.grandient(y)/np.grandient(x), axis=-1)  # maximal slope
             if len(x.shape) - 1 == 1:
                 offset = np.nanmean(x[np.indices(amax.shape)[0], amax])
             elif len(x.shape) - 1 == 2:
@@ -1025,10 +459,11 @@ class IV_curve3(object):
         if self.sweeptype == 0:  # halfswing
             ''' get x offset (for JJ voltage offset)'''
             # x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
-            x_offsets = np.atleast_1d(
-                uncert.unanaverage(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
-                                              std_devs=np.nansem(x_const, axis=self.scan_dim)),
-                                   axis=0))
+            x_offsets = np.atleast_1d(uncert.unanaverage(unp.uarray(nominal_values=np.nanmean(x_const,
+                                                                                              axis=self.scan_dim),
+                                                                    std_devs=np.nansem(x_const,
+                                                                                       axis=self.scan_dim)),
+                                                         axis=0))
             ''' get y offset (for JJ current offset) '''
             # TODO: calculate std_devs correct
             if yr:  # retrapping y (for JJ retrapping current)
@@ -1047,8 +482,10 @@ class IV_curve3(object):
             ''' get x offset '''
             # x_offsets = np.mean(np.nanmean(x_const, axis=self.scan_dim), axis=0)
             x_offsets = np.atleast_1d(
-                uncert.unanaverage(unp.uarray(nominal_values=np.nanmean(x_const, axis=self.scan_dim),
-                                              std_devs=np.nansem(x_const, axis=self.scan_dim)),
+                uncert.unanaverage(unp.uarray(nominal_values=np.nanmean(x_const,
+                                                                        axis=self.scan_dim),
+                                              std_devs=np.nansem(x_const,
+                                                                 axis=self.scan_dim)),
                                    axis=0))
             ''' get y offset '''
             # TODO: calculate std_devs correct
@@ -1096,14 +533,18 @@ class IV_curve3(object):
 
     def get_offset(self, *args, **kwargs):
         """
-        Calculates x- and y-offset for the whole data set. Therefore the branch where the y-values are nearly constant are evaluated. The average of all corresponding x-values is considered to be the x-offset and the average of the extreme y-values are considered as y-offset.
+        Calculates x- and y-offset for the whole data set. Therefore, the branch where the y-values are nearly constant
+        are evaluated. The average of all corresponding x-values is considered to be the x-offset and the average of the
+        extreme y-values are considered as y-offset.
 
         Parameters
         ----------
         x: numpy.array (optional)
-            An N-dimensional array containing x-values. Default is None, where x is considered as self.V and self.I in the current and voltage bias, respectively.
+            An N-dimensional array containing x-values. Default is None, where <x> is considered as <self.V> or <self.I>
+            in the current or voltage bias, respectively.
         y: numpy.array (optional)
-            An N-dimensional array containing y-values. Default is None, where y is considered as self.I and self.V in the current and voltage bias, respectively.
+            An N-dimensional array containing y-values. Default is None, where <y> is considered as <self.I> or <self.V>
+            in the current or voltage bias, respectively.
         threshold: float (optional)
             Threshold voltage that limits the superconducting branch. Default is 20e-6.
         offset: float (optional)
@@ -1124,18 +565,21 @@ class IV_curve3(object):
     def get_2wire_slope_correction(self, I=None, V=None, dVdI=None, peak_finder=sig.find_peaks, **kwargs):
         """
         Gets voltage values corrected by an ohmic slope such as occur in 2wire measurements.
-        The two maxima in the differential resistivity <dVdI> are identified as critical and retrapping currents. The slope of the superconducting regime in between (which should ideally be infinity) is fitted using numpy.linalg.qr algorithm and subtracted from the raw data.
+        The two maxima in the differential resistivity <dVdI> are identified as critical and retrapping currents. The
+        slope of the superconducting regime in between (which should ideally be infinity) is fitted using
+        numpy.linalg.qr algorithm and subtracted from the raw data.
 
         Parameters
         ----------
         I: numpy.array (optional)
-            An N-dimensional array containing current values. Default is None that means self.I.
+            An N-dimensional array containing current values. Default is None that means <self.I>.
         V: numpy.array (optional)
-            An N-dimensional array containing voltage values. Default is None that means self.V.
+            An N-dimensional array containing voltage values. Default is None that means <self.V>.
         dVdI: numpy.array (optional)
-            An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means self.dVdI.
+            An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means
+            <self.dVdI>.
         peak_finder: function (optional)
-            Peak finding algorithm. Default is scipy.signal.find_peaks.
+            Peak finding algorithm. Default is `scipy.signal.find_peaks`.
         kwargs:
             Keyword arguments forwarded to the peak finding algorithm <peak_finder>.
 
@@ -1238,25 +682,32 @@ class IV_curve3(object):
     def get_Rn(self, I=None, V=None, dVdI=None, deriv_func=sig.savgol_filter, peak_finder=sig.find_peaks, mode=0,
                **kwargs):
         """
-        Get normal state resistance of over critical range. Therefore the curvature d^2V/dI^2 is computed using the second order derivation function <deriv_func> and analysing peaks in it with <peak_finder>.
-        The ohmic range is considered to range from the outermost tail of the peaks in the curvature to the start/end of the sweep and the resistance is calculated as mean of the differential resistance values <dVdI> within this range.
+        Get normal state resistance of over critical range. Therefore, the curvature d²V/dI² is computed using the second
+        order derivation function <deriv_func> and analysing peaks in it with <peak_finder>.
+        The ohmic range is considered to range from the outermost tail of the peaks in the curvature to the start/end of
+        the sweep and the resistance is calculated as mean of the differential resistance values <dVdI> within this range.
 
         Parameters
         ----------
         I: numpy.array (optional)
-            An N-dimensional array containing current values. Default is None that means self.I.
+            An N-dimensional array containing current values. Default is None that means <self.I>.
         V: numpy.array (optional)
-            An N-dimensional array containing voltage values. Default is None that means self.V.
+            An N-dimensional array containing voltage values. Default is None that means <self.V>.
         dVdI: numpy.array (optional)
-            An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means self.dVdI.
+            An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means
+            <self.dVdI>.
         deriv_func: function (optional)
-            Function that calculates the numerical gradient dx from a given array x. Default is scipy.signal.savgol_filter (Savitzky Golay filter).
+            Function that calculates the numerical gradient dx from a given array x. Default is
+            `scipy.signal.savgol_filter` (Savitzky Golay filter).
         peak_finder: function (optional)
-            Peak finding algorithm. Default is scipy.signal.find_peaks.
+            Peak finding algorithm. Default is `scipy.signal.find_peaks`.
         mode: int (optional)
             Mode how Rn is determined from the ohmic range found. Must be 0 (slope of linear fit) or 1 (average of dV/dI).
         kwargs:
-            Keyword arguments forwarded to the function <mode> and the peak finding algorithm <peak_finder>. Default for scipy.signal.savgol_filter are {'window_length': 15, 'polyorder': 3, 'deriv': 2}, for numpy.diff {'n': 2, 'axis': self.scan_dim} and for scipy.signal.find_peaks {'prominence': np.max(np.abs(d2VdI2))/1e2)}
+            Keyword arguments forwarded to the function <mode> and the peak finding algorithm <peak_finder>. Default is for
+            * `scipy.signal.savgol_filter`: {'window_length': 15, 'polyorder': 3, 'deriv': 2},
+            * `numpy.diff`: {'n': 2, 'axis': <self.scan_dim}>,
+            * `scipy.signal.find_peaks`: {'prominence': np.max(np.abs(<self.d2VdI2>))/1e2)}
 
         Returns
         -------
@@ -1344,8 +795,8 @@ class IV_curve3(object):
                                               peak2D, d2VdI22D)),
                                      peaks, self.d2VdI2)))
             if mode == 0:
-                popts, pcovs = np.ones(shape=(len(self.x_vec), len(self.d2VdI2), 2)), np.ones(
-                    shape=(len(self.x_vec), len(self.d2VdI2), 2, 2))
+                popts = np.ones(shape=(len(self.x_vec), len(self.d2VdI2), 2))
+                pcovs = np.ones(shape=(len(self.x_vec), len(self.d2VdI2), 2, 2))
                 for x, slcs1D in enumerate(np.transpose(slcs, axes=(1, 0, 2))):
                     for j in range(2):
                         V_ohm = np.concatenate([V[k, x, slc] for k, slc in enumerate(slcs1D.T[j])])
@@ -1401,8 +852,8 @@ class IV_curve3(object):
                                               peak3D, d2VdI23D)),
                                      peaks, self.d2VdI2)))
             if mode == 0:
-                popts, pcovs = np.ones(shape=(len(self.x_vec), len(self.y_vec), len(self.d2VdI2), 2)), np.ones(
-                    shape=(len(self.x_vec), len(self.y_vec), len(self.d2VdI2), 2, 2))
+                popts = np.ones(shape=(len(self.x_vec), len(self.y_vec), len(self.d2VdI2), 2))
+                pcovs = np.ones(shape=(len(self.x_vec), len(self.y_vec), len(self.d2VdI2), 2, 2))
                 for x, slcs2D in enumerate(np.transpose(slcs, axes=(1, 2, 0, 3))):
                     for y, slcs1D in enumerate(slcs2D):
                         for j in range(2):
@@ -1428,12 +879,13 @@ class IV_curve3(object):
                 #                       for j, slc in enumerate(slcs1D)]
                 #                      for y, slcs1D in enumerate(slcs2D)]
                 #                     for x, slcs2D in enumerate(np.transpose(slcs, axes=(1, 2, 3, 0)))])
-                self.R_n = np.array(
-                    [[[ufloat(nominal_value=np.nanmean(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])),
-                              std_dev=np.nansem(np.concatenate([dVdI[k, s] for k, s in enumerate(slc)])))
-                       for j, slc in enumerate(slcs1D)]
-                      for y, slcs1D in enumerate(slcs2D)]
-                     for x, slcs2D in enumerate(np.transpose(slcs, axes=(1, 2, 3, 0)))])
+                self.R_n = np.array([[[ufloat(nominal_value=np.nanmean(np.concatenate([dVdI[k, s]
+                                                                                       for k, s in enumerate(slc)])),
+                                              std_dev=np.nansem(np.concatenate([dVdI[k, s]
+                                                                                for k, s in enumerate(slc)])))
+                                       for j, slc in enumerate(slcs1D)]
+                                      for y, slcs1D in enumerate(slcs2D)]
+                                     for x, slcs2D in enumerate(np.transpose(slcs, axes=(1, 2, 3, 0)))])
                 self.R_n = np.nanmean(self.R_n, axis=self.scan_dim - 1)
         else:
             raise ValueError('Scan dimension must be in {1, 2, 3}')
@@ -1441,20 +893,23 @@ class IV_curve3(object):
 
     def get_Ic_threshold(self, I=None, V=None, dVdI=None, threshold=20e-6, offset=None, Ir=False):
         """
-        Get critical current values. These are considered as currents, where the voltage jumps beyond threshold ± <threshold> - <offset>.
+        Get critical current values. These are considered as currents, where the voltage jumps beyond threshold
+        ± <threshold> - <offset>.
 
         Parameters
         ----------
         I: numpy.array (optional)
-            An N-dimensional array containing current values. Default is None that means self.I.
+            An N-dimensional array containing current values. Default is None that means <self.I>.
         V: numpy.array (optional)
-            An N-dimensional array containing voltage values. Default is None that means self.V.
+            An N-dimensional array containing voltage values. Default is None that means <self.V>.
         dVdI: numpy.array (optional)
-            An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means self.dVdI.
+            An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means
+            <self.dVdI>.
         threshold: float (optional)
             Threshold voltage that limits the superconducting branch. Default is 20e-6.
         offset: float (optional)
-            Voltage offset that shifts the limits of the superconducting branch which is set by <threshold>. Default is None that means self.V_offset.
+            Voltage offset that shifts the limits of the superconducting branch which is set by <threshold>. Default is
+            None that means <self.V_offset>.
         Ir: bool (optional)
             Condition, if retrapping currents are returned, too. Default is False.
 
@@ -1497,18 +952,18 @@ class IV_curve3(object):
         np.place(I_sc, np.logical_not(mask), np.nan)
         if self.sweeptype == 0:  # halfswing
             ''' critical current '''
-            I_cs = np.array(
-                [np.nanmin(I_sc[0], axis=(self.scan_dim - 1)), np.nanmax(I_sc[1], axis=(self.scan_dim - 1))])
+            I_cs = np.array([np.nanmin(I_sc[0], axis=(self.scan_dim - 1)),
+                             np.nanmax(I_sc[1], axis=(self.scan_dim - 1))])
             ''' retrapping current '''
-            I_rs = np.array(
-                [np.nanmax(I_sc[0], axis=(self.scan_dim - 1)), np.nanmin(I_sc[1], axis=(self.scan_dim - 1))])
+            I_rs = np.array([np.nanmax(I_sc[0], axis=(self.scan_dim - 1)),
+                             np.nanmin(I_sc[1], axis=(self.scan_dim - 1))])
         elif self.sweeptype == 1:  # 4 quadrants
             ''' critical current '''
-            I_cs = np.array(
-                [np.nanmax(I_sc[0], axis=(self.scan_dim - 1)), np.nanmin(I_sc[2], axis=(self.scan_dim - 1))])
+            I_cs = np.array([np.nanmax(I_sc[0], axis=(self.scan_dim - 1)),
+                             np.nanmin(I_sc[2], axis=(self.scan_dim - 1))])
             ''' retrapping current '''
-            I_rs = np.array(
-                [np.nanmax(I_sc[1], axis=(self.scan_dim - 1)), np.nanmin(I_sc[3], axis=(self.scan_dim - 1))])
+            I_rs = np.array([np.nanmax(I_sc[1], axis=(self.scan_dim - 1)),
+                             np.nanmin(I_sc[3], axis=(self.scan_dim - 1))])
         else:  # custom sweep type
             ''' critical current '''
             I_cs = np.array([np.nanmax(I_sc, axis=(self.scan_dim - 1)),
@@ -1525,26 +980,33 @@ class IV_curve3(object):
                      peak_finder=sig.find_peaks, **kwargs):
         """
         Gets critical current values using the numerical derivative dV/dI.
-        Peaks in these data correspond to voltage jumps, are detected with a peak finding algorithm <peak_finder> and checked, whether the corresponding voltage jumps out or in the superconducting branch, that is identified as critical or retrapping current, respectively. Therefore the average of half the window below and above the peak is considered. The superconducting branch, in turn, is assumed as the voltage offset <self.V_offset> within the tolerance <tol_offset>.
+        Peaks in these data correspond to voltage jumps, are detected with a peak finding algorithm <peak_finder> and
+        checked, whether the corresponding voltage jumps out or in the superconducting branch, that is identified as
+        critical or retrapping current, respectively. Therefore, the average of half the window below and above the peak
+        is considered. The superconducting branch, in turn, is assumed as the voltage offset <self.V_offset> within the
+        tolerance <tol_offset>.
 
         Parameters
         ----------
         I: numpy.array (optional)
-            An N-dimensional array containing current values. Default is None that means self.I.
+            An N-dimensional array containing current values. Default is None that means <self.I>.
         V: numpy.array (optional)
-            An N-dimensional array containing voltage values. Default is None that means self.V.
+            An N-dimensional array containing voltage values. Default is None that means <self.V>.
         dVdI: numpy.array (optional)
-            An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means self.dVdI.
+            An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means
+            <self.dVdI>.
         Ir: bool (optional)
             Condition, if retrapping currents are returned, too. Default is False
         Vg: bool (optional)
             Condition, if gap voltages are returned, too. Default is False
         tol_offset: float (optional)
-            Voltage offset tolerance that limits the superconducting branch around the voltage offset <self.V_offset>. Default is 20e-6.
+            Voltage offset tolerance that limits the superconducting branch around the voltage offset <self.V_offset>.
+            Default is 20e-6.
         window: int (optional)
-            Window around the jump, where the voltage is evaluated and classified as 'superconducting branch'. Default is 5 that considers two values below and 2 values above the jump.
+            Window around the jump, where the voltage is evaluated and classified as 'superconducting branch'. Default
+            is 5 that considers two values below and 2 values above the jump.
         peak_finder: function (optional)
-            Peak finding algorithm. Default is scipy.signal.find_peaks.
+            Peak finding algorithm. Default is `scipy.signal.find_peaks`.
         kwargs:
             Keyword arguments forwarded to the peak finding algorithm <peak_finder>.
 
@@ -1555,7 +1017,8 @@ class IV_curve3(object):
         I_rs: numpy.array (optional)
             Retrapping current values.
         properties: dict
-            Properties of all found peaks (not only I_c and I_r, but also further jumps), such as corresponding currents, voltages, differential resistances, indices as well as returns of the used peak finding algorithm.
+            Properties of all found peaks (not only I_c and I_r, but also further jumps), such as corresponding currents,
+            voltages, differential resistances, indices as well as returns of the used peak finding algorithm.
 
         Examples
         --------
@@ -1620,30 +1083,41 @@ class IV_curve3(object):
     def get_Ic_dft(self, I=None, V=None, dVdI=None, s=10, Ir=False, Vg=False, tol_offset=20e-6, window=5,
                    peak_finder=sig.find_peaks, **kwargs):
         """
-        Gets critical current values using a discrete Fourier transform, a smoothed derivation in the frequency domain and an inverse Fourier transform.
-        Therefore the voltage values are corrected by the linear offset slope, fast Fourier transformed to the frequency domain, multiplied with a Gaussian smoothed derivation function if*exp(-s*f^2) in the frequency domain and inversely fast Fourier transformed to the time domain. This corresponds to the convolution of the voltage values with the Gaussian smoothed derivation function in the time domain.
-        Peaks in these data correspond to voltage jumps, are detected with a peak finding algorithm <peak_finder> and checked, whether the corresponding voltage jumps out or in the superconducting branch, that is identified as critical or retrapping current, respectively. Therefore the average of half the window below and above the peak is considered. The superconducting branch, in turn, is assumed as the voltage offset <self.V_offset> within the tolerance <tol_offset>.
+        Gets critical current values using a discrete Fourier transform, a smoothed derivation in the frequency domain
+        and an inverse Fourier transform.
+        Therefore, the voltage values are corrected by the linear offset slope, fast Fourier transformed to the frequency
+        domain, multiplied with a Gaussian smoothed derivation function if*exp(-s*f²) in the frequency domain and
+        inversely fast Fourier transformed to the time domain. This corresponds to the convolution of the voltage values
+        with the Gaussian smoothed derivation function in the time domain.
+        Peaks in these data correspond to voltage jumps, are detected with a peak finding algorithm <peak_finder> and
+        checked, whether the corresponding voltage jumps out or in the superconducting branch, that is identified as
+        critical or retrapping current, respectively. Therefore, the average of half the window below and above the peak
+        is considered. The superconducting branch, in turn, is assumed as the voltage offset <self.V_offset> within the
+        tolerance <tol_offset>.
 
         Parameters
         ----------
         I: numpy.array (optional)
-            An N-dimensional array containing current values. Default is None that means self.I.
+            An N-dimensional array containing current values. Default is None that means <self.I>.
         V: numpy.array (optional)
-            An N-dimensional array containing voltage values. Default is None that means self.V.
+            An N-dimensional array containing voltage values. Default is None that means <self.V>.
         dVdI: numpy.array (optional)
-            An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means self.dVdI.
+            An N-dimensional array containing differential resistance (dV/dI) values. Default is None that means
+            <self.dVdI>.
         s: float (optional)
             Smoothing factor of the derivative. Default is 10.
         Ir: bool (optional)
             Condition, if retrapping currents are returned, too. Default is False.
         Vg: bool (optional)
-            Condition, if gap voltages are returned, too. Default is False
+            Condition, if gap voltages are returned, too. Default is False.
         tol_offset: float (optional)
-            Voltage offset tolerance that limits the superconducting branch around the voltage offset <self.V_offset>. Default is 20e-6.
+            Voltage offset tolerance that limits the superconducting branch around the voltage offset <self.V_offset>.
+            Default is 20e-6.
         window: int (optional)
-            Window around the jump, where the voltage is evaluated and classified as 'superconducting branch'. Default is 5 that considers two values below and 2 values above the jump.
+            Window around the jump, where the voltage is evaluated and classified as 'superconducting branch'. Default
+            is 5 that considers two values below and 2 values above the jump.
         peak_finder: function (optional)
-            Peak finding algorithm. Default is scipy.signal.find_peaks
+            Peak finding algorithm. Default is `scipy.signal.find_peaks`.
         kwargs:
             Keyword arguments forwarded to the peak finding algorithm <peak_finder>.
 
@@ -1654,7 +1128,8 @@ class IV_curve3(object):
         I_rs: numpy.array (optional)
             Retrapping current values.
         properties: dict
-            Properties of all found peaks (not only I_c and I_r, but also further jumps), such as corresponding currents, voltages, differential resistances, indices as well as returns of the used peak finding algorithm.
+            Properties of all found peaks (not only I_c and I_r, but also further jumps), such as corresponding currents,
+            voltages, differential resistances, indices as well as returns of the used peak finding algorithm.
 
         Examples
         --------
@@ -1670,12 +1145,9 @@ class IV_curve3(object):
         def _get_deriv_dft(_V):
             V_fft = np.fft.fft(_V)  # Fourier transform of V from time to frequency domain
             f = np.fft.fftfreq(_V.shape[-1])  # frequency values
-            kernel = 1j * np.fft.fft(f * np.exp(
-                -s * f ** 2))  # smoothed derivation function, how it would look like in time domain (with which V is convolved in the time domain)
-            V_fft_smooth = 1j * f * np.exp(
-                -s * f ** 2) * V_fft  # Fourier transform of a Gaussian smoothed derivation of V in the frequency domain
-            return np.fft.ifft(
-                V_fft_smooth)  # inverse Fourier transform of the smoothed derivation of V from reciprocal to time domain
+            kernel = 1j * np.fft.fft(f * np.exp(-s * f ** 2))  # smoothed derivation function, how it would look like in time domain (with which V is convolved in the time domain)
+            V_fft_smooth = 1j * f * np.exp(-s * f ** 2) * V_fft  # Fourier transform of a Gaussian smoothed derivation of V in the frequency domain
+            return np.fft.ifft(V_fft_smooth)  # inverse Fourier transform of the smoothed derivation of V from reciprocal to time domain
 
         def _peak_finder(x, **_kwargs):
             ans = peak_finder(x, **_kwargs)
@@ -1702,11 +1174,19 @@ class IV_curve3(object):
                 return np.nan
         ''' differentiate and smooth in the frequency domain '''
         if len(V.shape) - 1 == 1:
-            V_corr = V - np.linspace(start=V[:, 0], stop=V[:, -1], num=V.shape[-1], axis=1)  # adjust offset slope
+            V_corr = V - np.linspace(start=V[:, 0],
+                                     stop=V[:, -1],
+                                     num=V.shape[-1],
+                                     axis=1)  # adjust offset slope
         elif len(V.shape) - 1 == 2:
-            V_corr = V - np.linspace(start=V[:, :, 0], stop=V[:, :, -1], num=V.shape[-1], axis=2)  # adjust offset slope
+            V_corr = V - np.linspace(start=V[:, :, 0],
+                                     stop=V[:, :, -1],
+                                     num=V.shape[-1],
+                                     axis=2)  # adjust offset slope
         elif len(V.shape) - 1 == 3:
-            V_corr = V - np.linspace(start=V[:, :, :, 0], stop=V[:, :, :, -1], num=V.shape[-1],
+            V_corr = V - np.linspace(start=V[:, :, :, 0],
+                                     stop=V[:, :, :, -1],
+                                     num=V.shape[-1],
                                      axis=3)  # adjust offset slope
         else:
             raise ValueError('Scan dimension must be in {1, 2, 3}')
@@ -1751,15 +1231,18 @@ class IV_curve3(object):
         Y: numpy.array
             An N-dimensional array containing data, whose peaks are already determined.
         peaks numpy.array
-            An N-dimensional array containing indices and properties of peaks that are already determined, as obtained by e.g. scipy.signal.find_peaks()
+            An N-dimensional array containing indices and properties of peaks that are already determined, as obtained
+            by e.g. `scipy.signal.find_peaks`.
         Ir: bool (optional)
             Condition, if retrapping currents are returned, too. Default is False
         Vg: bool (optional)
             Condition, if gap voltages are returned, too. Default is False
         tol_offset: float (optional)
-            Voltage offset tolerance that limits the superconducting branch around the voltage offset <self.V_offset>. Default is 20e-6.
+            Voltage offset tolerance that limits the superconducting branch around the voltage offset <self.V_offset>.
+            Default is 20e-6.
         window: int (optional)
-            Window around the jump, where the voltage is evaluated and classified as 'superconducting branch'. Default is 5 that considers two values below and 2 values above the jump.
+            Window around the jump, where the voltage is evaluated and classified as 'superconducting branch'. Default
+            is 5 that considers two values below and 2 values above the jump.
 
         Returns
         -------
@@ -1768,7 +1251,8 @@ class IV_curve3(object):
         I_rs: numpy.array (optional)
             Retrapping current values.
         properties: dict
-            Properties of all found peaks (not only I_c and I_r, but also further jumps), such as corresponding currents, voltages, differential resistances, indices as well as returns of the used peak finding algorithm.
+            Properties of all found peaks (not only I_c and I_r, but also further jumps), such as corresponding currents,
+            voltages, differential resistances, indices as well as returns of the used peak finding algorithm.
         """
 
         def get_fwhm(y, peak, mask):
@@ -2110,13 +1594,19 @@ class IV_curve3(object):
 
     def get_Vg(self, V=None, binwidth=2e-6, subgap=False):
         """
-        Gets gap voltages. Therefore all measured voltages are collected in bins with bin width <binwidth> and the 3 most prominent peaks are interpreted as superconducting branch (2nd) and gap (1st and 3rd). Each peak is fitted to a Gaussian distribution using a fine histogram ranging from `left_bases` to `right_bases` obtained from the peak finder `scipy.signal.find_peaks()`. The returned gap voltage equals the mean +/- std of the differences of the 3 peaks.
-        If wanted, the sub-gap voltage is calculated as maximal absolute voltage between two neighboring peaks, where outliers are removed by considering only the median +/- median absolute deviation. The returned sub-gap voltage equals the maximal absolute voltage and the error is estimated as difference of the two maximal absolute voltages.
+        Gets gap voltages. Therefore, all measured voltages are collected in bins with bin width <binwidth> and the 3
+        most prominent peaks are interpreted as superconducting branch (2nd) and gap (1st and 3rd). Each peak is fitted
+        to a Gaussian distribution using a fine histogram ranging from `left_bases` to `right_bases` obtained from the
+        peak finder `scipy.signal.find_peaks`. The returned gap voltage equals the mean ± std of the differences of the
+        3 peaks.
+        If wanted, the sub-gap voltage is calculated as maximal absolute voltage between two neighboring peaks, where
+        outliers are removed by considering only the median ± median absolute deviation. The returned sub-gap voltage
+        equals the maximal absolute voltage and the error is estimated as difference of the two maximal absolute voltages.
 
         Parameters
         ----------
         V: numpy.array (optional)
-            An N-dimensional array containing voltage values. Default is None that means self.V.
+            An N-dimensional array containing voltage values. Default is None that means <self.V>.
         binwidth: float (optional)
             Histograms bin width in Volts. Default is 2e-6.
         subgap: bool (optional)
@@ -2201,21 +1691,23 @@ class IV_curve3(object):
             return np.squeeze(V_g)
 
     class switching_current(object):
-        """ This is an analysis class for switching current measurements """
-
+        """
+        This is an analysis class for switching current measurements.
+        """
         def __init__(self, sweeps, settings):
             self.sweeps = sweeps
             self.settings = settings
 
-            self.P, self.P_fit, self.edges, self.edges_fit, self.bins, self.bins_fit = None, None, None, None, None, None
-            self.Delta_I, self.Delta_I_fit, self.dIdt = None, None, None
-            self.Gamma, self.Gamma_fit, self.x, self.x_fit, self.y, self.y_fit = None, None, None, None, None, None
-            self.popt, self.pcov, self.fit_res, self.I_c, self.omega_0 = None, None, None, None, None
-            self.fig, self.ax1, self.ax2, self.ax3 = None, None, None, None
+            self.P = self.P_fit = self.edges = self.edges_fit = self.bins = self.bins_fit = None
+            self.Delta_I = self.Delta_I_fit = self.dIdt = None
+            self.Gamma = self.Gamma_fit = self.x = self.x_fit = self.y = self.y_fit = None
+            self.popt = self.pcov = self.fit_res = self.I_c = self.omega_0 = self.T_esc = None
+            self.fig = self.ax1 = self.ax2 = self.ax3 = None
 
         def fit(self, I_0, omega_0, dIdt=None, **kwargs):
             """
-            Creates switching current histogram, calculates and escape rate and recalculates the fit to the switching current distribution.
+            Creates switching current histogram, calculates and escape rate and recalculates the fit to the switching
+            current distribution.
 
             Parameters
             ----------
@@ -2226,7 +1718,12 @@ class IV_curve3(object):
             dIdt: float (optional)
                 Sweep rate (in A/s). Default is sweeps step width * nplc / plc.
             kwargs:
-                Keyword arguments forwarded to numpy.histogram. Defaults are bins=10, range=(min(I_0), max(I_0)), normed=None, weights=None, density=None.
+                Keyword arguments forwarded to numpy.histogram. Defaults are
+                * bins=10,
+                * range=(min(<I_0>), max(<I_0>)),
+                * normed=None,
+                * weights=None,
+                * density=None.
 
             Returns
             -------
@@ -2292,7 +1789,7 @@ class IV_curve3(object):
                  alpha=1,
                  figsize=(6, 6)):
             """
-            Plots switching current histogram, escape rate and normalized escape rate as well as their fits
+            Plots switching current histogram, escape rate and normalized escape rate as well as their fits.
 
             Parameters
             ----------
@@ -2309,24 +1806,27 @@ class IV_curve3(object):
             alpha: int
                 Multiplier for nop of fit. Default is 1, which uses histogram bins for the fit.
                 Note that alpha > 1 shifts the fit in x-direction for unknown reasons, which is corrected in the plot
+            figsize : (float, float)
+                Width, height in inches. Default is :rc:`figure.figsize`
+
 
             Returns
             -------
             fig: matplotlib.figure.Figure
                 Plot figure, which shows the data and the fit of the  switching current distribution.
             ax: matplotlib.axes._subplots.AxesSubplot array of Axes objects
-                ax[0], ax[1] and ax[2] contains switching current distribution, escape rate and normalized escape rate,  respectively.
+                ax[0], ax[1] and ax[2] contains switching current distribution, escape rate and normalized escape rate,
+                respectively.
 
             Examples
             --------
             >>> ivc.scm.plot()
             """
             ''' calculate fitted escape rate and fitted switching current distribution '''
-            self.edges_fit = np.linspace(np.min(self.edges), np.max(self.edges), self.bins.size * alpha + 1)
+            self.edges_fit, self.Delta_I_fit = np.linspace(np.min(self.edges), np.max(self.edges), self.bins.size * alpha + 1, retstep=True)
             self.bins_fit = np.convolve(self.edges_fit, np.ones((2,)) / 2, mode='valid')
-            self.Delta_I_fit = np.nanmean(np.diff(self.edges_fit))
             self.x_fit = self.bins_fit
-            if errors:  # this woks also for errors=False, but is much slower
+            if errors:  # this works also for errors=True, but is much slower
                 self.y_fit = self.fit_res[0] * self.x_fit + self.fit_res[1]
                 self.Gamma_fit = self.omega_0 / (2 * np.pi) * unp.exp(-self.y_fit ** (3 / 2))
                 self.P_fit = np.array([self.Gamma_fit[k] / self.dIdt * unp.exp(
