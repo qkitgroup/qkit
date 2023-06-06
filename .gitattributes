@@ -1,8 +1,8 @@
 # Use sane defaults
 * text=auto
 
-# Most people use windows, so we use CRLF as line endings, to prevent erroneous line ending changes
-*.py text eol=crlf
+# Most people use windows, so we use LF as line endings explicitly, to prevent erroneous line ending changes
+*.py text eol=lf
 
 # Shell scripts need to end in LF only
 *.sh text eol=lf

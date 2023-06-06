@@ -21,7 +21,7 @@ import inspect
 import os
 import logging
 import sys
-import toml
+import tomli
 import qkit.core.instrument_base as instrument
 
 import importlib
@@ -71,7 +71,7 @@ class Insttools(object):
         self._user_instdir  = qkit.cfg.get('user_instruments_dir')
         lookup_dict_location = qkit.cfg.get('device_lookup_config')
         if lookup_dict_location is not None:
-            self._lookup_dict = toml.load(lookup_dict_location)
+            self._lookup_dict = tomli.load(lookup_dict_location)
         else:
             self._lookup_dict = {}
 

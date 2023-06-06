@@ -27,7 +27,8 @@ dependencies = [
     "pyqtgraph~=0.13",
     "PyVISA>=1.13",
     "PyVISA-py>=0.6",
-    "pyzmq>=25"
+    "pyzmq>=25",
+    "tomli>=2.0.1"
 ]
 
 [project.scripts]
