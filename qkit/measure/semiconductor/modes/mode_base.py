@@ -14,7 +14,8 @@ class ModeBase(ABC):
     @abstractmethod
     def fill_file(self):
         pass
-
+    def create_tag(self):
+        return self.__class__.__name__
 def main(): 
     pass
 if __name__ == "__main__":

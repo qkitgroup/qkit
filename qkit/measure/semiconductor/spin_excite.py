@@ -456,6 +456,7 @@ class FileHandler:
         self.mb._prepare_measurement_file(dsets, coords)
         for dset in dsets:
             dim0 = tuple(len(coordinate.values) for coordinate in dset.coordinates[::-1])
+            print(dset.name, dim0)
             self._initialize_file_matrix(dset.name, dim0)
         
         if self.report_static_voltages:
@@ -568,6 +569,10 @@ class Exciting():
                 raise ValueError(f"{__name__}: The following modes are not known by spin_excite: {missing_modes}")
         except TypeError as te:
             raise TypeError(f"{__name__}: Cannot use {new_modes} as active_modes, {te}")
+              
+        for mode in new_modes:
+            self._mode_instances[mode] = self._modes[mode](self.fh, self.settings.measurement_settings)
+            self._mode_instances[mode].create_coordinates()
 
         self._active_modes = new_modes
 
@@ -612,7 +617,7 @@ class Exciting():
         if not issubclass(MA_backend.__class__, MA_backend_base):
             raise TypeError(f"{__name__}: Cannot set {MA_backend} as manipulation backend. The backend must be a subclass of MA_backend_base")
     
-    def compile(self, *experiments, averages, active_modes = "pulse_parameter", deep_render = False, **add_pars):   
+    def compile(self, *experiments, averages, asd = "PulseParameter", deep_render = False, **add_pars):   
         """Währenddessen Zwiebeln und Wurzeln schälen. Zwiebeln kleinschneiden. Wurzeln in kurze Stifte schneiden. 
         Öl in einem Wok erhitzen und Gemüse darin kurz pfannenrühren. Koriander kleinwiegen. Reis und Koriander dazugeben und alles vermischen. 
         Reis-Gemüse-Mischung herausheben und warmstellen.
@@ -643,10 +648,7 @@ class Exciting():
         self.mapper.map_measurements(averages)
 
         self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)
-        self.active_modes = active_modes
-        for mode in self.active_modes:
-            self._mode_instances[mode] = self._modes[mode](self.fh, self.settings.measurement_settings)
-            self._mode_instances[mode].create_coordinates()
+        self.active_modes = asd
 
         self.settings.load()
 
@@ -717,6 +719,9 @@ class Exciting():
             for mode in self._mode_instances.values():
                 mode.fill_file(latest_data, data_location)
             progress_bar.iterate(addend = iterations - old_iterations)
+        for mode in self._mode_instances.values():
+            print(f"{mode.tag} reset")
+            mode.reset()
         self._stop_hardware()
     
     def set_x_parameters(self, vec, coordname, set_obj, unit, dt=0):
@@ -806,7 +811,7 @@ class Exciting():
         self.fh.measurement_function_name = f"{__name__}: measure3D"
         self._prepare_measurement([self._x_parameter, self._y_parameter])
         pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * self._total_iterations)
-        try:            
+        try:
             for i, x_val in enumerate(self._x_parameter.values):
                 self._x_parameter.set_function(x_val)
                 qkit.flow.sleep(self._x_parameter.wait_time)
