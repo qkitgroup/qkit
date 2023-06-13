@@ -26,7 +26,7 @@ cfg = {}
 # set up default path for
 cfg['qkitdir'] = os.path.split(qkit.__file__)[0]
 cfg['coredir'] = os.path.join(cfg['qkitdir'],'core')
-cfg['logdir']  = os.path.join(cfg['qkitdir'],'logs')
+cfg['logdir']  = os.path.join(cfg['qkitdir'],'../../logs')
 cfg['execdir'] = cfg['qkitdir']
 cfg['rootdir'] = cfg['qkitdir']
 cfg['tempdir'] = tempfile.gettempdir()
