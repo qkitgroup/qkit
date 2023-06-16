@@ -355,7 +355,9 @@ class MeasureBase(object):
         the data file is closed and filepath is printed
         """
         print(self._data_file.get_filepath())
-        threading.Thread(target=qviewkit.save_plots, args=[self._data_file.get_filepath()]).start()
+        
+        #threading.Thread(target=qviewkit.save_plots, args=[self._data_file.get_filepath()]).start()
+        qviewkit.save_plots(self._data_file.get_filepath())
         self._data_file.close_file()
         waf.close_log_file(self._log)
         self.measurement_name = None

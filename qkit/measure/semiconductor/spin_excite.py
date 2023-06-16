@@ -335,20 +335,6 @@ class Settings:
             
         self.core._ma_backend.load_waveform(self.channel_settings)
 
-class No_avg:
-    name = "no_avg"
-    def __init__(self, core) -> None:
-        self.core = core
-    
-    def create_datasets(self, dsets, measurement, node, coords):
-        dsets.append(self.core.Data(name = "%s.%s" % (measurement, node), coords = coords + [self.core._iteration_parameters[measurement], self.core._t_parameters[measurement]],
-                                        unit = self.core.settings.measurement_settings[measurement]["unit"], 
-                                        save_timestamp = False))
-    
-    def create_file_structure(self, measurement, name, node):
-        self.core._datasets[f"{name}.{node}"].append(np.full(measurement["sample_count"], np.nan))
-        self.core._datasets[f"{name}.{node}"].ds.resize((measurement["averages"] * measurement["measurement_count"], measurement["sample_count"]))
-
 class FileHandler:
     def __init__(self) -> None:
         self.mb = mb.MeasureBase()
@@ -416,6 +402,10 @@ class FileHandler:
         new_t_parameter.validate_parameters()
         self.multiplexer_coords[tag][measurement] = new_t_parameter
 
+    def reset(self):
+        self.datasets = {}
+        self.multiplexer_coords = makehash()
+
     def add_dset(self, set_name, coords, unit):
         """Zutaten:
         Hundefleisch
@@ -430,6 +420,7 @@ class FileHandler:
         Austernsauce
         Fischsauce
         """
+        print(f"Coords for {set_name} in spin_excite ", coords)
         self.datasets[set_name] = self.mb.Data(name = set_name, coords = coords, unit = unit, 
                             save_timestamp = False)
    
@@ -441,6 +432,8 @@ class FileHandler:
         return parameter.isdigit()                
 
     def _initialize_file_matrix(self, name, dimensions):
+            if len(dimensions) > 3:
+                raise ValueError(f"{__name__}: Invalid dataset dimensions for {name}. Dataset dimensions are limited to three by qkit.")
             self.mb._datasets[name].append(np.full(dimensions[0], np.nan))
             self.mb._datasets[name].ds.resize(dimensions)
             self._dataset_dimensions[name] = len(dimensions)
@@ -455,8 +448,7 @@ class FileHandler:
         dsets = [dset for dset in self.datasets.values()]
         self.mb._prepare_measurement_file(dsets, coords)
         for dset in dsets:
-            dim0 = tuple(len(coordinate.values) for coordinate in dset.coordinates[::-1])
-            print(dset.name, dim0)
+            dim0 = tuple(len(coordinate.values) for coordinate in dset.coordinates)
             self._initialize_file_matrix(dset.name, dim0)
         
         if self.report_static_voltages:
@@ -474,7 +466,7 @@ class FileHandler:
             self.mb._open_qviewkit()
     
     def write_to_file(self, set_name, value, data_location):
-        if value.size != 0:
+        if value.size != 0:            
             self.mb._datasets[set_name].ds[data_location] = value
             self.mb._data_file.flush()
         else:
@@ -570,11 +562,15 @@ class Exciting():
         except TypeError as te:
             raise TypeError(f"{__name__}: Cannot use {new_modes} as active_modes, {te}")
               
+        self.fh.reset()
+        print(self.fh.multiplexer_coords)
+        self._mode_instances = {}
         for mode in new_modes:
             self._mode_instances[mode] = self._modes[mode](self.fh, self.settings.measurement_settings)
             self._mode_instances[mode].create_coordinates()
 
         self._active_modes = new_modes
+        print(self.fh.multiplexer_coords)
 
     @property
     def mode_path(self):
@@ -617,7 +613,7 @@ class Exciting():
         if not issubclass(MA_backend.__class__, MA_backend_base):
             raise TypeError(f"{__name__}: Cannot set {MA_backend} as manipulation backend. The backend must be a subclass of MA_backend_base")
     
-    def compile(self, *experiments, averages, asd = "PulseParameter", deep_render = False, **add_pars):   
+    def compile(self, *experiments, averages, active_modes = "PulseParameter", deep_render = False, **add_pars):   
         """Währenddessen Zwiebeln und Wurzeln schälen. Zwiebeln kleinschneiden. Wurzeln in kurze Stifte schneiden. 
         Öl in einem Wok erhitzen und Gemüse darin kurz pfannenrühren. Koriander kleinwiegen. Reis und Koriander dazugeben und alles vermischen. 
         Reis-Gemüse-Mischung herausheben und warmstellen.
@@ -648,7 +644,7 @@ class Exciting():
         self.mapper.map_measurements(averages)
 
         self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)
-        self.active_modes = asd
+        self.active_modes = active_modes
 
         self.settings.load()
 
@@ -711,7 +707,6 @@ class Exciting():
         """
         self._ready_hardware()
         iterations = 0
-
         while not self._ro_backend.finished():
             old_iterations = iterations
             latest_data = self._ro_backend.read()
@@ -720,7 +715,6 @@ class Exciting():
                 mode.fill_file(latest_data, data_location)
             progress_bar.iterate(addend = iterations - old_iterations)
         for mode in self._mode_instances.values():
-            print(f"{mode.tag} reset")
             mode.reset()
         self._stop_hardware()
     
@@ -801,7 +795,7 @@ class Exciting():
             for i, x_val in enumerate(self._x_parameter.values):
                 self._x_parameter.set_function(x_val)
                 qkit.flow.sleep(self._x_parameter.wait_time)
-                self._stream_modular((i), pb)
+                self._stream_modular((i,), pb)
         finally:
             self._ro_backend.stop()
             self._ma_backend.stop()
@@ -819,7 +813,7 @@ class Exciting():
                 for j, y_val in enumerate(self._y_parameter.values):
                     self._y_parameter.set_function(y_val)
                     qkit.flow.sleep(self._y_parameter.wait_time)
-                    self._stream_modular((j, i), pb)
+                    self._stream_modular((i, j), pb)
                 
                 for dset in self.fh.datasets.keys():
                     self.fh.next_matrix(dset)
@@ -829,18 +823,78 @@ class Exciting():
             self.fh.end_measurement()
 
 def main():
-    print("This is run")
-    a = 5
-    everything = dir()
-    print(__file__)
-    print(type(__file__))
-    for obj in Path("modes").iterdir():
-        print(type(obj))
-        print(obj)
-        print(obj.name)
-    for element in everything:
-        print(type (element))
-        print(element)
+    #import some stuff
+    import qkit
+    from datetime import date
+    qkit.cfg['run_id'] = 'Testing %s' % date.today()
+    qkit.cfg['user'] = 'Julian'
+    qkit.start()
+    import qkit.measure.samples_class as sc
+
+    import numpy as np
+    from numpy.random import rand
+    from qkit.measure.semiconductor.spin_excite import Exciting
+    from qkit.measure.semiconductor.readout_backends import RO_test_backend2, RO_test_backend
+    from qkit.measure.semiconductor.manipulation_backends import MANIP_test_backend
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import logging
+    from qupulse.pulses import RepetitionPT, PointPT, ForLoopPT
+
+    #create your qupulse sequence and parameters
+    measured_pt1 = PointPT([(0, 'm'),
+                        ('t_ramp', "m/2", "linear"),
+                        ("t_ramp + t_meas", "m/2", "hold")],
+                        channel_names=('Ch1',),
+                        measurements=[('Dudu', "t_ramp", 't_meas')])#, ('Dada', "t_ramp", 't_meas / 2')])
+    measured_pt2 = PointPT([(0, 'm'),
+                        ('t_ramp', "m/2", "linear"),
+                        ("t_ramp + t_meas", "m/2", "hold")],
+                        channel_names=('RF_Z',),
+                        measurements=[('Blurps', "t_ramp", 't_meas')])
+    rep_pt1 = RepetitionPT(measured_pt1, 10)
+    for_loop_pt1 = ForLoopPT(measured_pt1, "t_ramp", ("t_start", "t_stop", "plateau_length"))
+    for_loop_pt2 = ForLoopPT(measured_pt2, "t_ramp", ("t_start", "t_stop", "antimatter_density"))
+
+
+    for_loop_pars1 = {"m" : 3, 
+                "t_ramp" : 50, 
+                "t_meas" : 2.3, 
+                "t_start" : 10, 
+                "t_stop" : 139, 
+                "plateau_length" : 1,
+                    }
+
+    for_loop_pars2 = {"m" : 3, 
+                "t_ramp" : 50, 
+                "t_meas" : 20, 
+                "t_start" : 20, 
+                "t_stop" : 85, 
+                "antimatter_density" : 1,
+                    }
+    #_= plot(for_loop_pt1, for_loop_pars1)
+    readout_correct = RO_test_backend2.RO_backend()
+    readout_correct.noise_multiplier = 0.2
+    readout_correct.testmode = "tt"
+    readout_wrong = RO_test_backend.RO_backend()
+    manipulation_correct = MANIP_test_backend.MA_test_backend()
+    excitation = Exciting(readout_correct, manipulation_correct, (for_loop_pt1, for_loop_pars1), \
+                        averages = {"Dudu": 1, "Dada": 1},\
+                        active_modes = "NoAvg",\
+                        deep_render = False,\
+                        #channel_mapping = {"Brot" : "Ch1"},\
+                        measurement_mapping = {"Dudu" : "M1", "Dada" : "M2"}
+                        )
+    print(excitation.fh)
+    print(excitation._modes)
+    #excitation.compile_qupulse((measured_pt, parameters))
+    excitation.qviewkit_singleInstance = True
+    v_source = qkit.instruments.create("bill_virtual", "virtual_voltage_source")
+
+    readout_correct.testmode = "tt"
+    excitation._load_modes
+    excitation.active_modes = "NoAvg"
+    excitation.measure1D()
 
 if __name__ == "__main__":
     main()

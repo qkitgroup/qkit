@@ -165,7 +165,7 @@ class RO_backend(RO_backend_base):
         return data
         
     def finished(self):
-        sleep(0.1)
+        sleep(0.5)
         done = 0
         for measurement in self.measurement_settings.keys():
             if self.counter[measurement] >= self.max_counter[measurement]:                
