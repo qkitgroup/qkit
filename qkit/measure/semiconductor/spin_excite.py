@@ -17,6 +17,7 @@
 
 from importlib import import_module
 from os import stat
+from matplotlib import texmanager
 import qkit
 import qkit.measure.measurement_base as mb
 from qkit.measure.measurement_base import MeasureBase
@@ -348,7 +349,6 @@ class FileHandler:
         
         self.multiplexer_coords = makehash()
         self.datasets = {}
-        self._dataset_dimensions = {}
     
     @property
     def report_static_voltages(self):
@@ -393,7 +393,7 @@ class FileHandler:
             raise TypeError(f"{__name__}: Cannot use {new_name} as measurement_function_name. Must be a string.")
         self.mb._measurement_object.measurement_func = new_name
 
-    def update_coordinates(self, tag, vec, coordname, measurement, unit = "s"):        
+    def _update_coordinate(self, tag, vec, coordname, measurement, unit = "s"):        
         new_t_parameter = self.mb.Coordinate(coordname,
                                             unit = unit,
                                             values = np.array(vec, dtype=float),
@@ -401,6 +401,25 @@ class FileHandler:
                                             wait_time = 0)
         new_t_parameter.validate_parameters()
         self.multiplexer_coords[tag][measurement] = new_t_parameter
+    
+    def update_coordinates(self, tag, coord_instructions):
+        for measurement_name, instructions in coord_instructions.items():
+            translated_coords = []
+            for coord_instruction in instructions:
+                coord = self.mb.Coordinate(coord_instruction["coordname"],
+                coord_instruction["unit"],
+                coord_instruction["values"]
+                )
+                translated_coords.append(coord)
+            self.multiplexer_coords[tag][measurement_name] = translated_coords
+    
+    def create_datasets(self, measurement_settings, additional_coords):
+        for measurement_name, measurement in measurement_settings.items():
+            for node in measurement["data_nodes"]:
+                for tag in self.multiplexer_coords.keys():
+                    self.add_dset(f"{tag}:{measurement_name}.{node}",
+                    additional_coords + self.multiplexer_coords[tag][measurement_name],
+                    measurement["unit"])
 
     def reset(self):
         self.datasets = {}
@@ -420,7 +439,6 @@ class FileHandler:
         Austernsauce
         Fischsauce
         """
-        print(f"Coords for {set_name} in spin_excite ", coords)
         self.datasets[set_name] = self.mb.Data(name = set_name, coords = coords, unit = unit, 
                             save_timestamp = False)
    
@@ -436,7 +454,6 @@ class FileHandler:
                 raise ValueError(f"{__name__}: Invalid dataset dimensions for {name}. Dataset dimensions are limited to three by qkit.")
             self.mb._datasets[name].append(np.full(dimensions[0], np.nan))
             self.mb._datasets[name].ds.resize(dimensions)
-            self._dataset_dimensions[name] = len(dimensions)
 
     def prepare_measurement(self, coords):
         """Das Fleisch in der Sonne zu trocknen ist in unseren Breiten schwierig. 
@@ -563,14 +580,11 @@ class Exciting():
             raise TypeError(f"{__name__}: Cannot use {new_modes} as active_modes, {te}")
               
         self.fh.reset()
-        print(self.fh.multiplexer_coords)
         self._mode_instances = {}
         for mode in new_modes:
             self._mode_instances[mode] = self._modes[mode](self.fh, self.settings.measurement_settings)
-            self._mode_instances[mode].create_coordinates()
 
         self._active_modes = new_modes
-        print(self.fh.multiplexer_coords)
 
     @property
     def mode_path(self):
@@ -620,8 +634,7 @@ class Exciting():
         Nochmals Öl in den Wok geben und erhitzen. Fleisch hinzugeben und kurz pfannenrühren.
         Fleisch und Reis-Gemüse-Mischung auf Teller geben und mit den Dipsaucen servieren. 
         Das Gericht ist ungewürzt und erhält seinen Geschmack durch die jeweiligen Saucen.
-        """
-        
+        """        
         self.mapper = Mapping_handler2()
         if "channel_mapping" in add_pars:
             self.mapper.channel_mapping = add_pars["channel_mapping"]
@@ -695,9 +708,11 @@ class Exciting():
         return iterations
     
     def _prepare_measurement(self, additional_coords = []):
-        self._count_total_iterations()
         for mode in self._mode_instances.values():
-            mode.create_datasets(additional_coords)
+            coords = mode.create_coordinates()
+            self.fh.update_coordinates(mode.tag, coords)
+        self._count_total_iterations()
+        self.fh.create_datasets(self.settings.measurement_settings, additional_coords)
         self.fh.prepare_measurement(additional_coords)
         
     def _stream_modular(self, data_location, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode

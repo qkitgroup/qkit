@@ -10,24 +10,20 @@ class PulseParameter(ModeBase):
     def __init__(self, fh, measurement_settings) -> None:
         self.fh = fh
         self.measurement_settings = measurement_settings
-        self.unit = "a.u."
-        self.tag = self.create_tag()
+        self.unit = "a.u."        
         self.total_sum = makehash()
         self.divider = makehash()
+        self.create_tag()
         self.reset()
 
     def create_coordinates(self):
-        for name, measurement in self.measurement_settings.items():
-            self.fh.update_coordinates(self.tag, measurement["loop_range_pp"], 
-                                        f"{self.tag}:{measurement['loop_step_name_pp']}.{name}",
-                                        name)
-    
-    def create_datasets(self, additional_coords):
-        for name, measurement in self.measurement_settings.items():
-            for node in measurement["data_nodes"]:
-                coords = additional_coords + [self.fh.multiplexer_coords[self.tag][name]]
-                print("Coords in PulseParameter mode ", coords)
-                self.fh.add_dset(f"{self.tag}:{name}.{node}", coords, self.unit)
+        all_coords = {}
+        for measurement_name, measurement in self.measurement_settings.items():
+            x_coord = {"values" : measurement["loop_range_pp"],
+            "coordname" : f"{self.tag}:{measurement['loop_step_name_pp']}.{measurement_name}",
+            "unit" : self.unit,}
+            all_coords[measurement_name] = [x_coord]
+        return all_coords  
 
     def fill_file(self, latest_data, data_location):
         for measurement_name, node_values in latest_data.items():
@@ -51,26 +47,22 @@ class NoAvg(ModeBase):
     def __init__(self, fh, measurement_settings) -> None:
         self.fh = fh
         self.measurement_settings = measurement_settings
-        self.unit = "a.u."
-        self.tag = self.create_tag()
         self.column = makehash()
+        self.create_tag()
         self.reset()
 
     def create_coordinates(self):
-        for name, measurement in self.measurement_settings.items():
-            self.fh.update_coordinates(f"{self.tag}.iter", np.arange(measurement["averages"] * measurement["measurement_count"]), 
-                                        f"{self.tag}:iterations.{name}",
-                                        name)
-            self.fh.update_coordinates(f"{self.tag}.tt", measurement["loop_range_tt"], 
-                                        f"{self.tag}:{measurement['loop_step_name_tt']}.{name}",
-                                        name)
-    
-    def create_datasets(self, additional_coords):
-        for name, measurement in self.measurement_settings.items():
-            for node in measurement["data_nodes"]:
-                coords = additional_coords + [self.fh.multiplexer_coords[f"{self.tag}.iter"][name], self.fh.multiplexer_coords[f"{self.tag}.tt"][name]]
-                self.fh.add_dset(f"{self.tag}:{name}.{node}", coords, self.unit)
-
+        all_coords = {}
+        for measurement_name, measurement in self.measurement_settings.items():
+            x_coord = {"values" :  np.arange(measurement["averages"] * measurement["measurement_count"]),
+            "coordname" : f"{self.tag}:iterations.{measurement_name}",
+            "unit" : "#",}
+            y_coord = {"values" :  measurement["loop_range_tt"],
+            "coordname" : f"{self.tag}:{measurement['loop_step_name_tt']}.{measurement_name}",
+            "unit" : "s",}
+            all_coords[measurement_name] = [x_coord, y_coord]
+        return all_coords
+        
     def fill_file(self, latest_data, data_location):
         for measurement_name, node_values in latest_data.items():
             #If latest data is empty for one measurement, skip it
@@ -94,26 +86,39 @@ class PpvsT(ModeBase):
     def __init__(self, fh, measurement_settings) -> None:
         self.fh = fh
         self.measurement_settings = measurement_settings
-        self.unit = "a.u."
-        self.tag = self.create_tag()
+        self.unit_pp = "a.u."
+        self.unit_tt = "s"
         self.total_sum = makehash()
         self.divider = makehash()
+        self.create_tag()
         self.reset()
 
     def create_coordinates(self):
+        all_coords = {}
+        for measurement_name, measurement in self.measurement_settings.items():
+            x_coord = {"values" :  measurement["loop_range_pp"],
+            "coordname" : f"{self.tag}:{measurement['loop_step_name_pp']}.{measurement_name}",
+            "unit" : "a.u.",}
+            y_coord = {"values" :  measurement["loop_range_tt"],
+            "coordname" : f"{self.tag}:{measurement['loop_step_name_tt']}.{measurement_name}",
+            "unit" : "s",}
+            all_coords[measurement_name] = [x_coord, y_coord]
+        return all_coords
+
+    """def create_coordinates2(self):
         for name, measurement in self.measurement_settings.items():
             self.fh.update_coordinates(f"{self.tag}.pp", measurement["loop_range_pp"], 
                                         f"{self.tag}:{measurement['loop_step_name_pp']}.{name}",
-                                        name)
+                                        name, self.unit_pp)
             self.fh.update_coordinates(f"{self.tag}.tt", measurement["loop_range_tt"], 
                                         f"{self.tag}:{measurement['loop_step_name_tt']}.{name}",
-                                        name)
+                                        name, self.unit_tt)
     
     def create_datasets(self, additional_coords):
         for name, measurement in self.measurement_settings.items():
             for node in measurement["data_nodes"]:
                 coords = additional_coords + [self.fh.multiplexer_coords[f"{self.tag}.pp"][name], self.fh.multiplexer_coords[f"{self.tag}.tt"][name]]
-                self.fh.add_dset(f"{self.tag}:{name}.{node}", coords, measurement["unit"])
+                self.fh.add_dset(f"{self.tag}:{name}.{node}", coords, measurement["unit"]) """
 
     def fill_file(self, latest_data, data_location):
         for measurement_name, node_values in latest_data.items():
@@ -137,23 +142,32 @@ class TimeTrace(ModeBase):
     def __init__(self, fh, measurement_settings) -> None:
         self.fh = fh
         self.measurement_settings = measurement_settings
-        self.unit = "a.u."
-        self.tag = self.create_tag()
+        self.unit = "s"        
         self.total_sum = makehash()
         self.divider = makehash()
+        self.create_tag()
         self.reset()
 
     def create_coordinates(self):
+        all_coords = {}
+        for measurement_name, measurement in self.measurement_settings.items():
+            x_coord = {"values" :  measurement["loop_range_tt"],
+            "coordname" : f"{self.tag}:{measurement['loop_step_name_tt']}.{measurement_name}",
+            "unit" : "a.u.",}
+            all_coords[measurement_name] = [x_coord]
+        return all_coords
+
+    """ def create_coordinates(self):
         for name, measurement in self.measurement_settings.items():
             self.fh.update_coordinates(self.tag, measurement["loop_range_tt"], 
                                         f"{self.tag}:{measurement['loop_step_name_tt']}.{name}",
-                                        name)
+                                        name, self.unit)
     
     def create_datasets(self, additional_coords):
         for name, measurement in self.measurement_settings.items():
             for node in measurement["data_nodes"]:
                 coords = additional_coords + [self.fh.multiplexer_coords[self.tag][name]]
-                self.fh.add_dset(f"{self.tag}:{name}.{node}", coords, measurement["unit"])
+                self.fh.add_dset(f"{self.tag}:{name}.{node}", coords, measurement["unit"]) """
 
     def fill_file(self, latest_data, data_location):
         for measurement_name, node_values in latest_data.items():
