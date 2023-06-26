@@ -30,7 +30,7 @@ class PulseParameter(ModeBase):
             #If latest data is empty for one measurement, skip it
             first_node = list(node_values.keys())[0]
             collected_averages = len(node_values[first_node])
-            if collected_averages== 0: continue
+            if collected_averages== 0: continue #Prevent zero division errors
             self.divider[measurement_name] += collected_averages
             for node_name, node_value in node_values.items():
                 self.total_sum[measurement_name][node_name] += np.sum(np.average(node_value, axis = 2), axis = 0)
@@ -65,10 +65,6 @@ class NoAvg(ModeBase):
         
     def fill_file(self, latest_data, data_location):
         for measurement_name, node_values in latest_data.items():
-            #If latest data is empty for one measurement, skip it
-            first_node = list(node_values.keys())[0]
-            collected_averages = len(node_values[first_node])
-            if collected_averages== 0: continue
             for node_name, node_value in node_values.items():
                 for grid in node_value:
                     for single_trace in grid:
@@ -105,27 +101,12 @@ class PpvsT(ModeBase):
             all_coords[measurement_name] = [x_coord, y_coord]
         return all_coords
 
-    """def create_coordinates2(self):
-        for name, measurement in self.measurement_settings.items():
-            self.fh.update_coordinates(f"{self.tag}.pp", measurement["loop_range_pp"], 
-                                        f"{self.tag}:{measurement['loop_step_name_pp']}.{name}",
-                                        name, self.unit_pp)
-            self.fh.update_coordinates(f"{self.tag}.tt", measurement["loop_range_tt"], 
-                                        f"{self.tag}:{measurement['loop_step_name_tt']}.{name}",
-                                        name, self.unit_tt)
-    
-    def create_datasets(self, additional_coords):
-        for name, measurement in self.measurement_settings.items():
-            for node in measurement["data_nodes"]:
-                coords = additional_coords + [self.fh.multiplexer_coords[f"{self.tag}.pp"][name], self.fh.multiplexer_coords[f"{self.tag}.tt"][name]]
-                self.fh.add_dset(f"{self.tag}:{name}.{node}", coords, measurement["unit"]) """
-
     def fill_file(self, latest_data, data_location):
         for measurement_name, node_values in latest_data.items():
             #If latest data is empty for one measurement, skip it
             first_node = list(node_values.keys())[0]
             collected_averages = len(node_values[first_node])
-            if collected_averages== 0: continue
+            if collected_averages== 0: continue #prevent zero division errors
             self.divider[measurement_name] += collected_averages
             for node_name, node_value in node_values.items():
                 self.total_sum[measurement_name][node_name] += np.sum(node_value, axis = 0)
@@ -157,24 +138,12 @@ class TimeTrace(ModeBase):
             all_coords[measurement_name] = [x_coord]
         return all_coords
 
-    """ def create_coordinates(self):
-        for name, measurement in self.measurement_settings.items():
-            self.fh.update_coordinates(self.tag, measurement["loop_range_tt"], 
-                                        f"{self.tag}:{measurement['loop_step_name_tt']}.{name}",
-                                        name, self.unit)
-    
-    def create_datasets(self, additional_coords):
-        for name, measurement in self.measurement_settings.items():
-            for node in measurement["data_nodes"]:
-                coords = additional_coords + [self.fh.multiplexer_coords[self.tag][name]]
-                self.fh.add_dset(f"{self.tag}:{name}.{node}", coords, measurement["unit"]) """
-
     def fill_file(self, latest_data, data_location):
         for measurement_name, node_values in latest_data.items():
             #If latest data is empty for one measurement, skip it
             first_node = list(node_values.keys())[0]
             collected_averages = len(node_values[first_node])
-            if collected_averages== 0: continue
+            if collected_averages== 0: continue #prevent zero division errors
             self.divider[measurement_name] += collected_averages
             for node_name, node_value in node_values.items():
                 self.total_sum[measurement_name][node_name] += np.sum(np.average(node_value, axis = 1), axis = 0)
