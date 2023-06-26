@@ -25,13 +25,24 @@ pip install 'qkit[jupyter,analysis] @ git+https://github.com/qkitgroup/qkit.git@
 If you are simply using qkit, changes to files in `src/` **should not** be necessary. If you find things you need to change there, this might be a bug. Please report this.
 
 ## Developing
-Clone this repository to wherever is convenient and run
+Clone this repository to wherever is convenient.
+```bash
+git clone https://github.com/qkitgroup/qkit
+```
+
+It is recommended, but not required, to create a new virtual environment. This isolates this local environment from your global packages. This way, version conflicts can be avoided. However, **if the venv is not activated, qkit will not be available!**
+For more, look [here](https://docs.python.org/3/library/venv.html).
 ```bash
 python -m venv .venv
-pip install --editable .
 ```
-This creates a virtual environment in which the dependencies of qkit are installed. This isolates this local environment from your global packages. This way, version conflicts can be avoided. However, **if the venv is not activated, qkit will not be available!**
-For more, look [here](https://docs.python.org/3/library/venv.html).
+
+Now, you can install qkit as an editable package. This means, that you can change files in the cloned repository. Changes will affect your python setup.
+
+The brackets contain optional dependencies. This pulls the libraries needed for jupyter lab.
+
+```bash
+pip install --editable '.[jupyter,analysis]'
+```
 ## Running
 You will most likely want to run a JupyterLab Server to work with qkit. Download `jupyter_lab_config.py`.
 In this file, you might want to change this line:
