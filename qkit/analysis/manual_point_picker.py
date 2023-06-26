@@ -22,15 +22,27 @@ class ManualPointPicker:
 
         if cmap_points is None:
             # point colors should be distinguishable from data colormap
-            self.colors = 7
-            self.cmap_points = np.empty((self.colors, 4))
-            self.cmap_points[0, :] = (0.0, 0.0, 0.0, 0.0)   # transparent
-            self.cmap_points[1, :] = (0.0, 0.8, 0.0, 1.0)  # g
-            self.cmap_points[2, :] = (1.0, 1.0, 0.0, 1.0)  # y
-            self.cmap_points[3, :] = (0.0, 1.0, 1.0, 1.0)  # cyan
-            self.cmap_points[4, :] = (0.5, 0.3, 0.1, 1.0)  # brown
-            self.cmap_points[5, :] = (0.4, 0.4, 0.4, 1.0)  # grey
-            self.cmap_points[6, :] = (0.0, 0.0, 0.0, 1.0)  # black
+            self.colors = 10
+            self.cmap_points = np.ones((self.colors, 4))
+
+            # fill colors
+            self.cmap_points[0, :] = (0.0, 0.0, 0.0, 0.0)  # transparent
+
+            # create a colors that are well visible with bwr
+            colors = [(0.0, 0.9, 0.0), # green
+                      (0.9, 0.9, 0.0), # yello
+                      (0.3, 0.2, 0.1),  # dark brown
+                      (0.0, 0.3, 0.2),  # dark green blue
+                      (0.0, 0.5, 0.0),  # dark green
+                      (0.5, 0.4, 0.2), # brown
+                      (0.6, 0.6, 0.6),  # light gray
+                      (0.3, 0.3, 0.3),  # gray
+                      (0.0, 0.0, 0.0), # black
+                      ]
+
+            for i in range(self.colors - 1):
+                self.cmap_points[1 + i, :3] = colors[i]
+
         else:
             self.colors = cmap_points.shape[0]
             self.cmap_points = cmap_points
