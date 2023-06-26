@@ -1,0 +1,71 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "qkit"
+dynamic = ["version"]
+# No version, as it is provided by the git tag.
+authors = [
+    { name = "PHI AG Ustinov" }
+]
+description = "qKIT quantum measurement suite in python"
+readme = "README.md"
+license-files = { paths = ["LICENSE"] }
+requires-python = ">=3.7"
+classifiers = [
+    "Framework :: Jupyter :: JupyterLab :: 3",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v2 (GPLv2)"
+]
+keywords = ["Quantum", "Measurement", "Framework", "Data Acquisition"]
+dependencies = [ 
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "h5py>=3.8",
+    "pyqt5~=5.15",
+    "pyqtgraph~=0.13",
+    "PyVISA>=1.13",
+    "PyVISA-py>=0.6",
+    "pyzmq>=25",
+    "tomli>=2.0.1"
+]
+
+[project.scripts]
+qviewkit = "qkit.gui.qviewkit.main:main"
+
+[project.optional-dependencies] # Here goes stuff like qiclib
+jupyter = [
+    "jupyterlab>=3.6",
+    "jupyterlab-templates>=0.4",
+    "ipywidgets>=8.0"
+]
+zurich-instruments = [
+    "zhinst~=23.2"
+]
+analysis = [
+    "matplotlib>=3.7",
+    "uncertainties>=3.1",
+    "qutip>=4.7",
+    "SQcircuit>=0.0.17",
+    "peakutils>=1.3"
+]
+qgrid = [
+    "qgrid>=1.0"
+]
+timedomain = [
+    "qiclib@https://git.scc.kit.edu/ipe-sdr-dev/software/qup_client.git>=0.0.2"
+]
+
+
+[project.urls]
+"Homepage" = "https://github.com/qkitgroup/qkit"
+"Bug Tracker" = "https://github.com/qkitgroup/qkit/issues"
+
+[tool.hatch.version]
+path = "src/qkit/__init__.py"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build]

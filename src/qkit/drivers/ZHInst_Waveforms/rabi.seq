@@ -1,0 +1,39 @@
+// Source: https://github.com/zhinst/labone-api-examples/blob/main/shfsg/python/Rabi.seq
+// Associated command table: rabi.json
+// Define constants in time domain
+const t_wid = 50e-9;
+const t_len = t_wid*8;
+const amp = 1;
+const n_amps = 101;
+const n_aves = 1000;
+const t_readout = 1e-6;
+
+// Convert to samples
+const s_rate = 2.0e9;
+const s_wid = t_wid*s_rate;
+const s_len= round(s_rate*t_len/16)*16; //Account for waveform granularity of 16 samples
+const s_readout = round(s_rate*t_readout/16)*16;
+
+// Define waveform and assign index
+wave w = gauss(s_len, amp, s_len/2, s_wid);
+assignWaveIndex(1,2,w,1,2,w,0);
+
+// Reset oscillator phases and trigger scope
+resetOscPhase();
+setTrigger(1);
+setTrigger(0);
+
+//First Rabi amplitude and readout
+executeTableEntry(0);
+playZero(s_readout);
+
+//Increment Rabi amplitude each loop iteration
+repeat (n_amps-1) {
+  resetOscPhase();
+  setTrigger(1);
+  setTrigger(0);
+
+  executeTableEntry(1);
+  //Readout window
+  playZero(s_readout);
+}

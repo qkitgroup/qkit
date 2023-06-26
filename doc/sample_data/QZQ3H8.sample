@@ -1,0 +1,13 @@
+{
+    "clock": 1000000000.0,
+    "comment": "",
+    "manip_if_frequency": 80000000.0,
+    "name": "Arbitrary Sample",
+    "rec_duration": 4e-09,
+    "rec_if_frequency": 60000000.05587935,
+    "rec_offset": 0.0,
+    "rec_phase": 0.0,
+    "rec_pulselength": 4e-09,
+    "rec_shift_average": 0,
+    "rec_shift_offset": 0
+}
