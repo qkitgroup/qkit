@@ -55,15 +55,20 @@ except ImportError:
     pass
 
 # if a local.py file is defined, load cfg dict and overwrite environment entries.
+_config_sources = []
 try:
     from qkit.config.local import cfg_local
     cfg.update(cfg_local)
+    _config_sources += ["[qkit]src/qkit/config/local.py - cfg_local"]
+    logging.warning("DEPRECATED: Loaded qkit.config.local.py! This has been deprecated in favour of qkit_local_config.py, see README!")
 except ImportError:
     pass
 
 try:    
     from qkit.config.local import cfg as cfg_local
     cfg.update(cfg_local)
+    _config_sources += ["[qkit]src/qkit/config/local.py - cfg"]
+    logging.warning("DEPRECATED: Loaded qkit.config.local.py! This has been deprecated in favour of qkit_local_config.py, see README!")
 except ImportError:
     pass
 
@@ -84,6 +89,7 @@ def _load_user_config():
     We log information to stdout, as logging is not yet available. This code is executed before S10_logging.py,
     and will already have become unavailable once logging is initialized.
     """
+    global _config_sources
     import os
     from pathlib import Path
     from itertools import chain
@@ -119,9 +125,15 @@ def _load_user_config():
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         cfg.update(module.cfg)
+        _config_sources += [user_config.absolute()]
 
 _load_user_config()
 del _load_user_config
+
+if len(_config_sources) > 1:
+    logging.warn("Loaded more than one configuration file! This may cause conflicts! Sources:")
+    logging.warn(_config_sources)
+del _config_sources
 
 # clean up 
 del cfg_local

@@ -22,6 +22,7 @@ To install this package, run:
 ```bash
 pip install 'qkit[jupyter,analysis] @ git+https://github.com/qkitgroup/qkit.git@master'
 ```
+If you are simply using qkit, changes to files in `src/` **should not** be necessary. If you find things you need to change there, this might be a bug. Please report this.
 
 ## Developing
 Clone this repository to wherever is convenient and run
@@ -29,6 +30,8 @@ Clone this repository to wherever is convenient and run
 python -m venv .venv
 pip install --editable .
 ```
+This creates a virtual environment in which the dependencies of qkit are installed. This isolates this local environment from your global packages. This way, version conflicts can be avoided. However, **if the venv is not activated, qkit will not be available!**
+For more, look [here](https://docs.python.org/3/library/venv.html).
 ## Running
 You will most likely want to run a JupyterLab Server to work with qkit. Download `jupyter_lab_config.py`.
 In this file, you might want to change this line:
@@ -41,8 +44,19 @@ to point to an existing notebook directory. Then run
 jupyter lab --config=./jupyter_lab_config.py
 ```
 
-## Upgrading:
-If you use an existing installation of qkit, where the Jupyter Notebooks are not located in `./notebooks`, then you will need to change one line in `jupyter_lab_config.py`:
+## Upgrading
+If you use an existing installation of qkit, there might be some breaking changes. They are not major, but need to be taken care of.
+### Migrating Configuration
+Previously, the configuration of qkit was located in `qkit/config/local.py`. As this directory is now a child of `src/`, you are probably not supposed to touch this file. This method is deprecated (you will receive warnings).
+
+Instead, in a parent directory, a file named `qkit_local_config.py` is used to configure your environment.
+
+To migrate, copy the code in your old `local.py` into the new `qkit_local_config.py` file. Do note, however, that the `datadir` and `logdir` paths have changed. It is recommended to use the new values. Conflicting entries in your config may need to be deleted.
+
+### Migrating Notebooks
+The new setup assumes, that notebooks are located in `notebooks/`. This way, `qkit_local_config.py` is in a parent directory of your notebooks and is thus loaded when you initialize qkit in your notebooks.
+
+On measurement computers, it is recommended to move your notebooks into that directory. Alternatively, update `jupyter_lab_config.py` to point to the notebook directory:
 
 ```python 
 # Set Notebook directory
@@ -54,9 +68,9 @@ On Windows, this might be set to:
 notebook_dir = r'C:\notebooks' # Change this line
 ```
 
-Also, you will need to migrate your local config to your `cwd`, or point to it using the environment variable `QKIT_LOCAL_CONFIG`
+Also, you will need to migrate your local config to a parent directory of your notebooks, or point to it using the environment variable `QKIT_LOCAL_CONFIG`. It is possible to set this environment variable in `jupyter_lab_config.py`, as environment variables are inherited to process children.
 
-## Requirements:
+## Requirements
 This project uses python. An up to date installation of python is expected to be present.
 | Library | Usage |
 | ------- | ----- |
