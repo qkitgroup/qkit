@@ -30,7 +30,9 @@ Clone this repository to wherever is convenient.
 git clone https://github.com/qkitgroup/qkit
 ```
 
-It is recommended, but not required, to create a new virtual environment. This isolates this local environment from your global packages. This way, version conflicts can be avoided. However, **if the venv is not activated, qkit will not be available!**
+The following commands need to be run within the cloned repository.
+
+It is recommended, but not required, to create a new virtual environment. This isolates this local environment from your global packages. This way, version conflicts can be avoided. If you choose to use a virtual environment, then it needs to be activated, otherwise, qkit and its dependencies will not be available.
 For more, look [here](https://docs.python.org/3/library/venv.html).
 ```bash
 python -m venv .venv
