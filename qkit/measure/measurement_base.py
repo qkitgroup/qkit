@@ -110,7 +110,7 @@ class MeasureBase(object):
             self.log_functions.pop(index)
     
     class Coordinate:
-        def __init__(self, name, unit="", values=None, set_function=None, wait_time=0):
+        def __init__(self, name, unit="", values=np.array([]), set_function=lambda x: True, wait_time=0):
             if type(name) is not str:
                 raise TypeError('{:s}: Cannot set {!s} as name for coordinate: string needed'.format(__name__, self.name))
             self.name = name
@@ -355,7 +355,9 @@ class MeasureBase(object):
         the data file is closed and filepath is printed
         """
         print(self._data_file.get_filepath())
-        threading.Thread(target=qviewkit.save_plots, args=[self._data_file.get_filepath()]).start()
+        
+        #threading.Thread(target=qviewkit.save_plots, args=[self._data_file.get_filepath()]).start()
+        qviewkit.save_plots(self._data_file.get_filepath())
         self._data_file.close_file()
         waf.close_log_file(self._log)
         self.measurement_name = None
