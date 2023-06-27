@@ -24,6 +24,17 @@ pip install 'qkit[jupyter,analysis] @ git+https://github.com/qkitgroup/qkit.git@
 ```
 If you are simply using qkit, changes to files in `src/` **should not** be necessary. If you find things you need to change there, this might be a bug. Please report this.
 
+## Configuration
+There are three sources of configuration, which are used to set up your environment
+- qkit defaults (you shouldn't change those)
+- local config file
+- configuration in notebooks
+
+### Local config file
+On import, qkit will look for a file called `qkit_local_config.py` or `local.py` in your current working directory or any of its parents. Note, that in case of a jupyter notebook, the current working directory is the directory in which your notebook is located.
+
+If you can't put such a configuration file into a suitable location, you can set the environment variable `QKIT_LOCAL_CONFIG` with a path pointing to such a configuration file. This variable circumvents the search, and the file is directly loaded.
+
 ## Developing
 Clone this repository to wherever is convenient.
 ```bash
