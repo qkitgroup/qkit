@@ -95,13 +95,13 @@ def _load_user_config():
     from itertools import chain
 
     user_config = None
-    environment_vairable_name = 'QKIT_LOCAL_CONFIG'
+    environment_variable_name = 'QKIT_LOCAL_CONFIG'
     config_file_names = ['qkit_local_config.py', 'local.py']
 
-    if environment_vairable_name in os.environ:
+    if environment_variable_name in os.environ:
         # Inspect environment variable, should it exist
-        print("Found environment variable '%s' for configuration." % environment_vairable_name)
-        user_config = os.environ(environment_vairable_name)
+        print("Found environment variable '%s' for configuration." % environment_variable_name)
+        user_config = os.environ[environment_variable_name]
     else:
         current_directory = Path(os.getcwd())
         for dir in chain([current_directory], current_directory.parents):
@@ -125,7 +125,7 @@ def _load_user_config():
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         cfg.update(module.cfg)
-        _config_sources += [user_config.absolute()]
+        _config_sources += [user_config]
 
 _load_user_config()
 del _load_user_config
