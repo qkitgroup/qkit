@@ -36,9 +36,9 @@ import os
 import json
 
 try:
-    import RPi.GPIO as GPIO
     from pcf8575 import PCF8575
 except ModuleNotFoundError:
+    logging.warning('qplexkit: Module PCF8575 for I2C-expander not found. Use dummy instead that just supports software debugging but no control of the qplexkit at all.')
     class PCF8575(object):
         def __init__(self, i2c_bus_no, address):
             print(i2c_bus_no, address)

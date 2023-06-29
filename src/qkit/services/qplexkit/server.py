@@ -60,7 +60,7 @@ if __name__ == "__main__":
     socket.bind(f'''tcp://*:{cfg['qplexkit']['server_port']}''')
 
     while True:
-        fun, args, kwargs = json.loads(socket.recv())
+        fun, args, kwargs = socket.recv_json()
         socket.send_json(msg2cmd[fun](*args, **kwargs))
 
 

@@ -36,14 +36,14 @@ P = ParamSpec("P")
 T = TypeVar("T")
 
 
-def wraps(wrapper: Callable[P, T]):
+def use_docstring(wrapper: Callable[P, T]):
     def decorator(func: Callable) -> Callable[P, T]:
         func.__doc__ = wrapper.__doc__
         return func
     return decorator
 
 
-class qplexkit(Instrument):
+class qplexkit_client(Instrument):
     """
     This is the driver for the homemade qplexkit. It is the interface to the Raspberry Pi that controls a current
     source to switch relays at cryogenic temperatures.
@@ -56,7 +56,7 @@ class qplexkit(Instrument):
 
     def __init__(self, name, address, port=None):
         """
-        Initializes VISA communication with the instrument Yokogawa GS820.
+        Initializes zmq communication with the qplexkit server running on a Raspberry Pi to control the relays of the qplexkit
 
         Parameters
         ----------
@@ -96,7 +96,7 @@ class qplexkit(Instrument):
         """
         self.__name__ = __name__
         # create instrument
-        logging.info(__name__ + ': Initializing instrument qplexkit')
+        logging.info(f'{__name__}: Initializing instrument qplexkit')
         Instrument.__init__(self, name, tags=['physical'])
         self.cfg = cfg['qplexkit']
 
@@ -138,9 +138,11 @@ class qplexkit(Instrument):
         self.add_function('get_attr')
 
     def connect(self, **kwargs):
+        logging.info(f'''{__name__}: connecting to tcp://{kwargs.get('address', self._address)}:{kwargs.get('port', self._port)}''')
         self.socket.connect(f'''tcp://{kwargs.get('address', self._address)}:{kwargs.get('port', self._port)}''')
 
     def disconnect(self, **kwargs):
+        logging.info(f'''{__name__}: disconnecting tcp://{kwargs.get('address', self._address)}:{kwargs.get('port', self._port)}''')
         self.socket.disconnect(f'''tcp://{kwargs.get('address', self._address)}:{kwargs.get('port', self._port)}''')
 
     def _query(self, msg):
@@ -161,73 +163,79 @@ class qplexkit(Instrument):
         self.socket.send_json(msg)
         return self.socket.recv_json()
 
-    @wraps(qplexkit.qplexkit.set_switch_time)
+    @use_docstring(qplexkit.qplexkit.set_switch_time)
     def do_set_switch_time(self, val):
+        logging.info(f'''{__name__}: set switch time to {val}s''')
         msg = ("set_switch_time", tuple([val]), dict({}))
         return self._query(msg)
 
-    @wraps(qplexkit.qplexkit.get_switch_time)
+    @use_docstring(qplexkit.qplexkit.get_switch_time)
     def do_get_switch_time(self):
         msg = ("get_switch_time", tuple([]), dict({}))
         return self._query(msg)
 
-    @wraps(qplexkit.qplexkit.set_experiment)
+    @use_docstring(qplexkit.qplexkit.set_experiment)
     def do_set_experiment(self, exp, protect=False, **kwargs):
+        logging.info(f'''{__name__}: set experiment to {exp}''')
         msg = ("set_experiment", tuple([exp, protect]), dict(kwargs))
         return self._query(msg)
 
-    @wraps(qplexkit.qplexkit.get_experiment)
+    @use_docstring(qplexkit.qplexkit.get_experiment)
     def do_get_experiment(self, **kwargs):
         msg = ("get_experiment", tuple([]), dict(kwargs))
         return self._query(msg)
 
-    @wraps(qplexkit.qplexkit.set_current_divider)
+    @use_docstring(qplexkit.qplexkit.set_current_divider)
     def do_set_current_divider(self, status, **kwargs):
+        logging.info(f'''{__name__}: set current divider to {status}''')
         msg = ("set_current_divider", tuple([int(status)]), dict(kwargs))
         return self._query(msg)
 
-    @wraps(qplexkit.qplexkit.get_current_divider)
+    @use_docstring(qplexkit.qplexkit.get_current_divider)
     def do_get_current_divider(self, **kwargs):
         msg = ("get_current_divider", tuple([]), dict(kwargs))
         return bool(self._query(msg))
 
-    @wraps(qplexkit.qplexkit.set_amplifier)
+    @use_docstring(qplexkit.qplexkit.set_amplifier)
     def do_set_amplifier(self, status, **kwargs):
+        logging.info(f'''{__name__}: set amplifier to {status}''')
         msg = ("set_amplifier", tuple([int(status)]), dict(kwargs))
         return self._query(msg)
 
-    @wraps(qplexkit.qplexkit.get_amplifier)
+    @use_docstring(qplexkit.qplexkit.get_amplifier)
     def do_get_amplifier(self, **kwargs):
         msg = ("get_amplifier", tuple([]), dict(kwargs))
         return bool(self._query(msg))
 
-    @wraps(qplexkit.qplexkit.set_relay)
+    @use_docstring(qplexkit.qplexkit.set_relay)
     def set_relay(self, rel, status, **kwargs):
+        logging.info(f'''{__name__}: set relay {rel} to {status}''')
         msg = ("set_relay", tuple([rel, int(status)]), dict(kwargs))
         return self._query(msg)
 
-    @wraps(qplexkit.qplexkit.get_relay)
+    @use_docstring(qplexkit.qplexkit.get_relay)
     def get_relay(self, rel, **kwargs):
         msg = ("get_relay", tuple([rel]), dict(kwargs))
         return bool(self._query(msg))
 
-    @wraps(qplexkit.qplexkit.get_relays)
+    @use_docstring(qplexkit.qplexkit.get_relays)
     def do_get_relays(self, **kwargs):
         msg = ("get_relays", tuple([]), dict(kwargs))
         return self._query(msg)
 
-    @wraps(qplexkit.qplexkit.get_ccr)
+    @use_docstring(qplexkit.qplexkit.get_ccr)
     def get_ccr(self, rel, **kwargs):
         msg = ("get_ccr", tuple([rel]), dict(kwargs))
         return self._query(msg)
 
-    @wraps(qplexkit.qplexkit.read_ccr)
+    @use_docstring(qplexkit.qplexkit.read_ccr)
     def read_ccr(self, n=-1, timestamp=False, **kwargs):
         msg = ("read_ccr", tuple([n, timestamp]), dict(kwargs))
         return self._query(msg)
 
-    @wraps(qplexkit.qplexkit.reset)
+    @use_docstring(qplexkit.qplexkit.reset)
     def reset(self):
+        logging.info(f'''{__name__}: reset qplexkit by setting all relays to 0 which corresponds to experiment 0''')
         msg = ("reset", tuple([]), dict({}))
         return self._query(msg)
 
