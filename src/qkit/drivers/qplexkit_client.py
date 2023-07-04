@@ -56,7 +56,8 @@ class qplexkit_client(Instrument):
 
     def __init__(self, name, address, port=None):
         """
-        Initializes zmq communication with the qplexkit server running on a Raspberry Pi to control the relays of the qplexkit
+        Initializes zmq communication with the qplexkit server running on a Raspberry Pi to control the relays of the
+        qplexkit
 
         Parameters
         ----------
@@ -92,7 +93,7 @@ class qplexkit_client(Instrument):
         Loading module ... S99_init_user.py
         Initialized the file info database (qkit.fid) in 0.000 seconds.
 
-        >>> qpk = qkit.instruments.create('qpk', 'qplexkit', address='00.00.000.00', port=5555)
+        >>> qpk = qkit.instruments.create('qpk', 'qplexkit', address='00.00.000.00')
         """
         self.__name__ = __name__
         # create instrument
@@ -138,11 +139,27 @@ class qplexkit_client(Instrument):
         self.add_function('get_attr')
 
     def connect(self, **kwargs):
-        logging.info(f'''{__name__}: connecting to tcp://{kwargs.get('address', self._address)}:{kwargs.get('port', self._port)}''')
-        self.socket.connect(f'''tcp://{kwargs.get('address', self._address)}:{kwargs.get('port', self._port)}''')
+        try:
+            url = f'''tcp://{kwargs.get('address', self._address)}:{kwargs.get('port', self._port)}'''
+            logging.info(f'{__name__}: connecting to {url}')
+            self.socket.setsockopt(zmq.RCVTIMEO, 1000)  # wait no longer than a second to fail.
+            self.socket.setsockopt(zmq.LINGER, 0)
+            self.socket.connect(f'{url}')
+            if self._query(("ping", tuple([]), dict({}))) == 'pong':
+                logging.info(f'{__name__}: connection to {url} successfully established')
+                return True
+            else:
+                logging.warning(f'{__name__}: connection to {url} established, but ping-pong failed')
+                return False
+        except zmq.error.Again as e:
+            url = f'''tcp://{kwargs.get('address', self._address)}:{kwargs.get('port', self._port)}'''
+            logging.error(f'{__name__}: connecting to {url} failed')
+            logging.error(f'{__name__}: Server not available or Authenticator failed! {e}')
+            return False
 
     def disconnect(self, **kwargs):
-        logging.info(f'''{__name__}: disconnecting tcp://{kwargs.get('address', self._address)}:{kwargs.get('port', self._port)}''')
+        url = f'''tcp://{kwargs.get('address', self._address)}:{kwargs.get('port', self._port)}'''
+        logging.info(f'{__name__}: disconnecting {url}')
         self.socket.disconnect(f'''tcp://{kwargs.get('address', self._address)}:{kwargs.get('port', self._port)}''')
 
     def _query(self, msg):
@@ -158,7 +175,7 @@ class qplexkit_client(Instrument):
         returns
         -------
         ans: str
-            Answer that is returned at query after the sent message <msg>.
+            Answer that is returned to the queried message <msg>.
         """
         self.socket.send_json(msg)
         return self.socket.recv_json()
