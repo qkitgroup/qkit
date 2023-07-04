@@ -46,17 +46,19 @@ msg2cmd = {'set_switch_time': qpk.set_switch_time,
            'read_ccr': qpk.read_ccr,
            'reset': qpk.reset,
            'get_attr': lambda attr, *args, **kwargs: getattr(qpk, attr),
+	   'ping': lambda *args, **kwargs: 'pong',
            }
 
 ''' run zmq-server '''
 if __name__ == "__main__":
     context = zmq.Context()
-    # auth = ThreadAuthenticator(context, log=logging.getLogger())
-    # auth.allow('localhost')
-    # for ip in cfg['qplexkit']['allowed_ip_addresses']:
-    #     auth.allow(ip)
-    # socket.zap_domain = b'global'
+    auth = ThreadAuthenticator(context, log=logging.getLogger())
+    auth.start()
+    auth.allow('localhost')
+    for ip in cfg['qplexkit']['allowed_ip_addresses'].split(', '):
+        auth.allow(ip)
     socket = context.socket(zmq.REP)
+    socket.zap_domain = b'global'
     socket.bind(f'''tcp://*:{cfg['qplexkit']['server_port']}''')
 
     while True:
