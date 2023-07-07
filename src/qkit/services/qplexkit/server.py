@@ -23,6 +23,7 @@ from zmq.auth.thread import ThreadAuthenticator
 import logging
 from qkit.services.qplexkit.qplexkit import qplexkit
 from qkit.config.services import cfg
+import re
 
 ##################################################
 ### setup zeroMQ-server for qkit communication ###
@@ -46,7 +47,7 @@ msg2cmd = {'set_switch_time': qpk.set_switch_time,
            'read_ccr': qpk.read_ccr,
            'reset': qpk.reset,
            'get_attr': lambda attr, *args, **kwargs: getattr(qpk, attr),
-	   'ping': lambda *args, **kwargs: 'pong',
+           'ping': lambda *args, **kwargs: 'pong',
            }
 
 ''' run zmq-server '''
@@ -54,16 +55,19 @@ if __name__ == "__main__":
     context = zmq.Context()
     auth = ThreadAuthenticator(context, log=logging.getLogger())
     auth.start()
-    auth.allow('localhost')
-    for ip in cfg['qplexkit']['allowed_ip_addresses'].split(', '):
-        auth.allow(ip)
+    auth.allow('127.0.0.0/8')
+    for ip in cfg['qplexkit']['allowed_ip_addresses'].split(','):
+        auth.allow(re.compile(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})').search(ip)[0])
     socket = context.socket(zmq.REP)
     socket.zap_domain = b'global'
     socket.bind(f'''tcp://*:{cfg['qplexkit']['server_port']}''')
 
     while True:
-        fun, args, kwargs = socket.recv_json()
-        socket.send_json(msg2cmd[fun](*args, **kwargs))
+        try:
+            fun, args, kwargs = socket.recv_json()
+            socket.send_json(msg2cmd[fun](*args, **kwargs))
+        except Exception as e:
+            socket.send_json((e.__class__.__name__, *e.args))
 
 
 ###################################################
