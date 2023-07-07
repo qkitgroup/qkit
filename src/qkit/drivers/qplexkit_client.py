@@ -178,7 +178,12 @@ class qplexkit_client(Instrument):
             Answer that is returned to the queried message <msg>.
         """
         self.socket.send_json(msg)
-        return self.socket.recv_json()
+        ans = self.socket.recv_json()
+        if type(ans) is list:
+            if type(ans[0]) is str:
+                if 'error' in ans[0].lower():
+                    raise Exception(ans)
+        return ans
 
     @use_docstring(qplexkit.qplexkit.set_switch_time)
     def do_set_switch_time(self, val):
