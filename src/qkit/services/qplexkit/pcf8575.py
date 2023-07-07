@@ -1,4 +1,6 @@
 import smbus
+import logging
+
 
 class IOPort(list):
     """
@@ -13,6 +15,7 @@ class IOPort(list):
         Set an individual output pin.
         """
         self.pcf8575.set_output(key, value)
+        logging.info(f'set port {key} to {value}')
 
     def __getitem__(self, key):
         """
@@ -52,7 +55,7 @@ class PCF8575(object):
         self.address = address
 
     def __repr__(self):
-        return "PCF8575(i2c_bus_no=%r, address=0x%02x)" % (self.bus_no, self.address)
+        return f'PCF8575(i2c_bus_no={self.bus_no:d}, address={self.address:#02x})'
 
     @property
     def port(self):
