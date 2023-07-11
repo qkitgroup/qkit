@@ -13,6 +13,7 @@ import qkit
 from qkit.storage import store
 from qkit.storage.hdf_constants import ds_types
 from qkit.core.lib.misc import str3,concat
+import sys
 
 try:
     if qkit.module_available("matplotlib"):
@@ -59,7 +60,7 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
     # the final return call should look sth. like this:
     # python -m qkit.gui.qviewkit.main -f [h5_filepath] -ds amplitude,phase -rt 2 -live
     
-    cmd = ['python']
+    cmd = [sys.executable]
     cmd.append('-m')
     cmd.append(plot_viewer)
     

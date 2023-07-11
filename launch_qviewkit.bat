@@ -1,5 +1,6 @@
 @echo on
 Pushd "%~dp0"
+SET HDF5_USE_FILE_LOCKING=FALSE
 CALL .venv/Scripts/activate.bat
 qviewkit -f  %1
 
