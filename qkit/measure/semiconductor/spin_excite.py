@@ -117,11 +117,11 @@ class Qupulse_decoder2:
                     raise ValueError(f"{__name__}: Measurements of different experiments in {pt.identifier} overlap. Experiments are not allowed to share Measurements.")
                 pt_measurements.add(measurement)
             #In case there are forloop pts, check whether they don't have overlapping measurement axis
-            if isinstance(pt, self._for_type):
+            """ if isinstance(pt, self._for_type):
                 a = pt.loop_range.step.original_expression
                 if isinstance(a, str) and a in pt_axis:
                     raise ValueError(f"{__name__}: The step parameter defined in {pt.identifier} is already used in another experiment. Experiments must have different step parameter names.")
-                pt_axis.add(a)
+                pt_axis.add(a) """
     
     def _validate_channel_sample_rates(self, channel_sample_rates):
         """Ich weiß um die Vorlieben der Deutschen für ihr liebstes Haustier.  
@@ -349,6 +349,16 @@ class FileHandler:
         
         self.multiplexer_coords = makehash()
         self.datasets = {}
+
+    @property
+    def measurement_name(self):
+        return self.mb.measurement_name
+    
+    @measurement_name.setter
+    def measurement_name(self, new_name):
+        if not isinstance(new_name, str):
+            raise TypeError(f"{__name__}: {new_name} is not a valid measurement_name. Must be a string")
+        self.mb.measurement_name = new_name
     
     @property
     def report_static_voltages(self):
@@ -532,7 +542,7 @@ class Exciting():
         Starts a 3D measurement
     """
     def __init__(self, readout_backend, manipulation_backend,
-                 *experiments, averages, mode = "PulseParameter", deep_render = False, exp_name = "", sample = None, **add_pars):
+                 *experiments, averages, active_modes = ("PulseParameter",), deep_render = False, **add_pars):
         """
         Parameters
         ----------
@@ -549,6 +559,7 @@ class Exciting():
         self._ma_backend = manipulation_backend
         self.mode_path = Path(__file__).parent / "modes"
         self._load_modes()
+        self.active_modes = active_modes
 
         self.report_static_voltages = True
         self.par_search_placeholder = "$$"
@@ -559,8 +570,16 @@ class Exciting():
 
         #Here there be testing stuff:
         self.fh = FileHandler()        
-        self.compile(*experiments, averages = averages, mode = mode, deep_render = deep_render, **add_pars)        
+        self.compile(*experiments, averages = averages, active_modes = self.active_modes, deep_render = deep_render, **add_pars)        
    
+    @property
+    def measurement_name(self):
+        return self.fh.measurement_name
+    
+    @measurement_name.setter
+    def measurement_name(self, new_name):
+        self.fh.measurement_name = new_name
+    
     @property
     def active_modes(self):
         return self._active_modes
@@ -627,7 +646,7 @@ class Exciting():
         if not issubclass(MA_backend.__class__, MA_backend_base):
             raise TypeError(f"{__name__}: Cannot set {MA_backend} as manipulation backend. The backend must be a subclass of MA_backend_base")
     
-    def compile(self, *experiments, averages, active_modes = "PulseParameter", deep_render = False, **add_pars):   
+    def compile(self, *experiments, averages, active_modes = ("PulseParameter",) , deep_render = False, **add_pars):   
         """Währenddessen Zwiebeln und Wurzeln schälen. Zwiebeln kleinschneiden. Wurzeln in kurze Stifte schneiden. 
         Öl in einem Wok erhitzen und Gemüse darin kurz pfannenrühren. Koriander kleinwiegen. Reis und Koriander dazugeben und alles vermischen. 
         Reis-Gemüse-Mischung herausheben und warmstellen.
