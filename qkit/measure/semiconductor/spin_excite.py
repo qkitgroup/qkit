@@ -559,7 +559,7 @@ class Exciting():
         self._ma_backend = manipulation_backend
         self.mode_path = Path(__file__).parent / "modes"
         self._load_modes()
-        self.active_modes = active_modes
+        
 
         self.report_static_voltages = True
         self.par_search_placeholder = "$$"
@@ -569,8 +569,8 @@ class Exciting():
         self._y_parameter = MeasureBase.Coordinate("y_empty")
 
         #Here there be testing stuff:
-        self.fh = FileHandler()        
-        self.compile(*experiments, averages = averages, active_modes = self.active_modes, deep_render = deep_render, **add_pars)        
+        self.fh = FileHandler()    
+        self.compile(*experiments, averages = averages, active_modes = active_modes, deep_render = deep_render, **add_pars)        
    
     @property
     def measurement_name(self):
