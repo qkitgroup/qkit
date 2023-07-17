@@ -273,15 +273,16 @@ class Qupulse_decoder2:
                 warnings.warn(f"{__name__}: {pt.identifier} is not a ForLoopPulseTemplate. Pulse parameter axis will be displayed with default name.")
         
 class Settings:
-    def __init__(self, core, channel_params, measurement_params, averages, **add_pars):
+    def __init__(self, ro_backend, ma_backend, channel_params, measurement_params, averages, **add_pars):
         """Das Rezept meines Bekannten war leider etwas kurz gefasst und enthielt keine Mengenangaben. 
         Man muss – wenn man sich in einem Land befinden, in dem man dieses Gericht zubereiten darf – die Mengen der Bestandteile abschätzen.
         Mein Bekannter hat auch keine Angaben zu der Hunderasse, von der dieses Fleisch stammt, gemacht. 
         Ich weiß auch nicht, ob für das Rezept Filet-, Schnitzel- oder Bratenfleisch usw. verwendet wird. 
         Da es ein Wokgericht ist, gehe ich davon aus, dass es sich um Fleisch zum Kurzbraten handelt und nicht um Schmorfleisch.
         """
-        self.core = core
-        self._assert_measurement_averages(measurement_params, averages)
+        self._ro_backend = ro_backend
+        self._ma_backend = ma_backend
+        self._validate_measurement_averages(measurement_params, averages)
         self.channel_settings = channel_params
         self._validate_channel_entries()
         self.measurement_settings = measurement_params
@@ -291,7 +292,7 @@ class Settings:
         self._get_measurement_nodes()
         #self._measurement_time_to_samples()
     
-    def _assert_measurement_averages(self, measurement_params, averages):
+    def _validate_measurement_averages(self, measurement_params, averages):
         missing_averages = ""
         for measurement, settings in measurement_params.items():
             try:
@@ -304,7 +305,7 @@ class Settings:
     def _validate_channel_entries(self):
         unsupported_channels = ""
         for channel in self.channel_settings.keys():
-            if channel not in self.core._ma_backend._registered_channels.keys():
+            if channel not in self._ma_backend._registered_channels.keys():
                 unsupported_channels += f"{channel}\n"
         if unsupported_channels:
             raise AttributeError(f"{__name__}: Your manipulation backend does not support the following channels:\n{unsupported_channels}")
@@ -312,29 +313,29 @@ class Settings:
     def _validate_measurement_entries(self):
         unsupported_measurements = ""
         for measurement in self.measurement_settings.keys():
-            if measurement not in self.core._ro_backend._registered_measurements.keys():
+            if measurement not in self._ro_backend._registered_measurements.keys():
                 unsupported_measurements += f"{measurement}\n"
         if unsupported_measurements:
             raise AttributeError(f"{__name__}: Your readout backend does not support the following measurements:\n{unsupported_measurements}")
     
     def _get_measurement_units(self):
         for measurement, settings in self.measurement_settings.items():
-            settings["unit"] = self.core._ro_backend._registered_measurements[measurement]["unit"]
+            settings["unit"] = self._ro_backend._registered_measurements[measurement]["unit"]
     
     def _get_measurement_nodes(self):
         for measurement, settings in self.measurement_settings.items():
-            settings["data_nodes"] = self.core._ro_backend._registered_measurements[measurement]["data_nodes"]
+            settings["data_nodes"] = self._ro_backend._registered_measurements[measurement]["data_nodes"]
     
     def load(self):
-        for measurement in self.core._ro_backend._registered_measurements:
-            getattr(self.core._ro_backend, f"{measurement}_deactivate")()
+        for measurement in self._ro_backend._registered_measurements:
+            getattr(self._ro_backend, f"{measurement}_deactivate")()
         for measurement, settings in self.measurement_settings.items():
-            getattr(self.core._ro_backend, f"{measurement}_set_measurement_count")(settings["measurement_count"])
-            getattr(self.core._ro_backend, f"{measurement}_set_sample_count")(settings["sample_count"])
-            getattr(self.core._ro_backend, f"{measurement}_set_averages")(settings["averages"])
-            getattr(self.core._ro_backend, f"{measurement}_activate")()
+            getattr(self._ro_backend, f"{measurement}_set_measurement_count")(settings["measurement_count"])
+            getattr(self._ro_backend, f"{measurement}_set_sample_count")(settings["sample_count"])
+            getattr(self._ro_backend, f"{measurement}_set_averages")(settings["averages"])
+            getattr(self._ro_backend, f"{measurement}_activate")()
             
-        self.core._ma_backend.load_waveform(self.channel_settings)
+        self._ma_backend.load_waveform(self.channel_settings)
 
 class FileHandler:
     def __init__(self) -> None:
@@ -675,7 +676,7 @@ class Exciting():
         self.mapper.map_measurements(decoded.measurement_pars)
         self.mapper.map_measurements(averages)
 
-        self.settings = Settings(self, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)
+        self.settings = Settings(self._ro_backend, self._ma_backend, decoded.channel_pars, decoded.measurement_pars, averages, **add_pars)
         self.active_modes = active_modes
 
         self.settings.load()
