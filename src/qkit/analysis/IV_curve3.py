@@ -1678,7 +1678,7 @@ class IV_curve3(qData):
                                                   np.concatenate(_V[:, x, y]))))
                         # find outliers
                         sg_median = ufloat(nominal_value=np.median(sg),
-                                           std_dev=stats.median_absolute_deviation(sg))
+                                           std_dev=stats.median_abs_deviation(sg))
                         V_sg[x, y, i] = ufloat(
                             nominal_value=[np.nanmin, np.nanmax][i](sg[np.logical_and(sg_median.n - sg_median.s < sg,
                                                                                       sg < sg_median.n + sg_median.s)]),
