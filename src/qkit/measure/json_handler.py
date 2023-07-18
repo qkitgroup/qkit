@@ -43,7 +43,7 @@ class QkitJSONDecoder(json.JSONDecoder):
     def object_hook(self, obj):
         if 'content' in obj and 'dtype' in obj and len(obj) == 2:
             if obj['dtype'] == 'ndarray':
-                return np.array(obj['content'])
+                return np.array(obj['content'], dtype=object)
             if obj['dtype'] == 'ufloat':
                 if uncertainties_enable or qkit.module_available('uncertainties'):
                     return uncertainties.ufloat(nominal_value=obj['content']['nominal_value'],
