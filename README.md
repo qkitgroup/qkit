@@ -24,6 +24,8 @@ pip install 'qkit[jupyter,analysis] @ git+https://github.com/qkitgroup/qkit.git@
 ```
 If you are simply using qkit, changes to files in `src/` **should not** be necessary. If you find things you need to change there, this might be a bug. Please report this.
 
+If you intend to use the option to click on .h5 files in order to open them, don't install qkit in a virtual environment.
+
 ## Configuration
 There are three sources of configuration, which are used to set up your environment
 - qkit defaults (you shouldn't change those)
@@ -43,7 +45,7 @@ git clone https://github.com/qkitgroup/qkit
 
 The following commands need to be run within the cloned repository.
 
-It is recommended, but not required, to create a new virtual environment. This isolates this local environment from your global packages. This way, version conflicts can be avoided. If you choose to use a virtual environment, then it needs to be activated, otherwise, qkit and its dependencies will not be available.
+It is recommended, but not required, to create a new virtual environment. This isolates this local environment from your global packages. This way, version conflicts can be avoided. If you choose to use a virtual environment, then it needs to be activated, otherwise, qkit and its dependencies will not be available. This also means double click to open .h5 files will not be available.
 For more, look [here](https://docs.python.org/3/library/venv.html).
 ```bash
 python -m venv .venv

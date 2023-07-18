@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=QViewKit
+Comment=QKit's QViewKit for viewing HDF-5 measurement files
+Exec=env HDF5_USE_FILE_LOCKING=FALSE qviewkit -live -rt 2 -f %U
+Terminal=false
+Type=Application
+Categories=Science
+MimeType=application/x-hdf;application/x-hdf5
