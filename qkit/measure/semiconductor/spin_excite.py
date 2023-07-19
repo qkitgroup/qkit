@@ -341,7 +341,7 @@ class FileHandler:
     def __init__(self) -> None:
         self.mb = mb.MeasureBase()
         
-        self.report_static_voltages = True
+        self.additional_watch = True
         self.open_qviewkit = True
 
         self.par_search_placeholder = "$$"
@@ -362,14 +362,14 @@ class FileHandler:
         self.mb.measurement_name = new_name
     
     @property
-    def report_static_voltages(self):
-        return self._report_static_voltages
+    def additional_watch(self):
+        return self._additional_watch
     
-    @report_static_voltages.setter
-    def report_static_voltages(self, yesno):
+    @additional_watch.setter
+    def additional_watch(self, yesno):
         if not isinstance(yesno, bool):
-            raise TypeError(f"{__name__}: Cannot use {yesno} as report_static_voltages. Must be a boolean value.")
-        self._report_static_voltages = yesno
+            raise TypeError(f"{__name__}: Cannot use {yesno} as additional_watch. Must be a boolean value.")
+        self._additional_watch = yesno
     
     @property
     def par_search_placeholder(self):
@@ -479,8 +479,8 @@ class FileHandler:
             dim0 = tuple(len(coordinate.values) for coordinate in dset.coordinates)
             self._initialize_file_matrix(dset.name, dim0)
         
-        if self.report_static_voltages:
-            self._static_voltages = self.mb._data_file.add_textlist("static_voltages")
+        if self.additional_watch:
+            self._static_voltages = self.mb._data_file.add_textlist("additional_watch")
             _instr_settings_dict = get_instrument_settings(self.mb._data_file.get_filepath())
 
             active_gates = {}
@@ -559,10 +559,8 @@ class Exciting():
         self._validate_MA_backend(manipulation_backend)
         self._ma_backend = manipulation_backend
         self.mode_path = Path(__file__).parent / "modes"
-        self._load_modes()
-        
+        self._load_modes()        
 
-        self.report_static_voltages = True
         self.par_search_placeholder = "$$"
         self.par_search_string = "gate$$_out"
 
@@ -732,7 +730,13 @@ class Exciting():
             coords = mode.create_coordinates()
             self.fh.update_coordinates(mode.tag, coords)
         self._count_total_iterations()
-        self.fh.create_datasets(self.settings.measurement_settings, additional_coords)
+        #self.fh.create_datasets(self.settings.measurement_settings, additional_coords)
+        for measurement_name, measurement in self.settings.measurement_settings.items():
+            for node in measurement["data_nodes"]:
+                for tag in self.fh.multiplexer_coords.keys():
+                    self.fh.add_dset(f"{tag}.{measurement_name}.{node}",
+                    additional_coords + self.fh. multiplexer_coords[tag][measurement_name],
+                    measurement["unit"])
         self.fh.prepare_measurement(additional_coords)
         
     def _stream_modular(self, data_location, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode

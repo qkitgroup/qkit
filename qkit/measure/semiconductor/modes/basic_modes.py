@@ -20,7 +20,7 @@ class PulseParameter(ModeBase):
         all_coords = {}
         for measurement_name, measurement in self.measurement_settings.items():
             x_coord = {"values" : measurement["loop_range_pp"],
-            "coordname" : f"{self.tag}:{measurement['loop_step_name_pp']}.{measurement_name}",
+            "coordname" : f"{self.tag}.{measurement['loop_step_name_pp']}.{measurement_name}",
             "unit" : self.unit,}
             all_coords[measurement_name] = [x_coord]
         return all_coords  
@@ -35,7 +35,7 @@ class PulseParameter(ModeBase):
             for node_name, node_value in node_values.items():
                 self.total_sum[measurement_name][node_name] += np.sum(np.average(node_value, axis = 2), axis = 0)
                 value = self.total_sum[measurement_name][node_name]/self.divider[measurement_name]
-                self.fh.write_to_file(f"{self.tag}:{measurement_name}.{node_name}", value, data_location)    
+                self.fh.write_to_file(f"{self.tag}.{measurement_name}.{node_name}", value, data_location)    
     
     def reset(self):
         for name, measurement in self.measurement_settings.items():
@@ -55,10 +55,10 @@ class NoAvg(ModeBase):
         all_coords = {}
         for measurement_name, measurement in self.measurement_settings.items():
             x_coord = {"values" :  np.arange(measurement["averages"] * measurement["measurement_count"]),
-            "coordname" : f"{self.tag}:iterations.{measurement_name}",
+            "coordname" : f"{self.tag}.iterations.{measurement_name}",
             "unit" : "#",}
             y_coord = {"values" :  measurement["loop_range_tt"],
-            "coordname" : f"{self.tag}:{measurement['loop_step_name_tt']}.{measurement_name}",
+            "coordname" : f"{self.tag}.{measurement['loop_step_name_tt']}.{measurement_name}",
             "unit" : "s",}
             all_coords[measurement_name] = [x_coord, y_coord]
         return all_coords
@@ -69,7 +69,7 @@ class NoAvg(ModeBase):
                 for grid in node_value:
                     for single_trace in grid:
                         position = data_location + (self.column[measurement_name][node_name],)
-                        self.fh.write_to_file(f"{self.tag}:{measurement_name}.{node_name}", single_trace, 
+                        self.fh.write_to_file(f"{self.tag}.{measurement_name}.{node_name}", single_trace, 
                         position)
                         self.column[measurement_name][node_name] += 1
     
@@ -93,10 +93,10 @@ class PpvsT(ModeBase):
         all_coords = {}
         for measurement_name, measurement in self.measurement_settings.items():
             x_coord = {"values" :  measurement["loop_range_pp"],
-            "coordname" : f"{self.tag}:{measurement['loop_step_name_pp']}.{measurement_name}",
+            "coordname" : f"{self.tag}.{measurement['loop_step_name_pp']}.{measurement_name}",
             "unit" : "a.u.",}
             y_coord = {"values" :  measurement["loop_range_tt"],
-            "coordname" : f"{self.tag}:{measurement['loop_step_name_tt']}.{measurement_name}",
+            "coordname" : f"{self.tag}.{measurement['loop_step_name_tt']}.{measurement_name}",
             "unit" : "s",}
             all_coords[measurement_name] = [x_coord, y_coord]
         return all_coords
@@ -111,7 +111,7 @@ class PpvsT(ModeBase):
             for node_name, node_value in node_values.items():
                 self.total_sum[measurement_name][node_name] += np.sum(node_value, axis = 0)
                 value = self.total_sum[measurement_name][node_name]/self.divider[measurement_name]
-                self.fh.write_to_file(f"{self.tag}:{measurement_name}.{node_name}", value, data_location)
+                self.fh.write_to_file(f"{self.tag}.{measurement_name}.{node_name}", value, data_location)
     
     def reset(self):
         for name, measurement in self.measurement_settings.items():
@@ -133,7 +133,7 @@ class TimeTrace(ModeBase):
         all_coords = {}
         for measurement_name, measurement in self.measurement_settings.items():
             x_coord = {"values" :  measurement["loop_range_tt"],
-            "coordname" : f"{self.tag}:{measurement['loop_step_name_tt']}.{measurement_name}",
+            "coordname" : f"{self.tag}.{measurement['loop_step_name_tt']}.{measurement_name}",
             "unit" : "a.u.",}
             all_coords[measurement_name] = [x_coord]
         return all_coords
@@ -148,7 +148,7 @@ class TimeTrace(ModeBase):
             for node_name, node_value in node_values.items():
                 self.total_sum[measurement_name][node_name] += np.sum(np.average(node_value, axis = 1), axis = 0)
                 value = self.total_sum[measurement_name][node_name]/self.divider[measurement_name]
-                self.fh.write_to_file(f"{self.tag}:{measurement_name}.{node_name}", value, data_location)
+                self.fh.write_to_file(f"{self.tag}.{measurement_name}.{node_name}", value, data_location)
     
     def reset(self):
         for name, measurement in self.measurement_settings.items():
