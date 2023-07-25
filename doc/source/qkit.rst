@@ -5,6 +5,8 @@ Subpackages
 -----------
 
 .. toctree::
+    :maxdepth: 4
+    
 
     qkit.analysis
     qkit.config

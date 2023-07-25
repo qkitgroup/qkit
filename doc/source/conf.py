@@ -14,6 +14,8 @@
 #
 import os
 import sys
+sys.path.insert(0, os.path.abspath('../'))
+sys.path.insert(0, os.path.abspath('../../'))
 sys.path.insert(0, os.path.abspath('../../../'))
 
 # -- Project information -----------------------------------------------------
@@ -27,6 +29,8 @@ version = u''
 # The full version, including alpha/beta/rc tags
 release = u'0.3 alpha'
 
+import shutil
+shutil.copytree('../notebooks', 'notebooks', dirs_exist_ok=True)
 
 # -- General configuration ---------------------------------------------------
 
@@ -40,9 +44,12 @@ release = u'0.3 alpha'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
-    'sphinx.ext.githubpages',
+    'sphinx.ext.githubpages', 
+    'nbsphinx',
 ]
 
+nbsphinx_allow_errors = True
+nbsphinx_execute = 'never'
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -60,7 +67,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "english"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
