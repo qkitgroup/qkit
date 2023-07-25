@@ -11,6 +11,8 @@ Welcome to QKIT's documentation!
    :caption: Contents:
 
   installation
+  modules
+  _notebooks/index
 
 
 Indices and tables
