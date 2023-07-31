@@ -205,34 +205,34 @@ class qplexkit(object):
                              13: 1, 14: 7, 15: 8, 16: 14, 17: 20, 18: 21, 19: 25,  # supplementary relays
                              }
         ''' physical relay control line - I2C port '''
-        self._pline2port = {1: pcf2.port[3],  # K_OnOff_VP1
-                            2: pcf1.port[2],  # K_OnOff_VP2
-                            3: pcf1.port[3],  # K_OnOff_VP3
-                            4: pcf1.port[4],  # K_OnOff_VP4
-                            5: pcf2.port[8],  # K_OnOff_VP5
-                            6: pcf2.port[9],  # K_OnOff_VP6
-                            7: pcf2.port[0],  # K_OnOff_VP7
-                            8: pcf2.port[1],  # K_OnOff_VP8
-                            9: pcf1.port[5],  # K_OnOff_VP9
-                            10: pcf1.port[6],  # K_OnOff_VP10
-                            11: pcf1.port[7],  # K_OnOff_VP11
-                            12: pcf1.port[8],  # K_OnOff_VP12
-                            14: pcf2.port[2],  # K_OnOff_VP14
-                            15: pcf1.port[9],  # K_OnOff_VP15
-                            16: pcf1.port[10],  # K_OnOff_VP16
-                            17: pcf1.port[11],  # K_OnOff_VP17
-                            18: pcf2.port[10],  # K_OnOff_VP18
-                            19: pcf2.port[11],  # K_OnOff_VP19
-                            20: pcf2.port[4],  # K_OnOff_VP20
-                            21: pcf2.port[5],  # K_OnOff_VP21
-                            22: pcf1.port[12],  # K_OnOff_VP22
-                            23: pcf1.port[13],  # K_OnOff_VP23
-                            24: pcf1.port[14],  # K_OnOff_VP24
-                            25: pcf2.port[6],  # K_OnOff_VP25
-                            '24>2': pcf1.port[15],  # K_VP24>VP2
-                            '25>7': pcf2.port[7],  # K_VP25>VP7
-                            'I_src_OnOff': pcf1.port[0],  # I_SRC_OnOff
-                            'I_src_out_toggle': pcf1.port[1],  # I_SRC_OUT_TOGGLE
+        self._pline2port = {1: pcf2.port[12],  # K_OnOff_VP1 - 2.p03
+                            2: pcf1.port[13],  # K_OnOff_VP2 - 1.p02
+                            3: pcf1.port[12],  # K_OnOff_VP3 - 1.p03
+                            4: pcf1.port[11],  # K_OnOff_VP4 - 1.p04
+                            5: pcf2.port[7],  # K_OnOff_VP5 - 2.p10
+                            6: pcf2.port[6],  # K_OnOff_VP6 - 2.p11
+                            7: pcf2.port[15],  # K_OnOff_VP7 - 2.p00
+                            8: pcf2.port[14],  # K_OnOff_VP8 - 2.p01
+                            9: pcf1.port[10],  # K_OnOff_VP9 - 1.p05
+                            10: pcf1.port[9],  # K_OnOff_VP10 - 1.p06
+                            11: pcf1.port[8],  # K_OnOff_VP11 - 1.p07
+                            12: pcf1.port[7],  # K_OnOff_VP12 - 1.p10
+                            14: pcf2.port[13],  # K_OnOff_VP14 - 2.p02
+                            15: pcf1.port[6],  # K_OnOff_VP15 - 1.p11
+                            16: pcf1.port[5],  # K_OnOff_VP16 - 1.p12
+                            17: pcf1.port[4],  # K_OnOff_VP17 - 1.p13
+                            18: pcf2.port[5],  # K_OnOff_VP18 - 2.p12
+                            19: pcf2.port[4],  # K_OnOff_VP19 - 2.p13
+                            20: pcf2.port[11],  # K_OnOff_VP20 - 2.p04
+                            21: pcf2.port[10],  # K_OnOff_VP21 - 2.p05
+                            22: pcf1.port[3],  # K_OnOff_VP22 - 1.p14
+                            23: pcf1.port[2],  # K_OnOff_VP23 - 1.p15
+                            24: pcf1.port[1],  # K_OnOff_VP24 - 1.p16
+                            25: pcf2.port[9],  # K_OnOff_VP25 - 2.p06
+                            '24>2': pcf1.port[0],  # K_VP24>VP2 - 1.p17
+                            '25>7': pcf2.port[8],  # K_VP25>VP7 - 2.p07
+                            'I_src_OnOff': pcf1.port[15],  # I_SRC_OnOff - 1.p00
+                            'I_src_out_toggle': pcf1.port[14],  # I_SRC_OUT_TOGGLE - 1.p01
                             }
         ''' Code condition register with current settings '''
         self._ccr_file = self.cfg['ccr_file']
