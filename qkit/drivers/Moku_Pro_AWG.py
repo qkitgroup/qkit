@@ -20,6 +20,7 @@ from moku.instruments import ArbitraryWaveformGenerator
 import logging
 from time import sleep
 import numpy as np
+import math
 
 from qupulse.pulses import TablePT, FunctionPT, PointPT, SequencePT, RepetitionPT, ForLoopPT, AtomicMultiChannelPT
 from qupulse.serialization import PulseStorage, DictBackend
@@ -36,6 +37,8 @@ class Moku_Pro_AWG(Instrument):
         Instrument.__init__(self, name, tags=['physical', "AWG"])      
         
         self.awg = ArbitraryWaveformGenerator('192.168.1.60', force_connect=True)
+        
+        self.output_configs = [{},{},{},{}]
         
         self._amplitudes = [0, 0, 0, 0]
         self._frequency = 250e6
@@ -128,7 +131,7 @@ class Moku_Pro_AWG(Instrument):
         return self._V_offsets[channel-1]
     
     def _do_get_sampling_rate(self):
-        return self._frequency * self._point_num
+        return self._frequency * (self._point_num-1)
     
     
         
@@ -136,11 +139,11 @@ class Moku_Pro_AWG(Instrument):
     
     def generate_waveform(self, channel, pulse_array):
         
-        self.awg.generate_waveform(channel = channel, sample_rate = self._update_rates[channel-1],
-                                   lut_data = list(pulse_array),
-                                   frequency = self._frequency,
-                                   amplitude = self._amplitudes[channel-1],
-                                   offset = self._V_offsets[channel-1])
+        self.output_configs[channel-1] = self.awg.generate_waveform(channel = channel, sample_rate = self._update_rates[channel-1],
+                                                                   lut_data = list(pulse_array),
+                                                                   frequency = self._frequency,
+                                                                   amplitude = self._amplitudes[channel-1],
+                                                                   offset = self._V_offsets[channel-1])
         
     def enable_output(self, channel):
         self.awg.enable_output(channel, True)
@@ -161,6 +164,7 @@ class Moku_Pro_AWG(Instrument):
         if type(data_dict) != dict:
             raise TypeError(f"{__name__}: Cannot use {type(data_dict)} input. Data must be an dict with channel names and corresponding wave data.")
         
+        self.test_dict = data_dict
         channel_names = []
         for key in data_dict:
             channel_names.append(key)
@@ -187,7 +191,7 @@ class Moku_Pro_AWG(Instrument):
                     
                 pulseArray = waveArray
                 
-            maxV = max(abs(pulseArray))
+            maxV = round(math.ceil(max(abs(pulseArray))*1e4)*1e-4,4) 
             self._amplitudes[i] = maxV
             
             self.generate_waveform(i+1, pulseArray/maxV)
