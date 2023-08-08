@@ -9,6 +9,8 @@ from qkit.measure.semiconductor.readout_backends.RO_backend_base import RO_backe
 import logging 
 import sys 
 
+class ADwinErrorFlag(Exception):
+    pass
 
 class ADwin_Pro2_backend(RO_backend_base):
     def __init__(self, ADwin_Pro2):
@@ -16,7 +18,6 @@ class ADwin_Pro2_backend(RO_backend_base):
         self.ADwinPro2 = ADwin_Pro2
         self._id = 1
         self.register_measurement("input1", "V", ["amplitude"])
-
 
 
     def input1_activate(self):
@@ -61,7 +62,7 @@ class ADwin_Pro2_backend(RO_backend_base):
         data = {}
         if self.ADwinPro2.check_error_triggered_readout():
                 logging.error(__name__ + ': error flag thrown by ADwin.')
-                sys.exit()
+                raise ADwinErrorFlag("Error flag was thrown by ADwin. See ADBasic process.")
         elif self.finished_single_average():
             data["input1"] = {}
             data["input1"]["amplitude"] = self.ADwinPro2.read_triggered_readout()
