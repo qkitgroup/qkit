@@ -1749,7 +1749,6 @@ class ADwin_Pro2_V3(Instrument):
         sample_count_averaging = self.sample_count * self.triggered_readout_averaging
         size = int(sample_count_averaging * self.measurement_count)
         data_raw = np.array(self.adw.GetData_Long(1, 1, size))
-        self.start_triggered_readout()  # starting new average
         data_reshaped = data_raw.reshape(self.measurement_count, sample_count_averaging)
         data_volts = data_reshaped * 2*10/(2**16) - 10 # translating to volts
 
@@ -1765,6 +1764,8 @@ class ADwin_Pro2_V3(Instrument):
 
         data_triggered_readout = np.empty(shape=(1, self.measurement_count, self.sample_count))
         data_triggered_readout[0:1, :, :] = data_volts
+        time.sleep(0.01) # this minor sleep is important to have no trigger loss between AWG and ADwin
+        self.start_triggered_readout()  # starting new average
         return data_triggered_readout
 
     def check_finished_triggered_readout(self):
