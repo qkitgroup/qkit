@@ -593,7 +593,7 @@ class Exciting():
                 if mode not in self._modes.keys():
                     missing_modes += f"{mode}\n"
             if missing_modes:
-                raise ValueError(f"{__name__}: The following modes are not known by spin_excite: {missing_modes}")
+                raise ValueError(f"{__name__}: The following modes are not known by spin_excite: {missing_modes}. Known modes are {tuple(self._modes.keys())}.")
         except TypeError as te:
             raise TypeError(f"{__name__}: Cannot use {new_modes} as active_modes, {te}")
               
