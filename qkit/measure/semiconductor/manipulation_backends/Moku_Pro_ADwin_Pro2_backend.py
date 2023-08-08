@@ -64,6 +64,6 @@ class Moku_Pro_ADwin_Pro2_backend(MA_backend_base):
         self.moku.configure_outputs(wave_data, triggered = True)
 
     
-    def decode_qupulse(self, pulse_obj, parameters):
+    def decode(self, pulse_obj, parameters):
         self.moku._seq_prog = pulse_obj.create_program(parameters = parameters)
         self.moku._frequency = 1/(int(self.moku._seq_prog.duration)/1e9)

@@ -249,6 +249,7 @@ class ADwin_Pro2_V3(Instrument):
         self.add_function('set_out_parallel')
         self.add_function('set_out_dict')
         self.add_function('set_out_combined')
+        self.add_function('set_out_combined_single_swept')
         self.add_function('oversampled_gates')
         self.add_function('get_input')
         self.add_function('set_field_1d')
@@ -666,8 +667,10 @@ class ADwin_Pro2_V3(Instrument):
 
     def set_out_combined(self, gate_main, gate_fine, voltage, divider=895):
         """Sets a output voltage to two different outputs that are connected with a voltage divider of "divider".
-        So e.g. R_gate_main=10 ; R_gate_fine = 10k.
+        So e.g. R_gate_main=10 ; R_gate_fine = 10k. V_out = (Voltage_main * R_fine + Voltage_fine * R_main) / (R_main + R_fine) 
         It always holds: abs(voltage_fine) >= abs(voltage main)
+        The advantage of this version is that it can reach +-10V, the problem is that the main bitsteps are not really equally distant so there is slight jumping in voltage. 
+        If you only need less then 10mV range then using set_out_combined_single_swept makes more sense. 
         """
         bit_format = 16
         bit_step = 2 * 10 / (2 ** bit_format)
@@ -678,6 +681,15 @@ class ADwin_Pro2_V3(Instrument):
         else:
             modulo = 1
         voltage_fine = voltage_main + (voltage_bit_steps % modulo) * divider * bit_step
+        self.set_out_dict({gate_main:voltage_main, gate_fine:voltage_fine})
+        
+    def set_out_combined_single_swept(self, gate_main, gate_fine, voltage_main, offset_voltage_fine, voltage_divider=895):
+        """Sets a output voltage to two different outputs that are connected with a voltage divider of "divider".
+        So e.g. R_gate_main=10 ; R_gate_fine = 10k.V_out = (Voltage_main * R_fine + Voltage_fine * R_main) / (R_main + R_fine)
+        The idea is to keep the voltage of gate_main contstant during a measurement and only sweep the gate_fine 
+        to have changes in about +-1mV with much higher resolution. 
+        """ 
+        voltage_fine = voltage_main + offset_voltage_fine*voltage_divider
         self.set_out_dict({gate_main:voltage_main, gate_fine:voltage_fine})
 
     def set_out_parallel(self, channels, voltages):
@@ -1737,7 +1749,6 @@ class ADwin_Pro2_V3(Instrument):
         sample_count_averaging = self.sample_count * self.triggered_readout_averaging
         size = int(sample_count_averaging * self.measurement_count)
         data_raw = np.array(self.adw.GetData_Long(1, 1, size))
-        self.start_triggered_readout()  # starting new average
         data_reshaped = data_raw.reshape(self.measurement_count, sample_count_averaging)
         data_volts = data_reshaped * 2*10/(2**16) - 10 # translating to volts
 
@@ -1753,6 +1764,8 @@ class ADwin_Pro2_V3(Instrument):
 
         data_triggered_readout = np.empty(shape=(1, self.measurement_count, self.sample_count))
         data_triggered_readout[0:1, :, :] = data_volts
+        time.sleep(0.01) # this minor sleep is important to have no trigger loss between AWG and ADwin
+        self.start_triggered_readout()  # starting new average
         return data_triggered_readout
 
     def check_finished_triggered_readout(self):
