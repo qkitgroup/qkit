@@ -45,6 +45,7 @@ except ModuleNotFoundError:
             self.port = 16 * [True]
 
 
+
 class qplexkit(object):
     """
     Qplexkit is a DC multiplexer for low level and low noise transport measurements of micro and nano circuits at low
@@ -64,8 +65,8 @@ class qplexkit(object):
                                                  │           │         │           │                                                CURRENT DIVIDER & AMPLIFIER
                                                  │           │       ╔═╧═╗       ╔═╧═╗
                                                  │    ╔═══╗  │    ┌──╢18 ╟──┐ ┌──╢18 ╟──┐
-                                                 ├─■■─╢17 ╟──┤    │  ╚═══╝  ╱ ╲  ╚═══╝  │                                           bias lines: 1/10 current divider
-                                                 │ o──╢   ║  │    │  ╔═══╗ ╱___╲        │                                           sense lines: amplifier
+                                                 ├─■■─╢17 ╟──┤    │  ╚═══╝  / \  ╚═══╝  │                                           bias lines: 1/10 current divider
+                                                 │ o──╢   ║  │    │  ╔═══╗ /___\        │                                           sense lines: amplifier
                                                  │    ╚═══╝  │    └──╢18 ╟──┘ └──╢18 ╟──┘
                                                  █    (13)   █       ╚═╤═╝  (14) ╚═╤═╝
                                                  │           │         │           │
@@ -175,8 +176,8 @@ class qplexkit(object):
         #     logging.error('qplexkit: Cannot set up Raspberry Pi')
         #     raise RuntimeError('qplexkit: Cannot set up Raspberry Pi')
         ''' prepare I2C IO expander (PCF8575) '''
-        pcf1 = PCF8575(i2c_bus_no=1, address=0x20)
-        pcf2 = PCF8575(i2c_bus_no=1, address=0x21)
+        self.pcf1 = PCF8575(i2c_bus_no=1, address=0x20)
+        self.pcf2 = PCF8575(i2c_bus_no=1, address=0x21)
         ''' class variables '''
         self._switch_time = 10e-3
         ''' logical - physical relay '''
@@ -199,41 +200,35 @@ class qplexkit(object):
         self._pexp2lexp = {val: key for key, val in self._lexp2pexp.items()}  # physical experiment to logical experiment: logical experiment number [physical experiment number]
         del self._pexp2lexp[None]
         ''' logical relay control line - physical relay control line '''
-        self._lline2pline = {0: 2, 1: 3, 2: 4, 3: 9, 4: 10, 5: 11, 6: 12, 7: 15, 8: 16, 9: 17, 10: 22,  # multiplexer
-                             11: 23, 12: 24,  # relays for protective resistors
-                             ### separate PCP ###
-                             13: 1, 14: 7, 15: 8, 16: 14, 17: 20, 18: 21, 19: 25,  # supplementary relays
-                             }
-        ''' physical relay control line - I2C port '''
-        self._pline2port = {1: pcf2.port[12],  # K_OnOff_VP1 - 2.p03
-                            2: pcf1.port[13],  # K_OnOff_VP2 - 1.p02
-                            3: pcf1.port[12],  # K_OnOff_VP3 - 1.p03
-                            4: pcf1.port[11],  # K_OnOff_VP4 - 1.p04
-                            5: pcf2.port[7],  # K_OnOff_VP5 - 2.p10
-                            6: pcf2.port[6],  # K_OnOff_VP6 - 2.p11
-                            7: pcf2.port[15],  # K_OnOff_VP7 - 2.p00
-                            8: pcf2.port[14],  # K_OnOff_VP8 - 2.p01
-                            9: pcf1.port[10],  # K_OnOff_VP9 - 1.p05
-                            10: pcf1.port[9],  # K_OnOff_VP10 - 1.p06
-                            11: pcf1.port[8],  # K_OnOff_VP11 - 1.p07
-                            12: pcf1.port[7],  # K_OnOff_VP12 - 1.p10
-                            14: pcf2.port[13],  # K_OnOff_VP14 - 2.p02
-                            15: pcf1.port[6],  # K_OnOff_VP15 - 1.p11
-                            16: pcf1.port[5],  # K_OnOff_VP16 - 1.p12
-                            17: pcf1.port[4],  # K_OnOff_VP17 - 1.p13
-                            18: pcf2.port[5],  # K_OnOff_VP18 - 2.p12
-                            19: pcf2.port[4],  # K_OnOff_VP19 - 2.p13
-                            20: pcf2.port[11],  # K_OnOff_VP20 - 2.p04
-                            21: pcf2.port[10],  # K_OnOff_VP21 - 2.p05
-                            22: pcf1.port[3],  # K_OnOff_VP22 - 1.p14
-                            23: pcf1.port[2],  # K_OnOff_VP23 - 1.p15
-                            24: pcf1.port[1],  # K_OnOff_VP24 - 1.p16
-                            25: pcf2.port[9],  # K_OnOff_VP25 - 2.p06
-                            '24>2': pcf1.port[0],  # K_VP24>VP2 - 1.p17
-                            '25>7': pcf2.port[8],  # K_VP25>VP7 - 2.p07
-                            'I_src_OnOff': pcf1.port[15],  # I_SRC_OnOff - 1.p00
-                            'I_src_out_toggle': pcf1.port[14],  # I_SRC_OUT_TOGGLE - 1.p01
-                            }
+        self._pline2port = {1: self.pcf2.port[12],  # K_OnOff_VP1 - 2.p03
+                            2: self.pcf1.port[13],  # K_OnOff_VP2 - 1.p02
+                            3: self.pcf1.port[12],  # K_OnOff_VP3 - 1.p03
+                            4: self.pcf1.port[11],  # K_OnOff_VP4 - 1.p04
+                            5: self.pcf2.port[7],  # K_OnOff_VP5 - 2.p10
+                            6: self.pcf2.port[6],  # K_OnOff_VP6 - 2.p11
+                            7: self.pcf2.port[15],  # K_OnOff_VP7 - 2.p00
+                            8: self.pcf2.port[14],  # K_OnOff_VP8 - 2.p01
+                            9: self.pcf1.port[10],  # K_OnOff_VP9 - 1.p05
+                            10: self.pcf1.port[9],  # K_OnOff_VP10 - 1.p06
+                            11: self.pcf1.port[8],  # K_OnOff_VP11 - 1.p07
+                            12: self.pcf1.port[7],  # K_OnOff_VP12 - 1.p10
+                            14: self.pcf2.port[13],  # K_OnOff_VP14 - 2.p02
+                            15: self.pcf1.port[6],  # K_OnOff_VP15 - 1.p11
+                            16: self.pcf1.port[5],  # K_OnOff_VP16 - 1.p12
+                            17: self.pcf1.port[4],  # K_OnOff_VP17 - 1.p13
+                            18: self.pcf2.port[5],  # K_OnOff_VP18 - 2.p12
+                            19: self.pcf2.port[4],  # K_OnOff_VP19 - 2.p13
+                            20: self.pcf2.port[11],  # K_OnOff_VP20 - 2.p04
+                            21: self.pcf2.port[10],  # K_OnOff_VP21 - 2.p05
+                            22: self.pcf1.port[3],  # K_OnOff_VP22 - 1.p14
+                            23: self.pcf1.port[2],  # K_OnOff_VP23 - 1.p15
+                            24: self.pcf1.port[1],  # K_OnOff_VP24 - 1.p16
+                            25: self.pcf2.port[9],  # K_OnOff_VP25 - 2.p06
+                            '24>2': self.pcf1.port[0],  # K_VP24>VP2 - 1.p17
+                            '25>7': self.pcf2.port[8],  # K_VP25>VP7 - 2.p07
+                            'I_src_OnOff': self.pcf1.port[15],  # I_SRC_OnOff - 1.p00
+                            'I_src_out_toggle': self.pcf1.port[14],  # I_SRC_OUT_TOGGLE - 1.p01
+        }
         ''' Code condition register with current settings '''
         self._ccr_file = self.cfg['ccr_file']
         try:
@@ -459,8 +454,6 @@ class qplexkit(object):
         self._pline2port[_pline_l] = False  # enable physical control line to relay pin 8
         self._pline2port[_pline_r] = False  # enable physical control line to relay pin 1
         self._pline2port['I_src_out_toggle'] = status ^ (_prel % 13) % 2  # status xor parity of physical relay (mod 13 shift supplementary relays to zero in order to use parity analogue)
-        ''' send current pulse '''
-        self._pline2port['I_src_onoff'] = False  # enable current source
         if _prel == 12:
             ## invert physical line 24 to match with line 2
             self._pline2port['24>2'] = False
@@ -471,11 +464,13 @@ class qplexkit(object):
             self._pline2port['25>7'] = False
             time.sleep(_switch_time)
             self._pline2port['25>7'] = True
+        ''' send current pulse '''
+        self._pline2port['I_src_onoff'] = False  # enable current source
         time.sleep(_switch_time)
         self._pline2port['I_src_onoff'] = True  # disable current source
-        for port in self._pline2port.values():  # disable all I2C ports
+        ''' disable all I2C ports '''
+        for port in self._pline2port.values():
             port=True
-
         ''' save changes in ccr '''
         self._set_ccr(rel=rel, status=status, **kwargs)
         self._write_ccr(timestamp=True, **kwargs)
