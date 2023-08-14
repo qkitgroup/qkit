@@ -24,7 +24,6 @@ https://pypi.org/project/pcf8575/
 Installation
 ------------
 sudo apt-get update
-sudo apt-get install python-rpi.gpio
 sudo apt-get install libffi-dev
 pip install pcf8575
 """
@@ -138,7 +137,7 @@ class qplexkit(object):
     control lines for supplementary relays
 
         VP1     VP7     VP8    VP14    VP20    VP21    VP25            physical control line (equals MDM pinout)
-       (13)    (14)    (14)    (15)    (16)    (17)    (18)            (logical control line)
+       (13)    (14)    (15)    (16)    (17)    (18)    (19)            (logical control line)
          │       │       │       │       │       │       │
          ≈       ≈       ≈       ≈       ≈       ≈       ≈             connection to cryostat circuit
          │ ╔═══╗ │ ╔═══╗ │ ╔═══╗ │ ╔═══╗ │ ╔═══╗ │ ╔═══╗ │ ╔═══╗
@@ -178,6 +177,7 @@ class qplexkit(object):
         ''' prepare I2C IO expander (PCF8575) '''
         self.pcf1 = PCF8575(i2c_bus_no=1, address=0x20)
         self.pcf2 = PCF8575(i2c_bus_no=1, address=0x21)
+        self.pcf1.port[15] = False  # current source off (no inverted logic, as current source switches GND like the PCF8575)
         ''' class variables '''
         self._switch_time = 10e-3
         ''' logical - physical relay '''
@@ -199,6 +199,12 @@ class qplexkit(object):
                            }  # logical experiment to physical experiment: physical experiment number [logical experiment number]
         self._pexp2lexp = {val: key for key, val in self._lexp2pexp.items()}  # physical experiment to logical experiment: logical experiment number [physical experiment number]
         del self._pexp2lexp[None]
+        ''' logical relay control line - physical relay control line '''
+        self._lline2pline = {0: 2, 1: 3, 2: 4, 3: 9, 4: 10, 5: 11, 6: 12, 7: 15, 8: 16, 9: 17, 10: 22,  # multiplexer
+                             11: 23, 12: 24,  # relays for protective resistors
+                             ### separate PCP ###
+                             13: 1, 14: 7, 15: 8, 16: 14, 17: 20, 18: 21, 19: 25,  # supplementary relays
+                             }
         ''' logical relay control line - physical relay control line '''
         self._pline2port = {1: self.pcf2.port[12],  # K_OnOff_VP1 - 2.p03
                             2: self.pcf1.port[13],  # K_OnOff_VP2 - 1.p02
@@ -254,7 +260,7 @@ class qplexkit(object):
         None
         """
         self._switch_time = val
-        return
+        return True
 
     def get_switch_time(self):
         """
@@ -307,7 +313,7 @@ class qplexkit(object):
                 self.set_relay(rel=16, status=0)
         except (ValueError, KeyError) as e:
             logging.error(f'qplexkit: Cannot set experiment {exp}: {e}')
-        return
+        return True
 
     def get_experiment(self, **kwargs):
         """
@@ -347,10 +353,11 @@ class qplexkit(object):
         -------
         None
         """
+        raise NotImplementedError("current divider hardware not yet implemented")
         if bool(status) ^ self.get_relay(rel=17, **kwargs):
             return self.set_relay(rel=17, status=status, **kwargs)
         else:
-            return
+            return True
 
     def get_current_divider(self, **kwargs):
         """
@@ -367,6 +374,7 @@ class qplexkit(object):
         status: bool
             current divider state
         """
+        raise NotImplementedError("current divider hardware not yet implemented")
         return self.get_relay(rel=17, **kwargs)
 
     def set_amplifier(self, status, **kwargs):
@@ -385,10 +393,11 @@ class qplexkit(object):
         -------
         None
         """
+        raise NotImplementedError("voltage amplifier hardware not yet implemented")
         if bool(status) ^ self.get_relay(rel=18, **kwargs):
             return self.set_relay(rel=18, status=status, **kwargs)
         else:
-            return
+            return True
 
     def get_amplifier(self, **kwargs):
         """
@@ -405,10 +414,24 @@ class qplexkit(object):
         status: bool
             amplifier state
         """
+        raise NotImplementedError("voltage amplifier hardware not yet implemented")
         return self.get_relay(rel=18, **kwargs)
 
     def set_current_source_status(self, status):
-        self._pline2port['I_src_OnOff'] = not status  # todo: check polarity
+        """
+        Sets current source to <status> to switch relays.
+
+        Parameters
+        ----------
+        status: bool
+            current source state
+
+        Returns
+        -------
+        None
+        """
+        self._pline2port['I_src_OnOff'] = status  # note not inversed polarity
+        return True
 
     def set_relay(self, rel, status, **kwargs):
         """
@@ -457,24 +480,21 @@ class qplexkit(object):
         if _prel == 12:
             ## invert physical line 24 to match with line 2
             self._pline2port['24>2'] = False
-            time.sleep(_switch_time)
-            self._pline2port['24>2'] = True
         elif _prel == 19:
             ## invert physical line 25 to match with line 7
             self._pline2port['25>7'] = False
-            time.sleep(_switch_time)
-            self._pline2port['25>7'] = True
         ''' send current pulse '''
-        self._pline2port['I_src_onoff'] = False  # enable current source
+        self.set_current_source_status(True)  # enable current source
         time.sleep(_switch_time)
-        self._pline2port['I_src_onoff'] = True  # disable current source
+        self.set_current_source_status(False)  # disable current source
         ''' disable all I2C ports '''
         for port in self._pline2port.values():
             port=True
+        self.set_current_source_status(False)  # disable current source
         ''' save changes in ccr '''
         self._set_ccr(rel=rel, status=status, **kwargs)
         self._write_ccr(timestamp=True, **kwargs)
-        return
+        return True
 
     def get_relay(self, rel, **kwargs):
         """
@@ -533,7 +553,7 @@ class qplexkit(object):
         _ccr = list(map(str, self.get_relays(**kwargs)))
         _ccr[rel] = str(int(status))
         self._ccr = int(''.join(_ccr), 2)
-        return self._ccr
+        return True
 
     def get_ccr(self, rel, **kwargs):
         """
@@ -592,7 +612,7 @@ class qplexkit(object):
                 json.dump(data, f)
         except IOError as e:
             logging.error(f'qplexkit: Cannot find json-file {_ccr_file}: {e}')
-        return
+        return True
 
     def read_ccr(self, n=-1, timestamp=False, **kwargs):
         """
@@ -655,7 +675,7 @@ class qplexkit(object):
         if not os.path.isfile(_ccr_file):
             with open(_ccr_file, 'w+') as f:
                 json.dump([{'ccr': _ccr, 'time': time.strftime('%Y-%m-%d %H:%M:%S')}], f)
-        return
+        return True
 
     def print_ccr(self, **kwargs):
         """
@@ -693,5 +713,5 @@ class qplexkit(object):
             self.set_relay(lrel, 0)  # set logical relay number
         self._ccr = 0
         self._write_ccr()
-        return
+        return True
 
