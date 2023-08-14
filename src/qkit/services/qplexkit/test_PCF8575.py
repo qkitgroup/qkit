@@ -29,9 +29,8 @@ sudo apt-get install libffi-dev
 pip install pcf8575
 """
 
-import sys
-sys.path.append("/home/superuser/qkit/src")
 import zmq
+from zmq.auth.thread import ThreadAuthenticator
 from qkit.config.services import cfg
 import time
 import logging
@@ -50,16 +49,18 @@ except ModuleNotFoundError:
 
 class qplexkit(object):
     def __init__(self):
-        self.pcf = PCF8575(i2c_bus_no=1, address=0x21)
+        self.pcf1 = PCF8575(i2c_bus_no=1, address=0x20)
+        self.pcf2 = PCF8575(i2c_bus_no=1, address=0x21)
+        self.pcf = [self.pcf1, self.pcf2]
 
-    def set_port(self, port, status):
-        self.pcf.port[port] = status
-        print(f'set port {port} to {status}')
+    def set_port(self, pcf, port, status):
+        self.pcf[pcf].port[port] = status
+        #print(f'set port {port} to {status}')
         return
 
-    def get_port(self, port):
-        print(f'get port {port}')
-        return self.pcf.port[port]
+    def get_port(self, pcf, port):
+        #print(f'get port {port}')
+        return self.pcf[pcf].port[port]
 
 
 qpk = qplexkit()
@@ -72,12 +73,24 @@ msg2cmd = {'set_port': qpk.set_port,
 
 ''' run zmq-server '''
 if __name__ == "__main__":
+    """
+    -------
+    Example
+    >>> socket.send_json(("set_port", tuple([]), dict({'port': <port>, 'pcf': <pcf>, 'status': <status>})))
+    >>> socket.recv_json()
+    """
     context = zmq.Context()
+    auth = ThreadAuthenticator(context, log=logging.getLogger())
+    auth.start()
+    auth.allow('localhost')
+    auth.allow('10.22.197.0')
+    #for ip in cfg['qplexkit']['allowed_ip_addresses'].split(', '):
+    #    auth.allow(ip)
     socket = context.socket(zmq.REP)
+    socket.zap_domain = b'global'
     socket.bind(f'''tcp://*:{cfg['qplexkit']['server_port']}''')
 
     while True:
         fun, args, kwargs = socket.recv_json()
         socket.send_json(msg2cmd[fun](*args, **kwargs))
-
 
