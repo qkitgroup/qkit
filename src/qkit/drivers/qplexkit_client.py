@@ -125,10 +125,13 @@ class qplexkit_client(Instrument):
         self.add_parameter('relays',
                            type=list,
                            flags=Instrument.FLAG_GET)
-        self.add_parameter('current_divider',
-                           type=bool,
-                           flags=Instrument.FLAG_GETSET)
-        self.add_parameter('amplifier',
+        # self.add_parameter('current_divider',
+        #                    type=bool,
+        #                    flags=Instrument.FLAG_GETSET)
+        # self.add_parameter('amplifier',
+        #                    type=bool,
+        #                    flags=Instrument.FLAG_GETSET)
+        self.add_parameter('current_source_status',
                            type=bool,
                            flags=Instrument.FLAG_GETSET)
         self.add_function('set_relay')
@@ -142,14 +145,14 @@ class qplexkit_client(Instrument):
         try:
             url = f'''tcp://{kwargs.get('address', self._address)}:{kwargs.get('port', self._port)}'''
             logging.info(f'{__name__}: connecting to {url}')
-            self.socket.setsockopt(zmq.RCVTIMEO, 1000)  # wait no longer than a second to fail.
+            self.socket.setsockopt(zmq.RCVTIMEO, 100000)  # wait no longer than 100 second to fail.
             self.socket.setsockopt(zmq.LINGER, 0)
             self.socket.connect(f'{url}')
             if self._query(("ping", tuple([]), dict({}))) == 'pong':
                 logging.info(f'{__name__}: connection to {url} successfully established')
                 return True
             else:
-                logging.warning(f'{__name__}: connection to {url} established, but ping-pong failed')
+                logging.error(f'{__name__}: connection to {url} established, but ping-pong failed. Ensure that the server is running.')
                 return False
         except zmq.error.Again as e:
             url = f'''tcp://{kwargs.get('address', self._address)}:{kwargs.get('port', self._port)}'''
@@ -227,6 +230,17 @@ class qplexkit_client(Instrument):
     @use_docstring(qplexkit.qplexkit.get_amplifier)
     def do_get_amplifier(self, **kwargs):
         msg = ("get_amplifier", tuple([]), dict(kwargs))
+        return bool(self._query(msg))
+
+    @use_docstring(qplexkit.qplexkit.set_current_source_status)
+    def do_set_current_source_status(self, status, **kwargs):
+        logging.info(f'''{__name__}: set current source status to {status}''')
+        msg = ("set_current_source_status", tuple([int(status)]), dict(kwargs))
+        return self._query(msg)
+
+    @use_docstring(qplexkit.qplexkit.get_current_source_status)
+    def do_get_current_source_status(self, **kwargs):
+        msg = ("get_current_source_status", tuple([]), dict(kwargs))
         return bool(self._query(msg))
 
     @use_docstring(qplexkit.qplexkit.set_relay)
