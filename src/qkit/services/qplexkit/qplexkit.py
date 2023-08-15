@@ -178,6 +178,7 @@ class qplexkit(object):
         self.pcf1 = PCF8575(i2c_bus_no=1, address=0x20)
         self.pcf2 = PCF8575(i2c_bus_no=1, address=0x21)
         self.pcf1.port[15] = False  # current source off (no inverted logic, as current source switches GND like the PCF8575)
+        self.pcfs = {1: self.pcf1, 2: self.pcf2}
         ''' class variables '''
         self._switch_time = 10e-3
         ''' logical - physical relay '''
@@ -206,34 +207,30 @@ class qplexkit(object):
                              13: 1, 14: 7, 15: 8, 16: 14, 17: 20, 18: 21, 19: 25,  # supplementary relays
                              }
         ''' logical relay control line - physical relay control line '''
-        self._pline2port = {1: self.pcf2.port[12],  # K_OnOff_VP1 - 2.p03
-                            2: self.pcf1.port[13],  # K_OnOff_VP2 - 1.p02
-                            3: self.pcf1.port[12],  # K_OnOff_VP3 - 1.p03
-                            4: self.pcf1.port[11],  # K_OnOff_VP4 - 1.p04
-                            5: self.pcf2.port[7],  # K_OnOff_VP5 - 2.p10
-                            6: self.pcf2.port[6],  # K_OnOff_VP6 - 2.p11
-                            7: self.pcf2.port[15],  # K_OnOff_VP7 - 2.p00
-                            8: self.pcf2.port[14],  # K_OnOff_VP8 - 2.p01
-                            9: self.pcf1.port[10],  # K_OnOff_VP9 - 1.p05
-                            10: self.pcf1.port[9],  # K_OnOff_VP10 - 1.p06
-                            11: self.pcf1.port[8],  # K_OnOff_VP11 - 1.p07
-                            12: self.pcf1.port[7],  # K_OnOff_VP12 - 1.p10
-                            14: self.pcf2.port[13],  # K_OnOff_VP14 - 2.p02
-                            15: self.pcf1.port[6],  # K_OnOff_VP15 - 1.p11
-                            16: self.pcf1.port[5],  # K_OnOff_VP16 - 1.p12
-                            17: self.pcf1.port[4],  # K_OnOff_VP17 - 1.p13
-                            18: self.pcf2.port[5],  # K_OnOff_VP18 - 2.p12
-                            19: self.pcf2.port[4],  # K_OnOff_VP19 - 2.p13
-                            20: self.pcf2.port[11],  # K_OnOff_VP20 - 2.p04
-                            21: self.pcf2.port[10],  # K_OnOff_VP21 - 2.p05
-                            22: self.pcf1.port[3],  # K_OnOff_VP22 - 1.p14
-                            23: self.pcf1.port[2],  # K_OnOff_VP23 - 1.p15
-                            24: self.pcf1.port[1],  # K_OnOff_VP24 - 1.p16
-                            25: self.pcf2.port[9],  # K_OnOff_VP25 - 2.p06
-                            '24>2': self.pcf1.port[0],  # K_VP24>VP2 - 1.p17
-                            '25>7': self.pcf2.port[8],  # K_VP25>VP7 - 2.p07
-                            'I_src_OnOff': self.pcf1.port[15],  # I_SRC_OnOff - 1.p00
-                            'I_src_out_toggle': self.pcf1.port[14],  # I_SRC_OUT_TOGGLE - 1.p01
+        self._pline2port = {1: (2, 3),  # K_OnOff_VP1 - 2.p03
+                            2: (1, 2),  # K_OnOff_VP2 - 1.p02
+                            3: (1, 3),  # K_OnOff_VP3 - 1.p03
+                            4: (1, 4),  # K_OnOff_VP4 - 1.p04
+                            7: (2, 0),  # K_OnOff_VP7 - 2.p00
+                            8: (2, 1),  # K_OnOff_VP8 - 2.p01
+                            9: (1, 5),  # K_OnOff_VP9 - 1.p05
+                            10: (1, 6),  # K_OnOff_VP10 - 1.p06
+                            11: (1, 7),  # K_OnOff_VP11 - 1.p07
+                            12: (1, 8),  # K_OnOff_VP12 - 1.p08
+                            14: (2, 2),  # K_OnOff_VP14 - 2.p02
+                            15: (1, 9),  # K_OnOff_VP15 - 1.p09
+                            16: (1, 10),  # K_OnOff_VP16 - 1.p10
+                            17: (1, 11),  # K_OnOff_VP17 - 1.p11
+                            20: (2, 4),  # K_OnOff_VP20 - 2.p04
+                            21: (2, 5),  # K_OnOff_VP21 - 2.p05
+                            22: (1, 12),  # K_OnOff_VP22 - 1.p12
+                            23: (1, 13),  # K_OnOff_VP23 - 1.p13
+                            24: (1, 14),  # K_OnOff_VP24 - 1.p14
+                            25: (2, 6),  # K_OnOff_VP25 - 2.p06
+                            '24>2': (1, 15),  # K_VP24>VP2 - 1.p17
+                            '25>7': (2, 7),  # K_VP25>VP7 - 2.p07
+                            'I_src_OnOff': (1, 0),  # I_SRC_OnOff - 1.p00
+                            'I_src_out_toggle': (1, 1),  # I_SRC_OUT_TOGGLE - 1.p01
         }
         ''' Code condition register with current settings '''
         self._ccr_file = self.cfg['ccr_file']
@@ -260,7 +257,7 @@ class qplexkit(object):
         None
         """
         self._switch_time = val
-        return True
+        return
 
     def get_switch_time(self):
         """
@@ -313,7 +310,7 @@ class qplexkit(object):
                 self.set_relay(rel=16, status=0)
         except (ValueError, KeyError) as e:
             logging.error(f'qplexkit: Cannot set experiment {exp}: {e}')
-        return True
+        return
 
     def get_experiment(self, **kwargs):
         """
@@ -357,7 +354,7 @@ class qplexkit(object):
         if bool(status) ^ self.get_relay(rel=17, **kwargs):
             return self.set_relay(rel=17, status=status, **kwargs)
         else:
-            return True
+            return
 
     def get_current_divider(self, **kwargs):
         """
@@ -397,7 +394,7 @@ class qplexkit(object):
         if bool(status) ^ self.get_relay(rel=18, **kwargs):
             return self.set_relay(rel=18, status=status, **kwargs)
         else:
-            return True
+            return
 
     def get_amplifier(self, **kwargs):
         """
@@ -417,6 +414,45 @@ class qplexkit(object):
         raise NotImplementedError("voltage amplifier hardware not yet implemented")
         return self.get_relay(rel=18, **kwargs)
 
+    def set_pcf_port(self, pcf, port, status):
+        """
+        Sets the port <port> of the I2C IO-Expander PCF8675 <pcf> to <status>. Note the inverted logic.
+
+        Parameters
+        ----------
+        pcf: int
+            PCF8575 number
+        port: int
+            Port number
+        status: bool
+            port status
+
+        Returns
+        -------
+        None
+        """
+        self.pcfs[pcf].port[15 - port] = status  # inverse order of pcf8575.py is compensated by <15 - port>
+        return
+
+
+    def get_pcf_port(self, pcf, port):
+        """
+        Gets the status of port <port> of the I2C IO-Expander PCF8675 <pcf>. Note the inverted logic.
+
+        Parameters
+        ----------
+        pcf: int
+            PCF8575 number
+        port: int
+            Port number
+
+        Returns
+        -------
+        status: bool
+            port status
+        """
+        return self.pcfs[pcf].port[15 - port]  # inverse order of pcf8575.py is compensated by <15 - port>
+
     def set_current_source_status(self, status):
         """
         Sets current source to <status> to switch relays.
@@ -430,8 +466,24 @@ class qplexkit(object):
         -------
         None
         """
-        self._pline2port['I_src_OnOff'] = status  # note not inversed polarity
-        return True
+        self.set_pcf_port(*self._pline2port['I_src_OnOff'], status)  # note not inversed polarity
+        return
+
+    def get_current_source_status(self):
+        """
+        Gets the status of the current source to switch relays.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        status: bool
+            current source state
+
+        """
+        return self.get_pcf_port(*self._pline2port['I_src_OnOff'])  # note not inversed polarity
 
     def set_relay(self, rel, status, **kwargs):
         """
@@ -474,27 +526,29 @@ class qplexkit(object):
         print(f'qplexkit: Set relay {_prel}({rel}) to {status} with line {_lline_l} (VP{_pline_l}) and line {_lline_r} (VP{_pline_r})')
         logging.info(f'qplexkit: Set relay {_prel}({rel}) to {status} with line {_lline_l} (VP{_pline_l}) and line {_lline_r} (VP{_pline_r})')
         ## I2C ports
-        self._pline2port[_pline_l] = False  # enable physical control line to relay pin 8
-        self._pline2port[_pline_r] = False  # enable physical control line to relay pin 1
-        self._pline2port['I_src_out_toggle'] = status ^ (_prel % 13) % 2  # status xor parity of physical relay (mod 13 shift supplementary relays to zero in order to use parity analogue)
+        self.set_pcf_port(*self._pline2port[_pline_l], False)  # enable physical control line to relay pin 8
+        self.set_pcf_port(*self._pline2port[_pline_r], False)  # enable physical control line to relay pin 1
+        self.set_pcf_port(*self._pline2port['I_src_out_toggle'], status ^ (_prel % 13) % 2)  # status xor parity of physical relay (mod 13 shift supplementary relays to zero in order to use parity analogue)
         if _prel == 12:
             ## invert physical line 24 to match with line 2
-            self._pline2port['24>2'] = False
+            self.set_pcf_port(*self._pline2port['24>2'], False)
         elif _prel == 19:
             ## invert physical line 25 to match with line 7
-            self._pline2port['25>7'] = False
+            self.set_pcf_port(*self._pline2port['25>7'], False)
         ''' send current pulse '''
         self.set_current_source_status(True)  # enable current source
         time.sleep(_switch_time)
         self.set_current_source_status(False)  # disable current source
         ''' disable all I2C ports '''
-        for port in self._pline2port.values():
-            port=True
+        self.pcf1.port = [True] * 16
+        self.pcf2.port = [True] * 16
+        #for (pcf, port) in self._pline2port.values():
+        #    self.set_pcf_port(pcf, port, True)
         self.set_current_source_status(False)  # disable current source
         ''' save changes in ccr '''
         self._set_ccr(rel=rel, status=status, **kwargs)
         self._write_ccr(timestamp=True, **kwargs)
-        return True
+        return
 
     def get_relay(self, rel, **kwargs):
         """
@@ -553,7 +607,7 @@ class qplexkit(object):
         _ccr = list(map(str, self.get_relays(**kwargs)))
         _ccr[rel] = str(int(status))
         self._ccr = int(''.join(_ccr), 2)
-        return True
+        return
 
     def get_ccr(self, rel, **kwargs):
         """
@@ -612,7 +666,7 @@ class qplexkit(object):
                 json.dump(data, f)
         except IOError as e:
             logging.error(f'qplexkit: Cannot find json-file {_ccr_file}: {e}')
-        return True
+        return
 
     def read_ccr(self, n=-1, timestamp=False, **kwargs):
         """
@@ -675,7 +729,7 @@ class qplexkit(object):
         if not os.path.isfile(_ccr_file):
             with open(_ccr_file, 'w+') as f:
                 json.dump([{'ccr': _ccr, 'time': time.strftime('%Y-%m-%d %H:%M:%S')}], f)
-        return True
+        return
 
     def print_ccr(self, **kwargs):
         """
@@ -713,5 +767,5 @@ class qplexkit(object):
             self.set_relay(lrel, 0)  # set logical relay number
         self._ccr = 0
         self._write_ccr()
-        return True
+        return
 
