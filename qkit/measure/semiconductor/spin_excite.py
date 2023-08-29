@@ -743,7 +743,10 @@ class Exciting():
         """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
         Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
         Reis nach Anleitung zubereiten. Danach warmstellen.
-        """
+        """        
+        for mode in self.active_modes:
+            self._mode_instances[mode] = self._modes[mode](self.fh, self.settings.measurement_settings)
+
         self._ready_hardware()
         iterations = 0
         while not self._ro_backend.finished():
@@ -753,8 +756,6 @@ class Exciting():
             for mode in self._mode_instances.values():
                 mode.fill_file(latest_data, data_location)
             progress_bar.iterate(addend = iterations - old_iterations)
-        for mode in self._mode_instances.values():
-            mode.reset()
         self._stop_hardware()
     
     def set_x_parameters(self, vec, coordname, set_obj, unit, dt=0):
@@ -822,6 +823,7 @@ class Exciting():
         try:
             self._stream_modular((), pb)
         finally:
+            self._mode_instances = {}
             self._ro_backend.stop()
             self._ma_backend.stop()
             self.fh.end_measurement()
@@ -836,6 +838,7 @@ class Exciting():
                 qkit.flow.sleep(self._x_parameter.wait_time)
                 self._stream_modular((i,), pb)
         finally:
+            self._mode_instances = {}
             self._ro_backend.stop()
             self._ma_backend.stop()
             self.fh.end_measurement()
@@ -857,6 +860,7 @@ class Exciting():
                 for dset in self.fh.datasets.keys():
                     self.fh.next_matrix(dset)
         finally:
+            self._mode_instances = {}
             self._ro_backend.stop()
             self._ma_backend.stop()
             self.fh.end_measurement()
