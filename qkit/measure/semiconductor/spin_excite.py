@@ -490,8 +490,9 @@ class FileHandler:
                     if self._filter_parameter(key) and abs(value) > 0.0004:
                         active_gates.update({key:value})
             self._static_voltages.append(active_gates)
-        if self.open_qviewkit:
-            self.mb._open_qviewkit()
+    
+    def show_live_view(self, data_to_show):
+        self.mb._open_qviewkit(data_to_show)
     
     def write_to_file(self, set_name, value, data_location):
         if value.size != 0:            
@@ -563,6 +564,7 @@ class Exciting():
 
         self.par_search_placeholder = "$$"
         self.par_search_string = "gate$$_out"
+        self.show_live_view = True
 
         self._x_parameter = MeasureBase.Coordinate("x_empty")
         self._y_parameter = MeasureBase.Coordinate("y_empty")
@@ -570,7 +572,18 @@ class Exciting():
         #Here there be testing stuff:
         self.fh = FileHandler()    
         self.compile(*experiments, averages = averages, active_modes = active_modes, deep_render = deep_render, **add_pars)        
-   
+    
+    @property
+    def show_live_view(self):
+        return self._show_live_view
+    
+    @show_live_view.setter
+    def show_live_view(self, new_view):
+        if new_view:
+            self._show_live_view = True
+        else:
+            self._show_live_view = False
+
     @property
     def measurement_name(self):
         return self.fh.measurement_name
@@ -599,8 +612,6 @@ class Exciting():
               
         self.fh.reset()
         self._mode_instances = {}
-        for mode in new_modes:
-            self._mode_instances[mode] = self._modes[mode](self.fh, self.settings.measurement_settings)
 
         self._active_modes = new_modes
 
@@ -703,6 +714,12 @@ class Exciting():
         self._ro_backend.stop()
         self._ma_backend.stop()
 
+    def _end_measurement(self):        
+        self._mode_instances = {}
+        self._ro_backend.stop()
+        self._ma_backend.stop()
+        self.fh.end_measurement()
+
     def _check_node_data(self, latest_node_data):
         if latest_node_data.ndim != 3:
             raise IndexError(f"{__name__}: Invalid readout dimensions. {self._ro_backend} must return arrays with 3 dimensions.")
@@ -725,10 +742,14 @@ class Exciting():
             iterations += collected_averages
         return iterations
     
-    def _prepare_measurement(self, additional_coords = []):
+    def _prepare_measurement(self, additional_coords = [], data_to_show = []):        
+        for mode in self.active_modes:
+            self._mode_instances[mode] = self._modes[mode](self.fh, self.settings.measurement_settings)
+        
         for mode in self._mode_instances.values():
             coords = mode.create_coordinates()
             self.fh.update_coordinates(mode.tag, coords)
+
         self._count_total_iterations()
         #self.fh.create_datasets(self.settings.measurement_settings, additional_coords)
         for measurement_name, measurement in self.settings.measurement_settings.items():
@@ -738,15 +759,14 @@ class Exciting():
                     additional_coords + self.fh. multiplexer_coords[tag][measurement_name],
                     measurement["unit"])
         self.fh.prepare_measurement(additional_coords)
+        if self.show_live_view:
+            self.fh.show_live_view(data_to_show)
         
     def _stream_modular(self, data_location, progress_bar): #avg_ax: (0,2) for pulse parameter mode, (0,1) for timetrace mode
         """Zubereitungszeit: Trockenzeit 24 Stdn. | Vorbereitungszeit 10 Min. | Garzeit 15 Min.
         Das Fleisch in kurze Streifen schneiden und einen Tag in der Sonne trocknen.
         Reis nach Anleitung zubereiten. Danach warmstellen.
-        """        
-        for mode in self.active_modes:
-            self._mode_instances[mode] = self._modes[mode](self.fh, self.settings.measurement_settings)
-
+        """
         self._ready_hardware()
         iterations = 0
         while not self._ro_backend.finished():
@@ -816,21 +836,18 @@ class Exciting():
             self._y_parameter = MeasureBase.Coordinate("y_empty")
             raise e
 
-    def measure1D(self):
+    def measure1D(self, data_to_show = []):
         self.fh.measurement_function_name = f"{__name__}: measure1D"
-        self._prepare_measurement()
+        self._prepare_measurement(data_to_show = data_to_show)
         pb = Progress_Bar(self._total_iterations)
         try:
             self._stream_modular((), pb)
         finally:
-            self._mode_instances = {}
-            self._ro_backend.stop()
-            self._ma_backend.stop()
-            self.fh.end_measurement()
+            self._end_measurement()
     
-    def measure2D(self):
+    def measure2D(self, data_to_show = []):
         self.fh.measurement_function_name = f"{__name__}: measure2D"
-        self._prepare_measurement([self._x_parameter])
+        self._prepare_measurement([self._x_parameter], data_to_show)
         pb = Progress_Bar(len(self._x_parameter.values) * self._total_iterations)
         try:
             for i, x_val in enumerate(self._x_parameter.values):
@@ -838,14 +855,11 @@ class Exciting():
                 qkit.flow.sleep(self._x_parameter.wait_time)
                 self._stream_modular((i,), pb)
         finally:
-            self._mode_instances = {}
-            self._ro_backend.stop()
-            self._ma_backend.stop()
-            self.fh.end_measurement()
-    
-    def measure3D(self):        
+            self._end_measurement()
+
+    def measure3D(self, data_to_show = []):        
         self.fh.measurement_function_name = f"{__name__}: measure3D"
-        self._prepare_measurement([self._x_parameter, self._y_parameter])
+        self._prepare_measurement([self._x_parameter, self._y_parameter], data_to_show)
         pb = Progress_Bar(len(self._x_parameter.values) * len(self._y_parameter.values) * self._total_iterations)
         try:
             for i, x_val in enumerate(self._x_parameter.values):
@@ -860,10 +874,7 @@ class Exciting():
                 for dset in self.fh.datasets.keys():
                     self.fh.next_matrix(dset)
         finally:
-            self._mode_instances = {}
-            self._ro_backend.stop()
-            self._ma_backend.stop()
-            self.fh.end_measurement()
+            self._end_measurement()
 
 def main():
     #import some stuff
@@ -937,6 +948,7 @@ def main():
     readout_correct.testmode = "tt"
     excitation._load_modes
     excitation.active_modes = "NoAvg"
+    excitation.measure1D(["noavg.m1.x"])
     excitation.measure1D()
 
 if __name__ == "__main__":
