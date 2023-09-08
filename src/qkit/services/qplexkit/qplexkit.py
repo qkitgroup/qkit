@@ -35,10 +35,13 @@ import os
 import json
 
 try:
-    from pcf8575 import PCF8575
+    from qkit.services.qplexkit.pcf8575 import PCF8575
 except ModuleNotFoundError:
-    logging.warning('qplexkit: Module PCF8575 for I2C-expander not found. Use dummy instead that just supports software debugging but no control of the qplexkit at all.')
+    # logging.warning('qplexkit: Module PCF8575 for I2C-expander not found. Use dummy instead that just supports software debugging but no control of the qplexkit at all.')
     class PCF8575(object):
+        """
+        This is a dummy class that supports software debugging but no control of the qplexkit and is used for the qkit-driver.
+        """
         def __init__(self, i2c_bus_no, address):
             print(i2c_bus_no, address)
             self.port = 16 * [True]
