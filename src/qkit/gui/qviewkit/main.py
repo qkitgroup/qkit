@@ -146,28 +146,14 @@ def main(argv=sys.argv):
 
 
     parser.add_argument('-f','--file',     type=str, help='hdf filename to open')
-    parser.add_argument('-u','--url', type=str, help='url handler for qviewkit:UUID scheme. Derives file location from fid.')
     parser.add_argument('-ds','--datasets', type=str, help='(optional) datasets opened by default')
 
     parser.add_argument('-rt','--refresh_time', type=float, help='(optional) refresh time')
     parser.add_argument('-sp','--save_plot',  default=False,action='store_true', help='(optional) save default plots')
     parser.add_argument('-live','--live_plot',default=False,action='store_true', help='(optional) if set, plots are reloaded')
     parser.add_argument('-qinfo','--qkit_info',default=False,action='store_true', help='(optional) if set, listen to qkit infos')
-    args=parser.parse_args()
+    args=parser.parse_args(args=argv[1:])
     data.args = args
-
-    # Check UUID lookup
-    if data.args.url: # A URL is set.
-        # Extract the UUID from the URI.
-        import re
-        url_regex = re.compile(r'qviewkit://([A-Z0-9]{6})')
-        match = url_regex.match(data.args.url)
-        uuid = match.group(1)
-
-        # Find the file
-        import qkit
-        qkit.start()
-        data.args.file = qkit.fid.get(uuid)
 
     # create Qt application
     if in_pyqt5:
