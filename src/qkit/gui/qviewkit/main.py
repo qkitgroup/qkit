@@ -152,7 +152,7 @@ def main(argv=sys.argv):
     parser.add_argument('-sp','--save_plot',  default=False,action='store_true', help='(optional) save default plots')
     parser.add_argument('-live','--live_plot',default=False,action='store_true', help='(optional) if set, plots are reloaded')
     parser.add_argument('-qinfo','--qkit_info',default=False,action='store_true', help='(optional) if set, listen to qkit infos')
-    args=parser.parse_args()
+    args=parser.parse_args(args=argv[1:])
     data.args = args
 
     # create Qt application
