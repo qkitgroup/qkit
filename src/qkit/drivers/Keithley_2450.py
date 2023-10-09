@@ -263,7 +263,7 @@ class Keithley_2450(Instrument):
         '''
         logging.debug('Get status of output')
         #ans=self._get_func_par('outp','stat')
-        ans = self._visainstrument.ask(':outp?')
+        ans = self._visainstrument.query(':outp?')
         
         if ans=='zero':
             return "off"
@@ -300,9 +300,9 @@ class Keithley_2450(Instrument):
         logging.debug('Get measuring level')
         mode = self.get('source_mode')
         if mode == 'CURR':
-            return float(self._visainstrument.ask(':SOUR:CURR?'))
+            return float(self._visainstrument.query(':SOUR:CURR?'))
         elif mode == 'VOLT':
-            return float(self._visainstrument.ask(':SOUR:VOLT?'))
+            return float(self._visainstrument.query(':SOUR:VOLT?'))
         else:
             return 'error'
         
@@ -319,7 +319,7 @@ class Keithley_2450(Instrument):
         # Gets voltage protection value
         # '''                
         # logging.debug('Get voltage protection value')
-        # return float(self._visainstrument.ask(':SENS:VOLT:PROT?'))
+        # return float(self._visainstrument.query(':SENS:VOLT:PROT?'))
         
     # def do_set_current_protection(self, val):
         # '''
@@ -333,7 +333,7 @@ class Keithley_2450(Instrument):
         # Gets current protection value
         # '''                
         # logging.debug('Get current protection value')
-        # return float(self._visainstrument.ask(':SENS:CURR:PROT?'))
+        # return float(self._visainstrument.query(':SENS:CURR:PROT?'))
         
         
     def do_set_4W(self, val):
@@ -354,7 +354,7 @@ class Keithley_2450(Instrument):
         Gets measurement mode
         '''
         logging.debug('Get 4-wire measurement mode')
-        ans = self._visainstrument.ask(":RES:RSEN?")
+        ans = self._visainstrument.query(":RES:RSEN?")
         
         if int(ans):
             return 'on'
@@ -440,7 +440,7 @@ class Keithley_2450(Instrument):
 #        Gets measured value
 #        '''
 #        logging.debug('Get measured value')
-#        return float(self._visainstrument.ask(':chan%d:fetc?' % channel))
+#        return float(self._visainstrument.query(':chan%d:fetc?' % channel))
 #
 #
 #

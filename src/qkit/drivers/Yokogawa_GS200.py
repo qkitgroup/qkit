@@ -571,7 +571,7 @@ class Yokogawa_GS200(Instrument):
             val (string) :
         '''
         string = ':%s:%s?' %(func, par)
-        ans = self._visainstrument.ask(string)
+        ans = self._visainstrument.query(string)
         logging.debug(__name__ + ' : ask instrument for %s (result %s)' % \
             (string, ans))
         return ans.lower()
