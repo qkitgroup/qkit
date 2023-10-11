@@ -79,6 +79,9 @@ Instead, in a parent directory, a file named `qkit_local_config.py` is used to c
 
 To migrate, copy the code in your old `local.py` into the new `qkit_local_config.py` file. Do note, however, that the `datadir` and `logdir` paths have changed. It is recommended to use the new values. Conflicting entries in your config may need to be deleted.
 
+### "My changes to the configuration are not applied after upgrading"
+If your notebooks do not reside in a child directory of qkit, the `qkit_local_config.py` may not be found, as each notebook launches a Python process in its location running itself. Thus `qkit_local_config.py` may not be in any of the notebooks parent directories. In this case, either set the environment variable `QKIT_LOCAL_CONFIG` to your configuration, or place the configuration in your notebook directory instead.
+
 ### Migrating Notebooks
 The new setup assumes, that notebooks are located in `notebooks/`. This way, `qkit_local_config.py` is in a parent directory of your notebooks and is thus loaded when you initialize qkit in your notebooks.
 
