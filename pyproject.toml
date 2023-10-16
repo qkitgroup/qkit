@@ -54,7 +54,8 @@ qgrid = [
     "qgrid>=1.0"
 ]
 timedomain = [
-    "qiclib@https://git.scc.kit.edu/ipe-sdr-dev/software/qup_client.git>=0.0.2"
+    "qiclib@https://git.scc.kit.edu/ipe-sdr-dev/software/qup_client.git>=0.0.2",
+    "zerorpc>=0.6"
 ]
 
 
