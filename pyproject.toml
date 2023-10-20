@@ -33,11 +33,12 @@ dependencies = [
 
 [project.scripts]
 qviewkit = "qkit.gui.qviewkit.main:main"
+qkit-fid-index = "qkit.entrypoint:index_directory"
 
 [project.optional-dependencies] # Here goes stuff like qiclib
 jupyter = [
     "jupyterlab>=3.6",
-    "jupyterlab-templates>=0.4",
+    "jupyterlab-templates>=0.5",
     "ipywidgets>=8.0"
 ]
 zurich-instruments = [
