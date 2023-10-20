@@ -110,7 +110,8 @@ class fid(file_system_service):
     history = property(lambda self: sorted(self.h5_db.keys()))
     
     def get_last(self):
-        return sorted(self.h5_db.keys())[-1]
+        with self.lock:
+            return sorted(self.h5_db.keys())[-1]
         
     def __getitem__(self, key):
         with self.lock:

@@ -72,6 +72,10 @@ class file_system_service(UUID_base):
     _h5_mtime_db_path   = os.path.join(qkit.cfg['logdir'],"h5_mtime.db")
     _h5_info_cache_path = os.path.join(qkit.cfg['logdir'],"h5_info_cache.db")
 
+    # Paths for loading from precomputed cache in datadir. Will not be deleted on cleanup.
+    _h5_mtime_db_data_path = os.path.join(qkit.cfg['datadir'], "index-logs/h5_mtime.db")
+    _h5_info_cache_data_path = os.path.join(qkit.cfg['datadir'], "index-logs/h5_info_cache.db")
+
     lock = threading.Lock()
     
     def _remove_cache_files(self):
@@ -90,14 +94,31 @@ class file_system_service(UUID_base):
         self._h5_mtime_db = {}
         self._h5_info_cache_db = {}
         self._n_mtime = {}
-        try:
-            with open(self._h5_mtime_db_path,'rb') as f:
-                self._h5_mtime_db = pickle.load(f)
-            with open(self._h5_info_cache_path,'rb') as f:
-                self._h5_info_cache_db = pickle.load(f)
-        except IOError as e:
-            logging.info("m_time_db not found. Not using cached files for now. %s"%e)
-            self._new_cache = True
+
+        use_datadir_cache = qkit.cfg.get('use_datadir_cache', False)
+        datadir_cache_available = False
+        if use_datadir_cache: # Try loading the datadir cache first
+            self._new_cache = True  # Create an offline cache.
+            try:
+                with open(self._h5_mtime_db_data_path, 'rb') as f:
+                    self._h5_mtime_db = pickle.load(f)
+                with open(self._h5_info_cache_data_path, 'rb') as f:
+                    self._h5_info_cache_db = pickle.load(f)
+                datadir_cache_available = True # The datadir cache was successfully loaded.
+            except IOError as e:
+                logging.info("m_time_db not found in datadir. Not using cached files for now. %s" % e)
+
+        if not (use_datadir_cache and datadir_cache_available):
+            # If we are not instructed to use the datadir cache, or if we were instructed to use it, but it was not
+            # available, use the regular cache.
+            try:
+                with open(self._h5_mtime_db_path,'rb') as f:
+                    self._h5_mtime_db = pickle.load(f)
+                with open(self._h5_info_cache_path,'rb') as f:
+                    self._h5_info_cache_db = pickle.load(f)
+            except IOError as e:
+                logging.info("m_time_db not found. Not using cached files for now. %s"%e)
+                self._new_cache = True
 
     def _store_cache_files(self):
         """ writes the cached files on disk, 
