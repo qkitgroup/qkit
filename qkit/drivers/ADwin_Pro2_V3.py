@@ -254,6 +254,7 @@ class ADwin_Pro2_V3(Instrument):
         self.add_function('get_input')
         self.add_function('set_field_1d')
         self.add_function('set_field_3d')
+        self.add_function('get_Bfield')
         self.add_function('set_output_current_voltage_parallel')
         self.add_function('initialize_gates')
         self.add_function('IV_curve')
@@ -1473,7 +1474,26 @@ class ADwin_Pro2_V3(Instrument):
         else:
             logging.warning(__name__+': voltage in x-direction out of limits. Field not changed.')
             
-            
+    def get_Bfield(self, direction:int):
+        """Returns B field of direction (1,2,3). It uses the coil_params file as 
+        a source for the calibration values.
+        """
+        if direction not in [1,2,3]:
+            logging.error(__name__ + ': Choose between direction 1, 2 and 3')
+            raise Exception("Direction doesn't exist")
+        gate = direction
+        V = self.get('gate%d_output_current_voltage_in_V'% gate)
+        if direction == 1:
+            translation_factor = self.translation_factor_x
+            calib = self.x_calib
+        elif direction == 2:
+            translation_factor = self.translation_factor_y
+            calib = self.y_calib
+        elif direction == 3:
+            translation_factor = self.translation_factor_z
+            calib = self.z_calib
+        B = V * translation_factor * calib        
+        return B       
             
     def IV_curve(self, output=None, input_gate=None, V_min=0.0, V_max=0.001, V_div=1, samples=10, 
                  IV_gain=1e9, I_max=1e-9, averages=1000):
