@@ -251,3 +251,37 @@ class AnaPico_APSYN140(Instrument):
         '''
         logging.debug(__name__ + f' : set power of channel {channel} to {amp}')
         self._visainstrument.write(f':SOURce{channel}:POWer {amp}')
+        
+    # shortcuts
+    def off(self):
+        '''
+        Set status to 'off'
+        Input:
+            None
+        Output:
+            None
+        '''
+        self.do_set_status(0,1)
+
+    def on(self):
+        '''
+        Set status to 'on'
+        Input:
+            None
+        Output:
+            None
+        '''
+        self.do_set_status(1,1)
+
+
+if __name__ == "__main__":
+    import qkit
+    qkit.start()
+    
+    anna = qkit.instruments.create('anna', 'AnaPico_APSYN140', address='192.168.1.71')
+    anna.do_set_frequency(12e9,1)
+    anna.do_set_power(-10,1)
+    anna.do_set_status(0,1)
+
+    
+
