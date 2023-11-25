@@ -109,8 +109,9 @@ class AnaPico_APSYN140(Instrument):
         Output:
             status (string) : 'On' or 'Off'
         '''
-        logging.debug(__name__ + f' : get status of channel {channel}')
-        return self._visainstrument.query(f'OUTPut{channel}?')
+        print("getting status does not work yet!")
+        logging.debug(__name__ + f': get status of channel {channel}')
+        return self._visainstrument.query(f':OUTPut{channel}?')
 
 
     def do_set_status(self,  status, channel):
@@ -126,7 +127,7 @@ class AnaPico_APSYN140(Instrument):
         logging.debug(__name__ + f' : set status of channel {channel} to {status}')
 
         if status == True:
-            self._visainstrument.write(f'OUTPut{channel} ON')
+            self._visainstrument.write(f':OUTPut{channel} ON')
         elif status == False:
             self._visainstrument.write(f':OUTPut{channel} OFF')
         else:
@@ -252,7 +253,7 @@ class AnaPico_APSYN140(Instrument):
         logging.debug(__name__ + f' : set power of channel {channel} to {amp}')
         self._visainstrument.write(f':SOURce{channel}:POWer {amp}')
         
-    # shortcuts
+    # shortcuts for ch1
     def off(self):
         '''
         Set status to 'off'
@@ -261,7 +262,7 @@ class AnaPico_APSYN140(Instrument):
         Output:
             None
         '''
-        self.do_set_status(0,1)
+        self.set_ch1_status(0)
 
     def on(self):
         '''
@@ -271,7 +272,7 @@ class AnaPico_APSYN140(Instrument):
         Output:
             None
         '''
-        self.do_set_status(1,1)
+        self.set_ch1_status(1)
 
 
 if __name__ == "__main__":
@@ -279,9 +280,9 @@ if __name__ == "__main__":
     qkit.start()
     
     anna = qkit.instruments.create('anna', 'AnaPico_APSYN140', address='192.168.1.71')
-    anna.do_set_frequency(12e9,1)
-    anna.do_set_power(-10,1)
-    anna.do_set_status(0,1)
+    anna.set_ch1_frequency(12e9,1)
+    anna.set_ch1_power(-10,1)
+    anna.set_ch1_status(0,1)
 
     
 
