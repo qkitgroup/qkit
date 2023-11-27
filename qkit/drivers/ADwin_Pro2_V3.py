@@ -1798,6 +1798,7 @@ class ADwin_Pro2_V3(Instrument):
             data_volts = data_volts_averaged
 
         data_triggered_readout = np.empty(shape=(1, self.measurement_count, self.sample_count))
+        data_triggered_readout[0:1, :, :] = data_volts
         self.start_triggered_readout()  # starting new average
         return data_triggered_readout
 
