@@ -2,7 +2,11 @@
 ADwin ProII driver written by S. Fuhrmann und D. Schroller
 
 TODO:
-    -
+    -continuous readout:
+        -ADwin has to be bootloaded in current jupyter notebook, if not watch wont work, bug not found yet
+        -implement sample loss flag 
+    -triggered readout:
+
 
 IMPORTANT:
 This file is using the ADwin process ramp_input_V3.TC1
@@ -168,6 +172,7 @@ class ADwin_Pro2_V3(Instrument):
         self.measurement_count = 0
         self.sample_count = 0
         self.triggered_readout_averaging = 1
+        self.triggered_readout_sleep = 0
 
         #parameter for continuous readout
         self.max_samples_continuous = 0
@@ -1670,6 +1675,9 @@ class ADwin_Pro2_V3(Instrument):
         return rate
 
     def _do_set_measurement_count_triggered_readout(self, measurement_count:int, channel):
+        """Measurement_count is the number of pulses in a pulse train. So a ForLoopPT with Qupulse with 5 different
+        pulse parameters generates a measurment count of 5.
+        """
         logging.info(__name__ + ': setting measurement count to: %d' % measurement_count)
         self.measurement_count = int(measurement_count)
         self.set_Par_11_global_long(measurement_count)
@@ -1692,11 +1700,15 @@ class ADwin_Pro2_V3(Instrument):
             self.set_Par_10_global_long(sample_count)
 
     def _do_get_sample_count_triggered_readout(self, channel):
+        """Sample_count is the number of data points to aquire in a single measurement block. sample count has to be in bytes"""
         logging.info(__name__ + ': getting sample count')
         count = self.get_Par_10_global_long()
         return count
 
     def _do_set_repeats_triggered_readout(self, repeats:int, channel):
+        """Repeats is the number over averages of full pulse trains. This is not the averaging of e.g. 4MHz data to 100kHz data.
+        However, it is the number of repetitions the same data is aquired. 
+        """
         logging.info(__name__ + ': setting repeats to: %d' % repeats)
         self.repeats =int(repeats)
         self.set_Par_12_global_long(repeats)
@@ -1769,6 +1781,9 @@ class ADwin_Pro2_V3(Instrument):
         sample_count_averaging = self.sample_count * self.triggered_readout_averaging
         size = int(sample_count_averaging * self.measurement_count)
         data_raw = np.array(self.adw.GetData_Long(1, 1, size))
+        if self.triggered_readout_sleep != 0:
+            time.sleep(self.triggered_readout_sleep) # this minor sleep is important to have no trigger loss between AWG and ADwin
+        self.start_triggered_readout()  # starting new average
         data_reshaped = data_raw.reshape(self.measurement_count, sample_count_averaging)
         data_volts = data_reshaped * 2*10/(2**16) - 10 # translating to volts
 
@@ -1783,8 +1798,6 @@ class ADwin_Pro2_V3(Instrument):
             data_volts = data_volts_averaged
 
         data_triggered_readout = np.empty(shape=(1, self.measurement_count, self.sample_count))
-        data_triggered_readout[0:1, :, :] = data_volts
-        time.sleep(0.01) # this minor sleep is important to have no trigger loss between AWG and ADwin
         self.start_triggered_readout()  # starting new average
         return data_triggered_readout
 

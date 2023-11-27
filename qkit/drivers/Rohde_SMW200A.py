@@ -32,7 +32,7 @@ class Rohde_SMW200A(Instrument):
     <name> = instruments.create('<name>', 'Rohde_SMW200A', address='<GBIP address>, reset=<bool>')
     '''
 
-    def __init__(self, name, address, reset=True):
+    def __init__(self, name, address, reset=False):
         '''
         Initializes the Rohde_SMW200A, and communicates with the wrapper.
         Input:
@@ -47,18 +47,21 @@ class Rohde_SMW200A(Instrument):
         self._address = address
         self._visainstrument = RsSmw('TCPIP::'+self._address+"::INSTR", 
                                      id_query=True, reset=False)
-
+        
+        
         self.add_parameter('power',
             flags=Instrument.FLAG_GETSET, units='dBm', minval=-145, maxval=30, type=float)
-        #self.add_parameter('phase',
-        #    flags=Instrument.FLAG_GETSET, units='rad', minval=-numpy.pi, maxval=numpy.pi, type=float)
+        self.add_parameter('phase',
+            flags=Instrument.FLAG_GETSET, units='deg', minval=-720, maxval=720, type=float)
         self.add_parameter('frequency',
             flags=Instrument.FLAG_GETSET, units='Hz', minval=1e5, maxval=20e9, type=float)
         self.add_parameter('status',
             flags=Instrument.FLAG_GETSET, type=str)
-        self.add_parameter('mode',
+        self.add_parameter('mode_wave',
             flags=Instrument.FLAG_GETSET, type=str)
-
+        self.add_parameter('mode_iqmod',
+            flags=Instrument.FLAG_GETSET, type=bool)
+       
         self.add_function('reset')
         self.add_function ('get_all')
 
@@ -103,45 +106,6 @@ class Rohde_SMW200A(Instrument):
         self.get_frequency()
         self.get_status()
 
-    def do_get_mode(self):
-        '''
-        Reads the mode of the generator. Can be cw or sweep. 
-
-        Returns
-        -------
-        Output:
-            mode(string) : cw or sweep
-
-        '''
-        logging.debug(__name__ + ' : get mode')
-        mode_enum = self._visainstrument.source.frequency.get_mode()
-        if mode_enum.name == 'CW':
-            mode = 'cw'
-        elif mode_enum.name == 'SWEep':
-            mode = 'sweep'
-        else: 
-            raise Exception('Mode strange.')
-        return mode 
-    
-    def do_set_mode(self, mode):
-        '''
-        Sets the mode of the generator. Can be 'cw' or 'sweep'. 
-
-        Returns
-        -------
-        Input:
-            mode(string) : cw or sweep
-
-        '''
-        logging.debug(__name__ + ' : set mode')
-        if mode=='cw':
-            self._visainstrument.source.frequency.set_mode(enums.FreqMode.CW)
-        elif mode=='sweep':
-            self._visainstrument.source.frequency.set_mode(enums.FreqMode.SWEep)
-        else:
-            raise Exception('Mode not possible!')
-
-
     def do_get_power(self):
         '''
         Reads the power of the signal from the instrument in dBm. 
@@ -164,29 +128,29 @@ class Rohde_SMW200A(Instrument):
         logging.debug(__name__ + ' : set power to %f' % amp)
         self._visainstrument.source.power.level.immediate.set_amplitude(amp)
 
-    """
+  
     def do_get_phase(self):
         '''
-        Reads the phase of the signal from the instrument
+        Reads the phase of the signal from the instrument in DEG.
         Input:
             None
         Output:
-            phase (float) : Phase in radians
+            phase (float) : Phase in DEG
         '''
         logging.debug(__name__ + ' : get phase')
-        return 0
+        return self._visainstrument.source.phase.get_value()
 
-    def do_set_phase(self, phase):
+    def do_set_phase(self, phi:float):
         '''
-        Set the phase of the signal
+        Set the phase of the signal in DEG.
         Input:
-            phase (float) : Phase in radians
+            phase (float) : Phase in DEG.
         Output:
             None
         '''
-        logging.debug(__name__ + ' : set phase to %f' % phase)
-        #self._visainstrument.write('PHASE %s' % phase)
-    """
+        logging.debug(__name__ + ' : set phase to %f' % phi)
+        self._visainstrument.source.phase.set_value(phase = phi)
+
 
     def do_get_frequency(self):
         '''
@@ -241,6 +205,7 @@ class Rohde_SMW200A(Instrument):
         else:
             raise Exception('Use only "on" or "off"!') 
         logging.debug(__name__ + ' : set status to %s' % status)
+        
 
     # shortcuts
     def off(self):
@@ -263,8 +228,66 @@ class Rohde_SMW200A(Instrument):
         '''
         self.set_status('on')
         
+    def do_get_mode_wave(self):
+        '''
+        Reads the mode of the generator. Can be cw or sweep. 
+
+        Returns
+        -------
+        Output:
+            mode(string) : cw or sweep
+
+        '''
+        logging.debug(__name__ + ' : get mode')
+        mode_enum = self._visainstrument.source.frequency.get_mode()
+        if mode_enum.name == 'CW':
+            mode = 'cw'
+        elif mode_enum.name == 'SWEep':
+            mode = 'sweep'
+        else: 
+            raise Exception('Mode strange.')
+        return mode 
+    
+    def do_set_mode_wave(self, mode:str):
+        '''
+        Sets the mode of the generator. Can be 'cw' or 'sweep'. 
+
+        Returns
+        -------
+        Input:
+            mode(string) : cw or sweep
+
+        '''
+        logging.debug(__name__ + ' : set mode')
+        if mode=='cw':
+            self._visainstrument.source.frequency.set_mode(enums.FreqMode.CW)
+        elif mode=='sweep':
+            self._visainstrument.source.frequency.set_mode(enums.FreqMode.SWEep)
+        else:
+            raise Exception('Mode not possible!')
+
+    def do_get_mode_iqmod(self):
+        '''
+        returns True if generator is set to be triggered externally.
+        '''
+        return self._visainstrument.source.iq.get_state()
         
-        
+    def do_set_mode_iqmod(self, engaged:bool):
+        '''
+        page 460ff of https://scdn.rohde-schwarz.com/ur/pws/dl_downloads/pdm/cl_manuals/user_manual/1175_6632_01/SMW200A_UserManual_en_34.pdf#pdfID_48bca26feccf3dc90a00206a01035320-810a0b430d2600320a00201900c20872-en-US
+        '''
+        if engaged:
+            self._visainstrument.source.iq.set_source(source=enums.IqSour.DIFFerential) #sets the manipulation to Differential external   
+            self._visainstrument.source.iq.set_crest_factor(crest_factor = 1.414) #sine wave crest factor
+            self._visainstrument.source.iq.set_wb_state(wb_state=True) #activates wideband mode
+            self._visainstrument.source.iq.set_gain(gain=enums.IqGainAll.AUTO) #auto range gain
+            #self._visainstrument.source.iq.set_state(1) #not working yet in python driver RsSmw
+            print('Put the IQ mode on yourself using the display settings. Rhode&Schwarz forgot to put it in the driver.')
+        else:
+            #self._visainstrument.source.iq.set_state(0) #not working yet in python driver RsSmw
+            print('Put the IQ mode off yourself using the display settings. Rhode&Schwarz forgot to put it in the driver.')
+  
+    
     
 if __name__ == "__main__":
     import qkit
@@ -274,6 +297,29 @@ if __name__ == "__main__":
     weva.set_mode("cw")
     weva.set_frequency(2e9)
     weva.set_power(-40)
+    weva.set_mode_iqmod(True)
     weva.on()
     weva.off()
     weva.reset()
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

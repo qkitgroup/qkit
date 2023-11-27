@@ -40,7 +40,7 @@ class Moku_Pro_AWG(Instrument):
         
         self.output_configs = [{},{},{},{}]
         
-        self._amplitudes = [0, 0, 0, 0]
+        self._amplitudes = [1e-4, 1e-4, 1e-4, 1e-4]
         self._frequency = 250e6
         self._point_num = 2**16
         self._V_offsets = [0, 0, 0, 0]
@@ -84,6 +84,12 @@ class Moku_Pro_AWG(Instrument):
         self.add_function("continuous_mode")
         self.add_function("burst_mode")
         self.add_function("configure_outputs")
+        
+        self.burst_mode(1, "Input1", "NCycle", 1, 1)
+        self.burst_mode(2, "Input1", "NCycle", 1, 1)
+        self.burst_mode(3, "Input1", "NCycle", 1, 1)
+        self.burst_mode(4, "Input1", "NCycle", 1, 1)
+
     
     # parameters
     
@@ -160,7 +166,7 @@ class Moku_Pro_AWG(Instrument):
                                 trigger_mode = trigger_mode, burst_cycles = burst_cycles, 
                                 trigger_level = trigger_level)
         
-    def configure_outputs(self,data_dict, triggered = False, trigger_source = "Input1", trigger_mode = "NCycle", burst_cycles = 1, trigger_level = 0.5):
+    def configure_outputs(self,data_dict, triggered = False, trigger_source = "Input1", trigger_mode = "NCycle", burst_cycles = 1, trigger_level = 1):
         if type(data_dict) != dict:
             raise TypeError(f"{__name__}: Cannot use {type(data_dict)} input. Data must be an dict with channel names and corresponding wave data.")
         
@@ -191,8 +197,11 @@ class Moku_Pro_AWG(Instrument):
                     
                 pulseArray = waveArray
                 
-            maxV = round(math.ceil(max(abs(pulseArray))*1e4)*1e-4,4) 
-            self._amplitudes[i] = maxV
+            maxV = round(math.ceil(max(abs(pulseArray))*1e4)*1e-4,4)
+            if maxV >= 1e-4:
+                self._amplitudes[i] = maxV
+            else:
+                self._amplitudes[i] = 1e-4
             
             self.generate_waveform(i+1, pulseArray/maxV)
             
