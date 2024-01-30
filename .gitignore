@@ -14,4 +14,4 @@ venv
 dist/
 
 # Legacy qkit folder logs
-qkit/qkit/logs
+qkit/logs
