@@ -12,3 +12,6 @@ venv
 
 # Build
 dist/
+
+# Legacy qkit folder logs
+qkit/logs
