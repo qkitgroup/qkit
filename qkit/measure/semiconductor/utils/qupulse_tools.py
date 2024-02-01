@@ -50,6 +50,9 @@ def plut(pulse: PulseTemplate,
         plot_measurements: If specified measurements in this set will be plotted. If omitted no measurements will be.
         maximum_points: If the sampled waveform is bigger, it is not plotted
         time_slice: The time slice to be plotted. If None, the entire pulse will be shown.
+        xlabel: optional replacement for the standard xlabel
+        ylabel: optional replacement for the standard ylabel
+        trig_label: optional replacement for the standard trig_label
         kwargs: Forwarded to pyplot. Overwrites other settings.
     Returns:
         matplotlib.pyplot.Figure instance in which the pulse is rendered
