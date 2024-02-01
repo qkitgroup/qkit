@@ -5,29 +5,31 @@ Created on Tue Sep  7 11:05:12 2021
 
 @author: lr1740
 """
-from typing import Dict, Tuple, Any, Optional, Set
+import warnings
 from numbers import Real
-from cycler import cycler
-
-from qupulse.utils.types import ChannelID
-from qupulse.pulses.pulse_template import PulseTemplate
-from qupulse.pulses.parameters import Parameter
-from qupulse.pulses.plotting import render
+from typing import Any, Dict, Optional, Set, Tuple
 
 import numpy as np
-import warnings
+from cycler import cycler
+from qupulse.pulses.plotting import render
+from qupulse.pulses.pulse_template import PulseTemplate
+from qupulse.utils.types import ChannelID
 
-def plot(pulse: PulseTemplate,
-         parameters: Dict[str, Parameter]=None,
+
+def plut(pulse: PulseTemplate,
+         parameters: Dict[str, Real]=None,
          sample_rate: Real=10,
          axes: Any=None,
          show: bool=True,
          plot_channels: Optional[Set[ChannelID]]=None,
          plot_measurements: Optional[Set[str]]=None,
-         plot_triggers: Optional[Set[str]] = set(),
+         plot_triggers: Optional[Set[ChannelID]] = None,
          stepped: bool=True,
          maximum_points: int=10**6,
          time_slice: Tuple[Real, Real]=None,
+         xlabel: str = 'Time (ns)',
+         ylabel: str = 'Voltage (a.u.)',
+         trig_label: str = "Trigger level (a.u.)",
          **kwargs) -> Any:  # pragma: no cover
     """Plots a pulse using matplotlib.
 
@@ -95,19 +97,18 @@ def plot(pulse: PulseTemplate,
         plt.tight_layout()
         figure = plt.figure()
         axes = figure.add_subplot(111)
-
-    if plot_channels is not None:
-        voltages = {ch: voltage
-                    for ch, voltage in voltages.items()
-                    if ch in plot_channels}
+    
     if plot_triggers:
+        triggers = {ch: voltage
+                    for ch, voltage in voltages.items()
+                    if ch in plot_triggers}
         invalid_trig = [trig for trig in plot_triggers if trig not in voltages.keys()]
         if invalid_trig:
             invalid_str = ", ".join(invalid_trig)
             raise ValueError(f"{__name__}: Cannot plot {invalid_str} on the trigger axis. Channels not defined")
         
-        trig_max_voltage = max((max(channel, default=0) for chname, channel in voltages.items() if chname in plot_triggers), default=0)
-        trig_min_voltage = min((min(channel, default=0) for chname, channel in voltages.items() if chname in plot_triggers), default=0)
+        trig_max_voltage = max((max(channel, default=0) for chname, channel in triggers.items() if chname in plot_triggers), default=0)
+        trig_min_voltage = min((min(channel, default=0) for chname, channel in triggers.items() if chname in plot_triggers), default=0)
         trig_voltage_difference = trig_max_voltage-trig_min_voltage
         
         axes_trig = axes.twinx()
@@ -115,21 +116,32 @@ def plot(pulse: PulseTemplate,
         axes_trig.spines["right"].set_color(ax_color)
         axes_trig.tick_params(axis='y', colors=ax_color)
         axes_trig.yaxis.label.set_color(ax_color)
-        axes_trig.set_ylabel("Trigger level (a.u.)")        
+        axes_trig.set_ylabel(trig_label)        
         axes_trig.set_ylim(trig_min_voltage - 0.1*trig_voltage_difference, trig_max_voltage + 0.1*trig_voltage_difference)
         axes_trig.set_prop_cycle(cycler(color="bgrcmyk"))
+
+        for ch_name, voltage in triggers.items():
+            label = 'channel {}'.format(ch_name)       
+            if stepped:
+                line, = axes_trig.step(times, voltage, **{**dict(where='post', label=label), **kwargs})
+            else:
+                line, = axes_trig.plot(times, voltage, **{**dict(label=label), **kwargs})
+            legend_handles.append(line)
+
+    if plot_channels is not None:
+        voltages = {ch: voltage
+                    for ch, voltage in voltages.items()
+                    if ch in plot_channels}
+
         
     for ch_name, voltage in voltages.items():
-        label = 'channel {}'.format(ch_name)
-        if ch_name in plot_triggers:
-            ax = axes_trig
-        else:
-            ax = axes            
+        label = 'channel {}'.format(ch_name)       
         if stepped:
-            line, = ax.step(times, voltage, **{**dict(where='post', label=label), **kwargs})
+            line, = axes.step(times, voltage, **{**dict(where='post', label=label), **kwargs})
         else:
-            line, = ax.plot(times, voltage, **{**dict(label=label), **kwargs})
-        legend_handles.append(line)
+            line, = axes.plot(times, voltage, **{**dict(label=label), **kwargs})
+        legend_handles.append(line)    
+
 
     if plot_measurements:
         measurement_dict = dict()
@@ -144,11 +156,8 @@ def plot(pulse: PulseTemplate,
             for begin, end in begin_end_list:
                 poly = axes.axvspan(begin, end, alpha=0.2, label=name, edgecolor='black', facecolor=meas_colors[name])
             legend_handles.append(poly)
-    
-    if plot_triggers:
-        axes_trig.legend(handles=legend_handles, loc = "best")
-    else:
-        axes.legend(handles=legend_handles, loc = "best")
+
+    axes.legend(handles=legend_handles, loc = "best")
 
     max_voltage = max((max(channel, default=0) for channel in voltages.values()), default=0)
     min_voltage = min((min(channel, default=0) for channel in voltages.values()), default=0)
@@ -158,8 +167,9 @@ def plot(pulse: PulseTemplate,
     voltage_difference = max_voltage-min_voltage
     if voltage_difference>0:
         axes.set_ylim(min_voltage - 0.1*voltage_difference, max_voltage + 0.1*voltage_difference)
-    axes.set_xlabel('Time (ns)')
-    axes.set_ylabel('Voltage (a.u.)')
+    
+    axes.set_xlabel(xlabel)
+    axes.set_ylabel(ylabel)
 
     if pulse.identifier:
         axes.set_title(pulse.identifier)
