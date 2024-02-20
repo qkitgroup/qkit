@@ -325,8 +325,8 @@ class ACF():
         """
         # Sort ydata by mean value.
         indices = np.argsort([np.mean(i) for i in self.ydata])        
-        self.xdata = list(np.array(self.xdata)[indices])
-        self.ydata = list(np.array(self.ydata)[indices])
+        self.xdata = list(np.array(self.xdata, dtype=object)[indices])
+        self.ydata = list(np.array(self.ydata, dtype=object)[indices])
         if min(np.gradient(indices)) < 0:
             print("\nChanging order of x- and y-data respectively...\n")
         return
