@@ -86,7 +86,7 @@ def plot(h5_filepath, datasets=[], refresh = 2, live = True, echo = False):
         return P
     else:
         os.putenv("HDF5_USE_FILE_LOCKING", 'FALSE')
-        return Popen(cmd, shell=False)
+        return Popen(cmd, shell=False, stdout=PIPE, text=True)
 
 
 # this is for saving plots
