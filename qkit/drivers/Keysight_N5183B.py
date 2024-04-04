@@ -80,7 +80,7 @@ class Keysight_N5183B(Instrument):
         else:
             self.get_all()
 
-        print('\n After reboot, pulse has to be set to TRIGGERED manually \n Pulse -> Pulse Source -> Triggered')
+        print('\n After reboot, pulse has to be set to triggered manually \n Pulse -> Pulse Source -> triggered')
 
     
     def reset(self):
@@ -226,51 +226,57 @@ class Keysight_N5183B(Instrument):
     def do_get_mode(self):
         '''
         Reads the mode of the pulse modulation
+        'continuous'  sends a continuous signal 
+        'triggered'   sends a pulsed signal with a given delay and width
+        'gated'       sends a signal whenever it is triggered 
 
         Input:
             None
 
         Output:
-            mode (string) : 'CONTINOUS','TRIGGERED' or 'GATED'
+            mode (string) : 'continuous','triggered' or 'gated'
         '''
         logging.debug(__name__ + ' : get mode')
 
         if self._instrument.pulse_modulation.enabled==True:
             if str(self._instrument.pulse_modulation.source)=='PulseModulationSource.INTERNAL':
-                return 'TRIGGERED'
+                return 'triggered'
             else:
-                return 'GATED'
+                return 'gated'
         else:
-            return 'CONTINOUS' 
+            return 'continuous' 
 
     def do_set_mode(self, mode):
         '''
         Mode for pulse modulation
+        'continuous'  sends a continuous signal 
+        'triggered'   sends a pulsed signal with a given delay and width
+        'gated'       sends a signal whenever it is triggered 
 
         Input:
-            mode (string) : 'CONTINOUS','TRIGGERED' or 'GATED'
+            mode (string) : 'continuous','triggered' or 'gated'
 
         Output:
             None
         '''
         logging.debug(__name__ + ' : set mode to %s' % mode)
 
-        if mode=='CONTINOUS':
+        if mode=='continuous':
             self._instrument.pulse_modulation.enabled = False
-        elif mode=='TRIGGERED':
+        elif mode=='triggered':
             self._instrument.pulse_modulation.source=keysight_ktrfsiggen.PulseModulationSource(0)
             time.sleep(1)   #device to slow
             self._instrument.pulse_modulation.enabled = True
-        elif mode=='GATED':
+        elif mode=='gated':
             self._instrument.pulse_modulation.source=keysight_ktrfsiggen.PulseModulationSource(1)
             time.sleep(1)   #device to slow
             self._instrument.pulse_modulation.enabled = True
         else:
-            raise ValueError('set_mode(): can only set CONTINOUS, TRIGGERED or GATED')
+            raise ValueError('set_mode(): can only set continuous, triggered or gated')
     
     def do_set_delay(self, delay):
         '''
-        Set delay of the TRIGGERED mode
+        Set delay of the triggered mode
 
         Input:
             delay (float) : Time in seconds
@@ -283,7 +289,7 @@ class Keysight_N5183B(Instrument):
     
     def do_set_width(self, width):
         '''
-        Set pulse width of the TRIGGERED mode
+        Set pulse width of the triggered mode
 
         Input:
             width (float) : Time in seconds
@@ -323,32 +329,32 @@ if __name__ == "__main__":
     # Dont forget to install keysight_ktrfsiggen library
     # get it here: https://www.keysight.com/de/de/lib/software-detail/driver/rf-signal-generators-python-instrument-drivers/version-1-0-0-linux.html
 
-
-    #example for a sequence
+    # Example for a sequence
     qkit.start()
 
-    #initialize the instrument
+    # Initialize the instrument
     kira = qkit.instruments.create('kira', 'Keysight_N5183B', address='192.168.0.42')
 
-    #set frequency and power of the RF Generator
+    # Set frequency and power of the RF Generator
     kira.set_frequency(10e6)
     kira.set_power(0)
 
-    #get frequency and power of the RF Generator
+    # Get frequency and power of the RF Generator
     kira.get_power()
     kira.get_frequency()
 
-    #Turn the RF Generator on and off
+    # Turn the RF Generator on and off
     kira.on()
     kira.off()
 
-    #Set different modes for the RF Generator
-    # Input for the Trigger is the Pulse Input with a delay of approximately 100ns
-    # 'CONTINOUS'   permanent pulsing
-    # 'TRIGGERED'   A pulse with given width and delay after initial trigger
-    # 'GATED'       pulsing whenever the input is triggered
+    # Set different modes for the RF Generator ( continuous is the preset)
+    # This setting allows to trigger the RF Generator ( the hardware input is named with pulse on the backside of the device)
+    # Note that the delay from the input is around 100 ns
+    # 'continuous'  sends a continuous signal 
+    # 'triggered'   sends a pulsed signal with a given delay and width
+    # 'gated'       sends a signal whenever it is triggered 
     kira.set_mode('MODE')
 
-    # For the TRIGGERED mode additional input of delay and width is needed
+    # Sets the delay and width of the Triggered mode
     kira.set_delay(1)   #input is time in seconds
     kira.set_width(1)   #input is time in seconds      
