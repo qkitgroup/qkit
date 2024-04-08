@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: Setup and troubleshooting</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png"></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; troubleshooting</td>
+</tr></table>
+<hr>
+
+<h1 align="center">Adwin setup and Troubleshooting</h1>
+
+<p>If Adwin does nothing, check a few simple things:</p>
+
+<ul>
+  <li><b>Check that Adwin is plugged onto the proper TCP/IP board, with a cross cable.</b> </li>
+  <li><b>Check that NanoQt is compiled for the true Adwin and not the virtual one:
+  In the NanoQt.pro file, the line #CONFIG += virtualadwin must start with # so that NanoQt is linked to the true Adwin driver.  
+  </b> </li>
+  <li><b>Check with ADTools if your Adwin system is working or not</b> </li>
+</ul>
+
+<p>
+Some Adwins PRO do not embbed the same cards: as a consequence the plugged cards are not referenced with the same numbers. To fix the card numbers for both inputs and outputs, use set_io_addresses(ain,aout) instruction. This is useless on an Adwin Gold, there is no card number.
+</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Command</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>set_io_addresses(ain,aout)</td>
+    <td>Set the input card number for analog inputs (ain), and the output card number for analog outputs (aout).These numbers should be set once at the beginning of your script.</td>
+</tr>
+</table>
+
+<p>If you make a program that overload your adwin, you may loose the connexion to it, you have to reboot Adwin, and modify your script in order to reduce the T11 load.</p>
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>

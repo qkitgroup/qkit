@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: The lock-in</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png" alt=""></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; lock-in</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">The Lock-in</h1>
+
+<p>There is an integrated lock-in code in the ADwin. In the default
+configuration, it generates a reference signal on output 8 and reads
+input 8. C.f. the figure below. In order to use the lock-in, you have to
+add the "lock-in" mode to a sweep.</p>
+
+<div align="center">
+<img src="lock-in.png" width="520" height="322">
+</div>
+
+
+<h2>Configuration</h2>
+
+<p>First of all, don't forget to configure the required inputs and
+outputs as usual:</p>
+
+<pre><code>set_outputs({
+    <span class="comment">/* ...some other outputs defined here... */</span>
+    8: {name: <span class="string">"Vout"</span>, unit: <span class="string">"V"</span>, scale: 10}
+});
+set_inputs({
+    <span class="comment">/* ...some other inputs defined here... */</span>
+    8: {name: <span class="string">"Vin"</span>, unit: <span class="string">"V"</span>, scale: 10}
+});</code></pre>
+
+<p>Then call <code>set_lock_in()</code> as follows:</p>
+
+<pre><code>set_lock_in({
+    input: <span class="string">"Vin"</span>,    <span class="comment">// not really needed, channel 8 used by default</span>
+    output: <span class="string">"Vout"</span>,  <span class="comment">// ditto</span>
+    frequency: 1e3,
+    amplitude: .05,
+    time_constant: .1
+});</code></pre>
+
+<p>The parameters of the call are:</p>
+
+<dl>
+
+    <dt>input (optional)</dt>
+    <dd>The name or number of the channel to use as an input. At
+    startup, this is input number 8.</dd>
+
+    <dt>output (optional)</dt>
+    <dd>The name or number of the channel to use as an output. At
+    startup, this is output number 8.</dd>
+
+    <dt>frequency</dt>
+    <dd>The reference frequency in Hz.</dd>
+
+    <dt>amplitude</dt>
+    <dd>Peak amplitude of the reference, in whatever is the current unit
+    of the output channel used by the lock-in.</dd>
+
+    <dt>time_constant</dt>
+    <dd>Time constant of the input filter, in seconds. This controls the
+    output filter, wich is a fourth order (i.e. 24 dB/octave cutoff)
+    filter.</dd>
+
+</dl>
+
+
+<h2>Activating the lock-in</h2>
+
+<p>You have to define a sweep on which the “lock-in” mode will be
+active:</p>
+
+<pre><code><span class="keyword">var</span> a_sweep = {
+    modes: <span class="string">"lock-in"</span>,       <span class="comment">// activate the lock-in for this sweep</span>
+    outputs: {Vout: +5},    <span class="comment">// sweep it's output offset</span>
+    duration: 30,
+    sample_rate: 200,
+    plot: [
+        { name: <span class="string">"in phase"</span>, axes: [<span class="string">"Vout"</span>, <span class="string">"real"</span>] },
+        { name: <span class="string">"in quadrature"</span>, axes: [<span class="string">"Vout"</span>, <span class="string">"imag"</span>] }
+    ]
+};</code></pre>
+
+<p>A few things are worth noticing:</p>
+
+<ul>
+<li>The lock-in is activated by the <code>modes: "lock-in"</code>
+    directive.</li>
+<li>This sweep is driving the same output as the lock-in (<code>outputs:
+    {Vout: +5}</code>). This is legal: the lock-in just adds a
+    sinusoidal signal to whatever is the current value of the selected
+    output, so here we are sweeping the lock-in's output offset.</li>
+<li>Beware that offset + amplitude does not exceed the maximum output
+    value! The output voltage will wrap aroud if it does.</li>
+<li>No inputs are defined in this sweep. Whenever the lock-in is in
+    effect there are two implicitely defined inputs called "real" and
+    "imag" which are the real and imaginary part of the lock-in
+    output.</li>
+<li>No filters are defined since they would have no effect. The lock-in
+    has it's own filter, independent of the normal input filters.</li>
+</ul>
+
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>

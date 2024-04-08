@@ -1,0 +1,262 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: Gnuplot interface</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png"></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; gnuplot</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">NanoQt gnuplot interface</h1>
+
+
+<h2>Overview</h2>
+
+<p><a href="http://www.gnuplot.info/">Gnuplot</a> is a free
+multi-platform plotting software. The good thing about gnuplot is that
+it is very easy to interface programmatically. The bad thing is that the
+graphical user interface is somewhat limited. NanoQt has a gnuplot
+interface that can be used as an alternative to its native plotter. This
+plotter should be quite stable and usable, but do not expect many
+features to be added to it.</p>
+
+<p>The plotter works by writing the data to be plotted into a temporary
+file and spawning a separate process to run an instance of gnuplot that
+does the actual plotting. There is one such temporary file and one
+instance of gnuplot per plot window. On the JavaScript side, the pair
+(temporary file, gnuplot instance) is represented by a <i>GnuPlot</i>
+object, which is an <i>opaque</i> object in the sense that it contains
+no user-visible data.</p>
+
+<p>Many curves can be shown in a single plotter. They will be drawn in
+different colors unless you run out of available colors.</p>
+
+<p>The plotter can be used in two ways: for plotting existing data you
+will create a GnuPlot object and send your data to it. To plot measured
+data in real time you will add a gnuplot data sink to the relevant
+sweep. See the sections below for details.</p>
+
+
+<h2>Requirements</h2>
+
+<p>Obviously, you need to have
+<a href="http://www.gnuplot.info/">gnuplot</a> installed in your system.
+The gnuplot executable should live in one of the directories listed in
+your PATH system variable in order for NanoQt to be able to find it.</p>
+
+<p>Then, NanoQt should be compiled with gnuplot support. For this, you
+need to have the following in NanoQt.pro:</p>
+
+<pre><code>CONFIG += gnuplot</code></pre>
+
+<p>This is currently off by default.</p>
+
+
+<h2>Plotting existing data</h2>
+
+<p>Plots are described by GnuPlot objects. We will call them "GnuPlots"
+for short. GnuPlots are created using the <code>new GnuPlot()</code>
+construct. GnuPlots are objects on which several methods can be applied.
+Typically, the <code>add_point()</code> method is used to add points one
+at a time:</p>
+
+<pre><code>plot = <span class="keyword">new</span> GnuPlot("<span class="string">sin(x)</span>");    <span class="comment">// "sin(x)" is the plot title</span>
+<span class="keyword">for</span> (<span class="keyword">var</span> x = 0; x &lt; 2*PI; x += .0628)
+    plot.add_point(x, sin(x));</code></pre>
+
+<p>Alternatively, a whole curve can be plotted with a single call to
+<code>add_curve()</code>:</p>
+
+<pre><code><span class="comment">// First construct a curve</span>
+<span class="keyword">var</span> curve = [];
+<span class="keyword">for</span> (i = 0; i &lt; 100; i++) {
+    x = 2*PI*i/100;
+    curve[i] = [x, cos(x)];
+}
+
+<span class="comment">// Then add it to the plot</span>
+plot.add_curve(curve);</code></pre>
+
+<p>The constructor is:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>constructor</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>new GnuPlot(<i>title</i>, <i>curve</i>)</td>
+
+    <td>Creates a new GnuPlot object. Both <code>title</code> and
+    <code>curve</code> are optional:
+    <ul>
+
+    <li>If <code>title</code> is provided, it should be a string. The
+    actual window title will have "gnuplot:&nbsp;" prepended. If
+    <code>title</code> is omitted, an empty string will be used
+    instead.</li>
+
+    <li>If <code>curve</code> is provided, the plot will be initialized
+    with the data from the curve by calling <code>add_curve()</code>
+    (see description below). If <code>curve</code> is omitted, the plot
+    will be initialized with one empty curve and the plot window will
+    not be opened: use <code>open()</code> if you want to see the
+    (useless) empty plot.</li>
+
+    <li>If one single parameter is provided, it will be interpreted as a
+    title or as a curve depending on its type.</li>
+
+    </ul>
+    </td>
+</tr>
+</table>
+
+<p>Once created, the following methods can be applied to a GnuPlot:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>method</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>set_axis_labels(x_label, y_label)</td>
+    <td>Sets the axis labels. <code>x_label</code> and
+    <code>y_label</code> must be strings.</td>
+</tr>
+<tr>
+    <td>open()</td>
+    <td>Opens the plot window. Not needed normally since
+    <code>add_point()</code> and <code>add_curve()</code> will also open
+    the window if it is not already open. Can be used to re-open a
+    previously closed window.</td>
+</tr>
+<tr>
+    <td>add_point(<i>curve_idx</i>, x, y)</td>
+    <td>Add a point at (<code>x</code>, <code>y</code>) on the curve
+    number <i>curve_idx</i>. The curve number is optional and defaults
+    to the current curve. Arguments should be numbers. The plot window
+    will be opened if necessary.</td>
+</tr>
+<tr>
+    <td>new_curve(<i>title</i>)</td>
+    <td>Starts a new empty curve that becomes the current curve. The
+    curve title is optional. Future calls to <code>add_point()</code>
+    will use this curve by default. This method has no effect if the
+    current curve is empty.</td>
+</tr>
+<tr>
+    <td>add_curve(<i>title</i>, curve)</td>
+    <td>Adds a new curve with the data in <code>curve</code>. The curve
+    title is optional. The new curve becomes the current curve. The
+    <code>curve</code> argument should be an array of arrays of two
+    numbers. The plot window will be opened if necessary.</td>
+</tr>
+<tr>
+    <td>clear()</td>
+    <td>Clears all the data (all curves) in the plot.</td>
+</tr>
+<tr>
+    <td>write(raw_command, ...)</td>
+    <td>Send one or more string commands directly to the gnuplot
+    process. Do <b>not</b> do this unless you know what you are
+    doing!</td>
+</tr>
+</table>
+
+<p>The current curve is always the last one created. There is no way to
+add data to any other curve.</p>
+
+
+<h2>Using gnuplot data sinks</h2>
+
+<p>GnuPlots can be used as data sinks, much like regular plots. Just use
+the "gnuplot" keyword instead of "plot":</p>
+
+<pre><code><span class="keyword">var</span> sweep = {
+    gnuplot: {
+        name: "<span class="string">Vds vs I</span>",
+        axes: ["<span class="string">Vds</span>", "<span class="string">I</span>"]
+    },
+    <span class="comment">// + other sweep parameters...</span>
+};</code></pre>
+
+<p>This will create a new GnuPlot named "Vds vs I". Alternatively, it is
+possible to use an existing GnuPlot: use the keyword "plot" instead of
+"name":</p>
+
+<pre><code><span class="keyword">var</span> dataplot = new GnuPlot("<span class="string">Vds vs I</span>");
+<span class="keyword">var</span> sweep = {
+    gnuplot: {
+        plot: dataplot,    <span class="comment">// use existing plot</span>
+        axes: ["<span class="string">Vds</span>", "<span class="string">I</span>"]
+     },
+    <span class="comment">// + other sweep parameters...</span>
+};
+<span class="comment">// Now we can still play with dataplot.</span></code></pre>
+
+<p>Formally, a gnuplot data sink is an object with the following
+properties:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>key</th>
+    <th>type</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>name (optional)</td>
+    <td>string</td>
+    <td>Title of the GnuPlot that will be created by this data
+    sink. If a GnuPlot with the same name was already created by a
+    gnuplot data sink, it will be used instead.</td>
+</tr>
+<tr>
+    <td>plot (optional)</td>
+    <td>GnuPlot object</td>
+    <td>Existing GnuPlot to reuse.</td>
+</tr>
+<tr>
+    <td>axes</td>
+    <td>array of two strings</td>
+    <td>Names of the channels to use as x and y axes respectively.</td>
+</tr>
+<tr>
+    <td>new_curve (optional)</td>
+    <td>boolean</td>
+    <td>If set to <code>true</code>, a new curve will be created to hold
+    the incoming data. Default is <code>false</code>.</td>
+</tr>
+<tr>
+    <td>transform (optional)</td>
+    <td>function</td>
+    <td>Transformation to apply to the data prior to sending to the
+    plot. The function should take an array of two numbers as it's
+    single argument and return an array of two numbers.</td>
+</tr>
+<tr>
+    <td>columns (optional)</td>
+    <td>array of strings</td>
+    <td>Optional list of (input or output) channels to feed to the
+    <code>transform</code> function above. Default is to use the
+    <code>axes</code> property.</td>
+</tr>
+</table>
+
+<p>When creating a gnuplot data sink, either give it a <code>name</code>
+property (in order to create a new GnuPlot) or a <code>plot</code>
+property (to reuse an existing plot). Do not give both. Do not omit
+both.</p>
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>

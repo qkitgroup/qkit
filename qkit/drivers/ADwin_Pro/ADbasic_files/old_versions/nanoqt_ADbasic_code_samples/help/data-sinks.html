@@ -1,0 +1,438 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: Data sinks</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png" alt=""></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; data sinks</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">The data sinks</h1>
+
+<p>When the ADwin takes data during a sweep, this data can be:</p>
+
+<ul>
+<li>stored in a JavaScript variable</li>
+<li>saved to a file</li>
+<li>sent to a plotter for real-time visualization</li>
+</ul>
+
+<p>All these possible destinations of data are collectively known as
+<i>data sinks</i>. Thus a data sink is simply something that can accept
+incoming data in real time. There are therefore three types of data
+sinks:</p>
+
+<ul>
+<li>variable data sinks</li>
+<li>file data sinks</li>
+<li>tsv data sinks</li>
+<li>plot data sinks</li>
+</ul>
+
+<p>Each one of these types is discussed below. You can attach data sinks
+to a sweep by defining the <code>variable</code>, <code>file</code> and
+<code>plot</code> properties on the sweep, as in the following
+example:</p>
+
+<pre><code><span class="keyword">var</span> a_sweep = {
+    outputs: {Vds: +3},         <span class="comment">// sweep bias voltage</span>
+    inputs: "<span class="string">I</span>",                <span class="comment">// measure current</span>
+    variable: {                 <span class="comment">// store data in variable "sweep"</span>
+        name: "<span class="string">sweep</span>",
+        columns: ["<span class="string">Vds</span>", "<span class="string">I</span>"]
+    },
+    save: {                     <span class="comment">// save data to file sweep.json</span>
+        filename: "<span class="string">sweep.json</span>",
+        columns: ["<span class="string">Vds</span>", "<span class="string">I</span>"]
+    },
+    plot: {                     <span class="comment">// plot data on plot "sweep"</span>
+        name: "<span class="string">sweep</span>",
+        axes: ["<span class="string">Vds</span>", "<span class="string">I</span>"]
+    }
+};</code></pre>
+
+<h2>Variable data sinks</h2>
+
+<h3>Defining a variable data sink</h3>
+
+<p>A variable data sink is a JavaScript object that describes how to
+store the measured data in a JavaScript variable. Below is a more
+complete example of a variable data sink:</p>
+
+<pre><code>variable: {
+    name: "<span class="string">sweep</span>",
+    columns: ["<span class="string">Vds</span>", "<span class="string">I</span>"],
+    metadata: {
+        comment: "<span class="string">Let's take an I(V) at zero field, zero gate</span>",
+        temperature: 4.5
+    },
+    transform: <span class="keyword">function</span>(x) {<span class="keyword">return</span> [x[0]-0.03, x[1]];} <span class="comment">// fix Vds offset</span>
+}</code></pre>
+
+<p>The keys, their type and their meaning is the following:</p>
+
+<dl>
+
+    <dt>name (string)</dt>
+    <dd>Name of the JavaScript global variable that will hold the data.
+    Use the name of the variable, not the variable itself. If the
+    variable does not already exist, it will be created. If it exists
+    but is not an object, it will be overwritten. Otherwise the new data
+    will just be appended to it.</dd>
+
+    <dt>reference (object)</dt>
+    <dd>JavaScript variable that will hold the data. Use the variable
+    itself, not its name. The variable has to exist and hold an object.
+    <b>Warning</b>: every variable data sink has to have either a
+    <code>name</code> or a <code>reference</code> property, but not
+    both.</dd>
+
+    <dt>columns (array of strings)</dt>
+    <dd>List of (input or output) channels whose values are to be saved
+    as data columns in the variable. Default is all the channels listed
+    as outputs or inputs (in that order) on the current sweep.</dd>
+
+    <dt>metadata (object)</dt>
+    <dd>This can contain any extra information you want to add to
+    document the measurement done in this particular sweep. Use any keys
+    you like exept <code>sweep</code>, <code>columns</code>,
+    <code>start</code> and <code>data</code>. This can be specially
+    useful if you later <code>save()</code> the variable to a file.</dd>
+
+    <dt>transform (function)</dt>
+    <dd>Optional function that will apply a mathematical transformation
+    to the data. The function should take one single parameter: an array
+    of raw data, and return an array of transformed data. The input
+    array's length will be the length of the columns property
+    above. The output array may have a different length. The function
+    may also return <code>null</code>, meaning that this particular data
+    point is to be discarded.</dd>
+
+    <dt>output (array of strings)</dt>
+    <dd>Optional array with the names you want to give to the outputs of
+    the <code>transform</code> function. Default is to use the
+    <code>columns</code> property, in which case the
+    <code>transform</code> function is supposed to output an array of
+    the same length as it's input.</dd>
+
+</dl>
+
+<h3>Structure of the variable</h3>
+
+<p>Below is an example of the contents of a variable after it has been
+used to store the data of two sweeps. Although it may seem a little bit
+intimidating, it is worth taking a look at to get a feeling of what
+information you have saved:</p>
+
+<pre><code>{
+  filetype: "<span class="string">NanoQt JSON data file</span>",
+  creator: "<span class="string">NanoQt 0.2.0</span>",
+  vim_modeline: "<span class="string"> vim: set filetype=javascript tabstop=8 noexpandtab:</span>",
+  sample: {
+    name: "<span class="string">ABC123</span>",
+    description: "<span class="string">Some sort of nanotube</span>"
+  },
+  comment: "<span class="string">Some I(V) measurements after process foobar</span>",
+  outputs: {
+    1: {name: "<span class="string">Vds</span>", unit: "<span class="string">V</span>", scale: 10, description: "<span class="string">bias voltage</span>"},
+    2: {name: "<span class="string">Vg</span>", unit: "<span class="string">V</span>", scale: 10, description: "<span class="string">gate voltage</span>"},
+    3: {name: "<span class="string">H</span>", unit: "<span class="string">T</span>", scale: 5.2, description: "<span class="string">applied field</span>"}
+  },
+  inputs: {
+    1: {name: "<span class="string">I</span>", unit: "<span class="string">nA</span>", scale: 100, description: "<span class="string">drain current</span>"}
+  },
+  measures: [                       <span class="comment">// array of measurements</span>
+    {                               <span class="comment">// first measurement</span>
+      comment: "<span class="string">Let's take an I(V) at zero field, zero gate</span>",
+      temperature: 4.5,
+      sweep: {
+        from: {Vds: -10, Vg: 0, H: 0},
+        to: {Vds: 10},
+        duration: 2,
+        sample_rate: 1000
+      },
+      columns: ["<span class="string">Vds</span>", "<span class="string">I</span>"],        <span class="comment">// columns of the data matrix</span>
+      start: "<span class="string">2009-05-25T17:17:57</span>", <span class="comment">// date/time of the first data point</span>
+      data: [
+        [-9.99, 2.69246],
+        [-9.98, 0.632064],
+        [-9.97, 0.135039],
+        <span class="comment">// etc...</span>
+        [9.99, 0.113934],
+        [10, -0.0340331]
+      ]
+    },
+    {                               <span class="comment">// second measurement</span>
+      comment: "<span class="string">another I(V), now with an applied field</span>",
+      temperature: 4.5,
+      sweep: {
+        from: {Vds: -10, Vg: 0, H: 0.5},
+        to: {Vds: 10},
+        duration: 2,
+        sample_rate: 1000
+      },
+      columns: ["<span class="string">Vds</span>", "<span class="string">I</span>"],
+      start: "<span class="string">2009-05-25T17:19:23</span>",
+      data: [
+        [-9.99, -0.149949],
+        [-9.98, -0.680474],
+        [-9.97, -0.129733],
+        <span class="comment">// etc...</span>
+        [9.99, -0.0867593],
+        [10, 0.0400066]
+      ]
+    }
+  ]
+}</code></pre>
+
+<p>As you can see, the variable is an object with the following
+properties:</p>
+
+<dl>
+
+    <dt>filetype, creator, vim_modeline</dt>
+    <dd>This keys document the data format itself. They probably only
+    make sense when you <code>save()</code> this variable to a
+    file.</dd>
+
+    <dt>sample, comment</dt>
+    <dd>These keys are only examples. Actually it is the data given to
+    the <code>set_metadata()</code> function that will be saved here.
+    You have the choice of the keys and their associated values. This
+    metadata is considered <i>global</i> as it applies to all the
+    measurements stored in this variable.</dd>
+
+    <dt>outputs, inputs</dt>
+    <dd>This is the data you gave to the <code>set_outputs()</code> and
+    <code>set_inputs()</code> functions respectively.</dd>
+
+    <dt>measures</dt>
+    <dd>This is an array of measurements. Each element of the array is
+    an object containing the data stored by one sweep that used this
+    variable as a data sink. The measurements have the following
+    properties:
+    <dl>
+
+        <dt>comment, temperature</dt>
+
+        <dd>These keys are only examples. Actually the contents of the
+        <code>metadata</code> property of the data sink will be copied
+        here. You have the choice of the keys and their associated
+        values. This metadata is meant to document one specific
+        measurement sweep.</dd>
+
+        <dt>sweep</dt>
+
+        <dd>Information about the sweep.</dd>
+
+        <dt>columns</dt>
+
+        <dd>Contents of the <code>columns</code> (or
+        <code>output</code>, if relevant) property of the data sink.
+        This gives the meaning of the columns of the data field.</dd>
+
+        <dt>start</dt>
+
+        <dd>Date and time when the first data point of this measurement
+        was acquired, as a string in ISO 8601 format.</dd>
+
+        <dt>data</dt>
+
+        <dd>2D array with the actual raw data.</dd>
+
+    </dl>
+    </dd>
+
+</dl>
+
+<h3>Accessing the raw data</h3>
+
+<p>As this data structure may seem quite complex, here are a few
+shotcuts:</p>
+
+<ul>
+<li>If this variable is called <code>iv_measurements</code>, you can get the
+number of measurements in it by typing
+<pre><code><span class="keyword">var</span> n = iv_measurements.measures.length;</code></pre></li>
+<li>If <code>i</code> is an integer in the range <i>0 ≤ i &lt; n</i>,
+then the raw data of measurement <i>i</i> is
+<pre><code>iv_measurements.measures[i].data</code></pre></li>
+</ul>
+
+<h2>File data sinks</h2>
+
+<p>A file data sink is very similar to a variable data sink, except that
+the data is saved directly to a file instead of stored into a JavaScript
+variable. A file data sink is created by defining a <code>save</code>
+property to a sweep, which is an object with the following properties:</p>
+
+<dl>
+
+    <dt>filename (string)</dt>
+    <dd>Name of the file. If the file does not already exist, it will be
+    created. Otherwise the new data will just be appended to it. The
+    preferred file extension is <code>".json"</code> for JSON files and
+    <code>".ubj"</code> for UBJSON files.</dd>
+
+    <dt>format (string)</dt>
+    <dd>Optional name of the file format to use. Can be either
+    <code>"json"</code> or <code>"ubjson"</code>. Default is
+    <code>"json"</code>.</dd>
+
+    <dt>columns (array of strings)</dt>
+    <dd>List of (input or output) channels whose values are to be saved
+    as data columns in the variable. Default is all the channels listed
+    as outputs or inputs (in that order) on the current sweep.</dd>
+
+    <dt>metadata (object)</dt>
+    <dd>Extra information to document the measurement done in this
+    particular sweep. Same as the metadata property of a variable data
+    sink.</dd>
+
+    <dt>transform (function)</dt>
+    <dd>Optional function that will apply a mathematical transformation
+    to the data. Same as for a variable data sink.</dd>
+
+    <dt>output (array of strings)</dt>
+    <dd>Optional array with the names you want to give to the outputs of
+    the <code>transform</code> function. Same as for a variable data
+    sink.</dd>
+
+</dl>
+
+<p>The file will be saved in either the
+<a href="http://www.json.org/">JSON</a> or
+<a href="http://ubjson.org/">UBJSON</a> file format. JSON is a
+text-based format holding the JavaScript literal expression of an
+object. UBJSON is a more compact binary format sharing JSON's data
+model. In both cases, the data structure is exactly the same as for a
+variable data sink. You can read and write files in both formats with
+commands such as:</p>
+
+<pre><code><span class="comment">// Load UBJSON file into a variable.</span>
+<span class="keyword">var</span> data = <span class="keyword">new</span> File("<span class="string">data.ubj</span>", "<span class="string">ubjson</span>").read();
+
+<span class="comment">// Save the variable in a JSON file.</span>
+<span class="keyword">new</span> File("<span class="string">data.json</span>", "<span class="string">json</span>").write(data);</code></pre>
+
+<p>See the <a href="api-file.html#file">help on accessing files</a> for
+details.</p>
+
+<h2>Tsv data sinks</h2>
+
+<p>A tsv data sink is much like a file data sink, except that it only
+saves the raw data and it saves it in tab-separated-values format. This
+is the same format used by the <code>export_data()</code> function,
+suitable for import in external software. The recommended file extension
+for tab-separated-values files is ".tsv". Keep in mind that no metadata
+is saved into the file, therefore it is recommended that you also save
+the data in a regular file data sink.</p>
+
+<p>A tsv data sink is created by defining a <code>tsv</code> property to
+a sweep, which is an object with the same properties as a file data
+sink, except for the missing <code>metadata</code> property and the
+extra <code>prelude</code> and <code>postlude</code> properties:</p>
+
+<dl>
+
+    <dt>filename, columns, transform, output</dt>
+    <dd>These properties have the same meaning in a tsv data sink as in
+    a file data sink.</dd>
+
+    <dt>prelude (string)</dt>
+    <dd>Optional string to prepend to the data. Default is
+    <code>"# <i>column_names</i>\n"</code> where
+    <i>column_names</i> is the tab-separated list of column names. Set
+    this to the empty string (<code>""</code>) to explicitly disable the
+    prelude.</dd>
+
+    <dt>postlude (string)</dt>
+    <dd>Optional string to append to the data. Default is
+    <code>"\n"</code> (an empty line). Set this to the empty string
+    (<code>""</code>) to explicitly disable the postlude.</dd>
+
+</dl>
+
+<p>When using an explicit prelude and/or postlude, it is strongly
+advised to end them with <code>\n</code> unless they are empty.</p>
+
+<h2>Plot data sinks</h2>
+
+<p>A plot data sink sends data to a plotter for real time visualization.
+A plot data sink is created by defining a <code>plot</code> property to
+a sweep, which is an object with the following properties:</p>
+
+<dl>
+
+    <dt>name (string)</dt>
+    <dd>Name of the plot. Default is "Unnamed n" where n is a number
+    incremented at each new unnamed plot. If a plot already exists with
+    this name, a new curve will be drawn on it. Otherwise a new plot
+    will be created.</dd>
+
+    <dt>plot (Plot object)</dt>
+    <dd>Plot object referencing an existing plot created by <code>new
+    Plot()</code>. You should provide either a name or a plot property,
+    but not both.</dd>
+
+    <dt>axes (list of two strings)</dt>
+    <dd>Names of the channels to plot in x and y axes (in that order).
+    Defaults for a new plot are the first driven output channel (first
+    in the outputs field of the current sweep) as x and the first input
+    channel (first in the inputs) as y. If drawing on a pre-existing
+    plot, the default is instead to use the same columns as those used
+    the last time the plot was updated.</dd>
+
+    <dt>transform (function)</dt>
+    <dd>Optional function that will apply a mathematical transformation
+    to the data. Same as for a variable data sink. This function should
+    return an array of length two.</dd>
+
+    <dt>columns (array of strings)</dt>
+    <dd>Optional list of (input or output) channels to feed to the
+    <code>transform</code> function above. Default is to use the
+    <code>axes</code> property.</dd>
+
+    <dt>new_curve (boolean)</dt>
+    <dd>If sending the data to an existing plot, set this to
+    <code>true</code> in order for the data to create a new curve (i.e.
+    a new plot layer). Default is to continue to use the last used
+    curve.</dd>
+
+    <dt>options (object)</dt>
+    <dd>Display options for the curve. The object should have the same
+    format as the second parameter of the set_curve_options() Plot
+    method. See the help on <a href="plot.html#set_curve_options">the 2D
+    plotter</a> for details.</dd>
+
+</dl>
+
+<h2>Multiple sinks of the same type</h2>
+
+<p>You can define several data sinks for a single sweep in order to send
+the data to several destinations at the same time. Although this
+probably only makes sense for plots, you can also define several sinks
+of the same type. You do so by replacing a sink definition by an array
+of such definitions, as in the following:</p>
+
+<pre><code>plot: [                   <span class="comment">// plot both I(V) and V(I)</span>
+    { name: "<span class="comment">I(V)</span>", axes: ["<span class="comment">Vds</span>", "<span class="comment">I</span>"] },
+    { name: "<span class="comment">V(I)</span>", axes: ["<span class="comment">I</span>", "<span class="comment">Vds</span>"] }
+]</code></pre>
+
+<p>You should <strong>not</strong> repeat the <code>plot</code> key
+since no object can have two properties with the same name.</p>
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>

@@ -1,0 +1,607 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: The 2D Plotter</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <style type="text/css">
+        table.plain { margin-left: 0 }
+        table.plain td { background: white; vertical-align: top }
+    </style>
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png"></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; plotter</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">The Plotter</h1>
+
+<table class="plain" width="100%"><tr><td>
+
+<p>The NanoQt plotter can be used to display a set of curves. Each curve
+is a sequence of 2D data points. Points within a curve can be displayed
+as symbols, connected by lines or both. Curves within a plot are
+identified by a number called <b>curve index</b>. The first curve has
+index zero. You have the choice to display any of the curves stored in
+the plot, or to display all of them at once.</p>
+
+
+<h2>The Plot Window</h2>
+
+<p>The plot window has the following elements:</p>
+
+<ul>
+<li>the plot area, top right, holding the actual plot</li>
+<li>the toolbox, top left (see description below)</li>
+<li>the status line for displaying information</li>
+<li>the setting tabs, at the bottom</li>
+</ul>
+
+<p>The setting tabs can be displayed or hidden by clicking on the
+Settings button of the toolbox.</p>
+
+</td><td>
+
+<img align="right" src="plot.png">
+
+</td></tr></table>
+
+<h3>The toolbox</h3>
+
+<p>The following tools are available:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Tool</th>
+    <th>action</th>
+</tr>
+<tr>
+    <td><img src="curve-selector.png"> Curve selector</td>
+    <td>Selects the curve that will be displayed by its index number.
+    Curves are indexed from zero. The value below zero is a special
+    value called &ldquo;all&rdquo;: it means that all curves will be
+    displayed.</td>
+</tr>
+<tr>
+    <td><img src="../more.png"> Settings</td>
+    <td>Click here to show the setting tabs on the bottom of the window.
+    Click again to hide them.</td>
+</tr>
+<tr>
+    <td><img src="../clear.png"> Clear curve(s)</td>
+    <td>Click here to delete the currently displayed curve.
+    <b>Warning:</b> if the curve selector is set to &ldquo;all&rdquo;,
+    then all the curves will be deleted.</td>
+</tr>
+<tr>
+    <td><img src="../coord.png"> Pick mouse coordinates</td>
+    <td>Activate this tool, then click anywhere on the plot to see the
+    coordinates of the point where you cliqued.</td>
+</tr>
+<tr>
+    <td><img src="../zoom.png"> Zoom</td>
+    <td>Activate this tool, then click and drag to define a new zoom
+    region. When this tool is active, you can autoscale the plot by
+    double clicking anywhere in the plot area.</td>
+</tr>
+<tr>
+    <td><img src="../draw.png"> Draw curve</td>
+    <td>Activating this tool and then clicking several times on the plot
+    window will create a new curve with the points defined by the
+    clicks.</td>
+</tr>
+<tr>
+    <td><img src="../hand.png"> Move point</td>
+    <td>Activate this tool, then click and drag on an existing data point
+    to move it.</td>
+</tr>
+<tr>
+    <td><img src="../info.png"> Information on point</td>
+    <td>Click on an existing data point to get information on it. The
+    information is displayed in the format &ldquo;Curve #XX; point # XX
+    / XX : (XX,XX)&rdquo;. The provided information is: the index of the
+    curve, the index of the point within the curve, the total number of
+    points in the curve and the coordinates of the point.</td>
+</tr>
+<tr>
+    <td><img src="../rubber.png"> Rubber point</td>
+    <td>Activate this tool, then click on an existing data point to
+    erase it.</td>
+</tr>
+<tr>
+    <td><img src="../icon-floppy-svg.png"> Save graphic in SVG file</td>
+    <td>Save the plot as an SVG file. SVG is a vector graphic format.
+    SVG files can be opened and modified by many drawing softwares,
+    including <a href="http://www.inkscape.org/">Inkscape</a> (free and
+    multi-platform) and Adobe Illustrator. They can be scaled and
+    printed at any size without resolution problems.</td>
+</tr>
+<tr>
+    <td><img src="../icon-floppy-png.png"> Save graphic in PNG file</td>
+    <td>Export a rendering of the graphic, at the current displayed
+    size, as a PNG file. PNG is a losslessly compressed, full color
+    image format. As any image files (JPEG, GIF, TIFF...) PNG files have
+    a fixed size in pixels and cannot be scaled losslessly.</td>
+</tr>
+</table>
+
+<h3>The setting tabs</h3>
+
+<p>This is a set of three tabs:</p>
+
+<dl>
+
+<dt>Axis &amp; Range</dt>
+<dd>For setting the plot title, range and labels of the axes, autoscale
+and subsampling. See the <a href="#props">plot obejct properties</a> for
+details.</dd>
+
+<dt>Marker &amp; Pen</dt>
+<dd>For setting the appearance (color, line type, symbol...) of the
+curves. The settings apply only to the currently displayed curve. If the
+curve selector is set to &ldquo;all&rdquo;, then this tab is
+disabled.</dd>
+
+<dt>Others</dt>
+<dd>For (de)activating the antialiasing and the display of the grid, and
+setting the maximum number of tick intervals.</dd>
+
+</dl>
+
+<p>The settings in the first and third tab can be altered
+programmatically using the <a href="#props">properties of the Plot
+object</a> associated with the plot window. The settings of the
+&ldquo;Marker &amp; Pen&rdquo; tab can be altered programmatically using
+the <code><a href="#set_curve_options">set_curve_options()</a></code>
+method of the Plot object.</p>
+
+<h2>The JavaScript Interface</h2>
+
+<p>From the JavaScript side, the plot window is represented by a <b>Plot
+object</b> returned by the <code>new Plot()</code> constructor (see
+below). The data stored in any curve is an array of points. Each point
+is an array of two numbers. Thus, a complete curve is an array of arrays
+of two numbers, like the following:</p>
+
+<pre><code><span class="comment">// A curve with four data points.</span>
+<span class="keyword">var</span> curve_data = [ [0.2, 0.6], [2.1, 2.7], [4.8, 3.4], [3.2, 2.5] ];</code></pre>
+
+<p>This is the format you have to use when sending data to a plot via
+the <code>add_curve()</code> method. This is also the format of the data
+returned by the <code>get_data()</code> method. Both methods are
+described below, after the constructor.</p>
+
+<p>At any time, there is one curve in the plot that is the <b>current
+curve</b>. The current curve is the one that will collect the data you
+send to the plot unless you explicitely specify otherwise. You can query
+and change the current curve programmatically (see the <a
+href="#props">Plot object properties</a> below). This is different from
+the <b>displayed curve</b> that you set with the curve selector on the
+plot window. Changing the displayed curve has no effect on the current
+curve. However, changing the current curve does change the displayed
+curve in order to make the current curve visible, unless the displayed
+curve is set to &ldquo;all&rdquo;.</p>
+
+<h3>Constructor</h3>
+
+<p>Plots are created using the <code>new Plot()</code> constructor. It
+is advisable (but not mandatory) to provide a title to the constructor.
+You can also provide data to plot, if it is already available. If not,
+an empty plot is created. You will be able to add data to it later.</p>
+
+<pre><code><span class="comment">// Make some random data.</span>
+<span class="keyword">var</span> data = [];
+<span class="keyword">for</span> (<span class="keyword">var</span> i = 0; i &lt; 200; i++) data[i] = [random(), random()];
+
+<span class="comment">// Plot it.</span>
+<span class="keyword">var</span> plot = <span class="keyword">new</span> Plot("<span class="string">Random data</span>", data);</code></pre>
+
+<p>The syntax of the constructor:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Constructor</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>new Plot(<i>title</i>, <i>curve</i>...)</td>
+    <td>
+
+    <p>Creates a new plot window.</p>
+
+    <p>The title is optional. If provided, it should be the first
+    argument. The default title is &ldquo;unnamed&rdquo;. The unicity of
+    the title will enforced by adding a number after the requested title
+    if necessary. The title can be used to later retrive a reference to
+    the plot (see <code>Plot.find()</code> below). It will be displayed
+    on the top of the plot area, and also in the plot window&rsquo;s
+    title bar prefixed by "Plot:".</p>
+
+    <p>Providing curves in the constructor is optional. The provided
+    curves, if any, will become curves 0, 1...</p>
+
+    <p>The constructor returns an opaque Plot objet representing the
+    plot window. You can then act on the plot using the methods and
+    properties below.</p>
+
+    </td>
+</tr>
+</table>
+
+<p>The object returned by the <code>new Plot()</code> construct serves
+as a handle to control the plot. Make sure to store this object in a
+variable. If you later <code>delete</code> this variable, the plot
+window will be destroyed. Beware that not storing the returned plot
+object is just like deleting it right away!</p>
+
+<h3>Methods</h3>
+
+<p><code>new Plot()</code> returns a Plot object that serves as a handle
+to the plot. You can act on the plot by calling methods of this object
+like:</p>
+
+<pre><code><span class="comment">// Make it look more like a scatter plot.</span>
+plot.set_curve_options(0, { pen_style: "<span class="string">none</span>" });
+
+<span class="comment">// Add more data.</span>
+plot.new_curve();
+<span class="keyword">for</span> (<span class="keyword">var</span> x = 0; x &lt; 1; x += 0.01) plot.add_point(x, exp(-x));</code></pre>
+
+<p>The followind methods are available:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Method</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>new_curve()</td>
+    <td>Creates a new empty curve. This new curve becomes the current
+    curve. Returns the index of the newly created curve.</td>
+</tr>
+<tr>
+    <td>add_point(<i>curve_idx</i>, x, y)</td>
+    <td>Adds a point at (x, y) to the curve of index curve_idx. If
+    curve_idx references a non-existing curve, it will be created.
+    curve_idx is optional: if omitted, the current curve will be
+    used.</td>
+</tr>
+<tr>
+    <td>add_curve(curve)</td>
+    <td>Creates a new curve and populates it with the provided data.
+    This new curve becomes the current curve. Returns the index of the
+    newly created curve.</td>
+</tr>
+<tr>
+    <td>add_function(function, intervals)</td>
+    <td>Draws the given function into a new curve. The current plot
+    range [<code>x_min</code>, <code>x_max</code>] is sampled at
+    <i>intervals</i>+1 equally-spaced points. These samples are added as
+    a new curve to the plot. <i>intervals</i> is optional and defaults
+    to 1024. This new curve becomes the current curve. Returns the index
+    of the newly created curve.</td>
+</tr>
+<tr>
+    <td>get_data(curve_idx)</td>
+    <td>Returns the data of the curve referenced by curve_idx.</td>
+</tr>
+<tr>
+    <td>get_index_list()</td>
+    <td>Returns the list of valid curve indices as an array of
+    integers.</td>
+</tr>
+<tr>
+    <td>get_curve_options(curve_idx)</td>
+    <td>Returns an object describing the display options of the curve
+    referenced by curve_idx. See below for a description of the
+    object.</td>
+</tr>
+<tr>
+    <td>set_curve_options(curve_idx, options)</td>
+    <td>Modifies the display options of the curve referenced by
+    curve_idx. options is an object describing the settings to be
+    changed. See below for a description of the object.</td>
+</tr>
+<tr>
+    <td>clear(curve_idx)</td>
+    <td>Removes the curve referenced by curve_idx.</td>
+</tr>
+<tr>
+    <td>save(<i>format</i>, filename)</td>
+    <td>Saves the plot to a file with the provided file name. The
+    <i>format</i> argument is optional. If provided, it should be either
+    "JSON", "SVG" or "PNG", either upper- or lower-case. If omitted,
+    defaults to "JSON".</td>
+</tr>
+<tr>
+    <td>setTool(tool_name)</td>
+    <td>Selects a tool from the toolbox. The parameter should be a
+    string equal to either "pick", "zoom", "draw", "erase", "move" or
+    "info". This method has the same effect as clicking on the
+    corresponding toolbox button.</td>
+</tr>
+</table>
+
+<p id="set_curve_options">The <code>set_curve_options()</code> method
+can be used to modify any of the settings in the Marker &amp; Pen tab.
+Here is another example of set_curve_options():</p>
+
+<pre><code><span class="comment">// Some options for curve 1:</span>
+plot.set_curve_options(1,
+    {
+        pen_style: "<span class="string">dash</span>",
+        pen_width: 2,
+        pen_color: "<span class="string">blueviolet</span>",
+        symbol: "<span class="string">none</span>"
+    }
+);</code></pre>
+
+<p>The second parameter of <code>set_curve_options()</code> and the
+returned value from <code>get_curve_options()</code> are objects that
+can have any of the following properties:</p>
+
+<dl>
+
+<dt>pen_style (string)</dt>
+<dd>Any of "none", "solid", "dash", "dot", "dash dot" or "dash dot dot".
+Set it to "none" if you do not want the data points to be joined by
+lines.</dd>
+
+<dt>pen_width (integer)</dt>
+<dd>With of the lines. Applies to bot the lines connecting data points
+and the contour of hollow symbols. Width zero is equivalent to one if
+antialiasing is on (default), otherwise it means to use a simplified
+line drawing algorithm.</dd>
+
+<dt>pen_color (string)</dt>
+<dd>Color of the curve. You can use either a named color (any name you
+see in the list on the Marker &amp; Pen tab) or an hexadecimal RGB
+triplet in the #RRGGBB format (for example, "#9999ee" is a shade of
+light blue).</dd>
+
+<dt>symbol (string)</dt>
+<dd>Any of "none", "plus", "cross", "asterisk", "circle", "square",
+"diamond", "triangle up", "triangle down" or "star". Set it to "none" if
+you do not want symbols drawed.</dd>
+
+<dt>symbol_filled (boolean)</dt>
+<dd>Whether the drawed symbols are to be filled or kept hollow. Beware
+that the symbols "none", "plus", "cross" and "asterisk" are not
+fillable.</dd>
+
+<dt>symbol_size (integer)</dt>
+<dd>Size of the symbols (diameter) in pixels. If the symbol is hollow,
+the actual size is larger by the width of the pen.</dd>
+
+</dl>
+
+<p>When used as a parameter of <code>set_curve_options()</code>, all the
+properties of this object are optional. Any missing property will cause
+<code>set_curve_options()</code> to <b>not</b> modify the corresponding
+setting. In contrast, the <code>get_curve_options()</code> method
+returns a similar object with <b>all</b> of the above properties
+present.</p>
+
+<h3 id="props">Properties</h3>
+
+<p>The plot object has also some properties that are special in the
+sense that they affect the plot&rsquo;s appearance or behavior.
+Modifying these properties is another way of acting on the plot.
+The <code>current_curve</code> property lets you choose the default
+destination of data sent through <code>add_point()</code>. All the other
+properties control the same settings as the first (Axis &amp; Range) and
+third (Other) setting tabs. Here is an example:</p>
+
+<pre><code><span class="comment">// Add some annotations.</span>
+plot.y_label = "<span class="string">latitude</span>";
+plot.x_label = "<span class="string">longitude</span>";
+plot.title = "<span class="string">Cities I visited</span>";
+
+<span class="comment">// Show the grid.</span>
+plot.grid = <span class="keyword">true</span>;</code></pre>
+
+<p>All of the following properties can be queried and modified:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Property</th>
+    <th>type</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>current_curve</td>
+    <td>number</td>
+    <td>Index of the current curve. This index serves as the default
+    destination for <code>add_point()</code>.</td>
+</tr>
+<tr>
+    <td>displayed_curve</td>
+    <td>number</td>
+    <td>Index of the curve to be displayed. Set this to -1 to display
+    all the curves. If set to anything other than -1,
+    <code>new_curve()</code>, <code>add_point()</code> and
+    <code>add_curve()</code> automatically set this to
+    <code>current_curve</code>.</td>
+</tr>
+<tr>
+    <td>title</td>
+    <td>string</td>
+    <td>Title of the plot. Uniqueness will be enforced whenever you
+    modify this property.</td>
+</tr>
+<tr>
+    <td>x_label, y_label</td>
+    <td>string</td>
+    <td>Axis labels.</td>
+</tr>
+<tr>
+    <td>subsampling</td>
+    <td>number</td>
+    <td>The plotter will only show one point every subsampling for each
+    curve. Default is 1, i.e. show every single point. Increase this
+    number to get a faster display and a cleaner plot. Reset it to one
+    to see everything again. The data sent to the plotter is not lost:
+	it will be retrived in full by <code>get_data()</code> regardless of
+	subsampling.</td>
+</tr>
+<tr>
+    <td>x_min, x_max</td>
+    <td>number</td>
+	<td>Range limits for the x axis. <code>autoscale_x</code> will be
+	automatically set to <code>false</code> whenever you set any of
+	these limits.</td>
+</tr>
+<tr>
+    <td>y_min, y_max</td>
+    <td>number</td>
+	<td>Range limits for the y axis. <code>autoscale_y</code> will be
+	automatically set to <code>false</code> whenever you set any of
+	these limits.</td>
+</tr>
+<tr>
+    <td>autoscale_x, autoscale_y</td>
+    <td>boolean</td>
+    <td>Whether or not to autoscale the x or y axis. Default is
+    <code>true</code>.</td>
+</tr>
+<tr>
+    <td>logscale_x, logscale_y</td>
+    <td>boolean</td>
+	<td>Whether or not to use a logarithmic scale on the x or y axis.
+	Default is <code>false</code>.</td>
+</tr>
+<tr>
+    <td>grid</td>
+    <td>boolean</td>
+    <td>Whether or not to show the grid. Default is the value of
+    <code>Plot.grid</code>, which is initially <code>false</code>.</td>
+</tr>
+<tr>
+    <td>max_ticks</td>
+    <td>number</td>
+    <td>Maximum number of intervals between ticks displayed on the axes.
+    The actual number of ticks displayed may be less than expected
+    because the tick interval will be rounded up to the next number that
+    is a power of ten times 1, 2 or 5.</td>
+</tr>
+<tr>
+    <td>curve_options</td>
+    <td>object</td>
+    <td>Default display options for all new curves created inside this
+    plotter. Assigning an object to this property is equivalent to doing
+    <code>set_curve_options()</code> on any newly created curve.</td>
+</tr>
+</table>
+
+<h3>Static methods</h3>
+
+<p>In some cases it may happen that you loose track of your plot object. You still know its title
+though, since it is displayed in the plot window itself. You may then
+use the function <code>Plot.find()</code> to recover a handle on you
+plot:</p>
+
+<pre><code><span class="comment">// Get the same plot again.</span>
+<span class="keyword">var</span> same_plot = Plot.find("<span class="string">Cities I visited</span>");
+
+<span class="comment">// Now we can play with it again.</span>
+same_plot.clear(1);
+same_plot.title = "<span class="string">Cities I would like to visit</span>";
+same_plot.save("<span class="string">cities-plot.json</span>");</code></pre>
+
+<p>Technically, this is called a <i>static</i> method because it is not
+a method of the Plot objects (objects returned by <code>new
+Plot()</code>). It is instead a method of the <code>Plot</code>
+constructor itself, always referenced as <code>Plot.find</code>.</p>
+
+<p>A second static method, <code>Plot.open()</code>, allows to restore a
+previously saved plot:</p>
+
+<pre><code><span class="comment">// Restore a saved plot.</span>
+<span class="keyword">var</span> plot_copy = Plot.open("<span class="string">cities-plot.json</span>");</code></pre>
+
+<p>These are the only two static methods available:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Method</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>Plot.find(title)</td>
+    <td>Returns a Plot object representing the plot that has the given
+    title. This object is equivalent to the one originally returned by
+    <code>new Plot()</code>. If no plot has the given title, returns an
+    undefined value.</td>
+</tr>
+<tr>
+    <td>Plot.open(filename)</td>
+    <td>Creates a new plot that is a copy of a previously saved plot
+    (see the <code>save()</code> method above). Returns a Plot object
+    representing the newly created plot.</td>
+</tr>
+</table>
+
+<p>There is however a slight difference between the plot object returned
+by <code>Plot.find()</code> and the one originally returned by <code>new
+Plot()</code>: deleting the one returned by <code>Plot.find()</code>
+will not destroy the plot window.</p>
+
+<h3>Static properties</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Property</th>
+    <th>type</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>Plot.curve_options</td>
+    <td>object</td>
+    <td>Default display options for all subsequently created plots.
+    Assigning an object to this property is equivalent to assigning the
+    same object to all subsequently created plots.</td>
+</tr>
+<tr>
+    <td>Plot.grid</td>
+    <td>boolean</td>
+    <td>Default <code>grid</code> property for all subsequently created
+    plots. Initially <code>false</code>. Assigning a value to this
+    property is equivalent to assigning it to all subsequently created
+    plots.</td>
+</tr>
+</table>
+
+<h2>The plot data sink</h2>
+
+<p>Plots can be used as data sinks. To use an existing plot as a data
+sink, add a <code>plot</code> property to a relevant sweep:</p>
+
+<pre><code><span class="comment">// Create a new plot to hold the I(Vds) data.</span>
+<span class="keyword">var</span> I_vs_Vds = new Plot("<span class="string">I(Vds)</span>");
+
+<span class="comment">// Set it as a data sink for a sweep.</span>
+<span class="keyword">var</span> sweep = {
+    // The other sweep parameters go here...</span>
+    ...
+    plot: { plot: I_vs_Vds, axes: ["<span class="string">Vds</span>", "<span class="string">I</span>"] }
+};
+
+<span class="comment">// Do the measurement.</span>
+measure(sweep);</code></pre>
+
+<p>For details see the documentation on <a href="data-sinks.html">data
+sinks</a>.</p>
+
+<p>More examples on using the plotter can be found in the samples
+directory: plot.js, plot-sink.js and lasso+plot.js.</p>
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>

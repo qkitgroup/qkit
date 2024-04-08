@@ -130,18 +130,18 @@ class ADwin_Pro2_V3(Instrument):
     def __init__(self,
                  name='ADwin_Pro2_V3',
                  processnumber_main=1,
-                 processpath_main='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ramp_input_V3.TC1',
+                 processpath_main='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ramp_input_V3.TC1',
                  process_number_triggered=2,
-                 process_path_triggered='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_Burst_Event_V3.TC2',
+                 process_path_triggered='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_Burst_Event_V3.TC2',
                  process_number_aquisition=3,
-                 process_path_aquisition='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_Burst_Event_Stopp_V3.TC3',
+                 process_path_aquisition='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_Burst_Event_Stopp_V3.TC3',
                  process_number_continuous=4,
                  watch_sampling_f="10kHz",
-                 process_path_continuous_2kHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_2kHz_V3.TC4',
-                 process_path_continuous_10kHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_10kHz_V3.TC4',
-                 process_path_continuous_100kHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_100kHz_V3.TC4',
-                 process_path_continuous_1MHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_1MHz_V3.TC4',
-                 process_path_continuous_4MHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_4MHz_V3.TC4',
+                 process_path_continuous_2kHz='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_continuous_2kHz_V3.TC4',
+                 process_path_continuous_10kHz='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_continuous_10kHz_V3.TC4',
+                 process_path_continuous_100kHz='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_continuous_100kHz_V3.TC4',
+                 process_path_continuous_1MHz='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_continuous_1MHz_V3.TC4',
+                 process_path_continuous_4MHz='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_continuous_4MHz_V3.TC4',
                  devicenumber=1,
                  bootload=True,
                  global_lower_limit_in_V=0,
@@ -191,7 +191,7 @@ class ADwin_Pro2_V3(Instrument):
             
         if import_coil_params==True:
             try:
-                from ADwin_Pro2_coil_params import translation_factor_x, translation_factor_y, translation_factor_z, x_calib, y_calib, z_calib, x_max_current, y_max_current, z_max_current
+                from ADwin_Pro.coil_params.ADwin_Pro2_coil_params import translation_factor_x, translation_factor_y, translation_factor_z, x_calib, y_calib, z_calib, x_max_current, y_max_current, z_max_current
                 self.translation_factor_x = translation_factor_x
                 self.translation_factor_y = translation_factor_y
                 self.translation_factor_z = translation_factor_z
@@ -1898,9 +1898,9 @@ if __name__ == "__main__":
     print(bill.set_input1_repeats_triggered_readout(5))
     print(bill.get_input1_repeats_triggered_readout())
     bill.initialize_triggered_readout(process_number_triggered=2,
-                                      process_path_triggered='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_Burst_Event_V3.TC2',
+                                      process_path_triggered='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_Burst_Event_V3.TC2',
                                       process_number_aquisition=3,
-                                      process_path_aquisition='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_Burst_Event_Stopp_V3.TC3'
+                                      process_path_aquisition='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_Burst_Event_Stopp_V3.TC3'
                                       )
     bill.start_triggered_readout()
     bill.check_finished_triggered_readout()

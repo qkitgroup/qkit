@@ -1,0 +1,534 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: Accessing files and directories</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png"></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; files</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">Accessing files and directories</h1>
+
+<p>The <code>File</code> and <code>Directory</code> objects provide the
+functionality needed to work with files and directories.</p>
+
+<ul>
+<li><a href="#overview">overview</a></li>
+<li><a href="#file">file object</a></li>
+<li><a href="#modes">open modes</a></li>
+<li><a href="#directory">directory object</a></li>
+</ul>
+
+
+<h2 id="overview">Overview</h2>
+
+<h3>Files</h3>
+
+<p>Files can be accessed for reading and writing through the use of File
+objects. These objects are created with the <code>new File()</code>
+constructor. Then, the following methods can be used on the file:</p>
+
+<ul>
+<li><code>open()</code> opens the file for reading and/or writing; it
+    also associates a codec to the file.</li>
+<li><code>read()</code>, <code>readLine()</code>, <code>write()</code>
+    and <code>writeLine()</code> access the contents of the file.</li>
+<li><code>close()</code> closes the file.</li>
+</ul>
+
+<p>The following example code creates a text file with one single line
+of text:</p>
+
+<pre><code><span class="comment">// Create a new File object, this will not create the file yet.</span>
+<span class="keyword">var</span> greeting = <span class="keyword">new</span> File("<span class="string">hello.txt</span>");
+
+<span class="comment">// Open the file for writing, truncate it to zero length if it already</span>
+<span class="comment">// exists, handle writes to the file in text mode.</span>
+<span class="comment">// This will create the file if it does not already exist.</span>
+greeting.open("<span class="string">write,truncate,text</span>");
+
+<span class="comment">// Write a line of text, including a line terminator.</span>
+greeting.writeLine("<span class="string">Hello, World!</span>");
+
+<span class="comment">// Close the file.</span>
+greeting.close();</code></pre>
+
+<p>It is not always necessary to type all this code, as the File object
+can implicitely open and close the file, and the <code>open()</code>
+method has some sensible defaults. The code above could be also written
+as follows:</p>
+
+<pre><code><span class="comment">// Same as above, using implicit open() and close().</span>
+<span class="keyword">new</span> File("<span class="string">hello.txt</span>", "<span class="string">truncate</span>").writeLine("<span class="string">Hello, World!</span>");</code></pre>
+
+<p>In the above, it is worth noting that:</p>
+
+<ul>
+<li><code>open("truncate")</code> is called implicitely by the
+    <code>new File()</code> constructor because the second argument is
+    provided</li>
+<li>the <code>"write"</code> mode is implicit when
+    <code>"truncate"</code> is provided; likewise, <code>"text"</code>
+    is the default codec</li>
+<li>since the File object is not stored, it is automatically destroyed,
+    and the destruction implicitely calls <code>close()</code>.</li>
+</ul>
+
+<p>It is advisable to always close, either explicitely or implicitely,
+the files that are no longer needed. This is because there is a limit on
+the total number of files that can be open at once.</p>
+
+<h3>Directories</h3>
+
+<p>NanoQt has a notion of a <i>current working directory</i>, which is
+the default directory for reading or writing files. Whenever a file
+dialog is opened, it's opened in the current working directory. When a
+file name or directory name is used in a script, it can can be specified
+either as an <i>absolute path</i> or a <i>relative path</i>. An absolute
+path starts with a slash ("/"), optionally preceded by a drive letter
+(e.g. "C:"), and should be understood as starting from the root of the
+file system. A relative path (a path not starting with "/") is relative
+to the current working directory. A couple of dots ("..") in a relative
+path means "parent directory". Some examples:</p>
+
+<pre><code><span class="comment">// Use an obsolute path.</span>
+source("<span class="string">/home/user/experiment/scripts/initialization.js</span>");
+
+<span class="comment">// Set the current working directory, then use a relative path.</span>
+Directory.current = "<span class="string">/home/user/experiment/data</span>";
+source("<span class="string">../scripts/measurement.js</span>");</code></pre>
+
+<p>Directories can be manipulated through the <code>Directory</code>
+object, which is a collection of directory-related properties and
+functions. For example, <code>Directory.current</code> is the name of
+the current working directory, and
+<code>Directory.create(<i>dir_name</i>)</code> is a function used to
+create directories. Note however that <code>Directory</code> is
+<b>not</b> a constructor, i.e. <code>new Directory()</code> does not
+make sense.</p>
+
+<p>Below is an example code for creating a data directory named after
+the current date, switching to it a writing a README file.</p>
+
+<pre><code><span class="comment">// Use a directory named after the current date.</span>
+<span class="keyword">var</span> today = <span class="keyword">new</span> Date().toString("<span class="string">yyyy-MM-dd</span>"),
+    dirname = "<span class="string">data_</span>" + today;
+
+<span class="comment">// Create the directory if it does not already exist.</span>
+<span class="keyword">if</span> (! <span class="keyword">new</span> File(dirname).exists) Directory.create(dirname);
+
+<span class="comment">// Switch to the newly created directory.</span>
+Directory.current = dirname;
+
+<span class="comment">// Write a README file.</span>
+<span class="keyword">new</span> File("<span class="string">README</span>", "<span class="string">truncate</span>").writeLine(
+    "<span class="string">Data taken on sample foo on </span>" + today
+);</code></pre>
+
+
+<h2 id="file">File object</h2>
+
+<h3>File constructor</h3>
+
+<p>File objects are created with the following constructor:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Constructor</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>new File(<i>path</i>, <i>open_mode</i>)</td>
+    <td>
+
+    <p>Creates a new File object representing a file that may or may not
+    exist on disk.</p>
+
+    <p><code><i>path</i></code> is the path to the file. It can be
+    absolute or relative to the current working directory.</p>
+
+    <p><code><i>open_mode</i></code> is optional. If provided, the file
+    will be opened with this mode. See the <code>open()</code> method
+    below.</p>
+
+    </td>
+</tr>
+</table>
+
+<p>Every File object thus created has the properties and methods listed
+below.</p>
+
+<h3>File properties</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Property</th>
+    <th>type</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>exists</td>
+    <td>boolean</td>
+    <td>Whether the file actualy exists; this is <code>true</code> even
+    if the File object refers to a non-file like, e.g., a directory.</td>
+</tr>
+<tr>
+    <td>isFile</td>
+    <td>boolean</td>
+    <td>Whether this is regular file, as opposed to, say, a directory.</td>
+</tr>
+<tr>
+    <td>isDirectory</td>
+    <td>boolean</td>
+    <td>Whether this is a directory.</td>
+</tr>
+<tr>
+    <td>isSymLink</td>
+    <td>boolean</td>
+    <td>Whether this is a symbolic link (on Linux and MacOS) or a
+    Windows shortcut. <b>Note</b>: if this is a symbolic link, then the
+    other properties (including <code>exists</code>) refer to the target
+    of the link.</td>
+</tr>
+<tr>
+    <td>canonicalName</td>
+    <td>string</td>
+    <td>The canonical name of the file. This is its absolute file path,
+    including the file name, with all symbolic links, "." and ".."
+    elements resolved. If the file does not exist, its
+    <code>canonicalName</code> is the empty string.</td>
+</tr>
+<tr>
+    <td>modificationTime</td>
+    <td>Date object</td>
+    <td>The date and time of the last modification to the file. Only
+    valid if the file exists.</td>
+</tr>
+<tr>
+    <td>size</td>
+    <td>number</td>
+    <td>The size of the file in bytes. Only valid if the file
+    exists.</td>
+</tr>
+<tr>
+    <td>isOpen</td>
+    <td>boolean</td>
+    <td><code>true</code> if the file is open,
+    <code>false</code> otherwise.</td>
+</tr>
+<tr>
+    <td>atEnd</td>
+    <td>boolean</td>
+    <td><code>true</code> if the file has been read up to its end,
+    <code>false</code> otherwise.</td>
+</tr>
+</table>
+
+<h3>File methods</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Method</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>open(<i>open_mode</i>, <i>metadata</i>)</td>
+    <td>
+
+    <p>Opens the file in the mode given by <i>open_mode</i>. See <a
+    href="#modes">open modes</a> below. This method can be called
+    explicitely, or implicitely by the constructor, or by the
+    <code>read()</code>, <code>readLine()</code>, <code>write()</code>
+    and <code>witeLine()</code> methods.</p>
+
+    <p><code>metadata</code> is an optional object. If provided and the
+    file is opened in write mode with the "tsv" codec, its contents will
+    be written as comments at the beginning of the file, in the format
+    "# keyword: value".</p>
+
+    </td>
+</tr>
+<tr>
+    <td>read()</td>
+    <td>Reads the whole file and returns the data read. If the file is
+    not open, it will be opened in "read" mode. The exact semantics
+    depends on the <a href="#codecs">codec</a> in use.</td>
+</tr>
+<tr>
+    <td>readLine()</td>
+    <td>Like <code>read()</code>, but reads only a line of the file (if
+    it makes sense). The exact semantics depends on the
+    <a href="#codecs">codec</a> in use.</td>
+</tr>
+<tr>
+    <td>write(data)</td>
+    <td>Writes the provided data to the file. If the file is not open,
+    it will be opened in "append" mode. The exact semantics depends on
+    the <a href="#codecs">codec</a> in use.</td>
+</tr>
+<tr>
+    <td>witeLine(data)</td>
+    <td>Like <code>write()</code>, but writes a single line of data to
+    the file. The exact semantics depends on the <a
+    href="#codecs">codec</a> in use.</td>
+</tr>
+<tr>
+    <td>close()</td>
+    <td>Closes the file. This method is called implicitly if the File
+    object is destroyed, i.e. if the script looses all references to
+    it.</td>
+</tr>
+</table>
+
+<h3>File static methods</h3>
+
+<p>The following functions are not methods of File objects (objects
+returned by <code>new File()</code>) but of the <code>File</code>
+constructor itself. They are thus always referred to as
+<code>File.choose()</code> and <code>File.chooseMultiple()</code>.</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Method</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>File.choose(<i>directory</i>)</td>
+    <td>
+
+    <p>Opens a file selection window allowing the user to select a
+    single file. Returns the full path (directory and file name) of the
+    selected file as a string. Returns an empty string if the user
+    clicks the Cancel button.</p>
+
+    <p>The <code><i>directory</i></code> argument is optional. If
+    provided, it should be a string with the path of the initial
+    directory for the file selection window. If not provided, the
+    current working directory will be used.</p>
+
+    </td>
+</tr>
+<tr>
+    <td>File.chooseMultiple(<i>directory</i>)</td>
+    <td>
+
+    <p>Opens a file selection window allowing the user to select
+    multiple files (with Control-click). Returns an array of strings,
+    each being the full path of a selected file. Returns an empty array
+    if the user clicks the Cancel button.</p>
+
+    <p>The <code><i>directory</i></code> argument is optional. If
+    provided, it should be a string with the path of the initial
+    directory for the file selection window. If not provided, the
+    current working directory will be used.</p>
+
+    </td>
+</tr>
+</table>
+
+
+<h2 id="modes">Open modes</h2>
+
+<p>The open mode is a string with a comma-separated list of keywords.
+Each keyword defines either an acces mode or a codec. Access modes can
+be combined (e.g. <code>"read,write"</code> for read and write access),
+but at most one codec can be used.</p>
+
+<p>If only a codec is provided to <code>open()</code>, then the file is
+not really opened, but the codec is remembered and will be used if a
+subsequent <code>open()</code> provides an access mode and no codec.</p>
+
+<h3>Access modes</h3>
+
+<p>The access modes and their effect on <code>open()</code> are:</p>
+
+<ul>
+
+<li><code>"read"</code>: the file is opened for reading, throws an error
+if the file does not exist or is not readable.</li>
+
+<li><code>"write"</code>: the file is opened for writing, creates the
+file if it does not exist, throws error if it is not writable.</li>
+
+<li><code>"truncate"</code>: implies write; if the file exists, it is
+truncated to zero length.</li>
+
+<li><code>"append"</code>: implies write, write()s are done at the end
+of the file, conflicts with truncate.</li>
+
+</ul>
+
+<h3 id="codecs">Codecs</h3>
+
+<p>A file is a sequence of 8-bit bytes. Since JavaScript has no data
+type that directly maps to byte sequences, conversions must be done
+on reading and writing. A codec is a set of rules that specify
+the JavaScript data types that will be used for reading and writing, as
+well as the conversions between these data types and the byte sequence
+of the file. The following codecs are available.</p>
+
+<ul>
+
+<li><code>"text"</code>: File is text, in local charset, with local line
+terminators. This is the default codec. The file is read and written as
+strings, with '\n' as line terminators. Attempting to write characters
+that do not belong to the local charset yields undefined behavior.</li>
+
+<li><code>"utf-8"</code>: Like "text", but file is in UTF-8 irrespective
+of local charset.</li>
+
+<li><code>"binary"</code>: File is raw binary. It is read and written as
+8-bit strings, i.e. strings consisting solely of characters in the range
+[0:255]. This codec could be used to read and write text files in the
+Latin 1 (ISO-8859-1) charset, bot <b>not</b> in the very similar
+Windows-1252 charset. No conversion of line terminators is performed.
+Attempting to write characters outside the range [0:255] yields
+undefined behavior.</li>
+
+<li><code>"json"</code>: file is JSON.
+This is a text-based format suitable for serializing complex data
+structures made of objects, arrays, strings, numbers, booleans and
+nulls. See <a href="http://json.org/">Introducing JSON</a> for
+details.</li>
+
+<li><code>"ubjson"</code>: file is UBJSON (Universal Binary JSON).
+This is a binary format sharing JSON's data model. It is expected to be
+far more space-efficient than JSON at the cost of not being
+human-readable. See the <a href="http://ubjson.org/">Universal Binary
+JSON specification</a> for details.</li>
+
+<li><code>"tsv"</code>: File is a matrix of numbers in
+delimiter-separated-values format. On writing, the delimiter is always a
+tabulation character ('\t' = ASCII HT = 0x09). On reading, spaces and
+commas are also accepted. The file is read and written as 2D arrays of
+numbers. Individual lines are read and written as 1D arrays of numbers.
+On reading, lines that cannot be parsed as lists of numbers are skipped
+by default, but if a property named <code>skipEmptyLines</code> is set
+to <code>false</code> on the file object, then these lines are read as
+empty arrays.</li>
+
+</ul>
+
+<p>The chosen codec affects the semantics of the read and write
+operations in the following way:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <td></td>
+    <th>text, utf-8</th>
+    <th>binary</th>
+    <th>json, ubjson</th>
+    <th>tsv</th>
+</tr>
+<tr>
+    <th>read()</th>
+    <td>Returns the whole file as a string.</td>
+    <td>Returns the whole file as an 8-bit string.</td>
+    <td>Returns the whole file as an object.</td>
+    <td>Returns the whole file as a 2D array of numbers.</td>
+</tr>
+<tr>
+    <th>readLine()</th>
+    <td>Returns the next line of the file as a string, with the line
+    terminator stripped.</td>
+    <td>Returns the next bytes of the file up to the next '\n' (ASCII LF
+    = byte 0x0a); the '\n' is not stripped.</td>
+    <td>Throws an error.</td>
+    <td>Returns the next line of data as a 1D array of numbers.</td>
+</tr>
+<tr>
+    <th>write()</th>
+    <td>Stringifies its argument and writes it to the file.</td>
+    <td>Stringifies its argument and writes it to the file.</td>
+    <td>Writes its argument to the file.</td>
+    <td>Writes a 2D array of numbers.</td>
+</tr>
+<tr>
+    <th>writeLine()</th>
+    <td><code>write()</code>s its argument and adds a line terminator.</td>
+    <td><code>write()</code>s its argument and adds a '\n' (ASCII LF =
+        0x0a).</td>
+    <td>Same as write().</td>
+    <td>Writes a 1D array of numbers.</td>
+</tr>
+</table>
+
+
+<h2 id="directory">Directory object</h2>
+
+<p>As <code>Directory</code> is not a constructor, it only has static
+properties and methods, i.e. properties and methods of the
+<code>Directory</code> object itself.</p>
+
+<h3>Directory static properties</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Property</th>
+    <th>type</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>Directory.current</td>
+    <td>string</td>
+    <td>The current working directory. Setting this property changes the
+    current working directory. An error is thrown if setting this to an
+    non-existent or non-accesible directory.</td>
+</tr>
+</table>
+
+<h3>Directory static functions</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Method</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>Directory.create(<i>path</i>)</td>
+    <td>Creates the directory designated by <i>path</i>, which can be
+    either absolute or relative to <code>Directory.current</code>.
+    Throws an error if the creation fails.</td>
+</tr>
+<tr>
+    <td>Directory.remove(<i>path</i>)</td>
+    <td>Removes the directory designated by <i>path</i>, which can be
+    either absolute or relative to <code>Directory.current</code>. The
+    directory must be empty before removal. Throws an error if the
+    removal fails.</td>
+</tr>
+<tr>
+    <td>Directory.list(<i>path</i>)</td>
+    <td>Return a listing of the directory designated by <i>path</i>,
+    which can be either absolute or relative to
+    <code>Directory.current</code>. The listing is returned as an array
+    of strings, where each string is the name of an entry (a file, a
+    directory, a symlink...). The argument <i>path</i> is optional: if
+    not given, the function returns a listing of
+    <code>Directory.current</code>.</td>
+</tr>
+<tr>
+    <td>Directory.choose(<i>path</i>)</td>
+    <td>Opens a file selection window allowing the user to select a
+    directory. Returns the full path of the selected directory as a
+    string. Returns an empty string if the user clicks the Cancel
+    button. The <code><i>path</i></code> argument is optional. If
+    provided, it should be a string with the path of the initial
+    directory for the file selection window. If not provided, the
+    current working directory will be used.</td>
+</tr>
+</table>
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>
