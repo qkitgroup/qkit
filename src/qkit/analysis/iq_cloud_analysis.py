@@ -178,7 +178,6 @@ class IQCloudAnalysis:
 
         return generalized_variance, max_variance
 
-
     def fit_clouds(self):
         """
         Fit of the clouds with the given gaussian mixture model.
@@ -192,6 +191,7 @@ class IQCloudAnalysis:
         self.precisions = np.zeros(self.n_steps, dtype=object)
         self.generalized_variance = np.zeros((self.n_steps, self.n_states))
         self.max_variance = np.zeros(self.n_steps)
+        self.separations = np.zeros(self.n_steps)
 
         for i in range(self.n_steps):
 
@@ -202,6 +202,10 @@ class IQCloudAnalysis:
             self.covariances[i] = self.gmm.covariances_
             self.precisions[i] = self.gmm.precisions_
             self.generalized_variance[i], self.max_variance[i] = self.calc_covariance_properties(i)
+            di = self.positions[i, 0, 0] - self.positions[i, 1, 0]
+            dq = self.positions[i, 0, 1] - self.positions[i, 1, 1]
+            distance = np.sqrt(di ** 2 + dq ** 2)
+            self.separations[i] = distance / np.sqrt(self.max_variance[i])
 
 
     def fit_clouds_weight(self, ref_pos, ref_covar):
@@ -306,7 +310,7 @@ class IQCloudAnalysis:
         if ref_pos is None:
             ref_pos = self.positions[0, :, :]
 
-        label = np.zeros(self.n_states, dtype=np.int)
+        label = np.zeros(self.n_states, dtype=int)
 
         for i in range(self.n_steps):
             for j in range(self.n_states):
