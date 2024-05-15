@@ -43,6 +43,7 @@ soft_config = {
 '''
 import numpy as np
 from numpy import ndarray
+import math
 
 __version__ = '1.0_20240425'
 __author__ = 'Luca Kosche'
@@ -62,7 +63,10 @@ def volt2bit(volt_val, bits=16, vrange=10):
     """ Calculating bit value from voltage for card with voltage range -10V
         to 10V with 16-bits (default). """
     if isinstance(volt_val, (float, int)):
+        if math.isnan(volt_val):
+            raise AdwinInvalidOutputError
         bit_val = round(volt_val * 2**(bits-1) / vrange + 2**(bits-1))
+        # check if output value is out of range for adwin
         if 0 <= bit_val <= 2**bits:
             return bit_val
         raise AdwinInvalidOutputError
@@ -187,17 +191,17 @@ class AdwinIO():
             raise AdwinArgumentError
         return bit_vals
 
-    def bit2qty(self, values:ndarray|list|int, channel:str|int=None,
+    def bit2qty(self, values:ndarray|list|int|float, channel:str|int=None,
                 inout:str='out'):
         ''' Translate bit values of dac outputs to physical
             quantities. If a channel '''
-        # if channel is specified, only translate a single value
+        # check if inputs are translated
         if inout == 'in':
-            channel = self._readout_ch
-            if isinstance(values, (list, ndarray)):
-                values = values[self._get_channel_no(channel, inout)-1]
-            # return translated value
+            # if no channel is specified, fall back to readout channel
+            if channel is None:
+                channel = self._readout_ch
             return self._bit2qty_single(values, channel, inout)
+        # if channel is specified, only translate a single value
         if channel is not None:
             # if list is given, only select the value belonging to channel
             if isinstance(values, (list, ndarray)):
