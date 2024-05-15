@@ -124,8 +124,7 @@ class adwin_spin_transistor(Instrument):
             else:
                 log.critical('%s: mode not supported.', __name__)
 
-            # setup the start working point for the first sweep.abs
-            # makes
+            # setup the start working point for the first sweep
             if isinstance(start_wp, (list, dict, np.ndarray)):
                 start = self.aio.qty2bit(start_wp)
                 self.adw.SetData_Long(start, START_DATA, 1, len(start))
