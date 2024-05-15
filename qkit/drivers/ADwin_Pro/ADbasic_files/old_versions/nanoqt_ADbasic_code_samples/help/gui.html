@@ -1,0 +1,157 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: Graphical User Interface</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png" alt=""></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; GUI</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">The NanoQt GUI</h1>
+
+<p>The NanoQt GUI is composed of the following parts:</p>
+
+<img style="float: right; margin-left: 30px" src="main_window.png">
+
+<ul>
+    <li>a <a href="#menubar">menu bar</a></li>
+    <li>a <a href="#toolbar">toolbar</a></li>
+    <li>a dockable <a href="#explorer">object explorer</a></li>
+    <li>a dockable <a href="#console">console</a></li>
+    <li>the rest of the window is a workspace for holding
+    <a href="#script">script windows</a></li>
+</ul>
+
+<p>The dockable elements can be <i>floated</i> out of the main window
+and <i>docked</i> back to their original place.</p>
+
+
+<h2 id="menubar">The menu bar</h2>
+
+<p>File menu: New Open Save javascript text files. The extension is
+free, it may be .js or .txt or whatever, but it is recommended to use
+.js so that you recognize your script files.</p>
+
+<p>Edit menu: Cut/Copy/Paste standard functions: it works only with
+text in any window, and also with other applications.</p>
+
+<p>Tree menu: insert/delete some row/columns in the explorer:
+development in progress.</p>
+
+<p>Console IO menu: two items: (1) save: save the output console as a
+text file; (2) reset: empty the ouput console, reset the javascript
+engine, and restart the output counter.</p>
+
+<p>Window menu: List all the child script windows, the plot2D, and the
+plot3D.</p>
+
+<p>Help menu: Call this hypertext navigator help.</p>
+
+
+<h2 id="toolbar">The tool bar</h2>
+
+<p>From left to right:</p>
+
+<ul>
+<li>new script</li>
+<li>new plotter</li>
+<li>open script</li>
+<li>save script</li>
+<li>print</li>
+<li>stop running script</li>
+<li>stop the ADwin</li>
+<li>reset the ADwin</li>
+<li>name of the active script</li>
+</ul>
+
+
+<h2 id="explorer">The object explorer</h2>
+
+<p>The object explorer is intended to display a browsable representation
+of complex objects, like those resulting from a data acquisition. To
+explore an object use the JavaScript <code>explore()</code> function.
+See the documentation on <a href="api-data.html">data
+management</a>.</p>
+
+
+<h2 id="console">The console</h2>
+
+<p>The upper part is a console output, very similar to a log output:
+each time you execute a script it will print a Out[x], where x is the
+absolute number of scripts executed. The console output may be saved or
+reseted using the console IO menu.</p>
+
+<p>The lower part is a command line. You may write and execute any
+javascript command, native or from NanoQt library. It has an infinite
+historic stack: pressing the up arrow finds the previous command, and
+the down arrow the next one, as in a terminal.</p>
+
+
+<h2>Script windows</h2>
+
+<p>These are the windows for editing your own scripts. They have syntax
+highlighting and line numbering. Each script window has an <i>Exec</i>
+button that runs the script.</p>
+
+<p>It is your choice to write your JavaScript commands on the console
+input or on a script window. The console input is good for typing
+single, very short commands. For longer scripts, editing in a script
+window is easier.</p>
+
+<h3>Find and replace</h3>
+
+<img style="float: right; margin-left: 30px" src="find.png">
+
+<p>To search for text in a script, use the menu item <b>Edit / Find</b>,
+or the keyboard shortcut <b>Control-F</b>. A find-and-replace window
+like the one shown right will pop-up. Type the search pattern in the
+first box and either click the <b>Next</b> button or just hit
+&lt;Enter&gt;. The following options are available:</p>
+
+<ul>
+<li>Case sensitive: match the case of the search pattern.</li>
+<li>Whole words: the search pattern will only match starting and ending
+at word boundaries.</li>
+<li>Regexp: the search pattern is interpreted as a
+<a href="http://en.wikipedia.org/wiki/Regular_expression">regular
+expression</a>. Regular expressions are a powerful pattern-matching
+language, for example "\d{4}" matches any four consecutive digits. These
+expressions use a rich Perl-like syntax fully documented in Qt’s
+<a href="http://qt-project.org/doc/qt-4.8/qregexp.html">QRegExp class
+reference</a>.</li>
+</ul>
+
+<h3>Editor settings</h3>
+
+<img style="float: right; margin-left: 30px" src="editor-settings.png">
+
+<p>Selecting the menu item <b>Edit / Editor Settings</b> pops-up a
+window for managing the editor settings. The following settings are
+available:</p>
+
+<ul>
+<li>Tab width: number of spaces that are equivalent to a TAB
+character.</li>
+<li>Insert spaces instead of tabs: hitting the &lt;Tab&gt; key inserts
+spaces instead of TAB characters, up to the next multiple of Tab
+width.</li>
+<li>Enable automatic indentation: when hitting &lt;Enter&gt;, the newly
+created line inherits the indentation of the previous line.</li>
+<li>Back-space removes indentation: on a newly created line, the
+&lt;Backspace&gt; key removes one level of automatic indentation. This
+is only relevant if automatic indentation is enabled.</li>
+</ul>
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>

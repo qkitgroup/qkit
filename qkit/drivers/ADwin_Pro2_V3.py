@@ -130,18 +130,18 @@ class ADwin_Pro2_V3(Instrument):
     def __init__(self,
                  name='ADwin_Pro2_V3',
                  processnumber_main=1,
-                 processpath_main='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ramp_input_V3.TC1',
+                 processpath_main='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ramp_input_V3.TC1',
                  process_number_triggered=2,
-                 process_path_triggered='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_Burst_Event_V3.TC2',
+                 process_path_triggered='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_Burst_Event_V3.TC2',
                  process_number_aquisition=3,
-                 process_path_aquisition='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_Burst_Event_Stopp_V3.TC3',
+                 process_path_aquisition='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_Burst_Event_Stopp_V3.TC3',
                  process_number_continuous=4,
                  watch_sampling_f="10kHz",
-                 process_path_continuous_2kHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_2kHz_V3.TC4',
-                 process_path_continuous_10kHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_10kHz_V3.TC4',
-                 process_path_continuous_100kHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_100kHz_V3.TC4',
-                 process_path_continuous_1MHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_1MHz_V3.TC4',
-                 process_path_continuous_4MHz='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_continuous_4MHz_V3.TC4',
+                 process_path_continuous_2kHz='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_continuous_2kHz_V3.TC4',
+                 process_path_continuous_10kHz='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_continuous_10kHz_V3.TC4',
+                 process_path_continuous_100kHz='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_continuous_100kHz_V3.TC4',
+                 process_path_continuous_1MHz='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_continuous_1MHz_V3.TC4',
+                 process_path_continuous_4MHz='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_continuous_4MHz_V3.TC4',
                  devicenumber=1,
                  bootload=True,
                  global_lower_limit_in_V=0,
@@ -191,7 +191,7 @@ class ADwin_Pro2_V3(Instrument):
             
         if import_coil_params==True:
             try:
-                from ADwin_Pro2_coil_params import translation_factor_x, translation_factor_y, translation_factor_z, x_calib, y_calib, z_calib, x_max_current, y_max_current, z_max_current
+                from ADwin_Pro.coil_params.ADwin_Pro2_coil_params import translation_factor_x, translation_factor_y, translation_factor_z, x_calib, y_calib, z_calib, x_max_current, y_max_current, z_max_current
                 self.translation_factor_x = translation_factor_x
                 self.translation_factor_y = translation_factor_y
                 self.translation_factor_z = translation_factor_z
@@ -259,6 +259,8 @@ class ADwin_Pro2_V3(Instrument):
         self.add_function('get_input')
         self.add_function('set_field_1d')
         self.add_function('set_field_3d')
+        self.add_function('set_field_2d_xy_compensated')
+        self.add_function('set_field_2d_xz_compensated')
         self.add_function('get_Bfield')
         self.add_function('set_output_current_voltage_parallel')
         self.add_function('initialize_gates')
@@ -1478,7 +1480,53 @@ class ADwin_Pro2_V3(Instrument):
                 logging.warning(__name__+': voltage in y-direction out of limits. Field not changed.')
         else:
             logging.warning(__name__+': voltage in x-direction out of limits. Field not changed.')
-            
+
+    def set_field_2d_xy_compensated(self, amplitude, phi, y_angle_offset):
+        """sets a field in the x y plane with a offset_angle of the y coil axis of y_angle_offset
+        this means that a y field introduces mainly y field with a bit of field in x direction
+        positive offset angle means that the angle between x and y coil are <90°
+        """
+        #calculate field components in carthesian coordinates
+        amplitude_x = amplitude * (np.cos(np.deg2rad(phi)) -  np.sin(np.deg2rad(phi)) * np.tan(np.deg2rad(y_angle_offset)))
+        amplitude_y = amplitude * np.sin(np.deg2rad(phi)) / np.cos(np.deg2rad(y_angle_offset))
+
+        #setting voltages
+        voltage_x = amplitude_x / self.x_calib / self.translation_factor_x
+        voltage_y = amplitude_y / self.y_calib / self.translation_factor_y
+
+        if abs(voltage_x) <=  10 and abs(voltage_x) <= abs(self.x_max_current / self.translation_factor_x):
+            if abs(voltage_y) <=  10 and abs(voltage_y) <= abs(self.y_max_current / self.translation_factor_y):
+                
+                self.set_output_current_voltage_parallel([1, 2], [voltage_x, voltage_y])
+                
+            else:
+                logging.warning(__name__+': voltage in y-direction out of limits. Field not changed.')
+        else:
+            logging.warning(__name__+': voltage in x-direction out of limits. Field not changed.')
+
+    def set_field_2d_xz_compensated(self, amplitude, theta, z_angle_offset):
+        """sets a field in the x z plane with a offset_angle of the z coil axis of z_angle_offset
+        this means that a z field introduces mainly z field with a bit of field in x direction
+        positive offset angle means that the angle between x and z coil are <90°
+        """
+        #calculate field components in carthesian coordinates
+        amplitude_x = amplitude * (np.sin(np.deg2rad(theta)) -  np.cos(np.deg2rad(theta)) * np.tan(np.deg2rad(z_angle_offset)))
+        amplitude_z = amplitude * np.cos(np.deg2rad(theta)) / np.cos(np.deg2rad(z_angle_offset))
+
+        #setting voltages
+        voltage_x = amplitude_x / self.x_calib / self.translation_factor_x
+        voltage_z = amplitude_z / self.z_calib / self.translation_factor_z
+
+        if abs(voltage_x) <=  10 and abs(voltage_x) <= abs(self.x_max_current / self.translation_factor_x):
+            if abs(voltage_z) <=  10 and abs(voltage_z) <= abs(self.z_max_current / self.translation_factor_z):
+                
+                self.set_output_current_voltage_parallel([1, 3], [voltage_x, voltage_z])
+                
+            else:
+                logging.warning(__name__+': voltage in z-direction out of limits. Field not changed.')
+        else:
+            logging.warning(__name__+': voltage in x-direction out of limits. Field not changed.')
+
     def get_Bfield(self, direction:int):
         """Returns B field of direction (1,2,3). It uses the coil_params file as 
         a source for the calibration values.
@@ -1898,9 +1946,9 @@ if __name__ == "__main__":
     print(bill.set_input1_repeats_triggered_readout(5))
     print(bill.get_input1_repeats_triggered_readout())
     bill.initialize_triggered_readout(process_number_triggered=2,
-                                      process_path_triggered='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_Burst_Event_V3.TC2',
+                                      process_path_triggered='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_Burst_Event_V3.TC2',
                                       process_number_aquisition=3,
-                                      process_path_aquisition='C:/Users/nanospin/SEMICONDUCTOR/code/ADwin/ADCF_Burst_Event_Stopp_V3.TC3'
+                                      process_path_aquisition='C:/Users/nanospin/SEMICONDUCTOR/qkit/qkit/drivers/ADwin_Pro/ADbasic_files/main/ADCF_Burst_Event_Stopp_V3.TC3'
                                       )
     bill.start_triggered_readout()
     bill.check_finished_triggered_readout()

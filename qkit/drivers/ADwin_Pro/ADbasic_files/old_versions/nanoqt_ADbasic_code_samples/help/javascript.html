@@ -1,0 +1,235 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: Minimal JavaScript syntax</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png"></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; JavaScript</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">Minimal JavaScript syntax</h1>
+
+<p>The NanoQt software provides a JavaScript environment. The user
+should use the JavaScript language to control how measurements are done.
+However, a complete knowledge of the JavaScript language is not
+required: a simple C-like subset, together with the functions provided
+by NanoQt, should be sufficient to implement even the more complex
+measurement protocols.</p>
+
+<p>The JavaScript syntax is similar to that of many programming
+languages, especially Java, C, C++ and PHP. Here we will highlight only
+the most important similarities and differences relative to C/C++.</p>
+
+
+<h2>Similarities with C/C++</h2>
+
+<p>Almost all the C operators are available with their usual meanings,
+including arithmetic (+, -, *, /, %), bitwise (&lt;&lt;, &gt;&gt;, |,
+&amp;, ^, ~), logical (&amp;&amp;, ||, !), comparison (&lt;, &lt;=,
+&gt;, &gt;=, ==, !=), increment/decrement (++, --), and assignment (=,
++=, -=, *=, /=, %=, &amp;=, ^=, |=, &lt;&lt;=, &gt;&gt;=). Only the
+operators dealing with pointers (&amp;, *, -&gt;) are missing.</p>
+
+<p>All the basic C statement constructs are also available, including
+the expression statement (mostly assignments, like <code>x = 5;</code>
+or function calls like <code>print("Hello");</code>), the compound
+statement (<code>{ <i>statement</i> <i>statement</i> ... }</code>), the
+<code>switch</code> statement and the loop constructs (<code>for</code>,
+<code>while</code> and <code>do ... while</code> loops). All with the
+same syntax as in C/C++. Comments are either C-style (<code>/* ...
+*/</code>) or C++-style (<code>// ...</code>).</p>
+
+<p>JavaScript has objects (but no classes). Object properties are
+accessed through the usual dot (.) notation:</p>
+
+<pre><code>point.x = 5;
+point.y = -2;</code></pre>
+
+
+<h2>Differences with C/C++</h2>
+
+<p>Some minor differences:</p>
+
+<ul>
+<li>the <code>+</code> operator serves also for string concatenation
+(like in <code>"Hello, " + "World!\n"</code>)</li>
+<li>the division (<code>/</code>) is always a floating point division</li>
+<li>the logical and comparison operators return a <i>boolean</i>
+value</li>
+</ul>
+
+<p>The major difference is that JavaScript is a loosely typed language:
+variables are not typed, although the values are themselves typed. Also
+the set of available types is very different from C/C++: no structs, no
+pointers, no integer types. There is a garbage collector: no need to
+worry about memory management.</p>
+
+
+<h2>Variables</h2>
+
+<p>Variables are declared with the <code>var</code> keyword:</p>
+
+<pre><code><span class="keyword">var</span> x;          <span class="comment">// x declared as a variable but has no value yet</span>
+x = 5;          <span class="comment">// now x is initialized</span>
+<span class="keyword">var</span> y = 7;      <span class="comment">// y declared and initialized as a number</span>
+y = "<span class="string">seven</span>";    <span class="comment">// now y is a string</span>
+</code></pre>
+
+
+<h2>Values</h2>
+
+<p>The most important value types are the following:</p>
+
+<dl>
+
+    <dt>boolean</dt>
+    <dd>Can be either <code>true</code> or <code>false</code>.</dd>
+
+    <dt>number</dt>
+    <dd>There is no explicit integer type. All numbers are internally
+    represented as double precision floating point values like
+    <code>-2</code>, <code>3.14159</code> or <code>6.023e23</code>.</dd>
+
+    <dt>string</dt>
+    <dd>A sequence of characters enclosed either in single quotes
+    (<code>'</code>) or double quotes (<code>"</code>). Inside a string
+    you can use the following escape sequences: \' (means single quote),
+    \" (double quote), \n (line feed) and \\ (backslash).
+    <b>Example</b>: <code>"Hello, World!\n"</code>.</dd>
+
+    <dt>array</dt>
+    <dd>An array, also called <i>list</i>, is an ordered list of values.
+    Values can be of any type, including array or object. Define the
+    array as a comma-separated list of values, enclosed in square
+    brackets (<code>[</code> and <code>]</code>).
+    <b>Example</b>: <code>var my_list = ["hello", 3.14, true]</code>.
+    Access the array using zero-offset subscript notation.
+    <b>Example</b>: <code>my_list[1]</code> is <code>3.14</code>.</dd>
+
+    <dt>object</dt>
+    <dd>An unordered list of <i>properties</i> (also known as "hashes",
+    "associative arrays", "maps" or "dictionaries" in other programming
+    languages). Properties are key-value pairs. Keys can be either
+    identifiers (unquoted names, like in the example below), strings or
+    numbers. Values can be of any type. Use a colon (<code>:</code>)
+    between the key and the value, commas to separate the properties and
+    curly braces (<code>{</code> and <code>}</code>) around the whole
+    list. <b>Example</b>: <code>var folk = {first_name: "Arthur",
+    last_name: "Dent", age: 32};</code>. Access the properties using
+    either the dot notation or the subscript notation with a string
+    index. <b>Example</b>: <code>folk.first_name</code> is
+    <code>"Arthur"</code>, <code>folk["age"]</code> is
+    <code>32</code>.</dd>
+
+    <dt>function</dt>
+    <dd>Functions are considered as values and can therefore be stores
+    in variables (see below).</dd>
+
+</dl>
+
+<p>Arrays and objects can be nested to any depth, which allows for easy
+description of complex data structures as in the following examples:</p>
+
+<pre><code><span class="keyword">var</span> data = [[1, 2.5], [3, 2.5], [4, 3.5]];    <span class="comment">// array of arrays</span>
+echo(data[2][0]);                             <span class="comment">// prints "4"</span>
+
+<span class="keyword">var</span> characters = [                            <span class="comment">// array of objects</span>
+    { name: "<span class="string">Arthur Dent</span>", preferred_drinks: ["<span class="string">tea</span>", "<span class="string">coffee</span>"] },
+    { name: "<span class="string">Ford Prefect</span>", motto: "<span class="string">Don't panic!</span>" }
+];
+print(characters[0].preferred_drinks[1]);   <span class="comment">// prints "coffee"</span>
+</code></pre>
+
+
+<h2>Filling arrays and objects</h2>
+
+<p>Once and array has been initialized, you can add extra
+values to it:</p>
+
+<pre><code>var A = ["<span class="string">apple</span>", "<span class="string">banana</span>"];    <span class="comment">// A[0] is "apple", A[1] is "banana"</span>
+A[2] = "<span class="string">kiwi</span>";                  <span class="comment">// now A is ["apple", "banana", "kiwi"]</span></code></pre>
+
+<p>however, you cannot add values to a non-existent array or something
+that has not been initialized as an array:</p>
+
+<pre><code><span class="comment">// assume foo is not defined</span>
+foo[2] = 6;    <span class="comment">// outputs error message: "foo is not defined"</span>
+
+<span class="keyword">var</span> x = 4;
+x[3] = 6;      <span class="comment">// no error, but does nothing</span></code></pre>
+
+<p>thus, when constructing arrays one item at a time, it is advisable to
+first initialize it as an empty array:</p>
+
+<pre><code><span class="keyword">var</span> x = [];         <span class="comment">// x is now an empty array</span>
+for (<span class="keyword">var</span> i = 0; i &lt; 10; i++) x[i] = sin(i/PI);</code></pre>
+
+<p>For a multidimensional array (an array of arrays), you will have to
+empty-initialize every inner array. A 2D array would then be constructed
+like this:</p>
+
+<pre><code><span class="keyword">var</span> x = [];                   <span class="comment">// initialize outer array</span>
+<span class="keyword">for</span> (<span class="keyword">var</span> i = 0; i &lt; 10; i++) {
+    x[i] = [];                <span class="comment">// initialize inner array</span>
+    <span class="keyword">for</span> (<span class="keyword">var</span> j = 0; j &lt; 50; j++) x[i][j] = some_function(i, j);
+}</code></pre>
+
+<p>In a similar way, objets can have properties added to them at any
+time:</p>
+
+<pre><code><span class="keyword">var</span> folk = {first_name: "<span class="string">Arthur</span>", last_name: "<span class="string">Dent</span>"};    <span class="comment">// no age!</span>
+folk.age = 32;                  <span class="comment">// now folk has an age</span></code></pre>
+
+
+<h2>Functions</h2>
+
+<p>Functions are declared as in C, but with the <code>function</code>
+keyword replacing the return type:</p>
+
+<pre><code><span class="keyword">function</span> cube(x)
+{
+    <span class="keyword">return</span> x * x * x;
+}
+<span class="keyword">var</span> x = cube(3);    <span class="comment">// x is 27</span></code></pre>
+
+<p>Returning a value is optional.</p>
+
+<p>Functions are <i>anonymous</i> if they are declared without a name.
+Anonymous functions can be stored in variables, as array elements or as
+object properties:</p>
+
+<pre><code><span class="keyword">var</span> cube = <span class="keyword">function</span>(x) { <span class="keyword">return</span> x * x * x; };
+<span class="keyword">var</span> x = cube(3);    <span class="comment">// x is 27</span></code></pre>
+
+
+<h2>Methods</h2>
+
+<p>Functions stored as properties of objects are called methods. Methods
+can access their parent object with the <code>this</code> keyword:</p>
+
+<pre><code><span class="keyword">var</span> folk = {
+    first_name: "<span class="string">Arthur</span>",
+    last_name: "<span class="string">Dent</span>",
+    greet: <span class="keyword">function</span>() { echo("<span class="string">Hi! this is </span>" + <span class="keyword">this</span>.first_name); }
+};
+folk.greet();    <span class="comment">// prints "Hi! this is Arthur"</span></code></pre>
+
+<p>If you are not familiar with object-oriented programming, this may
+start to sound weird. Don't worry though: you can do much work on NanoQt
+with just plain functions, without ever defining your own object
+methods. You <b>will</b> however have to <b>use</b> preexisting methods
+in some cases (namely to format dates and to do networking).</p>
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>

@@ -113,7 +113,8 @@ class ZI_HDAWG4_SemiCon(ZI_HDAWG4):
                 self.awg_program = self.awg_program + "wave marker" + str(marker_fileNum) + " = \"marker" + str(marker_fileNum) + "\";\n"
             if "wave" in fileslist[i]:
                 wave_fileNum += 1
-                self.awg_program = self.awg_program + "wave w" + str(wave_fileNum) + " = \"wave" + str(wave_fileNum) + "\";\n"
+                if wave_fileNum < 3:
+                    self.awg_program = self.awg_program + "wave w" + str(wave_fileNum) + " = \"wave" + str(wave_fileNum) + "\";\n"
         
         #put together csv wave w and marker_wave to wave wm...
         combined_waves_index = []

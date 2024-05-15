@@ -1,0 +1,29 @@
+/*
+ * Style sheet for the NanoQt documentation.
+ */
+
+body { background: white; font-family: sans-serif; }
+
+#navbar { font-weight: bold }
+#navbar td { background: white }
+#navbar span { color: #cc0000 }
+
+h1, h2, h3 { color: #cc0000 }
+h2 { background: #ffdddd; margin: 30px 0 10px 0 }
+
+code, blockquote { font: inherit; color: #aa0000 }
+pre {
+    background: #eeeeee;
+    margin-left: 20px; margin-right: 20px;
+    padding: 2px
+}
+.comment { color: #8800cc }
+.string { color: #44c }
+.keyword { font-weight: bold }
+
+dt { margin-top: 5px; color: #8800cc }
+dd { margin-top: 2px; margin-bottom: 2px }
+
+table { margin: 20px 10px 10px 10px }
+th { background: #ffaaaa }
+td { background: #ffffee }

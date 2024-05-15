@@ -1,0 +1,332 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: Networking</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png"></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; remote control</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">Controlling instruments</h1>
+
+
+<h2>Overview</h2>
+
+<p>Although NanoQt is ADwin-centered, it can also communicate with other
+instruments. Most modern instruments can be controlled through a TPC/IP
+connection using an Ethernet cable. This is the preferred method. Legacy
+instruments quite often offer only a GPIB (a.k.a. IEEE-488) interface.
+NanoQt has no support for direct GPIB communication. However, GPIB
+instruments can nevertheless be controlled by using an Ethernet/GPIB
+gateway and talking to the gateway using the VXI-11 protocol.</p>
+
+<p>NanoQt offers two options for Ethernet communication:</p>
+
+<ol>
+<li>The <code>TcpConnection()</code> constructor is suitable for
+text-based, line-oriented protocols over a raw TCP connection. Many
+Ethernet-enabled instruments can be controlled this way, using either <a
+href="https://en.wikipedia.org/wiki/Standard_Commands_for_Programmable_Instruments">SCPI</a>
+commands or a custom text-based protocol.</li>
+<li>The <code>Vxi11()</code> constructor is meant for controlling GPIB
+instruments through a Ethernet/GPIB gateway, as well as directly
+controlling instruments that natively implement a VXI-11 interface over
+Ethernet.</li>
+</ol>
+
+<p>Most LXI instruments accept SCPI commands over either a raw TCP
+connection to port 5025 or a VXI-11 connection. Somme accept both.
+Instruments conforming to LXI 1.2 and later provide an <i>XML
+identification document</i> that can be queried through HTTP. This
+document lists the available communication channels. The script
+<code>lxi-identification.js</code>, available in the
+<code>samples</code> subdirectory of the NanoQt distribution, can be
+used to retrieve and parse this document. This can be done as
+follows:</p>
+
+<pre><code><span class="keyword">var</span> identify = require("<span class="string">samples/lxi-identification.js</span>");
+identify("<span class="string">192.168.0.3</span>");</code></pre>
+
+The first line assumes the working directory is the parent of the
+<code>samples</code> directory, otherwise the path to the script should
+be replaced with the correct one. The second line attempts to identify
+the instrument at address 192.168.0.3. The output may look like:
+
+<pre><b>VISA address:</b> TCPIP::A-33510B-01068.local::inst0::INSTR
+    you can connect with: new Vxi11("192.168.0.3")
+<b>VISA address:</b> TCPIP::A-33510B-01068.local::5025::SOCKET
+    you can connect with: new TcpConnection("192.168.0.3", 5025)</pre>
+
+
+<h2>Direct TCP connections</h2>
+
+<p>NanoQt can establish TCP connections with TCP-enabled instruments and
+talk line-oriented protocols through these connections. In order to
+establish a TCP connection, use the following syntax:</p>
+
+<pre><code><span class="keyword">var</span> socket = <span class="keyword">new</span> TcpConnection("<span class="string">192.168.0.3</span>", 2001);</code></pre>
+
+<p>where the first parameter of <code>TcpConnection()</code> is the IP
+address (or host name) of the instrument and the second parameter is the
+port number. The <code>new</code> keyword is optional. You are
+nevertheless advised to keep it because it makes object-oriented
+programmers feel good about you. Shall the force of the Great
+Constructor be with you!</p>
+
+<p>Alternatively, you can get a <i>non connected socket</i> (a socket is
+the place where a connection gets plugged in) and connect it later:</p>
+
+<pre><code><span class="keyword">var</span> socket = <span class="keyword">new</span> TcpConnection();    	<span class="comment">// non connected socket</span>
+socket.connect("<span class="string">192.168.0.3</span>", 2001);    <span class="comment">// now it is connected</span></code></pre>
+
+<p>In both cases, <code>new TcpConnection()</code> returns an opaque
+object representing the connection (or the non connected socket). Use
+the following methods to act on this object:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>method</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>connect(address, port_number)</td>
+    <td>If this is a non connected socket, connect to the given address
+	and port. address may be an IP address (e.g. "192.168.0.3") or an
+	internet host name (e.g. "foo.bar.com").</td>
+</tr>
+<tr>
+    <td>set_timeout(duration)</td>
+    <td>Sets the timeout for reads to the given number of seconds (may
+	be fractional).</td>
+</tr>
+<tr>
+    <td>set_line_terminator(terminator)</td>
+    <td>Sets the line terminator.</td>
+</tr>
+<tr>
+    <td>write(message)</td>
+    <td>Send the given message to the peer. The line terminator will be
+	automatically appended.</td>
+</tr>
+<tr>
+    <td>read()</td>
+    <td>Read a line from the connection and return it. A line is defined
+	by the line terminator. If a complete line is not available in the
+	input buffer, read() will wait for more data until it can deliver a
+	complete line or until it times out.</td>
+</tr>
+<tr>
+    <td>close()</td>
+    <td>Close the connection. The socket is now disconnected and can be
+	connected again with <code>connect()</code>.</td>
+</tr>
+</table>
+
+<p>The default timeout is 0.5 s, which should be fine in most cases when
+talking to locally-connected instruments but is too short for connecting
+over the Internet. The default line terminator is <code>"\r\n"</code>.
+Other popular choices are <code>"\n"</code> and <code>"\r"</code>. Their
+meanings are:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+	<th>JavaScript code</th>
+	<th>numeric value (hex)</th>
+	<th>mnemonic</th>
+	<th>name</th>
+	<th>popular in</th>
+</tr>
+<tr>
+	<td>"\n"</td>
+	<td>0x0A</td>
+	<td>LF</td>
+	<td>line feed</td>
+	<td>Unix, Linux, MacOS X</td>
+</tr>
+<tr>
+	<td>"\r"</td>
+	<td>0x0D</td>
+	<td>CR</td>
+	<td>carriage return</td>
+	<td>MacOS &le; 9</td>
+</tr>
+<tr>
+	<td>"\r\n"</td>
+	<td>0x0D 0x0A</td>
+	<td>CRLF</td>
+	<td>(CR followed by LF)</td>
+	<td>DOS, Windows, Internet</td>
+</tr>
+</table>
+
+<p>The manual of any TCP-enabled instrument should state the line
+terminator that it uses.</p>
+
+
+<h2>VXI-11</h2>
+
+<img src="ics-8065.jpg" align="right">
+
+<p>Legacy instruments that do not support TCP/IP can be controlled using
+an <a href="https://www.icselect.com/vxi-11_gateway_8065.html">ICS
+8065 Ethernet-to-GPIB controller</a> like the one pictured on the right.
+This device is actually a gateway: connect the computer to the gateway
+using an Ethernet cable, then connect the gateway to the instrument
+using a GPIB cable. The instrument can then be controlled by the
+computer using the VXI-11 protocol (a.k.a. TCP/IP Instrument
+Protocol).</p>
+
+<p>Some instruments natively support the VXI-11 protocol. These
+instruments behave as GPIB instruments with an embedded Ethernet-to-GPIB
+gateway.</p>
+
+<p>To establish a connection to an instrument from NanoQt, use one of
+the following syntaxes:</p>
+
+<pre><code><span class="keyword">var</span> instrument1 = <span
+class="keyword">new</span> Vxi11(ip_address, device_name);
+<span class="keyword">var</span> instrument2 = <span
+class="keyword">new</span> Vxi11(ip_address, gpib_address);
+<span class="keyword">var</span> instrument3 = <span
+class="keyword">new</span> Vxi11(ip_address);                <span
+class="comment">// networked VXI-11 instrument</span>
+<span class="keyword">var</span> instrument4 = <span
+class="keyword">new</span> Vxi11(gpib_address);              <span
+class="comment">// GPIB instrument behind the ICS 8065</span></code></pre>
+
+<p>where</p>
+
+<ul>
+<li><code>ip_address</code> is the IP address of the instrument or
+gateway, provided as a string. It defaults to
+<code>"192.168.0.254"</code>, which is the default IP address of the
+ICS 8065.</li>
+<li><code>device_name</code> is the VXI-11 device name, as a string
+typically of the form <code>"gpib0,XX"</code> or <code>"vxi0,XX"</code>,
+where XX is the GPIB address. If not provided, it defaults to
+    <ul>
+    <li><code>"gpib0,XX"</code>, where XX is the provided GPIB address,
+    as this is the convention used by the ICS 8065;</li>
+    <li><code>"inst0"</code> if no GPIB address is provided, as this is
+    common on networked instruments that natively support the VXI-11
+    protocol.</li>
+    </ul></li>
+<li><code>gpib_address</code> is the GPIB address, as a number, used to
+build the device name.</li>
+</ul>
+
+<p>The network settings of the ICS 8065, including its IP address,
+can be changed through it's Web interface at
+<a href="http://192.168.0.254/">http://192.168.0.254/</a>. The default
+address can be restored by pushing the <i>LAN Reset</i> rear-panel
+button.</p>
+
+<p>The <code>new Vxi11()</code> call returns an opaque object
+representing the connection to the instrument. Use the following methods
+to act on this object:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>method</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>set_timeout(timeout)</td>
+    <td>Sets the timeout for the GPIB side of the connection, i.e. how
+    long the gateway will wait for the instrument to answer its
+    requests. The timeout for the TCP/IP side of the connection (how
+    long NanoQt will wait for the gateway) will be automatically set to
+    the same value plus 200 ms. <code>timeout</code> should be given in
+    seconds and can be fractional.</td>
+</tr>
+<tr>
+    <td>set_end(assert_end_line)</td>
+    <td>If <code>assert_end_line</code> is <code>true</code>, then the
+    gateway will be asked to send an IEEE-488 END indicator with the
+    last data byte of all subsequent <code>write()</code>s. If
+    <code>assert_end_line</code> is <code>false</code>, no END indicator
+    will be sent.</td>
+</tr>
+<tr>
+    <td>set_termchr(chr)</td>
+    <td>Define the termination character. All subsequent
+    <code>read()</code>s will expect this character as an end-of-message
+    indicator. All subsequent <code>write()</code>s will append this
+    character to the message. If set to <code>'\0'</code> (or
+    <code>0</code>, or <code>false</code>), the instrument will be
+    expected to signal end of messages with an IEEE-488 END indicator
+    and nothing will be automatically appended to
+    <code>write()</code>s.</td>
+</tr>
+<tr>
+    <td>write(message)</td>
+    <td>Send this message to the instrument.</td>
+</tr>
+<tr>
+    <td>read()</td>
+    <td>Read a message from the instrument. Returns a string with the
+    message.</td>
+</tr>
+<tr>
+    <td>readstb()</td>
+    <td>Read the instrument's status byte. Returns the status byte as an
+    integer.</td>
+</tr>
+<tr>
+    <td>trigger()</td>
+    <td>Send an IEEE-488.2 TRIGGER control sequence to the
+    instrument.</td>
+</tr>
+<tr>
+    <td>clear()</td>
+    <td>Send an IEEE-488.2 DEVICE CLEAR control sequence to the
+    instrument.</td>
+</tr>
+</table>
+
+<p>See also samples/vxi11.js for an example on using the ICS 8065
+to communicate with a Keithley 6514 electrometer.</p>
+
+
+<h2>Remote Procedure Call</h2>
+
+<p>The VXI-11 protocol is implemented on top of the ONC/RPC (Open
+Network Computing / Remote Procedure Call) protocol, a.k.a. Sun RPC. A
+subset of this protocol is available to the JavaScript interpreter for
+debugging purposes. You normally do not want to use this! This quick
+synopsis is provided here for reference only.</p>
+
+<pre><code><span class="keyword">var</span> rpc = <span class="keyword">new</span> Rpc(host, program, version);
+rpc.set_timeout(timeout_in_s);
+<span class="keyword">var</span> response = rpc.call(procedure, args...);
+<span class="keyword">var</span> length = response.length;
+<span class="keyword">var</span> result = response.parse(type);</code></pre>
+
+<p>Where <code>type</code> is either <code>"boolean"</code>,
+<code>"number"</code> (meaning signed integer), <code>"unsigned"</code>
+or <code>"string"</code>.</p>
+
+
+<h2>Examples</h2>
+
+<p>In the samples directory, see:</p>
+
+<ul>
+<li>http-client.js: getting a web page from a web server</li>
+<li>trmc2.js: reading a thermometer from a
+<a href="http://neel.cnrs.fr/spip.php?article862&lang=en">TRMC2</a></li>
+</ul>
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>

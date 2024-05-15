@@ -1,0 +1,171 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: Data handling functions</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png"></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; data API</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">NanoQt data handling functions</h1>
+
+<h2>Overview</h2>
+
+<p>NanoQt's user interface is based on the JavaScript language, and has a library of dedicated commands to pilot adwin system, but also some other commands to manage files, and 2D/3D graphics. There are two kinds of commands, some written in JavaScript language, inside library.js file, and some native commands, written in C++, compiled inside NanoQt application.</p>
+<p>Nota Bene : Even if a command does not have any argument, suchs the help() command, do not forget the (), otherwise you are asking for the value of the variable help that may not exist. See the page JavaScript syntax for more informations about the basics of that language.</p>
+
+<p>In the following descriptions, function arguments in <i>italics</i>
+are optional.</p>
+
+
+<h2>Files and in-memory data structures</h2>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>function</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>Ymin_array(array)</td>
+    <td>returns data point which Y is minimum of the array, i.e. Ymin_array([[0,3.5],[1,2.1],[2,5.1]]) returns [1,2.1]</td>
+</tr>
+<tr>
+    <td>Ymax_array(array)</td>
+    <td>returns data point which Y is minimum of the array, i.e. Ymin_array([[0,3.5],[1,2.1],[2,5.1]]) returns [2,5.1]</td>
+</tr>
+<tr>
+    <td>FourierTransform(array)</td>
+    <td>returns the Fourier Transform of the array, in the format [[freq,X,Y],[][]...[]]</td>
+</tr>
+<tr>
+    <td>save(object, <i>filename</i>)</td>
+    <td>Saves the given object as a JSON file. If the file name is
+    omitted, prompts the user with a standard file selection
+    dialog.</td>
+</tr>
+<tr>
+    <td>open(filename)</td>
+    <td>Opens and parses a data file. The file must be in JSON format
+    (e.g. a file created with <code>save()</code>). Returns the object
+    originally stored in the file. <b>Example:</b> <code>var my_data =
+    open("datafile.json");</code></td>
+</tr>
+<tr>
+    <td>export_data(filename, data)</td>
+    <td>Export the data into a file in tab-separated-values format.
+    <code>data</code> should be an object formatted as a NanoQt data
+    file. E.g. if a measurement creates "mydata.json", you can
+    <code>export_data("mydata.tsv", open("mydata.json"))</code>. You can
+    also export a single measurement (<code>export_data("mydata.tsv",
+    open("mydata.json").measures[0])</code>) or even a plain 2D array of
+    numbers (<code>export_data("mydata.tsv",
+    open("mydata.json").measures[0].data)</code>).</td>
+</tr>
+<tr>
+    <td>import_tsv(filename, int)</td>
+    <td>Import the data from a file in tab-separated-values format.
+    <code>data</code> should be formatted in a column style format.
+    The imported data are stored in "data" member.</td>
+</tr>
+
+<tr>
+    <td>write(filename, string)</td>
+    <td>Writes the given string to a file. If the file exists, it is
+    overwritten. <b>Encoding warning:</b> the file will have have one
+    byte per character in <code>string</code>, encoded as per
+    ISO-8859-1, i.e. the byte value is just the character code position.
+    Characters higher than 255 are not allowed here.</td>
+</tr>
+<tr>
+    <td>explore(object)</td>
+    <td>Displays the given object as a browsable tree in NanoQt's object
+	explorer.</td>
+</tr>
+</table>
+
+<h2>Plotting</h2>
+
+<p>Two kind of plot windows are available.</p>
+
+<ul>
+    <li>2D plots can hold several curves. Curves within a plot are
+    identified by a curve_id, which is the curve number. The first curve
+    is numbered 0.</li>
+    <li>3D plots hold one single surface.</li>
+</ul>
+
+<p>Plots, whether 2D or 3D, are identified by a plot_id number. Thus, a
+curve in a 2D plot is uniquely identified by a (plot_id, curve_id)
+pair.</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>function</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>plot2D(data)</td>
+    <td>Creates a 2D plot window with the given data, which must be a 2D
+    array (an array of arrays) of numbers. Returns the plot_id of the
+    newly created plot. The data will be plotted in curve number 0.
+    <b>Example:</b>
+    <code>plot2D([[1,2.5],[3,2.5],[4,3.5],[2,6]]);</code> See
+    also samples/plot2D.js.</td>
+</tr>
+<tr>
+    <td>get_last_plotter()</td>
+    <td>Returns the plot_id of the most recently created 2D plot.</td>
+</tr>
+<tr>
+    <td>trace_xy(plot_id, curve_id, x, y)</td>
+    <td>Add a point at (x, y) to the curve identified by (plot_id,
+    curve_id). The plot must exist before calling trace_xy(). The curve
+    will be created if necessary.</td>
+</tr>
+<tr>
+    <td>auto_xy(plot_id)</td>
+    <td>Autoscale the 2D plot referenced by plot_id.</td>
+</tr>
+<tr>
+    <td>get_data(plot_id, curve_id)</td>
+    <td>Returns the referenced curve as a 2D array of numbers.
+	Coming soon: (1) if curve_id is omitted, it will return all the
+    curves. (2) it will also work with 3D plots.</td>
+</tr>
+<tr>
+    <td>clear_curve(plot_id, curve_id)</td>
+    <td>Clears the referenced curve. Coming soon: if curve_id is omitted
+    it will clear all the curves.</td>
+</tr>
+<tr>
+    <td>get_options2D(plot_id, curve_id)</td>
+    <td>Prints to the console the options associated with the referenced
+    curve.</td>
+</tr>
+<tr>
+    <td>plot3D(array_z)<br>
+    plot3D(array_x, array_y, array_z)</td>
+    <td>With a single array parameter,
+    creates a 3D surface plot of z[x][y]=f(x,y).
+    With three parameters, plots the
+    parametric surface (x[i][j],y[i][j],z[i][j]).</td>
+</tr>
+<tr>
+    <td>get_options3D(plot_id)</td>
+    <td>prints the 3D options of a surface plot referenced by plot_id number in a readable text in the console output</td>
+</tr>
+</table>
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>

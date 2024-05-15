@@ -1,0 +1,588 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: Creating new widgets</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png"></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; new widgets</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">Creating new widgets</h1>
+
+<p>In some cases, it may be desirable to have some interactive control
+on a script. This can be achieved by creating some widgets the script
+can interact with. Five types of widgets are available for this
+purpose:</p>
+
+<ul>
+<li><a href="#button">button</a></li>
+<li><a href="#checkbox">check box</a></li>
+<li><a href="#label">label</a></li>
+<li><a href="#lineedit">line edit</a></li>
+<li><a href="#combobox">combo box</a></li>
+</ul>
+
+<p>It is also possible to create windows in two flavors:</p>
+
+<ul>
+<li><a href="#window">simple windows</a> are initially empty and can
+then be populated by any combination of the above widgets</li>
+<li><a href="#objwin">ObjectWindows</a> offer an easier way for creating
+a window and its widgets, and for interacting with the widgets
+programmatically</li>
+</ul>
+
+<p>All of the five basic widgets are created from script by using a
+constructor like:</p>
+
+<pre><code>do_save = <span class="keyword">new</span> CheckBox("<span class="string">save data</span>");</code></pre>
+
+<p>As soon as it is created, the new widget appears on the script
+toolbar, which is a toolbar normally located at the top of the NanoQt
+window (although it can be moved). The toolbar is initially empty. Below
+is an example of how it may look after four widgets have been created.
+From left to right: a label ("filename:"), a line edit (empty white
+box), a button ("Say hello") and a check box ("save data"):</p>
+
+<p align="center"><img src="script_toolbar.png"></p>
+
+<p>Once the widget is not needed anymore, it can be deleted:</p>
+
+<pre><code><span class="keyword">delete</span> do_save;</code></pre>
+
+<p>Beware that the JavaScript language does not allow deletion of
+variables declared with the <code>var</code> keyword. In this case, the
+widget can be deleted simply by overwriting the variable with another
+value. For example:</p>
+
+<pre><code>do_save = <span class="keyword">null</span>;</code></pre>
+
+
+<h2 id="button">Buttons</h2>
+
+<p>Buttons are meant to perform an action whenever they are pressed.
+Before creating a button, one has to define the action it should
+accomplish by writing a function to perform this action. This function
+should expect no parameters and should not return any value. The button
+can then be created and connected with this function:</p>
+
+<pre><code><span class="comment">// Function to be called when we click on the button.</span>
+<span class="keyword">function</span> hello()
+{
+    echo("<span class="string">Hello!</span>");
+}
+
+<span class="comment">// Create a button connected to this function.</span>
+hello_button = <span class="keyword">new</span> Button("<span class="string">Say hello</span>", hello);</code></pre>
+
+<p>Alternatively, a button can be made toggleable by setting its
+<code>checkable</code> property to true. A toggleable button can be used
+much like a check box:</p>
+
+<pre><code><span class="comment">// Create a switch fot the lights.</span>
+lights = <span class="keyword">new</span> Button("<span class="string">Lights</span>");
+lights.checkable = <span class="keyword">true</span>;
+
+<span class="comment">// ... Sometime later, check its state.</span>
+<span class="keyword">if</span> (lights.checked) echo("<span class="string">lights are on</span>");
+<span class="keyword">else</span> echo("<span class="string">lights are off</span>");</code></pre>
+
+<p>Keep in mind, however, that <a href="#checkbox">check boxes</a> are
+the most common user interface for setting binary options.</p>
+
+<h3>Constructor</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Constructor</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>new Button(text, <i>callback</i>)</td>
+    <td>Create a new button. <code>text</code> is the string to be shown
+    on the button. <code>callback</code> is an optional function: it
+    will be called whenever the user presses the button. If provided,
+    <code>callback</code> should expect no parameters and return
+    nothing. A button with no <code>callback</code> is probably useless
+    unless turned into a toggle button.</td>
+</tr>
+</table>
+
+<h3>Properties</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Property</th>
+    <th>type</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>text</td>
+    <td>string</td>
+    <td>Text displayed on the button. Changing this property will change
+    the displayed text.</td>
+</tr>
+<tr>
+    <td>checkable</td>
+    <td>boolean</td>
+    <td>If set to <code>true</code>, this becomes a toggle button.
+    Default is <code>false</code>, i.e. behave like a normal press
+    button.</td>
+</tr>
+<tr>
+    <td>checked</td>
+    <td>boolean</td>
+    <td><code>true</code> if the button is pressed, <code>false</code>
+    if it is not. Changing this property will press/release the button
+    programmatically. This property is only useful for toggle
+    buttons.</td>
+</tr>
+<tr>
+    <td>enabled</td>
+    <td>boolean</td>
+    <td>Setting this to <code>false</code> will disable the button. A
+    disabled button is displayed grayed out. Setting this back to
+    <code>true</code> will enable it again. Default is
+    <code>true</code>.</td>
+</tr>
+</table>
+
+
+<h2 id="checkbox">Check boxes</h2>
+
+<p>A check box is a widget representing a binary value: either it is
+checked or it is not. Once created, the state of the checkbox can be
+queried and modified by the script:</p>
+
+<pre><code>do_save = <span class="keyword">new</span> CheckBox("<span class="string">save data</span>");    <span class="comment">// create a new chek box</span>
+do_save.checked = <span class="keyword">true</span>;                 <span class="comment">// initially checked</span>
+
+<span class="comment">// Some lengthy acquisition...</span>
+<span class="comment">// ...the user may unchek "save data" if data looks useless.</span>
+
+<span class="comment">// Save the data if required</span>
+<span class="keyword">if</span> (do_save.checked) {
+    save(data, filename);
+    echo("<span class="string">Data saved to </span>" + filename);
+}</code></pre>
+
+<h3>Constructor</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Constructor</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>new CheckBox(text)</td>
+    <td>Create a new checkbox. <code>text</code> is a string that will
+    be displayed next to the checkbox (to its right).</td>
+</tr>
+</table>
+
+<h3>Properties</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Property</th>
+    <th>type</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>text</td>
+    <td>string</td>
+    <td>Text displayed next to the check box. Changing this property
+    will change the displayed text.</td>
+</tr>
+<tr>
+    <td>checked</td>
+    <td>boolean</td>
+    <td><code>true</code> if the check box is checked,
+    <code>false</code> if it is not. Changing this property will
+    check/uncheck the check box programmatically.</td>
+</tr>
+<tr>
+    <td>enabled</td>
+    <td>boolean</td>
+    <td>Setting this to <code>false</code> will disable the check box. A
+    disabled check box is displayed grayed out. Setting this back to
+    <code>true</code> will enable it again. Default is
+    <code>true</code>.</td>
+</tr>
+</table>
+
+
+<h2 id="label">Labels</h2>
+
+<p>A label is an output-only widget that displays some text. An initial
+text has to be provided to the constructor. The text can be modified
+later:</p>
+
+<pre><code><span class="comment">// Create a label with a default text.</span>
+label = <span class="keyword">new</span> Label("<span class="string">loop not started</span>");
+
+<span class="comment">// Write the loop index on the label.</span>
+<span class="keyword">for</span> (i = 0; i &lt; max; i++) {
+    label.text = "<span class="string">loop index = </span>" + i;
+    do_something();
+}</code></pre>
+
+<h3>Constructor</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Constructor</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>new Label(text)</td>
+    <td>Create a new label that will display the string
+    <code>text</code>.</td>
+</tr>
+</table>
+
+<h3>Properties</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Property</th>
+    <th>type</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>text</td>
+    <td>string</td>
+    <td>Text displayed by the label. Changing this property will change
+    the displayed text.</td>
+</tr>
+<tr>
+    <td>enabled</td>
+    <td>boolean</td>
+    <td>Setting this to <code>false</code> will gray out the label.
+    Setting this back to <code>true</code> will restore its normal
+    display. Since labels accept no user interaction, the effect of
+    changing this property is only visual.</td>
+</tr>
+</table>
+
+
+<h2 id="lineedit">Line edits</h2>
+
+<p>A line edit is meant to let the user input some text. The constructor
+takes no argument and creates an empty line edit. The text can later be
+queried and modified by the script.</p>
+
+<p>It is advisable to document the purpose of the line edit by creating
+a label just before the line edit:</p>
+
+<pre><code><span class="comment">// Create a Label and a LineEdit next to each other</span>
+label = <span class="keyword">new</span> Label("<span class="string">filename:</span>");
+filename_entry = <span class="keyword">new</span> LineEdit();</code></pre>
+
+<p>Since created widgets are packed left to right, the text "filename:"
+will be shown on the left of the line edit. The contents of the line
+edit can be queried as its <code>text</code> property:</p>
+
+<pre><code><span class="comment">// ... take some data... then:</span>
+filename = filename_entry.text;
+save(data, filename);
+echo("<span class="string">data saved to </span>" + filename);</code></pre>
+
+<h3>Constructor</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Constructor</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>new LineEdit()</td>
+    <td>Create a new, empty, line edit.</td>
+</tr>
+</table>
+
+<h3>Properties</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Property</th>
+    <th>type</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>text</td>
+    <td>string</td>
+    <td>Text entered in the line edit. Changing this property will
+    change the contents of the line edit.</td>
+</tr>
+<tr>
+    <td>enabled</td>
+    <td>boolean</td>
+    <td>Setting this to <code>false</code> will disable the line edit. A
+    disabled line edit is displayed grayed out. Setting this back to
+    <code>true</code> will enable it again. Default is
+    <code>true</code>.</td>
+</tr>
+</table>
+
+
+<h2 id="combobox">Combo boxes</h2>
+
+<p>While line edits allow the user to input arbitrary text, in some
+cases it is desirable to restrict the input to a predefined set of
+strings. A combo box can be used for this purpose. Pass the array of
+allowed values to the constructor and use the <code>text</code> property
+to read the currently selected value.</p>
+
+<pre><code><span class="comment">// Create a combo box.</span>
+color = <span class="keyword">new</span> ComboBox(["<span class="string">red</span>", "<span class="string">green</span>", "<span class="string">blue</span>"]);
+
+<span class="comment">// Tell us when it changes.</span>
+color.onchange = <span class="keyword">function</span>() {
+    echo("<span class="string">color set to </span>" + <span class="keyword">this</span>.text);
+};
+
+<span class="comment">// Change the value.</span>
+color.text = "<span class="string">blue</span>";
+
+<span class="comment">// ...sometime later...</span>
+<span class="keyword">switch</span> (color.text) {
+    <span class="comment">// We are sure it will be either "", "red", "green" or "blue"</span>
+    <span class="comment">// ...</span>
+}</code></pre>
+
+<p>As shown above, an optional <em>event handler</em> can be assigned to
+the combo box by assigning a function to its <code>onchange</code>
+property.</p>
+
+<h3>Constructor</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Constructor</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>new ComboBox(array_of_strings)</td>
+    <td>Create a new combo box for selecting a string among the provided
+    list. No item will be initially selected.</td>
+</tr>
+</table>
+
+<h3>Properties</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Property</th>
+    <th>type</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>text</td>
+    <td>string</td>
+    <td>Text selected in the combo box. Changing this property will
+    change the selection. The empty string means "no selection". Setting
+    this property to a string (other than the empty string) that is not
+    an available option will raise an error.</td>
+</tr>
+<tr>
+    <td>index</td>
+    <td>number</td>
+    <td>Index of the selected item. First item has index zero. Changing
+    this property will change the selection. -1 means "no selection".
+    Setting this to an out-of-range index is equivalent to setting it to
+    -1.</td>
+</tr>
+<tr>
+    <td>onchange</td>
+    <td>function</td>
+    <td>If defined, this function will be automatically called whenever
+    the selection is changed, either programmatically or by user
+    interaction. The function will be called with no parameters, as a
+    method of the combo box (i.e. <code>this</code> will be the combo
+    box itself).</td>
+</tr>
+<tr>
+    <td>enabled</td>
+    <td>boolean</td>
+    <td>Setting this to <code>false</code> will disable the combo box. A
+    disabled combo box is displayed grayed out. Setting this back to
+    <code>true</code> will enable it again. Default is
+    <code>true</code>.</td>
+</tr>
+</table>
+
+
+<h2 id="window">Simple windows</h2>
+
+<p>In case a script creates too many widgets, the script toolbar may not
+be convenient to hold all of them. It is then possible to create custom
+windows to hold the widgets we do not want to have in the toolbar.
+Assuming we have previously created a label, a line edit, a check box
+and a button (see previous examples), the following code would move them
+to a newly created window:</p>
+
+<pre><code><span class="comment">// Create a new window.</span>
+window = <span class="keyword">new</span> Window("<span class="string">Script window</span>");
+
+<span class="comment">// Move four widgets to this new window.</span>
+window.add(label, 0, 0);
+window.add(filename_entry, 0, 1);
+window.add(do_save, 1, 0);
+window.add(hello_button, 1, 1);</code></pre>
+
+<p>The window would then look like this (without the blue lines and
+numbers):</p>
+
+<div align="center">
+<img src="script_window.png" width="235" height="111">
+</div>
+
+<p>Widgets inside a window are laid out in a grid (blue lines above).
+The position of every widget is given by a row number and a column
+number (blue numbers above).</p>
+
+<h3>Constructor</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Constructor</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>new Window(name)</td>
+    <td>Create a new empty window with the given name. The name should
+    be a string.</td>
+</tr>
+</table>
+
+<h3>Methods</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Method</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>add(widget, row, column)</td>
+    <td>Adds the given widget (label, line edit, check box or button) to
+    the window at the given coordinates in the grid layout. The widget
+    is obviouly removed from its current location, be it the script
+    toolbar or another window.</td>
+</tr>
+</table>
+
+
+<h2 id="objwin">ObjectWindows</h2>
+
+<p>While the previous constructors provide significant flexibility to
+build a user interface, there is a simpler alternative called
+ObjectWindows. With some limitations, an ObjectWindow can be used by
+script code just like a regular JavaScript object that stores data and
+functions. However, it also provides a window that makes the object
+visible.</p>
+
+<p>To create an ObjectWindow, provide a window title and a template
+object to the constructor. The returned ObjectWindow will behave much
+like the provided template: it will have the same properties with,
+initially, the same values. Additionally, a window will be provided for
+interacting with the object. For example, the following code:</p>
+
+<pre><code><span class="comment">// A simple JavaScript object.</span>
+<span class="keyword">var</span> template = {
+    filename: "<span class="string">data.json</span>",
+    max_field: 2,
+    save_data: <span class="keyword">true</span>,
+    say_hello: <span class="keyword">function</span>() { echo("<span class="string">Hello!</span>"); }
+};
+
+<span class="comment">// Create an ObjectWindow based on the previous template.</span>
+<span class="keyword">var</span> controls = <span class="keyword">new</span> ObjectWindow("<span class="string">controls</span>", template);</code></pre>
+
+<p>will create the following window:</p>
+
+<div align="center">
+<img src="object_window.png" width="193" height="174">
+</div>
+
+<p>The returned ObjectWindow can also be used like a regular object:</p>
+
+<pre><code><span class="comment">// Greet the user.</span>
+controls.say_hello();
+
+<span class="comment">// ... after taking some data:</span>
+<span class="keyword">if</span> (controls.save_data) save(data, controls.filename);</code></pre>
+
+<h3>Constructor</h3>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Constructor</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>new ObjectWindow(title, template)</td>
+    <td>Create an ObjectWindow with the provided window title, and
+    modeled after the provided template object.</td>
+</tr>
+</table>
+
+<h3>Propertyies and methods</h3>
+
+<p>The returned ObjectWindow will have exactly the same properties and
+methods as the provided template, but with extra behavior dependent on
+the type of the properties.</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Type</th>
+    <th>behavior</th>
+</tr>
+<tr>
+    <td>boolean</td>
+    <td>The property will be mapped to a check box in the window. Its
+    value will always reflect the checked/unchecked status of the
+    checkbox. Changing its value will programmatically toggle the
+    checkbox.</td>
+</tr>
+<tr>
+    <td>string</td>
+    <td>The property will be mapped to a line edit. Reading the value
+    will yield the current contents of the line edit. Changing the value
+    will programmatically change the contents of the line edit.</td>
+</tr>
+<tr>
+    <td>number</td>
+    <td>The property will be mapped to a line edit. On reading, the
+    contents of the line edit will be evaluated as a number. Typing-in a
+    numeric expression line "2*PI" will work. If the contents does not
+    make sense as a number, it will be evaluated as zero. On writing,
+    the numeric value will be displayed on the line edit.</td>
+</tr>
+<tr>
+    <td>function</td>
+    <td>The property will be mapped to a button. Pressing the button
+    will call the function with no parameters, as a method of the
+    ObjectWindow (i.e. <code>this</code> inside the function will be the
+    ObjectWindow). The function should not be changed.</td>
+</tr>
+</table>
+
+<p>Other types are not supported. Once the ObjectWindow is created, you
+should not attempt to add extra properties, delete existing properties,
+nor change the types of existing properties.</p>
+
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>

@@ -1,0 +1,443 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: The Density Plot</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png"></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; density plot</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">The Density Plot</h1>
+
+<p>A density plot is a plot of a function of two variables f(x, y) where
+the two plot axes are the independent variables x and y and the function
+values are represented by colors. This is the typical plot for a Coulomb
+diamond for example. NanoQt provides density plot windows that are very
+similar to the normal <a href="plot.html">2D plotter</a>. The main
+differences are:</p>
+
+<img align="right" src="density-plot.png">
+
+<ul>
+<li>the data points sent to a density plot are either 3D points, i.e. they have
+three coordinates: (x, y, z = f(x, y)) or values of a matrix M(i,j)=z</li>
+<li>each data point (x, y, z) or (i,j,z) is represented by a small colored
+rectangle (a "pixel") centered at (x, y) or (i,j) and colored according to z</li>
+<li> It is also possible to map the indexes of the matrix to a range on both axis </li>
+<li>whereas the 2D plotter can plot several curves at once, a density
+plot window can only hold one single data set, the data set is called a
+"map"</li>
+<li>if you want a good looking density plot, with no holes or overlaps
+between neighbor pixels, the x and y coordinates of the data points
+should lie on a regular rectangular grid, or use the matrix mode</li>
+</ul>
+
+
+<h2>The Density Plot Window</h2>
+
+<p>Please refer to the documentation of the <a href="plot.html">2D
+plotter</a>, the density plot window has the same user interface, except
+for the "Marker &amp; Pen" setting tab being replaced by a "Colors" tab,
+and two extra setting in the "Others" tab.</p>
+
+<p>This Colors tab holds a gradient editor meant for editing the color
+gradient that represents the z range of values. Since this editor is
+shared by the 3D plotter, it has its own help page: see the help on the
+<a href="gradient-editor.html">gradient editor</a>.</p>
+
+<p>The settings in all the tabs can be altered programmatically using
+the <a href="#props">properties of the DensityPlot object</a> associated
+with the plot window.</p>
+
+
+<h2>The JavaScript Interface</h2>
+
+<p>From the JavaScript side, the density plot window is represented by a
+<b>DensityPlot object</b> returned by the <code>new DensityPlot()</code>
+constructor (see below). The data stored in a DensityPlot is called a
+map. A map is an array of points, each point being an array of three
+numbers.</p>
+
+<p>This is the format you have to use when sending data to a density
+plot via the <code>add_map()</code> method. This is also the format of
+the data returned by the <code>get_data()</code> method. Both methods
+are described below, after the constructor.</p>
+
+<h3>Constructor</h3>
+
+<p>Density plots are created using the <code>new DensityPlot()</code>
+constructor. It is advisable (but not mandatory) to provide a title to
+the constructor. You can also provide data to plot, if it is already
+available. If not, an empty plot is created. You will be able to add
+data to it later.</p>
+
+<pre><code><span class="comment">// Create a new empty density plot.</span>
+<span class="keyword">var</span> plot = <span class="keyword">new</span> DensityPlot("<span class="string">Bumps</span>");</code></pre>
+
+<p>The syntax of the constructor:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Constructor</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>new DensityPlot(<i>title</i>, <i>map</i>...)</td>
+    <td>
+
+    <p>Creates a new density plot window.</p>
+
+    <p>The title is optional. If provided, it should be the first
+    argument. The default title is &ldquo;unnamed&rdquo;. The unicity of
+    the title will enforced by adding a number after the requested title
+    if necessary. The title can be used to later retrieve a reference to
+    the plot (see <code>DensityPlot.find()</code> below). It will be
+    displayed on the top of the plot area, and also in the
+    window&rsquo;s title bar prefixed by "Map:".</p>
+
+    <p>Providing maps in the constructor is optional. If more than one
+    map is provided, they will be merged together into a single map.</p>
+
+    <p>The constructor returns an opaque DensityPlot objet representing
+    the density plot window. You can then act on the plot using the
+    methods and properties below.</p>
+
+    </td>
+</tr>
+</table>
+
+<p>The object returned by the <code>new DensityPlot()</code> construct
+serves as a handle to control the plot. Make sure to store this object
+in a variable. If you later <code>delete</code> this variable, the
+density plot window will be destroyed. Beware that not storing the
+returned density plot object is just like deleting it right away!</p>
+
+<h3>Methods</h3>
+
+<p><code>new DensityPlot()</code> returns a DensityPlot object that
+serves as a handle to the plot. You can act on the plot by calling
+methods of this object like:</p>
+
+<pre><code><span class="comment">// Add data using the add_point() method.</span>
+<span class="keyword">var</span> steps = 100;
+<span class="keyword">for</span> (<span class="keyword">var</span> i = 0; i &lt;= steps; i++) {
+    <span class="keyword">var</span> x = i/steps * 2*PI;
+    <span class="keyword">for</span> (<span class="keyword">var</span> j = 0; j &lt;= steps; j++) {
+        <span class="keyword">var</span> y = j/steps * 2*PI;
+        plot.add_point(x, y, sin(x) * sin(y));
+    }
+}</code></pre>
+
+<p>The followind methods are available:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Method</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>add_point(x, y, z)</td>
+    <td>Adds a point at (x, y, z) to the displayed map.</td>
+</tr>
+<tr>
+    <td>add_point_by_idx(i, j, z)</td>
+    <td>Adds a value z at index (i, j) in matrix mode to the displayed map.</td>
+</tr>
+<tr>
+    <td>add_map(map)</td>
+    <td>Adds all the points of the given map to the displayed map.</td>
+</tr>
+<tr>
+    <td>get_data()</td>
+    <td>Returns the data of the displayed map.</td>
+</tr>
+<tr>
+    <td>set_matrixSize(N,P)</td>
+    <td>Sets the matrix size in matrix mode.</td>
+</tr>
+<tr>
+    <td>get_matrix()</td>
+    <td>Returns the matrix data in matrix mode of the displayed map.</td>
+</tr>
+<tr>
+    <td>clear()</td>
+    <td>Removes all the data on the displayed map.</td>
+</tr>
+<tr>
+    <td>save(format, filename)</td>
+    <td>Saves the plot to a file with the provided file name. The format
+    argument should be either "SVG" or "PNG", either upper- or
+    lower-case.</td>
+</tr>
+<tr>
+    <td>setTool(tool_name)</td>
+    <td>Selects a tool from the toolbox. The parameter should be a
+    string equal to either "pick", "zoom", "erase" or "info". This
+    method has the same effect as clicking on the corresponding toolbox
+    button.</td>
+</tr>
+</table>
+
+<h3 id="props">Properties</h3>
+
+<p>The DensityPlot object has also some properties that are special in
+the sense that they affect the plot&rsquo;s appearance or behavior.
+Modifying these properties is another way of acting on the plot. These
+properties control the same settings as the settings tabs. Example:</p>
+
+<pre><code><span class="comment">// Label the axes.</span>
+plot.x_label = "<span class="string">distance from river</span>";
+plot.y_label = "<span class="string">distance from sea</span>";</code></pre>
+
+<p>All of the following properties can be queried and modified:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Property</th>
+    <th>type</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>title</td>
+    <td>string</td>
+    <td>Title of the plot. Uniqueness will be enforced whenever you
+    modify this property.</td>
+</tr>
+<tr>
+    <td>x_label, y_label</td>
+    <td>string</td>
+    <td>Axis labels.</td>
+</tr>
+<tr>
+    <td>subsampling</td>
+    <td>number</td>
+    <td>The density plot window will only show one point every
+    subsampling for each curve. Default is 1, i.e. show every single
+    point. Increase this number to get a faster display and a cleaner
+    plot. Reset it to one to see everything again. The data sent to the
+    plotter is not lost: it will be retrieved in full by
+    <code>get_data()</code> regardless of subsampling.</td>
+</tr>
+<tr>
+    <td>x_min, x_max</td>
+    <td>number</td>
+    <td>Range view limits for the x axis. <code>autoscale_x</code> will be
+    automatically set to <code>false</code> whenever you set any of
+    these limits.</td>
+</tr>
+<tr>
+    <td>y_min, y_max</td>
+    <td>number</td>
+    <td>Range view limits for the y axis. <code>autoscale_y</code> will be
+    automatically set to <code>false</code> whenever you set any of
+    these limits.</td>
+</tr>
+<tr>
+    <td>matrixToMap</td>
+	<td>boolean</td>
+    <td>Enter the matrix to map mode when set to true, the ranges fixed by the numbers mat_x_min, mat_x_max, mat_y_min, mat_y_max. Default is <code>false</code> </td>
+</tr>
+<tr>
+    <td>mat_x_min, mat_x_max</td>
+    <td>number</td>
+    <td>Range limits for the i axis in matrix to map mode.</td>
+</tr>
+<tr>
+    <td>mat_y_min, mat_y_max</td>
+    <td>number</td>
+    <td>Range limits for the j axis in matrix to map mode.</td>
+</tr>
+<tr>
+    <td>autoscale_x, autoscale_y</td>
+    <td>boolean</td>
+    <td>Whether or not to autoscale the x or y axis. Default is
+    <code>true</code>.</td>
+</tr>
+<tr>
+    <td>logscale_x, logscale_y</td>
+    <td>boolean</td>
+    <td>Whether or not to use a logarithmic scale on the x or y axis.
+    Default is <code>false</code>.</td>
+</tr>
+<tr>
+    <td>gradient</td>
+    <td>object</td>
+    <td>Color gradient used to display the range of z values. See below
+    for the formatting of this object.</td>
+</tr>
+<tr>
+    <td>z_min, z_max</td>
+    <td>number</td>
+    <td>Values of z that are mapped to the ends of the color
+    gradient.</td>
+</tr>
+<tr>
+    <td>autoscale_z</td>
+    <td>boolean</td>
+    <td>If true, z_min and z_max will be automatically set to the
+    smallest and largest z of the displayed map.</td>
+</tr>
+<tr>
+    <td>grid</td>
+    <td>boolean</td>
+    <td>Whether or not to show the grid. Default is
+    <code>false</code>.</td>
+</tr>
+<tr>
+    <td>polar</td>
+    <td>boolean</td>
+    <td>Whether or not to use polar coordinates. Default is
+    <code>false</code>.</td>
+</tr>
+<tr>
+    <td>max_tics</td>
+    <td>number</td>
+    <td>Maximum number of intervals between tics displayed on the axes.
+    The actual number of tics displayed may be less than expected
+    because the tic interval will be rounded up to the next number that
+    is a power of ten times 1, 2 or 5.</td>
+</tr>
+<tr>
+    <td>dx, dy</td>
+    <td>number</td>
+    <td>Dimensions of the pixels. If set manually, these should be the
+    spacing of data points in the x and y direction respectively.</td>
+</tr>
+<tr>
+    <td>auto_pixel_size</td>
+    <td>boolean</td>
+    <td>If set to true, the density plot will try to guess dx and dy
+    from the data of the displayed map. Default is
+    <code>true</code>.</td>
+</tr>
+<tr>
+    <td>immRender</td>
+    <td>boolean</td>
+    <td>If set to true, the density plot renderer refresh automatically the displayed map. If false, there is no rendering, the data are only stored. Default is
+    <code>true</code>.</td>
+</tr>
+</table>
+
+<p>The <code>gradient</code> property of a density plot is an object
+with the following format:</p>
+
+<pre><code>{
+    filetype: "<span class="string">NanoQt JSON color gradient</span>",
+    creator: "<span class="string">NanoQt 0.3.4+svn</span>",
+    vim_modeline: "<span class="string"> vim: set ft=javascript ts=8 noet:</span>",
+    stops: [                     <span class="comment">// array of gradient stops</span>
+        [                          <span class="comment">// first gradient stop:</span>
+            0,                     <span class="comment">//   position = 0</span>
+            [0, 1, 4]              <span class="comment">//   color = rgb(0, 1, 4)</span>
+        ],
+        [0.1, [ 38,  70,  25]],    <span class="comment">// gradient stop at 0.1</span>
+        [0.5, [147, 179,  83]],    <span class="comment">// gradient stop at 0.5</span>
+        [0.9, [249, 255, 160]],    <span class="comment">// gradient stop at 0.9</span>
+        [1  , [255, 255, 255]]     <span class="comment">// gradient stop at 1</span>
+    ]
+}</code></pre>
+
+<p>The first three properties of this object (<code>filetype</code>,
+<code>creator</code> and <code>vim_modeline</code>) are only meant to
+document the data format. They are mostly useful in case you
+<code>save()</code> this object into a file. The important bit is the
+stops property: it is a list of gradient stops. Each gradient stop is an
+array of two elements: a position and a color. The position is a number
+between 0 and 1 representing the relative position of this stop along
+the gradient. The color is an array of three numbers between 0 and 255
+representing the RGB components of the color. The gradient stops should
+be sorted by increasing position. The first stop should always be at
+position 0 and the last stop at position 1.</p>
+
+<p>If you set the gradient of a density plot programmatically, you do
+not need to use the complete format above: you can simply set the
+gradient to an array of stops:</p>
+
+<pre><code><span class="comment">// Set a blue -&gt; yellow gradient</span>
+plot.gradient = [
+    [0, [  0,   0, 255]],    <span class="comment">// start at blue</span>
+    [1, [255, 255,   0]]     <span class="comment">// end at yellow</span>
+];</code></pre>
+
+<h3>Static method find()</h3>
+
+<p>Like Plot, the DensityPlot provides a <code>DensityPlot.find()</code>
+static method for recovering a handle on you density plot from it's
+name:</p>
+
+<pre><code><span class="comment">// Get the same plot again.</span>
+same_plot = DensityPlot.find("<span class="string">Bumps</span>");
+
+<span class="comment">// Now we can play with it again.</span>
+same_plot.title = "<span class="string">Mountains and valleys</span>";</code></pre>
+
+<p>Technically, this is called a <i>static</i> method because it is not
+a method of the DensityPlot objects (objects returned by <code>new
+DensityPlot()</code>). It is instead a method of the
+<code>DensityPlot</code> constructor itself, always referenced as
+<code>DensityPlot.find</code>.</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>Method</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>DensityPlot.find(title)</td>
+    <td>Returns a DensityPlot object representing the density plot that
+    has the given title. This object is equivalent to the one originally
+    returned by <code>new DensityPlot()</code>. If no density plot has
+    the given title, returns an undefined value.</td>
+</tr>
+</table>
+
+<p>There is however a slight difference between the density plot object
+returned by <code>DensityPlot.find()</code> and the one originally
+returned by <code>new DensityPlot()</code>: deleting the one returned by
+<code>DensityPlot.find()</code> will not destroy the plot window.</p>
+
+<h2>The density plot data sink</h2>
+
+<p>Density plots can be used as data sinks. To use an existing density
+plot as a data sink, add a <code>density_plot</code> property to a
+relevant sweep:</p>
+
+<pre><code><span class="comment">// Create a new density plot to hold a Coulomb diamond.</span>
+diamond = <span class="keyword">new</span> DensityPlot("<span class="string">Current map</span>");
+
+<span class="comment">// Loop over the gate voltage.</span>
+<span class="keyword">for</span> (<span class="keyword">var</span> Vg = Vg_min; Vg &lt;= Vg_max; Vg += Vg_step) {
+
+    <span class="comment">// Do a bias scan.</span>
+    measure([
+        { outputs: { Vg: Vg, Vb: Vb_min } },
+        {
+            outputs: { Vb: Vb_max },
+            <span class="comment">// ...the other sweep parameters go here...</span>
+            density_plot: {
+                plot: diamond,
+                axes: ["<span class="string">Vg</span>", "<span class="string">Vds</span>", "<span class="string">I</span>"]
+            }
+        }
+    ]);
+}</code></pre>
+
+<p>For details see the documentation on <a href="data-sinks.html">data
+sinks</a>.</p>
+
+<p>More examples on using the density plot can be found in the samples
+directory: density-plot.js and density-plot-sink.js.</p>
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>

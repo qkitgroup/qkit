@@ -1,0 +1,41 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: The 3D options</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png"></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a>
+    &gt; <a href="plot3D.html">plot3D</a> &gt; options</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">The 3D options</h1>
+
+<p>This Qt Widget is a tool to manage plot option surfaces. It is composed of two tabbed-windows. The first one is <a href="gradient-editor.html">the Gradient Editor</a>, wich is a tool for defining color gradients , the second one the other options, such as label axis, etc...</p>
+
+<h2>Detailed Plot3D options</h2>
+
+<ul>
+<li><b> The first ComboBox selects the X,Y or Z axis, to fix in the corresponding textBox its label </b></li>
+<li><b> The second ComboBox selects the ticks size and spacing of X,Y or Z axis, the value is fixed in the corresponding textBox </b></li>
+<li><b> The third ComboBox selects the width and height of the bitmap obtained by pressing the button "png" in the 3D renderer, the corresponding textBox let you choose the number of pixels </b></li>
+<li><b> The last textBox let you fix the number of isoCurves on the surface </b></li>
+<li><b> The two radio buttons toggle between Orthogonal/Conic perspective, no yet implemented </b></li>
+</ul>
+
+<p>The Apply button reads all the parameters in the window and send the order to replot to the renderer </p>
+
+<p>Related script commands: plot3D() ; get_options3D() ; get_data() </p>
+
+<hr>
+<p id="footer">[back to <a href="plot3D.html"> plotter 3D documentation</a>]</p>
+
+</body>
+</html>

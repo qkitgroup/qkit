@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: Functions for data analysis</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png"></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; data analysis</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">Functions for data analysis</h1>
+
+<p>All the functions below operate on arrays of 2D points, i.e. arrays
+of the form <code>[[x0, y0], [x1, y1], [x2, y2] ...]</code>.
+
+<p><code>lasso_filter()</code> is meant to select a subset of the data
+points by manually drawing a contour around the points you want to keep.
+You would normally use this function together with the pencil tool on a
+Plot to draw the contour. See samples/lasso+plot.js for a detailed
+example.</p>
+
+<p><code>convolve()</code> assumes the abscissa of the data are equally
+spaced. The convolution kernel is given as an array of numbers, i.e.
+only the ordinates: [y0, y1, y2, ...]. The abscissa are implicit by
+assuming the same spacing as in data and the whole kernel being centered
+at zero. If the length of the kernel is even, then the abscissa of the
+output will lie in between the abscissa of the original data.</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>function</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>get_maxima(data, min_value, min_separation [, min_position])</td>
+    <td>Finds the local maxima of data. Keeps only those maxima where y
+    &gt; min_value. Discards a maximum if it is too close and not bigger
+    than a previously found maximum. Returns an array of 2D points with
+    the maxima found.</td>
+</tr>
+<tr>
+    <td>get_minima(data, max_value, min_separation [, min_position])</td>
+    <td>Finds the local minima of data. Keeps only those minima where y
+    &lt; max_value. Discards a minimum if it is too close and not smaller
+    than a previously found minimum. Returns an array of 2D points with
+    the minima found.</td>
+</tr>
+<tr>
+    <td>get_median(data)</td>
+    <td>Finds the x and y median values of data. Returns a 2D point
+    [median(x), median(y)].</td>
+</tr>
+<tr>
+    <td>get_average(data)</td>
+    <td>Computes the average of the x and y coordinates of the data
+    points. Returns [&lt;x&gt;, &lt;y&gt;].</td>
+</tr>
+<tr>
+    <td>lasso_filter(lasso, data)</td>
+    <td>Filters the list of data points keeping only those that lie
+    inside the contour defined by lasso. Both data and lasso are arrays
+    of 2D points. The ends of lasso are implicitely connected. Uses
+    non-zero winding rule.</td>
+</tr>
+<tr>
+    <td>linear_fit(data)</td>
+    <td>Fits a straight line (y = a*x + b) through the data. Returns
+    [a, b].</td>
+</tr>
+<tr>
+    <td>convolve(data, kernel)</td>
+    <td>Convolves the data with a 1D kernel. Returns the convolution as
+    an array of 2D points.</td>
+</tr>
+</table>
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>

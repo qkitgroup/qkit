@@ -1,0 +1,42 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: The 3D Plotter</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png"></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; plot3D</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">The 3D Plotter</h1>
+
+<p>This Qt Widget is a tool to plot surfaces with OpenGL. This very powerful graphic library is multiplatform, and takes benefits of the hardware in your graphic card to plot 3d objects. 
+With the command plot3D you may plot either simple surface of type z=f(x,y), sampled in a matrix, or more complex parametric surface of type (x,y,z)=(f1,f2,f3)(u,v) sampled in three matrices. See the two examples
+plot3D_f_xy.js and parametric_plot3D.js in the sub-directory /samples </p>
+
+<p>The mouse is interacting with the renderer:</p>
+
+<ul>
+    <li><b>Click Left + move : rotates X + Y</b></li>
+    <li><b>Click Right + move : rotates X + Z</b></li>
+    <li><b>Wheel : zoom in/out </b></li>
+	<li><b>Double Click : opens <a href="options3D.html"> 3D Options window </a> </b></li>
+</ul>
+
+<p>The png button creates a bitmap in png format wich size is defined in the 3D window options.</p>
+
+
+<p>Related script commands: plot3D() ; get_options3D() ; get_data() (soon!) </p>
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>

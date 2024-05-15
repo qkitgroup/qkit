@@ -1,0 +1,356 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: Measurement API</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png" alt=""></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; measurement API</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">The NanoQt measurement API</h1>
+
+<p>Doing a measurement consists of the following steps:</p>
+
+<ul>
+
+<li>Describe the <i>experimental setup</i>, i.e. what experimental
+parameters are controlled or monitored by any of the ADwin's inputs or
+outputs.</li>
+
+<li>Describe the operations you want to be done. You do this by building
+a data structure (either a <i>sweep descriptor</i> or a list of <i>sweep
+descriptors</i>) that contain all the relevant information about your
+measurement protocol.</li>
+
+<li>Feed this information to one of the measurement functions (either
+<code>measure()</code> or <code>measure_start()</code>) to actually
+perform the measurement.</li>
+
+</ul>
+
+
+<h2>Simple example</h2>
+
+<p>Let's assume you want to measure an I-V curve. You use the ADwin's
+first analog output to polarise your sample by voltage through a 10
+&Omega; shunt (much less than the sample impedance). You get the current
+on input 1 by a differential measurement of the voltage drop through the
+shunt. You first have to tell NanoQt about your wiring:</p>
+
+<pre><code><span class="comment">// Ouput 1 controls the applied voltage.</span>
+<span class="comment">// The full scale is 10 V.</span>
+set_outputs({ 1: {name: "<span class="string">V</span>", unit: "<span class="string">V</span>", scale: 10} });
+
+<span class="comment">// Input 1 measures the current.</span>
+<span class="comment">// The full scale is 10 V / 10 &Omega; = 1 A.</span>
+set_inputs({ 1: {name: "<span class="string">I</span>", unit: "<span class="string">mA</span>", scale: 1000} });</code></pre>
+
+<p>Now you ask for an I-V measurement, let's say from -2 to +2 V. The
+voltage will be scanned in 10 seconds:</p>
+
+<pre><code><span class="comment">// Set the applied voltage to -2 V</span>
+measure({ outputs: {V: -2} });
+
+<span class="comment">// The actual measurement:</span>
+measure({
+    outputs: {V: 2},    <span class="comment">// scan the voltage to +2 V</span>
+    duration: 10,       <span class="comment">// in 10 seconds</span>
+    inputs: "<span class="string">I</span>",        <span class="comment">// while measuring the current</span>
+    plot: {}            <span class="comment">// and plot the result</span>
+});
+
+<span class="comment">// Reset the applied voltage to zero</span>
+measure({ outputs: {V: 0} });</code></pre>
+
+<p>In the following, we will go on the details of this procedure,
+building on a more complex example:</p>
+
+<ul>
+<li>the ADwin controls a bias voltage, a gate voltage and an applied
+field</li>
+<li>the current is measured through an current to voltage converter in
+order to have a 10 µA full scale</li>
+<li>the gate is driven through a high impedance resistor and requires
+some settling time to stabilize</li>
+<li>we may want to do either a bias sweep or a field sweep</li>
+<li>we may want to save the data and not only plot it</li>
+</ul>
+
+
+<h2>Setup description</h2>
+
+<p>You do this by calling <code>set_outputs()</code> and
+<code>set_inputs()</code>. These functions take a description of your
+wiring as in the following example:</p>
+
+<pre><code>set_outputs({
+    1: {name: "<span class="string">Vds</span>", unit: "<span class="string">V</span>", scale: 10, description: "<span class="string">bias voltage</span>"},      <span class="comment">// channel 1</span>
+    2: {name: "<span class="string">Vg</span>" , unit: "<span class="string">V</span>", scale: 10, description: "<span class="string">gate voltage</span>"},      <span class="comment">// channel 2</span>
+    3: {name: "<span class="string">B</span>"  , unit: "<span class="string">T</span>", scale:  3, description: "<span class="string">applied field</span>"}      <span class="comment">// channel 3</span>
+});
+set_inputs({
+    1: {name: "<span class="string">I</span>", unit: "<span class="string">µA</span>", scale: 10, description: "<span class="string">sample current</span>"}      <span class="comment">// channel 1</span>
+});</code></pre>
+
+<p>In these objects, the keys are the channel numbers on the AIN and
+AOUT cards of the ADwin. <code>unit</code> defaults to "V" and scale to
+defaults 10, which corresponds to the raw scale (10 V) of the
+converters. <code>description</code> is for reference only.</p>
+
+<p>In addition to these two, it is advisable to call
+<code>set_metadata()</code> and tell it any information that may be
+useful about the sample or the experimental setup:</p>
+
+<pre><code>set_metadata({
+    sample: {
+        name: "<span class="string">ABC123</span>",
+        description: "<span class="string">Some sort of nanotube</span>"
+    },
+    comment: "<span class="string">Some I(V) measurements after process foobar</span>"
+});</code></pre>
+
+<p>You are completely free to use any key/value pairs you like in the
+object given to <code>set_metadata()</code>. These are only meant to
+document your experiment. The information you give here, together with
+the wiring description above, will be copied to the header section of
+any data file you subsequently create. <strong>Give here as much
+relevant information as you can!</strong></p>
+
+<h2>Sweep descriptors</h2>
+
+<p>You have to mentally split your measurement protocol into a list of
+<i>sweeps</i>. A sweep is basically the process of <i>linearly</i>
+sweeping one or more output channels of the ADwin, while optionally
+sampling one or more input channels at a constant sampling rate. Then
+you have to build a sweep descriptor for every single sweep in your
+protocol.</p>
+
+<p>A sweep descriptor is a JavaScript object where the keys have
+special meanings. A typical sweep looks like this:</p>
+
+<pre><code><span class="keyword">var</span> a_sweep = {
+    outputs: {B: 1.5},          <span class="comment">// sweep the applied field to 1.5 T</span>
+    duration: 30,               <span class="comment">// in 30 s</span>
+    inputs: "<span class="string">I</span>",                <span class="comment">// while measuring the sample current</span>
+    filters: ["<span class="string">median</span>", "<span class="string">linear</span>", "<span class="string">reset</span>"],
+    sample_rate: 500,           <span class="comment">// 500 times per second</span>
+    save: {                     <span class="comment">// save the data</span>
+        filename: "<span class="string">sweep.json</span>",
+        columns: ["<span class="string">Vg</span>", "<span class="string">Vds</span>", "<span class="string">B</span>", "<span class="string">I</span>"]
+    },
+    plot: {                     <span class="comment">// and plot it</span>
+        name: "<span class="string">Current versus field</span>",
+        axes: ["<span class="string">B</span>", "<span class="string">I</span>"]
+    }
+};</code></pre>
+
+<p>The relevant keys and their meanings are listed below. All keys are
+optional: a default is provided for any missing key.</p>
+
+<dl>
+
+    <dt>duration (number)</dt>
+    <dd>duration in seconds of this sweep. Default is 1 s.</dd>
+
+    <dt>speed (number)</dt>
+    <dd>speed of this sweep. Giving the speed is an alternative to
+    giving the duration. <strong>Do not give both!</strong> The unit is
+    whatever unit has the output that is swept, per second (e.g. if you
+    sweep a field in tesla, speed is in T/s). If several outputs are
+    swept, this is the euclidean norm of the vector speed. If several
+    outputs are swept that have different units, then the euclidean norm
+    probably does not make sense, give the duration instead.</dd>
+
+    <dt>inputs (string or array of strings)</dt>
+    <dd>Either the name of the input channel to monitor (if only one
+    channel is to be measured) or a list of input channels to monitor.
+    Default is not to monitor any input.</dd>
+
+    <dt>modes (string or array of strings)</dt>
+    <dd>Sweeping modes. The following are currently implemented:
+    <dl>
+
+		<dt>"lock-in"</dt>
+        <dd>Activate the lock-in for this sweep. Look at the
+        <a href="lock-in.html">lock-in documentation</a> for
+        details.</dd>
+
+        <dt>"quadratic"</dt>
+        <dd>Do a quadratic sweep. In this mode, the initial velocity
+        (i.e. time derivative) of any drive output equals the final
+        velocity of this same output on the previous sweep. The final
+        velocity will then be:
+        <blockquote><i>2 * (target_value - initial_value)
+        / duration - initial_velocity</i></blockquote></dd>
+
+        <dt>"wait-trigger"</dt>
+        <dd>Wait for a falling edge on the TTL input label "DIG I/O 0"
+        of the CPU board before starting the current sweep. Use this to
+        synchronize the sweep on an external source. Expect 10 &mu;s of
+        jitter.</dd>
+
+    </dl>
+    Default is to do a linear sweep with no lock-in.</dd>
+
+    <dt>filters (string or array of strings)</dt>
+    <dd>Filters to aply to the inputs. Two filters are currently
+    implemented:
+    <dl>
+
+        <dt>"median"</dt>
+        <dd>Output of the filter is the median of the three last
+        input values.</dd>
+
+        <dt>"linear"</dt>
+        <dd>Linear low-pass filter. This is a modified fourth-order
+        Butterworth filter. The cutoff frequency is fixed at the Nyquist
+        frequency of the acquisition, i.e. sample_rate/2. The filter has
+        been modified in order to completely remove the sampling
+        frequency and thus minimize the low-frequency noise.</dd>
+
+    </dl>
+    If both filters are requested, median is applied first. Filtering is
+    done on the data acquired at the maximum acquisition rate (currently
+    100 kHz), prior to decimating to the requested
+    <code>sample_rate</code>. In addition to the above, the following
+    keyword can appear in the list of filters:
+    <dl>
+
+        <dt>"reset"</dt>
+        <dd>Reset the filters at the beginning of this sweep. This makes
+        the filters loose their memory of past input. Otherwise the
+        filtered outputs depend on the past as well as current input
+        data.</dd>
+
+    </dl>
+    Default is not to filter the acquired data.</dd>
+
+    <dt>sample_rate (number)</dt>
+    <dd>Rate in Hz for sampling the inputs. Default is 1000 (i.e. 1
+    kHz). Actually the data is always acquired at the maximum available
+    rate, then subsampled to the requested rate. Subsampling is
+    performed <strong>after</strong> filtering.</dd>
+
+    <dt>outputs (object)</dt>
+    <dd>List of the outputs to drive (channel names as keys) and their
+    target values (as associated values). Default is not to modify any
+    output.</dd>
+
+    <dt>variable, save, plot (object or array of objects)</dt>
+    <dd>These properties are called <i>data sinks</i>, they define what
+    to do with the data as it is being acquired. You can store it in a
+    JavaScript <code>variable</code>, <code>save</code> it to a file
+    and/or <code>plot</code> it in real time. See the documentation on
+    <a href="data-sinks.html">data sinks</a> for details.</dd>
+
+    <dt>label (string or number)</dt>
+    <dd>Optional label for the sweep. It will allow you to selectively
+    wait for the termination of this particular sweep. See
+    <code>measure_wait()</code> below. You have the responsibility to
+    keep labels unique. Default is no label.</dd>
+
+</dl>
+
+<p>If the sweep has no properties (as in <code>var my_sweep =
+{};</code>), the default behavior is to do nothing for one second.</p>
+
+<p><b>More examples:</b></p>
+
+<p>Simultaneously drive the gate voltage to -10 V and the bias voltage
+to -5 mV in 2 s:</p>
+
+<pre><code><span class="keyword">var</span> prepare = { outputs: {Vg: -10, Vds: -5e-3}, duration: 2 };</code></pre>
+
+<p>Pause (i.e. do nothing) for 5 seconds:</p>
+
+<pre><code><span class="keyword">var</span> pause = { duration: 5 };</code></pre>
+
+<p>Measure sample current while sweeping Vds to +5 mV in 20 s. Plot with
+default settings:</p>
+
+<pre><code><span class="keyword">var</span> scan = { outputs: {Vds: 5e-3}, inputs: "<span class="string">I</span>", duration: 20, plot: {} };</code></pre>
+
+<p>Reset Vg and Vds to zero in one second:</p>
+
+<pre><code><span class="keyword">var</span> reset = { outputs: {Vg: 0, Vds: 0} };</code></pre>
+
+
+<h2>Measurement functions</h2>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+	<th>function</th>
+	<th>description</th>
+</tr>
+<tr>
+	<td>measure(measurement_descriptor, ...)</td>
+	<td>Start a measurement and wait for its completion. Equivalent to
+    <code>{ measure_start(measurement_descriptor, ...); measure_wait();
+    }</code>.</td>
+</tr>
+<tr>
+	<td>measure_start(measurement_descriptor, ...)</td>
+	<td>Start a measurement described by one ore more measurement
+    descriptors and return immediately.</td>
+</tr>
+<tr>
+	<td>measure_wait([sweep_label])</td>
+	<td>With no argument: wait for the completion of any current or
+    pending measurements. If a sweep label is specified: wait for the
+    completion of the sweep having the given label. <b>Warning</b>: only
+    sweeps that take data can be waited for. The JavaScript environment
+    will not respond until the end of the wait.</td>
+</tr>
+<!--
+<tr>
+	<td>measure_pause()</td>
+	<td>Pause current measurement. The ADwin outputs stay at their
+    current values.</td>
+</tr>
+<tr>
+	<td>measure_resume()</td>
+	<td>Resumes a paused measurement.</td>
+</tr>
+<tr>
+	<td>measure_abort()</td>
+	<td>Abort current and pending measurements. The ADwin outputs stay
+    at their current values.</td>
+</tr>
+-->
+<tr>
+	<td>emergencystop()</td>
+	<td>Abort current and pending measurements. The ADwin outputs stay
+    at their current values.</td>
+</tr>
+</table>
+
+<p><b>Examples:</b></p>
+
+<p>Perform all of the above:</p>
+
+<pre><code><span class="keyword">var</span> whole_protocol = [prepare, pause, scan, reset];     <span class="comment">// list of sweeps</span>
+measure_start(whole_protocol);</code></pre>
+
+<p>The same could be written:</p>
+
+<pre><code>measure_start([
+    {outputs: {Vg: -10, Vds: -5e-3}, duration: 2},       <span class="comment">// prepare</span>
+    {duration: 5},                                       <span class="comment">// pause</span>
+    {outputs: {Vds: 5e-3}, inputs: "<span class="string">I</span>", duration: 20, plot: {}},  <span class="comment">// bias scan</span>
+    {outputs: {Vg: 0, Vds: 0}}                           <span class="comment">// reset</span>
+]);</code></pre>
+
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>

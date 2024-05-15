@@ -1,0 +1,590 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: General purpose functions</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png"></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; general API</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">NanoQt general purpose functions</h1>
+
+<p>This page describe some function that are not related to data
+acquisition or visualization. Namely:</p>
+
+<ul>
+<li><a href="#help">getting help</a></li>
+<li><a href="#math">mathematical functions</a></li>
+<li><a href="#conversion">type conversions</a></li>
+<li>manipulating <a href="#date">date and time</a></li>
+<li><a href="#print">printing to the console</a></li>
+<li><a href="#system">executing external programs</a></li>
+</ul>
+
+
+<h2 id="help">Getting help</h2>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>function</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>help(<i>function_name</i>)</td>
+    <td>Print some help on the console about the given buitin function.
+	If the name of the function is omitted, print a list of builtin
+	functions.</td>
+</tr>
+</table>
+
+
+<h2 id="math">Mathematical functions</h2>
+
+<p>All of the functions below take numeric arguments and return a
+number:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>function</th>
+    <th>returns</th>
+</tr>
+<tr>
+    <td>sin(x)</td>
+    <td>sine of x</td>
+</tr>
+<tr>
+    <td>cos(x)</td>
+    <td>cosine of x</td>
+</tr>
+<tr>
+    <td>tan(x)</td>
+    <td>tangent of x</td>
+</tr>
+<tr>
+    <td>asin(x)</td>
+    <td>arc sine of x</td>
+</tr>
+<tr>
+    <td>acos(x)</td>
+    <td>arc cosine of x</td>
+</tr>
+<tr>
+    <td>atan(x)</td>
+    <td>arc tangent of x</td>
+</tr>
+<tr>
+    <td>atan2(y, x)</td>
+    <td>argument (phase) of complex x+i*y in ]-&pi;, &pi;]: like
+    atan(y/x) but preserves the quadrant</td>
+</tr>
+<tr>
+    <td>exp(x)</td>
+    <td>exponential of x</td>
+</tr>
+<tr>
+    <td>log(x)</td>
+    <td>natural logarithm of x</td>
+</tr>
+<tr>
+    <td>pow(x, y)</td>
+    <td>x<sup>y</sup></td>
+</tr>
+<tr>
+    <td>sq(x)</td>
+    <td>x<sup>2</sup></td>
+</tr>
+<tr>
+    <td>sqrt(x)</td>
+    <td>x<sup>1/2</sup>: square root of x</td>
+</tr>
+<tr>
+    <td>abs(x)</td>
+    <td>absolute value of x</td>
+</tr>
+<tr>
+    <td>min(x, y, ...)</td>
+    <td>smallest of its arguments</td>
+</tr>
+<tr>
+    <td>max(x, y, ...)</td>
+    <td>biggest of its arguments</td>
+</tr>
+<tr>
+    <td>floor(x)</td>
+    <td>MAX{n ≤ x; n integer}</td>
+</tr>
+<tr>
+    <td>ceil(x)</td>
+    <td>MIN{n ≥ x; n integer}</td>
+</tr>
+<tr>
+    <td>round(x)</td>
+    <td>floor(x + .5): integer nearest to x, ties rounded up</td>
+</tr>
+<tr>
+    <td>random()</td>
+    <td>a pseudorandom number between 0 and 1</td>
+</tr>
+</table>
+
+<p>The following constants are also provided:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>constant</th>
+    <th>value</th>
+</tr>
+<tr>
+    <td>E</td>
+    <td>e (= exp(1))</td>
+</tr>
+<tr>
+    <td>LN2</td>
+    <td>log(2)</td>
+</tr>
+<tr>
+    <td>LN10</td>
+    <td>log(10)</td>
+</tr>
+<tr>
+    <td>LOG2E</td>
+    <td>log<sub>2</sub>(e)</td>
+</tr>
+<tr>
+    <td>LOG10E</td>
+    <td>log<sub>10</sub>(e)</td>
+</tr>
+<tr>
+    <td>PI</td>
+    <td>&pi;</td>
+</tr>
+<tr>
+    <td>SQRT1_2</td>
+    <td>sqrt(1/2)</td>
+</tr>
+<tr>
+    <td>SQRT2</td>
+    <td>sqrt(2)</td>
+</tr>
+</table>
+
+
+<h2 id="conversion">Type conversions</h2>
+
+<p>In most cases type conversions are implicit: a number will be
+converted to a string if you use it in a context requiring a string:</p>
+
+<pre><code><span class="keyword">var</span> two_pi = 2 * PI;                <span class="comment">// two_pi is a number</span>
+<span class="keyword">var</span> message = "<span class="string">2 &pi; = </span>" + two_pi;    <span class="comment">// converted to string</span>
+echo(message);                      <span class="comment">// prints "2 &pi; = 6.283185307179586"</span></code></pre>
+
+<p>In the same way, strings can be implicitly converted to numbers if
+required by the context:</p>
+
+<pre><code><span class="keyword">var</span> x = "<span class="string">22</span>";     <span class="comment">// x is a string</span>
+<span class="keyword">var</span> y = x / 2;    <span class="comment">// converted to number</span>
+echo(y);          <span class="comment">// prints "11"</span></code></pre>
+
+<p>In case you want to do an explicit conversion, use one of the
+following functions:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>function</th>
+    <th>returns</th>
+</tr>
+<tr>
+    <td>Number(value)</td>
+    <td>The given value converted to a number, or NaN (not a number) if
+    the conversion does not make sense.</td>
+</tr>
+<tr>
+    <td>String(value)</td>
+    <td>String representation of the value. Good for numbers but seldom
+    useful for complex types, like arrays or objects.</td>
+</tr>
+</table>
+
+<p>The is an alternative "method" syntax for converting to string. If
+<code>x</code> is a value (of any type), then <code>x.toString()</code>
+is the same as <code>String(x)</code>.</p>
+
+
+<h2 id="date">Date and time</h2>
+
+<p>You can get the current date and time by calling
+<code>get_time()</code>:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>function</th>
+    <th>returns</th>
+</tr>
+<tr>
+    <td>get_time()</td>
+    <td>an opaque <i>Date</i> object representing the current date and
+    time</td>
+</tr>
+</table>
+
+<p><b>Example:</b></p>
+
+<pre><code><span class="keyword">var</span> now = get_time();</code></pre>
+
+<p>The returned <i>Date</i> object is opaque in the sense that you
+cannot see its contents. To make sense of it you have to either convert
+it using <code>Number()</code> or <code>String()</code> (see above), or
+use one of the following methods:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>method</th>
+    <th>returns</th>
+</tr>
+<tr>
+    <td>valueOf()</td>
+    <td>Number of milliseconds since Jan 1, 1970, 00:00:00 UTC. Same as
+    <code>Number()</code> conversion.</td>
+</tr>
+<tr>
+    <td>toString()</td>
+    <td>ISO 8601 date/time representation (e.g. "2009-06-11T17:53:31").
+    Same as <code>String()</code> conversion.</td>
+</tr>
+<tr>
+    <td>toString(format)</td>
+    <td>String representation of the date/time using a custom format
+    (see formats below). This cannot be done by the
+    <code>String()</code> conversion function.</td>
+</tr>
+</table>
+
+<p>The <code>valueOf()</code> method is called implicitly when you use
+the Date object in a context requiring a number:</p>
+
+<pre><code><span class="keyword">var</span> start = get_time();
+<span class="comment">// do some lengthy operation...</span>
+<span class="keyword">var</span> end = get_time();
+<span class="keyword">var</span> duration = end - start;    <span class="comment">// implicit conversion to number</span>
+echo("<span class="string">done in </span>" + duration + "<span class="string"> ms</span>");</code></pre>
+
+<p>The <code>toString()</code> method is called implicitly when you use
+the Date object in a context requiring a string:</p>
+
+<pre><code>echo("now is:", get_time());
+<span class="comment">// prints "now is: 2009-06-11T17:53:31"</span></code></pre>
+
+<p>however, you will have to call it explicitly if you want to use a
+custom format:</p>
+
+<pre><code>echo("today is:", get_time().toString("MMMM d, yyyy"));
+<span class="comment">// prints "today is: June 11, 2009"</span></code></pre>
+
+<h3>Date/time formats</h3>
+
+<p>The format parameter of the <code>toString()</code> method determines
+the format of the result string. The format is a string with the
+following expressions (from the Qt QDateTime Class documentation):</p>
+
+<p><b>Date formats:</b></p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>expression</th>
+    <th>output</th>
+</tr>
+<tr>
+    <td>d</td>
+    <td>the day as number without a leading zero (1 to 31)</td>
+</tr>
+<tr>
+    <td>dd</td>
+    <td>the day as number with a leading zero (01 to 31)</td>
+</tr>
+<tr>
+    <td>ddd</td>
+    <td>the abbreviated day name (e.g. 'Mon' to 'Sun').</td>
+</tr>
+<tr>
+    <td>dddd</td>
+    <td>the long day name (e.g. 'Monday' to 'Sunday').</td>
+</tr>
+<tr>
+    <td>M</td>
+    <td>the month as number without a leading zero (1-12)</td>
+</tr>
+<tr>
+    <td>MM</td>
+    <td>the month as number with a leading zero (01-12)</td>
+</tr>
+<tr>
+    <td>MMM</td>
+    <td>the abbreviated month name (e.g. 'Jan' to 'Dec').</td>
+</tr>
+<tr>
+    <td>MMMM</td>
+    <td>the long month name (e.g. 'January' to 'December').</td>
+</tr>
+<tr>
+    <td>yy</td>
+    <td>the year as two digit number (00-99)</td>
+</tr>
+<tr>
+    <td>yyyy</td>
+    <td>the year as four digit number</td>
+</tr>
+</table>
+
+<p><b>Time formats:</b></p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>expression</th>
+    <th>output</th>
+</tr>
+<tr>
+    <td>h</td>
+    <td>the hour without a leading zero (0 to 23 or 1 to 12 if AM/PM
+    display)</td>
+</tr>
+<tr>
+    <td>hh</td>
+    <td>the hour with a leading zero (00 to 23 or 01 to 12 if AM/PM
+    display)</td>
+</tr>
+<tr>
+    <td>m</td>
+    <td>the minute without a leading zero (0 to 59)</td>
+</tr>
+<tr>
+    <td>mm</td>
+    <td>the minute with a leading zero (00 to 59)</td>
+</tr>
+<tr>
+    <td>s</td>
+    <td>the second without a leading zero (0 to 59)</td>
+</tr>
+<tr>
+    <td>ss</td>
+    <td>the second with a leading zero (00 to 59)</td>
+</tr>
+<tr>
+    <td>z</td>
+    <td>the milliseconds without leading zeroes (0 to 999)</td>
+</tr>
+<tr>
+    <td>zzz</td>
+    <td>the milliseconds with leading zeroes (000 to 999)</td>
+</tr>
+<tr>
+    <td>AP</td>
+    <td>use AM/PM display. AP will be replaced by either "AM" or
+    "PM".</td>
+</tr>
+<tr>
+    <td>ap</td>
+    <td>use am/pm display. ap will be replaced by either "am" or
+    "pm".</td>
+</tr>
+</table>
+
+<p>All other characters will be printed verbatim. Any sequence of
+characters that are enclosed in singlequotes will be printed verbatim.
+Two consecutive singlequotes (<code>"''"</code>) are replaced by a
+singlequote in the
+output.</p>
+
+<p><b>Example:</b></p>
+
+<pre><code><span class="keyword">var</span> filename = "<span class="string">data_</span>" + get_time().toString("<span class="string">yyyy-MM-dd</span>") + "<span class="string">.json</span>";
+<span class="comment">// filename is "data_2009-06-11.json"</span></code></pre>
+
+<p><b>Note for JavaScript programmers</b>: get_time() returns a standard
+JavaScript Date object (it's just <code>new Date()</code>), but the
+<code>toString()</code> method of Date has been overridden using Qt's
+QDateTime::toString().</p>
+
+
+<h2 id="print">Printing to the console</h2>
+
+<p>Two functions are provided to print messages on the console:</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>function</th>
+    <th>prints</th>
+</tr>
+<tr>
+    <td>echo(value, value, ...)</td>
+    <td>prints the values as strings, separated by spaces</td>
+</tr>
+<tr>
+    <td>print(value, value, ...)</td>
+    <td>prints a parsable representation of each value, separated by
+    commas</td>
+</tr>
+</table>
+
+<p>The difference may be subtle at times. A rule of thumb:</p>
+
+<ul>
+    <li>Use <code>echo()</code> to output <i>messages</i> to the
+    console. Example: <code>echo("starting measurement");</code></li>
+    <li>Use <code>print()</code> to <i>examine</i> complex variables,
+    like arrays or objects. Example:
+    <code>print(data.measures[0].sweep);</code></li>
+</ul>
+
+<h3>Using echo()</h3>
+
+<p><code>echo()</code> prints strings verbatim, with no quotes:</p>
+
+<pre><code>echo("<span class="string">first line\nsecond line</span>");</code></pre>
+
+<p>prints:</p>
+
+<pre><code>first line
+second line</code></pre>
+
+<p>Everything else is printed by calling it's <code>toString()</code>
+method, which is fine for dates and most simple variables:</p>
+
+<pre><code>echo(get_time());   <span class="comment">// prints "2009-06-11T17:53:31" (without the quotes)</span>
+echo(PI);           <span class="comment">// prints "3.141592653589793"</span></code></pre>
+
+<p>but <code>echo()</code> is useless for complex data structures:
+assuming <code>data</code> holds some measurement data,</p>
+
+<pre><code>echo(data.measures[0].sweep);   <span class="comment">// prints "[object Object]"</span></code></pre>
+
+<h3>Using print()</h3>
+
+<p><code>print()</code> examines the given data and prints a parsable
+representation of it. A parsable representation is something that can be
+given back to the JavaScrip interpreter (as in <code>var x =
+...</code>). For strings, this means that they will be quoted and
+newlines will be escaped:</p>
+
+<pre><code>print("<span class="string">first line\nsecond line</span>");</code></pre>
+
+<p>prints:</p>
+
+<pre><code>"first line\nsecond line"</code></pre>
+
+<p><code>print()</code> is useful for looking at complex data
+structures:</p>
+
+<pre><code>print(data.measures[0].sweep);</code></pre>
+
+<p>may print something like:</p>
+
+
+<pre><code>{
+    from: {
+        Vds: -10,
+        Vg: 0,
+        H: 0
+    },
+    to: {
+        Vds: 10
+    },
+    duration: 2,
+    sample_rate: 1000
+}</span></code></pre>
+
+<p>but dates are <i>opaque</i> objects <code>print()</code> cannot see
+inside:</p>
+
+<pre><code>print(get_time());</code></pre>
+
+<p>prints:</p>
+
+<pre><code>{
+}</code></pre>
+
+
+<h2 id="system">Executing external programs</h2>
+
+<p>NanoQt provides two different functions for running programs:
+<code>source()</code> and <code>system()</code>.</p>
+
+<h3>source()</h3>
+
+<p>The <code>source()</code> function is meant to run a JavaScript
+program from within another JavaScript program. The
+<code>source()</code>d program is run in the context where
+<code>source()</code> is called. If for example you have a file called
+"my_functions.js" wich defines your own collection of functions, then
+you can use it this way from another script:</p>
+
+<pre><code>source("<span class="string">my_functions.js</span>");    <span class="comment">// load function definitions</span>
+<span class="comment">// now we can use these functions</span></code></pre>
+
+<p><b>Beware of the context:</b> if you <code>source()</code> from
+within a function, then all the <code>source()</code>d definitions will
+be local to the function calling <code>source()</code>:</p>
+
+<pre><code><span class="keyword">function</span> do_some_work()
+{
+    source("<span class="string">my_functions.js</span>");    <span class="comment">// load function definitions</span>
+    <span class="comment">// here we can use the loaded functions:</span>
+    <span class="comment">// they are like local variables</span>
+}
+
+do_some_work();    <span class="comment">// this should work fine</span>
+
+<span class="comment">// but here we CANNOT use the loaded functions anymore</span></code></pre>
+
+<h3>system()</h3>
+
+<p>The <code>system()</code> function is meant to run external
+executables (files with the .com or .exe extension on Windows, or the
+exucutable bit set on Linux). These external programs are run as
+independent processes and have no effect on the JavaScript
+interpreter.</p>
+
+<p>Example:</p>
+
+<pre><code><span class="keyword">var</span> listing = system("<span class="string">ls</span>", "<span class="string">-l</span>");    <span class="comment">// list current directory</span></code></pre>
+
+<p>Beware that usage of <code>system()</code> is OS-dependent, the above
+example is for a Linux system. You should make sure that the program to
+execute lives in a directory listed in the PATH system variable.
+Alternatively, you may provide the full path to the program.</p>
+
+<table border="1" cellpadding="3" cellspacing="0">
+<tr>
+    <th>function</th>
+    <th>description</th>
+</tr>
+<tr>
+    <td>source(<i>program</i>)</td>
+    <td>Executes the given JavaScript program in the current context.
+    Returns the result of the program (irrelevant most of the
+    time).</td>
+</tr>
+<tr>
+    <td>system(<i>program</i>, <i>arguments</i>...)</td>
+    <td>Executes the given program with optional arguments. Each
+    argument to the program should be provided as an independent
+    argument to this function. Returns the output of the program.</td>
+</tr>
+</table>
+
+<p><b>Warning:</b> These functions will wait for the external program to
+finish. It should therefore only be used to run short-lived
+programs.</p>
+
+<hr>
+<p id="footer">[back to <a href="index.html">documentation</a>]</p>
+
+</body>
+</html>

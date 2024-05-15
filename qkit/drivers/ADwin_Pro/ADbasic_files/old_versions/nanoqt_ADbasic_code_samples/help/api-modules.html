@@ -1,0 +1,255 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>NanoQt :: Modules</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+
+<table id="navbar"><tr>
+<td valign="middle"><img src="../Rhinoceros.png"></td>
+<td valign="middle">&nbsp;<span>NanoQt documentation:</span>
+    <a href="index.html">home</a> &gt; modules</td>
+</tr></table>
+<hr>
+
+
+<h1 align="center">Modules</h1>
+
+<p>Reusable pieces of JavaScript code can be stored as “modules”
+–&nbsp;a concept similar to “libraries” in other programming
+environments&nbsp;– and then imported into other scripts. NanoQt
+provides a module system heavily inspired by the module system of
+<a href="https://nodejs.org/">Node.js</a>.</p>
+
+<p>A module is simply a script providing code that can be “required”
+(i.e., imported) by another script. Within the module, there is an
+object named <code>exports</code>, which is initially empty and meant to
+serve as a container for all the things that should be made available
+(i.e., “exported”) by the module to the requiring script. This object is
+returned to the requiring script as the return value of the
+<code>require()</code> function.</p>
+
+<p>As an example, here is a simple module defining a few trigonometric
+functions:</p>
+
+<pre><code><span class="comment">/* Trigonometric functions not provided by the language. */</span>
+exports.cot = <span class="keyword">function</span>(x) { <span class="keyword">return</span> 1/tan(x); }; <span class="comment">// cotangent</span>
+exports.sec = <span class="keyword">function</span>(x) { <span class="keyword">return</span> 1/cos(x); }; <span class="comment">// secant</span>
+exports.csc = <span class="keyword">function</span>(x) { <span class="keyword">return</span> 1/sin(x); }; <span class="comment">// cosecant</span></code></pre>
+
+<p>This module exports an object with three properties, named
+<code>cot</code>, <code>sec</code> and <code>csc</code>, which are all
+functions. Assuming the module is named "trig-functions.js" and resides
+in the same directory as the script that is going to import it, it can
+be used as follows:</p>
+
+<pre><code><span class="comment">// Import the trigonometry module as the object "trig".</span>
+<span class="keyword">var</span> trig = require("<span class="string">./trig-functions.js</span>");
+
+<span class="comment">// Now the secant function is available as "trig.sec".</span>
+echo("<span class="string">secant of π/4 = </span>" + trig.sec(PI/4));</code></pre>
+
+<p>If only one of the provided items needs to be imported, this can be
+done as follows:</p>
+
+<pre><code><span class="comment">// Import only the secant function.</span>
+<span class="keyword">var</span> sec = require("<span class="string">./trig-functions.js</span>").sec;
+
+<span class="comment">// Now the secant can be simply called "sec".</span>
+echo("<span class="string">secant of π/4 = </span>" + sec(PI/4));</code></pre>
+
+
+<h2>Writing modules</h2>
+
+<p>A module is any JavaScript file that exports some items meant to be
+useful to other scripts, but there are some points one should be aware
+of:</p>
+
+<h3>Variable scope</h3>
+
+<p>Variables defined within a module are private to that module. Only
+the values assigned as properties of the <code>export</code> object will
+be visible from outside the module. These properties can be of any type:
+functions (as in the example above), numbers, objects, etc.</p>
+
+<h3>Exporting a single item</h3>
+
+<p>Sometimes you may want to export a single item rather than a
+collection of properties. This is often the case when the module has the
+sole purpose of defining a constructor. In this case, the item can be
+assigned to <code>module.exports</code>. It will then be the value
+returned by <code>require()</code>. For example, the following
+module:</p>
+
+<pre><code><span class="comment">// Construct a flux capacitor.</span>
+<span class="keyword">function</span> FluxCapacitor()
+{
+    ...
+}
+
+<span class="comment">// Export only the constructor.</span>
+module.exports = FluxCapacitor;</code></pre>
+
+<p>would be used as this:</p>
+
+<pre><code><span class="comment">// Import the flux capacitor constructor.</span>
+<span class="keyword">var</span> FluxCapacitor = require("<span class="string">./flux-capacitor.js</span>");
+
+<span class="comment">// Construct an instance.</span>
+<span class="keyword">var</span> my_flux_cap = <span class="keyword">new</span> FluxCapacitor();</code></pre>
+
+<p><strong>Important note</strong>: The <code>exports</code> variable is
+initialized as a reference (a kind of shortcut) to
+<code>module.exports</code>, which is itself initialized as an empty
+object. Assigning a new value to <code>exports</code> will
+<strong>not</strong> work, as that will only change the local
+<code>exports</code> variable, which will no longer be linked to
+<code>module.exports</code>. Always assign to
+<code>module.exports</code> if you want to replace (rather than
+populate) the exported object.</p>
+
+<h3>Running a module as a script</h3>
+
+<p>As a single file can be run as a regular script or imported as a
+module, it is sometimes desirable to provide different behaviors
+depending on how the file is run. For example, a module may include some
+test code meant to be executed only when the file is run as a script.
+This can be done by performing the test
+<code>require.main&nbsp;===&nbsp;module</code>, which yields
+<code>true</code> only in non-module context. For instance:</p>
+
+<pre><code><span class="keyword">if</span> (require.main === module) {
+    <span class="comment">// This file has been loaded as a regular script.</span>
+} <span class="keyword">else</span> {
+    <span class="comment">// This file has been loaded as a module.</span>
+}</code></pre>
+
+
+<h2>Module search path</h2>
+
+<p>Required modules are searched in a list of directories called “search
+path”. This list depends on whether the argument provided to
+<code>require()</code> as the module name is an absolute file path, a
+relative path, or a “pathless” name. In the last two cases, the search
+will make use of a “base directory”, which is defined below.</p>
+
+<p>Within each of the directories in the search path,
+<code>require()</code> will attempt to load the module as a file, using
+the module name as a file name. If that fails, it will attempt appending
+".js" to the module name, then "/index.js".</p>
+
+<p>This last feature means a module can be implemented as a collection
+of files kept together in a single directory. Calling
+<code>require()</code> with the name of the directory as the module name
+will load the file index.js from that directory. This file, which is the
+main entry point of the module, can then load the other files from the
+directory.</p>
+
+<h3>Base directory</h3>
+
+<p>If the code calling <code>require()</code> comes from a file, then
+the base directory is the directory containing that file. This is the
+case when <code>require()</code> is called:</p>
+
+<ul>
+<li>from a module that is itself being loaded with
+<code>require()</code></li>
+<li>from a script that is being loaded by a call to
+<a href="api-general.html#system"><code>source()</code></a></li>
+<li>from a script started from a NanoQt script window that has been
+loaded
+from a file or saved to a file</li>
+</ul>
+
+<p>Note that in the last case the script may have unsaved changes. The
+base directory will nevertheless be the directory containing the last
+saved version of the file.</p>
+
+<p>There are two situations where the calling script cannot be related
+to any specific file:</p>
+
+<ul>
+<li>a script written in a NanoQt script window that has never been
+saved</li>
+<li>script code typed at the NanoQt console</li>
+</ul>
+
+<p>In both those cases, the base directory is the current working
+directory, i.e. <a
+href="api-file.html#directory"><code>Directory.current</code></a>.</p>
+
+<h3>Absolute path</h3>
+
+<p>If the argument passed to <code>require()</code> starts with a "/"
+character, it is interpreted as an absolute path. For example:</p>
+
+<pre><code>require("<span class="string">/home/joe/modules/multimeter.js</span>");</code></pre>
+
+<p>In this case the module is searched only in the specific path
+provided in the argument.</p>
+
+<h3>Relative path</h3>
+
+<p>If the argument to <code>require()</code> contains at least one "/"
+character and is not an absolute path, then it is interpreted as a path
+relative to the base directory defined above. For example, if the base
+directory is "/home/joe/experiment", then the call</p>
+
+<pre><code>require("<span class="string">./multimeter.js</span>");</code></pre>
+
+<p>will attempt to load "/home/joe/experiment/multimeter.js".</p>
+
+<p><strong>Note:</strong> This behavior is specific to the
+<code>require()</code> function. In other contexts, such as <a
+href="api-file.html#file">the <code>File()</code> constructor</a>,
+relative paths are always interpreted as being relative to the current
+working directory, irrespective of the location of the calling
+script.</p>
+
+<h3>Pathless name</h3>
+
+<p>If the argument to <code>require()</code> does not contains a "/", it
+is a “pathless” module name. The module is then searched in an ordered
+list of directories which is built as follows:</p>
+
+<ul>
+<li>the subdirectory "nanoqt_modules" of the base directory</li>
+<li>the subdirectory "nanoqt_modules" of the <em>parent</em> of the base
+directory</li>
+<li>...and so forth up to the "nanoqt_modules" directory in the file
+system root</li>
+<li>the directories listed in the <code>$NANOQT_PATH</code> environment
+variable, if
+that variable is defined an non empty</li>
+<li>the directories within a fallback path defined at compile time</li>
+</ul>
+
+<p>Both the <code>$NANOQT_PATH</code> environment variable and the
+fallback path should be lists of absolute paths to directories,
+separated by colon (<code>:</code>) characters (semicolons on
+Windows).</p>
+
+<p>The fallback path is defined in NanoQt.pro. It defaults to the single
+directory where the <code>make install</code> command installs the
+modules provided with NanoQt (namely /usr/local/lib/nanoqt/modules).</p>
+
+<p>For example, if the base directory is "/home/joe/experiment", and
+assuming <code>$NANOQT_PATH</code> is unset and the fallback path is the
+default one, then the call</p>
+
+<pre><code>require("<span class="string">multimeter.js</span>");</code></pre>
+
+<p>will try to load in turn:</p>
+
+<ul>
+<li>/home/joe/experiment/nanoqt_modules/multimeter.js</li>
+<li>/home/joe/nanoqt_modules/multimeter.js</li>
+<li>/home/nanoqt_modules/multimeter.js</li>
+<li>/nanoqt_modules/multimeter.js</li>
+<li>/usr/local/lib/nanoqt/modules/multimeter.js</li>
+</ul>
+
+</body>
+</html>
