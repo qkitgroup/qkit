@@ -50,6 +50,9 @@ def plut(pulse: PulseTemplate,
         plot_measurements: If specified measurements in this set will be plotted. If omitted no measurements will be.
         maximum_points: If the sampled waveform is bigger, it is not plotted
         time_slice: The time slice to be plotted. If None, the entire pulse will be shown.
+        xlabel: optional replacement for the standard xlabel
+        ylabel: optional replacement for the standard ylabel
+        trig_label: optional replacement for the standard trig_label
         kwargs: Forwarded to pyplot. Overwrites other settings.
     Returns:
         matplotlib.pyplot.Figure instance in which the pulse is rendered
@@ -121,7 +124,7 @@ def plut(pulse: PulseTemplate,
         axes_trig.set_prop_cycle(cycler(color="bgrcmyk"))
 
         for ch_name, voltage in triggers.items():
-            label = 'channel {}'.format(ch_name)       
+            label = ch_name
             if stepped:
                 line, = axes_trig.step(times, voltage, **{**dict(where='post', label=label), **kwargs})
             else:
@@ -135,12 +138,12 @@ def plut(pulse: PulseTemplate,
 
         
     for ch_name, voltage in voltages.items():
-        label = 'channel {}'.format(ch_name)       
+        label = ch_name
         if stepped:
             line, = axes.step(times, voltage, **{**dict(where='post', label=label), **kwargs})
         else:
             line, = axes.plot(times, voltage, **{**dict(label=label), **kwargs})
-        legend_handles.append(line)    
+        legend_handles.append(line)
 
 
     if plot_measurements:
@@ -163,7 +166,7 @@ def plut(pulse: PulseTemplate,
     min_voltage = min((min(channel, default=0) for channel in voltages.values()), default=0)
     
     # add some margins in the presentation
-    axes.set_xlim(-0.5+time_slice[0], time_slice[1] + 0.5)
+    #axes.set_xlim(-0.5+time_slice[0], time_slice[1] + 0.5)
     voltage_difference = max_voltage-min_voltage
     if voltage_difference>0:
         axes.set_ylim(min_voltage - 0.1*voltage_difference, max_voltage + 0.1*voltage_difference)
