@@ -1,4 +1,4 @@
-# Driver for the Rhode & Schwarz ZNA series vector network analyzer
+
 # tested on a ZNA67 with a mm Wave extender, thus these parameter limits are set.
 # started HR@KIT 2023
 # (The inital driver code is substantially based on the QKIT Keysight VNA driver, since 
@@ -167,7 +167,7 @@ class RS_VNA_ZNAXX(Instrument):
         self.add_function('get_sweeptime_averages')
         self.add_function('pre_measurement')
         self.add_function('start_measurement')
-        #self.add_function('ready')
+        self.add_function('ready')
         self.add_function('post_measurement')
 
         #self.do_set_active_trace(1)
@@ -205,20 +205,41 @@ class RS_VNA_ZNAXX(Instrument):
         self._visainstrument.write('SYST:PRES')
     
     def hold(self, status):
+        """
+        Stop sweeping
+        This is can be achieved by using "ena emulation language" command swe:mode hold
+        or by using init:cont 0/1 which is analog to the query command which isn’t 
+        implemented in ena emulation
+        """
         if status:
-            self._visainstrument.write('SENS%i:SWE:MODE HOLD'%self._ci)
+            #self._visainstrument.write('SENS%i:SWE:MODE HOLD'%self._ci)
+            self._visainstrument.write('INIT%i:CONT 1'%self._ci) # needed if in single mode
+            self._visainstrument.write('INIT%i:CONT 0'%self._ci)
         else:
-            self._visainstrument.write('SENS%i:SWE:MODE CONT'%self._ci)
+            #self._visainstrument.write('SENS%i:SWE:MODE CONT'%self._ci)
+            self._visainstrument.write('INIT%i:CONT 1'%self._ci)
 
     def get_hold(self):
-        self._hold=str(self._visainstrument.query('SENS%i:SWE:MODE?'%self._ci)).rstrip()
-        return self._hold == 'HOLD'
+        """
+        second option is more robust, as the first can not differentiate between a running 
+        and finished single sweep. sweep_counter() is always zero if in continuous mode while 
+        the set number for count can not be zero
+        """
+        #return not(bool(int(self._visainstrument.query('INIT%i:CONT?'%self._ci))))
+        return (self.do_get_sweep_counter() == self.do_get_count()) # more robust
         
     def avg_clear(self):
+        '''
+        restarts averaging
+        '''
         self._visainstrument.write(':SENS%i:AVER:CLE' % self._ci)
 
-    def avg_status(self):
-        return 0 == (int(self._visainstrument.query('STAT:OPER:COND?')) & (1<<4))
+    def avg_status(self): 
+        '''
+        check if averaging is set or not
+        '''
+        #return 0 == (int(self._visainstrument.query('STAT:OPER:COND?')) & (1<<4))
+        return bool(int(self._visainstrument.query('SENS%i:AVER:STAT?' % self._ci)))
 
     def get_tracedata(self, format='AmpPha', single=False, averages=None):
         """
@@ -306,12 +327,12 @@ class RS_VNA_ZNAXX(Instrument):
         elif mode == 'cont':
             self._visainstrument.write('SENS%i:SWE:MODE CONT' % self._ci)
         elif mode == 'single':
-            self._visainstrument.write('SENS%i:SWE:MODE SING' % self._ci)
+            self._visainstrument.write('SENS%i:SWE:MODE SING' % self._ci) # this should do the same as hold but doesn't work although it is documented as ena emulation command
         elif mode == 'group':
             #self._visainstrument.write('SENS%i:SWE:MODE GRO' % self._ci)
             self._visainstrument.write("INIT:CONT:ALL OFF")
             self._visainstrument.write("INIT:SCOP SING")
-            self._visainstrument.write("INIT")
+            self._visainstrument.write("INIT; *OPC")
         else:
             logging.warning('invalid mode')
             
@@ -379,18 +400,22 @@ class RS_VNA_ZNAXX(Instrument):
         logging.debug(__name__ + ' : getting average status')
         return bool(int(self._visainstrument.query('SENS%i:AVER:STAT?' % self._ci)))
                     
-    def do_set_averages(self, av):
+    def do_set_averages(self, av, sync_sweep_counter=True):
         """
         Set number of averages
 
         Input:
             av (int) : Number of averages
+            sync_sweep_counter (bool) : set number of sweeps to number of averages (reproduce keyside behavior)
         Output:
             None
         """
         logging.debug(__name__ + ' : setting Number of averages to %i ' % av)
         self._visainstrument.write('SENS%i:AVER:COUN %i' % (self._ci,av))
-        self._visainstrument.write(':SENS%i:AVER:CLE' % self._ci)
+        self.avg_clear()
+        
+        if sync_sweep_counter:
+            self.do_set_count(av,  sync_average=False)
             
     def do_get_averages(self):
         """
@@ -404,17 +429,20 @@ class RS_VNA_ZNAXX(Instrument):
         logging.debug(__name__ + ' : getting Number of Averages')
         return int(self._visainstrument.query('SENS%i:AVER:COUN?' % self._ci))
 
-    def do_set_count(self, co):
+    def do_set_count(self, co, sync_average=True):
         """
         Sets the trigger count (groups)
 
         Input:
             co (int) : Count number
+            sync_average (bool) : sets average to the same number, which also restarts averaging
         Output:
             None
         """
         logging.debug(__name__ + ' : setting count number to %i ' % co)
-        # self._visainstrument.write('SENS%i:SWE:GRO:COUN %i' % (self._ci,co))
+        self._visainstrument.write('SENS%i:SWE:COUN %i' % (self._ci,co))
+        if sync_average:
+            self.do_set_averages(co, sync_sweep_counter=False)
 
     def do_get_count(self):
         """
@@ -426,8 +454,7 @@ class RS_VNA_ZNAXX(Instrument):
             Count number
         """
         logging.debug(__name__ + ' : getting count number')
-        #return int(self._visainstrument.query('SENS%i:SWE:GRO:COUN?' % self._ci))
-        return ()
+        return int(self._visainstrument.query('SENS%i:SWE:COUN?' % self._ci))
 
     def do_set_power(self, pow, port=1):
         """
@@ -577,10 +604,12 @@ class RS_VNA_ZNAXX(Instrument):
         Output:
             span (float) : Span in Hz
         """
-        span = self._visainstrument.query('SENS%i:FREQ:SPAN?' % self._ci) #float( self.query('SENS1:FREQ:SPAN?'))
-        return span
+        return float(self._visainstrument.query('SENS%i:FREQ:SPAN?' % self._ci)) 
+        
+
 
     def do_get_sweeptime_averages(self):###JB
+# was ist das im vergleich zu do_get_sweeptime()
         """
         Get sweeptime
 
@@ -922,14 +951,18 @@ class RS_VNA_ZNAXX(Instrument):
         Also, the averages need to be reset.
         """
         self.avg_clear()
+        self._visainstrument.write('*SRE 32')
+        self._visainstrument.write('*ESE 1')
         self.set_sweep_mode("group")
 
     def ready(self):
         """
         This is a proxy function, returning True when the VNA is on HOLD after finishing the required number of averages .
         """
+        
         try:  # the VNA sometimes throws an error here, we just ignore it
-            return self.get_sweep_mode() == "HOLD"
+            return (1 == int(self._visainstrument.query('*ESR?'))) # ESR is set to 1 once sweep has finished. Needed, as the version below doesn't work for a single sweep measurement
+            #return (self.do_get_sweep_counter() == self.do_get_count())
         except:
             return False
     
@@ -953,3 +986,35 @@ class RS_VNA_ZNAXX(Instrument):
         
     def delete_all_segments(self):
         self.write("SENS:SEGM:DEL:ALL")
+
+    def do_get_sweep_counter(self):
+        '''
+
+        Output:
+            int: present state of sweep counter
+        '''
+
+        logging.debug(__name__ + ' : getting sweep counter')
+        return int(self._visainstrument.query('CALC%i:DATA:NSWEEP:COUNT?' % self._ci))
+    
+    def do_autoscale(self):
+        '''
+        Rescale using auto-scale
+        '''
+        
+        logging.debug(__name__ + ' : run auto-scale ')
+        self.write("DISP:WIND:TRAC:Y:AUTO ONCE")
+
+    def do_set_average_mode(self, mode):
+        '''
+        Set the average mode [ AUTO, FLATten, REDuce, MOVing ].
+        '''
+        if mode in ['AUTO', 'auto', 'flat', 'FLAT', 'RED', 'red', 'MOV', 'mov']:
+            logging.debug(__name__ + ' : set average mode to %s' % mode)
+            self.write("SENS%i:AVER:MODE %s" % (self._ci, mode))
+
+    def do_get_marker(self):
+        '''
+        Get value for marker n.
+        '''
+        
