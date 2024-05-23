@@ -41,9 +41,11 @@ soft_config = {
 }
 
 '''
-import numpy as np
-from numpy import ndarray
+
+from copy import deepcopy
 import math
+from numpy import ndarray
+import numpy as np
 
 __version__ = '1.0_20240425'
 __author__ = 'Luca Kosche'
@@ -106,7 +108,7 @@ class AdwinIO():
         So far 16-bit output cards are assumed. '''
     def __init__(self, hard_config:dict, soft_config:dict):
         # save a copy of hard_config (which should never be changed)
-        self.__hard_config = dict(hard_config)
+        self.__hard_config = deepcopy(hard_config)
         # save configuration outputs, in which the scaling factor will be
         # updated by the soft_config and runtime changes
         self._cfg = {'out': hard_config['outputs'],
