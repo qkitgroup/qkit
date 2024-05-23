@@ -1,4 +1,22 @@
+''' The working point module has the purpose to a complete working point of a
+    spin-transistor or similar. It works nicely in combination with the adwin,
+    because it controls all parameters of a qorking point. So far this are:
+        * magnetic fields (either cartesian or spherical coordinates)
+            -> this module handles the translation from the abstract spherical
+               representation to the cartesian 3D vector magnets used in the 
+               experiment
+        * voltages applied to the transistor
 
+    ToDO:   * No init values for magnetic field and error handling if no valid
+              values are set by the user. (this makes sure that after a restart
+              of the software the magnetic fields are not accidently turned off
+              but the user has to set explisit values in the measurement script
+              ).
+    '''
+
+__all__ = ['VectorMagnet3D', 'WorkingPoint']
+__version__ = '0.1_20240515'
+__author__ = 'Luca Kosche'
 
 from numpy import cos, sin, pi, NaN
 
@@ -165,7 +183,10 @@ class WorkingPoint(VectorMagnet3D):
     def set_wp(self, **kwargs):
         ''' set multiple outputs with a single function call '''
         for key, val in kwargs.items():
-            self.set_out(key, val)
+            if key in self._outputs.keys():
+                self.set_out(key, val)
+            else:
+                print(f'working point: output {key} not configured. IGNORED!')
 
     def set_b(self, b_fields: tuple):
         ''' Set magnetic field setpoints from tuple (to not mess up).
