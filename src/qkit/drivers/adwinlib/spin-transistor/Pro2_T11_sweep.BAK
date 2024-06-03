@@ -22,9 +22,9 @@
 
 #Include ADwinPro2.Inc
 
-#define refresh_rate        50000     'sampling frequency of sweep process. (MCU_frequency / sweep_processdelay)
+#define refresh_rate        5000      'sampling frequency of sweep process. (MCU_frequency / sweep_processdelay)
 #define MCU_frequency       300E6     'Processor frequency
-#define sweep_processdelay  6000      'must be high enough to don't overload ADwin.
+#define sweep_processdelay  60000      'must be high enough to don't overload ADwin.
 #define DAC_ZERO            32768
 #define output_card         3
 #define nb_outs             8         'number of outputs
@@ -51,8 +51,8 @@ dim sweep_start[nb_outs], sweep_stop[nb_outs] as long at dm_local
 
 init:
   processdelay = sweep_processdelay
-  steps = Round(sweep_time * refresh_rate)
-  sweep_time = steps / refresh_rate
+  steps = Round(duration * refresh_rate)
+  duration = steps / refresh_rate
   
   ' SET START VALUES OF THE SWEEP
   start1 = sweep_start[1]
@@ -73,23 +73,23 @@ init:
   inc6 = (sweep_stop[6] - start6) / steps
   inc7 = (sweep_stop[7] - start7) / steps
   inc8 = (sweep_stop[8] - start8) / steps
-  
+    
   sweep_cycle = 0
-  sweep_active = 2 'intermediate state to enable flag directly at sweep start.
+  sweep_active = 0
   
 event:
   ' SET SWEEP ACTIVE FLAG IN THE FIRST EVENT LOOP
   if (sweep_active = 2) then Dec sweep_active  
   
-  ' GO TO THE NEXT CYCLE OR END PROCESS
-  if (sweep_cycle = steps) then
-    sweep_active = 0 'set sweep_active flag as early as possible to prevent sending extra data to PC
-    end
-  else
-    Inc sweep_cycle
-  endif
-  
   if (sweep_active = 1) then
+    ' GO TO THE NEXT CYCLE OR END PROCESS
+    if (sweep_cycle = steps) then
+      sweep_active = 0 'set sweep_active flag as early as possible to prevent sending extra data to PC
+      end
+    else
+      Inc sweep_cycle
+    endif
+    
     ' CALCULATE NEW OUTPUTS AND WRITE TO PAR_1 - Par_8
     out1 = start1 + inc1 * sweep_cycle
     out2 = start2 + inc2 * sweep_cycle
@@ -117,11 +117,15 @@ event:
     
   endif
   
-finish:
-  sweep_active = 0  
-  sweep_cycle = 1
-  
+finish:                               
   ' WRITE ALL CURRENT OUTPUTS TO SWEEP_START
   for i = 1 to nb_outs
-    sweep_start[i] = sweep_stop[i]
+    sweep_start[1] = out1
+    sweep_start[2] = out2
+    sweep_start[3] = out3
+    sweep_start[4] = out4
+    sweep_start[5] = out5
+    sweep_start[6] = out6
+    sweep_start[7] = out7
+    sweep_start[8] = out8
   next i

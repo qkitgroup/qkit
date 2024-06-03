@@ -1,6 +1,6 @@
 '<ADbasic Header, Headerversion 001.001>
 ' Process_Number                 = 1
-' Initial_Processdelay           = 1000
+' Initial_Processdelay           = 3000
 ' Eventsource                    = Timer
 ' Control_long_Delays_for_Stop   = No
 ' Priority                       = High
@@ -10,14 +10,17 @@
 ' Optimize_Level                 = 1
 ' Stacksize                      = 1000
 ' Info_Last_Save                 = DESKTOP-0M2IFQQ  DESKTOP-0M2IFQQ\kaptn
+' Foldings                       = 70,97
 '<Header End>
 ' Lockin for spin-transistor measurements by Luca
 ' Idea: controls lockin sin output + adc input + lockin cal + filtering + (subsampling)
 ' ADwin lockin driver written by Luca Kosche in April 2024
 ' The lockin process is seperate from the sweep process to optimize for fast lockin out/input.
 ' The lockin signal is calculated in the init and saved to an array to minimize calculation times
-' during the event loop. With current length of the lockin array, only frequencies > 10Hz are possible.
-' This can easily be changed by increasing "lockin_len".
+' during the event loop. With current length of the lockin array (limited by fast dm_local memory)
+' only frequencies > 62.5Hz are possible.
+' This can easily be changed by increasing "lockin_len" and removing 'at dm_local' at the expense of
+' processing time.
 ' Output and input cards and lockin channels are hard coded because this saves calculation time in event.
 ' The lockin signal is always added to the bias value set by the sweep process. Only when the lockin is inctive,
 ' the sweep process can write a value to the lockin output channel.
@@ -44,15 +47,16 @@
 #define input_card        2                                                                     
 #define input_channel     2
 #define lockin_card       3
-#define lockin_channel    8         'this cannot simply changed here, but also needs to implemented for adding lockin to channel
-#define process_delay     600
-#define cycle_time        1/300E6
+#define lockin_channel    8         'this cannot simply changed here, but also needs to implemented fo2 adding lockin to channel
+#define process_delay     600       'process time needs to be updated as well!!!
+#define process_time      2E-6      'time of one event cycle
 #define DAC_ZERO          32768
 #define DAC_ZERO_18       131072
+#define DAC_ZERO_24       8388608
 #define DAC_RANGE         65536    
 #define PI                3.1415927
-#define fifo_len          10003
-#define lockin_len        25003      '25E3 gives a minimum lockin frequency of 20Hz @ 2us cycle time.
+#define fifo_len          1000003
+#define lockin_len        8003      '25E3 gives a minimum lockin frequency of 62.5Hz @ 2us cycle time.
 
 'communication PC ADwin
 #define lockin_bias       Par_8     'lock-in bias voltage (bits)
@@ -66,36 +70,40 @@
 #define fifo_quadrature   Data_2
 
 'ADwin only
-#define lockin_sin        Data_10
-#define lockin_cos        Data_11
+#define lockin_sig        Data_10
+#define lockin_ref        Data_11
 
-'program variables
-dim lockin_sin[lockin_len], lockin_cos[lockin_len] as long at dm_local  'arrays holding the lockin sin/cos values.
-dim nb_lockin_cycles, lockin_cycle, lockin_out, lockin_in as long
-dim kappa, c0, s0, c1, c2, c3, c4, s1, s2, s3, s4 as float                     'lockin modulation parameters????? int working if everything is in integers?
+'EVENT VARIABLES
+dim lockin_sig[lockin_len] as long at dm_local    'lockin output signal in bit steps for output card
+dim lockin_ref[lockin_len] as float at dm_local   'lockin reference normalized to 1 and shifted by one step because measurement happens one cycle after setting the output value
+dim cycles, inph_cycle, quad_cycle, lockin_in, lockin_out as long
+dim kappa, c0, c1, c2, c3, c4, s0, s1, s2, s3, s4 as float 'lockin demodulation and filter variables
 
-dim fifo_inphase[fifo_len], fifo_quadrature[fifo_len] as long as fifo   'send data to PC
+dim fifo_inphase[fifo_len], fifo_quadrature[fifo_len] as float as fifo   'output fifo for data transmittion
 
-'only during init for creating lockin sin/cos arrays
-dim process_time, theoretical_steps, phase as float
-dim i as long
-
-sub create_sin_cos_references()
-  'Preperations
-  process_time = process_delay * cycle_time                   'find closest applicable frequency with respect to the cycle time
-  theoretical_steps = 1 / (frequency * process_time)          'calculate the theoretical number of nb_lockin_cycles
-  nb_lockin_cycles = Round(theoretical_steps)                 'round nb_lockin_cycles to the closest even number -> this leads to a slightly different frequency
-  if (nb_lockin_cycles and 1b = 1) then Inc nb_lockin_cycles  'add 1 if nb_lockin_cycles is not even
-  report_frequency = 1 / (nb_lockin_cycles * process_time)    'report actual frequency  
-  'create lockin reference arrays
+sub create_lockin_signal()
+  dim sig_phase, ref_phase as float
+  dim i as long
+  'FIND HOW MANY CYCLES ARE NEEDED FOR ONE FULL SINE WAVE AT GIVEN FREQUENCY
+  cycles = Round(1 / (frequency * process_time))
+  'INCREASE TILL IT IS DEVIDABLY BY 4. (EASIER REFERENCE HANDLING, BUT ONLY CERTAIN FREQUENCIES POSSIBLE
+  if (cycles and 11b <> 0) then
+    do 
+      Inc cycles
+    until (cycles and 11b = 0)
+  endif
+  'REPORT ACTUAL FREQUENCY
+  report_frequency = 1 / (cycles * process_time)
+  'CREATE LOCKIN SIN ARRAY  
   for i = 1 to lockin_len
-    if (i <= nb_lockin_cycles) then
-      phase = (i / nb_lockin_cycles) * 2 * PI - PI                                                                      '???? works without casting float explicitl?
-      lockin_sin[i] = Round((sin(phase) * amplitude))
-      lockin_cos[i] = Round((cos(phase) * amplitude))
+    if (i <= cycles) then
+      sig_phase = (i / cycles) * 2 * PI       'phase of lockin output signal
+      ref_phase = ((i-1.0) / cycles) * 2 * PI 'phase of reference has to lack one cycle behind output
+      lockin_sig[i] = Round(amplitude *  sin(sig_phase)) ' BEFORE: sin(phase)
+      lockin_ref[i] = sin(ref_phase)
     else
-      lockin_sin[i] = 0
-      lockin_cos[i] = 0
+      lockin_sig[i] = 0 'theoretically not necessary, just safety
+      lockin_ref[i] = 0 'theoretically not necessary, just safety
     endif
   next i
 endsub
@@ -105,68 +113,95 @@ sub init_lockin_filter()
   c1 = 0
   c2 = 0
   c3 = 0
+  c4 = 0
+  s0 = 0
   s1 = 0
   s2 = 0
   s3 = 0
   s4 = 0
 endsub
+
 init:
+  'DEBUG
+  'lockin_bias = DAC_ZERO
+  'amplitude = DAC_ZERO / 10
+  'frequency = 9100.31
+  'tao = 0.0033
   Processdelay = process_delay
   
   'CLEAR TRANSMITTION FIFOS
   fifo_clear(1)
   fifo_clear(2)
   
-  'CREATE THE ARRAYS HOLDING THE LOCKIN REFERENCE SIGNAL
-  create_sin_cos_references()
+  'CREATE LOCKIN SIGNAL AND REFERENCE
+  create_lockin_signal()
   
-  'INITIALIZE EVENT VARIABLES
-  lockin_cycle = 1
-  lockin_active = 1
+  'INITIALITE FILTER
   init_lockin_filter()
+  'INIT IN-PHASE CYCLE FOR INPHASE DEMODULATION AND LOCKIN OUTPUT
+  inph_cycle = 1
+  'INIT IN-QUADRATURE CYCLE FOR IN_QUADRATURE DEMODULATION BY SHIFTING LOCKIN PHASE BY 90DEG AND CORRECT FOR NEGATIVE VALUE
+  quad_cycle = inph_cycle - Shift_Right(cycles, 2) + cycles 
 
-  
   'SET FILTER KONSTANT
-  kappa = 1-exp(-(process_delay * cycle_time)/ tao)
+  kappa = 1 - exp(-process_time / tao)
+  
+  'SET LOCKIN ACTIVE FLAG
+  lockin_active = 1
+  
+  'CALC FIRT LOCKIN OUTPUT
+  lockin_out = lockin_bias + lockin_sig[inph_cycle]
   
   'ACTIVTATE TIMER MODE FOR 18-BIT INPUT CARD (MUST BE AT THE END OF INIT)
-  P2_ADCF_Mode(2, 1)
- 
+  P2_ADCF_Mode(input_card, 1)
+
 event:
-  if (lockin_active = 1) then
-    'READ LOCK-IN INPUT (80 CYCLES)
-    lockin_in = P2_Read_ADCF24(input_card, input_channel)   'read input with 18-bit resolution  ????? Check if nanoqt really handles 18-bit data correctly
-    lockin_in = Shift_Right(lockin_in, 6)
-    
-    'WRITE LOCKIN OUTPUT (ASAP AFTER READING INPUT)
-    P2_DAC(lockin_card, lockin_channel, lockin_bias + lockin_sin[lockin_cycle])
+  'WRITE LOCKIN OUTPUT [3 cycles (+2 jitter, comm)] 
+  P2_DAC(lockin_card, lockin_channel, lockin_out)
   
-    'LOCK-IN CALCULATION AND FLITER (157 CYCLES)
-    c0 = (lockin_in - DAC_ZERO_18) * 2 * (lockin_cos[i - 1])   'phase i-1 of the previous output
-    s0 = -(lockin_in - DAC_ZERO_18) * 2 * (lockin_sin[i - 1])   'phase i-1 of the previous output
-    '4 x 1st order butterworth filter after another -> 4th order in total
-    c1 = c1 + kappa * (c0-c1)
-    s1 = s1 + kappa * (s0-s1)
-    c2 = c2 + kappa * (c1-c2)
-    s2 = s2 + kappa * (s1-s2)
-    c3 = c3 + kappa * (c2-c3)
-    s3 = s3 + kappa * (s2-s3)
-    c4 = c4 + kappa * (c3-c4) ' output quadrature: c4
-    s4 = s4 + kappa * (s3-s4) ' output in_phase: s4
+  'READ LOCK-IN INPUT [88-93 cycles (+43 jitter, comm.)]
+  lockin_in = P2_Read_ADCF24(input_card, input_channel) '18-bit resolution  
   
-    'TRANSMIT DATA + HANDLE LOCKIN CYCLES
-    if (lockin_cycle = nb_lockin_cycles) then
-      ' SEND DATA TO PC (SUBSAMPLED TO LOCKIN FREQUENCY)
-      if (sweep_active = 1) then
-        fifo_inphase = s4
-        fifo_quadrature = c4
-      endif
-      lockin_cycle = 1
-    else
-      Inc lockin_cycle
+  '24 -> 18 BIT AND -OFFSET [5 cycles] 
+  lockin_in = Shift_Right(lockin_in, 6) - DAC_ZERO_18
+  
+  'instead of idx_corr as function it could be done as sub and save some time!
+  s0 = lockin_in * 2 * lockin_ref[inph_cycle]
+  c0 = lockin_in * 2 * lockin_ref[quad_cycle]   'phase inph_cycle - 1 and shift by 90deg of the previous output
+  
+  '4 x 1st ORDER LOW PASS IN SERIES [91 cycles]
+  c1 = c1 + kappa * (c0-c1)
+  s1 = s1 + kappa * (s0-s1)
+  c2 = c2 + kappa * (c1-c2)
+  s2 = s2 + kappa * (s1-s2)
+  c3 = c3 + kappa * (c2-c3)
+  s3 = s3 + kappa * (s2-s3)
+  c4 = c4 + kappa * (c3-c4) ' output quadrature: c4
+  s4 = s4 + kappa * (s3-s4) ' output in_phase: s4
+
+  'TRANSMIT DATA [~61cycles] + [~22CYCLES] HANDLE LOCKIN CYCLES 
+  if (inph_cycle = cycles) then
+    ' SEND DATA TO PC (SUBSAMPLED TO LOCKIN FREQUENCY) WHEN SWEEP IS ACTIVE
+    if (sweep_active = 1) then
+      fifo_inphase = s4
+      fifo_quadrature = c4
     endif
+    inph_cycle = 1
+  else
+    Inc inph_cycle
+  endif
+    
+  if (quad_cycle = cycles) then 
+    quad_cycle = 1
+  else
+    Inc quad_cycle
   endif
   
+  'CALCULATE NEXT LOCKIN OUTPUT [13 cycles]
+  lockin_out = lockin_bias + lockin_sig[inph_cycle]
+  
 finish:
+  ' SET OUTPUT TO LOCKIN_BIAS
   P2_DAC(lockin_card, lockin_channel, lockin_bias)
+  ' DISABLE LOCKIN ACTIVE FLAG
   lockin_active = 0
