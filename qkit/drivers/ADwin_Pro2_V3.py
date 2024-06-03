@@ -261,6 +261,7 @@ class ADwin_Pro2_V3(Instrument):
         self.add_function('set_field_3d')
         self.add_function('set_field_2d_xy_compensated')
         self.add_function('set_field_2d_xz_compensated')
+        self.add_function('set_field_2d_yz_compensated')
         self.add_function('get_Bfield')
         self.add_function('set_output_current_voltage_parallel')
         self.add_function('initialize_gates')
@@ -1524,6 +1525,50 @@ class ADwin_Pro2_V3(Instrument):
                 
             else:
                 logging.warning(__name__+': voltage in z-direction out of limits. Field not changed.')
+        else:
+            logging.warning(__name__+': voltage in x-direction out of limits. Field not changed.')
+    
+    def set_field_2d_yz_compensated(self, amplitude_const, amplitude_pol, alpha, y_angle_offset, z_angle_offset):
+        '''
+        set_field_2d_yz_compensated(amplitude_const, amplitude_pol, alpha, y_angle_offset, z_angle_offset):
+        Sets a magnetic field using polar coordinates (amplitude_pol, alpha) in the yz plane. 
+        x is compensated so that absolute field is held constant at amplitude_const.
+        Negative amplitudes invert the carthesian direction.
+        the angle offsets are used of the 2d functions. It is assumed that between y and z coil the angle is 90°.
+        
+        Parameters:
+            amplitude_const: absolute amplitude of the field 
+            amplitude_pol: amplitude in the yz plane
+            alpha: angle between the projection in the yz plane and the z coordinate
+            y_angle_offset: angle between x and y is 90-y_angle_offset
+            z_angle_offset: angle between x and z is 90-z_angle_offset
+        '''
+                
+        # coil parameters imported in self.__init__()
+        
+        #calculate field components in carthesian coordinates       
+        amplitude_x = np.sqrt(amplitude_const**2 - amplitude_pol**2) - amplitude_pol * (np.cos(np.deg2rad(alpha)) *  np.tan(np.deg2rad(z_angle_offset)) + np.sin(np.deg2rad(alpha)) *  np.tan(np.deg2rad(y_angle_offset)))
+
+        amplitude_y = amplitude_pol * np.sin(np.deg2rad(alpha)) / np.cos(np.deg2rad(y_angle_offset))
+        
+        amplitude_z = amplitude_pol * np.cos(np.deg2rad(alpha)) / np.cos(np.deg2rad(z_angle_offset))
+
+
+        #setting voltages
+        voltage_x = amplitude_x / self.x_calib / self.translation_factor_x
+        voltage_y = amplitude_y / self.y_calib / self.translation_factor_y
+        voltage_z = amplitude_z / self.z_calib / self.translation_factor_z
+        
+        if abs(voltage_x) <=  10 and abs(voltage_x) <= abs(self.x_max_current / self.translation_factor_x):
+            if abs(voltage_y) <=  10 and abs(voltage_y) <= abs(self.y_max_current / self.translation_factor_y):
+                if abs(voltage_z) <=  10 and abs(voltage_z) <= abs(self.z_max_current / self.translation_factor_z):
+                    
+                    self.set_output_current_voltage_parallel([1, 2, 3], [voltage_x, voltage_y, voltage_z])
+                    
+                else:
+                    logging.warning(__name__+': voltage in z-direction out of limits. Field not changed.')
+            else:
+                logging.warning(__name__+': voltage in y-direction out of limits. Field not changed.')
         else:
             logging.warning(__name__+': voltage in x-direction out of limits. Field not changed.')
 
