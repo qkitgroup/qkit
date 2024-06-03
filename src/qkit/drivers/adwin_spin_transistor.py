@@ -201,7 +201,6 @@ class adwin_spin_transistor(Instrument):
         samples = self.adw.Fifo_Full(FIFO_INPHASE)
         inph = self.adw.GetFifo_Float(FIFO_INPHASE, samples)
         quad = self.adw.GetFifo_Float(FIFO_QUADRATURE, samples)
-        print(type(inph[0]))
         inph = self.aio.bit2qty(inph, channel='readout', absolute=False)
         quad = self.aio.bit2qty(quad, channel='readout', absolute=False)
         return inph, quad
