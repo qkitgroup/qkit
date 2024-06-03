@@ -17,6 +17,7 @@
         like: output_channels, vector_magnet, current sources ...
     * Soft_config: Holds all parameters, which can be easily changed
         between measurements by flipping switches like voltage dividers.
+    * WARNING THIS SRIPT HANDLES ONLY 16 bit output channels!
 
 EXAMPLE CONFIGS:
 
@@ -46,39 +47,76 @@ soft_config = {
 
 from copy import deepcopy
 import math
-from numpy import ndarray
+from math import sqrt, atan2
+import logging as log
+from numpy import ndarray, float32
 import numpy as np
 
 __version__ = '1.0_20240425'
 __author__ = 'Luca Kosche'
 
-def bit2volt(bit_vals: int|float|ndarray|list, bits=16, vrange=10):
+def bit2volt(val: int|float|ndarray|list, bits, vrange, absolute):
     """ Calculate voltage from bit value for card with voltage range -10V
-        to 10V with 16-bits (default). """
-    if isinstance(bit_vals, (float, int)):
-        return bit_vals * vrange / 2**(bits-1) - vrange
-    if isinstance(bit_vals, list):
-        return [bit2volt(x, bits, vrange) for x in bit_vals]
-    if isinstance(bit_vals, np.ndarray):
-        return np.vectorize(bit2volt)(bit_vals, bits, vrange)
-    raise AdwinArgumentError
+        to 10V with 16-bits (default). 
+        absolute=True: 0 -> -vrange
+        absolute=False: 0 -> 0"""
+    match val:
+        case float32() | float() | int():
+            if absolute:
+                res = val * vrange / 2**(bits-1) - vrange
+            else:
+                res = val * vrange / 2**(bits-1)
+            return res
+        case list():
+            return [bit2volt(v, bits, vrange, absolute) for v in val]
+        case ndarray():
+            return np.vectorize(bit2volt)(val, bits, vrange, absolute)
+        case _:
+            raise AdwinArgumentError
 
-def volt2bit(volt_val, bits=16, vrange=10):
+def volt2bit(val, bits=16, vrange=10, absolute=True):
     """ Calculating bit value from voltage for card with voltage range -10V
         to 10V with 16-bits (default). """
-    if isinstance(volt_val, (float, int)):
-        if math.isnan(volt_val):
+    bit0 = 2**(bits-1)
+    match val:
+        case float32() | float() | int():
+            if not math.isnan(val):
+                if absolute:
+                    res = round(val * bit0 / vrange + bit0)
+                    if 0 <= res <= 2**bits:
+                        return res
+                else:
+                    res = round(val * bit0 / vrange)
+                    if -bit0 <= res <= bit0:
+                        return res
+            # if there is no return so far, raise error
             raise AdwinInvalidOutputError
-        bit_val = round(volt_val * 2**(bits-1) / vrange + 2**(bits-1))
-        # check if output value is out of range for adwin
-        if 0 <= bit_val <= 2**bits:
-            return bit_val
-        raise AdwinInvalidOutputError
-    if isinstance(volt_val, list):
-        return [volt2bit(x, bits, vrange) for x in volt_val]
-    if isinstance(volt_val, np.ndarray):
-        return np.vectorize(volt2bit)(volt_val, bits, vrange)
-    raise AdwinArgumentError
+        case list():
+            return [volt2bit(v, bits, vrange) for v in val]
+        case ndarray():
+            return np.vectorize(volt2bit)(val, bits, vrange)
+        case _:
+            raise AdwinArgumentError
+
+def calc_r(x, y):
+    ''' Calc R of lockin signal from X and Y. '''
+    match x:
+        case int() | float():
+            return sqrt(x**2 + y**2)
+        case list():
+            return [calc_r(x[i], y[i]) for i in range(len(x))]
+        case np.ndarray():
+            return np.vectorize(calc_r)(x, y)
+
+def calc_theta(x, y):
+    ''' Calc theta of lockin signal from X and Y. '''
+    match x:
+        case int() | float():
+            return atan2(y, x)
+        case list():
+            return [calc_theta(x[i], y[i]) for i in range(len(x))]
+        case np.ndarray():
+            return np.vectorize(calc_theta)(x, y)
 
 class AdwinTransmissionError(Exception):
     """ Error which happens, when the adwin does send more or less than
@@ -157,145 +195,95 @@ class AdwinIO():
         else:
             raise AdwinArgumentError
 
-    def qty2bit(self,
-                values:dict|list|ndarray|int|float,
-                channel:str|int=None,
-                inout:str='out'):
+    def qty2bit(self, values:dict|ndarray|int|float,
+                channel:str|int=None, absolute:bool=True):
         ''' Transform the physical quantities of the outputs into bit
             values using the given information about the used setup 
             All configured output channels will be translated based on
             the index in the given list. Index 0 will be treated as
             output channel 1 an so for. All undefined channels will be
             set to zero.'''
-        # if channel is specified, only translate a single value
-        if channel is not None:
-            # if list is given, only select the value belonging to channel
-            if isinstance(values, (list, ndarray)):
-                values = values[self._get_channel_no(channel, inout)-1]
-            # return translated value
-            return self._qty2bit_single(values, channel, inout)
-        # else translate all given outputs
-        bit_vals = np.empty(self._no_output_channels)
-        # fill with DAC 'zero' (THIS ONLY WORKS IF ALL CHANNELS HAVE THE SAME
-        # BIT VALUES SO FAR)
-        if self._all_outputs_same_bit_res():
-            bit_vals.fill(2 ** (self._all_outputs_same_bit_res() - 1))
-        # if dictionary is given, only change the given values, rest stays '0'
-        if isinstance(values, dict):
-            for name, qty in values.items():
-                idx = self._cfg[inout][name]['channel'] - 1
-                bit_vals[idx] = self._qty2bit_single(qty, name, inout)
-        # if a list or numpy array is given
-        elif isinstance(values, (list, ndarray)):
-            # lists should always have the expected amount of channels
-            if len(values) == self._no_output_channels:
-                for idx, val in enumerate(values):
-                    bit_vals[idx] = self._qty2bit_single(val, idx+1, inout)
-        else:
-            raise AdwinArgumentError
-        return bit_vals
+        # check the type of values to decide what the function should do
+        match values:
+            # if values is dict, the keys should be channels, the values
+            # should be single values|list|array of values.
+            # Then for each channel the function will recursively be
+            # called to transform each channel seperately.
+            case dict():
+                # create output array and initialize with DAC_ZERO
+                res = np.empty(self._no_output_channels)
+                res.fill(2**15)
+                for name, qty in values.items():
+                    if name in self._cfg['out']:
+                        idx = self._cfg['out'][name]['channel'] - 1
+                    else:
+                        msg = 'ADwinIO: neglected given input ch.'
+                        log.warning(msg)
+                    res[idx] = self.qty2bit(qty, name, absolute)
+                return res
+            # if channel number is given instead of name, translate
+            # into channel name (only works for output channels).
+            case list() | ndarray() | int() | float():
+                if isinstance(channel, int):
+                    channel = self._get_output_channel_name(channel)
+                if not self.is_channel(channel):
+                    log.critical('ADwinIO: channel %s does not exist.',
+                                 channel)
+                    raise AdwinArgumentError
+                inout = self._channel_direction(channel)
+                scale = self._cfg[inout][channel]['scale']
+                bits = self._cfg[inout][channel]['bits']
+                return volt2bit(values, bits, scale, absolute)
+            # in all other cases raise error
+            case _:
+                log.critical('AdwnIO: type(values) not supported.')
+                raise AdwinArgumentError
 
-    def bit2qty(self, values:ndarray|list|int|float, channel:str|int=None,
-                inout:str='out'):
-        ''' Translate bit values of dac outputs to physical
-            quantities. If a channel '''
-        # check if inputs are translated
-        if inout == 'in':
-            # if no channel is specified, fall back to readout channel
-            if channel is None:
-                channel = self._readout_ch
-            return self._bit2qty_single(values, channel, inout)
-        # if channel is specified, only translate a single value
-        if channel is not None:
-            # if list is given, only select the value belonging to channel
-            if isinstance(values, (list, ndarray)):
-                values = values[self._get_channel_no(channel, inout)-1]
-            # return translated value
-            return self._bit2qty_single(values, channel, inout)
-        # else translate all given outputs
-        outs = np.empty(len(values))
-        outs.fill(np.NaN)
-        for idx, val in enumerate(values):
-            outs[idx] = self._bit2qty_single(val, idx+1, inout)
-        return outs
+
+    def bit2qty(self, values:ndarray|list|int|float, channel:str|int,
+                absolute:bool):
+        ''' Translate bit values of out/inputs physical quantity into bit value
+            using the information of the scaling factor of the out/input and
+            how many bits the corresponding card has. The value should be a
+            single value of a list of values of one channel.'''
+        if channel == 'readout':
+            channel = self._readout_ch
+        if isinstance(channel, int):
+            channel = self._get_output_channel_name(channel)
+        # Now the channel name should be known -> translate values
+        if self.is_channel(channel):
+            inout = self._channel_direction(channel)
+            scale = self._cfg[inout][channel]['scale']
+            bits = self._cfg[inout][channel]['bits']
+            return bit2volt(values, bits, scale, absolute)
+        # if nothing could be returned, raise error
+        raise AdwinArgumentError
+
+    def is_channel(self, channel:str):
+        ''' check if channel is configured '''
+        if self._channel_direction(channel) in ['in', 'out']:
+            return True
+        return False
+
 
     def list_channels(self, inout:str):
         ''' return a list of the names of all configured inout (inputs/outputs)
             channels '''
         return self._cfg[inout].keys()
 
-    def _bit2qty_single(self, value:int, channel:str|int, inout:str):
-        ''' Translate bit values of out/inputs physical quantity into bit value
-            using the information of the scaling factor of the out/input and
-            how many bits the corresponding card has. The value should be a
-            single value of a list of values of one channel.'''
-        # get channel name
-        name = self._get_channel_name(channel, inout)
-        # if channel has name (is configured) translate value
-        if name:
-            scale = self._cfg[inout][name]['scale']
-            bits = self._cfg[inout][name]['bits']
-            return bit2volt(value, bits, scale)
+    def _channel_direction(self, channel):
+        if channel in self._cfg['out']:
+            return 'out'
+        if channel in self._cfg['in']:
+            return 'in'
         return None
 
-    def _qty2bit_single(self, value:float|int|list|ndarray,
-                        channel:str|int, inout:str):
-        ''' Translate physical quantity into bit value using the information of
-            the scaling factor of the out/input and how many bits the
-            corresponding card has. The value should be a single value of a
-            list of values of one channel'''
-        # get channel name
-        name = self._get_channel_name(channel, inout)
-        # if channel has name (is configured) translate value
-        if name:
-            scale = self._cfg[inout][name]['scale']
-            bits = self._cfg[inout][name]['bits']
-            return volt2bit(value, bits, scale)
-        return None
-
-    def _get_channel_name(self, channel:str|int, inout:str):
-        ''' Return channel name when either channel name or channel number is
-            given. Be careful to not give an int value and mean the channel idx
-            which is channel_number-1 '''
-        # if channel is int (channel number, not index!), return the channel if
-        # it exists.
+    def _get_output_channel_name(self, channel):
         if isinstance(channel, int):
-            for key, val in self._cfg[inout].items():
+            for key, val in self._cfg['out'].items():
                 if val['channel'] == channel:
                     return key
-        # if channel if str and is configured channel, return it back
-        if isinstance(channel, str):
-            if channel in self._cfg[inout]:
-                return channel
         return None
-
-    def _get_channel_no(self, channel:str|int, inout:str):
-        ''' Return channel number when either channel name or channel number is
-            given. Be careful to not give an int value and mean the channel idx
-            which is channel_number-1 '''
-        # if channel name is given, return number
-        if isinstance(channel, str):
-            return self._cfg[inout][channel]['channel']
-        # if int is given, check if channel number
-        # is configure and return it back
-        if isinstance(channel, int):
-            channels = [val['channel'] for val in self._cfg[inout].values()]
-            if channel in channels:
-                return channel
-        return None
-
-    def _get_channel_idx(self, channel:str|int, inout:str):
-        ''' Return channel index. Channel numbers start with 1 and mean the
-            physical numbering of the input/output channels of the adwin as
-            used in the channel configuration dictionary while idx start with 0
-            and are used by python lists/arrays. '''
-        return self._get_channel_no(channel, inout) - 1
-
-    def _all_outputs_same_bit_res(self):
-        out_bits = [value['bits'] for value in self._cfg['out'].values()]
-        if all(x==out_bits[0] for x in out_bits):
-            return out_bits[0]
-        raise AdwinNotImplementedError
 
 if __name__ == '__main__':
     pass
