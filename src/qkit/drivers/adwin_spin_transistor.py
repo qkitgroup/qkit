@@ -23,14 +23,12 @@ __author__ = 'Luca Kosche'
 
 import logging as log
 from pathlib import Path
-from math import ceil
 from time import sleep
 import numpy as np
 import ADwin as adw
 from qkit.core.instrument_base import Instrument
 from qkit.drivers.adwinlib.io_handler import AdwinIO, AdwinModeError
 from qkit.drivers.adwinlib.io_handler import AdwinLimitError, AdwinArgumentError
-from qkit.drivers.adwinlib.io_handler import AdwinTransmissionError
 from qkit.drivers.adwinlib.io_handler import AdwinNotImplementedError
 
 # These constants have to be synchronised with the definitions of Par_no
@@ -106,11 +104,33 @@ class adwin_spin_transistor(Instrument):
 
         # Set 'bootload' to 'False' to not reboot the Adwin.
         if bootload:
+            # before boot try to read the current outputs, which can
+            # fail if the adwin was power cycles and never booted since
+            try:
+                output_buffer = self.read_outputs(out_format='bit')
+                print(output_buffer)
+                self._state = 'output_buffer_loaded'
+            except:
+                self._state = 'output_buffer_unknown'
+                log.critical('ADwin: outputs unknown! Booting.')
             # boot adwin
             btl_name = f"ADwin{processor.replace('T', '')}.btl"
             btl_path = Path(self.adw.ADwindir) / btl_name
             self.adw.Boot(str(btl_path))
-            self._state = 'freshly booted'
+            # set output buffer if possible, otherwise set all outputs
+            # to zero volts
+            if self._state == 'output_buffer_loaded':
+                self.set_output_buffer(output_buffer, val_format='bit')
+            elif self._state == 'output_buffer_unknown':
+                outs_zero = [2**15] * NO_OUTPUT_CHANNELS
+                self.set_output_buffer(outs_zero, val_format='bit')
+                msg = ('Adwin: setting output buffer to zero! Recover '
+                       + 'the current working Point by manually setting'
+                       + ' the output buffer using set_output_buffer() '
+                       + 'BEFORE THE FIRST SWEEP')
+                log.critical(msg)
+            # change state
+            self._state = 'booted'
 
             # load processes
             if mode == 'lockin':
@@ -238,14 +258,19 @@ class adwin_spin_transistor(Instrument):
         log.info('Adwin stopping: %s', self._lockin_process.name)
         self.adw.Stop_Process(self._lockin_process_no)
 
-    def read_outputs(self, channel:int|str=None):
+    def read_outputs(self, channel:int|str=None, out_format='qty'):
         """ Read the current saved output values of the ADwin. After a 
             restart this might not be the correct values. """
         # Read all adwin parameters holding the current output values
         match channel:
             case int():
                 val = self.adw.Get_Par(channel)
-                return self.aio.bit2qty(val, channel, absolute=True)
+                if out_format == 'qty':
+                    return self.aio.bit2qty(val, channel, absolute=True)
+                elif out_format == 'bit':
+                    return val
+                else:
+                    raise AdwinArgumentError
             case str():
                 raise AdwinNotImplementedError
             case None:
@@ -253,21 +278,17 @@ class adwin_spin_transistor(Instrument):
                 outs.fill(np.NaN)
                 for i, _ in enumerate(outs):
                     val =  self.adw.Get_Par(i+1)
-                    outs[i] = self.aio.bit2qty(val, i+1, absolute=True)
+                    if out_format == 'qty':
+                        outs[i] = self.aio.bit2qty(val, i+1, True)
+                    elif out_format == 'bit':
+                        outs[i] = val
+                    else:
+                        raise AdwinArgumentError
                 return outs
             case _:
                 raise AdwinArgumentError
 
-    def read_sweep_start(self):
-        start = self.adw.GetData_Long(START_DATA, 1, NO_OUTPUT_CHANNELS)
-        res = np.empty(len(start))
-        for i, val in enumerate(start):
-            print(i, val)
-            res[i] = self.aio.bit2qty(val, i+1, absolute=True)
-        return res
-
-
-    def start_sweep(self, stop, duration, start=None, wait=False):
+    def start_sweep(self, stop, duration, wait=False):
         """ Send the target values of the sweep to the PC and start the 
             sweep process. If wait==True it waits for the sweep to be
             finished. """
@@ -276,9 +297,6 @@ class adwin_spin_transistor(Instrument):
         # transform stop array/workin_point to bit list
         stop = self.aio.qty2bit(stop)
         self.adw.SetData_Long(stop, STOP_DATA, 1, len(stop))
-        if isinstance(start, (list, dict)):
-            start = self.aio.qty2bit(start)
-            self.adw.SetData_Long(start, START_DATA, 1, len(start))
         self.adw.Start_Process(self._sweep_process_no)
         log.info('Adwin started %.1f second sweep.', duration)
         while wait is True and self.adw.Get_Par(SWEEP_ACTIVE_PAR) == 1:
@@ -297,14 +315,31 @@ class adwin_spin_transistor(Instrument):
             log.info('Adwin stopping: %s', self._dc_readout_process.name)
             self.adw.Stop_Process(self._dc_readout_process_no)
 
+    def set_output_buffer(self, outs, val_format='qty'):
+        ''' Set the buffer in which the Adwin saveds the current output
+            values of the DAC's (Par_1 - Par_8 so far). This can be 
+            useful after a reboot of the adwin in which the adwin can
+            loose this information. '''
+        match val_format:
+            case 'qty', 'wp':
+                outs = self.aio.qty2bit(outs)
+            case 'bit':
+                pass
+            case _:
+                raise AdwinArgumentError
+        if len(outs) != NO_OUTPUT_CHANNELS:
+            raise AdwinArgumentError
+        for idx, val in outs:
+            self.adw.Set_Par(idx+1, val)
+
     ########################################### DEBUG AND CHECK IF DOABLE BY LOCKIN NOW
-    def start_sweep_dc_readout(self, stop, duration, start=None):
+    def start_sweep_dc_readout(self, stop, duration):
         """ Send the target values of the sweep to the PC and start the 
             sweep process. Then collect all the readout data """
         if self._mode != 'dc':
             raise AdwinModeError
         # start sweep
-        self.start_sweep(stop, duration, start)
+        self.start_sweep(stop, duration)
         # prepare readout
         expected_samples = self.adw.Get_Par(STEPS_PAR)
         readout = np.empty(expected_samples)
