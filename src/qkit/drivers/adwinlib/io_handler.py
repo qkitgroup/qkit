@@ -61,7 +61,7 @@ def bit2volt(val: int|float|ndarray|list, bits, vrange, absolute):
         absolute=True: 0 -> -vrange
         absolute=False: 0 -> 0"""
     match val:
-        case float32() | float() | int():
+        case float32() | float() | int() | np.int32():
             if absolute:
                 res = val * vrange / 2**(bits-1) - vrange
             else:
@@ -249,6 +249,8 @@ class AdwinIO():
         if channel == 'readout':
             channel = self._readout_ch
         if isinstance(channel, int):
+            # Channel int should represent the output numnber of the channel
+            # starting from 1
             channel = self._get_output_channel_name(channel)
         # Now the channel name should be known -> translate values
         if self.is_channel(channel):
@@ -256,6 +258,8 @@ class AdwinIO():
             scale = self._cfg[inout][channel]['scale']
             bits = self._cfg[inout][channel]['bits']
             return bit2volt(values, bits, scale, absolute)
+        elif channel is None:
+            return None 
         # if nothing could be returned, raise error
         raise AdwinArgumentError
 
@@ -264,7 +268,6 @@ class AdwinIO():
         if self._channel_direction(channel) in ['in', 'out']:
             return True
         return False
-
 
     def list_channels(self, inout:str):
         ''' return a list of the names of all configured inout (inputs/outputs)

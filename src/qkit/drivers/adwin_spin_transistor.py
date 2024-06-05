@@ -29,8 +29,9 @@ import numpy as np
 import ADwin as adw
 from qkit.core.instrument_base import Instrument
 from qkit.drivers.adwinlib.io_handler import AdwinIO, AdwinModeError
-from qkit.drivers.adwinlib.io_handler import AdwinLimitError
+from qkit.drivers.adwinlib.io_handler import AdwinLimitError, AdwinArgumentError
 from qkit.drivers.adwinlib.io_handler import AdwinTransmissionError
+from qkit.drivers.adwinlib.io_handler import AdwinNotImplementedError
 
 # These constants have to be synchronised with the definitions of Par_no
 # FPar_no and Data_no and constants in the ADbasic files.
@@ -237,16 +238,34 @@ class adwin_spin_transistor(Instrument):
         log.info('Adwin stopping: %s', self._lockin_process.name)
         self.adw.Stop_Process(self._lockin_process_no)
 
-    def read_outputs(self, channel=None):
+    def read_outputs(self, channel:int|str=None):
         """ Read the current saved output values of the ADwin. After a 
             restart this might not be the correct values. """
         # Read all adwin parameters holding the current output values
-        outs = np.empty(NO_OUTPUT_CHANNELS)
-        outs.fill(np.NaN)
-        for i, _ in enumerate(outs):
-            val =  self.adw.Get_Par(i+1)
-            outs[i] = self.aio.bit2qty(val, channel, absolute=True)
-        return outs
+        match channel:
+            case int():
+                val = self.adw.Get_Par(channel)
+                return self.aio.bit2qty(val, channel, absolute=True)
+            case str():
+                raise AdwinNotImplementedError
+            case None:
+                outs = np.empty(NO_OUTPUT_CHANNELS)
+                outs.fill(np.NaN)
+                for i, _ in enumerate(outs):
+                    val =  self.adw.Get_Par(i+1)
+                    outs[i] = self.aio.bit2qty(val, i+1, absolute=True)
+                return outs
+            case _:
+                raise AdwinArgumentError
+
+    def read_sweep_start(self):
+        start = self.adw.GetData_Long(START_DATA, 1, NO_OUTPUT_CHANNELS)
+        res = np.empty(len(start))
+        for i, val in enumerate(start):
+            print(i, val)
+            res[i] = self.aio.bit2qty(val, i+1, absolute=True)
+        return res
+
 
     def start_sweep(self, stop, duration, start=None, wait=False):
         """ Send the target values of the sweep to the PC and start the 
