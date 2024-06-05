@@ -41,12 +41,11 @@
 #define sweep_active      Par_9
 #define lockin_active     Par_10
 #define duration          FPar_1   'duration of the sweep (s)
-#define sweep_start       Data_3   'outputs after last sweep (array of 8)
 #define sweep_stop        Data_4   'output target of sweep (array of 8)
 
 dim start1, start2, start3, start4, start5, start6, start7, start8, i, sweep_cycle, steps as long
 dim inc1, inc2, inc3, inc4, inc5, inc6, inc7, inc8 as float
-dim sweep_start[nb_outs], sweep_stop[nb_outs] as long at dm_local 
+dim sweep_stop[nb_outs] as long at dm_local 
 
 
 init:
@@ -55,14 +54,14 @@ init:
   duration = steps / refresh_rate
   
   ' SET START VALUES OF THE SWEEP
-  start1 = sweep_start[1]
-  start2 = sweep_start[2]
-  start3 = sweep_start[3]
-  start4 = sweep_start[4]
-  start5 = sweep_start[5]
-  start6 = sweep_start[6]
-  start7 = sweep_start[7]
-  start8 = sweep_start[8]
+  start1 = out1
+  start2 = out2
+  start3 = out3
+  start4 = out4
+  start5 = out5
+  start6 = out6
+  start7 = out7
+  start8 = out8
   
   ' SET INCREMENT VALUES OF THE SWEEP
   inc1 = (sweep_stop[1] - start1) / steps
@@ -118,14 +117,4 @@ event:
   endif
   
 finish:                               
-  ' WRITE ALL CURRENT OUTPUTS TO SWEEP_START
-  for i = 1 to nb_outs
-    sweep_start[1] = out1
-    sweep_start[2] = out2
-    sweep_start[3] = out3
-    sweep_start[4] = out4
-    sweep_start[5] = out5
-    sweep_start[6] = out6
-    sweep_start[7] = out7
-    sweep_start[8] = out8
-  next i
+
