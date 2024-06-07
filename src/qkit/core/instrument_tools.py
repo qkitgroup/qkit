@@ -182,8 +182,8 @@ class Insttools(object):
         insclass = getattr(module, typename, None)
         if insclass is None:
             return None
-
-        return inspect.getargspec(insclass.__init__)
+        sig = inspect.signature(insclass.__init__)
+        return list(sig.parameters.keys())
 
     def get_instruments_by_type(self, typename):
         '''

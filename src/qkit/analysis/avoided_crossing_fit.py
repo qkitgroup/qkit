@@ -165,7 +165,8 @@ class ACF():
         self._fct_par_names = []   # List of names of each functions parameters
         for fct in self.functions:
             if callable(fct):
-                par_names = inspect.getargspec(fct)[0]
+                sig = inspect.signature(fct)
+                par_names = list(sig.parameters.keys())
                 try:
                     # Remove self as fct argument if function is from acf class
                     par_names.remove("self")
