@@ -28,7 +28,6 @@
 #define DAC_ZERO            32768
 #define output_card         3
 #define nb_outs             8         'number of outputs
-#define lockin_channel      8         'be careful, this is hardcoded. In this process the corresponding DAC is not set, only out8!
 
 #define out1              Par_1
 #define out2              Par_2
@@ -38,20 +37,22 @@
 #define out6              Par_6
 #define out7              Par_7
 #define out8              Par_8
-#define sweep_active      Par_9
-#define lockin_active     Par_10
-#define duration          FPar_1   'duration of the sweep (s)
-#define sweep_stop        Data_4   'output target of sweep (array of 8)
+#define sweep_active      Par_20
+#define lockin_active     Par_21
+#define measure_active    Par_22
+#define duration          FPar_20  'duration of the sweep (s)
+#define report_duration   FPar_21
+#define target            Data_20   'sweep all outputs to these values (array of 8)
 
-dim start1, start2, start3, start4, start5, start6, start7, start8, i, sweep_cycle, steps as long
+dim start1, start2, start3, start4, start5, start6, start7, start8, cycle, steps as long
 dim inc1, inc2, inc3, inc4, inc5, inc6, inc7, inc8 as float
-dim sweep_stop[nb_outs] as long at dm_local 
+dim target[nb_outs] as long at dm_local 
 
 
 init:
   processdelay = sweep_processdelay
   steps = Round(duration * refresh_rate)
-  duration = steps / refresh_rate
+  report_duration = steps / refresh_rate
   
   ' SET START VALUES OF THE SWEEP
   start1 = out1
@@ -64,40 +65,43 @@ init:
   start8 = out8
   
   ' SET INCREMENT VALUES OF THE SWEEP
-  inc1 = (sweep_stop[1] - start1) / steps
-  inc2 = (sweep_stop[2] - start2) / steps
-  inc3 = (sweep_stop[3] - start3) / steps
-  inc4 = (sweep_stop[4] - start4) / steps
-  inc5 = (sweep_stop[5] - start5) / steps
-  inc6 = (sweep_stop[6] - start6) / steps
-  inc7 = (sweep_stop[7] - start7) / steps
-  inc8 = (sweep_stop[8] - start8) / steps
+  inc1 = (target[1] - start1) / steps
+  inc2 = (target[2] - start2) / steps
+  inc3 = (target[3] - start3) / steps
+  inc4 = (target[4] - start4) / steps
+  inc5 = (target[5] - start5) / steps
+  inc6 = (target[6] - start6) / steps
+  inc7 = (target[7] - start7) / steps
+  inc8 = (target[8] - start8) / steps
     
-  sweep_cycle = 0
+  cycle = 0
   sweep_active = 0
   
 event:
-  ' SET SWEEP ACTIVE FLAG IN THE FIRST EVENT LOOP
-  if (sweep_active = 2) then Dec sweep_active  
+  if (sweep_active = 0) then
+    'Do nothing
+  else
+    ' SET MEASUREMENT FLAG TO START MEASUREMENT
+    measure_active = 1  
   
-  if (sweep_active = 1) then
     ' GO TO THE NEXT CYCLE OR END PROCESS
-    if (sweep_cycle = steps) then
-      sweep_active = 0 'set sweep_active flag as early as possible to prevent sending extra data to PC
+    if (cycle = steps) then
+      measure_active = 0 'set measurement active flag as early as possible to prevent sending extra data to PC
+      sweep_active = 0
       end
     else
-      Inc sweep_cycle
+      Inc cycle
     endif
     
     ' CALCULATE NEW OUTPUTS AND WRITE TO PAR_1 - Par_8
-    out1 = start1 + inc1 * sweep_cycle
-    out2 = start2 + inc2 * sweep_cycle
-    out3 = start3 + inc3 * sweep_cycle
-    out4 = start4 + inc4 * sweep_cycle
-    out5 = start5 + inc5 * sweep_cycle
-    out6 = start6 + inc6 * sweep_cycle
-    out7 = start7 + inc7 * sweep_cycle
-    out8 = start8 + inc8 * sweep_cycle
+    out1 = start1 + inc1 * cycle
+    out2 = start2 + inc2 * cycle
+    out3 = start3 + inc3 * cycle
+    out4 = start4 + inc4 * cycle
+    out5 = start5 + inc5 * cycle
+    out6 = start6 + inc6 * cycle
+    out7 = start7 + inc7 * cycle
+    out8 = start8 + inc8 * cycle
     
     ' SET ALL OUTPUTS EXCEPT LOCKIN CHANNEL (123 cycles)
     ' this is the fastest way i found for T11 and F8/18

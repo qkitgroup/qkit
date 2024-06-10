@@ -50,26 +50,24 @@
 #define process_delay     600       'process time needs to be updated as well!!!
 #define process_time      2E-6      'time of one event cycle
 #define DAC_ZERO          32768
-#define DAC_ZERO_18       131072
-#define DAC_ZERO_24       8388608
-#define DAC_RANGE         65536    
+#define DAC_ZERO_18       131072    
 #define PI                3.1415927
 #define fifo_len          1000003
-#define lockin_len        8003      '25E3 gives a minimum lockin frequency of 62.5Hz @ 2us cycle time.
+#define lockin_len        8003      '8003 gives a minimum lockin frequency of 62.48Hz @ 2us cycle time.
 
 'communication PC ADwin
 #define lockin_bias         Par_8     'lock-in bias voltage (bits)
-#define sweep_active        Par_9
-#define lockin_active       Par_10
-#define amplitude           Par_11    'lock-in amplitude (bits)
-#define frequency           FPar_2    'lock_in frequency (Hz)
-#define tao                 FPar_3    'lock_in tau: test purposes later only kappa will be given to program
-#define report_frequency    FPar_4
-#define sample_rate         FPar_5    'sample rate
-#define report_samplerate   FPar_6
+#define lockin_active       Par_21    'lockin active flag
+#define measure_active      Par_22
+#define lockin_or_dc        Par_23    '=1 -> lockin measurement, =0 -> dc measurement
+#define amplitude           Par_24    'lock-in amplitude (bits)
+#define frequency           FPar_22    'lock_in frequency (Hz)
+#define tao                 FPar_23    'lock_in tau: test purposes later only kappa will be given to program
+#define report_frequency    FPar_24
+#define sample_rate         FPar_25    'sample rate
+#define report_samplerate   FPar_26
 #define fifo_inphase        Data_1
 #define fifo_quadrature     Data_2
-
 'ADwin only
 #define lockin_sig          Data_10
 #define lockin_ref          Data_11
@@ -130,6 +128,7 @@ init:
   'amplitude = DAC_ZERO / 10
   'frequency = 9100.31
   'tao = 0.0033
+  'sample_rate = 50000
   Processdelay = process_delay
   
   'CLEAR TRANSMITTION FIFOS
@@ -158,7 +157,7 @@ init:
   
   'ACTIVTATE TIMER MODE FOR 18-BIT INPUT CARD (MUST BE AT THE END OF INIT)
   P2_ADCF_Mode(input_card, 1)
-
+  
 event:
   'WRITE LOCKIN OUTPUT [3 lockin_cycles (+2 jitter, comm)] 
   P2_DAC(lockin_card, lockin_channel, lockin_out)
@@ -182,38 +181,40 @@ event:
   s3 = s3 + kappa * (s2-s3)
   c4 = c4 + kappa * (c3-c4) ' output quadrature: c4
   s4 = s4 + kappa * (s3-s4) ' output in_phase: s4
-
-  'TRANSMIT DATA TO PC
-  if (sweep_active = 1) then
-    'APPLY subs_cycles FROM 500kHz TO DESIRED RATE
-    if (subs_cycle = subs_cycles) then
-      fifo_inphase = s4
-      fifo_quadrature = c4 
-      subs_cycle = 1
-    else
-      Inc subs_cycle
-    endif
+  
+  'TRANSMIT DATA TO PC [max 82 cycles (lockin meas), max 96 cycles (dc meas), 11 cycles (no meas)]
+  if (measure_active = 0) then
+    'don't save data (faster this way, because else is processes faster than if)
   else
-    'SWEEP_ACTIVE = 3 IS MODE TO GET RAW LOCKIN INPUT FOR NOISE ANALYSIS
-    if (sweep_active = 3) then
-      fifo_inphase = lockin_in
-      fifo_quadrature = lockin_out
+    'subsmaple
+    if (subs_cycle < subs_cycles) then
+      Inc subs_cycle
+    else
+      subs_cycle = 1
+      if (lockin_or_dc = 0) then
+        'send raw dc input to PC
+        fifo_inphase = lockin_in
+        fifo_quadrature = lockin_out
+      else
+        'send lockin to PC
+        fifo_inphase = s4
+        fifo_quadrature = c4 
+      endif
     endif
   endif
-  
-  'TRANSMIT DATA [~61lockin_cycles] + [~22lockin_cycles] HANDLE LOCKIN lockin_cycles 
+
+  'HANDLE LOCKIN AND REFERENCE PHASE (CYCLES)
   if (inph_cycle = lockin_cycles) then
     inph_cycle = 1
   else
     Inc inph_cycle
   endif
-    
   if (quad_cycle = lockin_cycles) then 
     quad_cycle = 1
   else
     Inc quad_cycle
   endif
-  
+
   'CALCULATE NEXT LOCKIN OUTPUT [13 lockin_cycles]
   lockin_out = lockin_bias + lockin_sig[inph_cycle]
   
