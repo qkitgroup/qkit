@@ -11,29 +11,30 @@
 ' Stacksize                      = 1000
 ' Info_Last_Save                 = DESKTOP-0M2IFQQ  DESKTOP-0M2IFQQ\kaptn
 '<Header End>
-' Lockin for spin-transistor measurements by Luca
-' Idea: controls lockin sin output + adc input + lockin cal + filtering + (subs_cycles)
 ' ADwin lockin driver written by Luca Kosche in April 2024
-' The lockin process is seperate from the sweep process to optimize for fast lockin out/input.
-' The lockin signal is calculated in the init and saved to an array to minimize calculation times
-' during the event loop. With current length of the lockin array (limited by fast dm_local memory)
-' only frequencies > 62.5Hz are possible.
-' This can easily be changed by increasing "lockin_len" and removing 'at dm_local' at the expense of
-' processing time.
-' Output and input cards and lockin channels are hard coded because this saves calculation time in event.
-' The lockin signal is always added to the bias value set by the sweep process. Only when the lockin is inctive,
-' the sweep process can write a value to the lockin output channel.
-' The lockin measurement data after filtering is send toPC subsampled to the lockin frequency.
+' Idea:
+'   * measure input at input_channel with 18-bit resolution
+'   * lockin signal output on lockin_channel 
+'   * lockin demodulation by reference signal + low pass filtering
+'   * write (subsampled) lockin results and raw input to FIFOs (if measurement flag is set)
+
+' Background of implementation:
+'   * Delay between input and output leads to shifts and jitter
+'   * -> set output first, then fetch the already measured input
+'   * The lockin process is seperate from the sweep process to optimize for fast lockin out/input.
+'   * The lockin signal is calculated in the init and saved to an array to minimize calculation times
+'   * -> for the phase shifted references the same array is used, but the index is shifted by a quarter period. 
+'   * length of the lockin_sig/lockin_ref arrays are limited by local memory and limit the frequency to min 62.5Hz.
+'   * -> This can easily be changed by increasing 'lockin_len' and removing 'at dm_local' at the expense of processing time.
+'   * Output and input cards and lockin channels are hard coded because this saves calculation time in event.
+'   * The lockin signal is always added to the bias value set by the sweep process. Only when the lockin is inctive,
+'   * the sweep process can write a value to the lockin output channel.
 
 'SPECIALITIES ABOUT T11 AND 18-BIT INPUT CARD:
 'With T11 processor, it is crucial to optimize every command to archive the processdelay of 600, 
 'which which is the maximum sample rate of the 18-bit input card (500kHz | 2us)
 'only the 18-bit card can work in timer mode enabled by "P2_ADCF_Mode(2, 1)". Thereby the card is 
 ' automatically triggered to give a new measurement at the beginning of each event cycle.
-
-'WHAT COULD MAYBE BE DONE WITH THIS HARDWARE?
-'two output samples for each input??
-'More subs_cycles?
 
 'WHAT COULD BE DONE WITH T12, 16-BIT INPUT CARD, FIFO OUTPUT CARD?
 'Faster lockin cycle enabling higher lockin frequencies
@@ -59,7 +60,6 @@
 #define lockin_bias         Par_8     'lock-in bias voltage (bits)
 #define lockin_active       Par_21    'lockin active flag
 #define measure_active      Par_22
-#define lockin_or_dc        Par_23    '=1 -> lockin measurement, =0 -> dc measurement
 #define amplitude           Par_24    'lock-in amplitude (bits)
 #define frequency           FPar_22    'lock_in frequency (Hz)
 #define tao                 FPar_23    'lock_in tau: test purposes later only kappa will be given to program
@@ -68,6 +68,7 @@
 #define report_samplerate   FPar_26
 #define fifo_inphase        Data_1
 #define fifo_quadrature     Data_2
+#define fifo_input          Data_3
 'ADwin only
 #define lockin_sig          Data_10
 #define lockin_ref          Data_11
@@ -79,6 +80,7 @@ dim lockin_cycles, inph_cycle, quad_cycle, lockin_in, lockin_out, subs_cycle, su
 dim kappa, c0, c1, c2, c3, c4, s0, s1, s2, s3, s4 as float 'lockin demodulation and filter variables
 
 dim fifo_inphase[fifo_len], fifo_quadrature[fifo_len] as float as fifo   'output fifo for data transmittion
+dim fifo_input[fifo_len] as long as fifo
 
 sub create_lockin_signal()
   dim sig_phase, ref_phase as float
@@ -128,7 +130,7 @@ init:
   'amplitude = DAC_ZERO / 10
   'frequency = 9100.31
   'tao = 0.0033
-  'sample_rate = 50000
+  'sample_rate = 500000
   Processdelay = process_delay
   
   'CLEAR TRANSMITTION FIFOS
@@ -152,7 +154,7 @@ init:
   'SET LOCKIN ACTIVE FLAG
   lockin_active = 1
   
-  'CALC FIRT LOCKIN OUTPUT
+  'CALC FIRST LOCKIN OUTPUT
   lockin_out = lockin_bias + lockin_sig[inph_cycle]
   
   'ACTIVTATE TIMER MODE FOR 18-BIT INPUT CARD (MUST BE AT THE END OF INIT)
@@ -182,28 +184,23 @@ event:
   c4 = c4 + kappa * (c3-c4) ' output quadrature: c4
   s4 = s4 + kappa * (s3-s4) ' output in_phase: s4
   
-  'TRANSMIT DATA TO PC [max 82 cycles (lockin meas), max 96 cycles (dc meas), 11 cycles (no meas)]
+  'TRANSMIT DATA TO PC [max 103 during cycles measurement, 11 cycles no measurement]
   if (measure_active = 0) then
-    'don't save data (faster this way, because else is processes faster than if)
+    'don't save data (faster this way, because else is processed faster than if)
   else
-    'subsmaple
+    'SUBSAMPLE
     if (subs_cycle < subs_cycles) then
       Inc subs_cycle
     else
       subs_cycle = 1
-      if (lockin_or_dc = 0) then
-        'send raw dc input to PC
-        fifo_inphase = lockin_in
-        fifo_quadrature = lockin_out
-      else
-        'send lockin to PC
-        fifo_inphase = s4
-        fifo_quadrature = c4 
-      endif
+      'SEND DATAPOINT TO FIFO (27cycles per FIFO with no sweep)
+      fifo_inphase = s4
+      fifo_quadrature = c4
+      fifo_input = lockin_in
     endif
   endif
 
-  'HANDLE LOCKIN AND REFERENCE PHASE (CYCLES)
+  'HANDLE LOCKIN AND REFERENCE PHASE
   if (inph_cycle = lockin_cycles) then
     inph_cycle = 1
   else
