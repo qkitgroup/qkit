@@ -101,6 +101,11 @@ class ZI_HDAWG4(Instrument):
         (self.daq, self.device, _) = zhinst.utils.create_api_session(self._device_id, self._apilevel) 
         zhinst.utils.api_server_version_check(self.daq)
 
+        ### connect to data server
+        session = Session('localhost')
+        ### connect to device
+        self.device_new = session.connect_device(self._device_id)
+
         #create instance of awgModule
         self.awgModule = self.daq.awgModule()
         self.awgModule.set("device", self.device)
@@ -724,11 +729,6 @@ class ZI_HDAWG4(Instrument):
     def upload_waveform(self, wave_data, wave_idx, awg_core):
         if type(wave_data) != np.ndarray:
             raise TypeError(__name__ + ": Assigned value must be a numpy array")
-        
-        ### connect to data server
-        session = Session('localhost')
-        ### connect to device
-        device = session.connect_device(self._device_id)
 
         if len(wave_data) % 16 != 0:
             print("wave_data is not aligned to 16 samples and will be zero-extended")
@@ -736,7 +736,8 @@ class ZI_HDAWG4(Instrument):
 
         waveforms = Waveforms()
         waveforms[wave_idx] = (wave_data,None,None) # wave, marker, trigger
-        device.awgs[awg_core].write_to_waveform_memory(waveforms)
+        time.sleep(0.05) # verify that sequencer code is uploaded ( should work consistently for values >= 0.03)
+        self.device_new.awgs[awg_core].write_to_waveform_memory(waveforms)
         
     #load config file from path
     def load_config_file(self, path):
