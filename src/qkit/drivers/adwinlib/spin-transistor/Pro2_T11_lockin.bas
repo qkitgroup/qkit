@@ -45,7 +45,7 @@
 
 'hard coded settings
 #define input_card        2                                                                     
-#define input_channel     7
+#define input_channel     8
 #define lockin_card       3
 #define lockin_channel    8         'this cannot simply changed here, but also needs to implemented fo2 adding lockin to channel
 #define process_delay     600       'process time needs to be updated as well!!!
