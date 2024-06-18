@@ -736,7 +736,7 @@ class ZI_HDAWG4(Instrument):
 
         waveforms = Waveforms()
         waveforms[wave_idx] = (wave_data,None,None) # wave, marker, trigger
-        time.sleep(0.1) # verify that sequencer code is uploaded ( should work consistently for values >= 0.1)
+        time.sleep(0.3) # verify that sequencer code is uploaded ( should work consistently for values >= 0.3)
         self.device_new.awgs[awg_core].write_to_waveform_memory(waveforms)
         
     #load config file from path
