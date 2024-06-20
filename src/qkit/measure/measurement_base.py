@@ -145,6 +145,10 @@ class MeasureBase(object):
             else:
                 raise TypeError('{:s}:  Cannot set {!s} as wait time for coordinate {!s}: float needed'.format(__name__, self.wait_time, self.name))
             return True
+        
+        def set_wait_time(self, wait_time):
+            if type(wait_time) in [int, float]:
+                self.wait_time = float(self.wait_time)
 
         def create_dataset(self, hdf_file):
             if self.hdf_dataset is None or self.hdf_dataset.hf != hdf_file.hf: # If dataset not yet created or belongs to old hdf file
@@ -323,32 +327,33 @@ class MeasureBase(object):
             for [func, name, unit, log_dtype] in self.log_functions:
                 self._log_datasets.append([self._data_file.add_value_vector(name, x=data[0].coordinates[0].create_dataset(self._data_file), unit=unit,
                                                                             dtype=log_dtype), func])
-        
+
         if self.comment:
             self._data_file.add_comment(self.comment)
-    
+
     def _open_qviewkit(self, datasets=None):
         """
         Closes the old qvk process if needed and creates a new one.
-        You can specify e.g. datasets=['amplitude','phase'] which will be openend by default and saved as an attribute to the h5 file
+        You can specify e.g. datasets=['amplitude','phase'] which will
+        be openend by default and saved as an attribute to the h5 file
         as default, the self._datasets you created are opened.
         """
         if self.qviewkit_singleInstance and self.open_qviewkit and self._qvk_process:
             self._qvk_process.terminate()  # terminate an old qviewkit instance
-        
+
         if 'default_ds' in self._data_file.hf.hf.attrs and datasets is None:
             datasets = list(self._data_file.hf.hf.attrs['default_ds'])
         if datasets is None:
             datasets = list(self._datasets.keys())
         self._data_file.hf.hf.attrs['default_ds'] = datasets
-        
+
         if self.open_qviewkit:
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=datasets)
-    
+
     def _acquire_log_functions(self):
         for [ds, func] in self._log_datasets:
             ds.append([func()])
-    
+
     def _end_measurement(self):
         """
         the data file is closed and filepath is printed

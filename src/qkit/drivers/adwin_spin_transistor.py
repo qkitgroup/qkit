@@ -87,7 +87,7 @@ SWEEP_ACTIVE_PAR = 20       # Active sweep by setting to "2" and check
                             # rate by looking for "1".
 NB_OUTS = 8                 # number of Adwin outputs
 DURATION_FPAR = 20          # Target duration of sweep
-REPORT_DURATION_FPAR = 21   # Duration of sweep due to 2us resolution
+REPORT_DURATION_FPAR = 21   # Duration of sweep due to 50kHz resolution
 TARGET_DATA = 20            # Target values of the next sweep.
 
 # RESULTING FROM ADBASIC FILES
@@ -187,6 +187,8 @@ class adwin_spin_transistor(Instrument):
         self._start_sweep(target, duration)
         while wait is True and self.adw.Get_Par(SWEEP_ACTIVE_PAR) == 1:
             pass
+        for i in INS.values():
+            self.adw.Fifo_Clear(i)
         if wait is True:
             log.info('Adwin finished sweep.')
         else:

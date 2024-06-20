@@ -85,6 +85,14 @@ class VectorMagnet3D():
         ''' getter function for var of vector3d vector '''
         return self._sph[var]
 
+    def get_mode(self):
+        ''' getter function for mode of vector3d vector '''
+        return self._mode
+    
+    def get_sph(self):
+        ''' getter function for sph vars of vector3d vector '''
+        return self._sph
+
     def set_sph(self, **kwargs):
         ''' update all given spherical b parameters '''
         for key, val in kwargs.items():
@@ -195,6 +203,11 @@ class WorkingPoint(VectorMagnet3D):
         for idx, val in enumerate(b_fields):
             name = bdict[str(idx)]
             self._outputs[name] = val
+
+    def set_mode(self, mode):
+        ''' set mode of working point (normal/sweep)'''
+        self._mode = mode
+
 
     def _create_properties(self, names):
         ''' dynamically create properties for all output names '''
