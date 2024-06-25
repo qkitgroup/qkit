@@ -30,7 +30,7 @@ class MeasurementScript():
         self.valid_inputs = ['raw','inph','quad']
         self.valid_traces = ['trace','retrace','difference']
         self.valid_calc = ['amplitude','phase']
-        self.max_rate_config = {'bx':0.1,'by':0.1,'bz':0.1,'vg':0.1,'vd':0.1}     	# rate in T(/V) per sec
+        self.max_rate_config = {'bp':0.1,'bt':0.1,'vg':0.1,'vd':0.1}     	# rate in T(/V) per sec
 
         # define needed value dicts
         self._sph = {'theta': 0, 'phi': 0, 'psi': 0, 'bp': 0, 'bt': 0}
@@ -74,11 +74,17 @@ class MeasurementScript():
                             self._sweep[key] = val
                         else:
                             log.error(f'{val} is no valid value for sweep_{key}!')
-                    case 'start' | 'stop' | 'rate' | 'duration':
+                    case 'start' | 'stop':
                         if isinstance(val,(int,float)):
                             self._sweep[key] = val
                         else:
                             log.error(f'Value of {key} must be float or integer!')
+        if 'rate' in kwargs.keys() and self._sweep['var_name'] is not None:
+            if kwargs['rate'] >= self.max_rate_config[self._sweep['var_name']]:
+                self._sweep['rate'] = kwargs['rate']
+            else:
+                self._sweep['rate'] = self.max_rate_config[self._sweep['var_name']]
+                log.warning(f"Rate of {kwargs['rate']} is not valid! Set rate to max rate {self._sweep['rate']}")
 
     def set_step(self, **kwargs):
         ''' setter func for step'''
@@ -146,7 +152,7 @@ class MeasurementScript():
 
     def generate_steps(self):
         ''' generate steps for step variable if possible'''
-        if (self._step['start'] and self._step['stop'] and self._step['step_size']) is not None:
+        if self._step['start'] is not None and self._step['stop'] is not None and self._step['step_size'] is not None:
             self._step['values'] = np.arange(self._step['start'], self._step['stop'],
                                              self._step['step_size'],dtype=np.float32)
         else:
@@ -154,17 +160,11 @@ class MeasurementScript():
 
     def generate_sweep(self):
         ''' generate steps for sweep variable if possible'''
-        dt=self._sweep['duration']
-        if (self._sweep['start'] and self._sweep['stop']
-            and self._sweep['rate'] and dt) is not None:
-            min_sweep_time = abs(self._sweep['start'] - self._sweep['stop'])/self.valids['maxrate'][self._sweep['var_name']]
-            if dt<min_sweep_time:
-                log.warning(f'Fixed sweep duration {dt}s is not safe, duration was set to min duration {min_sweep_time}s!')
-                self._sweep['duration']=round(min_sweep_time,2)
+        if self._sweep['start'] is not None and self._sweep['stop'] is not None and self._sweep['rate'] is not None:
+            self._sweep['duration'] = (self._sweep['stop']-self._sweep['start'])/self._sweep['rate']
             self._sweep['values'] = np.linspace(
                 self._sweep['start'],self._sweep['stop'],
-                round(self._sweep['duration']*self._lockin['sample_rate'],2),dtype=np.float32)
-            
+                round(self._sweep['duration']*self._lockin['sample_rate']),dtype=np.float32)
         else:
             log.error("Couldn't generate sweep value list, inputs missing!")
 
