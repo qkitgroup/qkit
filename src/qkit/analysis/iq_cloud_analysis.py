@@ -102,7 +102,7 @@ class IQCloudAnalysis:
         # calc separation and angle
         a = np.linalg.norm(self.positions[step, 0, :])
         b = np.linalg.norm(self.positions[step, 1, :])
-        self.separation = distance / np.sqrt(self.max_variance)   # lower bound for the separation
+        self.separation = distance / np.sum(np.sqrt(self.generalized_variance[0,:2]) )  # lower bound for the separation
         self.angle = np.arccos((a**2 + b**2 - distance**2) / (2 * a * b))
 
         # calc temperature in mK
@@ -205,7 +205,7 @@ class IQCloudAnalysis:
             di = self.positions[i, 0, 0] - self.positions[i, 1, 0]
             dq = self.positions[i, 0, 1] - self.positions[i, 1, 1]
             distance = np.sqrt(di ** 2 + dq ** 2)
-            self.separations[i] = distance / np.sqrt(self.max_variance[i])
+            self.separations[i] = distance / np.sum(np.sqrt(self.generalized_variance[i,:2]))
 
 
     def fit_clouds_weight(self, ref_pos, ref_covar):
