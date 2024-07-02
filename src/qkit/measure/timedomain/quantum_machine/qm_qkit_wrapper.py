@@ -26,6 +26,7 @@ class QmQkitWrapper:
         self.config = ''
         self.sample = "tests"
         self.pulseinfo = "NoPulseDataSaved"
+        self.scaleoffset = None
 
         self._measurement_object = Measurement()
         self._measurement_object.measurement_type = 'TimeDomain'
@@ -77,7 +78,7 @@ class QmQkitWrapper:
 
                 self.close_files()
 
-                print('Measurement complete: {:s}'.format(self._data_file.get_filepath()))
+                #print('Measurement complete: {:s}'.format(self._data_file.get_filepath()))
 
             else:
                 #print('Measurement complete')
@@ -149,17 +150,17 @@ class QmQkitWrapper:
             unit = self.values[key][2]
 
             if len(coord_key_list) == 1:
-                value_file = self._data_file.add_value_vector(key, x=coord_dic[coord_key_list[0]], unit=unit)
+                value_file = self._data_file.add_value_vector(key, x=coord_dic[coord_key_list[0]], unit=unit, scaleoffset = self.scaleoffset)
                 value_file.append(values)
             elif len(coord_key_list) == 2:
                 value_file = self._data_file.add_value_matrix(key, x=coord_dic[coord_key_list[0]],
-                                                              y=coord_dic[coord_key_list[1]], unit=unit)
+                                                              y=coord_dic[coord_key_list[1]], unit=unit, scaleoffset = self.scaleoffset)
                 # file initialization - workaround
                 value_file.append(values[0, :])
             elif len(coord_key_list) == 3:
                 value_file = self._data_file.add_value_box(key, x=coord_dic[coord_key_list[0]],
                                                            y=coord_dic[coord_key_list[1]],
-                                                           z=coord_dic[coord_key_list[2]], unit=unit)
+                                                           z=coord_dic[coord_key_list[2]], unit=unit, scaleoffset = self.scaleoffset)
                 # file initialization - workaround
                 value_file.append(values[0, 0, :])
 
@@ -174,6 +175,9 @@ class QmQkitWrapper:
 
         config_file = self._data_file.add_textlist('config')
         config_file.append(self.qm_config.config)
+
+        scale_offset_file = self._data_file.add_textlist('scale_offset')
+        scale_offset_file.append(self.scaleoffset)
 
         # comment
         if self.comment:

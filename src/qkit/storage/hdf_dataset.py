@@ -44,8 +44,9 @@ class hdf_dataset(object):
         self.x_object = x
         self.y_object = y
         self.z_object = z
-        self.dim = meta.get('dim', None)
-        self.dtype = meta.get('dtype','f')
+        self.meta = meta
+        self.dim = self.meta.pop('dim', None)
+        self.dtype = self.meta.pop('dtype','f')
         self.ds_type = ds_type
         self._next_matrix = False
         self._save_timestamp = save_timestamp
@@ -125,12 +126,12 @@ class hdf_dataset(object):
             else:
                 tracelength = len(data)
             ## tracelength is used so far only for multi-dimensional datasets to chunk needed memory
-            
             self.ds = self.hf.create_dataset(self.name,tracelength,
                                              folder=self.folder,
                                              dim = self.dim,
                                              ds_type = self.ds_type,
-                                             dtype = self.dtype)
+                                             dtype = self.dtype,
+                                             **self.meta)
             self._setup_metadata()
             if self._save_timestamp:
                 self._create_timestamp_ds()

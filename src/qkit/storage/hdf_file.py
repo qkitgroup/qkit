@@ -86,7 +86,7 @@ class H5_file(object):
         self.vgrp = self.entry.require_group("views")
         
     def create_dataset(self,name, tracelength, ds_type = ds_types['vector'],
-                       folder = "data", dim = 1,  **kwargs):
+                       folder = "data", dim = 1, **kwargs):
         """Dataset for one, two, and three dimensional data
         
             Args:
@@ -103,6 +103,7 @@ class H5_file(object):
             
                 'kwargs' are appended as attributes to the dataset
         """
+
         self.ds_type = ds_type
         
         if dim == 1:
@@ -157,11 +158,16 @@ class H5_file(object):
                 del self.grp[name]
                 # comment: The above line does remove the reference to the dataset but does not free the space aquired
                 # fixme if possible ...
-                
+
+
+        # 'scaleoffset' is an optional parameter for lossy compression of floating-point data,  retaining a specified number of bits post-decimal. 
+        # It is used to compress dataset elements by reducing the precision of the data. Defaults to None, implying no compression.
+        scaleoffset = kwargs.get('scaleoffset',None)
+
         if ds_type == ds_types['txt']:
-            ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype)
+            ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype, scaleoffset = scaleoffset)
         else:
-            ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype, fillvalue = np.nan)
+            ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype, fillvalue = np.nan, scaleoffset = scaleoffset)
         
         ds.attrs.create("name",name.encode())
         ds.attrs.create("ds_type", ds_type)
@@ -170,7 +176,8 @@ class H5_file(object):
             ds.attrs.create("fill", [0,0,0])
         # add attibutes
         for a in kwargs:
-             ds.attrs.create(a,(kwargs[a]).encode())
+            if not a == "scaleoffset":
+                ds.attrs.create(a,(kwargs[a]).encode())
              
         self.flush()
         return ds
