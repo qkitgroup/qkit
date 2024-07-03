@@ -99,6 +99,21 @@ class adwin_spin_transistor(Instrument):
     ''' ADwin driver to handle kHz lockin + readout while performing
         sweeps on the output. So far the T11 processor, 16-bit output
         card and 18-bit input card are supported. '''
+    _instance = None  # class variable
+
+    def __new__(cls, *args, **kwargs):
+        # proves there will only be one instance of this class
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.__initialized = False
+        else:
+            log.warning("Parameters of existing instance may be replaced!")
+        return cls._instance
+
+    def __del__(self):
+        # Resetting the class variable when the instance is deleted
+        type(self)._instance = None
+        print("Instance deleted and _instance reseted")
 
     def __init__(self,
         name='my_instrument',
@@ -127,8 +142,8 @@ class adwin_spin_transistor(Instrument):
 
         # create ADwin instance
         self.adw = adw.ADwin(DeviceNo=devicenumber,
-                             raiseExceptions=1,
-                             useNumpyArrays=True)
+                                raiseExceptions=1,
+                                useNumpyArrays=True)
 
         # Set 'bootload' to 'False' to not reboot the Adwin.
         if bootload:
@@ -152,9 +167,9 @@ class adwin_spin_transistor(Instrument):
                 outs_zero = [2**15] * NB_OUTS
                 self.set_output_buffer(outs_zero, val_format='bit')
                 msg = ('Adwin: setting output buffer to zero! Recover '
-                       + 'the current working Point by manually setting'
-                       + ' the output buffer using set_output_buffer() '
-                       + 'BEFORE THE FIRST SWEEP')
+                        + 'the current working Point by manually setting'
+                        + ' the output buffer using set_output_buffer() '
+                        + 'BEFORE THE FIRST SWEEP')
                 log.critical(msg)
 
             self._state = 'booted'
