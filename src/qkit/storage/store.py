@@ -6,6 +6,7 @@ It can be used with or without the qtlab environment.
 @author: hannes.rotzinger@kit.edu 2018
 @author: marco.pfirrmann@kit.edu 2018
 @version: 0.1
+*modified*
 """
 import logging
 import os
@@ -14,8 +15,9 @@ import traceback
 import qkit
 from qkit.storage.hdf_file import H5_file
 from qkit.storage.hdf_dataset import hdf_dataset
-from qkit.storage.hdf_constants import ds_types
+from qkit.storage.hdf_constants import ds_types, analysis_types
 from qkit.storage.hdf_view import dataset_view
+from qkit.storage.hdf_analyse import dataset_analysis
 from qkit.storage.hdf_DateTimeGenerator import DateTimeGenerator
 
 
@@ -94,7 +96,7 @@ class Data(object):
         """
         class group(object):
             pass
-        
+
         a = group()
         for n, o in self.hf.hf['/entry/analysis0'].items():
             n = n.replace(" ","_")
@@ -156,7 +158,7 @@ class Data(object):
             self.hf.dgrp.attrs.create('comment',comment.encode())
         elif folder == "analysis":
             self.hf.agrp.attrs.create("comment",comment.encode())
-        else: 
+        else:
             logging.warning("Foler muset be either 'data' (default) or 'analysis': '%s' provided" % (folder))
             raise ValueError
 
@@ -177,7 +179,7 @@ class Data(object):
         """
         ds =  hdf_dataset(self.hf, name, comment = comment, folder=folder, ds_type = ds_types['txt'], dim=1, **meta)
         return ds
-        
+
     def add_coordinate(self,  name, unit = "", comment = "",folder="data",**meta):
         """Adds a coordinate dataset to the h5 file.
         
@@ -262,7 +264,7 @@ class Data(object):
         
         Returns:
             hdf_dataset object.
-        """        
+        """
         ds =  hdf_dataset(self.hf,name, x=x, y=y, z=z, unit=unit, ds_type = ds_types['box'],
                           comment=comment, folder=folder, dim = 3, **meta)
         return ds
@@ -280,7 +282,19 @@ class Data(object):
         (Fixme: not jet implemented)
         """
         ds =  dataset_view(self.hf,name, x=x, y=y, error=error, filter = filter, 
-                           ds_type = ds_types['view'],view_params = view_params)
+                            ds_type = ds_types['view'],view_params = view_params)
+        return ds
+    
+    def add_analysis(self,name,x = None, y = None, z = None, filter  = None, analysis_type = analysis_types['matrix'], analysis_params = {}):
+        """Adds a analysis to plot specific analysis plots.
+        
+        This function is a wrapper to create a dataset_analysis.
+        x, y, z are possible datasets to display
+        z is only used for colormaps
+        (Fixme: not jet implemented)
+        """
+        ds =  dataset_analysis(self.hf,name, x=x, y=y, z=z, filter = filter, analysis_type=analysis_type,
+                            ds_type = ds_types['analysis'],analysis_params = analysis_params)
         return ds
 
     def add_fid_param(self, param, value):
