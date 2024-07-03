@@ -21,10 +21,6 @@ class Tuning_ST(Tuning):
         self._open_qviewkit(datasets = data_to_show)
         try:
             latest_trace = self.multiplexer.measure()
-            for key,val in latest_trace.items():
-                if 'retrace' in key:
-                    view = self._data_file.add_view(name=key.replace("_retrace",""), x=self._coordinates[self._x_parameter.name], y=self._datasets[key])
-                    view.add(x=self._coordinates[self._x_parameter.name], y=self._datasets[key.replace("retrace","trace")])
             self._append_vector(latest_trace, self._datasets,direction = 1)
         finally:
             self.watchdog.reset()
@@ -45,7 +41,7 @@ class Tuning_ST(Tuning):
         self._measurement_object.measurement_func = "%s: measure2D" % __name__
 
         dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter,
-                                                               self._y_parameter])
+                                                                self._y_parameter])
         self._prepare_measurement_file(dsets)
         self._open_qviewkit(datasets = data_to_show)
         i=0
@@ -56,12 +52,6 @@ class Tuning_ST(Tuning):
                 self._acquire_log_functions()
                 latest_trace = self.multiplexer.measure()
                 self._append_vector(latest_trace, self._datasets, direction = 1)
-                if i==0:
-                    for key,val in latest_trace.items():
-                        if 'retrace' in key:
-                            view = self._data_file.add_view(name=key.replace("_retrace",""), x=self._coordinates[self._y_parameter.name], y=self._datasets[key])
-                            view.add(x=self._coordinates[self._y_parameter.name], y=self._datasets[key.replace("retrace","trace")])
-                    i=1
                 if self.watchdog.stop: break 
 
         finally:
