@@ -11,7 +11,7 @@ Improvements compared to legacy codebase include
 - enhanced qkit conformity and integration
 
 Author: Marius Frohn <uzrfo@student.kit.edu>
-Version: 2.1; (07/2024) 
+Version: 2.2; (07/2024) 
 
 (Legacy DOC-string)
 IVVI.py class, to perform the communication between the Wrapper and the device
@@ -107,14 +107,10 @@ class IVVI_BiasDAC(Instrument):
         else:
             print("Unknown connection_type '{}'. Needs to be 'Ethernet' or 'SerialPort'".format(connection_type))
             raise ValueError
-        for i in range(16):
-            def channel_setter(mVolt):
-                return self.set_dac(i + 1, mVolt)
-            self.__dict__["do_set_DAC_{}_voltage".format(i + 1)] = channel_setter
-            def channel_getter():
-                return self.get_dac(i + 1)
-            self.__dict__["do_get_DAC_{}_voltage".format(i + 1)] = channel_getter
-            self.add_parameter("DAC_{}_voltage".format(i + 1), type=float, minval=DACRangeBip.low, maxval=DACRangeBip.high, units='mV')
+        for j in range(16):
+            self.__dict__["do_set_DAC_{}_voltage".format(j + 1)] = lambda mVolt, j=j: self.set_dac(j + 1, mVolt)
+            self.__dict__["do_get_DAC_{}_voltage".format(j + 1)] = lambda j=j: self.get_dac(j + 1)
+            self.add_parameter("DAC_{}_voltage".format(j + 1), type=float, minval=DACRangeBip.low, maxval=DACRangeBip.high, units='mV')
         self.dac_ranges = [DACRangeBip] * 4
         for i in range(4):
             self.set_dacgroup_range(i, knob_config[i])
@@ -236,7 +232,12 @@ class IVVI_BiasDAC(Instrument):
         Output:
             (int) : version number
         """
-        return self.connection.communicate([4, 0, 3, 4])[0]
+        # For some unknown reason reading out the driver version outmatically sets it as high byte in DAC1
+        # This call fixes this error in an ugly way
+        dac_val = self.get_dac(1)
+        drive = self.connection.communicate([4, 0, 3, 4])[0]
+        self.set_dac(1, dac_val)
+        return drive
 
 
 class IVVI_SerialPort:
@@ -258,7 +259,7 @@ class IVVI_SerialPort:
         """
         serial.tools.list_ports.main()
     
-    def __init__(self, port: str = "COM3", timeout: float = 3, timeskip: float = 0.01):
+    def __init__(self, port: str = "COM3", timeout: float = 3, timeskip: float = 0.1):
         self.timeskip = timeskip
         try:
             self.ser = serial.Serial(port=port, baudrate=115200, parity=serial.PARITY_ODD, stopbits=serial.STOPBITS_ONE, timeout=timeout, write_timeout=timeout)
@@ -280,6 +281,7 @@ class IVVI_SerialPort:
         Output:
             (list[int]) : received response, stripped off size & error flag bytes 
         """
+        # print(message) # for debugging
         self.ser.open()
         if self.ser.in_waiting > 0:
             # clear input if something still in waiting for whetever reason
@@ -288,7 +290,7 @@ class IVVI_SerialPort:
         self.ser.write(bytes(message))
         time.sleep(self.timeskip)
         readback = list(self.ser.read(self.ser.in_waiting))
-        if len(readback != readback[0]):
+        if len(readback) != readback[0]:
             logging.info(__name__ + ": Unknown communication error")
             print(__name__ + ": Unknown communication error")
         if readback[1] == 32:
@@ -302,6 +304,7 @@ class IVVI_SerialPort:
             print(__name__ + ": wrong action")
         time.sleep(self.timeskip)
         self.ser.close()
+        # print(readback) # for debugging
         return readback[2:]
     
 
@@ -388,7 +391,7 @@ class IVVI_Ethernet:
                     # Create new connection
                     self._open_zmq_connection()
         readback = [int(s) for s in data_out_string.split(' ')]
-        if len(readback != readback[0]):
+        if len(readback) != readback[0]:
             logging.info(__name__ + ": Unknown communication error")
             print(__name__ + ": Unknown communication error")
         if readback[1] == 32:
