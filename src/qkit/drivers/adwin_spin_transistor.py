@@ -99,22 +99,6 @@ class adwin_spin_transistor(Instrument):
     ''' ADwin driver to handle kHz lockin + readout while performing
         sweeps on the output. So far the T11 processor, 16-bit output
         card and 18-bit input card are supported. '''
-    _instance = None  # class variable
-
-    def __new__(cls, *args, **kwargs):
-        # proves there will only be one instance of this class
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance.__initialized = False
-        else:
-            log.warning("Parameters of existing instance may be replaced!")
-        return cls._instance
-
-    def __del__(self):
-        # Resetting the class variable when the instance is deleted
-        type(self)._instance = None
-        print("Instance deleted and _instance reseted")
-
     def __init__(self,
         name='my_instrument',
         processor='T11',
