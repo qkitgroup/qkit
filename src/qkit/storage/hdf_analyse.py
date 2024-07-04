@@ -15,7 +15,7 @@ class dataset_analysis(object):
     """
 
     def __init__(self, hdf_file, name, x=None, y=None, z=None, filter = None, analysis_type = analysis_types['matrix'],
-                ds_type =  ds_types['analysis'], folder = 'analysis0', analysis_params={}):
+                ds_type =  ds_types['analysis'], folder = 'analysis', analysis_params={}):
 
         self.hf = hdf_file
         self.name = name

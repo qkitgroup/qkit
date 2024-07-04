@@ -171,7 +171,9 @@ class MeasurementScript():
         ''' adds analysis, like polar plot or histogramm'''
         for key in self.inputs_dict.keys():
             if 'difference' in key:
+                print(self.analysis)
                 if 'polarplot' in self.analysis:
+                    print('add_analysis-true')
                     self.datafile.add_analysis(name=f'{key}_polarplot', x=self.coordinates[self._x_parameter.name],
                                                 y=self.coordinates[self._y_parameter.name], z=self.datasets['sweep_measure.'+key],
                                                 analysis_type = analysis_types['polarplot'], analysis_params=self.analysis_params)
@@ -483,20 +485,20 @@ class MeasurementScript():
         for key,val in kwargs.items():
             if key in self.set_functions.keys() and isinstance(val,dict):
                 self.set_functions[key](**val)
+            elif key in self.set_functions.keys():
+                self.set_functions[key](val)
             else:
                 log.error(f'{self} have no var called {key} of type {val}!')
 
-    def set_adwin_bootload(self, **kwargs):
+    def set_adwin_bootload(self, bootlead):
         ''' setter function for bootload of adwin (True/False)'''
-        val = kwargs.get('adwin_bootload')
-        if isinstance(val,bool):
-            self.adwin_bootload = val
+        if isinstance(bootlead,bool):
+            self.adwin_bootload = bootlead
         else:
             log.error("Bootload value only allows booleans!")
 
     def set_hard_config(self, **kwargs):
         ''' setter function to update adwin hard config'''
-        print(kwargs)
         if isinstance(kwargs,dict):
             self.hard_config = kwargs
             log.warning("Hard config for Adwin was changed!")
@@ -511,12 +513,18 @@ class MeasurementScript():
         else:
             assert ValueError
 
-    def set_analysis(self, **kwargs):
+    def set_analysis(self, analysis):
         ''' setter function for analysis'''
-        val = kwargs.values()
-        for key in val:
-            if key in self.valids['analysis']:
-                self.analysis.append(key)
+        print(analysis)
+        if isinstance(analysis,list):
+            for key in analysis:
+                if key in self.valids['analysis']:
+                    self.analysis.append(key)
+        elif isinstance(analysis,str):
+            if analysis in self.valids['analysis']:
+                self.analysis.append(analysis)
+        else:
+            assert ValueError
 
     def set_analysis_params(self,**kwargs):     # todo: possible parameter?
         ''' setter function for additional parameter for analysis'''
