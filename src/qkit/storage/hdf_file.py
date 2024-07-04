@@ -272,12 +272,10 @@ class H5_file(object):
             if dim0 == 1:
                 fill[0] = 1
                 dim1 += 1
-            if reset:
-                ds[fill[0]-1,fill[1]-2] = data  # reset overwrites last data series
-            else:  # standard reset = False
-                ds.resize((dim0,dim1,len(data)))
-                fill[1] += 1
-                ds[fill[0]-1,fill[1]-1] = data
+            if not reset:  # standard reset = False
+                ds.resize((dim0,dim1,len(data))) # Update array size
+                fill[1] += 1 # Update write position
+            ds[fill[0]-1,fill[1]-1] = data # Our indices start with one.
             ds.attrs.modify("fill", fill)
 
         self.flush()
