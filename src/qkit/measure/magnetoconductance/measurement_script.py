@@ -18,10 +18,10 @@ import logging as log
 import numpy as np
 import time
 import qkit
-from qkit.measure.magnetoconductance.default_adwin_config import default_hard_config, default_soft_config
 from qkit.measure.magnetoconductance.spin_tune_ST import Tuning_ST
 from qkit.measure.magnetoconductance.working_point import WorkingPoint
-from qkit.storage.hdf_constants import ds_types, analysis_types
+from qkit.storage.hdf_constants import analysis_types
+from qkit.drivers.adwin_spin_transistor import adwin_spin_transistor
 
 
 def calc_r(x, y):
@@ -35,7 +35,7 @@ def calc_theta(x, y):
 class MeasurementScript():
     ''' The Measurement Script generates a set of values for the WorkingPoint'''
 
-    def __init__(self,hf=None,**kwargs):
+    def __init__(self,anna:adwin_spin_transistor,hf=None,**kwargs):
         # define valid inputs
         self.valid_step_vars = ['vg','vd','N','bt','phi','psi','theta']
         self.valid_sweep_vars = ['vg','vd','bt','bp','phi','psi','theta']
@@ -46,7 +46,7 @@ class MeasurementScript():
         self.valid_calc = ['amp','phase']
         self.valid_analysis = ['polarplot','histogramm']
         self.max_rate_config = {'bx':0.1,'by':0.1,'bz':0.1,'bp':0.1,'bt':0.1,'vg':0.1,'vd':0.1}     	# rate in T(/V) per sec
-        self.unit = {'inph':'V','quad':'V','raw':'V','amp':'V','phase':'',}
+        self.unit = {'inph':'V','quad':'V','raw':'V','amp':'V','phase':''}
         self.valids = {'step':self.valid_step_vars,'sweep':self.valid_sweep_vars,
                         'wp':self.valid_wp_mode,'measure':self.valid_measure_mode,
                         'traces':self.valid_traces,'inputs':self.valid_inputs,
@@ -64,8 +64,8 @@ class MeasurementScript():
         self._modes = {'wp':None,'measure':None}
         self._volts = {'vd':None,'vg':None}
         self._lockin = {'freq':None,'amp':None,'tao':None,'init_time':None,'sample_rate':500e3}
-        self._data = {'measure':{'retrace':False,'inputs':[]},
-                        'temp_save':{'inph':[],'quad':[],'raw':[],
+        self._inputs = {'retrace':False,'inputs':[]}
+        self._data = {'temp_save':{'inph':[],'quad':[],'raw':[],
                                 'amp':[],'phase':[]},              # todo: add create_temp_save
                         'save':{'inph':[],'quad':[],'raw':[],
                                 'amp':[],'phase':[]},
@@ -77,16 +77,14 @@ class MeasurementScript():
                             'soft_config':self.set_soft_config,'adwin_bootload':self.set_adwin_bootload,
                             'analysis_params':self.set_analysis_params}
 
-        # default config for adwin
-        self.hard_config = default_hard_config
-        self.soft_config = default_soft_config
-        self.adwin_bootload = False         # should default be true or false?
         # if hf is not None:
         #     self.load_settings()              # todo: load measurement setup from h5file
         self.set_(**kwargs)             # set all values
-        self.create_instrument()        # create adwin instance
+        self.anna = anna
         self.create_tuning()            # create Tuning instance
         self.create_output_channel()    # create output channel for adwin
+        self.complete_data()            # generate data save and temp_save dicts
+        self.add_inputs()               # generate input dict
         self.create_inputs()            # create a dict of the input variables from the measurement
         self.register_measurement()     # register measure function
         self.set_node_bounds()          # create bounds for input variables from the measurement
@@ -99,21 +97,29 @@ class MeasurementScript():
         self.init_wps()                 # init start and stop wp of first sweep
         self.start_sweep()              # start sweep to the first wp of the measurement
         self.show_plots()               # certain names from datasets to plot
+        self.prepare_measurement_datasets()
+        self.prepare_measurement_datafile()
         self.add_view()                 # add view datasets with information for additional live plots
         self.add_analysis()             # add analysis datasets with information for analysis plots
-        self.start_measurement()        # start measurement
 
+    def end_measurement(self):
+        ''' end measurement'''
+        self.anna.stop_measurement()
+        self.tune._qvk_process.terminate()
 
-    def create_instrument(self):
-        ''' create an instrument instance for the adwin'''
-        self.anna = qkit.instruments.create(
-        'ADwinST', # Give the instrument a name
-        'adwin_spin_transistor', # python driver of the instrument
-        processor='T11', #
-        bootload = self.adwin_bootload, # bootload adwin.
-        hard_config = self.hard_config, # AdwinIO hard_config
-        soft_config = self.soft_config, # AdwinIO soft_config
-        )
+    def prepare_measurement_datasets(self):
+        ''' prepare datasets for measurement'''
+        if self.dim == 2:
+            self.ds = self.tune.multiplexer.prepare_measurement_datasets([self._x_parameter, self._y_parameter])
+        elif self.dim == 1:
+            self.ds = self.tune.multiplexer.prepare_measurement_datasets([self._x_parameter])
+
+    def prepare_measurement_datafile(self):
+        ''' prepare .hdf/h5 file for measurement'''
+        self.tune._prepare_measurement_file(self.ds)
+        self.coordinates = self.tune._coordinates
+        self.datasets = self.tune._datasets
+        self.datafile = self.tune._data_file
 
     def create_tuning(self):
         ''' creates instance of class Tuning_ST(Tuning)'''
@@ -129,8 +135,8 @@ class MeasurementScript():
         plotted_data = []
         if self._modes['measure'] == 'sweep':
             for key, val in self._data['plot'].items():
-                for key2 in val:
-                        plotted_data.append(f'sweep_measure.{key}_{key2}')
+                for key1 in val:
+                        plotted_data.append(f'sweep_measure.{key}_{key1}')
         if plotted_data:
             self.plots = plotted_data
         else:
@@ -150,40 +156,41 @@ class MeasurementScript():
         for key in self.inputs_dict.keys():
             if 'retrace' in key:
                 if self.dim == 2:
-                    view = self.tune._data_file.add_view(name=key.replace("_retrace",""),x=self.tune._coordinates[self.tune._y_parameter.name],y=self.tune._datasets[key])
-                    view.add(x=self.tune._coordinates[self.tune._y_parameter.name], y=self.tune._datasets[key.replace("retrace","trace")])
+                    view = self.datafile.add_view(name=key.replace("_retrace",""),x=self.coordinates[self._y_parameter.name],y=self.datasets['sweep_measure.'+key])
+                    view.add(x=self.coordinates[self._y_parameter.name], y=self.datasets['sweep_measure.'+key.replace("retrace","trace")])
                 else:
-                    view = self.tune._data_file.add_view(name=key.replace("_retrace",""), x=self.tune._coordinates[self.tune._x_parameter.name], y=self.tune._datasets[key])
-                    view.add(x=self.tune._coordinates[self.tune._x_parameter.name], y=self.tune._datasets[key.replace("retrace","trace")])
+                    view = self.datafile.add_view(name=key.replace("_retrace",""), x=self.coordinates[self._x_parameter.name], y=self.datasets['sweep_measure.'+key])
+                    view.add(x=self.coordinates[self._x_parameter.name], y=self.datasets['sweep_measure.'+key.replace("retrace","trace")])
             if 'difference' in key:
                 if self.dim == 2:
-                    view = self.tune._data_file.add_view(name=key, x=self.tune._coordinates[self.tune._y_parameter.name], y=self.tune._datasets[key])
+                    view = self.datafile.add_view(name=key, x=self.coordinates[self._y_parameter.name], y=self.datasets['sweep_measure.'+key])
                 else:
-                    view = self.tune._data_file.add_view(name=key, x=self.tune._coordinates[self.tune._x_parameter.name], y=self.tune._datasets[key])
+                    view = self.datafile.add_view(name=key, x=self.coordinates[self._x_parameter.name], y=self.datasets['sweep_measure.'+key])
 
     def add_analysis(self):
         ''' adds analysis, like polar plot or histogramm'''
         for key in self.inputs_dict.keys():
             if 'difference' in key:
                 if 'polarplot' in self.analysis:
-                    self.tune._data_file.add_analysis(name=f'{key}_polarplot', x=self.tune._coordinates[self.tune._x_parameter.name],
-                                                y=self.tune._coordinates[self.tune._y_parameter.name], z=self.tune._datasets[key],
-                                                analysis_type = analysis_types['polarplot'], ds_type =  ds_types['analysis'],
-                                                analysis_params=self.analysis_params)
+                    self.datafile.add_analysis(name=f'{key}_polarplot', x=self.coordinates[self._x_parameter.name],
+                                                y=self.coordinates[self._y_parameter.name], z=self.datasets['sweep_measure.'+key],
+                                                analysis_type = analysis_types['polarplot'], analysis_params=self.analysis_params)
             elif 'trace' in key:
                 if 'histogramm' in self.analysis:
-                    self.tune._data_file.add_analysis(name=f'{key}_histogramm', x=self.tune._coordinates[self.tune._x_parameter.name],
-                                            y=self.tune._coordinates[self.tune._y_parameter.name], z=self.tune._datasets[key],
-                                            analysis_type = analysis_types['histogramm'], ds_type =  ds_types['analysis'],
-                                            analysis_params=self.analysis_params)
+                    self.datafile.add_analysis(name=f'{key}_histogramm', x=self.coordinates[self._x_parameter.name],
+                                            y=self.coordinates[self._y_parameter.name], z=self.datasets['sweep_measure.'+key],
+                                            analysis_type = analysis_types['histogramm'], analysis_params=self.analysis_params)
 
     def set_parameter(self):
         ''' setter for x/y parameter of measurement'''
         if self.dim == 1:
             self.tune.set_x_parameters(self._sweep['values'], self._sweep['var_name'], None, self._sweep['unit'])
+            self._x_parameter = self.tune._x_parameter
         elif self.dim == 2:
             self.tune.set_x_parameters(self._step['values'], self._step['var_name'], None, self._step['unit'])
             self.tune.set_y_parameters(self._sweep['values'], self._sweep['var_name'], None, self._sweep['unit'])
+            self._x_parameter = self.tune._x_parameter
+            self._y_parameter = self.tune._y_parameter
 
     def update_lockin(self):
         ''' updates the sample rate and lockin frequency data in the script
@@ -203,7 +210,7 @@ class MeasurementScript():
             if start_time < duration:
                 start_time = duration
         log.info(f"Sweeping to start working point! Sweep durtion is {round(start_time,2)}s")
-        self.ramp_to_wp(self.wp_start.outs,dt=start_time)
+        self.ramp_to_wp(dt=start_time)
         time.sleep(5)
 
     def get_hard_config(self):
@@ -216,7 +223,7 @@ class MeasurementScript():
 
     def start_lockin(self):
         ''' start lockin signal'''
-        self.anna.init_measurement('lockin', self._lockin['sample_rate'], bias=self._volts['vd'], inputs=self._data['measure']['inputs'],
+        self.anna.init_measurement('lockin', self._lockin['sample_rate'], bias=self._volts['vd'], inputs=self._inputs['inputs'],
                                     amplitude=self._lockin['amp'], frequency=self._lockin['freq'], tao=self._lockin['tao'])
         time.sleep(1)
 
@@ -229,7 +236,7 @@ class MeasurementScript():
         ''' measure sweep and generate data dict'''
         trace,retrace=None,None
         trace = self.anna.sweep_measure(self.wp_stop.outs, duration=self._sweep['duration'])
-        if self._data['measure']['retrace']:
+        if self._inputs['retrace']:
             retrace = self.anna.sweep_measure(self.wp_start.outs, duration=self._sweep['duration'])
         sample_rate = int(self.anna.adw.Get_FPar(26)*self.anna.adw.Get_FPar(21))
         values_dict = {}    # dictionary contains all the data required to calculate the data to be saved
@@ -237,66 +244,67 @@ class MeasurementScript():
             if val:
                 if key in self.valid_inputs:                        # inph, quad and raw data
                     tr, rt, diff = [], [], []
-                    for key2 in val:
-                        if key2 == 'trace':
+                    for key1 in val:
+                        if key1 == 'trace':
                             tr = trace[key].astype(np.float32)[:sample_rate]
-                        elif key2 == 'retrace':
+                        elif key1 == 'retrace':
                             rt = np.flip(retrace[key].astype(np.float32)[:sample_rate])
                     if 'difference' in val:
-                        if tr and rt:
+                        if isinstance(tr, np.ndarray) and isinstance(rt, np.ndarray):
                             diff = rt - tr
                         else:
                             assert ValueError
-                    if tr:
-                        values_dict[f'{key}_{'trace'}']=tr
-                    if rt:
-                        values_dict[f'{key}_{'retrace'}']=rt
-                    if diff:
-                        values_dict[f'{key}_{'difference'}']=diff
+                    if isinstance(tr, np.ndarray):
+                        values_dict[f'{key}_trace']=tr
+                    if isinstance(rt, np.ndarray):
+                        values_dict[f'{key}_retrace']=rt
+                    if isinstance(diff, np.ndarray):
+                        values_dict[f'{key}_difference']=diff
         for key,val in self._data['temp_save'].items():             # amp and phase data calculation
             if val:
                 if key in self.valid_calc:
                     amp, phase = {'trace':[],'retrace':[],'difference':[]}, {'trace':[],'retrace':[],'difference':[]}
-                    for key2 in val:
-                        if values_dict.get(f'inph_{key2}') and values_dict.get(f'quad_{key2}'):
+                    for key1 in val:
+                        if (values_dict.get(f'inph_{key1}') is not None) and (values_dict.get(f'quad_{key1}') is not None):
                             if key == 'amp':
-                                amp[key2] = calc_r(values_dict.get(f'inph_{key2}'), values_dict.get(f'quad_{key2}'))
+                                amp[key1] = calc_r(values_dict.get(f'inph_{key1}'), values_dict.get(f'quad_{key1}'))
                             elif key == 'phase':
-                                phase[key2] = calc_theta(values_dict.get(f'inph_{key2}'), values_dict.get(f'quad_{key2}'))
+                                phase[key1] = calc_theta(values_dict.get(f'inph_{key1}'), values_dict.get(f'quad_{key1}'))
                             else:
                                 assert KeyError
                         else:
                             assert ValueError
                     if 'difference' in val:
                         if key == 'amp':
-                            if amp['trace'] and amp['retrace']:
-                                amp[key2] = amp.get('retrace') - amp.get('trace')
+                            if isinstance(amp['trace'],np.ndarray) and isinstance(amp['retrace'],np.ndarray):
+                                amp[key1] = amp.get('retrace') - amp.get('trace')
                             else:
                                 assert ValueError
                         elif key == 'phase':
-                            if phase['trace'] and phase['retrace']:
-                                phase[key2] = phase.get('retrace') - phase.get('trace')
+                            if isinstance(phase['trace'],np.ndarray) and isinstance(phase['retrace'],np.ndarray):
+                                phase[key1] = phase.get('retrace') - phase.get('trace')
                             else:
                                 assert ValueError
                         else:
-                                assert KeyError
-                    for key2,val2 in amp:
-                        if val2:
-                            values_dict[f'{key}_{key2}']=val2
-                    for key2,val2 in phase:
-                        if val2:
-                            values_dict[f'{key}_{key2}']=val2
+                            assert KeyError
+                    for key1,val1 in amp.items():
+                        if isinstance(val1, np.ndarray):
+                            values_dict[f'{key}_{key1}']=val1
+                    for key1,val1 in phase.items():
+                        if isinstance(val1, np.ndarray):
+                            values_dict[f'{key}_{key1}']=val1
         save_dict = {}      # dictionary with the data to be saved
         for key, val in self._data['save'].items():
-            for key2 in val:
-                save_dict[f'{key}_{key2}'] = values_dict[f'{key}_{key2}']
+            for key1 in val:
+                save_dict[f'{key}_{key1}'] = values_dict[f'{key}_{key1}']
         return save_dict
 
     def create_inputs(self):
+        ''' create dictionary for measurement inputs with unit'''
         self.inputs_dict = {}
         for key, val in self._data['save'].items():
-            for key2 in val:
-                self.inputs_dict[f'{key}_{key2}'] = self.unit[key]
+            for key1 in val:
+                self.inputs_dict[f'{key}_{key1}'] = self.unit[key]
 
     def register_measurement(self):
         ''' register measurement with needed data input dict'''
@@ -308,7 +316,6 @@ class MeasurementScript():
         if self._modes['measure'] == 'sweep':
             for key,val in self.inputs_dict.items():
                     self.tune.set_node_bounds('sweep_measure', key, -10e9, 10e9)
-
     def activate_measurement(self):
         ''' activate measurement'''
         if self._modes['measure'] == 'sweep':
@@ -353,7 +360,7 @@ class MeasurementScript():
 
     def wp_setter(self, x=None, dt=None):
         ''' set new step val of step var for wp'''
-        if self._data['measure']['retrace']:
+        if self._inputs['retrace']:
             temp_wp_outs=self.wp_start.outs
         else:
             temp_wp_outs=self.wp_stop.outs
@@ -429,26 +436,47 @@ class MeasurementScript():
                 self._lockin[key] = 0
         return self._lockin
 
-    def get_data(self):
+    def complete_data(self):
         ''' getter func for data measurement, saving and live plotting'''
-        for key,val in self._data['plot'].items():
-            for key1,val1 in val.items():
-                for val2 in val1:
-                    if val2 not in self._data['save'][key][key1]:
-                        self._data['save'][key][key1].append(val2)
-        for key,val in self._data['save']['inputs'].items():
-            if val:
-                if key not in self._data['measure']['inputs']:
-                    self._data['measure']['inputs'].append(key)
-        for val in self._data['save']['calc'].values():
-            if 'inph' not in self._data['measure']['inputs']:
-                self._data['measure']['inputs'].append('inph')
-            if 'quad' not in self._data['measure']['inputs']:
-                self._data['measure']['inputs'].append('quad')
-        temp = str(self._data['save'])
-        if ('difference' in temp) or ('retrace' in temp):
-            self._data['measure']['retrace']=True
+        for key,val in self._data['plot'].items():      # keys: inph, quad, raw, amp, phase
+            for key1 in val:                            # keys: trace, retrace, difference
+                if key1 not in self._data['save'][key]:
+                    self._data['save'][key].append(key1)
+        for key,val in self._data['save'].items():
+            temp = str(val)
+            if 'difference' in temp:
+                for key1 in self.valids['traces']:
+                    if key1 not in self._data['temp_save'][key]:
+                        self._data['temp_save'][key].append(key1)
+            elif 'retrace' in temp:
+                for key1 in ['trace','retrace']:
+                    if key1 not in self._data['temp_save'][key]:
+                        self._data['temp_save'][key].append(key1)
+            elif 'trace' in temp:
+                if 'trace' not in self._data['temp_save'][key]:
+                    self._data['temp_save'][key].append('trace')
+        for key,val in self._data['temp_save'].items():
+            if key == 'amp':
+                for key1 in val:
+                    for val1 in ['inph', 'quad']:
+                        if key1 not in self._data['temp_save'][val1]:
+                            self._data['temp_save'][val1].append(key1)
+            elif key == 'amp':
+                for key1 in val:
+                    for val1 in ['inph', 'quad']:
+                        if key1 not in self._data['temp_save'][val1]:
+                            self._data['temp_save'][val1].append(key1)
         return self._data
+    
+    def add_inputs(self):
+        ''' getter func for adwin inputs'''
+        for key, val in self._data['temp_save'].items():
+            if key in self.valids['inputs'] and val:
+                if key not in self._inputs['inputs']:
+                    self._inputs['inputs'].append(key)
+        temp = str(self._data['temp_save'])
+        if 'retrace' in temp:
+            self._inputs['retrace'] = True
 
     def set_(self,**kwargs):
         ''' setter for multiple vars'''
@@ -468,18 +496,17 @@ class MeasurementScript():
 
     def set_hard_config(self, **kwargs):
         ''' setter function to update adwin hard config'''
-        val = kwargs.get('hard_config')
-        if isinstance(val,dict):
-            self.hard_config = val
+        print(kwargs)
+        if isinstance(kwargs,dict):
+            self.hard_config = kwargs
             log.warning("Hard config for Adwin was changed!")
         else:
             assert ValueError
 
     def set_soft_config(self, **kwargs):
         ''' setter function to update adwin soft config'''
-        val = kwargs.get('soft_config')
-        if isinstance(val,dict):
-            self.soft_config = val
+        if isinstance(kwargs,dict):
+            self.soft_config = kwargs
             log.warning("Soft config for adwin was changed!")
         else:
             assert ValueError
@@ -500,6 +527,9 @@ class MeasurementScript():
         for key,val in kwargs.items():
             if key in self._sweep.keys():
                 match key:
+                    case 'unit':
+                        if isinstance(val,str):
+                            self._sweep[key] = val
                     case 'var_name':
                         if val in self.valids['sweep']:
                             self._sweep[key] = val
@@ -522,6 +552,9 @@ class MeasurementScript():
         for key,val in kwargs.items():
             if key in self._step.keys():
                 match key:
+                    case 'unit':
+                        if isinstance(val,str):
+                            self._step[key] = val
                     case 'var_name':
                         if val in self.valids['step']:
                             self._step[key] = val
@@ -562,22 +595,17 @@ class MeasurementScript():
 
     def set_data(self, **kwargs):
         ''' setter func for data measurement, saving and live plotting'''
-        for key,val in kwargs.items(): #measure,save,plot
-            if key in self._data.keys():    
-                for key2,val2 in val.items():  #traces,inputs,calc
-                    if key2 in self._data[key].keys():
-                        if not isinstance(val2,dict):
-                            for val3 in val2:
-                                self._data[key][key2].append(val3)
-                        else:
-                            for key3,val3 in val2.items():
-                                if key3 in self._data[key][key2].keys():
-                                    for val4 in val3:
-                                        self._data[key][key2][key3].append(val4)
-                                else:
-                                    log.error(f'{key3} is not defined in vars of {key}_{key2}!')
+        for key,val in kwargs.items(): # keys: temp_save, save, plot
+            if key in self._data.keys(): 
+                for key1,val1 in val.items():   # keys: inph, quad, raw, amp, phase
+                    if (key1 in self.valids['calc']) or (key1 in self.valids['inputs']):
+                        for key2 in val1:       # keys: trace, retrace, difference
+                            if key2 in self.valids['traces']:
+                                self._data[key][key1].append(key2)
+                            else:
+                                log.error(f'{key2} is no valid input for {key}_{key1}!')
                     else:
-                        log.error(f'{key2} is not defined in vars of {key}!')
+                        log.error(f'{key1} is not defined in vars of {key}!')
             else:
                 log.error(f'{key} is not defined!')
 
