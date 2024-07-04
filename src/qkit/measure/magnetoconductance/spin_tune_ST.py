@@ -15,9 +15,6 @@ class Tuning_ST(Tuning):
         assert self._x_parameter, f"{__name__}: Cannot start measure1D. x_parameters required."
         self._measurement_object.measurement_func = "%s: measure1D" % __name__
 
-        dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter])
-
-        self._prepare_measurement_file(dsets)
         self._open_qviewkit(datasets = data_to_show)
         try:
             latest_trace = self.multiplexer.measure()
@@ -39,16 +36,13 @@ class Tuning_ST(Tuning):
         assert self._x_parameter, f"{__name__}: Cannot start measure2D. x_parameters required."
         assert self._y_parameter, f"{__name__}: Cannot start measure2D. y_parameters required."
         self._measurement_object.measurement_func = "%s: measure2D" % __name__
-
-        dsets = self.multiplexer.prepare_measurement_datasets([self._x_parameter,
-                                                                self._y_parameter])
-        self._prepare_measurement_file(dsets)
+#
         self._open_qviewkit(datasets = data_to_show)
-        i=0
+
         try:
             for x_val in self._x_parameter.values:
-                x_wait = self._x_parameter.wait_time
-                self._x_parameter.set_function(x_val,x_wait)
+                # x_wait = self._x_parameter.wait_time
+                self._x_parameter.set_function(x_val)
                 self._acquire_log_functions()
                 latest_trace = self.multiplexer.measure()
                 self._append_vector(latest_trace, self._datasets, direction = 1)
