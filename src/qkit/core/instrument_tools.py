@@ -25,7 +25,6 @@ import tomli
 import qkit.core.instrument_base as instrument
 
 import importlib
-from imp import reload  # this is needed for py3
 
 
 from qkit.core.lib.misc import get_traceback
@@ -39,7 +38,7 @@ def _get_driver_module(name, do_reload=False):
     try:
         mod = importlib.import_module(name)
         if do_reload:
-            reload(mod)
+            importlib.reload(mod)
     except ImportError as e:
         fields = str(e).split(' ')
         if len(fields) > 0 and fields[-1] == name:
@@ -233,7 +232,7 @@ class Insttools(object):
         if module is None:
             return self._create_invalid_ins(name, instype, **kwargs)
             
-        reload(module)
+        importlib.reload(module)
 
         insclass = getattr(module, instype, None)
         if insclass is None:
@@ -323,7 +322,7 @@ class Insttools(object):
         module = _get_driver_module(driver)
         if module is None:
             return False
-        reload(module)
+        importlib.reload(module)
 
         if not hasattr(module, 'detect_instruments'):
             logging.warning('Driver does not support instrument detection')
