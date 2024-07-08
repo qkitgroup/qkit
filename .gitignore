@@ -15,3 +15,9 @@ dist/
 
 # Legacy qkit folder logs
 qkit/logs
+
+# Data folders
+
+qkit/data/*
+data/*
+src/qkit/data/*
