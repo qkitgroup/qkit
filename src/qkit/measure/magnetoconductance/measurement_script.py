@@ -37,7 +37,7 @@ class MeasurementScript():
 
     def __init__(self,anna:adwin_spin_transistor,hf=None,**kwargs):
         # define valid inputs
-        self.valid_step_vars = ['vg','vd','N','bt','phi','psi','theta']
+        self.valid_step_vars = ['vg','vd','N','bt','bp','phi','psi','theta']
         self.valid_sweep_vars = ['vg','vd','bt','bp','phi','psi','theta']
         self.valid_wp_mode = ['normal','sweep']
         self.valid_measure_mode = ['static','sweep']        # static mode not availible yet
@@ -80,6 +80,9 @@ class MeasurementScript():
         # if hf is not None:
         #     self.load_settings()              # todo: load measurement setup from h5file
         self.set_(**kwargs)             # set all values
+        print(self._lockin)
+        self.generate_sweep()           # generate sweep values
+        self.generate_steps()           # generate step values, if not possible -> later only 1D measurement
         self.anna = anna
         self.create_tuning()            # create Tuning instance
         self.create_output_channel()    # create output channel for adwin
@@ -91,8 +94,6 @@ class MeasurementScript():
         self.activate_measurement()     # activate measurement
         self.start_lockin()             # start lockin signal
         self.update_lockin()            # get real lockin data from adwin
-        self.generate_sweep()           # generate sweep values
-        self.generate_steps()           # generate step values, if not possible -> later only 1D measurement
         self.set_parameter()            # set x/y coordinates from sweep (and step) values
         self.init_wps()                 # init start and stop wp of first sweep
         self.start_sweep()              # start sweep to the first wp of the measurement
@@ -171,9 +172,7 @@ class MeasurementScript():
         ''' adds analysis, like polar plot or histogramm'''
         for key in self.inputs_dict.keys():
             if 'difference' in key:
-                print(self.analysis)
                 if 'polarplot' in self.analysis:
-                    print('add_analysis-true')
                     self.datafile.add_analysis(name=f'{key}_polarplot', x=self.coordinates[self._x_parameter.name],
                                                 y=self.coordinates[self._y_parameter.name], z=self.datasets['sweep_measure.'+key],
                                                 analysis_type = analysis_types['polarplot'], analysis_params=self.analysis_params)
@@ -189,7 +188,7 @@ class MeasurementScript():
             self.tune.set_x_parameters(self._sweep['values'], self._sweep['var_name'], None, self._sweep['unit'])
             self._x_parameter = self.tune._x_parameter
         elif self.dim == 2:
-            self.tune.set_x_parameters(self._step['values'], self._step['var_name'], None, self._step['unit'])
+            self.tune.set_x_parameters(self._step['values'], self._step['var_name'], self.wp_setter, self._step['unit'])
             self.tune.set_y_parameters(self._sweep['values'], self._sweep['var_name'], None, self._sweep['unit'])
             self._x_parameter = self.tune._x_parameter
             self._y_parameter = self.tune._y_parameter
@@ -344,14 +343,14 @@ class MeasurementScript():
 
     def set_start_wp(self,**kwargs):
         ''' setter function for start working point of sweep'''
-        if self._step['var_name'] in self.wp_start.get_sph().items():
-            self.wp_stop.set_sph(**kwargs)
+        if self._step['var_name'] in self.wp_start.get_sph().keys():
+            self.wp_start.set_sph(**kwargs)
         elif self._step['var_name'] in self.wp_start._outputs.keys():
             self.wp_start.set_wp(**kwargs)
 
     def set_stop_wp(self,**kwargs):
         ''' setter function for stop working point of sweep'''
-        if self._step['var_name'] in self.wp_stop.get_sph().items():
+        if self._step['var_name'] in self.wp_stop.get_sph().keys():
             self.wp_stop.set_sph(**kwargs)
         elif self._step['var_name'] in self.wp_stop._outputs.keys():
             self.wp_stop.set_wp(**kwargs)
@@ -393,7 +392,12 @@ class MeasurementScript():
     def generate_sweep(self):
         ''' generate steps for sweep variable if possible'''
         if self._sweep['start'] is not None and self._sweep['stop'] is not None and self._sweep['rate'] is not None:
-            self._sweep['duration'] = (self._sweep['stop']-self._sweep['start'])/self._sweep['rate']
+            dur = (self._sweep['stop']-self._sweep['start'])/self._sweep['rate']
+            if self._sweep['duration'] is not None:
+                if dur > self._sweep['duration']:
+                    self._sweep['duration'] = dur
+            else:
+                self._sweep['duration'] = dur
             self._sweep['values'] = np.linspace(
                 self._sweep['start'],self._sweep['stop'],
                 round(self._sweep['duration']*self._lockin['sample_rate']),dtype=np.float32)
@@ -515,7 +519,6 @@ class MeasurementScript():
 
     def set_analysis(self, analysis):
         ''' setter function for analysis'''
-        print(analysis)
         if isinstance(analysis,list):
             for key in analysis:
                 if key in self.valids['analysis']:
@@ -543,7 +546,7 @@ class MeasurementScript():
                             self._sweep[key] = val
                         else:
                             log.error(f'{val} is no valid value for sweep_{key}!')
-                    case 'start' | 'stop':
+                    case 'start' | 'stop' | 'duration':
                         if isinstance(val,(int,float)):
                             self._sweep[key] = val
                         else:
