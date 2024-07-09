@@ -1,4 +1,6 @@
 ''' adjusted spin_tune class for trace measurement at ST'''
+import qkit
+from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.spin_suite.spin_tune import Tuning
 
 class Tuning_ST(Tuning):
@@ -36,7 +38,8 @@ class Tuning_ST(Tuning):
         assert self._x_parameter, f"{__name__}: Cannot start measure2D. x_parameters required."
         assert self._y_parameter, f"{__name__}: Cannot start measure2D. y_parameters required."
         self._measurement_object.measurement_func = "%s: measure2D" % __name__
-#
+        pb = Progress_Bar(len(self._x_parameter.values))
+
         self._open_qviewkit(datasets = data_to_show)
 
         try:
@@ -46,6 +49,7 @@ class Tuning_ST(Tuning):
                 self._acquire_log_functions()
                 latest_trace = self.multiplexer.measure()
                 self._append_vector(latest_trace, self._datasets, direction = 1)
+                pb.iterate(addend = 1)
                 if self.watchdog.stop: break 
 
         finally:

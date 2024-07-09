@@ -80,10 +80,11 @@ class MeasurementScript():
         # if hf is not None:
         #     self.load_settings()              # todo: load measurement setup from h5file
         self.set_(**kwargs)             # set all values
-        print(self._lockin)
-        self.generate_sweep()           # generate sweep values
-        self.generate_steps()           # generate step values, if not possible -> later only 1D measurement
         self.anna = anna
+        self.update_script()            # start script for generating measurement
+
+    def update_script(self):
+        ''' genererate measurement setup'''
         self.create_tuning()            # create Tuning instance
         self.create_output_channel()    # create output channel for adwin
         self.complete_data()            # generate data save and temp_save dicts
@@ -94,6 +95,8 @@ class MeasurementScript():
         self.activate_measurement()     # activate measurement
         self.start_lockin()             # start lockin signal
         self.update_lockin()            # get real lockin data from adwin
+        self.generate_sweep()           # generate sweep values
+        self.generate_steps()           # generate step values, if not possible -> later only 1D measurement
         self.set_parameter()            # set x/y coordinates from sweep (and step) values
         self.init_wps()                 # init start and stop wp of first sweep
         self.start_sweep()              # start sweep to the first wp of the measurement
@@ -331,7 +334,7 @@ class MeasurementScript():
         self.wp_stop.set_sph(**self._sph)
         self.wp_stop.set_wp(**self._volts)
         self.wp_stop.set_mode(self._modes['wp'])
-        if (self._sweep['var_name'] in self.wp_start._sph.keys()):
+        if (self._sweep['var_name'] in self.wp_start.get_sph().keys()):
             self.wp_start.set_sph(**{self._sweep['var_name']:self._sweep['start']})
             self.wp_stop.set_sph(**{self._sweep['var_name']:self._sweep['stop']})
         elif (self._sweep['var_name'] in self.wp_start._outputs.keys()):
