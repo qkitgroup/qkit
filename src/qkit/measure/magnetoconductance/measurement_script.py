@@ -385,7 +385,7 @@ class MeasurementScript():
     def generate_steps(self):
         ''' generate steps for step variable if possible'''
         if self._step['start'] is not None and self._step['stop'] is not None and self._step['step_size'] is not None:
-            self._step['values'] = np.arange(self._step['start'], self._step['stop'],
+            self._step['values'] = np.arange(self._step['start'], self._step['stop']+self._step['step_size'],
                                             self._step['step_size'],dtype=np.float32)
             self.dim = 2
         else:
@@ -394,16 +394,11 @@ class MeasurementScript():
 
     def generate_sweep(self):
         ''' generate steps for sweep variable if possible'''
-        if self._sweep['start'] is not None and self._sweep['stop'] is not None and self._sweep['rate'] is not None:
-            dur = (self._sweep['stop']-self._sweep['start'])/self._sweep['rate']
-            if self._sweep['duration'] is not None:
-                if dur > self._sweep['duration']:
-                    self._sweep['duration'] = dur
-            else:
-                self._sweep['duration'] = dur
+        if (self._sweep['start'] or self._sweep['stop'] or self._sweep['rate']) is not None:
             self._sweep['values'] = np.linspace(
                 self._sweep['start'],self._sweep['stop'],
                 round(self._sweep['duration']*self._lockin['sample_rate']),dtype=np.float32)
+            log.info("Generated sweep values!")
         else:
             log.error("Couldn't generate sweep value list, inputs missing!")
 
@@ -549,17 +544,33 @@ class MeasurementScript():
                             self._sweep[key] = val
                         else:
                             log.error(f'{val} is no valid value for sweep_{key}!')
-                    case 'start' | 'stop' | 'duration':
+                    case 'start' | 'stop' | 'duration' | 'rate':
                         if isinstance(val,(int,float)):
                             self._sweep[key] = val
                         else:
                             log.error(f'Value of {key} must be float or integer!')
-        if 'rate' in kwargs.keys() and self._sweep['var_name'] is not None:
-            if kwargs['rate'] >= self.max_rate_config[self._sweep['var_name']]:
-                self._sweep['rate'] = kwargs['rate']
-            else:
+        # Validation of sweep rate/duration
+        if self._sweep['rate'] and (self._sweep['start'] or self._sweep['stop']) is not None:
+            if self.max_rate_config[self._sweep['var_name']] > self._sweep['rate']:
+                log.warning(f"Rate of {self._sweep['rate']} is not valid! Set rate to max rate {self.max_rate_config[self._sweep['var_name']]}")
                 self._sweep['rate'] = self.max_rate_config[self._sweep['var_name']]
-                log.warning(f"Rate of {kwargs['rate']} is not valid! Set rate to max rate {self._sweep['rate']}")
+            self._sweep['duration'] = abs(self._sweep['stop']-self._sweep['start'])/self._sweep['rate']
+            log.info(f"Set sweep duration to {self._sweep['duration']}")
+        elif self._sweep['duration'] and (self._sweep['start'] or self._sweep['stop']) is not None:
+            rate = abs(self._sweep['stop']-self._sweep['start'])/self._sweep['duration']
+            if self.max_rate_config[self._sweep['var_name']] > rate:
+                self._sweep['rate'] = self.max_rate_config[self._sweep['var_name']]
+                log.warning(f"Sweep duration {self._sweep['duration']} with rate {rate} is not valid! Set rate to max rate {self.max_rate_config[self._sweep['var_name']]}")
+            else:
+                self._sweep['rate'] = rate
+        elif (self._sweep['start'] or self._sweep['stop']) is not None:
+            log.warning(f"No rate set! Set rate to max rate {self.max_rate_config[self._sweep['var_name']]}")
+            self._sweep['rate'] = self.max_rate_config[self._sweep['var_name']]
+            self._sweep['duration'] = abs(self._sweep['stop']-self._sweep['start'])/self._sweep['rate']
+            log.info(f"Set sweep duration to {self._sweep['duration']}")
+        else:
+            assert ValueError("Values for sweep missing!")
+
 
     def set_step(self, **kwargs):
         ''' setter func for step'''
