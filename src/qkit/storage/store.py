@@ -15,7 +15,7 @@ import traceback
 import qkit
 from qkit.storage.hdf_file import H5_file
 from qkit.storage.hdf_dataset import hdf_dataset
-from qkit.storage.hdf_constants import ds_types, analysis_types
+from qkit.storage.hdf_constants import ds_types
 from qkit.storage.hdf_view import dataset_view
 from qkit.storage.hdf_analyse import dataset_analysis
 from qkit.storage.hdf_config import dataset_config
@@ -286,7 +286,7 @@ class Data(object):
                             ds_type = ds_types['view'],view_params = view_params)
         return ds
     
-    def add_analysis(self,name,x = None, y = None, z = None, filter  = None, analysis_type = analysis_types['matrix'], analysis_params = {}):
+    def add_analysis(self,name,x = None, y = None, z = None):
         """Adds a analysis to plot specific analysis plots.
         
         This function is a wrapper to create a dataset_analysis.
@@ -294,8 +294,7 @@ class Data(object):
         z is only used for colormaps
         (Fixme: not jet implemented)
         """
-        ds =  dataset_analysis(self.hf,name, x=x, y=y, z=z, filter = filter, analysis_type=analysis_type,
-                            ds_type = ds_types['analysis'],analysis_params = analysis_params)
+        ds =  dataset_analysis(self.hf,name, x=x, y=y, z=z)
         return ds
 
     def add_config(self,name='measurement.config',**cfg):

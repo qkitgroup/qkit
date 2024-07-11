@@ -22,7 +22,6 @@ import h5py
 import qkit
 from qkit.measure.magnetoconductance.spin_tune_ST import Tuning_ST
 from qkit.measure.magnetoconductance.working_point import WorkingPoint
-from qkit.storage.hdf_constants import analysis_types
 from qkit.drivers.adwin_spin_transistor import adwin_spin_transistor
 
 
@@ -46,18 +45,14 @@ class MeasurementScript():
         self.valid_inputs = ['raw','inph','quad']
         self.valid_traces = ['trace','retrace','difference']
         self.valid_calc = ['amp','phase']
-        self.valid_analysis = ['polarplot','histogramm']
         self.max_rate_config = {'bx':0.1,'by':0.1,'bz':0.1,'bp':0.1,'bt':0.1,'vg':0.1,'vd':0.1}     	# rate in T(/V) per sec
         self.unit = {'inph':'V','quad':'V','raw':'V','amp':'V','phase':''}
         self.valids = {'step':self.valid_step_vars,'sweep':self.valid_sweep_vars,
                         'wp':self.valid_wp_mode,'measure':self.valid_measure_mode,
                         'traces':self.valid_traces,'inputs':self.valid_inputs,
-                        'calc':self.valid_calc,'maxrate':self.max_rate_config,
-                        'analysis':self.valid_analysis}
+                        'calc':self.valid_calc,'maxrate':self.max_rate_config}
 
         # define needed value dicts and lists
-        self.analysis = []
-        self.analysis_params = {}
         self._sph = {'theta': 0, 'phi': 0, 'psi': 0, 'bp': 0, 'bt': 0}
         self._sweep = {'var_name':None,'start':None,'stop':None,'unit':None,
                         'rate':None,'duration':None,'values':None}
@@ -75,9 +70,8 @@ class MeasurementScript():
                                 'amp':[],'phase':[]}}
         self.set_functions = {'sph':self.set_sph,'sweep':self.set_sweep,'step':self.set_step,
                             'modes':self.set_modes,'volts':self.set_volts,'lockin':self.set_lockin,
-                            'data':self.set_data,'hard_config':self.set_hard_config,'analysis':self.set_analysis,
-                            'soft_config':self.set_soft_config,'adwin_bootload':self.set_adwin_bootload,
-                            'analysis_params':self.set_analysis_params}
+                            'data':self.set_data,'hard_config':self.set_hard_config,
+                            'soft_config':self.set_soft_config,'adwin_bootload':self.set_adwin_bootload}
 
         if h5_path is not None:
             self.load_config(h5_path)              # load measurement setup from h5file
@@ -175,18 +169,10 @@ class MeasurementScript():
                     view = self.datafile.add_view(name=key, x=self.coordinates[self._x_parameter.name], y=self.datasets['sweep_measure.'+key])
 
     def add_analysis(self):
-        ''' adds analysis, like polar plot or histogramm'''
+        ''' adds analysis datasets that contain the dataset URLs required for the analysis'''
         for key in self.inputs_dict.keys():
-            if 'difference' in key:
-                if 'polarplot' in self.analysis:
-                    self.datafile.add_analysis(name=f'{key}_polarplot', x=self.coordinates[self._x_parameter.name],
-                                                y=self.coordinates[self._y_parameter.name], z=self.datasets['sweep_measure.'+key],
-                                                analysis_type = analysis_types['polarplot'], analysis_params=self.analysis_params)
-            elif 'trace' in key:
-                if 'histogramm' in self.analysis:
-                    self.datafile.add_analysis(name=f'{key}_histogramm', x=self.coordinates[self._x_parameter.name],
-                                            y=self.coordinates[self._y_parameter.name], z=self.datasets['sweep_measure.'+key],
-                                            analysis_type = analysis_types['histogramm'], analysis_params=self.analysis_params)
+            self.datafile.add_analysis(name=key, x=self.coordinates[self._x_parameter.name],
+                                                y=self.coordinates[self._y_parameter.name], z=self.datasets['sweep_measure.'+key])
 
     def set_parameter(self):
         ''' setter for x/y parameter of measurement'''
@@ -272,7 +258,7 @@ class MeasurementScript():
                 if key in self.valid_calc:
                     amp, phase = {'trace':[],'retrace':[],'difference':[]}, {'trace':[],'retrace':[],'difference':[]}
                     for key1 in val:
-                        if (values_dict.get(f'inph_{key1}') is not None) and (values_dict.get(f'quad_{key1}') is not None):
+                        if (values_dict.get(f'inph_{key1}') or values_dict.get(f'quad_{key1}')) is not None:
                             if key == 'amp':
                                 amp[key1] = calc_r(values_dict.get(f'inph_{key1}'), values_dict.get(f'quad_{key1}'))
                             elif key == 'phase':
@@ -387,7 +373,7 @@ class MeasurementScript():
 
     def generate_steps(self):
         ''' generate steps for step variable if possible'''
-        if self._step['start'] is not None and self._step['stop'] is not None and self._step['step_size'] is not None:
+        if (self._step['start'] or self._step['stop'] or self._step['step_size']) is not None:
             self._step['values'] = np.arange(self._step['start'], self._step['stop']+self._step['step_size'],
                                             self._step['step_size'],dtype=np.float32)
             self.dim = 2
@@ -484,7 +470,7 @@ class MeasurementScript():
                         if key1 not in self._data['temp_save'][val1]:
                             self._data['temp_save'][val1].append(key1)
         return self._data
-    
+
     def add_inputs(self):
         ''' getter func for adwin inputs'''
         for key, val in self._data['temp_save'].items():
@@ -527,22 +513,6 @@ class MeasurementScript():
             # log.warning("Soft config for adwin was changed!")
         else:
             assert ValueError
-
-    def set_analysis(self, analysis):
-        ''' setter function for analysis'''
-        if isinstance(analysis,list):
-            for key in analysis:
-                if key in self.valids['analysis']:
-                    self.analysis.append(key)
-        elif isinstance(analysis,str):
-            if analysis in self.valids['analysis']:
-                self.analysis.append(analysis)
-        else:
-            assert ValueError
-
-    def set_analysis_params(self,**kwargs):     # todo: possible parameter?
-        ''' setter function for additional parameter for analysis'''
-        self.analysis_params = kwargs.values()[0]
 
     def set_sweep(self, **kwargs):
         ''' setter func for sweep'''

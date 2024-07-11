@@ -12,7 +12,7 @@ ds_types = {'coordinate':0,
             'txt':10,
             'view':20,
             'analysis':30
-            } 
+            }
 
 view_types =  {'1D':0,
                 '1D-V':1,
@@ -20,9 +20,4 @@ view_types =  {'1D':0,
                 '3D':3,
                 'table':4,
                 'txt':5,
-                }
-
-analysis_types = {'matrix':5,
-                'polarplot':6,
-                'hystogramm':7
                 }
