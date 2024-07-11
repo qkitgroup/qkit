@@ -17,6 +17,7 @@
 import logging as log
 import numpy as np
 import time
+import h5py
 import qkit
 from qkit.measure.magnetoconductance.spin_tune_ST import Tuning_ST
 from qkit.measure.magnetoconductance.working_point import WorkingPoint
@@ -35,7 +36,7 @@ def calc_theta(x, y):
 class MeasurementScript():
     ''' The Measurement Script generates a set of values for the WorkingPoint'''
 
-    def __init__(self,anna:adwin_spin_transistor,hf=None,**kwargs):
+    def __init__(self,anna:adwin_spin_transistor,h5_path=None,**kwargs):
         # define valid inputs
         self.valid_step_vars = ['vg','vd','N','bt','bp','phi','psi','theta']
         self.valid_sweep_vars = ['vg','vd','bt','bp','phi','psi','theta']
@@ -78,7 +79,7 @@ class MeasurementScript():
                             'analysis_params':self.set_analysis_params}
 
         # if hf is not None:
-        #     self.load_settings()              # todo: load measurement setup from h5file
+        #     self.load_settings(h5_path)              # todo: load measurement setup from h5file
         self.set_(**kwargs)             # set all values
         self.anna = anna
         self.update_script()            # start script for generating measurement
@@ -403,42 +404,52 @@ class MeasurementScript():
             log.error("Couldn't generate sweep value list, inputs missing!")
 
     def get_sph(self):
-            ''' getter func for sph vars'''
-            return self._sph
+        ''' getter func for sph vars'''
+        return self._sph
 
     def get_step(self):
-        ''' getter func for steps'''
+        ''' getter func for step vars'''
+        step = {'var_name':self._step['var_name'],'start':self._step['start'],'stop':self._step['stop'],
+                'step_size':self._step['step_size'],'unit':self._step['unit']}
+        return step
+
+    def get_sweep(self):
+        ''' getter func for sweep vars'''
+        sweep = {'var_name':self._sweep['var_name'],'start':self._sweep['start'],'stop':self._sweep['stop'],
+                    'rate':self._sweep['rate'],'unit':self._sweep['unit'],'duration':self._sweep['duration']}
+        return sweep
+
+    def get_step_val(self):
+        ''' getter func for step values'''
         if self._step['values'] is None:
             self.generate_steps()
         return self._step
 
-    def get_sweep(self):
-        ''' getter func for steps'''
+    def get_sweep_val(self):
+        ''' getter func for sweep values'''
         if self._sweep['values'] is None:
             self.generate_sweep()
         return self._sweep
 
     def get_modes(self):
         ''' getter func for modes of wp and measurement'''
-        if None in self._modes.values():
-            log.error('Mode for working point or measurement not set!')
-        else:
-            return self._modes
+        return self._modes
 
     def get_volts(self):
         ''' getter func for volts'''
-        for key,val in self._volts.items():
-            if val is None:
-                log.error(f'Value for {key} is not set!')
         return self._volts
 
     def get_lockin(self):
         ''' getter func for lockin signal pars'''
-        for key,val in self._lockin.items():
-            if val is None:
-                log.warning(f'No value for {key} set, measurement will start without lockin signal!')
-                self._lockin[key] = 0
         return self._lockin
+
+    def get_inputs(self):
+        ''' getter func for inputs of adwin'''
+        return self._inputs
+
+    def get_data(self):
+        ''' getter func for data save and plot information'''
+        return self._data
 
     def complete_data(self):
         ''' getter func for data measurement, saving and live plotting'''
@@ -503,7 +514,7 @@ class MeasurementScript():
         ''' setter function to update adwin hard config'''
         if isinstance(kwargs,dict):
             self.hard_config = kwargs
-            log.warning("Hard config for Adwin was changed!")
+            # log.warning("Hard config for Adwin was changed!")
         else:
             assert ValueError
 
@@ -511,6 +522,7 @@ class MeasurementScript():
         ''' setter function to update adwin soft config'''
         if isinstance(kwargs,dict):
             self.soft_config = kwargs
+            self.anna.aio.update_soft_config()
             log.warning("Soft config for adwin was changed!")
         else:
             assert ValueError
@@ -643,18 +655,43 @@ class MeasurementScript():
                 else:
                     log.error(f'Value of {key} must be float or integer!')
 
-    # def get_(self):         # todo: filter not needed informations
-    #     ''' getter for all vars'''
-    #     sweep=self.get_sweep().copy()
-    #     del sweep['values']
-    #     step=self.get_step().copy()
-    #     del step['values']
-    #     return {'sph':self.get_sph(),'sweep':sweep,'step':step,
-    #             'modes':self.get_modes(),'volts':self.get_volts(),'lockin':self.get_lockin(),
-    #             'saved_data':self.get_data()['save']}
-
-    def save_settings(self):    # todo: consider save settings
+    def save_config(self):
+        save = self.datafile.hf.create_dataset('measurement_config',0,'data0',dim=1)
+        save.attrs.create('ds_type','config')
+        save.attrs.create('sph',self.get_sph().encode())
+        save.attrs.create('sweep',self.get_sweep().encode())
+        save.attrs.create('step',self.get_step().encode())
+        save.attrs.create('modes',self.get_modes().encode())
+        save.attrs.create('volts',self.get_volts().encode())
+        save.attrs.create('lockin',self.get_lockin().encode())
+        save.attrs.create('inputs',self._inputs().encode())
+        save.attrs.create('data',self._data().encode())
+        save.attrs.create('soft_config',self.get_soft_config().encode())
+        save.attrs.create('hard_config',self.get_hard_config().encode())
         pass
 
-    def load_settings(self):    # todo: consider load settings
-        pass
+    def load_config(self,h5_path):
+        try:
+            hf = h5py.File(h5_path)
+            config_ds = hf["entry/data0/measurement_config"]
+            config = {}
+            ds_type = None
+            for key,val in config_ds.attrs.items():
+                if key != 'ds_type':
+                    config[key] = val
+                else:
+                    ds_type = val
+            if ds_type == 'config':
+                log.info('Load measurement config from .h/hdf5 file...')
+                if 'hard_config' not in config.keys():
+                    log.warning('Could not load hard_config for adwin!')
+                else:
+                    log.warning('Hard_config for adwin can not be changed! Please set hard_config in adwin init!')
+                if 'soft_config' not in config.keys():
+                    log.warning('Could not load soft_config for adwin!')
+                self._set(**config)
+                log.info('Config from .h/hdf5 file loaded.')
+            else:
+                assert ValueError
+        except:
+            assert ImportError
