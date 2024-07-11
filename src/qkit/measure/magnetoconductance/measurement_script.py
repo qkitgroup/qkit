@@ -16,6 +16,7 @@
 
 import logging as log
 import numpy as np
+import json
 import time
 import h5py
 import qkit
@@ -78,8 +79,8 @@ class MeasurementScript():
                             'soft_config':self.set_soft_config,'adwin_bootload':self.set_adwin_bootload,
                             'analysis_params':self.set_analysis_params}
 
-        # if hf is not None:
-        #     self.load_settings(h5_path)              # todo: load measurement setup from h5file
+        if h5_path is not None:
+            self.load_config(h5_path)              # load measurement setup from h5file
         self.set_(**kwargs)             # set all values
         self.anna = anna
         self.update_script()            # start script for generating measurement
@@ -149,6 +150,7 @@ class MeasurementScript():
 
     def start_measurement(self):
         ''' start activated measurement'''
+        self.save_config()
         if self.dim == 1:
             self.tune.measure1D(self.plots)
         elif self.dim == 2:
@@ -522,8 +524,7 @@ class MeasurementScript():
         ''' setter function to update adwin soft config'''
         if isinstance(kwargs,dict):
             self.soft_config = kwargs
-            self.anna.aio.update_soft_config()
-            log.warning("Soft config for adwin was changed!")
+            # log.warning("Soft config for adwin was changed!")
         else:
             assert ValueError
 
@@ -563,14 +564,14 @@ class MeasurementScript():
                             log.error(f'Value of {key} must be float or integer!')
         # Validation of sweep rate/duration
         if self._sweep['rate'] and (self._sweep['start'] or self._sweep['stop']) is not None:
-            if self.max_rate_config[self._sweep['var_name']] > self._sweep['rate']:
+            if self.max_rate_config[self._sweep['var_name']] < self._sweep['rate']:
                 log.warning(f"Rate of {self._sweep['rate']} is not valid! Set rate to max rate {self.max_rate_config[self._sweep['var_name']]}")
                 self._sweep['rate'] = self.max_rate_config[self._sweep['var_name']]
             self._sweep['duration'] = abs(self._sweep['stop']-self._sweep['start'])/self._sweep['rate']
             log.info(f"Set sweep duration to {self._sweep['duration']}")
         elif self._sweep['duration'] and (self._sweep['start'] or self._sweep['stop']) is not None:
             rate = abs(self._sweep['stop']-self._sweep['start'])/self._sweep['duration']
-            if self.max_rate_config[self._sweep['var_name']] > rate:
+            if self.max_rate_config[self._sweep['var_name']] < rate:
                 self._sweep['rate'] = self.max_rate_config[self._sweep['var_name']]
                 log.warning(f"Sweep duration {self._sweep['duration']} with rate {rate} is not valid! Set rate to max rate {self.max_rate_config[self._sweep['var_name']]}")
             else:
@@ -656,42 +657,38 @@ class MeasurementScript():
                     log.error(f'Value of {key} must be float or integer!')
 
     def save_config(self):
-        save = self.datafile.hf.create_dataset('measurement_config',0,'data0',dim=1)
-        save.attrs.create('ds_type','config')
-        save.attrs.create('sph',self.get_sph().encode())
-        save.attrs.create('sweep',self.get_sweep().encode())
-        save.attrs.create('step',self.get_step().encode())
-        save.attrs.create('modes',self.get_modes().encode())
-        save.attrs.create('volts',self.get_volts().encode())
-        save.attrs.create('lockin',self.get_lockin().encode())
-        save.attrs.create('inputs',self._inputs().encode())
-        save.attrs.create('data',self._data().encode())
-        save.attrs.create('soft_config',self.get_soft_config().encode())
-        save.attrs.create('hard_config',self.get_hard_config().encode())
-        pass
+        ''' save measurement config in dataset of .h/hdf5 file'''
+        save = self.datafile.add_config()
+        save.add('ds_type','config')
+        save.add('sph',self.get_sph())
+        save.add('sweep',self.get_sweep())
+        save.add('step',self.get_step())
+        save.add('modes',self.get_modes())
+        save.add('volts',self.get_volts())
+        save.add('lockin',self.get_lockin())
+        save.add('inputs',self.get_inputs())
+        save.add('data',self.get_data())
+        save.add('soft_config',self.get_soft_config())
+        save.add('hard_config',self.get_hard_config())
 
     def load_config(self,h5_path):
+        ''' load measurement config from .h/hdf5 file'''
         try:
             hf = h5py.File(h5_path)
-            config_ds = hf["entry/data0/measurement_config"]
+            config_ds = hf["entry/data0/measurement.config"]
             config = {}
-            ds_type = None
             for key,val in config_ds.attrs.items():
-                if key != 'ds_type':
-                    config[key] = val
-                else:
-                    ds_type = val
-            if ds_type == 'config':
-                log.info('Load measurement config from .h/hdf5 file...')
-                if 'hard_config' not in config.keys():
-                    log.warning('Could not load hard_config for adwin!')
-                else:
-                    log.warning('Hard_config for adwin can not be changed! Please set hard_config in adwin init!')
-                if 'soft_config' not in config.keys():
-                    log.warning('Could not load soft_config for adwin!')
-                self._set(**config)
-                log.info('Config from .h/hdf5 file loaded.')
-            else:
-                assert ValueError
-        except:
-            assert ImportError
+                try:
+                    config[key] = json.loads(val)
+                except:
+                    pass
+            print(config)
+            log.info('Load measurement config from .h/hdf5 file...')
+            if 'hard_config' not in config.keys():
+                log.error('Could not load hard_config for adwin!')
+            if 'soft_config' not in config.keys():
+                log.error('Could not load soft_config for adwin!')
+            self.set_(**config)
+            log.info('Config from .h/hdf5 file loaded.')
+        except ImportError:
+            log.error('Load config from .h/hdf5 file failed!')

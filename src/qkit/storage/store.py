@@ -18,6 +18,7 @@ from qkit.storage.hdf_dataset import hdf_dataset
 from qkit.storage.hdf_constants import ds_types, analysis_types
 from qkit.storage.hdf_view import dataset_view
 from qkit.storage.hdf_analyse import dataset_analysis
+from qkit.storage.hdf_config import dataset_config
 from qkit.storage.hdf_DateTimeGenerator import DateTimeGenerator
 
 
@@ -295,6 +296,11 @@ class Data(object):
         """
         ds =  dataset_analysis(self.hf,name, x=x, y=y, z=z, filter = filter, analysis_type=analysis_type,
                             ds_type = ds_types['analysis'],analysis_params = analysis_params)
+        return ds
+
+    def add_config(self,name='measurement.config',**cfg):
+        """Adds a config dataset to save the config of the measurement"""
+        ds = dataset_config(self.hf,name,**cfg)
         return ds
 
     def add_fid_param(self, param, value):
