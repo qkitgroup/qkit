@@ -100,7 +100,6 @@ class MeasurementScript():
         self.prepare_measurement_datasets()
         self.prepare_measurement_datafile()
         self.add_view()                 # add view datasets with information for additional live plots
-        self.add_analysis()             # add analysis datasets with information for analysis plots
 
     def end_measurement(self):
         ''' end measurement'''
@@ -167,12 +166,9 @@ class MeasurementScript():
                     view = self.datafile.add_view(name=key, x=self.coordinates[self._y_parameter.name], y=self.datasets['sweep_measure.'+key])
                 else:
                     view = self.datafile.add_view(name=key, x=self.coordinates[self._x_parameter.name], y=self.datasets['sweep_measure.'+key])
-
-    def add_analysis(self):
-        ''' adds analysis datasets that contain the dataset URLs required for the analysis'''
-        for key in self.inputs_dict.keys():
-            self.datafile.add_analysis(name=key, x=self.coordinates[self._x_parameter.name],
-                                                y=self.coordinates[self._y_parameter.name], z=self.datasets['sweep_measure.'+key])
+        if 'sweep_measure.amp_difference' in self.inputs_dict.keys():
+            if 'deg' in self._step['unit'] or '°' in self._step['unit']:
+                view = self.datafile.add_polarview()
 
     def set_parameter(self):
         ''' setter for x/y parameter of measurement'''

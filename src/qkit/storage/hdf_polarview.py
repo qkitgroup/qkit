@@ -1,29 +1,27 @@
 # -*- coding: utf-8 -*-
 
 import qkit
-from qkit.storage.hdf_constants import ds_types
+from qkit.storage.hdf_constants import ds_types, view_types
 from qkit.core.lib.misc import str3
-class dataset_analysis(object):
-    """This class describes a specific data analysis plots,
-    like polar plot and hystogramms.        
+class dataset_polarview(object):
+    """This class describes a polar colormap of a 2D dataset.        
     
-    Analysis do not contain any data but only ds_url information about the datasets
-    that should  be displayed. The attributes 'ds_type' and 'xyz' hold the 
-    information about what type of plots are created and which
-    datasets are plotted against each other.
+    The dataset do not contain any data but only ds_url information about the dataset
+    that should be displayed.
     """
 
     def __init__(self, hdf_file, name, x=None, y=None, z=None,
-                 ds_type =  ds_types['analysis'], folder = 'analysis'):
+                 ds_type =  ds_types['view'], folder = 'view'):
 
         self.hf = hdf_file
         self.name = name
         self.folder = folder
         self.ds_url = "/entry/" + folder + "/" + name
         self.ds_type = ds_type
+        self.view_type = view_types['polarplot']
         self.filter = filter
 
-        if ds_type != ds_types['analysis']:
+        if ds_type != ds_types['view']:
             raise TypeError(__name__ + ": Dataset contains wrong ds_type")
 
         if not x or not y or not z:
@@ -40,6 +38,7 @@ class dataset_analysis(object):
         ds = self.ds
         if init:
             ds.attrs.create('ds_type',self.ds_type)
+            ds.attrs.create('view_type',self.view_type)
         ds.attrs.create("xyz",(str(self.x_object)+":"+str(self.y_object)+":"+str(self.z_object)).encode())
         ds.attrs.create("step_var",str(self.x_object))
         ds.attrs.create("sweep_var",str(self.y_object))

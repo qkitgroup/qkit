@@ -19,6 +19,7 @@ from qkit.storage.hdf_constants import ds_types
 from qkit.storage.hdf_view import dataset_view
 from qkit.storage.hdf_analyse import dataset_analysis
 from qkit.storage.hdf_config import dataset_config
+from qkit.storage.hdf_polarview import dataset_polarview
 from qkit.storage.hdf_DateTimeGenerator import DateTimeGenerator
 
 
@@ -285,16 +286,11 @@ class Data(object):
         ds =  dataset_view(self.hf,name, x=x, y=y, error=error, filter = filter, 
                             ds_type = ds_types['view'],view_params = view_params)
         return ds
-    
-    def add_analysis(self,name,x = None, y = None, z = None):
-        """Adds a analysis to plot specific analysis plots.
-        
-        This function is a wrapper to create a dataset_analysis.
-        x, y, z are possible datasets to display
-        z is only used for colormaps
-        (Fixme: not jet implemented)
+
+    def add_polarview(self,name,x = None, y = None, z = None):
+        """Adds a view to plot x-y-z data as polar colormap.
         """
-        ds =  dataset_analysis(self.hf,name, x=x, y=y, z=z)
+        ds =  dataset_polarview(self.hf,name, x=x, y=y, z=z, ds_type = ds_types['view'])
         return ds
 
     def add_config(self,name='measurement.config',**cfg):
