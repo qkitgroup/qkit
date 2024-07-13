@@ -39,7 +39,7 @@ import pprint
 from qkit.core.lib.misc import str3
 
 
-def _init_polarplot(self, graphicsView, coord_label):
+def _init_polarplot(self, graphicsView):
     graphicsView.mpl_connect('motion_notify_event', self.on_mouse_move)
     # Cursor hinzufügen
     self.cursor = Cursor(graphicsView.axes, useblit=True, color='red', linewidth=1)
@@ -54,7 +54,6 @@ def _init_polarplot(self, graphicsView, coord_label):
     x_data = dss[0][()]
     y_data = dss[1][()]
     stepvar = names[0]
-    print(stepvar)
     sweepunit = units[1]
     sweeprange = [0, max(y_data)]
     self.polarsplit = int(len(y_data[:]) / 2)
@@ -71,7 +70,7 @@ def _init_polarplot(self, graphicsView, coord_label):
     graphicsView.axes.set_title(f'angle: {stepvar}, amplitude: {round(sweeprange[1], 2)} {sweepunit}')
     graphicsView.draw()
 
-def _display_polarplot(self, graphicsView, coord_label):
+def _display_polarplot(self, graphicsView):
     """displays a 2d matrix of data color coded in a polarplot.
     
     Args:
@@ -84,8 +83,6 @@ def _display_polarplot(self, graphicsView, coord_label):
     """
     xyzurls = str3(self.ds.attrs.get("xyz", ""))
     ds_urls = [xyzurls.split(":")[0], xyzurls.split(":")[1], xyzurls.split(":")[2]]
-    # print(ds_urls)
-    # print(self.ds[()][0:])
     if xyzurls:
         dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ds_urls)
         if dss[0] is None or dss[1] is None or dss[2] is None:
@@ -94,11 +91,9 @@ def _display_polarplot(self, graphicsView, coord_label):
         x_ds_type = dss[0].attrs.get('ds_type', "ds_types['coordinate']")
         y_ds_type = dss[1].attrs.get('ds_type', "ds_types['coordinate']")
         z_ds_type = dss[2].attrs.get('ds_type', "ds_types['matrix']")
-    # print(dss)
     x_data = dss[0][()]
     y_data = dss[1][()]
     z_data = dss[2][()]
-    print(x_data.shape,y_data.shape,z_data.shape)
     if z_data.shape[0]*z_data.shape[1] < len(x_data) * len(y_data):
         # Handle incomplete data by filling with NaNs or zeros
         data = np.full((len(x_data), len(y_data)), np.nan)

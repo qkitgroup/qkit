@@ -45,7 +45,7 @@ class MeasurementScript():
         self.valid_inputs = ['raw','inph','quad']
         self.valid_traces = ['trace','retrace','difference']
         self.valid_calc = ['amp','phase']
-        self.max_rate_config = {'bx':0.1,'by':0.1,'bz':0.1,'bp':0.1,'bt':0.1,'vg':0.1,'vd':0.1}     	# rate in T(/V) per sec
+        self.max_rate_config = {'bx':0.1,'by':0.1,'bz':0.1,'bp':1,'bt':0.1,'vg':0.1,'vd':0.1}     	# rate in T(/V) per sec
         self.unit = {'inph':'V','quad':'V','raw':'V','amp':'V','phase':''}
         self.valids = {'step':self.valid_step_vars,'sweep':self.valid_sweep_vars,
                         'wp':self.valid_wp_mode,'measure':self.valid_measure_mode,
@@ -166,9 +166,9 @@ class MeasurementScript():
                     view = self.datafile.add_view(name=key, x=self.coordinates[self._y_parameter.name], y=self.datasets['sweep_measure.'+key])
                 else:
                     view = self.datafile.add_view(name=key, x=self.coordinates[self._x_parameter.name], y=self.datasets['sweep_measure.'+key])
-        if 'sweep_measure.amp_difference' in self.inputs_dict.keys():
-            if 'deg' in self._step['unit'] or '°' in self._step['unit']:
-                view = self.datafile.add_polarview()
+        if 'amp_difference' in self.inputs_dict.keys():
+            if 'deg' in self._step.get('unit') or '°' in self._step.get('unit'):
+                view = self.datafile.add_polarview(name='polar_colormap', x=self.coordinates[self._x_parameter.name], y=self.coordinates[self._y_parameter.name], z=self.datasets['sweep_measure.amp_difference'])
 
     def set_parameter(self):
         ''' setter for x/y parameter of measurement'''
@@ -254,7 +254,7 @@ class MeasurementScript():
                 if key in self.valid_calc:
                     amp, phase = {'trace':[],'retrace':[],'difference':[]}, {'trace':[],'retrace':[],'difference':[]}
                     for key1 in val:
-                        if (values_dict.get(f'inph_{key1}') or values_dict.get(f'quad_{key1}')) is not None:
+                        if (values_dict.get(f'inph_{key1}') is not None) and (values_dict.get(f'quad_{key1}') is not None):
                             if key == 'amp':
                                 amp[key1] = calc_r(values_dict.get(f'inph_{key1}'), values_dict.get(f'quad_{key1}'))
                             elif key == 'phase':
@@ -369,7 +369,7 @@ class MeasurementScript():
 
     def generate_steps(self):
         ''' generate steps for step variable if possible'''
-        if (self._step['start'] or self._step['stop'] or self._step['step_size']) is not None:
+        if (self._step['start'] is not None and self._step['stop'] is not None and self._step['step_size'] is not None):
             self._step['values'] = np.arange(self._step['start'], self._step['stop']+self._step['step_size'],
                                             self._step['step_size'],dtype=np.float32)
             self.dim = 2
@@ -379,7 +379,7 @@ class MeasurementScript():
 
     def generate_sweep(self):
         ''' generate steps for sweep variable if possible'''
-        if (self._sweep['start'] or self._sweep['stop'] or self._sweep['rate']) is not None:
+        if (self._sweep['start'] is not None and self._sweep['stop'] is not None and self._sweep['rate'] is not None):
             self._sweep['values'] = np.linspace(
                 self._sweep['start'],self._sweep['stop'],
                 round(self._sweep['duration']*self._lockin['sample_rate']),dtype=np.float32)
@@ -529,20 +529,20 @@ class MeasurementScript():
                         else:
                             log.error(f'Value of {key} must be float or integer!')
         # Validation of sweep rate/duration
-        if self._sweep['rate'] and (self._sweep['start'] or self._sweep['stop']) is not None:
+        if self._sweep['rate'] and (self._sweep['start'] is not None and self._sweep['stop'] is not None):
             if self.max_rate_config[self._sweep['var_name']] < self._sweep['rate']:
                 log.warning(f"Rate of {self._sweep['rate']} is not valid! Set rate to max rate {self.max_rate_config[self._sweep['var_name']]}")
                 self._sweep['rate'] = self.max_rate_config[self._sweep['var_name']]
             self._sweep['duration'] = abs(self._sweep['stop']-self._sweep['start'])/self._sweep['rate']
             log.info(f"Set sweep duration to {self._sweep['duration']}")
-        elif self._sweep['duration'] and (self._sweep['start'] or self._sweep['stop']) is not None:
+        elif self._sweep['duration'] and (self._sweep['start'] is not None and self._sweep['stop'] is not None):
             rate = abs(self._sweep['stop']-self._sweep['start'])/self._sweep['duration']
             if self.max_rate_config[self._sweep['var_name']] < rate:
                 self._sweep['rate'] = self.max_rate_config[self._sweep['var_name']]
                 log.warning(f"Sweep duration {self._sweep['duration']} with rate {rate} is not valid! Set rate to max rate {self.max_rate_config[self._sweep['var_name']]}")
             else:
                 self._sweep['rate'] = rate
-        elif (self._sweep['start'] or self._sweep['stop']) is not None:
+        elif (self._sweep['start'] is not None and self._sweep['stop'] is not None):
             log.warning(f"No rate set! Set rate to max rate {self.max_rate_config[self._sweep['var_name']]}")
             self._sweep['rate'] = self.max_rate_config[self._sweep['var_name']]
             self._sweep['duration'] = abs(self._sweep['stop']-self._sweep['start'])/self._sweep['rate']
@@ -648,7 +648,6 @@ class MeasurementScript():
                     config[key] = json.loads(val)
                 except:
                     pass
-            print(config)
             log.info('Load measurement config from .h/hdf5 file...')
             if 'hard_config' not in config.keys():
                 log.error('Could not load hard_config for adwin!')

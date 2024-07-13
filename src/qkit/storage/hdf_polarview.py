@@ -11,7 +11,7 @@ class dataset_polarview(object):
     """
 
     def __init__(self, hdf_file, name, x=None, y=None, z=None,
-                 ds_type =  ds_types['view'], folder = 'view'):
+                 ds_type =  ds_types['view'], folder = 'views'):
 
         self.hf = hdf_file
         self.name = name

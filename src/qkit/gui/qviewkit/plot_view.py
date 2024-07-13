@@ -23,7 +23,7 @@ if not in_pyqt5:
         sys.exit(-1)
 
 import qkit
-from qkit.storage.hdf_constants import ds_types
+from qkit.storage.hdf_constants import ds_types, view_types
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -48,7 +48,7 @@ class Ui_Form(object):
     setupUi() creates the overall window and ds_type sensitive signal slots 
     are added by the respective functions.
     """
-    def setupUi(self, Form,ds_type, selector_labels):
+    def setupUi(self, Form, ds_type, view_type, selector_labels):
         """Sets up the general window
         
         This function coordinates the changing input from the signal slots and
@@ -105,8 +105,10 @@ class Ui_Form(object):
         if ds_type == ds_types['txt']:
             self.setupTxt(Form)
         if ds_type == ds_types['view']:
-            self.setupView(Form)
-        
+            if view_type == view_types['1D-V']:
+                self.setupView(Form)
+            elif view_type == view_types['polarplot']:
+                pass
     def setupCoordinate(self,Form):
         # see setupVector()
         self.setupVector(Form)

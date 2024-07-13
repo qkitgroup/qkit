@@ -38,8 +38,8 @@ from qkit.core.lib.misc import str3
 
 
 class MplCanvas(FigureCanvas):
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
-        fig = Figure(figsize=(width, height), dpi=dpi)
+    def __init__(self, parent=None, width=5.5, height=5, dpi=100):
+        fig = Figure(figsize=(width, height), dpi=dpi, tight_layout=True)
         self.axes = fig.add_subplot(polar=True)
         super(MplCanvas, self).__init__(fig)
 
@@ -110,6 +110,7 @@ class PlotWindow(QWidget,Ui_Form):
             print(str(self.dataset_url)+": "+str(e))
             return
         self.ds_type = self.ds.attrs.get('ds_type', -1)
+        self.view_type = self.ds.attrs.get('view_type', None)
         
         # The axis names are parsed to plot_view's Ui_Form class to label the UI selectors 
         x_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('x_ds_url', '')))
@@ -143,13 +144,14 @@ class PlotWindow(QWidget,Ui_Form):
             self.VTraceYValueChanged = False
 
             # the following calls rely on ds_type and setup the layout of the plot window.
-            self.setupUi(self,self.ds_type, selector_label)
+            self.setupUi(self,self.ds_type,self.view_type, selector_label)
 
             window_title = str(self.dataset_url.split('/')[-1]) +" "+ str(self.DATA.filename)
             self.setWindowTitle(window_title)
 
             self._setDefaultView()
-            self._setup_signal_slots()
+            if self.view_type != view_types['polarplot']:
+                self._setup_signal_slots()
         
         ## We check here for the view type given by either default setting or
         ## user input. Creates the canvas and calls the associated plot 
@@ -191,12 +193,14 @@ class PlotWindow(QWidget,Ui_Form):
             elif self.view_type == view_types['polarplot']:
                 if not self.graphicsView or self._onPlotTypeChanged:
                     self._onPlotTypeChanged = False
-                    self.graphicsView = MplCanvas(self, width=5, height=4, dpi=100)
-                    self.gridLayout.addWidget(self.graphicsView,0,0)
+                    self.graphicsView = MplCanvas(self, width=5, height=5, dpi=100)
+                    self.gridLayout.addWidget(self.graphicsView)
                     self.coord_label = QLabel(self)
+                    self.coord_label.setMaximumHeight(40)
+                    self.coord_label.setStyleSheet(f"font-size: {16}px;")
                     self.gridLayout.addWidget(self.coord_label)
-                    _init_polarplot(self, self.graphicsView, self.coord_label)
-                _display_polarplot(self, self.graphicsView, self.coord_label)
+                    _init_polarplot(self, self.graphicsView)
+                _display_polarplot(self, self.graphicsView)
 
             elif self.view_type == view_types['table']:
                 if not self.graphicsView or self._onPlotTypeChanged:
@@ -561,7 +565,7 @@ class PlotWindow(QWidget,Ui_Form):
         if event.inaxes:
             theta = event.xdata
             r = event.ydata
-            self.coord_label.setText(f"Theta: {np.degrees(theta):.2f}°, R: {r:.4f}")
+            self.coord_label.setText(f"Theta: {np.degrees(theta):.2f}°, R: {r:.4f} T")
         else:
             self.coord_label.setText("")
 
