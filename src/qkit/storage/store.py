@@ -17,7 +17,6 @@ from qkit.storage.hdf_file import H5_file
 from qkit.storage.hdf_dataset import hdf_dataset
 from qkit.storage.hdf_constants import ds_types
 from qkit.storage.hdf_view import dataset_view
-from qkit.storage.hdf_analyse import dataset_analysis
 from qkit.storage.hdf_config import dataset_config
 from qkit.storage.hdf_polarview import dataset_polarview
 from qkit.storage.hdf_DateTimeGenerator import DateTimeGenerator
