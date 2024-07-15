@@ -45,7 +45,7 @@ class MeasurementScript():
         self.valid_inputs = ['raw','inph','quad']
         self.valid_traces = ['trace','retrace','difference']
         self.valid_calc = ['amp','phase']
-        self.max_rate_config = {'bx':0.1,'by':0.1,'bz':0.1,'bp':1,'bt':0.1,'vg':0.1,'vd':0.1}     	# rate in T(/V) per sec
+        self.max_rate_config = {'bx':0.1,'by':0.1,'bz':0.1,'bp':0.1,'bt':0.1,'vg':0.1,'vd':0.1}     	# rate in T(/V) per sec
         self.unit = {'inph':'V','quad':'V','raw':'V','amp':'V','phase':''}
         self.valids = {'step':self.valid_step_vars,'sweep':self.valid_sweep_vars,
                         'wp':self.valid_wp_mode,'measure':self.valid_measure_mode,
