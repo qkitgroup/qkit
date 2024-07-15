@@ -110,7 +110,6 @@ class PlotWindow(QWidget,Ui_Form):
             print(str(self.dataset_url)+": "+str(e))
             return
         self.ds_type = self.ds.attrs.get('ds_type', -1)
-        self.view_type = self.ds.attrs.get('view_type', None)
         
         # The axis names are parsed to plot_view's Ui_Form class to label the UI selectors 
         x_ds_name = _get_name(_get_ds(self.ds, self.ds.attrs.get('x_ds_url', '')))
@@ -144,7 +143,14 @@ class PlotWindow(QWidget,Ui_Form):
             self.VTraceYValueChanged = False
 
             # the following calls rely on ds_type and setup the layout of the plot window.
-            self.setupUi(self,self.ds_type,self.view_type, selector_label)
+            
+            if self.ds_type == ds_types['view']:
+                self.view_type = self.ds.attrs.get('view_type', None)
+                self.setupUi(self,self.ds_type, selector_label, self.view_type)
+            else:
+                self.setupUi(self,self.ds_type, selector_label)
+
+
 
             window_title = str(self.dataset_url.split('/')[-1]) +" "+ str(self.DATA.filename)
             self.setWindowTitle(window_title)

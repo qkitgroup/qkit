@@ -48,7 +48,7 @@ class Ui_Form(object):
     setupUi() creates the overall window and ds_type sensitive signal slots 
     are added by the respective functions.
     """
-    def setupUi(self, Form, ds_type, view_type, selector_labels):
+    def setupUi(self, Form, ds_type, selector_labels, view_type=None):
         """Sets up the general window
         
         This function coordinates the changing input from the signal slots and
