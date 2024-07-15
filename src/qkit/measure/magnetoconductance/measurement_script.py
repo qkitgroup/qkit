@@ -1,19 +1,62 @@
-''' The measurement script is similar to the working point modul.
-    It uses a step variable to generate a list of values
-    that the working point runs through during a measurement
-    and ensures that all output parameters are valid.
-    A list of values for the sweep variable is also generated 
-    to save and plot the measurement traces.
-    It should be noted that the values generated for the sweep variable
-    are not the true values that are set during the measurement,
-    as the true values are set with a lower rate than the sample rate
-    You could think of it as a list of operating points,
-    which it is not really, as it only contains the values
-    of the working points.
-        Ensuring for valid outputs should mostly be set in the measurement instruments driver,
-        cause valid values for outputs depends on hard wired measurement setup.
-        So some validation thats not needed here is not implemented. '''
+''' The measurement script is a class to describe and run
+    a 1D or 2D measurement, therefore several vars must be set.
+    These variables describe the working points (wp) to sweep between
+    during the measurement. Additional needed parameter is the mode
+    (normal/sweep) of the wp, more about this in the wp class.
+    The measurement can run with and without lockin signal,
+    if there should no lockin signal be applied, set no amplitude
+    or set amplitude to zero.
 
+    *Required keywords:
+        -anna:  *adwin instrument
+
+    (all below listed variables are saved as dictionaries,
+    some vars vaulues are restricted to certain values,
+    these are defined in the init of the class as valid values)
+
+        -sph:       *spherical coordinates and values for wp
+                    *phi, theta, psi, bp, bt
+                    *if a sph coordinate is used as step or sweep var
+                    it is not needed, because the value will be overwritten
+
+        -modes:     *mode of wp and measure mode
+                    *wp: normal, sweep; measure: sweep, static
+                    *the "static" measure mode is not yet implemented!
+
+        -volts:     *source-drain and gate voltage
+                    *vd, vg
+
+        -sweep:     *vars to generate virtual sweep values array
+                    *name, start, stop, unit
+                    *optional: rate, duration
+                    *if no rate or duration is set, max_rate_config of sweep var will be used
+
+        -step:      *vars to generate step values array (only needed for 2D measurement)
+                    *name, start, stop, stepsize, unit
+                    *stop value is incuded in step values array
+
+        -inputs:    *inputs to measure and return from adwin instrument
+                    *raw, inph, quad (for "inph" and "quad" is a lockin signal required)
+                    *optional: retrace (default=False, describes if retrace is measured)
+                    *if "save" is set in data, needed outputs will be generated automatically
+
+        -data:      *vars that should be saved and plotted from the measurement
+                    *save: (traces, inputs); plot: (traces, inputs)
+                    *traces and inputs in "plot" will automatically be added to save,
+                    cause its required to save the data to plot it with qviewkit.
+                    *additional inputs: amp, phase (inph, quad needed for calculation)
+
+    *Optional keywords:
+        -h5_path:   *path of .h/hdf5 file to extract and load measurement config
+                     from previous measurement
+
+                     
+    *ToDo:  -static measurement:        *measurement without sweep or step
+            -interactive measurement:   *measurement with adwin communication while sweep
+            !!! B to zero, all to zero !!!
+
+'''
+#imports
 import logging as log
 import numpy as np
 import json
@@ -45,8 +88,8 @@ class MeasurementScript():
         self.valid_inputs = ['raw','inph','quad']
         self.valid_traces = ['trace','retrace','difference']
         self.valid_calc = ['amp','phase']
-        self.max_rate_config = {'bx':0.1,'by':0.1,'bz':0.1,'bp':0.1,'bt':0.1,'vg':0.1,'vd':0.1}     	# rate in T(/V) per sec
-        self.unit = {'inph':'V','quad':'V','raw':'V','amp':'V','phase':''}
+        self.max_rate_config = {'bx':0.1,'by':0.1,'bz':0.1,'bp':0.1,'bt':0.1,'vg':0.1,'vd':0.1} # rate in T(/V) per sec
+        self.unit = {'inph':'S','quad':'S','raw':'V','amp':'S','phase':'rad'}
         self.valids = {'step':self.valid_step_vars,'sweep':self.valid_sweep_vars,
                         'wp':self.valid_wp_mode,'measure':self.valid_measure_mode,
                         'traces':self.valid_traces,'inputs':self.valid_inputs,
@@ -54,29 +97,30 @@ class MeasurementScript():
 
         # define needed value dicts and lists
         self._sph = {'theta': 0, 'phi': 0, 'psi': 0, 'bp': 0, 'bt': 0}
-        self._sweep = {'var_name':None,'start':None,'stop':None,'unit':None,
+        self._sweep = {'name':None,'start':None,'stop':None,'unit':None,
                         'rate':None,'duration':None,'values':None}
-        self._step = {'var_name':None,'start':None,'stop':None,'unit':None,
+        self._step = {'name':None,'start':None,'stop':None,'unit':None,
                         'step_size':None,'values':None}
         self._modes = {'wp':None,'measure':None}
         self._volts = {'vd':None,'vg':None}
         self._lockin = {'freq':None,'amp':None,'tao':None,'init_time':None,'sample_rate':500e3}
         self._inputs = {'retrace':False,'inputs':[]}
         self._data = {'temp_save':{'inph':[],'quad':[],'raw':[],
-                                'amp':[],'phase':[]},              # todo: add create_temp_save
+                                'amp':[],'phase':[]},
                         'save':{'inph':[],'quad':[],'raw':[],
                                 'amp':[],'phase':[]},
                         'plot':{'inph':[],'quad':[],'raw':[],
                                 'amp':[],'phase':[]}}
+        # define dict with setter functions for all vars
         self.set_functions = {'sph':self.set_sph,'sweep':self.set_sweep,'step':self.set_step,
                             'modes':self.set_modes,'volts':self.set_volts,'lockin':self.set_lockin,
                             'data':self.set_data,'hard_config':self.set_hard_config,
                             'soft_config':self.set_soft_config,'adwin_bootload':self.set_adwin_bootload}
 
         if h5_path is not None:
-            self.load_config(h5_path)              # load measurement setup from h5file
+            self.load_config(h5_path)   # load measurement config from h5file
         self.set_(**kwargs)             # set all values
-        self.anna = anna
+        self.anna = anna                # copy existing adwin instrument object
         self.update_script()            # start script for generating measurement
 
     def update_script(self):
@@ -173,11 +217,11 @@ class MeasurementScript():
     def set_parameter(self):
         ''' setter for x/y parameter of measurement'''
         if self.dim == 1:
-            self.tune.set_x_parameters(self._sweep['values'], self._sweep['var_name'], None, self._sweep['unit'])
+            self.tune.set_x_parameters(self._sweep['values'], self._sweep['name'], None, self._sweep['unit'])
             self._x_parameter = self.tune._x_parameter
         elif self.dim == 2:
-            self.tune.set_x_parameters(self._step['values'], self._step['var_name'], self.wp_setter, self._step['unit'])
-            self.tune.set_y_parameters(self._sweep['values'], self._sweep['var_name'], None, self._sweep['unit'])
+            self.tune.set_x_parameters(self._step['values'], self._step['name'], self.wp_setter, self._step['unit'])
+            self.tune.set_y_parameters(self._sweep['values'], self._sweep['name'], None, self._sweep['unit'])
             self._x_parameter = self.tune._x_parameter
             self._y_parameter = self.tune._y_parameter
 
@@ -212,14 +256,18 @@ class MeasurementScript():
 
     def start_lockin(self):
         ''' start lockin signal'''
-        self.anna.init_measurement('lockin', self._lockin['sample_rate'], bias=self._volts['vd'], inputs=self._inputs['inputs'],
+        if self._lockin['amp']:
+            self.anna.init_measurement('lockin', self._lockin['sample_rate'], bias=self._volts['vd'], inputs=self._inputs['inputs'],
                                     amplitude=self._lockin['amp'], frequency=self._lockin['freq'], tao=self._lockin['tao'])
+        else:
+            log.warning("No lockin signal applied!")
+            self.stop_lockin()
         time.sleep(1)
 
     def stop_lockin(self):
         ''' stop lockin signal'''
-        self.anna.init_measurement('lockin', self._lockin['sample_rate'], bias=self._volts['vd'], inputs=self._data['measure']['inputs'],
-                                    amplitude=0, frequency=self._lockin['freq'], tao=self._lockin['tao'])
+        self.anna.init_measurement('lockin', sample_rate=100, bias=self._volts['vd'], inputs=['raw'],
+                                    amplitude=0, frequency=100, tao=1/100)
 
     def sweep_measure(self):
         ''' measure sweep and generate data dict'''
@@ -319,28 +367,28 @@ class MeasurementScript():
         self.wp_stop.set_sph(**self._sph)
         self.wp_stop.set_wp(**self._volts)
         self.wp_stop.set_mode(self._modes['wp'])
-        if (self._sweep['var_name'] in self.wp_start.get_sph().keys()):
-            self.wp_start.set_sph(**{self._sweep['var_name']:self._sweep['start']})
-            self.wp_stop.set_sph(**{self._sweep['var_name']:self._sweep['stop']})
-        elif (self._sweep['var_name'] in self.wp_start._outputs.keys()):
-            self.wp_start.set_wp(**{self._sweep['var_name']:self._sweep['start']})
-            self.wp_stop.set_wp(**{self._sweep['var_name']:self._sweep['stop']})
+        if (self._sweep['name'] in self.wp_start.get_sph().keys()):
+            self.wp_start.set_sph(**{self._sweep['name']:self._sweep['start']})
+            self.wp_stop.set_sph(**{self._sweep['name']:self._sweep['stop']})
+        elif (self._sweep['name'] in self.wp_start._outputs.keys()):
+            self.wp_start.set_wp(**{self._sweep['name']:self._sweep['start']})
+            self.wp_stop.set_wp(**{self._sweep['name']:self._sweep['stop']})
         if self.dim == 2:
             self.set_start_wp()
             self.set_stop_wp()
 
     def set_start_wp(self,**kwargs):
         ''' setter function for start working point of sweep'''
-        if self._step['var_name'] in self.wp_start.get_sph().keys():
+        if self._step['name'] in self.wp_start.get_sph().keys():
             self.wp_start.set_sph(**kwargs)
-        elif self._step['var_name'] in self.wp_start._outputs.keys():
+        elif self._step['name'] in self.wp_start._outputs.keys():
             self.wp_start.set_wp(**kwargs)
 
     def set_stop_wp(self,**kwargs):
         ''' setter function for stop working point of sweep'''
-        if self._step['var_name'] in self.wp_stop.get_sph().keys():
+        if self._step['name'] in self.wp_stop.get_sph().keys():
             self.wp_stop.set_sph(**kwargs)
-        elif self._step['var_name'] in self.wp_stop._outputs.keys():
+        elif self._step['name'] in self.wp_stop._outputs.keys():
             self.wp_stop.set_wp(**kwargs)
 
     def ramp_to_wp(self,dt):
@@ -353,8 +401,8 @@ class MeasurementScript():
             temp_wp_outs=self.wp_start.outs
         else:
             temp_wp_outs=self.wp_stop.outs
-        self.set_start_wp(**{self._step['var_name']:x})
-        self.set_stop_wp(**{self._step['var_name']:x})
+        self.set_start_wp(**{self._step['name']:x})
+        self.set_stop_wp(**{self._step['name']:x})
         min_duration=0
         for key,val in self.wp_start.outs.items():
             duration = abs(val - temp_wp_outs[key])/self.max_rate_config[key]
@@ -393,13 +441,13 @@ class MeasurementScript():
 
     def get_step(self):
         ''' getter func for step vars'''
-        step = {'var_name':self._step['var_name'],'start':self._step['start'],'stop':self._step['stop'],
+        step = {'name':self._step['name'],'start':self._step['start'],'stop':self._step['stop'],
                 'step_size':self._step['step_size'],'unit':self._step['unit']}
         return step
 
     def get_sweep(self):
         ''' getter func for sweep vars'''
-        sweep = {'var_name':self._sweep['var_name'],'start':self._sweep['start'],'stop':self._sweep['stop'],
+        sweep = {'name':self._sweep['name'],'start':self._sweep['start'],'stop':self._sweep['stop'],
                     'rate':self._sweep['rate'],'unit':self._sweep['unit'],'duration':self._sweep['duration']}
         return sweep
 
@@ -518,7 +566,7 @@ class MeasurementScript():
                     case 'unit':
                         if isinstance(val,str):
                             self._sweep[key] = val
-                    case 'var_name':
+                    case 'name':
                         if val in self.valids['sweep']:
                             self._sweep[key] = val
                         else:
@@ -530,21 +578,21 @@ class MeasurementScript():
                             log.error(f'Value of {key} must be float or integer!')
         # Validation of sweep rate/duration
         if self._sweep['rate'] and (self._sweep['start'] is not None and self._sweep['stop'] is not None):
-            if self.max_rate_config[self._sweep['var_name']] < self._sweep['rate']:
-                log.warning(f"Rate of {self._sweep['rate']} is not valid! Set rate to max rate {self.max_rate_config[self._sweep['var_name']]}")
-                self._sweep['rate'] = self.max_rate_config[self._sweep['var_name']]
+            if self.max_rate_config[self._sweep['name']] < self._sweep['rate']:
+                log.warning(f"Rate of {self._sweep['rate']} is not valid! Set rate to max rate {self.max_rate_config[self._sweep['name']]}")
+                self._sweep['rate'] = self.max_rate_config[self._sweep['name']]
             self._sweep['duration'] = abs(self._sweep['stop']-self._sweep['start'])/self._sweep['rate']
             log.info(f"Set sweep duration to {self._sweep['duration']}")
         elif self._sweep['duration'] and (self._sweep['start'] is not None and self._sweep['stop'] is not None):
             rate = abs(self._sweep['stop']-self._sweep['start'])/self._sweep['duration']
-            if self.max_rate_config[self._sweep['var_name']] < rate:
-                self._sweep['rate'] = self.max_rate_config[self._sweep['var_name']]
-                log.warning(f"Sweep duration {self._sweep['duration']} with rate {rate} is not valid! Set rate to max rate {self.max_rate_config[self._sweep['var_name']]}")
+            if self.max_rate_config[self._sweep['name']] < rate:
+                self._sweep['rate'] = self.max_rate_config[self._sweep['name']]
+                log.warning(f"Sweep duration {self._sweep['duration']} with rate {rate} is not valid! Set rate to max rate {self.max_rate_config[self._sweep['name']]}")
             else:
                 self._sweep['rate'] = rate
         elif (self._sweep['start'] is not None and self._sweep['stop'] is not None):
-            log.warning(f"No rate set! Set rate to max rate {self.max_rate_config[self._sweep['var_name']]}")
-            self._sweep['rate'] = self.max_rate_config[self._sweep['var_name']]
+            log.warning(f"No rate set! Set rate to max rate {self.max_rate_config[self._sweep['name']]}")
+            self._sweep['rate'] = self.max_rate_config[self._sweep['name']]
             self._sweep['duration'] = abs(self._sweep['stop']-self._sweep['start'])/self._sweep['rate']
             log.info(f"Set sweep duration to {self._sweep['duration']}")
         else:
@@ -559,7 +607,7 @@ class MeasurementScript():
                     case 'unit':
                         if isinstance(val,str):
                             self._step[key] = val
-                    case 'var_name':
+                    case 'name':
                         if val in self.valids['step']:
                             self._step[key] = val
                         else:
