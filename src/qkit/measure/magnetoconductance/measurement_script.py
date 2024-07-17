@@ -578,6 +578,7 @@ class MeasurementScript():
                             log.error(f'Value of {key} must be float or integer!')
         # Validation of sweep rate/duration
         if self._sweep['rate'] and (self._sweep['start'] is not None and self._sweep['stop'] is not None):
+            print(self._sweep['name'])
             if self.max_rate_config[self._sweep['name']] < self._sweep['rate']:
                 log.warning(f"Rate of {self._sweep['rate']} is not valid! Set rate to max rate {self.max_rate_config[self._sweep['name']]}")
                 self._sweep['rate'] = self.max_rate_config[self._sweep['name']]
@@ -587,7 +588,8 @@ class MeasurementScript():
             rate = abs(self._sweep['stop']-self._sweep['start'])/self._sweep['duration']
             if self.max_rate_config[self._sweep['name']] < rate:
                 self._sweep['rate'] = self.max_rate_config[self._sweep['name']]
-                log.warning(f"Sweep duration {self._sweep['duration']} with rate {rate} is not valid! Set rate to max rate {self.max_rate_config[self._sweep['name']]}")
+                log.warning(f"Sweep duration {self._sweep['duration']} with rate {rate} is not valid! Set rate to max rate {self.max_rate_config[self._sweep['name']]}!")
+                self._sweep['duration'] = abs(self._sweep['stop']-self._sweep['start'])/self._sweep['rate']
             else:
                 self._sweep['rate'] = rate
         elif (self._sweep['start'] is not None and self._sweep['stop'] is not None):
