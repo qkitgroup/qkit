@@ -65,8 +65,10 @@ def _init_polarplot(self, graphicsView):
     new_val = np.reshape(nans.T, (len(y_data), len(x_data)))
     val_neg = new_val[:self.polarsplit]
     val_pos = new_val[self.polarsplit:]
-    self.pos_mesh = graphicsView.axes.pcolormesh(self.angle_pos, self.swp_pos, val_pos, shading='auto')
-    self.neg_mesh = graphicsView.axes.pcolormesh(self.angle_neg, self.swp_neg, val_neg, shading='auto')
+    graphicsView.axes.grid(False)
+    graphicsView.axes.set_yticks([])
+    self.pos_mesh = graphicsView.axes.pcolormesh(self.angle_pos, self.swp_pos, val_pos, shading='nearest')
+    self.neg_mesh = graphicsView.axes.pcolormesh(self.angle_neg, self.swp_neg, val_neg, shading='nearest')
     graphicsView.axes.set_title(f'angle: {stepvar}, amplitude: {round(sweeprange[1], 2)} {sweepunit}')
     graphicsView.draw()
 
@@ -112,8 +114,8 @@ def _display_polarplot(self, graphicsView):
     self.neg_mesh.remove()
 
     # Neue pcolormesh-Objekte erstellen
-    self.pos_mesh = graphicsView.axes.pcolormesh(self.angle_pos, self.swp_pos, val_pos, shading='auto')
-    self.neg_mesh = graphicsView.axes.pcolormesh(self.angle_neg, self.swp_neg, val_neg, shading='auto')
+    self.pos_mesh = graphicsView.axes.pcolormesh(self.angle_pos, self.swp_pos, val_pos, shading='nearest')
+    self.neg_mesh = graphicsView.axes.pcolormesh(self.angle_neg, self.swp_neg, val_neg, shading='nearest')
 
     # Canvas neu zeichnen
     graphicsView.draw()
