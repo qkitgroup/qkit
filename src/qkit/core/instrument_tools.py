@@ -71,7 +71,9 @@ class Insttools(object):
         self._user_instdir  = qkit.cfg.get('user_instruments_dir')
         lookup_dict_location = qkit.cfg.get('device_lookup_config')
         if lookup_dict_location is not None:
-            self._lookup_dict = tomli.load(lookup_dict_location)
+            logging.info(f"Loading devices configuration from {lookup_dict_location}")
+            with open(lookup_dict_location, "rb") as f:
+                self._lookup_dict = tomli.load(f)
         else:
             self._lookup_dict = {}
 
@@ -265,14 +267,14 @@ class Insttools(object):
                 f.write(descr)
         return self.get(name)
 
-    def create_from_config(self, name, **kwargs):
+    def create_from_config(self, identifier, registered_name, **kwargs):
         """
-        Check in the local config file for the device name. If it exists, take the config from there to create the device.
+        Check in the local config file for the device name `registered_name`. If it exists, take the config from there to create the device.
         
         Override with values from keyword arguments.
         """
         # This merges the configuration dict with
-        config = {**self._lookup_dict[name], **kwargs, 'name': name}
+        config = {**self._lookup_dict[registered_name], **kwargs, 'name': identifier}
         return self.create(**config)
 
 
