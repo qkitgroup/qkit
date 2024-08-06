@@ -293,7 +293,8 @@ class transport(object):
         # TODO: catch error, if len(dataset) < window_length in case of SavGol filter
         try:
             return self._numder_func(y, *self._numder_args, **self._numder_kwargs)/self._numder_func(x, *self._numder_args, **self._numder_kwargs)
-        except:
+        except Exception as e:
+            logging.warning("Can't calculate numerical derivative, possibly insufficient data points. %s", e)
             return np.zeros(len(y))*np.nan
     
     def set_x_dt(self, x_dt):
