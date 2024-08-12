@@ -139,14 +139,15 @@ class MeasurementScript():
 
     def update_script(self):
         ''' genererate measurement setup'''
-        self.generate_sweep()       # generate sweep values
-        self.generate_steps()       # generate step values
-
         self.create_output_channel()# create output channel for adwin
         self.add_saves()            # generate data save and temp_save dicts
         self.add_inputs()           # generate ADwin inputs
         self.start_lockin()         # start lockin signal
         self.update_lockin()        # get real lockin data from adwin
+
+        self.generate_sweep()       # generate sweep values
+        self.generate_steps()       # generate step values
+
         self.init_wps()             # init start and stop wp of first sweep
         self.start_sweep()          # start sweep to the first wp
 
