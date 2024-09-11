@@ -31,8 +31,7 @@ import time
 from time import sleep
 import zhinst 
 import zhinst.utils
-from zhinst.toolkit import Session
-from zhinst.toolkit import Waveforms
+from zhinst.toolkit import Session, Waveforms
 import json
 
 
@@ -725,19 +724,133 @@ class ZI_HDAWG4(Instrument):
         # using an infinite loop (e.g., while (true)) in the sequencer program."
         self.daq.setInt(f"/{self.device}/awgs/0/single", 1)
 
-    #upload waveform form array
-    def upload_waveform(self, wave_data, wave_idx, awg_core):
-        if type(wave_data) != np.ndarray:
-            raise TypeError(__name__ + ": Assigned value must be a numpy array")
+    # upload waveform from array
+    def upload_waveform(self, awg_core, wave_data):
+        # Access necessary elements of rendered data
+        wave_data = wave_data[1]
 
-        if len(wave_data) % 16 != 0:
-            print("wave_data is not aligned to 16 samples and will be zero-extended")
-            wave_data = np.append(wave_data, np.zeros(16 - (len(wave_data)) % 16))
+        # Align wave_data to 16 samples and adjust output voltage
+        for channel in wave_data.keys():
+            if "Ch" in channel:
+                    ## set output range automatically
+                    maxV = np.max(np.abs(wave_data[channel]))
+                    new = self._Vrange_array[np.searchsorted(self._Vrange_array, maxV, side = 'left')]
+                    print("setting ch" + str(channel[-1]) + " output range to " + str(new) + "V to match waveform data.")
+                    self.set('ch' + str(channel[-1]) + '_output_range', new)
+                    wave_data[channel] = wave_data[channel]/new
+            if len(wave_data[channel]) % 16 != 0:
+                print(channel + " is not aligned to 16 samples and will be zero-extended")
+                wave_data[channel] = np.append(wave_data[channel], np.zeros(16 - (len(wave_data[channel])) % 16))
+        print("\n")
 
+        # Define Sequencer Code and Waveform
         waveforms = Waveforms()
-        waveforms[wave_idx] = (wave_data,None,None) # wave, marker, trigger
-        time.sleep(0.05) # verify that sequencer code is uploaded ( should work consistently for values >= 0.03)
-        self.device_new.awgs[awg_core].write_to_waveform_memory(waveforms)
+        sequencer = ''''''
+        wave_names = ''
+
+        c1 = "AWG_Ch1" in wave_data.keys()
+        c2 = "AWG_Ch2" in wave_data.keys()
+        m1 = "AWG_Marker1" in wave_data.keys()
+        m2 = "AWG_Marker2" in wave_data.keys()
+
+        if c1 and c2:
+            if m1 and m2:
+                # wm1 and wm2
+                sequencer += '''wave wm1 = placeholder('''+ str(len(wave_data["AWG_Ch1"])) + ''', true, false);\n'''
+                sequencer += '''wave wm2 = placeholder('''+ str(len(wave_data["AWG_Ch2"])) + ''', true, false);\n'''
+                wave_names += '1, wm1, '
+                wave_names += '2, wm2, '
+
+                # Create combined marker
+                marker = np.zeros_like(wave_data["AWG_Marker1"])
+                marker[(wave_data["AWG_Marker1"] >= 1) & (wave_data["AWG_Marker2"] == 0)] = 1
+                marker[(wave_data["AWG_Marker1"] == 0) & (wave_data["AWG_Marker2"] >= 1)] = 2
+                marker[(wave_data["AWG_Marker1"] >= 1) & (wave_data["AWG_Marker2"] >= 1)] = 3
+                marker[(wave_data["AWG_Marker1"] == 0) & (wave_data["AWG_Marker2"] == 0)] = 4
+                waveforms[0] = (wave_data["AWG_Ch1"], wave_data["AWG_Ch2"], marker)
+            elif m1:
+                # wm1 and w2
+                sequencer += '''wave wm1 = placeholder('''+ str(len(wave_data["AWG_Ch1"])) + ''', true, false);\n'''
+                sequencer += '''wave w2 = placeholder('''+ str(len(wave_data["AWG_Ch2"])) + ''', false, false);\n'''
+                wave_names += '1, wm1, '
+                wave_names += '2, w2, '       
+
+                # Create marker
+                marker = np.zeros_like(wave_data["AWG_Marker1"])
+                marker[(wave_data["AWG_Marker1"] >= 1)] = 1
+                marker[(wave_data["AWG_Marker1"] == 0)] = 2
+                waveforms[0] = (wave_data["AWG_Ch1"], wave_data["AWG_Ch2"], marker)
+            elif m2:
+                # w1 and wm2
+                sequencer += '''wave w1 = placeholder('''+ str(len(wave_data["AWG_Ch1"])) + ''', false, false);\n'''
+                sequencer += '''wave wm2 = placeholder('''+ str(len(wave_data["AWG_Ch2"])) + ''', true, false);\n'''
+                wave_names += '1, w1, '
+                wave_names += '2, wm2, '
+
+                # Create marker
+                marker = np.zeros_like(wave_data["AWG_Marker2"])
+                marker[(wave_data["AWG_Marker2"] >= 1)] = 3
+                marker[(wave_data["AWG_Marker2"] == 0)] = 4
+                waveforms[0] = (wave_data["AWG_Ch1"], wave_data["AWG_Ch2"], marker)
+            else:
+                # w1 and w2
+                sequencer += '''wave w1 = placeholder('''+ str(len(wave_data["AWG_Ch1"])) + ''', false, false);\n'''
+                sequencer += '''wave w2 = placeholder('''+ str(len(wave_data["AWG_Ch2"])) + ''', false, false);\n'''
+                wave_names += '1, w1, '
+                wave_names += '2, w2, '
+                waveforms[0] = (wave_data["AWG_Ch1"], wave_data["AWG_Ch2"])
+        elif c1:
+            if m1 and not m2:
+                # wm1
+                sequencer += '''wave wm1 = placeholder('''+ str(len(wave_data["AWG_Ch1"])) + ''', true, false);\n'''
+                wave_names += '1, wm1, '
+
+                # Create marker
+                marker = np.zeros_like(wave_data["AWG_Marker1"])
+                marker[(wave_data["AWG_Marker1"] >= 1)] = 1
+                marker[(wave_data["AWG_Marker1"] == 0)] = 2
+                waveforms[0] = (wave_data["AWG_Ch1"], marker)
+            elif m2:
+                raise Exception("AWG_Marker2 cannot be uploaded without providing a waveform")
+            else:
+                # w1
+                sequencer += '''wave w1 = placeholder('''+ str(len(wave_data["AWG_Ch1"])) + ''', false, false);\n'''
+                wave_names += '1, w1, '
+                waveforms[0] = (wave_data["AWG_Ch1"])
+        elif c2:
+            if m2 and not m1:
+                # wm2
+                print("You just entered a dark cave. \n")
+                print("This sequence is creating a dummy waveform to allow Marker2 to be played")
+                sequencer += '''wave dummy = placeholder('''+ str(len(wave_data["AWG_Ch2"])) + ''', false, false);\n'''
+                sequencer += '''wave wm2 = placeholder('''+ str(len(wave_data["AWG_Ch2"])) + ''', true, false);\n'''
+                wave_names += '1, dummy, '
+                wave_names += '2, wm2, '
+
+                # Create combined marker
+                marker = np.zeros_like(wave_data["AWG_Marker2"])
+                marker[wave_data["AWG_Marker2"] >= 1] = 3
+                marker[wave_data["AWG_Marker2"] == 0] = 4
+                waveforms[0] = (np.zeros_like(wave_data["AWG_Ch2"]), wave_data["AWG_Ch2"], marker)
+            elif m1:
+                raise Exception("AWG_Marker1 cannot be uploaded without providing a waveform")
+            else:
+                sequencer += '''wave w2 = placeholder('''+ str(len(wave_data["AWG_Ch2"])) + ''', false, false);\n'''
+                wave_names += '2, w2, '
+                waveforms[0] = (wave_data["AWG_Ch2"])
+        else:
+            raise Exception("No waveform provided")
+
+        sequencer += '''assignWaveIndex(''' + wave_names + str(0) + '''); \n'''
+        # sequencer += '''while(true){\nwaitDigTrigger(1);\nplayWave(''' + wave_names[:-2] + ''');\n}'''
+        sequencer += '''while(true){\nplayWave(''' + wave_names[:-2] + ''');\n}'''
+
+        print(sequencer)
+
+        awg_node = self.device_new.awgs[awg_core]
+        awg_node.load_sequencer_program(sequencer)
+        awg_node.wait_done()
+        awg_node.write_to_waveform_memory(waveforms)
         
     #load config file from path
     def load_config_file(self, path):
