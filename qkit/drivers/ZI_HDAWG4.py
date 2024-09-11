@@ -724,7 +724,7 @@ class ZI_HDAWG4(Instrument):
         # using an infinite loop (e.g., while (true)) in the sequencer program."
         self.daq.setInt(f"/{self.device}/awgs/0/single", 1)
 
-    # upload waveform from array
+   # upload waveform from array
     def upload_waveform(self, awg_core, wave_data):
         # Access necessary elements of rendered data
         wave_data = wave_data[1]
@@ -842,9 +842,7 @@ class ZI_HDAWG4(Instrument):
             raise Exception("No waveform provided")
 
         sequencer += '''assignWaveIndex(''' + wave_names + str(0) + '''); \n'''
-        # sequencer += '''while(true){\nwaitDigTrigger(1);\nplayWave(''' + wave_names[:-2] + ''');\n}'''
-        sequencer += '''while(true){\nplayWave(''' + wave_names[:-2] + ''');\n}'''
-
+        sequencer += '''while(true){\nwaitDigTrigger(1);\nplayWave(''' + wave_names[:-2] + ''');\n}'''
         print(sequencer)
 
         awg_node = self.device_new.awgs[awg_core]
