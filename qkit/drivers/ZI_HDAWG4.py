@@ -732,7 +732,10 @@ class ZI_HDAWG4(Instrument):
             if "Ch" in channel:
                     ## set output range automatically
                     maxV = np.max(np.abs(wave_dict[channel]))
-                    new = self._Vrange_array[np.searchsorted(self._Vrange_array, maxV, side = 'left')]
+                    if maxV > 5:
+                        raise Exception("Output Range limit exceeded (max 5V)")
+                    else:
+                        new = self._Vrange_array[np.searchsorted(self._Vrange_array, maxV, side = 'left')]
                     if awg_core == 0:
                         print("Setting ch" + str(channel[-1]) + " output range to " + str(new) + "V to match waveform data.")
                         self.set('ch' + str(channel[-1]) + '_output_range', new)
@@ -848,6 +851,7 @@ class ZI_HDAWG4(Instrument):
 
         sequencer += '''assignWaveIndex(''' + wave_names + str(0) + '''); \n'''
         sequencer += '''while(true){\nwaitDigTrigger(1);\nplayWave(''' + wave_names[:-2] + ''');\n}'''
+        # sequencer += '''while(true){\nplayWave(''' + wave_names[:-2] + ''');\n}'''
         print(sequencer, "\n")
 
         # Write sequencer code and upload waveform to the AWG
