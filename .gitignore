@@ -21,3 +21,8 @@ qkit/logs
 qkit/data/*
 data/*
 src/qkit/data/*
+!data/README.md
+
+# Notebook folders
+notebooks/
+!notebooks/README.md
