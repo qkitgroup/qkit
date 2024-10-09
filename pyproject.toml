@@ -33,6 +33,7 @@ dependencies = [
 
 [project.scripts]
 qviewkit = "qkit.gui.qviewkit.main:main"
+qkit-install = "qkit.install.install:main"
 
 [project.optional-dependencies] # Here goes stuff like qiclib
 jupyter = [
