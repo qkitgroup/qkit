@@ -21,8 +21,12 @@ logger = logging.getLogger(__name__)
 def copy_named_template(source_cache: Traversable, target_path: Path, target_name: str, human_readable: str | None = None):
     package_file: Traversable = source_cache / f'{target_name}-tpl'
     logging.debug("Got reference %s: %s", human_readable if human_readable is not None else target_name, package_file)
+    target = (target_path / target_name)
+    if target.exists():
+        logging.warning("%s already exists, skipping.", target)
+        return
     with as_file(package_file) as f:
-        shutil.copyfile(f, target_path / target_name)
+        shutil.copyfile(f, target)
 
 #################################
 # Define Universal Scripts Here #
@@ -119,6 +123,7 @@ def linux_install_desktop_files(pwd: Path):
     
     install_file('qkit-qviewkit.desktop')
     install_file('qkit-qviewkit-url.desktop')
+    install_file('qkit-jupyter-lab.desktop')
 
 SYSTEM_SCRIPTS: dict[str, list[Callable[[Path], None]]] = {
     "Windows": [windows_install_scripts, windows_associate_h5, windows_set_config_path, windows_disable_smart_sorting],
