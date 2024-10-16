@@ -5,4 +5,3 @@ Exec=bash -cl "source \\$QKIT_VENV;cd \\`dirname \\$QKIT_LOCAL_CONFIG\\`; env HD
 Terminal=false
 Type=Application
 Categories=Science
-MimeType=x-scheme-handler/qviewkit;
