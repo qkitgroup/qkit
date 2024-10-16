@@ -27,21 +27,26 @@ On import, qkit will look for a file called `qkit_local_config.py` or `local.py`
 
 If you can't put such a configuration file into a suitable location, you can set the environment variable `QKIT_LOCAL_CONFIG` with a path pointing to such a configuration file. This variable circumvents the search, and the file is directly loaded.
 
-## Developing and Installation
+## Installation Guide
+Installing qkit is a two step process: First you need to obtain the `qkit` package, and then you need to setup your system to use it properly. This guide will provide you with the required steps.
+
+### Obtaining the `qkit` package
+You have two choices, based on whether you want to modify `qkit` (development) or only want to use it.
+
+#### Install `qkit` for usage only
+Create a virtual environment, as described below. Then use pip to install qkit:
+
+```bash
+pip install 'qkit[jupyter,analysis] @ git+https://github.com/qkitgroup/qkit.git@master'
+```
+
+#### Install `qkit` for development
 Clone this repository to wherever is convenient.
 ```bash
 git clone https://github.com/qkitgroup/qkit
 ```
 
-The following commands need to be run within the cloned repository.
-
-It is recommended, but not required, to create a new virtual environment. This isolates this local environment from your global packages. This way, version conflicts can be avoided. If you choose to use a virtual environment, then it needs to be activated, otherwise, qkit and its dependencies will not be available. This also means double click to open .h5 files will not be available.
-For more, look [here](https://docs.python.org/3/library/venv.html).
-```bash
-python -m venv .venv
-```
-
-**NOTE: WE DO NOT GUARANTEE COMPATIBILITY WITH ANACONDA/MINICONDA/CONDA! USE AT YOUR OWN RISK!**
+reate a virtual environment, as described below.
 
 Now, you can install qkit as an editable package. This means, that you can change files in the cloned repository. Changes will affect your python setup.
 
@@ -50,17 +55,44 @@ The brackets contain optional dependencies. This pulls the libraries needed for 
 ```bash
 pip install --editable '.[jupyter,analysis]'
 ```
-## Running
-You will most likely want to run a JupyterLab Server to work with qkit. Download `jupyter_lab_config.py`.
-In this file, you might want to change this line:
+
+#### Creating a Virtual Environment
+It is recommended to use a virtual environment. This isolates this local environment from your global packages. This way, version conflicts can be avoided. If you choose to use a virtual environment, then it needs to be activated, otherwise, qkit and its dependencies will not be available. This also means double click to open .h5 files will require configuration.
+
+**NOTE: WE DO NOT GUARANTEE COMPATIBILITY WITH ANACONDA/MINICONDA/CONDA! USE AT YOUR OWN RISK!**
+
+ First, create a virtual environment:
+```bash
+python -m virtualenv venv
+```
+And then activate it on Linux:
+```bash
+source venv/bin/activate
+```
+or Windows:
+```bat
+.\venv\bin\activate.bat
+```
+
+### Configuring your system
+In order to make `.h5`-files clickable and to configure qkit globally, run
+
+```bash
+qkit-install
+```
+
+This will associate `.h5`-files with qkit, and set the environment variables `QKIT_LOCAL_CONFIG` and `QKIT_VENV` to the correct values. It will also
+create the required directories for data, notebooks and logs, and it will instantiate the configuration files for Jupyter Lab and Qkit.
+
+If the notebooks folder this creates does not match your needs, you can change it by modifiying `jupyter_lab_config.py`:
 ```python 
 # Set Notebook directory
 notebook_dir = r'C:\notebooks' # Change this line
 ```
-to point to an existing notebook directory. Then run
-```bash
-jupyter lab --config=./jupyter_lab_config.py
-```
+
+### Launching Jupyter Lab
+On Linux, `qkit-install` will install a desktop file to launch Qkit. Look for "Qkit Jupyter Lab".
+On Windows, `qkit-install` will create a batch script `launch.bat`. You can create a shortcut to it to launch it from the desktop.
 
 ## Upgrading
 If you use an existing installation of qkit, there might be some breaking changes. They are not major, but need to be taken care of.
