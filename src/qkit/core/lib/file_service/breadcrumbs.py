@@ -52,10 +52,9 @@ def read_breadcrumb(path: Path) -> dict[str, Path]:
     """
     Read a breadcrumb file.
     """
-    breadcrumb_path = derive_breadcrumb_filename()
-    breadcrumb_parent = breadcrumb_path.parent
+    breadcrumb_parent = path.parent
     uuid_map: dict[str, Path] = {}
-    with open(breadcrumb_path, mode="r") as f:
+    with open(path, mode="r") as f:
         for line in f.readlines():
             if line[6] == '=': # Valid format
                 uuid = line[:6]
