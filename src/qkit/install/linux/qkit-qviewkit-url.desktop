@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=QViewKit Open URL
+Comment=QKit's QViewKit for viewing HDF-5 measurement files
+Exec=bash -cl "source \\$QKIT_VENV; env HDF5_USE_FILE_LOCKING=FALSE qviewkit-url \\$1" "dummy" %u
+Terminal=false
+Type=Application
+Categories=Science
+MimeType=x-scheme-handler/qviewkit;
