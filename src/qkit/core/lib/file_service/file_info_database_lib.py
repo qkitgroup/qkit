@@ -7,6 +7,7 @@ import time
 import json
 import numpy as np
 import qkit.storage.hdf_DateTimeGenerator as dtg
+from qkit.core.lib.file_service.breadcrumbs import BreadCrumbCreator
 import h5py
 
 try:
@@ -71,6 +72,8 @@ class file_system_service(UUID_base):
     
     _h5_mtime_db_path   = os.path.join(qkit.cfg['logdir'],"h5_mtime.db")
     _h5_info_cache_path = os.path.join(qkit.cfg['logdir'],"h5_info_cache.db")
+
+    _breadcrumb_creator = BreadCrumbCreator()
 
     lock = threading.Lock()
     
@@ -153,6 +156,7 @@ class file_system_service(UUID_base):
             # Note: All path entries with the same uuid are 
             # overwritten with the last found uuid indexed file
             self.h5_db[uuid] = fqpath
+            self._breadcrumb_creator.append_entry(uuid, fqpath)
 
             # we only care about the mtime of .h5 files 
             mtime = os.stat(fqpath).st_mtime
@@ -255,6 +259,7 @@ class file_system_service(UUID_base):
         basename = os.path.basename(h5_filename)[:-2]
         dirname = os.path.dirname(h5_filename)
         uuid = basename[:6]
+        self._breadcrumb_creator.append_entry(uuid, h5_filename)
         if h5_filename[-3:] != '.h5':
             logging.error("Tried to add '{:s}' to the qkit.fid database: Not a .h5 filename.".format(h5_filename))
         with self.lock:
