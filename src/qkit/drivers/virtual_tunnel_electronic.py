@@ -1239,27 +1239,28 @@ class virtual_tunnel_electronic(Instrument):
         parlist: dict
             Parameter names as keys, corresponding channels of interest as values.
         """
-        parlist = {'measurement_mode': self._sweep_channels,
-                   'bias_mode': self._sweep_channels,
-                   'sense_mode': self._sweep_channels,
-                   'bias_range': self._sweep_channels,
-                   'sense_range': self._sweep_channels,
-                   'bias_delay': self._sweep_channels,
-                   'sense_delay': self._sweep_channels,
-                   'sense_average': self._sweep_channels,
-                   'plc': [None],
-                   'sense_nplc': self._sweep_channels,
+        parlist = {# 'measurement_mode': self._sweep_channels,
+                   # 'bias_mode': self._sweep_channels,
+                   # 'sense_mode': self._sweep_channels,
+                   # 'bias_range': self._sweep_channels,
+                   # 'sense_range': self._sweep_channels,
+                   # 'bias_delay': self._sweep_channels,
+                   # 'sense_delay': self._sweep_channels,
+                   # 'sense_average': self._sweep_channels,
+                   # 'plc': [None],
+                   # 'sense_nplc': self._sweep_channels,
                    'sweep_mode': [None],
                    'pseudo_bias_mode': [None],
-                   'BW': [None]}
+                   'BW': [None]
+                   }
         if not self._pseudo_bias_mode:  # 0 (current bias)
             parlist['dAdV'] = [None]
             parlist['amp'] = [None]
-            parlist['current'] = self._sweep_channels
+            # parlist['current'] = self._sweep_channels
         elif self._pseudo_bias_mode:  # 1 (voltage bias)
             parlist['dVdA'] = [None]
             parlist['Vdiv'] = [None]
-            parlist['voltage'] = self._sweep_channels
+            # parlist['voltage'] = self._sweep_channels
         return parlist
 
     def get(self, param, **kwargs):

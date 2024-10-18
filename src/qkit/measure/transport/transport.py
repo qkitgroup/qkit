@@ -1150,7 +1150,8 @@ class transport(object):
                                 elif self._scan_dim == 3:
                                     self._data_log[j][self.ix, self.iy] = float(f())
                                     self._hdf_log[j].append(self._data_log[j][self.ix], reset=_rst_log_hdf_appnd)
-                                    _rst_log_hdf_appnd = not bool(self.iy+1 == len(self._y_vec))
+                            if self._scan_dim == 3: # reset needs to be updated for all log-functions simultaneously and thus outside of the loop 
+                                _rst_log_hdf_appnd = not bool(self.iy+1 == len(self._y_vec))
                         # iterate sweeps and take data
                         self._get_sweepdata()
                     # filling of value-box by storing data in the next 2d structure after every y-loop
