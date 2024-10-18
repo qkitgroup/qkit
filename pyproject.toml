@@ -33,6 +33,7 @@ dependencies = [
 
 [project.scripts]
 qviewkit = "qkit.gui.qviewkit.main:main"
+qkit-manual-breadcrumbs = "qkit.core.lib.file_service.breadcrumbs:manual_index"
 
 [project.optional-dependencies] # Here goes stuff like qiclib
 jupyter = [
