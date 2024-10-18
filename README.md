@@ -15,16 +15,6 @@
   The qkit framework has been tested under windows and with limits under macos x and linux. 
   The gui requires h5py, qt and pyqtgraph, which work fine on these platforms. 
   The core of the framework should run with python 2.7.x/3.4+
- 
-## Installation:
-If you intend to actively work on the code, look at the section for developing this code.
-To install this package, run:
-```bash
-pip install 'qkit[jupyter,analysis] @ git+https://github.com/qkitgroup/qkit.git@master'
-```
-If you are simply using qkit, changes to files in `src/` **should not** be necessary. If you find things you need to change there, this might be a bug. Please report this.
-
-If you intend to use the option to click on .h5 files in order to open them, don't install qkit in a virtual environment.
 
 ## Configuration
 There are three sources of configuration, which are used to set up your environment
@@ -37,7 +27,7 @@ On import, qkit will look for a file called `qkit_local_config.py` or `local.py`
 
 If you can't put such a configuration file into a suitable location, you can set the environment variable `QKIT_LOCAL_CONFIG` with a path pointing to such a configuration file. This variable circumvents the search, and the file is directly loaded.
 
-## Developing
+## Developing and Installation
 Clone this repository to wherever is convenient.
 ```bash
 git clone https://github.com/qkitgroup/qkit
@@ -50,6 +40,8 @@ For more, look [here](https://docs.python.org/3/library/venv.html).
 ```bash
 python -m venv .venv
 ```
+
+**NOTE: WE DO NOT GUARANTEE COMPATIBILITY WITH ANACONDA/MINICONDA/CONDA! USE AT YOUR OWN RISK!**
 
 Now, you can install qkit as an editable package. This means, that you can change files in the cloned repository. Changes will affect your python setup.
 
@@ -98,6 +90,17 @@ notebook_dir = r'C:\notebooks' # Change this line
 ```
 
 Also, you will need to migrate your local config to a parent directory of your notebooks, or point to it using the environment variable `QKIT_LOCAL_CONFIG`. It is possible to set this environment variable in `jupyter_lab_config.py`, as environment variables are inherited to process children.
+
+
+## Long Term Goal: Pip Installation (NOT YET WORKING)
+If you intend to actively work on the code, look at the section for developing this code.
+To install this package, run:
+```bash
+pip install 'qkit[jupyter,analysis] @ git+https://github.com/qkitgroup/qkit.git@master'
+```
+If you are simply using qkit, changes to files in `src/` **should not** be necessary. If you find things you need to change there, this might be a bug. Please report this.
+
+If you intend to use the option to click on .h5 files in order to open them, don't install qkit in a virtual environment.
 
 ## Requirements
 This project uses python. An up to date installation of python is expected to be present.
