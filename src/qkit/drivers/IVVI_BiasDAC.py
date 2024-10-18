@@ -66,7 +66,9 @@ class IVVI_BiasDAC(Instrument):
             self.low = min(val1, val2)
             self.high = max(val1, val2)
         def __str__(self) -> str:
-            return "IVVI DAC range helper object for {} to {} mV".format(self.low, self.high)
+            return "IVVI DAC range helper object for {} to {} V".format(self.low, self.high)
+        def __hash__(self):
+            return hash(tuple((self.low, self.high)))
         def v2bytes(self, volt: float) -> tuple[int, int]:
             if volt < self.low or volt > self.high:
                 raise ValueError
@@ -85,6 +87,7 @@ class IVVI_BiasDAC(Instrument):
                     "Pos": DACRangePos, "Bip": DACRangeBip, "Neg": DACRangeNeg, 
                     "POS": DACRangePos, "BIP": DACRangeBip, "NEG": DACRangeNeg, 
                     "+"  : DACRangePos, "0"  : DACRangeBip, "-"  : DACRangeNeg  }
+    ReverseIdent = { DACRangePos: "Pos", DACRangeBip: "Bip", DACRangeNeg: "Neg" }
     
     class DummyIVD:
         """
@@ -134,7 +137,7 @@ class IVVI_BiasDAC(Instrument):
         for j in range(16):
             self.__dict__["do_set_DAC_{}_voltage".format(j + 1)] = lambda mVolt, j=j: self.set_dac(j + 1, mVolt)
             self.__dict__["do_get_DAC_{}_voltage".format(j + 1)] = lambda j=j: self.get_dac(j + 1)
-            self.add_parameter("DAC_{}_voltage".format(j + 1), type=float, minval=self.DACRangeBip.low, maxval=self.DACRangeBip.high, units='V')
+            self.add_parameter("DAC_{}_voltage".format(j + 1), type=float, minval=self.DACRangeBip.low, maxval=self.DACRangeBip.high, units='V', flags=Instrument.FLAG_GETSET)
         self.dac_ranges = [self.DACRangeBip] * 4
         for i in range(4):
             self.set_dacgroup_range(i, knob_config[i])
@@ -300,25 +303,6 @@ class IVVI_BiasDAC(Instrument):
         self.set_dac(1, dac_val)
         return drive
     
-    def get_parameters(self) -> dict:
-        """
-        Returns info for qkit
-        """
-        # DAC values in V
-        params = {"bias_dac_{}".format(i+1): val for i, val in enumerate(self.get_dacs_list())}
-        if self.dummy_ivd is None:
-            ivd_params = {}
-        else:
-            ivd_params = {
-                "measure_func": self.dummy_ivd.measure_func.__name__,
-                "sweep_channel": self.dummy_ivd.sweep_channel,
-                "delay_setget": self.dummy_ivd.delay_setget,
-                "pseudo_bias_mode": self.dummy_ivd.pseudo_bias_mode, 
-                "dAdV": self.dummy_ivd.dAdV,
-                "v_div": self.dummy_ivd.v_div
-            }
-        return {**params, **ivd_params}
-
     def take_IV(self, sweep):
         if self.dummy_ivd is None:
             print("IVVI_BiasDAC needs dummy IVD enabled to take IV-curve")
@@ -340,3 +324,41 @@ class IVVI_BiasDAC(Instrument):
             return np.array(getty), np.array(setty)
         else: # current bias
             return np.array(setty), np.array(getty)
+
+    # qkit parameter documentation
+    def get_parameters(self) -> dict:
+        """
+        Returns info for qkit
+        """
+        # DAC values in V
+        params = {"DAC_{}_voltage".format(i+1): {} for i in range(16)}
+        if self.dummy_ivd is None:
+            ivd_params = {}
+        else:
+            ivd_params = {
+                "measure_func": {},
+                "sweep_channel": {},
+                "delay_setget": {},
+                "pseudo_bias_mode": {}, 
+                "dAdV": {},
+                "v_div": {}
+            }
+        return {**params, **ivd_params}
+    
+    def get_measure_func(self):
+            return self.dummy_ivd.measure_func.__name__ if self.dummy_ivd is not None else None
+    def get_sweep_channel(self):
+        return self.dummy_ivd.sweep_channel if self.dummy_ivd is not None else None
+    def get_delay_setget(self):
+        return self.dummy_ivd.delay_setget if self.dummy_ivd is not None else None
+    def get_pseudo_bias_mode(self):
+        return self.dummy_ivd.pseudo_bias_mode if self.dummy_ivd is not None else None
+    def get_dAdV(self):
+        return self.dummy_ivd.dAdV if self.dummy_ivd is not None else None
+    def get_v_div(self):
+        return self.dummy_ivd.v_div if self.dummy_ivd is not None else None
+    def get(self, param, **kwargs):
+        try:
+            return eval("self.get_{}()".format(param))
+        except:
+            return None
