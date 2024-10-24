@@ -91,7 +91,10 @@ class ZI_HDAWG4(Instrument):
         self._prescaler = np.array([2**i for i in range(14)])
         
         #Possible voltage ranges for outputs
-        self._Vrange_array = np.array([0.2,0.4,0.8,1.,1.5,2.,3.,4.,5.])
+        self._Vrange_array = np.array([0.2, 0.4, 0.6, 0.8, 1., 2., 3., 4., 5.])
+
+        #Limiter for output range
+        self._max_Vrange = 5 # in V
 
         #set apilevel to highest supported by device to unlock most of the functionalities
         #create apisession to communicate with device (ziDataServer needed)
@@ -131,6 +134,7 @@ class ZI_HDAWG4(Instrument):
         self.add_function('upload_to_device')
         self.add_function('load_config_file')
         self.add_function('disable_everything')
+        # self.add_function('set_voltage_limit')
 
         #/TRIGGERS/OUT/n/SOURCE
         self.add_parameter('marker_output', type = int,
@@ -145,6 +149,7 @@ class ZI_HDAWG4(Instrument):
             channels = (1,4), channel_prefix = "ch%d_",
             minval = 0.2, maxval = 5,
             units = 'V', tags = ['fixed values'])
+
 
         #/SYSTEM/CLOCKS/SAMPLECLOCK/FREQ
         self.add_parameter('sampling_clock', type = float,
@@ -214,6 +219,12 @@ class ZI_HDAWG4(Instrument):
         self.add_parameter('modulation_mode', type = int,
             flags = Instrument.FLAG_GETSET,
             channels = (1,4), channel_prefix = 'ch%d_',
+            minval = 0, maxval = 5,
+            tags = ['sweep'])
+        
+        #Actual voltage limit
+        self.add_parameter('voltage_limit', type = float,
+            flags = Instrument.FLAG_GETSET,
             minval = 0, maxval = 5,
             tags = ['sweep'])
 
@@ -559,12 +570,18 @@ class ZI_HDAWG4(Instrument):
         logging.info(__name__+ ': Getting sample clock.')
         return self.daq.getDouble('/%s/system/clocks/sampleclock/freq' % self._device_id)
     
-    def _do_set_sampling_prescaler(self, newdiv):
+    def _do_set_sampling_prescaler(self, newdiv, core):
         if newdiv not in self._prescaler:
             raise ValueError(__name__ + " Could not set sampling prescaler, must be 2^n, with n between 0 and 13")            
         logging.info(__name__ +': Setting sampling prescaler to %d' % newdiv)
         exponent = np.floor(np.log2(np.abs(newdiv))).astype(int)
-        self.daq.setInt('/%s/AWGS/0/TIME' % self._device_id, exponent)
+        if core == 0:
+            self.daq.setInt('/%s/AWGS/0/TIME' % self._device_id, exponent)
+        elif core == 1:
+            self.daq.setInt('/%s/AWGS/1/TIME' % self._device_id, exponent)
+        else: 
+            raise ValueError("The core must be set to either 0 or 1. Value out of range.")
+
         self.daq.sync()
 
     def _do_get_sampling_prescaler(self):
@@ -593,6 +610,13 @@ class ZI_HDAWG4(Instrument):
 
         return output
     
+    def _do_set_voltage_limit(self, maxV):
+        self._max_Vrange = maxV
+        logging.info(__name__+': output range is limited to', maxV, 'V')
+
+    def _do_get_voltage_limit(self):
+        return self._max_Vrange
+
     #start awg sequencer
     def start_playback(self):
         self.daq.setInt(f"/{self.device}/awgs/0/enable", 1)
@@ -732,8 +756,8 @@ class ZI_HDAWG4(Instrument):
             if "Ch" in channel:
                     ## set output range automatically
                     maxV = np.max(np.abs(wave_dict[channel]))
-                    if maxV > 5:
-                        raise Exception("Output Range limit exceeded (max 5V)")
+                    if maxV > self._max_Vrange:
+                        raise Exception("Output Range limit exceeded (max" +str(self._max_Vrange) + "V)")
                     else:
                         new = self._Vrange_array[np.searchsorted(self._Vrange_array, maxV, side = 'left')]
                     if awg_core == 0:
