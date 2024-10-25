@@ -1,0 +1,15 @@
+text.usetex: False
+font.family: serif
+font.size: 12
+figure.figsize: 4, 3
+figure.dpi: 200
+xtick.major.size: 5
+xtick.major.width: 1.5
+ytick.major.size: 5
+ytick.major.width: 1.5
+axes.formatter.limits: -3, 3
+
+legend.fontsize: 16
+
+figure.facecolor: white
+savefig.transparent: False
