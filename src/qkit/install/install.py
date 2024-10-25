@@ -18,6 +18,21 @@ logging.basicConfig(level=logging.DEBUG,
                     format='[%(levelname).1s] %(message)s')
 logger = logging.getLogger(__name__)
 
+# Decorator for marking a install step as optional
+def optional(desc: str) -> Callable[[Callable], Callable]:
+    def decorator(f: Callable) -> Callable:
+        f.optional = True
+        f.desc = desc
+        return f
+    return decorator
+
+
+# Get binary path for installed command:
+def get_binary(name: str) -> Path:
+    import shutil
+    return str(Path(shutil.which(name, path=Path(sys.argv[0]).parent)).absolute())
+
+
 def copy_named_template(source_cache: Traversable, target_path: Path, target_name: str, human_readable: str | None = None):
     package_file: Traversable = source_cache / f'{target_name}-tpl'
     logging.debug("Got reference %s: %s", human_readable if human_readable is not None else target_name, package_file)
@@ -70,26 +85,45 @@ def windows_install_scripts(pwd: Path):
     copy_named_template(windows_script_files, pwd, "launch_qviewkit.bat", "Qviewkit Launch Script")
     copy_named_template(windows_script_files, pwd, "launch.bat", "Launch Jupyter Lab Script")
 
+@optional("Associate .h5 files with Qviewkit. Modifies the Registry.")
 def windows_associate_h5(pwd: Path):
-    from qkit.install import windows
-    windows_script_files = files(windows)
-    association_script: Traversable = windows_script_files / 'associate_h5_windows.bat'
-    logging.debug("Got association script: %s", association_script)
-    with as_file(association_script) as f:
-        logging.info("Running H5 association script")
-        import os
-        os.system(str(f))
-        logging.info("Success!")
+    import winreg
+    # Create file type if it does not exist.
+    try:
+        base_key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"qviewkit.h5")
+        (value, type) = winreg.QueryValueEx(base_key, None)
+        logging.info("File Type qviewkit.h5 already exists.")
+        command_key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"qviewkit.h5\shell\open\command")
+        (value, type) = winreg.QueryValueEx(command_key, None)
+        logging.info("Command already exists.")
+    except FileNotFoundError:
+        logging.info("Creating file type qviewkit.h5...")
+        base_key = winreg.CreateKeyEx(winreg.HKEY_CLASSES_ROOT, r"qviewkit.h5")
+        winreg.SetValue(base_key, None, winreg.REG_SZ, "QViewKit HDF5 File")
+        winreg.CloseKey(base_key)
 
+        open_command_key = winreg.CreateKey(winreg.HKEY_CLASSES_ROOT, r"qviewkit.h5\shell\open\command")
+        winreg.SetValue(open_command_key, None, winreg.REG_SZ, f'"{get_binary("qviewkit")}" -f "%1"')
+        winreg.CloseKey(open_command_key)
+        logging.info("Qkit registered.")
+
+
+    # Create Association if it does not exist.
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r".h5")
+        (value, type) = winreg.QueryValueEx(key, None)
+        logging.info("Association of .h5 to %s already exists.", value)
+    except FileNotFoundError:
+        assoc_key = winreg.CreateKey(winreg.HKEY_CLASSES_ROOT, r".h5")
+        winreg.SetValue(assoc_key, None, winreg.REG_SZ, "qviewkit.h5")
+        winreg.CloseKey(assoc_key)
+        logging.info("Association created.")
+
+@optional("Disable Smart Sorting in Windows Explorer. Edits the registry.")
 def windows_disable_smart_sorting(pwd: Path):
-    from qkit.install import windows
-    windows_script_files = files(windows)
-    reg_file: Traversable = windows_script_files / 'Windows_UID_sorting.reg'
-    with as_file(reg_file) as f:
-        logging.info("Applying Registry Patch")
-        import os
-        os.system(f"regedit.exe /s {str(f)}")
-        logging.info("Success!")
+    import winreg
+    key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer")
+    winreg.SetValue(key, "NoStrCmpLogical", winreg.REG_DWORD, 1)
 
 def windows_set_config_path(pwd: Path):
     import os
@@ -132,12 +166,12 @@ SYSTEM_SCRIPTS: dict[str, list[Callable[[Path], None]]] = {
 }
 
 # Main Install Routine
-
 def main():
     """
     Get and List Relevant paths (for diagnosis, should this fail) and setup for qkit usage.
     """
     logger.info("Qkit Setup")
+    logger.info("Running from %s", sys.argv[0])
 
     system = platform.system()
     logger.info("Operating System Type: %s", system)
@@ -160,6 +194,10 @@ def main():
     logger.info("Running %s install tasks...", len(scripts))
     for script in scripts:
         logger.info("Running task '%s'...", script.__name__)
+        if hasattr(script, 'optional'):
+            logger.info("Description: %s", script.desc)
+            if input("Run this task? (y/n): ").lower() != 'y':
+                continue
         try:
             script(pwd)
         except:
