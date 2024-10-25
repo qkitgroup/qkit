@@ -20,11 +20,29 @@ logger = logging.getLogger(__name__)
 
 # Decorator for marking a install step as optional
 def optional(desc: str) -> Callable[[Callable], Callable]:
-    def decorator(f: Callable) -> Callable:
-        f.optional = True
-        f.desc = desc
+    import functools
+    def wrapper(f: Callable) -> Callable:
+        @functools.wraps(f)
+        def wrapped(*args, **kwargs):
+            run = input(f"Run optional task '{f.__name__}'? ({desc}) (y/n): ").lower() == 'y'
+            if run:
+                return f(*args, **kwargs)
+            return f
+        return wrapped
+    return wrapper
+
+# Decorator for requiring admin privileges
+def windows_admin_required(f: Callable) -> Callable:
+    import ctypes
+    import functools
+
+    if not ctypes.windll.shell32.IsUserAnAdmin():
+        @functools.wraps(f)
+        def warning(*args, **kwargs):
+            logger.warning("Admin privileges required for this task. Skipping.")
+        return warning
+    else:
         return f
-    return decorator
 
 
 # Get binary path for installed command:
@@ -85,6 +103,7 @@ def windows_install_scripts(pwd: Path):
     copy_named_template(windows_script_files, pwd, "launch_qviewkit.bat", "Qviewkit Launch Script")
     copy_named_template(windows_script_files, pwd, "launch.bat", "Launch Jupyter Lab Script")
 
+@windows_admin_required
 @optional("Associate .h5 files with Qviewkit. Modifies the Registry.")
 def windows_associate_h5(pwd: Path):
     import winreg
@@ -119,6 +138,7 @@ def windows_associate_h5(pwd: Path):
         winreg.CloseKey(assoc_key)
         logging.info("Association created.")
 
+@windows_admin_required
 @optional("Disable Smart Sorting in Windows Explorer. Edits the registry.")
 def windows_disable_smart_sorting(pwd: Path):
     import winreg
@@ -194,10 +214,6 @@ def main():
     logger.info("Running %s install tasks...", len(scripts))
     for script in scripts:
         logger.info("Running task '%s'...", script.__name__)
-        if hasattr(script, 'optional'):
-            logger.info("Description: %s", script.desc)
-            if input("Run this task? (y/n): ").lower() != 'y':
-                continue
         try:
             script(pwd)
         except:
