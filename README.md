@@ -30,33 +30,7 @@ If you can't put such a configuration file into a suitable location, you can set
 ## Installation Guide
 Installing qkit is a two step process: First you need to obtain the `qkit` package, and then you need to setup your system to use it properly. This guide will provide you with the required steps.
 
-### Obtaining the `qkit` package
-You have two choices, based on whether you want to modify `qkit` (development) or only want to use it.
-
-#### Install `qkit` for usage only
-Create a virtual environment, as described below. Then use pip to install qkit:
-
-```bash
-pip install 'qkit[jupyter,analysis] @ git+https://github.com/qkitgroup/qkit.git@master'
-```
-
-#### Install `qkit` for development
-Clone this repository to wherever is convenient.
-```bash
-git clone https://github.com/qkitgroup/qkit
-```
-
-reate a virtual environment, as described below.
-
-Now, you can install qkit as an editable package. This means, that you can change files in the cloned repository. Changes will affect your python setup.
-
-The brackets contain optional dependencies. This pulls the libraries needed for jupyter lab.
-
-```bash
-pip install --editable '.[jupyter,analysis]'
-```
-
-#### Creating a Virtual Environment
+### Creating a Virtual Environment
 It is recommended to use a virtual environment. This isolates this local environment from your global packages. This way, version conflicts can be avoided. If you choose to use a virtual environment, then it needs to be activated, otherwise, qkit and its dependencies will not be available. This also means double click to open .h5 files will require configuration.
 
 **NOTE: WE DO NOT GUARANTEE COMPATIBILITY WITH ANACONDA/MINICONDA/CONDA! USE AT YOUR OWN RISK!**
@@ -74,11 +48,42 @@ or Windows:
 .\venv\bin\activate.bat
 ```
 
+
+### Obtaining the `qkit` package
+You have two choices, based on whether you want to modify `qkit` (development) or only want to use it.
+
+#### Install `qkit` for usage only
+Create a virtual environment, as described above. Then use pip to install qkit:
+
+```bash
+pip install 'qkit[jupyter,analysis] @ git+https://github.com/qkitgroup/qkit.git@master'
+```
+
+#### Install `qkit` for development
+Clone this repository to wherever is convenient.
+```bash
+git clone https://github.com/qkitgroup/qkit
+```
+
+Create a virtual environment, as described above.
+
+Now, you can install qkit as an editable package. This means, that you can change files in the cloned repository. Changes will affect your python setup.
+
+The brackets contain optional dependencies. This pulls the libraries needed for jupyter lab.
+
+```bash
+pip install --editable '.[jupyter,analysis]'
+```
 ### Configuring your system
 In order to make `.h5`-files clickable and to configure qkit globally, run
 
 ```bash
 qkit-install
+```
+
+On Windows, some of the changes require editing the registry. `qkit-install` can do that automatically, if run with elevated priviledges (as an Admin). To do so, run in a PowerShell
+```ps1
+Start-Process qkit-install -Verb runAs
 ```
 
 This will associate `.h5`-files with qkit, and set the environment variables `QKIT_LOCAL_CONFIG` and `QKIT_VENV` to the correct values. It will also
