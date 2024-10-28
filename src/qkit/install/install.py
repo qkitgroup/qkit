@@ -100,7 +100,6 @@ def windows_install_scripts(pwd: Path):
     from qkit.install import windows
     windows_script_files = files(windows)
 
-    copy_named_template(windows_script_files, pwd, "launch_qviewkit.bat", "Qviewkit Launch Script")
     copy_named_template(windows_script_files, pwd, "launch.bat", "Launch Jupyter Lab Script")
 
 @windows_admin_required
