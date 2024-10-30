@@ -67,10 +67,14 @@ timedomain = [
 [tool.hatch.version]
 source = "versioningit"
 
+[tool.versioningit.write]
+file = "src/qkit/_version.py"
+
 [tool.hatch.metadata]
 allow-direct-references = true
 
 [tool.hatch.build]
+artifacts = ["src/qkit/_version.py"]
 [tool.hatch.build.targets.wheel]
 packages = ["src/qkit"]
 [tool.hatch.build.targets.sdist]
