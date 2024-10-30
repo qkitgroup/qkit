@@ -27,3 +27,7 @@ src/qkit/data/*
 # Notebook folders
 notebooks/
 !notebooks/README.md
+
+# User install
+qkit_local_config.py
+jupyter_lab_config.py
