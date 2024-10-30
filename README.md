@@ -5,6 +5,9 @@
 
 # Qkit - a quantum measurement suite in python
 
+[![PyPI - Version](https://img.shields.io/pypi/v/qkit-core.svg)](https://pypi.org/project/qkit-core)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/qkit-core.svg)](https://pypi.org/project/qkit-core)
+
 ## Features:
   * a collection of ipython notebooks for measurement and data analysis tasks.
   * hdf5 based data storage of 1,2 and 3 dimensional data, including a viewer.
