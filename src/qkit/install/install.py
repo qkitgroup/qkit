@@ -36,13 +36,13 @@ def windows_admin_required(f: Callable) -> Callable:
     import ctypes
     import functools
 
-    if not ctypes.windll.shell32.IsUserAnAdmin():
-        @functools.wraps(f)
-        def warning(*args, **kwargs):
+    @functools.wraps(f)
+    def wrapped(*args, **kwargs):
+        if not ctypes.windll.shell32.IsUserAnAdmin():
             logger.warning("Admin privileges required for this task. Skipping.")
-        return warning
-    else:
-        return f
+        else:
+            return f(*args, **kwargs)
+    return wrapped
 
 
 # Get binary path for installed command:
