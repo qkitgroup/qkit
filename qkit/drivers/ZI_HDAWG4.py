@@ -894,7 +894,7 @@ class ZI_HDAWG4(Instrument):
             raise Exception("No waveform provided")
 
         sequencer += '''assignWaveIndex(''' + wave_names + str(0) + '''); \n'''
-        sequencer += '''while(true){\nwaitDigTrigger(1);\nplayWave(''' + wave_names[:-2] + ''');\n}'''
+        sequencer += '''while(true){\nwaitDigTrigger(1);\nplayWave(''' + wave_names[:-2] + ''');\nwaitWave();\n}'''
         # sequencer += '''while(true){\nplayWave(''' + wave_names[:-2] + ''');\n}'''
         if self._console_output == True:
             print(sequencer, "\n")
