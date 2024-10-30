@@ -56,7 +56,7 @@ You have two choices, based on whether you want to modify `qkit` (development) o
 Create a virtual environment, as described above. Then use pip to install qkit:
 
 ```bash
-pip install 'qkit[jupyter,analysis] @ git+https://github.com/qkitgroup/qkit.git@master'
+pip install qkit-core[jupyter,analysis]
 ```
 
 #### Install `qkit` for development
