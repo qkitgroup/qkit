@@ -96,6 +96,9 @@ class ZI_HDAWG4(Instrument):
         #Limiter for output range
         self._max_Vrange = 5 # in V
 
+        #Turn text output of waveform upload on and off
+        self._console_output = True
+
         #set apilevel to highest supported by device to unlock most of the functionalities
         #create apisession to communicate with device (ziDataServer needed)
         self._apilevel = 6
@@ -134,7 +137,6 @@ class ZI_HDAWG4(Instrument):
         self.add_function('upload_to_device')
         self.add_function('load_config_file')
         self.add_function('disable_everything')
-        # self.add_function('set_voltage_limit')
 
         #/TRIGGERS/OUT/n/SOURCE
         self.add_parameter('marker_output', type = int,
@@ -226,6 +228,12 @@ class ZI_HDAWG4(Instrument):
         self.add_parameter('voltage_limit', type = float,
             flags = Instrument.FLAG_GETSET,
             minval = 0, maxval = 5,
+            tags = ['sweep'])
+        
+        # Add console_output
+        self.add_parameter('console_output', type = bool,
+            flags = Instrument.FLAG_GETSET,
+            minval = 0, maxval = 1,
             tags = ['sweep'])
 
     def _do_set_modulation_mode(self,new,channel):
@@ -616,6 +624,13 @@ class ZI_HDAWG4(Instrument):
 
     def _do_get_voltage_limit(self):
         return self._max_Vrange
+    
+    def _do_set_console_output(self, output_bool):
+        self._console_output = output_bool
+        logging.info(__name__+': console output is set to', output_bool)
+
+    def _do_get_console_output(self):
+        return self._console_output
 
     #start awg sequencer
     def start_playback(self):
@@ -761,18 +776,22 @@ class ZI_HDAWG4(Instrument):
                     else:
                         new = self._Vrange_array[np.searchsorted(self._Vrange_array, maxV, side = 'left')]
                     if awg_core == 0:
-                        print("Setting ch" + str(channel[-1]) + " output range to " + str(new) + "V to match waveform data.")
+                        if self._console_output == True:
+                            print("Setting ch" + str(channel[-1]) + " output range to " + str(new) + "V to match waveform data.")
                         self.set('ch' + str(channel[-1]) + '_output_range', new)
                     elif awg_core == 1:
-                        print("Setting ch" + str(int(channel[-1]) + 2) + " output range to " + str(new) + "V to match waveform data.")
+                        if self._console_output == True:
+                            print("Setting ch" + str(int(channel[-1]) + 2) + " output range to " + str(new) + "V to match waveform data.")
                         self.set('ch' + str(int(channel[-1]) + 2) + '_output_range', new)
                     wave_dict[channel] = wave_dict[channel]/new
 
             # Align the wave_dict to 16 samples
             if len(wave_dict[channel]) % 16 != 0:
-                print(channel + " is not aligned to 16 samples and will be zero-extended")
+                if self._console_output == True:
+                    print(channel + " is not aligned to 16 samples and will be zero-extended")
                 wave_dict[channel] = np.append(wave_dict[channel], np.zeros(16 - (len(wave_dict[channel])) % 16))
-        print("")
+        if self._console_output == True:
+            print("")
 
         # Define Sequencer Code and Waveform
         waveforms = Waveforms()
@@ -852,8 +871,9 @@ class ZI_HDAWG4(Instrument):
         elif c2:
             if m2 and not m1:
                 # wm2
-                print("You just entered a dark cave. ")
-                print("This sequence is creating a dummy waveform to allow Marker2 to be played. \n")
+                if self._console_output == True:
+                    print("You just entered a dark cave. ")
+                    print("This sequence is creating a dummy waveform to allow Marker2 to be played. \n")
                 sequencer += '''wave dummy = placeholder('''+ str(len(wave_dict["Ch2"])) + ''', false, false);\n'''
                 sequencer += '''wave wm2 = placeholder('''+ str(len(wave_dict["Ch2"])) + ''', true, false);\n'''
                 wave_names += '1, dummy, '
@@ -876,7 +896,8 @@ class ZI_HDAWG4(Instrument):
         sequencer += '''assignWaveIndex(''' + wave_names + str(0) + '''); \n'''
         sequencer += '''while(true){\nwaitDigTrigger(1);\nplayWave(''' + wave_names[:-2] + ''');\n}'''
         # sequencer += '''while(true){\nplayWave(''' + wave_names[:-2] + ''');\n}'''
-        print(sequencer, "\n")
+        if self._console_output == True:
+            print(sequencer, "\n")
 
         # Write sequencer code and upload waveform to the AWG
         awg_node = self.device_new.awgs[awg_core]
