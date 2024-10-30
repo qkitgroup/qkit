@@ -1,7 +1,6 @@
 # root init for QKIT
 # these directories are treated as modules
 # HR@KIT/2017/2018
-__version__ = "0.2.0"
 __all__ = ['config','gui','measure','tools', 'analysis','core','instruments','services','storage','logs']
 
 import os.path

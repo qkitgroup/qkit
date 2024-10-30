@@ -5,6 +5,9 @@
 
 # Qkit - a quantum measurement suite in python
 
+[![PyPI - Version](https://img.shields.io/pypi/v/qkit-core.svg)](https://pypi.org/project/qkit-core)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/qkit-core.svg)](https://pypi.org/project/qkit-core)
+
 ## Features:
   * a collection of ipython notebooks for measurement and data analysis tasks.
   * hdf5 based data storage of 1,2 and 3 dimensional data, including a viewer.
@@ -56,7 +59,7 @@ You have two choices, based on whether you want to modify `qkit` (development) o
 Create a virtual environment, as described above. Then use pip to install qkit:
 
 ```bash
-pip install 'qkit[jupyter,analysis] @ git+https://github.com/qkitgroup/qkit.git@master'
+pip install qkit-core[jupyter,analysis]
 ```
 
 #### Install `qkit` for development
