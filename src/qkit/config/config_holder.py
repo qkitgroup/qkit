@@ -54,6 +54,10 @@ class LazyConfClass(dict):
     def __getitem__(self, key):
         self._check_load()
         return super().__getitem__(key)
+    
+    def __setitem__(self, key, value):
+        self._check_load()
+        return super().__setitem__(key, value)
             
     def get(self, item,default=None):
         try:
