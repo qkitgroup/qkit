@@ -9,7 +9,14 @@ class QkitCfgError(Exception):
     pass
 
 class ConfClass(dict):
+
     def __init__(self, *args):
+        """
+        Load configuration from the following sources:
+        - Default configuraiton from qkit.config.environment
+        - Package overrides from qkit.config.local
+        - Configuration file qkit_local_config.py or QKIT_LOCAL_CONFIG environment variable.
+        """
         dict.__init__(self, args)
 
         self._load_default_config()
