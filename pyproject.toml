@@ -15,6 +15,7 @@ license-files = { paths = ["LICENSE"] }
 requires-python = ">=3.7"
 classifiers = [
     "Framework :: Jupyter :: JupyterLab :: 3",
+    "Programming Language :: Python :: 3.7",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: GNU General Public License v2 (GPLv2)"
 ]
