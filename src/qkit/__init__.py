@@ -4,9 +4,17 @@
 __all__ = ['config','gui','measure','tools', 'analysis','core','instruments','services','storage','logs']
 
 
-from qkit.config.config_holder import LazyConfClass
-cfg = LazyConfClass()
-
+def __getattr__(name):
+    """
+    Lazy Loading support for qkit configuration. Based on PEP 562: Module __getattr__ and __dir__
+    """
+    global cfg
+    if name == "cfg":
+        print("Lazy-Loading configuration...")
+        from qkit.config.config_holder import ConfClass
+        cfg = ConfClass()
+        return cfg
+    raise AttributeError("qkit has no attribute " + name)
 
 
 """

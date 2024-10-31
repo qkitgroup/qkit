@@ -1,20 +1,19 @@
 
 import os.path
 import logging
+
 class QkitCfgError(Exception):
     '''
     If something with qkit.cfg does not fit to what the user wants to do, this is the error to throw.
     '''
     pass
 
-class LazyConfClass(dict):
+class ConfClass(dict):
     def __init__(self, *args):
         dict.__init__(self, args)
-        self.inizialized = False
-    
-    def _load(self):
-        self.load_default_config()
-        sources = self.load_config_overrides() + self.find_and_load_user_config()
+
+        self._load_default_config()
+        sources = self._load_config_overrides() + self._find_and_load_user_config()
 
         if len(sources) > 1:
             logging.warning("Loaded more than one configuration file! This may cause conflicts! Sources:")
@@ -22,11 +21,7 @@ class LazyConfClass(dict):
         
         # init message
         print ("QKIT configuration initialized -> available as qkit.cfg[...]")
-    
-    def _check_load(self):
-        if not self.inizialized:
-            self.inizialized = True
-            self._load()
+        
 
     def preset_analyse(self, verbose = False):
         """ Sets basic settings, most of the services are not loaded (default)
@@ -50,14 +45,6 @@ class LazyConfClass(dict):
                 print("Please set a valid data directory! (datadir)")
         if verbose:
             print ("Starting the info_service, ri_service and visa.")
-
-    def __getitem__(self, key):
-        self._check_load()
-        return super().__getitem__(key)
-    
-    def __setitem__(self, key, value):
-        self._check_load()
-        return super().__setitem__(key, value)
             
     def get(self, item,default=None):
         try:
@@ -67,7 +54,7 @@ class LazyConfClass(dict):
                 self[item]=default
             return default
 
-    def load_default_config(self):
+    def _load_default_config(self):
         # load configuration from $QKITDIR/config/*
         try:
             from qkit.config.environment import cfg as cfg_local
@@ -76,7 +63,7 @@ class LazyConfClass(dict):
             pass
 
 
-    def load_config_overrides(self) -> list[str]:
+    def _load_config_overrides(self) -> list[str]:
         # if a local.py file is defined, load cfg dict and overwrite environment entries.
         _config_sources = []
         try:
@@ -98,7 +85,7 @@ class LazyConfClass(dict):
         return _config_sources
 
 
-    def find_and_load_user_config(self) -> list[str]:
+    def _find_and_load_user_config(self) -> list[str]:
         """
         Loads user configuration from the file system, determined by known file names or environment variables.
 
