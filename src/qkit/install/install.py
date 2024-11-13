@@ -107,13 +107,19 @@ def windows_install_scripts(pwd: Path):
 def windows_associate_h5(pwd: Path):
     import winreg
     # Create file type if it does not exist.
+    qviewkit_launch_command = f'"{get_binary("qviewkit")}" -f "%1"'
     try:
         base_key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"qviewkit.h5")
         (value, type) = winreg.QueryValueEx(base_key, None)
         logging.info("File Type qviewkit.h5 already exists.")
         command_key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"qviewkit.h5\shell\open\command")
         (value, type) = winreg.QueryValueEx(command_key, None)
-        logging.info("Command already exists.")
+        if value != qviewkit_launch_command:
+            winreg.SetValue(command_key, None, winreg.REG_SZ, qviewkit_launch_command)
+            winreg.CloseKey(command_key)
+            logging.info("Redirected H5 handling to this installation")
+        else:
+            logging.info("Command already exists.")
     except FileNotFoundError:
         logging.info("Creating file type qviewkit.h5...")
         base_key = winreg.CreateKeyEx(winreg.HKEY_CLASSES_ROOT, r"qviewkit.h5")
@@ -121,7 +127,7 @@ def windows_associate_h5(pwd: Path):
         winreg.CloseKey(base_key)
 
         open_command_key = winreg.CreateKey(winreg.HKEY_CLASSES_ROOT, r"qviewkit.h5\shell\open\command")
-        winreg.SetValue(open_command_key, None, winreg.REG_SZ, f'"{get_binary("qviewkit")}" -f "%1"')
+        winreg.SetValue(open_command_key, None, winreg.REG_SZ, qviewkit_launch_command)
         winreg.CloseKey(open_command_key)
         logging.info("Qkit registered.")
 
