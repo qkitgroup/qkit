@@ -99,8 +99,8 @@ UNIVERSAL_SCRIPTS: list[Callable[[Path], None]] = [create_base_structure]
 def windows_install_scripts(pwd: Path):
     from qkit.install import windows
     windows_script_files = files(windows)
-
-    copy_named_template(windows_script_files, pwd, "launch.bat", "Launch Jupyter Lab Script")
+    with open(pwd / "launch.bat", "w") as f:
+        f.write(f"{get_binary("jupyter")} lab --config=./jupyter_lab_config.py\r\n")
 
 @windows_admin_required
 @optional("Associate .h5 files with Qviewkit. Modifies the Registry.")
