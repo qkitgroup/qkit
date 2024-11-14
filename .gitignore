@@ -1,10 +1,33 @@
 *.pyc
 *.DS_Store
 *.ipynb_checkpoints
-qkit/core/userconfig.py
-qkit/config/local.py
-qkit/config/services.py
-qkit/logs/qkit.log
 
+# IDEs and Python
+__pycache__
 .vscode/
 .mypy_cache/
+.idea/
+venv
+.venv
+
+# Build
+dist/
+src/qkit/_version.py
+
+# Legacy qkit folder logs
+qkit/logs
+
+# Data folders
+
+qkit/data/*
+data/*
+src/qkit/data/*
+!data/README.md
+
+# Notebook folders
+notebooks/
+!notebooks/README.md
+
+# User install
+qkit_local_config.py
+jupyter_lab_config.py

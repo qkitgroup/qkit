@@ -1,0 +1,15 @@
+# -*- coding: utf-8 -*-
+# file to define the default configurations of services
+# Please do not make changes to this file unless you know what you are doing !!!
+##############################################################################
+# MMW@KIT 2023
+
+cfg = {}
+
+##
+## qplexkit
+##
+cfg['qplexkit'] = {}
+cfg['qplexkit']['server_port'] = '0000'
+cfg['qplexkit']['allowed_ip_addresses'] = -1
+cfg['qplexkit']['ccr_file'] = 'ccr.json'
