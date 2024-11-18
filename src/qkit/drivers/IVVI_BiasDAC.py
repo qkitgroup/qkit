@@ -310,7 +310,7 @@ class IVVI_BiasDAC(Instrument):
         start, stop, step, _ = sweep
         setty = []
         getty = []
-        for val in np.linspace(start, stop, int(round(np.abs(start-stop)/step+1))):
+        for val in np.arange(start, stop + step/2, step):
             if self.dummy_ivd.pseudo_bias_mode: # voltage bias
                 self.set_dac(self.dummy_ivd.sweep_channel, val*self.dummy_ivd.v_div)
                 setty += [self.get_dac(self.dummy_ivd.sweep_channel)/self.dummy_ivd.v_div]

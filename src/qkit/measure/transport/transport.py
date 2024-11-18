@@ -108,8 +108,8 @@ class transport(object):
         # measurement setting default values
         self.sweeps = self.sweep()  # calls sweep subclass
         # numerical derivation dV/dI (differential resistance)
-        self._dVdI = False  # adds numerical derivation dV/dI as data series, views, ...
-        self._dIdV = False
+        self._dVdI = True  # adds numerical derivation dV/dI as data series, views, ...
+        self._dIdV = True
         self._numder_func = signal.savgol_filter  # function to calculate numerical derivative (default: Savitzky-Golay filter)
         self._numder_args = ()  # arguments for derivation function
         self._numder_kwargs = {'window_length': 15, 'polyorder': 3, 'deriv': 1}  # keyword arguments for derivation function
