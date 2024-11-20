@@ -3,7 +3,7 @@ requires = ["hatchling", "versioningit"]
 build-backend = "hatchling.build"
 
 [project]
-name = "qkit-core"
+name = "qkit"
 dynamic = ["version"]
 # No version, as it is provided by the git tag.
 authors = [
