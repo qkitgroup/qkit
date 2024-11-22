@@ -70,10 +70,10 @@ class IVVI_BiasDAC(Instrument):
         def __hash__(self):
             return hash(tuple((self.low, self.high)))
         def v2bytes(self, volt: float) -> tuple[int, int]:
-            if volt < self.low or volt > self.high:
+            bytevalue = round(65535*(volt - self.low)/(self.high - self.low))
+            if bytevalue < 0 or bytevalue > 65535:
                 raise ValueError
             else:
-                bytevalue = int(round(65535*(volt - self.low)/(self.high - self.low)))
                 return (bytevalue//256, bytevalue % 256)
         def bytes2v(self, byte_high: int, byte_low: int) -> float:
             # Correct readback expected, no value checking
