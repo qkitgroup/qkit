@@ -47,8 +47,9 @@ def windows_admin_required(f: Callable) -> Callable:
 
 # Get binary path for installed command:
 def get_binary(name: str) -> Path:
-    import shutil
-    return str(Path(shutil.which(name, path=Path(sys.argv[0]).parent)).absolute())
+    candidate = (Path(sys.executable).parent / name).absolute()
+    assert candidate.exists(), f"'{name}' does not exist!"
+    return str(candidate)
 
 
 def copy_named_template(source_cache: Traversable, target_path: Path, target_name: str, human_readable: str | None = None):
@@ -98,7 +99,7 @@ UNIVERSAL_SCRIPTS: list[Callable[[Path], None]] = [create_base_structure]
 
 def windows_install_scripts(pwd: Path):
     with open(pwd / "launch.bat", "w") as f:
-        f.write(f'"{get_binary("jupyter")}" lab --config=./jupyter_lab_config.py\r\n')
+        f.write(f'CALL "{get_binary("activate.bat")}"\r\n"{get_binary("jupyter")}" lab --config=./jupyter_lab_config.py\r\n')
 
 @windows_admin_required
 @optional("Associate .h5 files with Qviewkit. Modifies the Registry.")
