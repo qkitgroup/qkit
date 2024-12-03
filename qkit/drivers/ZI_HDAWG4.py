@@ -814,10 +814,10 @@ class ZI_HDAWG4(Instrument):
 
                 # Create combined marker
                 marker = np.zeros_like(wave_dict["Trig1"])
-                marker[(wave_dict["Trig1"] >= 1) & (wave_dict["Trig2"] == 0)] = 1
-                marker[(wave_dict["Trig1"] == 0) & (wave_dict["Trig2"] >= 1)] = 2
-                marker[(wave_dict["Trig1"] >= 1) & (wave_dict["Trig2"] >= 1)] = 3
-                marker[(wave_dict["Trig1"] == 0) & (wave_dict["Trig2"] == 0)] = 4
+                marker[(wave_dict["Trig1"] >= 1) & (wave_dict["Trig2"] == 1)] = 1
+                marker[(wave_dict["Trig1"] == 0) & (wave_dict["Trig2"] >= 0)] = 2
+                marker[(wave_dict["Trig1"] >= 1) & (wave_dict["Trig2"] >= 0)] = 3
+                marker[(wave_dict["Trig1"] == 0) & (wave_dict["Trig2"] == 1)] = 4
                 waveforms[0] = (wave_dict["Ch1"], wave_dict["Ch2"], marker)
             elif m1:
                 # wm1 and w2
