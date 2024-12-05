@@ -99,14 +99,17 @@ UNIVERSAL_SCRIPTS: list[Callable[[Path], None]] = [create_base_structure]
 
 def windows_install_scripts(pwd: Path):
     with open(pwd / "launch.bat", "w") as f:
-        f.write(f'CALL "{get_binary("activate.bat")}"\r\n"{get_binary("jupyter")}" lab --config=./jupyter_lab_config.py\r\n')
+        activate_path = get_binary('activate.bat')
+        jupyter_path = get_binary('jupyter')
+        f.write(f'CALL "{activate_path}"\r\n"{jupyter_path}" lab --config=./jupyter_lab_config.py\r\n')
 
 @windows_admin_required
 @optional("Associate .h5 files with Qviewkit. Modifies the Registry.")
 def windows_associate_h5(pwd: Path):
     import winreg
     # Create file type if it does not exist.
-    qviewkit_launch_command = f'"{get_binary("qviewkit")}" -f "%1"'
+    qviewkit_path = get_binary("qviewkit")
+    qviewkit_launch_command = f'"{qviewkit_path}" -f "%1"'
     try:
         base_key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"qviewkit.h5")
         (value, type) = winreg.QueryValueEx(base_key, None)
