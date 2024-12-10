@@ -278,7 +278,7 @@ class Yokogawa_GS210(Instrument):
         if ans=='zero':
             return 'off'
         if int(ans):
-            print 'Attention: Output is set on; Be careful!'      #warning if output is on! No fast current changes if coil is attached
+            print('Attention: Output is set on; Be careful!')      #warning if output is on! No fast current changes if coil is attached
             return 'on'
         else:
             return 'off'
@@ -298,7 +298,7 @@ class Yokogawa_GS210(Instrument):
         elif mode == 'volt':
             self._set_func_par_value('sour', 'lev', val)
         else:
-            print 'error'
+            print('error')
 
         
     def do_get_level(self):
@@ -462,11 +462,11 @@ class Yokogawa_GS210(Instrument):
         if(target < start): step = -step
         elif target == start: return 'Target value {} mA already reached!'.format(target)
         a = numpy.concatenate( (numpy.arange(start, target, step)[1:], [target]) )
-        print 'I = {} mA'.format(self.get('level')),
+        print('I = {} mA'.format(self.get('level')))
         for i in a:
             if showvalue==True: 
                 self.set_level(i)
-                print 'I = {} mA'.format(self.get('level')),
+                print('I = {} mA'.format(self.get('level')))
             time.sleep(wait_time)   
 
         

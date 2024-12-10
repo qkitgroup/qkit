@@ -547,7 +547,7 @@ class Oxford_Triton(Instrument):
         if response == "closed":
             return False
         else:
-            raise valueError("get_bypass responded with '{}'".format(response))
+            raise ValueError("get_bypass responded with '{}'".format(response))
     
     def _do_get_turbo_speed(self):
         logging.debug(__name__ + ' : Getting speed of the turbo pump')

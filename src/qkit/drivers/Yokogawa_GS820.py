@@ -541,7 +541,7 @@ class Yokogawa_GS820(Instrument):
         if(target < start): step = -step
         a = numpy.concatenate( (numpy.arange(start, target, step)[1:], [target]) )
         for i in a:
-            if showvalue==True: print i,
+            if showvalue==True: print(i)
             self.set_ch1_level(i)
             time.sleep(wait)
 
@@ -551,6 +551,6 @@ class Yokogawa_GS820(Instrument):
         if(target < start): step = -step
         a = numpy.concatenate( (numpy.arange(start, target, step)[1:], [target]) )
         for i in a:
-            if showvalue==True: print i,
+            if showvalue==True: print(i)
             self.set_ch2_level(i)
             time.sleep(wait)

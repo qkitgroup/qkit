@@ -339,13 +339,13 @@ class Tektronix_AWG520(Instrument):
         if numpts != self._numpoints:
             logging.warning(__name__ + ' : changing numpoints. This will clear all waveforms!')
 
-        response = raw_input('type "yes" to continue')
+        response = input('type "yes" to continue')
         if response is 'yes':
             logging.debug(__name__ + ' : Setting numpoints to %s' %numpts)
             self._numpoints = numpts
             self.clear_waveforms()
         else:
-            print 'aborted'
+            print('aborted')
 
     def do_get_clock(self):
         '''
@@ -664,7 +664,7 @@ class Tektronix_AWG520(Instrument):
             self._visainstrument.write('OUTP%s OFF' %channel)
         else:
             logging.debug(__name__ + ' : Try to set status to invalid value %s' % status)
-            print 'Tried to set status to invalid value %s' %status
+            print('Tried to set status to invalid value %s' %status)
 
     #  Ask for string with filenames
     def get_filenames(self):

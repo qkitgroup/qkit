@@ -416,7 +416,7 @@ class virtual_measure_spec(Instrument):
         sum = numpy.zeros((shp[0], shp[2]), numpy.int)
         for i in range(shp[1]):
             sum += dat[:, i, :]
-        return numpy.array(res, numpy.float32) / shp[1]
+        return numpy.array(sum, numpy.float32) / shp[1]
 
     def _acquire_singlemode(self):
         '''

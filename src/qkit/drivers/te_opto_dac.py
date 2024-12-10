@@ -12,19 +12,19 @@ class te_opto_dac(Instrument):
     '''
 
     def __init__(self, name, source=None, channel = 0, dachannels = 1, inverted = False):
-		Instrument.__init__(self, name, tags=['virtual'])
-		self._instruments = instruments.get_instruments()
-		self._source= self._instruments.get(source)
-		self._channel = channel # channel = 'portn/linem'
-		self._nchannels = dachannels
-		self._values = np.zeros((dachannels))
-		self._inverted = inverted
+        Instrument.__init__(self, name, tags=['virtual'])
+        self._instruments = instruments.get_instruments()
+        self._source= self._instruments.get(source)
+        self._channel = channel # channel = 'portn/linem'
+        self._nchannels = dachannels
+        self._values = np.zeros((dachannels))
+        self._inverted = inverted
         
 		# Add parameters        
-		self.add_parameter('value', type=float,
+        self.add_parameter('value', type=float,
 			channels=(1, dachannels), channel_prefix = 'ch%d_',
 			flags=Instrument.FLAG_SET, units='V')
-		self.add_parameter('invert', type=bool,
+        self.add_parameter('invert', type=bool,
 			flags=Instrument.FLAG_SET, units='')
 		#self.add_parameter('binary', type=int,
 		#	flags=Instrument.FLAG_SET, units='')
@@ -36,7 +36,7 @@ class te_opto_dac(Instrument):
         ''' 
             output a float between -10. and 10. on the dac
         '''
-        if((val > 10) || (val < -10)):
+        if((val > 10) | (val < -10)):
             raise ValueError('Valid outputs of TE DACs are be between -10V and +10V.')
         val = np.int16(min(2**15-1, max(-2**15, val/10*1**15)))
         self.do_set_binary(val, channel)

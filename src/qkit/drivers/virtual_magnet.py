@@ -26,17 +26,18 @@ class virtual_magnet(Instrument):
         self._stepdelay = stepdelay
         self._multiplier = multiplier
         self._range = range
-        self._old = old;
+        self._old = old
         self.get_all()
+    
     def get_all(self):
         self.get_stepsize()
         self.get_stepdelay()
         self.get_range()
         self.get_multiplier()
 
-    def do_set_current( self, cur):
-                if np.abs(cur) > 10*self._range:
-                        raise ValueError('set_current(): given value exeeds the range of %f' % self._range)
+    def do_set_current(self, cur):
+        if np.abs(cur) > 10*self._range:
+            raise ValueError('set_current(): given value exeeds the range of %f' % self._range)
         old = self._old
         stepsize =  self.get_stepsize()
         stepdelay = self.get_stepdelay()
