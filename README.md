@@ -7,6 +7,7 @@
 
 [![PyPI - Version](https://img.shields.io/pypi/v/qkit.svg)](https://pypi.org/project/qkit)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/qkit.svg)](https://pypi.org/project/qkit)
+[![Release](https://github.com/qkitgroup/qkit/actions/workflows/release.yml/badge.svg)](https://github.com/qkitgroup/qkit/actions/workflows/release.yml)
 
 ## Features:
   * a collection of ipython notebooks for measurement and data analysis tasks.
