@@ -152,6 +152,12 @@ class ZI_HDAWG4(Instrument):
             minval = 0.2, maxval = 5,
             units = 'V', tags = ['fixed values'])
 
+       #/SIGOUTS
+        self.add_parameter('voltage_offset', type = float,
+            flags = Instrument.FLAG_GETSET,
+            channels = (1,4), channel_prefix = "ch%d_",
+            minval = -5, maxval = 5,
+            tags = ['sweep'])
 
         #/SYSTEM/CLOCKS/SAMPLECLOCK/FREQ
         self.add_parameter('sampling_clock', type = float,
@@ -165,7 +171,7 @@ class ZI_HDAWG4(Instrument):
             minval = 0, maxval = 8192,
             tags = ['sweep'])
         
-        #Actual samoling rate
+        #Actual sampling rate
         self.add_parameter('sampling_rate', type = float,
             flags = Instrument.FLAG_GET)
         
@@ -204,7 +210,7 @@ class ZI_HDAWG4(Instrument):
             minval = 0, maxval = 1,
             tags = ['sweep'])
 
-        ##wave outputs, using channel_output
+        ## wave outputs, using channel_output
         #self.add_parameter('wave_output', type = int,
         #    flags = Instrument.FLAG_GETSET,
         #    channels = (1,4), channel_prefix = "ch%d_",
@@ -235,6 +241,7 @@ class ZI_HDAWG4(Instrument):
             flags = Instrument.FLAG_GETSET,
             minval = 0, maxval = 1,
             tags = ['sweep'])
+        
 
     def _do_set_modulation_mode(self,new,channel):
 
@@ -616,6 +623,25 @@ class ZI_HDAWG4(Instrument):
         output = self.daq.getDouble('/%s/SIGOUTS/%d/RANGE' % (self._device_id, channel-1))
         logging.info(__name__+': output range of channel %s : %d' %(channel-1,output) +'V.')
 
+        return output
+    
+    def _do_set_voltage_offset(self, new, channel, speed = 0.2):
+        #set channel offset on device
+        self.daq.setDouble('/%s/sigouts/%d/offset'% (self.device, channel-1), new)
+        self.daq.sync()
+
+        #logging information
+        logging.info(__name__ + ': Switching channel %d offset on'% channel + 'to' + new + 'V')
+
+        #save channel output information for further processing
+        self._channel_outputs[channel-1] = new
+
+    def _do_get_voltage_offset(self, channel):
+        #readout channel offset
+        output = self.daq.getDouble('/%s/sigouts/%d/offset'% (self._device_id, channel-1))
+
+        #logging information
+        logging.info(__name__ + ': Channel %d output is on'% channel + 'to' + output + 'V')
         return output
     
     def _do_set_voltage_limit(self, maxV):
