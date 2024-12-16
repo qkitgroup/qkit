@@ -843,7 +843,7 @@ class ZI_HDAWG4(Instrument):
                 marker[(wave_dict["Trig1"] == 0) & (wave_dict["Trig2"] == 0)] = 0b0000
                 marker[(wave_dict["Trig1"] >= 1) & (wave_dict["Trig2"] == 0)] = 0b0001
                 marker[(wave_dict["Trig1"] == 0) & (wave_dict["Trig2"] >= 1)] = 0b0100
-                # marker[(wave_dict["Trig1"] >= 1) & (wave_dict["Trig2"] >= 1)] = 0b0101
+                marker[(wave_dict["Trig1"] >= 1) & (wave_dict["Trig2"] >= 1)] = 0b0101
                 waveforms[0] = (wave_dict["Ch1"], wave_dict["Ch2"], marker)
             elif m1:
                 # wm1 and w2
