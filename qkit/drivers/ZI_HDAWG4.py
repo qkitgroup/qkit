@@ -625,13 +625,23 @@ class ZI_HDAWG4(Instrument):
 
         return output
     
-    def _do_set_voltage_offset(self, new, channel, speed = 0.2):
-        #set channel offset on device
-        self.daq.setDouble('/%s/sigouts/%d/offset'% (self.device, channel-1), new)
-        self.daq.sync()
+    def _do_set_voltage_offset(self, new, channel, speed = 0.2, voltage_step = 1e-3):
+        # readout channel offset
+        init_voltage = self.daq.getDouble('/%s/sigouts/%d/offset'% (self._device_id, channel-1))
+        voltage_array = np.arange(init_voltage, new, voltage_step)
+        if speed == 0:
+            raise ValueError("Speed cannot be set to 0")
+        else:
+            time_step = np.abs(new - init_voltage)/speed * voltage_step
 
+         #set channel offset on device
+        for volt in voltage_array:
+            self.daq.setDouble('/%s/sigouts/%d/offset'% (self.device, channel-1), volt)
+            time.sleep(time_step) 
+        self.daq.sync()
+       
         #logging information
-        logging.info(__name__ + ': Switching channel %d offset on'% channel + 'to' + new + 'V')
+        logging.info(__name__ + ': Switching channel %d offset on'% channel + 'to' + str(new) + 'V')
 
         #save channel output information for further processing
         self._channel_outputs[channel-1] = new
@@ -641,7 +651,7 @@ class ZI_HDAWG4(Instrument):
         output = self.daq.getDouble('/%s/sigouts/%d/offset'% (self._device_id, channel-1))
 
         #logging information
-        logging.info(__name__ + ': Channel %d output is on'% channel + 'to' + output + 'V')
+        logging.info(__name__ + ': Channel %d output is on'% channel + 'to' + str(output) + 'V')
         return output
     
     def _do_set_voltage_limit(self, maxV):
