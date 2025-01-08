@@ -17,4 +17,4 @@ jobs:
       - name: Install build dependencies
         run: python -m pip install -U hatch hatch-vcs
       - name: Run tests
-        run: hatch test --cover-quiet --randomize
+        run: hatch run test --cover-quiet --randomize
