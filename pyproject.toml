@@ -29,7 +29,9 @@ dependencies = [
     "PyVISA>=1.13",
     "PyVISA-py>=0.6",
     "pyzmq>=25",
-    "tomli>=2.0.1"
+    "tomli>=2.0.1",
+    "ipython",
+    "packaging"
 ]
 
 [project.scripts]
@@ -78,3 +80,6 @@ artifacts = ["src/qkit/_version.py"]
 packages = ["src/qkit"]
 [tool.hatch.build.targets.sdist]
 exclude = ["data/*", "notebooks/*", "logs/*", "venv/*"]
+
+[tool.pytest.ini_options]
+testpaths="tests"
