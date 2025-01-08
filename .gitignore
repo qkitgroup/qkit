@@ -13,6 +13,7 @@ venv
 # Build
 dist/
 src/qkit/_version.py
+.coverage
 
 # Legacy qkit folder logs
 qkit/logs
