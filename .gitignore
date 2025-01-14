@@ -12,9 +12,23 @@ venv
 
 # Build
 dist/
+src/qkit/_version.py
+.coverage
 
 # Legacy qkit folder logs
 qkit/logs
 
-# data
-data/
+# Data folders
+
+qkit/data/*
+data/*
+src/qkit/data/*
+!data/README.md
+
+# Notebook folders
+notebooks/
+!notebooks/README.md
+
+# User install
+qkit_local_config.py
+jupyter_lab_config.py

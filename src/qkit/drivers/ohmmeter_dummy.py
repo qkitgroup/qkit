@@ -5,7 +5,7 @@ from qkit.core.instrument_base import Instrument
 import time
 
 
-class ohmmeter_dummy(Instrument)::
+class ohmmeter_dummy(Instrument):
     '''
     This is a driver for a dummy ohmmeter as used for sputter deposition monitoring qkit.services.qdepokit.sdi.
 

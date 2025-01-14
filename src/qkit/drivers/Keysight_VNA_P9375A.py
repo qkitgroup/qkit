@@ -153,7 +153,10 @@ class Keysight_VNA_P9375A(Instrument):
 
         self.add_parameter('active_trace', type=int,
             flags=Instrument.FLAG_GETSET)
-                    
+        
+        self.add_parameter('output', type=bool,
+            flags=Instrument.FLAG_GETSET)   
+        
         #Triggering Stuff
         self.add_parameter('trigger_source', type=str,
             flags=Instrument.FLAG_GETSET)
@@ -195,6 +198,7 @@ class Keysight_VNA_P9375A(Instrument):
         self.get_edel_status()
         self.get_cw()
         self.get_cwfreq()
+        self.get_output()
         for port in range(self._pi):
             self.get('port%d_edel' % (port+1))
         
@@ -204,17 +208,24 @@ class Keysight_VNA_P9375A(Instrument):
     
     
     def hold(self, status):     # added MW July 13
-        self._visainstrument.write(":TRIG:SOUR INT")
+        self._visainstrument.write(":TRIG:SOUR IMM")
         if status:
             self._visainstrument.write('INIT:CONT OFF')
-            #print('continuous off')
+            self._visainstrument.write('SENS:SWE:MODE HOLD') # set sweep mode to hold
+            self._visainstrument.write('OUTP OFF') # set RF output off
         else:
             self._visainstrument.write('INIT:CONT ON')
-            #print('continuous on')
+            self._visainstrument.write('SENS:SWE:MODE CONT') # set sweep mode to hold
+            self._visainstrument.write('OUTP ON') # set RF output on
 
     def get_hold(self):     # added MW July 13
-        #self._visainstrument.read(':INIT%i:CONT?'%(self._ci))
-        self._hold=self._visainstrument.query('INIT:CONT?')
+        ###hold==False only if rf power is on,  sweep mode is continuous and trigger source is immediate (interal continuous triggering). 
+        if int(self._visainstrument.query('INIT%i:CONT?'%(self._ci))) and self._visainstrument.query(':SENS%i:SWE:MODE?'%(self._ci)) == 'CONT\n' and int(self._visainstrument.query('OUTP?')):
+            self._hold=False
+        elif not int(self._visainstrument.query('INIT%i:CONT?'%(self._ci))) and self._visainstrument.query(':SENS%i:SWE:MODE?'%(self._ci)) == 'HOLD\n' and not int(self._visainstrument.query('OUTP?')):
+            self._hold=True
+        else:
+            self._hold=None
         return self._hold 
     
     def init(self):
@@ -256,7 +267,7 @@ class Keysight_VNA_P9375A(Instrument):
         
         if single==True:        #added MW July. 
             #print('single shot readout')
-            self._visainstrument.write('TRIG:SOUR INT') #added MW July 2013. start single sweep.
+            self._visainstrument.write('TRIG:SOUR IMM') #added MW July 2013. start single sweep.
             self._visainstrument.write('INIT%i:CONT ON'%(self._ci)) #added MW July 2013. start single sweep.
             self.hold(True)
             sleep(float(self._visainstrument.query('SENS1:SWE:TIME?'))) 
@@ -330,19 +341,52 @@ class Keysight_VNA_P9375A(Instrument):
         select the sweep mode from 'hold', 'cont', single'
         single means only one single trace, not all the averages even if averages
          larger than 1 and Average==True
+
+        Input:
+            source (string) : HOLD | CONTinuous | SINGle 
+
+        Output:
+            None
         '''
-        if mode == 'hold':
-            self._visainstrument.write(':INIT%i:CONT OFF'%(self._ci))
-        elif mode == 'cont':
-            self._visainstrument.write(':INIT%i:CONT ON'%(self._ci))
-        elif mode == 'single':
-            self._visainstrument.write(':INIT%i:CONT ON'%(self._ci))
-            self._visainstrument.write(':INIT%i:CONT OFF'%(self._ci))
+        logging.debug(__name__ + ' : setting sweep mode "%s"' % mode)
+        if mode.upper() in ['HOLD', 'CONT', 'SING']:
+            self._visainstrument.write('SENS:SWE:MODE %s' % mode.upper())        
         else:
-            logging.warning('invalid mode')
-            
+            raise ValueError('set_trigger_source(): must be HOLD | CONTinuous | SINGle ')
+        
+           
     def do_get_sweep_mode(self):
-        return int(self._visainstrument.query(':INIT%i:CONT?'%(self._ci)))
+        return self._visainstrument.query(':SENS%i:SWE:MODE?'%(self._ci))
+    
+    def do_set_output(self, status):
+        '''
+        sets the RF power on or off
+
+        Input:
+            status (boolean)
+
+        Output:
+            None
+        '''
+        logging.debug(__name__ + ' : setting RF output to "%s"' % (status))
+        if status:
+            self._visainstrument.write('OUTP ON')
+        elif status == False:
+            self._visainstrument.write('OUTP OFF')
+        else:
+            raise ValueError('set_output(): can only set True or False')               
+    def do_get_output(self):
+        '''
+        Get status of RF output
+
+        Input:
+            None
+
+        Output:
+            Status of RF output (boolean)
+        '''
+        logging.debug(__name__ + ' : getting average status')
+        return bool(int(self._visainstrument.query('OUTP?')))
     
     def do_set_nop(self, nop):
         '''
@@ -831,16 +875,16 @@ class Keysight_VNA_P9375A(Instrument):
         Set Trigger Mode
 
         Input:
-            source (string) : INTernal | MANual | EXTernal | REMote
+            source (string) : IMMediate | MANual | EXTernal
 
         Output:
             None
         '''
         logging.debug(__name__ + ' : setting trigger source to "%s"' % source)
-        if source.upper() in ['INT', 'MAN', 'EXT', 'BUS']:
+        if source.upper() in ['IMM', 'MAN', 'EXT']:
             self._visainstrument.write('TRIG:SEQ:SOUR %s' % source.upper())        
         else:
-            raise ValueError('set_trigger_source(): must be INTernal | MANual | EXTernal | REMote')
+            raise ValueError('set_trigger_source(): must be IMMediate | MANual | EXTernal')
 
     def do_get_trigger_source(self):
         '''
@@ -850,7 +894,7 @@ class Keysight_VNA_P9375A(Instrument):
             None
 
         Output:
-            source (string) : INTernal | MANual | EXTernal | BUS
+            source (string) : IMMediate  | MANual | EXTernal 
         '''
         logging.debug(__name__ + ' : getting trigger source')
         return str(self._visainstrument.query('TRIG:SEQ:SOUR?')).rstrip()

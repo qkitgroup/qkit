@@ -154,7 +154,7 @@ class Inficon(Instrument):
         except ValueError as e:
             print(e)
             print(ret)
-            return numpy.NaN
+            return numpy.nan
         
         if nm:
             # return rate in nm/s
@@ -179,7 +179,7 @@ class Inficon(Instrument):
         except ValueError as e:
             print(e)
             print(ret)
-            return numpy.NaN
+            return numpy.nan
         if nm:
             # return thickness in nm
             return thickness*100.

@@ -390,7 +390,7 @@ class Keithley_2450(Instrument):
         between two subsequent steps.
         '''
         logging.debug('Set ramp time to %s s' % val)
-        self.ramp_wait_time = va
+        self.ramp_wait_time = val
         
         
     def ramp_current(self, target, step,  wait_time, showvalue=False, outp=True):

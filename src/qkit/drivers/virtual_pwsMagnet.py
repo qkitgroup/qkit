@@ -209,7 +209,7 @@ class virtual_pwsMagnet(Instrument):
         voltage = self.do_get_voltage()
         current = self.do_get_current()
         if voltage > 0.95:
-            print "WARNING! Magnet quench!! ramping down the coil..."
+            print("WARNING! Magnet quench!! ramping down the coil...")
             self.ramp_current(0., 2e-3, wait=wait, showvalue=showvalue)
             return
         else:
@@ -256,10 +256,10 @@ class virtual_pwsMagnet(Instrument):
             time.sleep(wait)
             voltage = self.do_get_voltage()
             current = self.do_get_current()
-            print "V=" + str(np.trunc(voltage * 1000) / 1000.) + "V, I=" + str(
-                np.trunc(current * 1000) / 1000.) + "A, R=" + str(int(np.trunc(voltage / current * 1000))) + "mOhm"
+            print("V=" + str(np.trunc(voltage * 1000) / 1000.) + "V, I=" + str(
+                np.trunc(current * 1000) / 1000.) + "A, R=" + str(int(np.trunc(voltage / current * 1000))) + "mOhm")
             if voltage > threshold:
-                print "WARNING! Magnet quench!! ramping down the coil..."
+                print("WARNING! Magnet quench!! ramping down the coil...")
                 self.ramp_current(0., 2e-3, wait=0.2, showvalue=True)
                 return
 

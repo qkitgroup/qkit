@@ -21,6 +21,8 @@ qkit instrument driver for qdevil QDAC-II.
 import logging
 
 import qkit
+import time
+import numpy as np
 from qkit.core.instrument_base import Instrument
 from qkit import visa
 
@@ -293,7 +295,7 @@ class QDAC_II(Instrument):
             )
         return
 
-    def set_DC_voltage(channel, value, slew=2e7, **par):
+    def set_DC_voltage(self, channel, value, slew=2e7, **par):
         """
         Setter function for voltage in a channel.
 
@@ -347,7 +349,7 @@ class QDAC_II(Instrument):
             )
         return
 
-    def _set_DC_voltage_par(channel, value, slew=2e7, **par):
+    def _set_DC_voltage_par(self, channel, value, slew=2e7, **par):
         """
         Private function for setting additional parameters for the DC voltage.
 
@@ -388,9 +390,9 @@ class QDAC_II(Instrument):
                 else:
                     volt_range = "HIGH"
             self.write("sour:volt:range {:s}, (@{:s})".format(volt_range, channel_str))
-            if lowpass_filter in par:
+            if "lowpass_filter" in par:
                 self.write(
-                    "sour:volt:filter {:s}, (@{:s})".format(lowpass_filter, channel_str)
+                    "sour:volt:filter {:s}, (@{:s})".format(par["lowpass_filter"], channel_str)
                 )
             else:
                 self.write("sour:volt:filter DC, (@{:s})".format(channel_str))
@@ -407,7 +409,7 @@ class QDAC_II(Instrument):
             )
         return
 
-    def get_current(channel):
+    def get_current(self, channel):
         """
         Reads current from the device for given channels and returns result as a dict.
 
@@ -426,6 +428,7 @@ class QDAC_II(Instrument):
         q = QDAC_II("QDevil QDAC-II", 10.22.197.176)
         q.get_current([1,2,6])
         """
+        raise NotImplementedError
         self.query()  # TODO
 
     def take_IV(self, sweep):

@@ -108,7 +108,7 @@ class Keithley_2000(Instrument):
         except ValueError as e:
             print(e)
             print(ret)
-            return numpy.NaN        
+            return numpy.nan        
 
     def get_resistance_2W(self):
         try:
@@ -117,7 +117,7 @@ class Keithley_2000(Instrument):
         except ValueError as e:
             print(e)
             print(ret)
-            return numpy.NaN
+            return numpy.nan
 
     def get_resistance_4W(self):
         try:
@@ -126,7 +126,7 @@ class Keithley_2000(Instrument):
         except ValueError as e:
             print(e)
             print(ret)
-            return numpy.NaN
+            return numpy.nan
 
     def set_measure_4W(self,four_wire):
         ''' Sets 2 or 4 wire measurement mode '''

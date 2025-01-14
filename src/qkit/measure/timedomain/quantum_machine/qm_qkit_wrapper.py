@@ -21,13 +21,18 @@ class QmQkitWrapper:
 
         self.exp_name = None
         self.dirname = ""  # TODO new name
-        self.comment = ""
-        self.sourcecode = ""
-        self.sample = None
+        self.comment = "test"
+        self.sourcecode = ''
+        self.config = ''
+        self.sample = "tests"
+        self.pulseinfo = "NoPulseDataSaved"
+        self.scaleoffset = None
 
         self._measurement_object = Measurement()
         self._measurement_object.measurement_type = 'TimeDomain'
-        self._measurement_object.sample = self.sample
+
+
+
 
         # data
         self.coords = {}
@@ -48,23 +53,23 @@ class QmQkitWrapper:
 
             output = func(self, *args, **kwargs)
 
+            # Save function arguments and qm program
+            astring = ""
+            for value in args:
+                astring += "{}, ".format(value)
+
+            kstring = ""
+            for key, value in kwargs.items():
+                kstring += "{} = {}, ".format(key, value)
+
+            self.sourcecode += astring + kstring + "\n\n\n" + inspect.getsource(func)
+
             if save:
                 if self.dirname:
                     self._file_name = 'QM_experiment_' + self.exp_name + '_' + self.dirname
                 else:
                     self._file_name = 'QM_experiment_' + self.exp_name
                 self._file_name = self._file_name.replace(' ', '').replace(',', '_')
-
-                # Save function arguments and qm program
-                astring = ""
-                for value in args:
-                    astring += "{}, ".format(value)
-
-                kstring = ""
-                for key, value in kwargs.items():
-                    kstring += "{} = {}, ".format(key, value)
-
-                self.sourcecode = astring + kstring + "\n\n\n" + inspect.getsource(func)
 
                 self._prepare_measurement_file()
                 self.store_data()
@@ -73,10 +78,11 @@ class QmQkitWrapper:
 
                 self.close_files()
 
-                print('Measurement complete: {:s}'.format(self._data_file.get_filepath()))
+                #print('Measurement complete: {:s}'.format(self._data_file.get_filepath()))
 
             else:
-                print('Measurement complete')
+                #print('Measurement complete')
+                pass
 
             return output
         return wrapper
@@ -92,7 +98,11 @@ class QmQkitWrapper:
         self._measurement_object.hdf_relpath = self._data_file._relpath
         self._measurement_object.instruments = qkit.instruments.get_instrument_names()
 
+        #self._measurement_object.sample = "testsample"
+        #self._measurement_object.measurement_func = self.pulseinfo
+
         self._measurement_object.save()
+
         self._mo = self._data_file.add_textlist('measurement')
         self._mo.append(self._measurement_object.get_JSON())
 
@@ -102,6 +112,7 @@ class QmQkitWrapper:
         self._settings.append(settings)
 
         self._log_file = waf.open_log_file(self._data_file.get_filepath())
+
 
 
     def close_files(self):
@@ -139,17 +150,17 @@ class QmQkitWrapper:
             unit = self.values[key][2]
 
             if len(coord_key_list) == 1:
-                value_file = self._data_file.add_value_vector(key, x=coord_dic[coord_key_list[0]], unit=unit)
+                value_file = self._data_file.add_value_vector(key, x=coord_dic[coord_key_list[0]], unit=unit, scaleoffset = self.scaleoffset)
                 value_file.append(values)
             elif len(coord_key_list) == 2:
                 value_file = self._data_file.add_value_matrix(key, x=coord_dic[coord_key_list[0]],
-                                                              y=coord_dic[coord_key_list[1]], unit=unit)
+                                                              y=coord_dic[coord_key_list[1]], unit=unit, scaleoffset = self.scaleoffset)
                 # file initialization - workaround
                 value_file.append(values[0, :])
             elif len(coord_key_list) == 3:
                 value_file = self._data_file.add_value_box(key, x=coord_dic[coord_key_list[0]],
                                                            y=coord_dic[coord_key_list[1]],
-                                                           z=coord_dic[coord_key_list[2]], unit=unit)
+                                                           z=coord_dic[coord_key_list[2]], unit=unit, scaleoffset = self.scaleoffset)
                 # file initialization - workaround
                 value_file.append(values[0, 0, :])
 
@@ -160,9 +171,19 @@ class QmQkitWrapper:
         sourcecode_file = self._data_file.add_textlist('sourcecode')
         sourcecode_file.append(self.sourcecode)
 
+        self.sourcecode = ""
+
+        config_file = self._data_file.add_textlist('config')
+        config_file.append(self.qm_config.config)
+
+        scale_offset_file = self._data_file.add_textlist('scale_offset')
+        scale_offset_file.append(self.scaleoffset)
+
         # comment
         if self.comment:
             self._data_file.add_comment(self.comment)
+
+
 
 
 

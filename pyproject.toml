@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "versioningit"]
 build-backend = "hatchling.build"
 
 [project]
@@ -11,10 +11,11 @@ authors = [
 ]
 description = "qKIT quantum measurement suite in python"
 readme = "README.md"
-license-files = { paths = ["LICENSE"] }
+license = { file = "LICENSE" }
 requires-python = ">=3.7"
 classifiers = [
     "Framework :: Jupyter :: JupyterLab :: 3",
+    "Programming Language :: Python :: 3.7",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: GNU General Public License v2 (GPLv2)"
 ]
@@ -28,11 +29,15 @@ dependencies = [
     "PyVISA>=1.13",
     "PyVISA-py>=0.6",
     "pyzmq>=25",
-    "tomli>=2.0.1"
+    "tomli>=2.0.1",
+    "ipython",
+    "packaging"
 ]
 
 [project.scripts]
 qviewkit = "qkit.gui.qviewkit.main:main"
+qkit-install = "qkit.install.install:main"
+qkit-manual-breadcrumbs = "qkit.core.lib.file_service.breadcrumbs:manual_index"
 
 [project.optional-dependencies] # Here goes stuff like qiclib
 jupyter = [
@@ -46,8 +51,6 @@ zurich-instruments = [
 analysis = [
     "matplotlib>=3.7",
     "uncertainties>=3.1",
-    "qutip>=4.7",
-    "SQcircuit>=0.0.17",
     "peakutils>=1.3"
 ]
 qgrid = [
@@ -63,11 +66,20 @@ timedomain = [
 "Bug Tracker" = "https://github.com/qkitgroup/qkit/issues"
 
 [tool.hatch.version]
-path = "src/qkit/__init__.py"
+source = "versioningit"
+
+[tool.versioningit.write]
+file = "src/qkit/_version.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
 [tool.hatch.build]
+artifacts = ["src/qkit/_version.py"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/qkit"]
 [tool.hatch.build.targets.sdist]
-exclude = ["data/*", "notebooks/*", "logs/*"]
+exclude = ["data/*", "notebooks/*", "logs/*", "venv/*"]
+
+[tool.pytest.ini_options]
+testpaths="tests"
