@@ -10,12 +10,14 @@ ds_types = {'coordinate':0,
             'matrix':2,
             'box':3,
             'txt':10,
-            'view':20,            
-            } 
+            'view':20,
+            }
 
 view_types =  {'1D':0,
-               '1D-V':1,
-               '2D':2,
-               '3D':3,
-               'table':4,
-               'txt':5}
+                '1D-V':1,
+                '2D':2,
+                '3D':3,
+                'table':4,
+                'txt':5,
+                'polarplot':6
+                }

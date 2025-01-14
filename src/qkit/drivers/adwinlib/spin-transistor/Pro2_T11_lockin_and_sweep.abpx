@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Projectsettings xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <DebugMode>false</DebugMode>
+  <ADsimImportBlockCaptions>true</ADsimImportBlockCaptions>
+  <Settingformatversion>1.0.0.1</Settingformatversion>
+  <TimingAnalyzer>false</TimingAnalyzer>
+  <Processor>11</Processor>
+  <ADwinSystem>6000</ADwinSystem>
+  <DeviceNo>1</DeviceNo>
+  <StackTest>false</StackTest>
+  <OtherFiles />
+  <PreBuild />
+  <PostBuild />
+  <StoreDeviceNo>false</StoreDeviceNo>
+  <StoreADwinSystem>false</StoreADwinSystem>
+  <StoreDebugMode>false</StoreDebugMode>
+  <StoreStackTest>false</StoreStackTest>
+  <StoreTimingAnalyzer>false</StoreTimingAnalyzer>
+</Projectsettings>

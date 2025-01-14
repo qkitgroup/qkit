@@ -110,7 +110,7 @@ class MeasureBase(object):
             self.log_functions.pop(index)
     
     class Coordinate:
-        def __init__(self, name, unit="", values=None, set_function=None, wait_time=0):
+        def __init__(self, name, unit="", values=np.array([]), set_function=lambda x: True, wait_time=0):
             if type(name) is not str:
                 raise TypeError('{:s}: Cannot set {!s} as name for coordinate: string needed'.format(__name__, self.name))
             self.name = name
@@ -282,12 +282,13 @@ class MeasureBase(object):
             self.measurement_name = ", ".join(coordinates)
         self._file_name = '{}D_'.format(self._dim) + self.measurement_name.replace(' ', '').replace(',', '_')
 
-    def _prepare_measurement_file(self, data, coords=()):
+    def _prepare_measurement_file(self, data, coords=(), **kwargs):
         """
         creates the output .h5-file with distinct dataset structures for each measurement type.
         at this point all measurement parameters are known and put in the output file
         All nacessary coordinates are alread included in the data instances, but you can supply a list of additional coords, which will be created.
         """
+        
         for c in coords:
             if not isinstance(c, self.Coordinate):
                 raise TypeError('{:s}:  {!s} is no valid coordinate object'.format(__name__, c))
@@ -354,7 +355,9 @@ class MeasureBase(object):
         the data file is closed and filepath is printed
         """
         print(self._data_file.get_filepath())
-        threading.Thread(target=qviewkit.save_plots, args=[self._data_file.get_filepath()]).start()
+        
+        #threading.Thread(target=qviewkit.save_plots, args=[self._data_file.get_filepath()]).start()
+        qviewkit.save_plots(self._data_file.get_filepath())
         self._data_file.close_file()
         waf.close_log_file(self._log)
         self.measurement_name = None

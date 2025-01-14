@@ -10,7 +10,8 @@ class virtual_step_attenuator(Instrument):
         Instrument.__init__(self, name, tags=['virtual'])
         
         self.add_parameter('attenuation', type=float,
-            flags=Instrument.FLAG_SET, units='dB')
+            flags=self.FLAG_GETSET, units='dB')
+        self._attn = None
 
     def do_set_attenuation(self, attn):
         self._attn = attn

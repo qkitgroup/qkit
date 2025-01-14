@@ -1,4 +1,4 @@
-# Agilent_VNA_E5071C driver, P. Macha, modified by M. Weides July 2013, J. Braumueller 2015
++# Agilent_VNA_E5071C driver, P. Macha, modified by M. Weides July 2013, J. Braumueller 2015
 # Adapted to Keysight VNA by A. Schneider and L. Gurenhaupt 2016
 # Updated from E5071B to E5080B by M. Wildermuth and M. Kristen 2019
 #

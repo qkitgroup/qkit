@@ -31,11 +31,94 @@ if not in_pyqt5:
 
 import numpy as np
 import json
+from matplotlib.widgets import Cursor
 import pyqtgraph as pg
 import qkit
 from qkit.storage.hdf_constants import ds_types
 import pprint
 from qkit.core.lib.misc import str3
+
+
+def _init_polarplot(self, graphicsView):
+    graphicsView.mpl_connect('motion_notify_event', self.on_mouse_move)
+    # Cursor hinzufügen
+    self.cursor = Cursor(graphicsView.axes, useblit=True, color='red', linewidth=1)
+    # Initiale Daten plotten
+    xyzurls = str3(self.ds.attrs.get("xyz", ""))
+    ds_urls = [xyzurls.split(":")[0], xyzurls.split(":")[1], xyzurls.split(":")[2]]
+    if xyzurls:
+        dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ds_urls)
+        if dss[0] is None or dss[1] is None or dss[2] is None:
+            print("Could not load view xyz: " + str(xyzurls)+" : Datasets not found.")
+        ## retrieve the data type and store it in  x_ds_type, y_ds_type
+    x_data = dss[0][()]
+    y_data = dss[1][()]
+    stepvar = names[0]
+    sweepunit = units[1]
+    sweeprange = [0, max(y_data)]
+    self.polarsplit = int(len(y_data[:]) / 2)
+    self.swp_neg = abs(y_data[:self.polarsplit])
+    self.swp_pos = y_data[self.polarsplit:]
+    self.angle_pos = x_data / 180 * np.pi
+    self.angle_neg = self.angle_pos + np.pi
+    nans = np.full((len(x_data), len(y_data)), np.nan)
+    new_val = np.reshape(nans.T, (len(y_data), len(x_data)))
+    val_neg = new_val[:self.polarsplit]
+    val_pos = new_val[self.polarsplit:]
+    graphicsView.axes.grid(False)
+    graphicsView.axes.set_yticks([])
+    self.pos_mesh = graphicsView.axes.pcolormesh(self.angle_pos, self.swp_pos, val_pos, shading='nearest')
+    self.neg_mesh = graphicsView.axes.pcolormesh(self.angle_neg, self.swp_neg, val_neg, shading='nearest')
+    graphicsView.axes.set_title(f'angle: {stepvar}, amplitude: {round(sweeprange[1], 2)} {sweepunit}')
+    graphicsView.draw()
+
+def _display_polarplot(self, graphicsView):
+    """displays a 2d matrix of data color coded in a polarplot.
+    
+    Args:
+        self: Object of the PlotWindow class.
+        graphicsView: Modified object of matplotlib's FigureCanvasQTAgg class.
+
+    Returns:
+        No return variable. The function operates on an object of the 
+        PlotWindow class.
+    """
+    xyzurls = str3(self.ds.attrs.get("xyz", ""))
+    ds_urls = [xyzurls.split(":")[0], xyzurls.split(":")[1], xyzurls.split(":")[2]]
+    if xyzurls:
+        dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ds_urls)
+        if dss[0] is None or dss[1] is None or dss[2] is None:
+            print("Could not load view xyz: " + str(xyzurls)+" : Datasets not found.")
+        ## retrieve the data type and store it in  x_ds_type, y_ds_type
+        x_ds_type = dss[0].attrs.get('ds_type', "ds_types['coordinate']")
+        y_ds_type = dss[1].attrs.get('ds_type', "ds_types['coordinate']")
+        z_ds_type = dss[2].attrs.get('ds_type', "ds_types['matrix']")
+    x_data = dss[0][()]
+    y_data = dss[1][()]
+    z_data = dss[2][()]
+    if z_data.shape[0]*z_data.shape[1] < len(x_data) * len(y_data):
+        # Handle incomplete data by filling with NaNs or zeros
+        data = np.full((len(x_data), len(y_data)), np.nan)
+        data.flat[:z_data.shape[0]*z_data.shape[1]] = z_data
+    else:
+        data = z_data
+        self.complete = True
+    new_val = np.reshape(data.T, (len(y_data), len(x_data)))
+    
+    # Daten für die Polar Heatmap vorbereiten
+    val_neg = new_val[:self.polarsplit]
+    val_pos = new_val[self.polarsplit:]
+
+    # Alte pcolormesh-Objekte entfernen
+    self.pos_mesh.remove()
+    self.neg_mesh.remove()
+
+    # Neue pcolormesh-Objekte erstellen
+    self.pos_mesh = graphicsView.axes.pcolormesh(self.angle_pos, self.swp_pos, val_pos, shading='nearest')
+    self.neg_mesh = graphicsView.axes.pcolormesh(self.angle_neg, self.swp_neg, val_neg, shading='nearest')
+
+    # Canvas neu zeichnen
+    graphicsView.draw()
 
 
 def _display_1D_view(self, graphicsView):
@@ -401,7 +484,6 @@ def _display_1D_data(self, graphicsView):
             dss, names, units, scales = _get_all_ds_names_units_scales(self.ds, ['x_ds_url'])
             x_data = dss[0][()][:dss[1].shape[0]]
             y_data = dss[1][()][:, self.TraceYNum, self.TraceZNum]
-
     
     ## Any data manipulation (dB <-> lin scale, etc) is done here
     x_data, y_data, names[0], names[1], units[0], units[1] = _do_data_manipulation(x_data,
