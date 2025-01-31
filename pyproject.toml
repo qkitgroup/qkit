@@ -69,7 +69,7 @@ timedomain = [
 source = "versioningit"
 
 [tool.versioningit]
-default-version = "no-version"
+default-version = "0.1.dev0"
 
 [tool.versioningit.write]
 file = "src/qkit/_version.py"
