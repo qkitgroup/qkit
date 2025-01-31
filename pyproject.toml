@@ -68,9 +68,8 @@ timedomain = [
 [tool.hatch.version]
 source = "versioningit"
 
-[tool.hatch.envs.test.overrides]
-project.version = "test"
-project.dynamic = []
+[tool.versioningit]
+default-version = "no-version"
 
 [tool.versioningit.write]
 file = "src/qkit/_version.py"
