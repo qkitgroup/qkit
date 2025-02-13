@@ -11,21 +11,26 @@ def fid() -> 'Iterable[file_info_database.fid]':
     Load and start qkit, initalize file info database and clean up after test execution
     """
     import qkit
-    # Do not initialize with environment variabke
+    import qkit.core.s_init.S16_available_modules # Fix class loading
+    from qkit.core.lib.file_service import file_info_database
+    # Do not initialize with environment variable, patch config
     import os
     if "QKIT_LOCAL_CONFIG" in os.environ:
         del os.environ["QKIT_LOCAL_CONFIG"]
     print(f"Starting with reset cfg.")
     qkit.cfg['datadir'] = Path(__file__).parent
     qkit.cfg['fid_scan_datadir'] = True
-    qkit.start()
+    # No qkit.start()
+    # Manually create fid:
+    fid = file_info_database.fid()
+    fid.recreate_database()
     # Wait for indexing to stop
-    qkit.fid.recreate_database()
     import threading
     [thread.join() for thread in threading.enumerate() if thread.name == "creating_db"]
-
+    print(f"Indexed: {fid._get_datadir()}")
+    print(f"Breadcrumb: {fid._breadcrumb_creator._breadcrumb_file}")
     # Return reference to File Info Data Base. Type error ignorde because of weird qkit import semantics
-    yield qkit.fid
+    yield fid
 
     # Cleanup afterwards
     from qkit.core.lib.file_service.breadcrumbs import derive_breadcrumb_filename
