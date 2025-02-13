@@ -21,9 +21,6 @@ def test_read_all_breadcrumbs():
     assert result['GHIJKL'] == datadir_path / "file2.h5"
     assert result['MNOPQR'] == datadir_path / "file3.h5"
 
-def test_automatic_breadcrumb_write():
-    pass
-
 @patch("os.getcwd", return_value=(str(Path(__file__).parent)))
 @patch("builtins.input", return_value="y")
 def test_manual_index(*args, **kwargs):

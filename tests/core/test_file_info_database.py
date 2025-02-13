@@ -53,7 +53,8 @@ def test_creation_time_sorting(fid: 'file_info_database.fid'):
 
 def test_adding_file_to_index(fid: 'file_info_database.fid'):
     import os
-    path = Path(__file__).parent / "Z45678_dummy.h5"
+    datadir = Path(__file__).parent
+    path = datadir / "Z45678_dummy.h5"
     with open(path, "w"):
         pass
     # The following is replaced with an internal call to speed up testing:
@@ -67,6 +68,10 @@ def test_adding_file_to_index(fid: 'file_info_database.fid'):
     try:
         assert fid.get_last() == "Z45678"
         assert Path(fid[fid.get_last()]) == Path(__file__).parent / "Z45678_dummy.h5"
+
+        # Test Breadcrumb creation on file add
+        from qkit.core.lib.file_service.breadcrumbs import read_breadcrumbs
+        assert read_breadcrumbs(Path(datadir))['Z45678'] == path
     finally:
         os.remove(path)
 
