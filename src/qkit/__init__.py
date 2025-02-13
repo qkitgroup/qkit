@@ -4,6 +4,18 @@
 __all__ = ['config','gui','measure','tools', 'analysis','core','instruments','services','storage','logs']
 
 
+"""
+Type hint declarations for easier programming.
+TYPE_CHECKING is False at runtime, so it isn't breaking qkit, but True when evaluating variable types
+for IntelliSense, making programming easier.
+"""
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from qkit.core.lib.file_service.file_info_database import fid as fid_class
+    from qkit.config.config_holder import ConfClass
+fid: 'fid_class'
+cfg: 'ConfClass'
+
 def __getattr__(name):
     """
     Lazy Loading support for qkit configuration. Based on PEP 562: Module __getattr__ and __dir__
@@ -15,7 +27,6 @@ def __getattr__(name):
         cfg = ConfClass()
         return cfg
     raise AttributeError("qkit has no attribute " + name)
-
 
 """
 startup functions
