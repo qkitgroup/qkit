@@ -32,7 +32,7 @@ def test_manual_index(*args, **kwargs):
     manual_index()
     # Wait on the background task to finish.
     import threading
-    [thread.join() for thread in threading.enumerate() if thread.getName() == "creating_db"]
+    [thread.join() for thread in threading.enumerate() if thread.name == "creating_db"]
 
     # Check indexing worked
     result = read_breadcrumbs(Path(__file__).parent)
