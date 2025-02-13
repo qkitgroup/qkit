@@ -97,6 +97,7 @@ from qkit.gui.plot.plot import plot
 
 class fid(file_system_service):
     def __init__(self):
+        super().__init__()
         self._batch_update = False
         self.column_sorting = ['datetime', 'name', 'run', 'user', 'comment', 'rating']
         self.columns_ignore = ['time']

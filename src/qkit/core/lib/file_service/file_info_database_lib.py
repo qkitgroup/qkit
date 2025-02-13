@@ -73,9 +73,12 @@ class file_system_service(UUID_base):
     _h5_mtime_db_path   = os.path.join(qkit.cfg['logdir'],"h5_mtime.db")
     _h5_info_cache_path = os.path.join(qkit.cfg['logdir'],"h5_info_cache.db")
 
-    _breadcrumb_creator = BreadCrumbCreator()
-
     lock = threading.Lock()
+
+    def __init__(self):
+        super().__init__()
+        self._breadcrumb_creator = BreadCrumbCreator()
+
     
     def _remove_cache_files(self):
         """
