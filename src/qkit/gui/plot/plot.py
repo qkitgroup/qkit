@@ -5,8 +5,6 @@ import numpy as np
 import logging
 import json
 
-from numpy.core.multiarray import ndarray
-
 logging.basicConfig(level=logging.INFO)
 
 import qkit
