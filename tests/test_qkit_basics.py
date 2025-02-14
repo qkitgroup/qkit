@@ -33,5 +33,5 @@ def test_module_available():
     qkit.start()
     assert qkit.module_available('qkit')  # Detect self
     assert qkit.module_available('numpy')  # Detect 'Essential'
-    assert qkit.module_available('matplotlib')  # Detect 'optional', which is a dependency
+    assert qkit.module_available('IPython')  # Detect 'optional', which is a dependency
     assert not qkit.module_available('django')  # Check the negative as well.
