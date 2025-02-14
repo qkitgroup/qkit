@@ -6,9 +6,9 @@ from typing import Callable
 import shutil
 import sys
 
-try:
+try: # Assume we have a recent Python version
     from importlib.resources import files, as_file
-    from importlib.abc import Traversable
+    from importlib.resources.abc import Traversable
 except ModuleNotFoundError:
     from importlib_resources import files, as_file
     from importlib.abc import Traversable
