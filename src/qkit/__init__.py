@@ -12,10 +12,12 @@ for IntelliSense, making programming easier.
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from qkit.core.lib.file_service.file_info_database import fid as fid_class
+    from qkit.core.instrument_tools import Insttools
     from qkit.config.config_holder import ConfClass
     from qkit.core.s_init.S16_available_modules import ModuleAvailable
 fid: 'fid_class'  # Initilaized in S80_load_file_service
 cfg: 'ConfClass'  # Initialized by lazy-loading in __getattr__ (see below)
+instruments: 'Insttools'
 module_available: 'ModuleAvailable'  # Initialized in S16_available_modules
 
 def __getattr__(name):
