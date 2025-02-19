@@ -216,6 +216,9 @@ class ZHInstSHFQC(Instrument):
         dev_synth = self._device.synthesizers[synth]
         center = (frequency // 200e6) * 200e6
         dev_synth.centerfreq(center)
+
+        # Ensure RF Path
+        self._device.sgchannels[channel - 1].output.rflfpath(1)
         
         # Get difference to actually target frequency:
         delta = frequency - dev_synth.centerfreq()
@@ -248,4 +251,4 @@ class ZHInstSHFQC(Instrument):
     def do_set_status(self, enable, channel):
         status = 1 if enable else 0
         self._device.sgchannels[channel-1].output.on(status)
-        
+
