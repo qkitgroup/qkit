@@ -72,18 +72,23 @@ class ZHInstSHFQC(Instrument):
         self.add_parameter('sweeptime',
                            type=float,
                            flags=Instrument.FLAG_GET,
-                           minval=0,
-                           maxval=1e3,
                            units='s',
                            tags=['sweep'])
             
         self.add_parameter('sweeptime_averages',
                            type=float,
                            flags=Instrument.FLAG_GET,
-                           minval=0,
-                           maxval=1e3,
                            units='s',
                            tags=['sweep'])
+        
+        self.add_parameter('vna_power',
+                           type=float,
+                           flags=Instrument.FLAG_GETSET,
+                           units='dBm',
+                           tags=['sweep'])
+
+
+        # MW Stuff
         
         self.add_parameter('frequency',
                            type=float,
@@ -94,7 +99,7 @@ class ZHInstSHFQC(Instrument):
                            tags=['mw'],
                            channels=(1, 6))
         
-        self.add_parameter('power',
+        self.add_parameter('mw_power',
                            type=float,
                            flags=Instrument.FLAG_GETSET,
                            minval=-35,
@@ -113,8 +118,6 @@ class ZHInstSHFQC(Instrument):
         self.add_function(self.set_sweep_range.__name__)
         self.add_function(self.set_sweep_amplitude.__name__)
         self.add_function(self.set_sweep_integration.__name__)
-        self.add_function(self.set_rf_in_out.__name__)
-        self.add_function(self.in_out_enable.__name__)
         self.add_function(self.start_measurement.__name__)
         self.add_function(self.get_tracedata.__name__)
         self.add_function(self.get_freqpoints.__name__)
@@ -176,21 +179,30 @@ class ZHInstSHFQC(Instrument):
     
     def avg_clear(self):  # Spectroscopy Compatibility
         pass # Per defaul, each measurement is cleared in SHFQC
-
-    def set_rf_in_out(self, dB_in, dB_out):
-        self._sweeper.rf.channel(0)
-        self._sweeper.rf.input_range(dB_in)
-        self._sweeper.rf.output_range(dB_out)
     
-    def in_out_enable(self, enable: bool):
-        val = 1 if enable else 0
-        with self._device.set_transaction():
-            self._device.qachannels[0].input.on(val)
-            self._device.qachannels[0].output.on(val)
-            self._device.qachannels[0].output.rflfinterlock(1)
+    def do_set_vna_power(self, power, input_range_offset=0):
+        power_range = math.ceil(power / 5) * 5
+        self._sweeper.rf.input_range(power_range + input_range_offset)
+        self._sweeper.rf.output_range(power_range)
+        delta = power - power_range
+        self._device.qachannels[0].oscs[0].gain(10**(delta/10))
+
+    def do_get_vna_power(self):
+        power_range = self._sweeper.rf.output_range()
+        offset = self._device.qachannels[0].oscs[0].gain()
+        return power_range + 10 * math.log10(offset)
 
     def start_measurement(self): # Spectrocopy Compatibility
+        self._sweeper.rf.channel(0)
+        with self._device.set_transaction():
+            self._device.qachannels[0].input.on(1)
+            self._device.qachannels[0].output.on(1)
+            self._device.qachannels[0].output.rflfinterlock(1)
         self._sweeper.run() # Blocking call
+        with self._device.set_transaction():
+            self._device.qachannels[0].input.on(0)
+            self._device.qachannels[0].output.on(0)
+            self._device.qachannels[0].output.rflfinterlock(1)
 
     def do_get_sweeptime_averages(self):  # Spectroscopy Compatibility
         return self._sweeper.predicted_cycle_time() * self.get_nop() * self.get_averages()
@@ -234,13 +246,13 @@ class ZHInstSHFQC(Instrument):
         offset = self._device.sgchannels[channel - 1].oscs[0].freq()
         return center + offset
     
-    def do_set_power(self, power, channel):
+    def do_set_mw_power(self, power, channel):
         power_range = math.ceil(power / 5) * 5
         self._device.sgchannels[channel-1].output.range(power_range)
         delta = power - power_range
         self._device.sgchannels[channel-1].awg.outputamplitude(10**(delta/10))
     
-    def do_get_power(self, channel):
+    def do_get_mw_power(self, channel):
         power_range = self._device.sgchannels[channel-1].output.range()
         offset = self._device.sgchannels[channel-1].awg.outputamplitude()
         return power_range + 10 * math.log10(offset)
