@@ -1,5 +1,6 @@
 from qkit.core.instrument_base import Instrument
 from zhinst.toolkit import Session
+from laboneq.simple import Experiment, Session as LOQSession, DeviceSetup
 import numpy as np
 import math
 
@@ -13,6 +14,7 @@ class ZHInstSHFQC(Instrument):
         self._sweeper.device(self._device)
         self._sweeper.use_sequencer = True
         self._synth = [self._device.sgchannels[i].synthesizer() for i in range(6)]
+        self._laboneq_session: LOQSession | None = None
 
         self.add_parameter('averages',
                            type=int,
@@ -123,6 +125,8 @@ class ZHInstSHFQC(Instrument):
         self.add_function(self.get_freqpoints.__name__)
         self.add_function(self.avg_clear.__name__)
         self.add_function(self.get_all.__name__)
+        self.add_function(self.compile_experiment.__name__)
+        self.add_function(self.measure_td.__name__)
 
     def get_all(self):  # Spectroscopy Compatibility
         for param in self._parameters:
@@ -264,3 +268,17 @@ class ZHInstSHFQC(Instrument):
         status = 1 if enable else 0
         self._device.sgchannels[channel-1].output.on(status)
 
+    # LabOneQ integration
+    # We need to functions: Compiling the experiment and running it.
+    # This can then neatly integrate into the standard AWG Timedomain Measurement class.
+    # This will allow us to use all the work done by Zurich Instruments and get to TD Measurements quickly.
+
+    def compile_experiment(self, experiment: Experiment, device_setup: DeviceSetup):
+        if self._laboneq_session is None:
+            self._laboneq_session = LOQSession(device_setup=device_setup)
+            self._laboneq_session.connect()
+        self._laboneq_experiment = self._laboneq_session.compile(experiment)
+
+    def measure_td(self): # Start experiment, appears to be optional
+        assert self._laboneq_session is not None
+        return self._laboneq_session.run(self._laboneq_experiment)
