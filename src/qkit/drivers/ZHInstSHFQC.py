@@ -1,6 +1,8 @@
 from qkit.core.instrument_base import Instrument
 from zhinst.toolkit import Session
-from laboneq.simple import Experiment, Session as LOQSession, DeviceSetup
+from laboneq.simple import Session as LOQSession, DeviceSetup
+from laboneq.dsl.result.results import Results
+from laboneq.dsl.experiment.experiment import Experiment
 import numpy as np
 import math
 
@@ -127,6 +129,7 @@ class ZHInstSHFQC(Instrument):
         self.add_function(self.get_all.__name__)
         self.add_function(self.compile_experiment.__name__)
         self.add_function(self.measure_td.__name__)
+        self.add_function(self.get_result_handles.__name__)
 
     def get_all(self):  # Spectroscopy Compatibility
         for param in self._parameters:
@@ -274,11 +277,19 @@ class ZHInstSHFQC(Instrument):
     # This will allow us to use all the work done by Zurich Instruments and get to TD Measurements quickly.
 
     def compile_experiment(self, experiment: Experiment, device_setup: DeviceSetup):
+        """
+        Install the experiment for the run.
+        """
         if self._laboneq_session is None:
             self._laboneq_session = LOQSession(device_setup=device_setup)
             self._laboneq_session.connect()
         self._laboneq_experiment = self._laboneq_session.compile(experiment)
 
-    def measure_td(self): # Start experiment, appears to be optional
+    def measure_td(self) -> Results:
+        """
+        Synchronously perform the measurement and return the data.
+
+        TODO: Allow for asynchronous measurements to get a status bar working and allow for interrupts?
+        """
         assert self._laboneq_session is not None
         return self._laboneq_session.run(self._laboneq_experiment)
