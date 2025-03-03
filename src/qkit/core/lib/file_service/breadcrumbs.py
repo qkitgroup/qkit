@@ -40,9 +40,13 @@ class BreadCrumbCreator():
 
     def __init__(self) -> None:
         self._breadcrumb_path = derive_breadcrumb_filename()
-        if self._breadcrumb_path.exists():
-            os.remove(self._breadcrumb_path)
-        self._breadcrumb_file = open(self._breadcrumb_path, mode="w")
+        try:
+            if self._breadcrumb_path.exists():
+                os.remove(self._breadcrumb_path)
+            self._breadcrumb_file = open(self._breadcrumb_path, mode="w")
+        except: # This may fail on Windows. TODO: better implementation.
+            print("BreadCrumb disabled due to other process having locked the file.")
+
 
     def append_entry(self, uuid: str, path: Path|str):
         rel_path = Path(path).relative_to(self._breadcrumb_path.parent)

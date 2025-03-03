@@ -13,6 +13,16 @@ def test_read_single_file():
     assert len(result) == 1
     assert result['MNOPQR'] == datadir_path / "file3.h5"
 
+def test_multiple_writers():
+    try:
+        writer1 = BreadCrumbCreator()
+        writer2 = BreadCrumbCreator()
+    finally:
+        # Cleanup breadcrumb
+        if derive_breadcrumb_filename().exists():
+            import os
+            os.remove(derive_breadcrumb_filename())
+
 def test_read_all_breadcrumbs():
     datadir_path =  Path(__file__).parent
     result = read_breadcrumbs(datadir_path)
