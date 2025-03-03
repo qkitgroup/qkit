@@ -44,13 +44,14 @@ class BreadCrumbCreator():
             if self._breadcrumb_path.exists():
                 os.remove(self._breadcrumb_path)
             self._breadcrumb_file = open(self._breadcrumb_path, mode="w")
-        except: # This may fail on Windows. TODO: better implementation.
+        except:  # This may fail on Windows. TODO: better implementation.
+            self._breadcrumb_file = None
             print("BreadCrumb disabled due to other process having locked the file.")
-
 
     def append_entry(self, uuid: str, path: Path|str):
         rel_path = Path(path).relative_to(self._breadcrumb_path.parent)
-        print(f"{uuid[:6]}={rel_path}", file=self._breadcrumb_file, flush=True) # Fails if uuid is not 6 digits
+        if self._breadcrumb_file is not None:
+            print(f"{uuid[:6]}={rel_path}", file=self._breadcrumb_file, flush=True) # Fails if uuid is not 6 digits
 
 def read_breadcrumb(path: Path) -> dict[str, Path]:
     """
