@@ -102,7 +102,7 @@ class OxfordInstruments_Kelvinox_IGH(Instrument):
         sleep(20e-3) # wait for the device to be able to respond
         result = self._visainstrument.read()
         if result.find('?') >= 0:
-            print "Error: Command %s not recognized" % message
+            print("Error: Command %s not recognized" % message)
         else:
             return result
 

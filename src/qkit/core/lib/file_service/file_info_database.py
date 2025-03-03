@@ -77,7 +77,7 @@ qkit.fid.get_date(uuid)
 
 import logging
 import threading
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 import numpy as np
 
@@ -97,6 +97,7 @@ from qkit.gui.plot.plot import plot
 
 class fid(file_system_service):
     def __init__(self):
+        super().__init__()
         self._batch_update = False
         self.column_sorting = ['datetime', 'name', 'run', 'user', 'comment', 'rating']
         self.columns_ignore = ['time']
@@ -371,7 +372,7 @@ class fid(file_system_service):
             """
             self.wait()
             if self.found_qgrid:
-                if LooseVersion(qd.__version__) < LooseVersion("1.3.0") and LooseVersion(pd.__version__) >= LooseVersion("1.0"):
+                if Version(qd.__version__) < Version("1.3.0") and Version(pd.__version__) >= Version("1.0"):
                     logging.warning("qgrid < v1.3 is incompatible with pandas > v1.0. Check for a new version of qgrid or downgrade pandas to v0.25.3")
                     self.found_qgrid = False
             if self.found_qgrid:

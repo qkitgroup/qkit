@@ -18,6 +18,10 @@ c.JupyterLabTemplates.template_dirs = [str(user_templates), str(qkit_templates),
 c.JupyterLabTemplates.include_default = False
 c.JupyterLabTemplates.include_core_paths = False
 
+c.GanymedServer.influx_address = "Some-Host"
+c.GanymedServer.influx_token = "Some-Token"
+c.GanymedServer.influx_org = "Some-Org"
+
 # Set Notebook directory
 notebook_dir = 'notebooks'
 try:

@@ -224,15 +224,15 @@ class Tabor_WX1284C(Instrument):
         if not self._ins_VISA_INSTR:
             tmo= self._visainstrument.timeout
             self._visainstrument.timeout = .1
-            if verbose: print "Emptying Queue"
+            if verbose: print("Emptying Queue")
             try:
                 for i in range(200):
                     rl = str(self._visainstrument.read())
-                    if verbose: print "In Buffer %i: "%i+rl
+                    if verbose: print("In Buffer %i: "%i+rl)
             except visa.VisaIOError:
-                if verbose: print "Timeout after %i iterations"%i
+                if verbose: print("Timeout after %i iterations"%i)
             self._visainstrument.timeout = tmo
-        if verbose: print "Clearing Error Memory:"
+        if verbose: print("Clearing Error Memory:")
         for i in range(200):
             try:
                 if self.check():
@@ -348,7 +348,7 @@ class Tabor_WX1284C(Instrument):
         try:
             self.set_trigger_slope(tr_slope)
         except Exception as m:
-            print 'Trigger slope has to be POS or NEG. Setting to NEG.', m
+            print('Trigger slope has to be POS or NEG. Setting to NEG.', m)
             self.set_trigger_slope('NEG')
 
     def preset_manipulation(self):
@@ -831,10 +831,10 @@ class Tabor_WX1284C(Instrument):
             % (channel, amp))
         if amp < 50e-3:
             amp = 50e-3
-            print 'amplitude was set to 0.05 V, which is smallest possible voltage'
+            print('amplitude was set to 0.05 V, which is smallest possible voltage')
         if amp > 2:
             amp = 2.
-            print 'amplitude was set to 2 V, which is highest possible voltage'
+            print('amplitude was set to 2 V, which is highest possible voltage')
 
         self.write(':INST%s;:VOLT%.3f' % (channel, amp))
 
@@ -863,10 +863,10 @@ class Tabor_WX1284C(Instrument):
         channel +=self._choff
         if offset < -1.000:
             offset = -1.000
-            print 'Offset was set to -1.000 V, which is smallest possible voltage'
+            print('Offset was set to -1.000 V, which is smallest possible voltage')
         if offset > 1.000:
             offset = 1.000
-            print 'Offset was set to 1.000 V, which is highest possible voltage'
+            print('Offset was set to 1.000 V, which is highest possible voltage')
 
         logging.debug(__name__ + ' : Set offset of channel %s to %.3f' % (channel, offset))
         self.write(':INST%s;:VOLT:OFFS%.3f' % (channel, offset))
@@ -1045,7 +1045,7 @@ class Tabor_WX1284C(Instrument):
         if len(w)%16 != 0:
             raise ValueError #wfm length has to be divisible by 16
         if len(w) < 192:
-            w = numpy.append(w1, numpy.zeros(192 - len(w)))
+            w = numpy.append(w, numpy.zeros(192 - len(w)))
             m1 = numpy.append(m1, numpy.zeros(192 - len(m1)))
             m2 = numpy.append(m2, numpy.zeros(192 - len(m2)))
 
@@ -1123,7 +1123,7 @@ class Tabor_WX1284C(Instrument):
         '''
         channel +=self._choff
         if segments is None:
-            print "Amount of segments not specified, try to get it from AWG"
+            print("Amount of segments not specified, try to get it from AWG")
             for i in range(1,32000):
                 if int(self.ask(":TRAC:DEF%i?"%i).split()[-1])==0:
                     segments = i-1

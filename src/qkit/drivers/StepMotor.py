@@ -37,7 +37,7 @@ class StepMotor(Instrument):
         self.c.connect(address)
 
         if self.c.get_connection():
-            print 'connected to Raspberry Pi'
+            print('connected to Raspberry Pi')
         else:
             logging.error('No connection to Raspberry Pi')
 

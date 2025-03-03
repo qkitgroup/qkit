@@ -6,7 +6,7 @@ and check for commonly used libraries.
 """
 
 import qkit
-from pkgutil import find_loader
+from importlib.util import find_spec
 
 
 class ModuleAvailable:
@@ -23,7 +23,7 @@ class ModuleAvailable:
     
     def module_available(self, module_name):
         if module_name not in self.available_modules:
-            self.available_modules[module_name] = bool(find_loader(module_name))
+            self.available_modules[module_name] = bool(find_spec(module_name))
         return self.available_modules[module_name]
     
     def __call__(self, module_name):

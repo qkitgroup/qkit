@@ -5,7 +5,7 @@ from qkit.core.instrument_base import Instrument
 import time
 
 
-class quartz_dummy(Instrument)::
+class quartz_dummy(Instrument):
     '''
     This is a driver for a dummy quartz oscillator as used for sputter deposition monitoring qkit.services.qdepokit.sdi.
 

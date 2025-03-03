@@ -32,7 +32,7 @@ class StepAttenuator(Instrument):
             #print str(rec)
             sock.close()
         except Exception as detail:
-            print "Error: ", detail
+            print("Error: ", detail)
             return False
         
         if rec == 'True':  
@@ -52,6 +52,6 @@ class StepAttenuator(Instrument):
             sock.close()
             return float(rec)
         except Exception as detail:
-            print "Error: ", detail
+            print("Error: ", detail)
             return False
  

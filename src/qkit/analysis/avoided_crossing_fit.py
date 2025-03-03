@@ -165,7 +165,8 @@ class ACF():
         self._fct_par_names = []   # List of names of each functions parameters
         for fct in self.functions:
             if callable(fct):
-                par_names = inspect.getargspec(fct)[0]
+                sig = inspect.signature(fct)
+                par_names = list(sig.parameters.keys())
                 try:
                     # Remove self as fct argument if function is from acf class
                     par_names.remove("self")
@@ -324,9 +325,9 @@ class ACF():
         Here this is achieved by sorting according to the mean value of the y-datasets.
         """
         # Sort ydata by mean value.
-        indices = np.argsort([np.mean(i) for i in self.ydata])        
-        self.xdata = list(np.array(self.xdata)[indices])
-        self.ydata = list(np.array(self.ydata)[indices])
+        indices = np.argsort([np.mean(i) for i in self.ydata])
+        self.xdata = [self.xdata[i] for i in indices]
+        self.ydata = [self.ydata[i] for i in indices]    
         if min(np.gradient(indices)) < 0:
             print("\nChanging order of x- and y-data respectively...\n")
         return

@@ -108,7 +108,8 @@ class transport(object):
         # measurement setting default values
         self.sweeps = self.sweep()  # calls sweep subclass
         # numerical derivation dV/dI (differential resistance)
-        self._dVdI = False  # adds numerical derivation dV/dI as data series, views, ...
+        self._dVdI = True  # adds numerical derivation dV/dI as data series, views, ...
+        self._dIdV = True
         self._numder_func = signal.savgol_filter  # function to calculate numerical derivative (default: Savitzky-Golay filter)
         self._numder_args = ()  # arguments for derivation function
         self._numder_kwargs = {'window_length': 15, 'polyorder': 3, 'deriv': 1}  # keyword arguments for derivation function
@@ -229,6 +230,7 @@ class transport(object):
             Status if numerical derivative is calculated.
         func: function
             Function to calculate numerical derivative, e.g. scipy.signal.savgol_filter (default), numpy.gradient, ...
+            NOTE: overrides func used for dIdV. TODO: change this?
         *args: array_likes, optional
             Arguments for derivation function.
         **kwargs: dictionary_likes, optional
@@ -274,6 +276,62 @@ class transport(object):
         """
         return self._dVdI, self._numder_func, self._numder_args, self._numder_kwargs
     
+    def set_dIdV(self, status, func=None, *args, **kwargs):
+        """
+        Sets the internal dIdV parameter, to decide weather the differential conductance (dI/dV) is calculated or not.
+        
+        Parameters
+        ----------
+        status: bool
+            Status if numerical derivative is calculated.
+        func: function
+            Function to calculate numerical derivative, e.g. scipy.signal.savgol_filter (default), numpy.gradient, ...
+            NOTE: overrides func used for dVdI. TODO: change this?
+        *args: array_likes, optional
+            Arguments for derivation function.
+        **kwargs: dictionary_likes, optional
+            Keyword arguments for derivation function.
+        
+        Returns
+        -------
+        None
+        
+        Examples
+        --------
+        Savitzky-Golay filter
+        >>> tr.set_dIdV(True, func=signal.savgol_filter, window_length=15, polyorder=3, deriv=1)
+        
+        Gradient as difference quotient
+        >>> tr.set_dIdV(True, func=np.gradient)
+        """
+        self._dIdV = status
+        if func is not None:
+            self._numder_func = func
+            self._numder_args = args
+            self._numder_kwargs = kwargs
+        return
+    
+    def get_dIdV(self):
+        """
+        Gets the internal dIdV parameter, to decide weather the differential conductance (dI/dV) is calculated or not.
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        status: bool
+            Status if numerical derivative is calculated.
+        func: function
+            Function to calculate numerical derivative, e.g. scipy.signal.savgol_filter (default), numpy.gradient, ...
+        *args: array_likes
+            Arguments for derivation function.
+        **kwargs: dictionary_likes
+            Keyword arguments for derivation function.
+        """
+        return self._dIdV, self._numder_func, self._numder_args, self._numder_kwargs
+    
     def _numerical_derivative(self, x, y):
         """
         Calculates numerical derivative dy/dx by means of set function <self._numder_func>, arguments <self._numder_args> and keyword arguments <self._numder_kwargs>.
@@ -293,7 +351,8 @@ class transport(object):
         # TODO: catch error, if len(dataset) < window_length in case of SavGol filter
         try:
             return self._numder_func(y, *self._numder_args, **self._numder_kwargs)/self._numder_func(x, *self._numder_args, **self._numder_kwargs)
-        except:
+        except Exception as e:
+            logging.warning("Can't calculate numerical derivative, possibly insufficient data points. %s", e)
             return np.zeros(len(y))*np.nan
     
     def set_x_dt(self, x_dt):
@@ -1149,12 +1208,13 @@ class transport(object):
                                 elif self._scan_dim == 3:
                                     self._data_log[j][self.ix, self.iy] = float(f())
                                     self._hdf_log[j].append(self._data_log[j][self.ix], reset=_rst_log_hdf_appnd)
-                                    _rst_log_hdf_appnd = not bool(self.iy+1 == len(self._y_vec))
+                            if self._scan_dim == 3: # reset needs to be updated for all log-functions simultaneously and thus outside of the loop 
+                                _rst_log_hdf_appnd = not bool(self.iy+1 == len(self._y_vec))
                         # iterate sweeps and take data
                         self._get_sweepdata()
                     # filling of value-box by storing data in the next 2d structure after every y-loop
                     if self._scan_dim is 3:
-                        for lst in [val for k, val in enumerate([self._hdf_I, self._hdf_V, self._hdf_dVdI]) if k < 2+int(self._dVdI)]:
+                        for lst in ([self._hdf_I, self._hdf_V] + ([self._hdf_dVdI] if self._dVdI else []) + ([self._hdf_dIdV] if self._dIdV else [])):
                             for val in range(self.sweeps.get_nos()):
                                 lst[val].next_matrix()
         finally:
@@ -1242,6 +1302,7 @@ class transport(object):
         self._hdf_I = []
         self._hdf_V = []
         self._hdf_dVdI = []
+        self._hdf_dIdV = []
         self._hdf_fit = []
         self._data_fit = []
         if self._scan_dim == 0:
@@ -1287,6 +1348,14 @@ class transport(object):
                                                                            folder='analysis',
                                                                            comment=self._get_numder_comment(self._hdf_V[i].name)+
                                                                                    '/'+self._get_numder_comment(self._hdf_I[i].name)))
+                if self._dIdV:
+                    self._hdf_dIdV.append(self._data_file.add_value_vector('dIdV_{!s}'.format(i),
+                                                                           x=self._hdf_bias[i],
+                                                                           unit='S',
+                                                                           save_timestamp=False,
+                                                                           folder='analysis',
+                                                                           comment=self._get_numder_comment(self._hdf_I[i].name)+
+                                                                                   '/'+self._get_numder_comment(self._hdf_V[i].name)))
                 if self._fit_func:
                     self._hdf_fit.append(self._data_file.add_value_vector('{:s}_{:d}'.format(self._fit_name, i),
                                                                           x=np.zeros(1),
@@ -1328,6 +1397,15 @@ class transport(object):
                                                                            folder='analysis',
                                                                            comment=self._get_numder_comment(self._hdf_V[i].name)+
                                                                                    '/'+self._get_numder_comment(self._hdf_I[i].name)))
+                if self._dIdV:
+                    self._hdf_dIdV.append(self._data_file.add_value_matrix('dIdV_{!s}'.format(i),
+                                                                           x=self._hdf_x,
+                                                                           y=self._hdf_bias[i],
+                                                                           unit='S',
+                                                                           save_timestamp=False,
+                                                                           folder='analysis',
+                                                                           comment=self._get_numder_comment(self._hdf_I[i].name)+
+                                                                                   '/'+self._get_numder_comment(self._hdf_V[i].name)))
                 if self._fit_func:
                     self._hdf_fit.append(self._data_file.add_value_vector('{:s}_{:d}'.format(self._fit_name, i),
                                                                           x=self._hdf_x,
@@ -1376,6 +1454,16 @@ class transport(object):
                                                                         folder='analysis',
                                                                         comment=self._get_numder_comment(self._hdf_V[i].name)+
                                                                                 '/'+self._get_numder_comment(self._hdf_I[i].name)))
+                if self._dIdV:
+                    self._hdf_dIdV.append(self._data_file.add_value_box('dIdV_{!s}'.format(i),
+                                                                        x=self._hdf_x,
+                                                                        y=self._hdf_y,
+                                                                        z=self._hdf_bias[i],
+                                                                        unit='S',
+                                                                        save_timestamp=False,
+                                                                        folder='analysis',
+                                                                        comment=self._get_numder_comment(self._hdf_I[i].name)+
+                                                                                '/'+self._get_numder_comment(self._hdf_V[i].name)))
                 if self._fit_func:
                     self._hdf_fit.append(self._data_file.add_value_matrix('{:s}_{:d}'.format(self._fit_name, i),
                                                                           x=self._hdf_x,
@@ -1527,8 +1615,8 @@ class transport(object):
     
     def _add_views(self):
         """
-        Adds views to the .h5-file. The view "IV" plots I(V) and contains the whole set of sweeps that are set.
-        If <dVdI> is true, the view "dVdI" plots the differential gradient dV/dI(V) and contains the whole set of sweeps that are set.
+        Adds views to the .h5-file:
+        V(I), I(V), dV/dI(I) [if dVdI is set to True], dI/dV(V) [if dIdV is set to True] for all sweeps
         
         Parameters
         ----------
@@ -1546,6 +1634,14 @@ class transport(object):
                                                                   'markersize': 5})
         for i in range(1, self.sweeps.get_nos()):
             self._hdf_view_IV.add(x=self._hdf_V[i], y=self._hdf_I[i])
+        self._hdf_view_VI = self._data_file.add_view('VI',
+                                                     x=self._hdf_I[0],
+                                                     y=self._hdf_V[0],
+                                                     view_params={"labels": ('I', 'V'),
+                                                                  'plot_style': 1,
+                                                                  'markersize': 5})
+        for i in range(1, self.sweeps.get_nos()):
+            self._hdf_view_VI.add(x=self._hdf_I[i], y=self._hdf_V[i])
         if self._dVdI:
             self._hdf_view_dVdI = self._data_file.add_view('dVdI',
                                                            x=self._hdf_I[0],
@@ -1554,8 +1650,16 @@ class transport(object):
                                                                         'plot_style': 1,
                                                                         'markersize': 5})
             for i in range(1, self.sweeps.get_nos()):
-                self._hdf_view_dVdI.add(x=[self._hdf_I, self._hdf_V][self._bias][i],
-                                        y=self._hdf_dVdI[i])
+                self._hdf_view_dVdI.add(x=self._hdf_I[i], y=self._hdf_dVdI[i])
+        if self._dIdV:
+            self._hdf_view_dIdV = self._data_file.add_view('dIdV',
+                                                           x=self._hdf_V[0],
+                                                           y=self._hdf_dIdV[0],
+                                                           view_params={"labels": ('V', 'dIdV'),
+                                                                        'plot_style': 1,
+                                                                        'markersize': 5})
+            for i in range(1, self.sweeps.get_nos()):
+                self._hdf_view_dIdV.add(x=self._hdf_V[i], y=self._hdf_dIdV[i])
         return
     
     def _get_sweepdata(self):
@@ -1580,6 +1684,8 @@ class transport(object):
                         self._hdf_V[j]:(V_values,)} # tuple in oder to use *args later
                 if self._dVdI:
                     data[self._hdf_dVdI[j]] = (self._numerical_derivative(I_values, V_values),)
+                if self._dIdV:
+                    data[self._hdf_dIdV[j]] = (self._numerical_derivative(V_values, I_values),)
                 if self._fit_func:
                     #data[self._hdf_fit[j]] = self._fit_func(data[self._hdf_I[j]],
                     #                                        data[self._hdf_V[j]],
@@ -1626,6 +1732,8 @@ class transport(object):
                             self._hdf_V[j]:V_values_avg}
                     if self._dVdI:
                         data[self._hdf_dVdI[j]] = self._numerical_derivative(I_values_avg, V_values_avg)
+                    if self._dIdV:
+                        data[self._hdf_dIdV[j]] = self._numerical_derivative(V_values_avg, I_values_avg)
                     if self._fit_func:
                         data[self._hdf_fit[j]] = self._fit_func(data[self._hdf_I[j]],
                                                                 data[self._hdf_V[j]],
@@ -1641,7 +1749,7 @@ class transport(object):
                         self._pb.iterate(addend=self._pb_addend[self.ix] if self._landscape else 1)
             # set average attribute to number of averages
             for j in range(self.sweeps.get_nos()):
-                for lst in [val for k, val in enumerate([self._hdf_I, self._hdf_V, self._hdf_dVdI]) if k < 2+int(self._dVdI)]:
+                for lst in ([self._hdf_I, self._hdf_V] + ([self._hdf_dVdI] if self._dVdI else []) + ([self._hdf_dIdV] if self._dIdV else [])):
                     lst[j].ds.attrs['average'] = self._average
             self._data_file.flush()
             qkit.flow.sleep()

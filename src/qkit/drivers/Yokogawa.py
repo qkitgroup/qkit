@@ -1614,7 +1614,7 @@ class Yokogawa(Instrument):
             self._wait_for_end_of_measure(channel=channel_sense)
             self._write(':trac:stat 0')
             bias_values = np.fromstring(string=self._ask('trac:chan{:d}:data:read? sl'.format(channel_bias)), dtype=float, sep=',')
-            sense_values = np.fromstring(string=self._ask('trac:chan{:d}:data:read? ml'.format(channel_bias)), dtype=float, sep=',')
+            sense_values = np.fromstring(string=self._ask('trac:chan{:d}:data:read? ml'.format(channel_sense)), dtype=float, sep=',')
             return bias_values, sense_values
         except Exception as e:
             logging.error('{!s}: Cannot take sweep data of channel {!s} and {!s}'.format(__name__, channel_bias, channel_sense))
@@ -1985,9 +1985,9 @@ class Yokogawa(Instrument):
         -------
         None
         '''
-        new = 'sweep mode: {:d}:\n'.format(self._sweep_mode) + ''.join(['\t    channel: {:d}\n'.format(channel) + ''.join(['\t\t{:s}: {!s}\n'.format(key_parameter, val_parameter) for key_parameter, val_parameter in self._defaults[self._sweep_mode][i].items()]) for i, channel in enumerate(self._sweep_channels)])
-        self.set_defaults.__func__.__doc__ = self.set_defaults.__func__.__doc__.replace(self._default_str, new)
-        self._default_str = new
+        #new = 'sweep mode: {:d}:\n'.format(self._sweep_mode) + ''.join(['\t    channel: {:d}\n'.format(channel) + ''.join(['\t\t{:s}: {!s}\n'.format(key_parameter, val_parameter) for key_parameter, val_parameter in self._defaults[self._sweep_mode][i].items()]) for i, channel in enumerate(self._sweep_channels)])
+        #self.set_defaults.__func__.__doc__ = self.set_defaults.__func__.__doc__.replace(self._default_str, new)
+        self._default_str = "Fix me"
         return
     
     def get_all(self, channel=1):
@@ -2190,7 +2190,10 @@ class Yokogawa(Instrument):
         parlist: dict
             Parameter names as keys, values of corresponding channels as values.
         """
-        channels = kwargs.get('channels').get('channels')
+        # ugly fix for kwargs sometimes having format {"channels": *ints*, ...} and other times {"channels": {"channels": *ints*}, ...} 
+        channels = kwargs.get('channels')
+        if type(channels) == dict:
+            channels = channels.get('channels')
         if channels == [None]:
             return getattr(self, 'get_{!s}'.format(param))()
         else:

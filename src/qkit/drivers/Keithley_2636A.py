@@ -269,8 +269,7 @@ class Keithley_2636A(Instrument):
         try:
             return int(float(self._visainstrument.ask('print(smua.source.output)').strip()))
         except:
-            raise ValueError('Output status not specified : %s' % stat)
-            return
+            raise ValueError('Output status A could not be read')
 
     def do_set_statusA(self, status):
         '''
@@ -298,8 +297,7 @@ class Keithley_2636A(Instrument):
         try:
             return int(float(self._visainstrument.ask('print(smua.source.output)').strip()))
         except:
-            raise ValueError('Output status not specified : %s' % stat)
-            return
+            raise ValueError('Output status B could not be read')
 
     def do_set_statusB(self, status):
         '''

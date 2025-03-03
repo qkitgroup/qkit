@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Qkit Juypter Lab
+Comment=Launch Jupyter Lab configured for qkit
+Exec=bash -cl "source \\$QKIT_VENV;cd \\`dirname \\$QKIT_LOCAL_CONFIG\\`; env HDF5_USE_FILE_LOCKING=FALSE jupyter lab --config=./jupyter_lab_config.py" "dummy"
+Terminal=false
+Type=Application
+Categories=Science

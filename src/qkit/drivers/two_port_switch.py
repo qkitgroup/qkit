@@ -37,17 +37,17 @@ class two_port_switch(Instrument):
                 #print str(rec)
                 sock.close()
             except Exception as detail:
-                print "Error: ", detail
+                print("Error: ", detail)
                 return 0
             
             if rec == 'Ok':   #switching successful
-                print 'successfully switched to port #'+position
+                print('successfully switched to port #'+position)
                 return True
             else:
                 return False
             
         else:
-            print 'invalid given switch setting...no action'
+            print('invalid given switch setting...no action')
             return False
             
     def do_get_position(self):
@@ -59,11 +59,11 @@ class two_port_switch(Instrument):
             sock.sendall('get_position' + '\n')
             #receive data from the server and shut down connection
             rec = sock.recv(1024)
-            print rec
+            print(rec)
             sock.close()
             return str(rec)
         except Exception as detail:
-            print "Error: ", detail
+            print("Error: ", detail)
             return 0
     
     #shortcuts

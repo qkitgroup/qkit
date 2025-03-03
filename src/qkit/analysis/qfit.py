@@ -169,6 +169,7 @@ class QFIT(object):
         '''
         Load data from either:
          - numpy arrays: must specify keyword arguments 'coordinate' and 'data'
+         - numpy arrays: must specify keyword arguments 'coordinate' and 'amplitude' and 'phase'
          - data file (h5 or text based file): specify filename
          - recent data file in data_dir: no arguments provided
 
@@ -180,6 +181,17 @@ class QFIT(object):
             self.data = kwargs['data']
             self.amplitude = None
             self.phase = None
+            self.urls = None
+            self.file_name = 'data_import'
+            self.coordinate_label = ''
+            self.data_label = ''
+            return
+        elif 'coordinate' in kwargs.keys() and 'amplitude' in kwargs.keys() and 'phase' in  kwargs.keys():
+            #print("loading amplitude and phase signal from np array")
+            self.coordinate = kwargs['coordinate']
+            self.data = None
+            self.amplitude = kwargs['amplitude']
+            self.phase = kwargs['phase']
             self.urls = None
             self.file_name = 'data_import'
             self.coordinate_label = ''
@@ -429,6 +441,8 @@ class QFIT(object):
                 logging.error('Invalid entry specification. Aborting.')
                 return
             self.coordinate, self.amplitude, self.phase = self.read_hdf_data(return_data = True)[0]
+        elif (self.amplitude is not None) and (self.phase is not None):
+            pass
         else:
             logging.warning('Reading out amplitude and phase attributes.')
 

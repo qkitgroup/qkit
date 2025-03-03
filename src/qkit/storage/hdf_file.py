@@ -11,12 +11,12 @@ import h5py
 import numpy as np
 import qkit
 from qkit.storage.hdf_constants import ds_types
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 file_kwargs = dict()
-if LooseVersion(h5py.__version__) >= LooseVersion("3.5.0"): # new file locking
+if Version(h5py.__version__) >= Version("3.5.0"): # new file locking
     file_kwargs = dict(locking=False)
-elif LooseVersion(h5py.__version__) >= LooseVersion("3.0.0"): # intermediate
+elif Version(h5py.__version__) >= Version("3.0.0"): # intermediate
     logging.error("Qkit HDF file handling: In h5py between 3.0 and 3.5, there are problems with file locking handling. Please update to h5py==3.5.0")
 
 class H5_file(object):
@@ -86,7 +86,7 @@ class H5_file(object):
         self.vgrp = self.entry.require_group("views")
         
     def create_dataset(self,name, tracelength, ds_type = ds_types['vector'],
-                       folder = "data", dim = 1,  **kwargs):
+                       folder = "data", dim = 1, **kwargs):
         """Dataset for one, two, and three dimensional data
         
             Args:
@@ -103,6 +103,7 @@ class H5_file(object):
             
                 'kwargs' are appended as attributes to the dataset
         """
+
         self.ds_type = ds_type
         
         if dim == 1:
@@ -157,11 +158,16 @@ class H5_file(object):
                 del self.grp[name]
                 # comment: The above line does remove the reference to the dataset but does not free the space aquired
                 # fixme if possible ...
-                
+
+
+        # 'scaleoffset' is an optional parameter for lossy compression of floating-point data,  retaining a specified number of bits post-decimal. 
+        # It is used to compress dataset elements by reducing the precision of the data. Defaults to None, implying no compression.
+        scaleoffset = kwargs.get('scaleoffset',None)
+
         if ds_type == ds_types['txt']:
-            ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype)
+            ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype, scaleoffset = scaleoffset)
         else:
-            ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype, fillvalue = np.nan)
+            ds = self.grp.create_dataset(name, shape, maxshape=maxshape, chunks = chunks, dtype=dtype, fillvalue = np.nan, scaleoffset = scaleoffset)
         
         ds.attrs.create("name",name.encode())
         ds.attrs.create("ds_type", ds_type)
@@ -170,7 +176,8 @@ class H5_file(object):
             ds.attrs.create("fill", [0,0,0])
         # add attibutes
         for a in kwargs:
-             ds.attrs.create(a,(kwargs[a]).encode())
+            if not a == "scaleoffset":
+                ds.attrs.create(a,(kwargs[a]).encode())
              
         self.flush()
         return ds
@@ -272,12 +279,10 @@ class H5_file(object):
             if dim0 == 1:
                 fill[0] = 1
                 dim1 += 1
-            if reset:
-                ds[fill[0]-1,fill[1]-2] = data  # reset overwrites last data series
-            else:  # standard reset = False
-                ds.resize((dim0,dim1,len(data)))
-                fill[1] += 1
-                ds[fill[0]-1,fill[1]-1] = data
+            if not reset:  # standard reset = False
+                ds.resize((dim0,dim1,len(data))) # Update array size
+                fill[1] += 1 # Update write position
+            ds[fill[0]-1,fill[1]-1] = data # Our indices start with one.
             ds.attrs.modify("fill", fill)
 
         self.flush()
