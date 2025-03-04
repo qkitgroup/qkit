@@ -47,7 +47,7 @@ def windows_admin_required(f: Callable) -> Callable:
 
 # Get binary path for installed command:
 def get_binary(name: str) -> str:
-    if platform.system() == "Windows":
+    if platform.system() == "Windows" and not '.' in name: # This file has no extension.
         # Windows Executables end in .exe. Append to allow other code to be platform independent.
         name = name + ".exe"
     candidate = (Path(sys.executable).parent / name).absolute()
