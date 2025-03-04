@@ -140,8 +140,11 @@ def windows_associate_h5(pwd: Path):
     # Create Association if it does not exist.
     try:
         key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r".h5")
-        (value, type) = winreg.QueryValueEx(key, None)
         logging.info("Association of .h5 to %s already exists.", value)
+        (value, type) = winreg.QueryValueEx(key, None)
+        if value != r"qviewkit.h5":
+            logging.info("Different association found. Overwriting...")
+            winreg.SetValue(key, None, winreg.REG_SZ, r"qviewkit.h5")
     except FileNotFoundError:
         assoc_key = winreg.CreateKey(winreg.HKEY_CLASSES_ROOT, r".h5")
         winreg.SetValue(assoc_key, None, winreg.REG_SZ, "qviewkit.h5")
