@@ -31,6 +31,17 @@ def test_read_all_breadcrumbs():
     assert result['GHIJKL'] == datadir_path / "file2.h5"
     assert result['MNOPQR'] == datadir_path / "file3.h5"
 
+def test_clear_breadcrumb():
+    try:
+        writer = BreadCrumbCreator()
+        writer.clear_file()
+        assert not writer._breadcrumb_path.exists()
+    finally:
+        # Cleanup breadcrumb
+        if derive_breadcrumb_filename().exists():
+            import os
+            os.remove(derive_breadcrumb_filename())
+
 @patch("os.getcwd", return_value=(str(Path(__file__).parent)))
 @patch("builtins.input", return_value="y")
 def test_manual_index(*args, **kwargs):

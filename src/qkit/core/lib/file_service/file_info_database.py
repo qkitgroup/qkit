@@ -189,6 +189,7 @@ class fid(file_system_service):
         self._h5_n_mtime = {}
         
         self._remove_cache_files()
+        self._breadcrumb_creator.clear_file()
         self.create_database()
 
     def update_all(self):

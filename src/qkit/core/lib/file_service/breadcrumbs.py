@@ -21,37 +21,66 @@ from pathlib import Path
 import qkit
 import os
 import itertools
+from filelock import FileLock, Timeout
+import logging
+
+log = logging.getLogger('breadcrumbs')
 
 FILE_END = ".breadcrumb"
+LOCK_EXTENSION = ".lock"
 
-def derive_breadcrumb_filename() -> Path:
+def derive_breadcrumb_filename(extension = FILE_END) -> Path:
     """
     Derive a machine-unique breadcrumb file name in the data-directory.
     """
     import uuid
     node = uuid.getnode()
-    filename = f".{node:x}{FILE_END}"
+    filename = f".{node:x}{extension}"
     return Path(qkit.cfg['datadir']) / filename
+
+def derive_breadcrumb_lock_file() -> Path:
+    """
+    Derive a machine-unique breadcrumb lock file name in the data-directory.
+    """
+    return derive_breadcrumb_filename(extension=FILE_END + LOCK_EXTENSION)
 
 class BreadCrumbCreator():
     """
     Manages creating the initial bread crumb file and updating it after each measurement.
+
+    Since only one writer can reliably write, we try to get a lock with a timeout.
+    With the lock acquired, we append our entry or clear the file.
     """
 
     def __init__(self) -> None:
         self._breadcrumb_path = derive_breadcrumb_filename()
+        self._lock = FileLock(derive_breadcrumb_lock_file(), timeout=5)
+
+    def clear_file(self):
         try:
-            if self._breadcrumb_path.exists():
-                os.remove(self._breadcrumb_path)
-            self._breadcrumb_file = open(self._breadcrumb_path, mode="w")
-        except:  # This may fail on Windows. TODO: better implementation.
-            self._breadcrumb_file = None
-            print("BreadCrumb disabled due to other process having locked the file.")
+            with self._lock:
+                if self._breadcrumb_path.exists():
+                    os.remove(self._breadcrumb_path)
+        except Timeout:
+            log.error("Acquiring file lock timed out.")
+            raise
+        except OSError:
+            log.error("Could not acquire lock file for clearing breadcrumbs.")
+            raise
 
     def append_entry(self, uuid: str, path: Path|str):
         rel_path = Path(path).relative_to(self._breadcrumb_path.parent)
-        if self._breadcrumb_file is not None:
-            print(f"{uuid[:6]}={rel_path}", file=self._breadcrumb_file, flush=True) # Fails if uuid is not 6 digits
+        try:
+            with self._lock:
+                with open(self._breadcrumb_path, mode="a") as breadcrumb_file:
+                    print(f"{uuid[:6]}={rel_path}", file=breadcrumb_file, flush=True) # Fails if uuid is not 6 digits
+        except Timeout:
+            log.error("Acquiring file lock timed out.")
+            raise
+        except OSError:
+            log.error("Could not acquire lock file for writing breadcrumb.")
+            raise
+            
 
 def read_breadcrumb(path: Path) -> dict[str, Path]:
     """

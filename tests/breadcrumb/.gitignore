@@ -1,3 +1,4 @@
 *.breadcrumb
+*.breadcrumb.lock
 !.1337deadbeef.breadcrumb
 !.deadbeef1337.breadcrumb
