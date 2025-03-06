@@ -72,7 +72,7 @@ class BreadCrumbCreator():
         rel_path = Path(path).relative_to(self._breadcrumb_path.parent)
         try:
             with self._lock:
-                with open(self._breadcrumb_path, mode="a") as breadcrumb_file:
+                with open(self._breadcrumb_path, mode="a", encoding='utf-8') as breadcrumb_file:
                     print(f"{uuid[:6]}={rel_path}", file=breadcrumb_file, flush=True) # Fails if uuid is not 6 digits
         except Timeout:
             log.error("Acquiring file lock timed out.")
