@@ -31,7 +31,8 @@ dependencies = [
     "pyzmq>=25",
     "tomli>=2.0.1",
     "ipython",
-    "packaging"
+    "packaging",
+    "filelock>=3.17"
 ]
 
 [project.scripts]
