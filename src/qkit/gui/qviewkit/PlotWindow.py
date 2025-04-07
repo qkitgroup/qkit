@@ -27,13 +27,21 @@ if not in_pyqt5:
 
 import pyqtgraph as pg
 import numpy as np
-
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import qkit
 from qkit.gui.qviewkit.plot_view import Ui_Form
 from qkit.storage.hdf_constants import ds_types, view_types
-from qkit.gui.qviewkit.PlotWindow_lib import _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
+from qkit.gui.qviewkit.PlotWindow_lib import _init_polarplot,_display_polarplot, _display_1D_view, _display_1D_data, _display_2D_data, _display_table, _display_text
 from qkit.gui.qviewkit.PlotWindow_lib import _get_ds, _get_ds_url, _get_name, _get_unit
 from qkit.core.lib.misc import str3
+
+
+class MplCanvas(FigureCanvas):
+    def __init__(self, parent=None, width=5.5, height=5, dpi=100):
+        fig = Figure(figsize=(width, height), dpi=dpi, tight_layout=True)
+        self.axes = fig.add_subplot(polar=True)
+        super(MplCanvas, self).__init__(fig)
 
 class PlotWindow(QWidget,Ui_Form):
     """PlotWindow class organizes the correct display of data in a h5 file.
@@ -135,13 +143,21 @@ class PlotWindow(QWidget,Ui_Form):
             self.VTraceYValueChanged = False
 
             # the following calls rely on ds_type and setup the layout of the plot window.
-            self.setupUi(self,self.ds_type, selector_label)
+            
+            if self.ds_type == ds_types['view']:
+                self.view_type = self.ds.attrs.get('view_type', None)
+                self.setupUi(self,self.ds_type, selector_label, self.view_type)
+            else:
+                self.setupUi(self,self.ds_type, selector_label)
+
+
 
             window_title = str(self.dataset_url.split('/')[-1]) +" "+ str(self.DATA.filename)
             self.setWindowTitle(window_title)
 
             self._setDefaultView()
-            self._setup_signal_slots()
+            if self.view_type != view_types['polarplot']:
+                self._setup_signal_slots()
         
         ## We check here for the view type given by either default setting or
         ## user input. Creates the canvas and calls the associated plot 
@@ -179,6 +195,18 @@ class PlotWindow(QWidget,Ui_Form):
                     self.gridLayout.addWidget(self.graphicsView,0,0)
                     self.linestyle_selector.setDisabled(True)
                 _display_2D_data(self,self.graphicsView)
+
+            elif self.view_type == view_types['polarplot']:
+                if not self.graphicsView or self._onPlotTypeChanged:
+                    self._onPlotTypeChanged = False
+                    self.graphicsView = MplCanvas(self, width=5, height=5, dpi=100)
+                    self.gridLayout.addWidget(self.graphicsView)
+                    self.coord_label = QLabel(self)
+                    self.coord_label.setMaximumHeight(40)
+                    self.coord_label.setStyleSheet(f"font-size: {16}px;")
+                    self.gridLayout.addWidget(self.coord_label)
+                    _init_polarplot(self, self.graphicsView)
+                _display_polarplot(self, self.graphicsView)
 
             elif self.view_type == view_types['table']:
                 if not self.graphicsView or self._onPlotTypeChanged:
@@ -296,8 +324,13 @@ class PlotWindow(QWidget,Ui_Form):
             self.view_type = view_types['txt']
 
         elif self.ds_type == ds_types["view"]:
-            self.view_type = view_types['1D-V']
-            self._defaultView()
+            if self.view_type == view_types['1D-V']:
+                self._defaultView()
+            elif self.view_type == view_types['polarplot']:
+                self._defaultPolarplot()
+            else:
+                self.view_type = view_types['1D-V']
+                self._defaultView()
 
         else:
             self._defaultOld()
@@ -343,6 +376,9 @@ class PlotWindow(QWidget,Ui_Form):
         self.VTraceYSelector.setEnabled(True)
         self.VTraceXNum = -1
         self.VTraceYNum = -1 
+
+    def _defaultPolarplot(self):
+        pass
 
     def _defaultOld(self):
         if not self.view_type:
@@ -531,7 +567,13 @@ class PlotWindow(QWidget,Ui_Form):
             self.addYPlotSelector.setItemText(i, str(key))
             #print i,key
 
-
+    def on_mouse_move(self, event):
+        if event.inaxes:
+            theta = event.xdata
+            r = event.ydata
+            self.coord_label.setText(f"Theta: {np.degrees(theta):.2f}°, R: {r:.4f} T")
+        else:
+            self.coord_label.setText("")
 
     def _getXValueFromTraceNum(self,ds,num):
         x_ds = _get_ds(ds, ds.attrs.get('x_ds_url'))
@@ -742,7 +784,6 @@ class PlotWindow(QWidget,Ui_Form):
         self.manipulation = self.manipulation ^ self.manipulations['histogram']
         if not self._windowJustCreated:
             self.obj_parent.pw_refresh_signal.emit()
-
 
 from collections import OrderedDict
 

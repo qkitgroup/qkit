@@ -6,6 +6,7 @@ It can be used with or without the qtlab environment.
 @author: hannes.rotzinger@kit.edu 2018
 @author: marco.pfirrmann@kit.edu 2018
 @version: 0.1
+*modified*
 """
 import logging
 import os
@@ -16,6 +17,8 @@ from qkit.storage.hdf_file import H5_file
 from qkit.storage.hdf_dataset import hdf_dataset
 from qkit.storage.hdf_constants import ds_types
 from qkit.storage.hdf_view import dataset_view
+from qkit.storage.hdf_config import dataset_config
+from qkit.storage.hdf_polarview import dataset_polarview
 from qkit.storage.hdf_DateTimeGenerator import DateTimeGenerator
 
 
@@ -94,7 +97,7 @@ class Data(object):
         """
         class group(object):
             pass
-        
+
         a = group()
         for n, o in self.hf.hf['/entry/analysis0'].items():
             n = n.replace(" ","_")
@@ -156,7 +159,7 @@ class Data(object):
             self.hf.dgrp.attrs.create('comment',comment.encode())
         elif folder == "analysis":
             self.hf.agrp.attrs.create("comment",comment.encode())
-        else: 
+        else:
             logging.warning("Foler muset be either 'data' (default) or 'analysis': '%s' provided" % (folder))
             raise ValueError
 
@@ -177,7 +180,7 @@ class Data(object):
         """
         ds =  hdf_dataset(self.hf, name, comment = comment, folder=folder, ds_type = ds_types['txt'], dim=1, **meta)
         return ds
-        
+
     def add_coordinate(self,  name, unit = "", comment = "",folder="data",**meta):
         """Adds a coordinate dataset to the h5 file.
         
@@ -217,7 +220,7 @@ class Data(object):
             hdf_dataset object.
         """
         ds =  hdf_dataset(self.hf, name, x=x, unit=unit, ds_type = ds_types['vector'],
-                          comment=comment, folder=folder, dim = 1, **meta)
+                          comment=comment, folder=folder, dtype='float64', dim = 1, **meta)
         return ds
 
     def add_value_matrix(self, name, x , y, unit = "", comment = "",folder="data",**meta):
@@ -240,7 +243,7 @@ class Data(object):
             hdf_dataset object.
         """
         ds =  hdf_dataset(self.hf, name, x=x, y=y, unit=unit, ds_type = ds_types['matrix'],
-                          comment=comment, folder=folder, dim = 2, **meta)
+                          comment=comment, folder=folder, dtype='float64', dim = 2, **meta)
         return ds
 
     def add_value_box(self, name, x , y, z, unit = "", comment = "",folder="data",**meta):
@@ -262,9 +265,9 @@ class Data(object):
         
         Returns:
             hdf_dataset object.
-        """        
+        """
         ds =  hdf_dataset(self.hf,name, x=x, y=y, z=z, unit=unit, ds_type = ds_types['box'],
-                          comment=comment, folder=folder, dim = 3, **meta)
+                          comment=comment, folder=folder, dtype='float64', dim = 3, **meta)
         return ds
 
     def add_view(self,name,x = None, y = None, error = None, filter  = None, view_params = {}):
@@ -280,7 +283,18 @@ class Data(object):
         (Fixme: not jet implemented)
         """
         ds =  dataset_view(self.hf,name, x=x, y=y, error=error, filter = filter, 
-                           ds_type = ds_types['view'],view_params = view_params)
+                            ds_type = ds_types['view'],view_params = view_params)
+        return ds
+
+    def add_polarview(self,name,x = None, y = None, z = None):
+        """Adds a view to plot x-y-z data as polar colormap.
+        """
+        ds =  dataset_polarview(self.hf,name, x=x, y=y, z=z, ds_type = ds_types['view'])
+        return ds
+
+    def add_config(self,name='measurement.config',**cfg):
+        """Adds a config dataset to save the config of the measurement"""
+        ds = dataset_config(self.hf,name,**cfg)
         return ds
 
     def add_fid_param(self, param, value):

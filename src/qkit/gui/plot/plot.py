@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 
 import qkit
 from qkit.storage import store
-from qkit.storage.hdf_constants import ds_types
+from qkit.storage.hdf_constants import ds_types, view_types
 from qkit.core.lib.misc import str3,concat
 import sys
 
@@ -116,9 +116,9 @@ class h5plot(object):
         """Inits h5plot with a h5_filepath (string, absolute path), optional 
         comment string, and optional save_pdf boolean.
         """
-        if not plot_enable or not qkit.module_available("matplotlib"):
-            logging.warning("matplotlib not installed. I can not save your measurement files as png. I will disable this function.")
-            qkit.cfg['save_png'] = False
+        # if not plot_enable or not qkit.module_available("matplotlib"):
+        #     logging.warning("matplotlib not installed. I can not save your measurement files as png. I will disable this function.")
+        #     qkit.cfg['save_png'] = False
         if not qkit.cfg.get('save_png',True):
             return
         self.comment = comment
@@ -171,16 +171,15 @@ class h5plot(object):
         self.x_ds_url = self.ds.attrs.get('x_ds_url','')
         self.y_ds_url = self.ds.attrs.get('y_ds_url','')
         self.z_ds_url = self.ds.attrs.get('z_ds_url','')
-
+        self.view_type = self.ds.attrs.get('view_type','')
         self.fig = Figure(figsize=(20,10),tight_layout=True)
-        self.ax = self.fig.gca()
         self.canvas = FigureCanvas(self.fig)
 
         self._unit_prefixes = {24: 'Y', 21: 'Z', 18: 'E', 15: 'P', 12: 'T', 9: 'G', 6: 'M', 3: 'k', 0: '', -3: 'm', -6: u'µ', -9: 'n', -12: 'p', -15: 'f', -18: 'a', -21: 'z', -24: 'y'}
         self.plot_styles = {0:'-', 1:'.-', 2:'.'}
 
         if self.ds_type == ds_types['coordinate']:
-            #self.plt_coord()
+            self.plt_coord()
             return
         elif self.ds_type == ds_types['vector']:
             self.plt_vector()
@@ -189,24 +188,29 @@ class h5plot(object):
         elif self.ds_type == ds_types['box']:
             self.plt_box()
         elif self.ds_type == ds_types['txt']:
-            #self.plt_txt()
+            self.plt_txt()
             return
         elif self.ds_type == ds_types['view']:
-            self.plt_view()
+            if self.view_type == view_types['1D-V']:
+                # self.plt_view()
+                return
+            elif self.view_type == view_types['polarplot']:
+                self.plt_polar()
         else:
             return
 
         ## Some labeling depending on the ds_type. The label variables are set
         ## in the respective plt_xxx() fcts.
-        self.ax.set_xlabel(self.x_label)
-        self.ax.set_ylabel(self.y_label)
-        self.ax.xaxis.label.set_fontsize(20)
-        self.ax.yaxis.label.set_fontsize(20)
-        self.ax.ticklabel_format(useOffset=False)
-        for i in self.ax.get_xticklabels():
-            i.set_fontsize(16)
-        for i in self.ax.get_yticklabels():
-            i.set_fontsize(16)
+        if not self.view_type:
+            self.ax.set_xlabel(self.x_label)
+            self.ax.set_ylabel(self.y_label)
+            self.ax.xaxis.label.set_fontsize(20)
+            self.ax.yaxis.label.set_fontsize(20)
+            self.ax.ticklabel_format(useOffset=False)
+            for i in self.ax.get_xticklabels():
+                i.set_fontsize(16)
+            for i in self.ax.get_yticklabels():
+                i.set_fontsize(16)
 
         save_name = str(os.path.basename(self.filedir))[0:6] + '_' + self.key.replace('/entry/','').replace('/','_')
         if self.comment:
@@ -233,6 +237,7 @@ class h5plot(object):
             No return variable. The function operates on the self- matplotlib 
             objects.
         """
+        self.ax = self.fig.gca()
         self.ax.set_title(self.hf._filename[:-3]+" "+str3(self.ds.attrs.get('name','_name_')))
         self.y_data = np.array(self.ds)
         self.y_exp = self._get_exp(self.y_data)
@@ -250,7 +255,7 @@ class h5plot(object):
         #else:
         #    plot_style = '-'
         try:
-            self.ax.plot(np.array(self.x_data)*10**int(-self.x_exp), self.y_data[0:len(self.x_data)]*10**int(-self.y_exp), plot_style)   #JB: avoid crash after pressing the stop button when arrays are of different lengths
+            self.ax.plot(np.array(self.x_data)[0:len(self.y_data)]*10**int(-self.x_exp), self.y_data[0:len(self.x_data)]*10**int(-self.y_exp), plot_style) #JF: If measurement is stopped by watchdog, plots are still saved due to cropping of x-axis.
         except TypeError:
             self.ax.plot(0,self.y_data, plot_style)
 
@@ -292,6 +297,7 @@ class h5plot(object):
             self.ds_data = np.flipud(self.ds_data)
 
         # plot
+        self.ax = self.fig.gca()
         self.ax.set_title(self.hf._filename[:-3]+" "+str3(self.ds.attrs.get('name','_name_')))
         self.cax = self.ax.imshow(self.ds_data,
                                   extent=(x_min, x_max, y_min, y_max),
@@ -348,6 +354,8 @@ class h5plot(object):
             self.ds_data = np.flipud(self.ds_data)
 
         # plot
+        
+        self.ax = self.fig.gca()
         self.ax.set_title(concat(self.hf._filename[:-3]," ",self.ds.attrs.get('name','_name_')))
         self.cax = self.ax.imshow(self.ds_data,
                                   extent=(x_min, x_max, y_min, y_max),
@@ -392,6 +400,8 @@ class h5plot(object):
         overlay_num = self.ds.attrs.get("overlays",0)
         overlay_urls = []
         err_urls = []
+        
+        self.ax = self.fig.gca()
         self.ax.set_title(self.hf._filename[:-3]+" "+str3(self.ds.attrs.get('name','_name_')))
         
         # the overlay_urls (urls of the x and y datasets that ar plotted) are extracted from the metadata
@@ -484,6 +494,65 @@ class h5plot(object):
             self.x_label += ' (' + self._unit_prefixes[x_exp] + self.x_unit + ')'
             self.y_label += ' (' + self._unit_prefixes[y_exp] + self.y_unit + ')'
         self.ax.legend()
+
+    def plt_polar(self):
+        """
+        Plot two-dimensional z dataset color-coded in y-coordinate
+        vs. x-coordinate polarplot.
+        x is the angle
+        y is a radius
+        z data with neagative radius y will be shifted by 180 degree in x,
+        so there are no negative radii in polarplot.
+
+        Args:
+            self: Object of the h5plot class.
+        Returns:
+            No return variable. The function operates on the self- matplotlib
+            objects.
+        """
+        urls = self.ds.attrs.get('xyz','')
+        print(urls)
+        self.x_ds_url, self.y_ds_url, self.z_ds_url = urls.split(":")
+        self.x_ds = self.hf[self.x_ds_url]
+        self.x_ds = np.array(self.x_ds)
+        self.x_exp = self._get_exp(self.x_ds)
+        self.x_name = concat(self.hf[self.x_ds_url].attrs.get('name', '_xname_'))
+        self.y_ds = self.hf[self.y_ds_url]
+        self.y_ds = np.array(self.y_ds)
+        self.y_exp = self._get_exp(self.y_ds)
+        self.y_unit = concat(self._unit_prefixes[self.y_exp] ,self.hf[self.y_ds_url].attrs.get('unit','_yunit_'))
+        self.z_ds = np.array(self.hf[self.z_ds_url]) #transpose matrix to get x/y axis correct
+        self.z_exp = self._get_exp(self.z_ds)
+        self.z_ds *= 10.**-self.z_exp
+        self.z_label = concat(self.hf[self.z_ds_url].attrs.get('name', '_name_'),' (',self._unit_prefixes[self.z_exp],self.hf[self.z_ds_url].attrs.get('unit', '_unit_'),')')
+
+
+        self.x_ds *= 10.**-self.x_exp
+        self.y_ds *= 10.**-self.y_exp
+
+        sweeprange = [0, max(self.y_ds)]
+        polarsplit = int(len(self.y_ds[:]) / 2)
+        swp_neg = abs(self.y_ds[:polarsplit])
+        swp_pos = self.y_ds[polarsplit:]
+        angle_pos = self.x_ds / 180 * np.pi
+        angle_neg = angle_pos + np.pi
+        stepvar = self.x_ds_url.split("/")[-1]
+        if self.z_ds.shape[0]*self.z_ds.shape[1] < len(self.x_ds) * len(self.y_ds):
+            # Handle incomplete data by filling with NaNs or zeros
+            data = np.full((len(self.x_ds), len(self.y_ds)), np.nan)
+            data.flat[:self.z_ds.shape[0]*self.z_ds.shape[1]] = self.z_ds
+        else:
+            data = self.z_ds
+        val = np.reshape(data.T, (len(self.y_ds), len(self.x_ds)))
+        val_neg = val[:polarsplit]
+        val_pos = val[polarsplit:]
+        # create polar colormap plot
+        self.ax = self.fig.add_subplot(polar=True)
+        self.ax.grid(False)
+        self.ax.set_yticks([])
+        self.ax.pcolormesh(angle_pos, swp_pos, val_pos, shading='nearest')
+        self.ax.pcolormesh(angle_neg, swp_neg, val_neg, shading='nearest')
+        self.ax.set_title(f"Polarplot: angle: {self.x_name}, amplitude: {round(sweeprange[1])} {self.y_unit}")
 
     def _get_exp(self, data):
         """
