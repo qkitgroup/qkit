@@ -70,7 +70,7 @@ class JumpDetective:
             self._hf.create_analysis_ds(data=self._analysis[ds_pos][0],ds_name=ds_pos,**pos_meta)
             self._hf.create_analysis_ds(data=self._analysis[ds_amp][0],ds_name=ds_amp,**amp_meta)
             print("Datasets saved!")
-        except:
+        except KeyError:
             print("Analysis chosen for saving jumps does not exist\nChoose jump analysis from following list:")
             for key,val in self._analysis.items():
                 if (self._jump_suffix['amp'] in key or self._jump_suffix['pos'] in key) and not 'unit' in key:
@@ -201,9 +201,9 @@ class JumpDetective:
         ''' getter function for keys of all loaded and created analysis data'''
         for key, val in self._analysis.items():
             if isinstance(val,h5py.Dataset):
-                print(f"- ds_name: {key} ;  params: {val.attrs.get('params',None)}")
+                print(f"- {key} --- ({val.attrs.get('params',None)})")
             elif isinstance(val,list):
-                print(f"- ds_name: {key} ;  params: {val[2]}")
+                print(f"- {key} --- ({val[2]})")
 
 
     def filter_and_derive_sweep(self, i):
@@ -216,7 +216,9 @@ class JumpDetective:
             d = np.diff(yf, n=1, append=2*yf[-1]-yf[-2])
         elif self._params['filter'][0] == 'gauss':
             d = gaussian_filter1d(y, order=1, sigma=self._params['filter'][1])
-            yf = gaussian_filter1d(y, order=0, sigma=self._params['filter'][1])     
+            yf = gaussian_filter1d(y, order=0, sigma=self._params['filter'][1])
+        else:
+            assert NotImplementedError(f"Filter {self._params['filter'][0]} is not defined!")
         return x, y, yf, d
 
 
@@ -228,16 +230,16 @@ class JumpDetective:
         # get sweepvar, filtered measvar and the derivative for sweep i 
         x, _ , yf, d = self.filter_and_derive_sweep(i)
         # CHANGE SIGN OF D; SUCH THAT DESIRED PEAKS ARE ALWAYS POSITIVE
-        d *= self.sign
+        # d *= self.sign
 
         peak_indices, jproperties = find_peaks(d)
         if len(peak_indices) > 0: # if peaks have been detected
             if self._params['sel_peak'] == 'highest':
                 peak_idx = peak_indices[np.argmax(d[peak_indices])]
             elif self._params['sel_peak'] == 'first':
-                peak_idx = peak_indices[0] ######################################################### NOT INCLUDING RETRACE!
+                peak_idx = peak_indices[0] ####################### NOT INCLUDING RETRACE!
             elif self._params['sel_peak'] == 'last':
-                peak_idx = peak_indices[-1]###########################################################
+                peak_idx = peak_indices[-1]#######################
             elif self._params['sel_peak'] == 'second_highest':
                 if len(peak_indices) > 1:
                     peak_heights = d[peak_indices]
@@ -302,9 +304,7 @@ class JumpDetective:
             amp_name = pos_name[:-4]+self._jump_suffix['amp']
         else:
             print("No jump analysis chosen for saving jumps\nChoose jump analysis from following list:")
-            for key,val in self._analysis.items():
-                if (self._jump_suffix['amp'] in key or self._jump_suffix['pos'] in key):
-                    print(f"- {key}")
+            self.show_analysis_keys()
             return None, None, None, None
         pos_data = self._analysis[pos_name]
         amp_data = self._analysis[amp_name]
@@ -312,10 +312,12 @@ class JumpDetective:
             pos_unit = pos_data.attrs.get('unit','')
             pos_data = np.array(pos_data)
         else:
-            pos_unit = self._analysis[pos_name][1]
+            pos_data = pos_data[0]
+            pos_unit = pos_data[1]
         if isinstance(amp_data,h5py.Dataset):
             amp_unit = amp_data.attrs.get('unit','')
             amp_data = np.array(amp_data)
         else:
-            amp_unit = self._analysis[amp_name][1]
+            amp_data = amp_data[0]
+            amp_unit = amp_data[1]
         return pos_data, pos_unit, amp_data, amp_unit

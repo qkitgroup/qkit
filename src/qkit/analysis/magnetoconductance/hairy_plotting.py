@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 
-plt.style.use('./plt_styles/default.mplstyle')
+# plt.style.use('./plt_styles/default.mplstyle')
 
 
 class HarryPlotter:

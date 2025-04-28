@@ -1,7 +1,7 @@
 import h5py
 import logging as log
 import numpy as np
-# import qkit
+
 from qkit.storage.hdf_constants import ds_types
 from qkit.measure.json_handler import QkitJSONEncoder, QkitJSONDecoder
 
@@ -23,19 +23,17 @@ class HDFData:
     def create_analysis_ds(self, data, ds_name, prefix='', index=-1, suffix='', **kwargs):
         ''' create new dataset for analysis data'''
         name = f"{prefix}{ds_name}{suffix}"
-        print(name)
         if index >= 0:
             name = f"{prefix}{ds_name}_{index}{suffix}"
-        # try:
+        log.info(f'Create new dataset with name {name}.')
+        # create dataset in analysis folder with name {name} and ds_type analysis
         ds = self._analysis_dir.create_dataset(name=name,data=data)
         if not ds.attrs.get('name',None):
             ds.attrs.create('name',name)
         ds.attrs.create('ds_type',ds_types['analysis'])
+        # add metadata to new dataset
         self.set_metadata(ds,**kwargs)
-        print(ds)
-        # except ValueError:
-        #     print("Error")
-        #     self.create_analysis_ds(data=data, ds_name=ds_name, prefix=prefix, index=index+1, suffix=suffix, **kwargs)
+        log.info(f'Dataset {name} was created successfully!')
 
     def set_metadata(self, ds:h5py.Dataset,**kwargs):
         ''' setter func fot metadata'''
@@ -56,8 +54,13 @@ class HDFData:
         if no var for metadata is used, all metadata of ds will be returned'''
         metadata = {}
         if var:
-            for val in var:
-                metadata[val] = ds.attrs.get(val,None)
+            if isinstance(var, str):
+                metadata[var] = ds.attrs.get(var,None)
+            elif isinstance(var, list):
+                for val in var:
+                    metadata[val] = ds.attrs.get(val,None)
+            else:
+                log.error(f'{type(var)} is no valid type for var!')
         else:
             for key, val in ds.attrs.items():
                 metadata[key] = val
@@ -100,44 +103,42 @@ class HDFData:
             assert ReferenceError("There is no reference for a vector/coordinate in dataset!")
         return x, y
 
-    def get_measure_data(self, prefix='', ds_name=[]):
+    def get_measure_data(self, prefix='', ds_name:list=[]):
         ''' getter func for multiple measure datasets in .h/hdf5 file data0 folder
         x and y parameter of measurement datasets will be searched and returned automatically
         if no dataset name is given, readout and return all measurement datasets'''
         if ds_name:
+            # export all datasets in ds_name list from data folder
             for key in ds_name:
                 data = None
-                if key not in self._data.keys():
+                if key not in self._data.items():
                     try:
                         data = self._data_dir[prefix+key]
                     except KeyError:
-                        print((f"Dataset {key} does not exist in 'entry/data0/'!"))
+                        log.error(f"Dataset {key} does not exist in 'entry/data0/'!")
                         continue
-                    if isinstance(data,h5py.Dataset):
-                        if not self._data.get("x_data") or not self._data.get("y_data"):
-                            x, y = self.find_xy_ds(data, self._data_dir)
-                            if isinstance(x,h5py.Dataset):
-                                self._data["x_data"] = x
-                            if isinstance(x,h5py.Dataset):
-                                self._data["y_data"] = y
-                        self._data[prefix+key] = data
+                # search for connected x/y datasets
+                if isinstance(data,h5py.Dataset):
+                    if not self._data.get("x_data") or not self._data.get("y_data"):
+                        x, y = self.find_xy_ds(data, self._data_dir)
+                        if isinstance(x,h5py.Dataset):
+                            self._data["x_data"] = x
+                        if isinstance(x,h5py.Dataset):
+                            self._data["y_data"] = y
+                    self._data[prefix+key] = data
         else:
-            for key in self._data_dir.keys():
-                data = None
-                if key not in self._data.keys():
-                    try:
-                        data = self._data_dir[key]
-                    except KeyError(f"Dataset {key} does not exist in 'entry/data0/'!"):
-                        continue
-                    if data.attrs.get("x_ds_url","") or data.attrs.get("y_ds_url",""):
-                        if isinstance(data,h5py.Dataset):
+            # export all datasets from data folder
+            for key, val in self._data_dir.items():
+                if key not in self._data.items():
+                    if val.attrs.get("x_ds_url","") or val.attrs.get("y_ds_url",""):
+                        if isinstance(val,h5py.Dataset):
                             if not self._data.get("x_data") or not self._data.get("y_data"):
-                                x, y = self.find_xy_ds(data, self._data_dir)
+                                x, y = self.find_xy_ds(val, self._data_dir)
                                 if isinstance(x,h5py.Dataset):
                                     self._data["x_data"] = x
                                 if isinstance(x,h5py.Dataset):
                                     self._data["y_data"] = y
-                            self._data[key] = data
+                            self._data[key] = val
         return self._data
 
     def get_analysis_data(self, prefix='', ds_name:list=[], suffix=''):
@@ -146,25 +147,28 @@ class HDFData:
         no dataset name is given -> readout and return all analysis datasets'''
         self._analysis = {}
         if ds_name:
+            # export all datasets with 'ds_name' in analysis folder
             for key in ds_name:
+                # create default dataset name without index
                 name = f"{prefix}{key}{suffix}"
                 index=-1
                 analysis = None
                 while True:
                     if index >= 0:
+                        # create dataset name with additional index
                         name = f"{prefix}{key}_{index}{suffix}"
-                    print(name)
-                    if name not in self._analysis.keys():
+                    if name not in self._analysis.items():
+                        # search for dataset 'name' in analysis folder
                         try:
-                            print(name)
                             analysis = self._analysis_dir[name]
                             index+=1
-                        except:
+                        except KeyError:
                             if index == -1:
                                 break
-                            print(f"Dataset {name} can't be found")
+                            # save highest index of analysis datasets
                             self._analysis[f"{prefix}{key}{suffix}__imax"] = index
                             break
+                        # search for connected x/y datasets
                         if isinstance(analysis,h5py.Dataset):
                             x, y = self.find_xy_ds(analysis, self._analysis_dir)
                             if isinstance(x,h5py.Dataset):
@@ -177,33 +181,15 @@ class HDFData:
                     else:
                         break
         else:
-            for key in self._analysis_dir.keys():
+            # export all datasets in analysis folder
+            for key, val in self._analysis_dir.items():
                 analysis = None
-                group = None
-                if key not in self._analysis.keys():
-                    try:
-                        analysis = self._analysis_dir[key]
-                    except KeyError(f"Dataset {key} does not exist in 'entry/analysis0/'!"):
-                        continue
-                    if isinstance(analysis,h5py.Dataset):
-                        x, y = self.find_xy_ds(analysis, self._analysis_dir)
+                if key not in self._analysis.items():
+                    if isinstance(val,h5py.Dataset):
+                        x, y = self.find_xy_ds(val, self._analysis_dir)
                         if isinstance(x,h5py.Dataset):
                             self._analysis[f"{x.attrs.get('name','')}"] = x
                         if isinstance(y,h5py.Dataset):
                             self._analysis[f"{y.attrs.get('name','')}"] = y
-                        self._analysis[key] = analysis
+                        self._analysis[key] = val
         return self._analysis
-
-
-# path = "C:/Users/joshu/OneDrive/Desktop/Bachelorarbeit/qkit/src/qkit/analysis/SG3V8F_2D_psi_vd.h5"
-# x=HDFData(path=path)
-# # print(x.get_measure_data())
-# print(x.get_analysis_data(ds_name=["test_dataset","test.metadata"]))
-# y= np.random.randint(low=0,high=12,size=(5,7))
-# metadata = {"namesy":"metadata","nothing":42, "ds_type":ds_types['analysis']}
-# x.create_analysis_ds(data=y,ds_name="test_dataset")
-# # x.create_analysis_ds("np.float32a",y,**metadata)
-
-# # x.create_analysis_ds("np.float32a",y,**metadata)
-# # x._h5file.close()
-# # print(x.get_analysis_data())

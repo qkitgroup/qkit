@@ -11,6 +11,7 @@ ds_types = {'coordinate':0,
             'box':3,
             'txt':10,
             'view':20,
+            'analysis':30
             }
 
 view_types =  {'1D':0,
