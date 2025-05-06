@@ -400,7 +400,7 @@ class circuit:
         """
         Fits the phase response of a strongly overcoupled (Qi >> Qc) resonator
         in reflection which corresponds to a circle centered around the origin
-        (cf‌. phase_centered()).
+        (cf. phase_centered()).
 
         inputs:
         - z_data: Scattering data of which the phase should be fit. Data must be
