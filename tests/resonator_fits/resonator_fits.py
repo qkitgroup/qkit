@@ -36,3 +36,6 @@ def test_circlefit():
         plt.plot(my_circle_fit.amp_fit*np.cos(my_circle_fit.pha_fit), my_circle_fit.amp_fit*np.sin(my_circle_fit.pha_fit), "r-")
         plt.title("IQ Circle")
         plt.show()
+
+if __name__ == "__main__":
+    test_circlefit()

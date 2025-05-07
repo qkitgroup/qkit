@@ -28,6 +28,7 @@ class ResonatorFitBase(ABC):
         self.pha_fit = np.zeros(self.out_nop)
         self.extract_data = {}
         return self
+
     
 class CircleFit(ResonatorFitBase):
     def __init__(self, n_ports: int, fit_delay_max_iterations: int = 5, fixed_delay: float = None, isolation: int = 15, guesses: list[float] = None):
@@ -383,3 +384,75 @@ class CircleFit(ResonatorFitBase):
         self.pha_fit = np.angle(z_fit)
 
         return self
+    
+
+class LorentzianFit(ResonatorFitBase):
+    def __init__(self):
+        super().__init__()
+        self.extract_data = {
+            "f_res": None, 
+            "f_res_err": None, 
+            "Qc": None, 
+            "Qc_err": None, 
+            # TODO
+        }
+
+    def do_fit(self, freq, amp, pha):
+        # TODO 
+        logging.error("Lorentzian Fit not yet implemented. Feel free to adapt it yourself based on old resonator class")
+        self.extract_data["f_res"] = 1 
+        self.extract_data["f_res_err"] = 0.5
+        self.extract_data["Qc"] = 1 
+        self.extract_data["Qc_err"] = 0.5
+        return super().do_fit(freq, amp, pha)
+
+
+class SkewedLorentzianFit(ResonatorFitBase):
+    def __init__(self):
+        super().__init__()
+        self.extract_data = {
+            "f_res": None, 
+            "f_res_err": None, 
+            "Qc": None, 
+            "Qc_err": None, 
+            # TODO
+        }
+
+    def do_fit(self, freq, amp, pha):
+        # TODO 
+        logging.error("Lorentzian Fit not yet implemented. Feel free to adapt it yourself based on old resonator class")
+        self.extract_data["f_res"] = 1 
+        self.extract_data["f_res_err"] = 0.5
+        self.extract_data["Qc"] = 1 
+        self.extract_data["Qc_err"] = 0.5
+        return super().do_fit(freq, amp, pha)
+    
+
+class FanoFit(ResonatorFitBase):
+    def __init__(self):
+        super().__init__()
+        self.extract_data = {
+            "f_res": None, 
+            "f_res_err": None, 
+            "Qc": None, 
+            "Qc_err": None, 
+            # TODO
+        }
+
+    def do_fit(self, freq, amp, pha):
+        # TODO 
+        logging.error("Lorentzian Fit not yet implemented. Feel free to adapt it yourself based on old resonator class")
+        self.extract_data["f_res"] = 1 
+        self.extract_data["f_res_err"] = 0.5
+        self.extract_data["Qc"] = 1 
+        self.extract_data["Qc_err"] = 0.5
+        return super().do_fit(freq, amp, pha)
+    
+
+FitNames: dict[str, ResonatorFitBase] = {
+    'lorentzian': LorentzianFit, 
+    'skewed_lorentzian': SkewedLorentzianFit, 
+    'circle_fit_reflection': CircleFit, 
+    'circle_fit_notch': CircleFit,
+    'fano': FanoFit, 
+}
