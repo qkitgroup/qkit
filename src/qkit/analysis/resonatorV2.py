@@ -52,7 +52,7 @@ class CircleFit(ResonatorFitBase):
             "Ql_err": None, 
             "a": None,
             "alpha": None,
-            "chi2": None, 
+            "chi_square": None, 
             "delay": None, 
             "delay_remaining": None,
             "fano_b": None, 
@@ -69,6 +69,12 @@ class CircleFit(ResonatorFitBase):
     
     def do_fit(self, freq: np.ndarray[float], amp: np.ndarray[float], pha: np.ndarray[float]):
         z = amp*np.exp(1j*pha)
+        # init with empty data
+        self.freq_fit = np.linspace(np.min(freq), np.max(freq), self.out_nop)
+        self.amp_fit: np.full(self.out_nop, np.nan)
+        self.pha_fit: np.full(self.out_nop, np.nan)
+        for key in self.extract_data.keys():
+            self.extract_data[key] = np.nan
         """ helper functions"""
         _phase_centered = lambda f, fr, Ql, theta, delay=0: theta - 2*np.pi*delay*(f-fr) + 2.*np.arctan(2.*Ql*(1. - f/fr))
         _periodic_boundary = lambda angle: (angle + np.pi) % (2*np.pi) - np.pi
@@ -219,7 +225,7 @@ class CircleFit(ResonatorFitBase):
 
         """delay"""
         if self.fixed_delay is not None:
-            self.extract_data["delay"] = self.fixed_delay
+            delay = self.fixed_delay
         else:
             xc, yc, r0 = _fit_circle(z)
             z_data = z - complex(xc, yc)
@@ -260,7 +266,7 @@ class CircleFit(ResonatorFitBase):
             if 2*np.pi*(freq[-1]-freq[0])*delay_corr > np.std(residuals):
                 logging.warning("Delay could not be fit properly!")
 
-            self.extract_data["delay"] = delay
+        self.extract_data["delay"] = delay
 
         """calibrate"""
         z_data = z*np.exp(2j*np.pi*delay*freq) # correct delay
@@ -378,7 +384,6 @@ class CircleFit(ResonatorFitBase):
         self.extract_data["fano_b"] = b
 
         """model data"""
-        self.freq_fit = np.linspace(np.min(freq), np.max(freq), self.out_nop)
         z_fit = Sij(self.freq_fit, fr, Ql, Qc, phi, a, alpha, delay)
         self.amp_fit = np.abs(z_fit)
         self.pha_fit = np.angle(z_fit)

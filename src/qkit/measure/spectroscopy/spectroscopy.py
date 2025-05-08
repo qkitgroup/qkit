@@ -45,8 +45,8 @@ class spectrum(object):
     usage:
     m = spectrum(vna = vna1)
 
-    m.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current',coil.set_current, unit = 'mA')  outer scan in 3D
-    m.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency',mw_src1.set_frequency, unit = 'Hz')
+    m.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current',coil.set_current, unit = 'mA')  # outer scan in 2D & 3D
+    m.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency',mw_src1.set_frequency, unit = 'Hz') # inner scan in 3D
 
     m.landscape.generate_fit_function_xy(...) for 3D scan, can be called several times and appends the current landscape
     m.landscape.generate_fit_function_xz(...) for 2D or 3D scan, adjusts the vna freqs with respect to x
@@ -277,9 +277,7 @@ class spectrum(object):
         
         if self._fit_resonator:
             self._fit_select = (self._freqpoints >= self._f_min) & (self._freqpoints <= self._f_max)
-
             self._fit_freq = self._data_file.add_coordinate('_fit_frequency', unit='Hz', folder="analysis")
-            self._fit_freq.add(self._freqpoints[self._fit_select])
 
         if self._scan_dim == 1:
             self._data_real = self._data_file.add_value_vector('real', x=sweep_vector, unit='', save_timestamp=True)
@@ -464,13 +462,14 @@ class spectrum(object):
         if self._fit_resonator:
             self._fit_function.do_fit(self._freqpoints[self._fit_select], np.array(data_amp)[self._fit_select], np.array(data_pha)[self._fit_select])
             # add fit data to file
+            self._fit_freq.add(self._fit_function.freq_fit)
             self._fit_amp.append(self._fit_function.amp_fit)
             self._fit_pha.append(self._fit_function.pha_fit)
             self._fit_real.append(self._fit_function.amp_fit*np.cos(self._fit_function.pha_fit))
             self._fit_imag.append(self._fit_function.amp_fit*np.sin(self._fit_function.pha_fit))
 
             self._fit_extracts = {}
-            for key, val in self._fit_function.extract_data:
+            for key, val in self._fit_function.extract_data.items():
                 # define extract data in 1D case here instead of before measurement, so the file ist not too clustered if measurement fails
                 self._fit_extracts[key] = self._data_file.add_coordinate("fit_" + key, unit="", folder="analysis")
                 self._fit_extracts[key].append(val)
@@ -624,7 +623,8 @@ class spectrum(object):
                         self._log_value_2D[i].append(f())
 
                 if self._scan_dim == 3:
-                    for y in self.y_vec:
+                    fit_extracts_helper = {} # for book-keeping current y-line
+                    for iy, y in enumerate(self.y_vec):
                         # loop: y_obj with parameters from y_vec (only 3D measurement)
                         if self.landscape.xylandscapes and not self.landscape.perform_measurement_at_point(x, y, ix):
                             # if point is not of interest (not close to one of the functions)
@@ -673,13 +673,17 @@ class spectrum(object):
                         if self._fit_resonator:
                             self._fit_function.do_fit(self._freqpoints[self._fit_select], data_amp[self._fit_select], data_pha[self._fit_select])
 
+                            self._fit_freq.add(self._fit_function.freq_fit) if (ix == 0) & (iy == 0) else None
                             self._fit_amp.append(self._fit_function.amp_fit)
                             self._fit_pha.append(self._fit_function.pha_fit)
                             self._fit_real.append(self._fit_function.amp_fit*np.cos(self._fit_function.pha_fit))
                             self._fit_imag.append(self._fit_function.amp_fit*np.sin(self._fit_function.pha_fit))
 
-                            for key, val in self._fit_function.extract_data:
-                                self._fit_extracts[key].append(val)
+                            for key, val in self._fit_function.extract_data.items():
+                                if iy == 0:
+                                    fit_extracts_helper[key] = np.full(len(self.y_vec), np.nan)
+                                fit_extracts_helper[key][iy] = val
+                                self._fit_extracts[key].append(fit_extracts_helper[key], reset=(iy != 0))
 
                         qkit.flow.sleep()
                     """
@@ -724,12 +728,13 @@ class spectrum(object):
                     if self._fit_resonator:
                         self._fit_function.do_fit(self._freqpoints[self._fit_select], data_amp[self._fit_select], data_pha[self._fit_select])
 
+                        self._fit_freq.add(self._fit_function.freq_fit) if (ix == 0) else None
                         self._fit_amp.append(self._fit_function.amp_fit)
                         self._fit_pha.append(self._fit_function.pha_fit)
                         self._fit_real.append(self._fit_function.amp_fit*np.cos(self._fit_function.pha_fit))
                         self._fit_imag.append(self._fit_function.amp_fit*np.sin(self._fit_function.pha_fit))
                         
-                        for key, val in self._fit_function.extract_data:
+                        for key, val in self._fit_function.extract_data.items():
                             self._fit_extracts[key].append(val)
 
                     qkit.flow.sleep()
@@ -775,8 +780,8 @@ class spectrum(object):
             logging.error('Fit function not properly set. Must be either \'lorentzian\', \'skewed_lorentzian\', \'circle_fit_reflection\', \'circle_fit_notch\', \'fano\'.')
         else:
             self._fit_resonator = True
-            self._f_min = f_min if f_min is not None else -np.inf
-            self._f_max = f_max if f_min is not None else np.inf
+            self._f_min = -np.inf if f_min is None else f_min
+            self._f_max = np.inf if f_max is None else f_max
 
     def _do_fit_resonator(self, freq, amp, pha):
         '''
