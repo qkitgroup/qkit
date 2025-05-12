@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import scipy.optimize as spopt
 import scipy.ndimage
 import logging
+from qkit.storage.store import Data as qkitData
 
 class ResonatorFitBase(ABC):
     """
@@ -28,6 +29,115 @@ class ResonatorFitBase(ABC):
         self.pha_fit = np.zeros(self.out_nop)
         self.extract_data = {}
         return self
+
+
+def autofit_file(file: qkitData | str, fit_func: ResonatorFitBase, f_min: float = None, f_max: float = None):
+    # ensure file is qkit.storage.store.Data
+    if type(file) == str:
+        try:
+            file = qkitData(file) # assume path
+        except:
+            logging.error("'{}' is not a valid path".format(file))
+            raise AttributeError
+    # check if file has freq, amp, phase
+    try: 
+        freq_data = np.array(file.data.frequency)
+        amp_data = np.array(file.data.amplitude)
+        pha_data = np.array(file.data.phase)
+    except:
+        logging.error("Could not access frequency, amplitude and/or phase. Is this really a VNA measurement?")
+        raise AttributeError
+    # do not allow overriding existing fits
+    try: 
+        dummy = file.analysis._fit_frequency
+        logging.error("File already contains fit data. Please access and store everything manually.")
+        raise ValueError
+    except:
+        pass
+    # add frequency coordinate
+    f_min = -np.inf if f_min is None else f_min
+    f_max = np.inf if f_max is None else f_max
+    selly = (freq_data >= f_min) & (freq_data <= f_max)
+    file_freq_fit = file.add_coordinate("_fit_frequency", unit="Hz", folder="analysis")
+    file_freq_fit.add(freq_data[selly])
+    file_extracts = {}
+
+    if len(amp_data.shape) == 1: # 1D measurement
+        # add result datastores
+        file_amp_fit = file.add_value_vector("_fit_amplitude", x=file_freq_fit, unit="arb. unit", folder="analysis")
+        file_pha_fit = file.add_value_vector("_fit_phase", x=file_freq_fit, unit="rad", folder="analysis")
+        file_real_fit = file.add_value_vector("_fit_real", x=file_freq_fit, unit="", folder="analysis")
+        file_imag_fit = file.add_value_vector("_fit_imag", x=file_freq_fit, unit="", folder="analysis")
+        for key in fit_func.extract_data.keys():
+            file_extracts[key] = file.add_coordinate("fit_" + key, folder="analysis")
+        # actual fitting
+        fit_func.do_fit(freq_data[selly], amp_data[selly], pha_data[selly])
+        # fill entries
+        file_amp_fit.append(fit_func.amp_fit)
+        file_pha_fit.append(fit_func.pha_fit)
+        file_real_fit.append(fit_func.amp_fit*np.cos(fit_func.pha_fit))
+        file_imag_fit.append(fit_func.amp_fit*np.sin(fit_func.pha_fit))
+        for key, val in fit_func.extract_data.items():
+            file_extracts[key].add(np.array([val]))
+    
+    elif len(amp_data.shape) == 2: # 2D measurement
+        # add result datastores
+        file_amp_fit = file.add_value_matrix("_fit_amplitude", x=file[file.data.amplitude.x_ds_url], y=file_freq_fit, unit="arb. unit", folder="analysis")
+        file_pha_fit = file.add_value_matrix("_fit_phase", x=file[file.data.amplitude.x_ds_url], y=file_freq_fit, unit="rad", folder="analysis")
+        file_real_fit = file.add_value_matrix("_fit_real", x=file[file.data.amplitude.x_ds_url], y=file_freq_fit, unit="", folder="analysis")
+        file_imag_fit = file.add_value_matrix("_fit_imag", x=file[file.data.amplitude.x_ds_url], y=file_freq_fit, unit="", folder="analysis")
+        buffer_extracts = {}
+        for key in fit_func.extract_data.keys():
+            file_extracts[key] = file.add_value_vector("fit_" + key, x=file[file.data.amplitude.x_ds_url], folder="analysis")
+            buffer_extracts[key] = np.full(file[file.data.amplitude.x_ds_url].shape[0], np.nan)
+        for ix in range(amp_data.shape[0]):
+            # actual fitting
+            fit_func.do_fit(freq_data[selly], amp_data[ix, selly], pha_data[ix, selly])
+            # fill entries
+            file_amp_fit.append(fit_func.amp_fit)
+            file_pha_fit.append(fit_func.pha_fit)
+            file_real_fit.append(fit_func.amp_fit*np.cos(fit_func.pha_fit))
+            file_imag_fit.append(fit_func.amp_fit*np.sin(fit_func.pha_fit))
+            for key, val in fit_func.extract_data.items():
+                buffer_extracts[key][ix] = val
+                file_extracts[key].append(buffer_extracts[key], reset=True)
+
+    elif len(amp_data.shape) == 3: # 3D measurement
+        # add result datastores
+        file_amp_fit = file.add_value_box("_fit_amplitude", x=file[file.data.amplitude.x_ds_url], y=file[file.data.amplitude.y_ds_url], z=file_freq_fit, unit="arb. unit", folder="analysis")
+        file_pha_fit = file.add_value_box("_fit_phase", x=file[file.data.amplitude.x_ds_url], y=file[file.data.amplitude.y_ds_url], z=file_freq_fit, unit="rad", folder="analysis")
+        file_real_fit = file.add_value_box("_fit_real", x=file[file.data.amplitude.x_ds_url], y=file[file.data.amplitude.y_ds_url], z=file_freq_fit, unit="", folder="analysis")
+        file_imag_fit = file.add_value_box("_fit_imag", x=file[file.data.amplitude.x_ds_url], y=file[file.data.amplitude.y_ds_url], z=file_freq_fit, unit="", folder="analysis")
+        for key in fit_func.extract_data.keys():
+            file_extracts[key] = file.add_value_matrix("fit_" + key, x=file[file.data.amplitude.x_ds_url], y=file[file.data.amplitude.y_ds_url], folder="analysis")
+        buffer_extracts = {}
+        import itertools # alternative to nested loops that allows easier breaking when fill is reached
+        for ix, iy in itertools.product(range(amp_data.shape[0]), range(amp_data.shape[1])):
+            if iy == 0:
+                for key in fit_func.extract_data.keys():
+                     buffer_extracts[key] = np.full(file[file.data.amplitude.y_ds_url].shape[0], np.nan)
+            # actual fitting
+            fit_func.do_fit(freq_data[selly], amp_data[ix, iy, selly], pha_data[ix, iy, selly])
+            # fill entries
+            file_amp_fit.append(fit_func.amp_fit)
+            file_pha_fit.append(fit_func.pha_fit)
+            file_real_fit.append(fit_func.amp_fit*np.cos(fit_func.pha_fit))
+            file_imag_fit.append(fit_func.amp_fit*np.sin(fit_func.pha_fit))
+            for key, val in fit_func.extract_data.items():
+                buffer_extracts[key][iy] = val
+                file_extracts[key].append(buffer_extracts[key], reset=(iy != 0))
+            if (ix + 1 == file.data.amplitude.fill[0]) & (iy + 1 == file.data.amplitude.fill[1]):
+                # The measurement stopped somewhere in the middle of a xy-sweep, no more data to analyze
+                break
+            if iy + 1 == amp_data.shape[1]:
+                file_amp_fit.next_matrix()
+                file_pha_fit.next_matrix()
+                file_real_fit.next_matrix()
+                file_imag_fit.next_matrix()
+    else:
+        logging.error("What?")
+        raise NotImplementedError()
+
 
     
 class CircleFit(ResonatorFitBase):
@@ -71,8 +181,8 @@ class CircleFit(ResonatorFitBase):
         z = amp*np.exp(1j*pha)
         # init with empty data
         self.freq_fit = np.linspace(np.min(freq), np.max(freq), self.out_nop)
-        self.amp_fit: np.full(self.out_nop, np.nan)
-        self.pha_fit: np.full(self.out_nop, np.nan)
+        self.amp_fit = np.full(self.out_nop, np.nan)
+        self.pha_fit = np.full(self.out_nop, np.nan)
         for key in self.extract_data.keys():
             self.extract_data[key] = np.nan
         """ helper functions"""
