@@ -694,10 +694,11 @@ class spectrum(object):
                     self._data_pha.next_matrix()
                     self._data_real.next_matrix()
                     self._data_imag.next_matrix()
-                    self._fit_amp.next_matrix()
-                    self._fit_pha.next_matrix()
-                    self._fit_real.next_matrix()
-                    self._fit_imag.next_matrix()
+                    if self._fit_resonator:
+                        self._fit_amp.next_matrix()
+                        self._fit_pha.next_matrix()
+                        self._fit_real.next_matrix()
+                        self._fit_imag.next_matrix()
 
                 if self._scan_dim == 2:
                     if self.averaging_start_ready:

@@ -4,6 +4,7 @@ import scipy.optimize as spopt
 import scipy.ndimage
 import logging
 from qkit.storage.store import Data as qkitData
+from qkit.storage.hdf_dataset import hdf_dataset
 
 class ResonatorFitBase(ABC):
     """
@@ -60,7 +61,7 @@ def autofit_file(file: qkitData | str, fit_func: ResonatorFitBase, f_min: float 
     selly = (freq_data >= f_min) & (freq_data <= f_max)
     file_freq_fit = file.add_coordinate("_fit_frequency", unit="Hz", folder="analysis")
     file_freq_fit.add(freq_data[selly])
-    file_extracts = {}
+    file_extracts: dict[str, hdf_dataset] = {}
 
     if len(amp_data.shape) == 1: # 1D measurement
         # add result datastores
@@ -86,7 +87,7 @@ def autofit_file(file: qkitData | str, fit_func: ResonatorFitBase, f_min: float 
         file_pha_fit = file.add_value_matrix("_fit_phase", x=file[file.data.amplitude.x_ds_url], y=file_freq_fit, unit="rad", folder="analysis")
         file_real_fit = file.add_value_matrix("_fit_real", x=file[file.data.amplitude.x_ds_url], y=file_freq_fit, unit="", folder="analysis")
         file_imag_fit = file.add_value_matrix("_fit_imag", x=file[file.data.amplitude.x_ds_url], y=file_freq_fit, unit="", folder="analysis")
-        buffer_extracts = {}
+        buffer_extracts: dict[str, np.ndarray] = {}
         for key in fit_func.extract_data.keys():
             file_extracts[key] = file.add_value_vector("fit_" + key, x=file[file.data.amplitude.x_ds_url], folder="analysis")
             buffer_extracts[key] = np.full(file[file.data.amplitude.x_ds_url].shape[0], np.nan)
@@ -110,7 +111,7 @@ def autofit_file(file: qkitData | str, fit_func: ResonatorFitBase, f_min: float 
         file_imag_fit = file.add_value_box("_fit_imag", x=file[file.data.amplitude.x_ds_url], y=file[file.data.amplitude.y_ds_url], z=file_freq_fit, unit="", folder="analysis")
         for key in fit_func.extract_data.keys():
             file_extracts[key] = file.add_value_matrix("fit_" + key, x=file[file.data.amplitude.x_ds_url], y=file[file.data.amplitude.y_ds_url], folder="analysis")
-        buffer_extracts = {}
+        buffer_extracts: dict[str, np.ndarray] = {}
         import itertools # alternative to nested loops that allows easier breaking when fill is reached
         for ix, iy in itertools.product(range(amp_data.shape[0]), range(amp_data.shape[1])):
             if iy == 0:
