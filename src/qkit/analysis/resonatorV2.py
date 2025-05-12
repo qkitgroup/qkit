@@ -5,6 +5,7 @@ import scipy.ndimage
 import logging
 from qkit.storage.store import Data as qkitData
 from qkit.storage.hdf_dataset import hdf_dataset
+from qkit.storage.hdf_view import dataset_view
 
 class ResonatorFitBase(ABC):
     """
@@ -60,7 +61,7 @@ def autofit_file(file: qkitData | str, fit_func: ResonatorFitBase, f_min: float 
     f_max = np.inf if f_max is None else f_max
     selly = (freq_data >= f_min) & (freq_data <= f_max)
     file_freq_fit = file.add_coordinate("_fit_frequency", unit="Hz", folder="analysis")
-    file_freq_fit.add(freq_data[selly])
+    file_freq_fit.add(np.linspace(np.min(freq_data[selly]), np.max(freq_data[selly]), fit_func.out_nop))
     file_extracts: dict[str, hdf_dataset] = {}
 
     if len(amp_data.shape) == 1: # 1D measurement
@@ -83,13 +84,13 @@ def autofit_file(file: qkitData | str, fit_func: ResonatorFitBase, f_min: float 
     
     elif len(amp_data.shape) == 2: # 2D measurement
         # add result datastores
-        file_amp_fit = file.add_value_matrix("_fit_amplitude", x=file[file.data.amplitude.x_ds_url], y=file_freq_fit, unit="arb. unit", folder="analysis")
-        file_pha_fit = file.add_value_matrix("_fit_phase", x=file[file.data.amplitude.x_ds_url], y=file_freq_fit, unit="rad", folder="analysis")
-        file_real_fit = file.add_value_matrix("_fit_real", x=file[file.data.amplitude.x_ds_url], y=file_freq_fit, unit="", folder="analysis")
-        file_imag_fit = file.add_value_matrix("_fit_imag", x=file[file.data.amplitude.x_ds_url], y=file_freq_fit, unit="", folder="analysis")
+        file_amp_fit = file.add_value_matrix("_fit_amplitude", x=file.get_dataset(file.data.amplitude.x_ds_url), y=file_freq_fit, unit="arb. unit", folder="analysis")
+        file_pha_fit = file.add_value_matrix("_fit_phase", x=file.get_dataset(file.data.amplitude.x_ds_url), y=file_freq_fit, unit="rad", folder="analysis")
+        file_real_fit = file.add_value_matrix("_fit_real", x=file.get_dataset(file.data.amplitude.x_ds_url), y=file_freq_fit, unit="", folder="analysis")
+        file_imag_fit = file.add_value_matrix("_fit_imag", x=file.get_dataset(file.data.amplitude.x_ds_url), y=file_freq_fit, unit="", folder="analysis")
         buffer_extracts: dict[str, np.ndarray] = {}
         for key in fit_func.extract_data.keys():
-            file_extracts[key] = file.add_value_vector("fit_" + key, x=file[file.data.amplitude.x_ds_url], folder="analysis")
+            file_extracts[key] = file.add_value_vector("fit_" + key, x=file.get_dataset(file.data.amplitude.x_ds_url), folder="analysis")
             buffer_extracts[key] = np.full(file[file.data.amplitude.x_ds_url].shape[0], np.nan)
         for ix in range(amp_data.shape[0]):
             # actual fitting
@@ -105,12 +106,12 @@ def autofit_file(file: qkitData | str, fit_func: ResonatorFitBase, f_min: float 
 
     elif len(amp_data.shape) == 3: # 3D measurement
         # add result datastores
-        file_amp_fit = file.add_value_box("_fit_amplitude", x=file[file.data.amplitude.x_ds_url], y=file[file.data.amplitude.y_ds_url], z=file_freq_fit, unit="arb. unit", folder="analysis")
-        file_pha_fit = file.add_value_box("_fit_phase", x=file[file.data.amplitude.x_ds_url], y=file[file.data.amplitude.y_ds_url], z=file_freq_fit, unit="rad", folder="analysis")
-        file_real_fit = file.add_value_box("_fit_real", x=file[file.data.amplitude.x_ds_url], y=file[file.data.amplitude.y_ds_url], z=file_freq_fit, unit="", folder="analysis")
-        file_imag_fit = file.add_value_box("_fit_imag", x=file[file.data.amplitude.x_ds_url], y=file[file.data.amplitude.y_ds_url], z=file_freq_fit, unit="", folder="analysis")
+        file_amp_fit = file.add_value_box("_fit_amplitude", x=file.get_dataset(file.data.amplitude.x_ds_url), y=file.get_dataset(file.data.amplitude.y_ds_url), z=file_freq_fit, unit="arb. unit", folder="analysis")
+        file_pha_fit = file.add_value_box("_fit_phase", x=file.get_dataset(file.data.amplitude.x_ds_url), y=file.get_dataset(file.data.amplitude.y_ds_url), z=file_freq_fit, unit="rad", folder="analysis")
+        file_real_fit = file.add_value_box("_fit_real", x=file.get_dataset(file.data.amplitude.x_ds_url), y=file.get_dataset(file.data.amplitude.y_ds_url), z=file_freq_fit, unit="", folder="analysis")
+        file_imag_fit = file.add_value_box("_fit_imag", x=file.get_dataset(file.data.amplitude.x_ds_url), y=file.get_dataset(file.data.amplitude.y_ds_url), z=file_freq_fit, unit="", folder="analysis")
         for key in fit_func.extract_data.keys():
-            file_extracts[key] = file.add_value_matrix("fit_" + key, x=file[file.data.amplitude.x_ds_url], y=file[file.data.amplitude.y_ds_url], folder="analysis")
+            file_extracts[key] = file.add_value_matrix("fit_" + key, x=file.get_dataset(file.data.amplitude.x_ds_url), y=file.get_dataset(file.data.amplitude.y_ds_url), folder="analysis")
         buffer_extracts: dict[str, np.ndarray] = {}
         import itertools # alternative to nested loops that allows easier breaking when fill is reached
         for ix, iy in itertools.product(range(amp_data.shape[0]), range(amp_data.shape[1])):
@@ -138,9 +139,15 @@ def autofit_file(file: qkitData | str, fit_func: ResonatorFitBase, f_min: float 
     else:
         logging.error("What?")
         raise NotImplementedError()
-
-
     
+    # add/update views
+    file["/entry/views/IQ"].attrs.create("xy_1", "/entry/analysis0/_fit_real:/entry/analysis0/_fit_imag")
+    file["/entry/views/IQ"].attrs.create("xy_1_filter", "None")
+    file["/entry/views/IQ"].attrs.create("overlays", 1)
+    file.add_view("AmplitudeFit", file.data.frequency, file.data.amplitude).add(file_freq_fit, file_amp_fit)
+    file.add_view("PhaseFit", file.data.frequency, file.data.phase).add(file_freq_fit, file_pha_fit)
+
+
 class CircleFit(ResonatorFitBase):
     def __init__(self, n_ports: int, fit_delay_max_iterations: int = 5, fixed_delay: float = None, isolation: int = 15, guesses: list[float] = None):
         super().__init__()
