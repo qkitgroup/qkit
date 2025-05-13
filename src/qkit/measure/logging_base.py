@@ -65,17 +65,17 @@ class logFunc(object):
             elif "n" in self.signature: # "n", "xn", "yn", "xyn"
                 self.log_ds.append(self.func())
                 if len(self.signature) == 3:
-                    if iy + 1 == self.y_ds.shape[0]:
+                    if iy + 1 == self.y_ds.ds.shape[0]:
                         # who doesnt love 4x nested ifs edge cases? 
                         self.log_ds.next_matrix() 
             elif "y" in self.signature: # "y", "xy"
                 if iy == 0:
-                    self.buffer1d = np.full(self.y_ds.shape[0], np.nan)
+                    self.buffer1d = np.full(self.y_ds.ds.shape[0], np.nan)
                 self.buffer1d[iy] = self.func()
                 self.log_ds.append(self.buffer1d, reset=(iy != 0))
             else: # "x"
                 if ix == 0:
-                    self.buffer1d = np.full(self.x_ds.shape[0], np.nan)
+                    self.buffer1d = np.full(self.x_ds.ds.shape[0], np.nan)
                 self.buffer1d[ix] = self.func()
                 self.log_ds.append(self.buffer1d, reset=(ix != 0))
         

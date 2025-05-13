@@ -1103,8 +1103,8 @@ class transport(object):
                         time.sleep(self._tdy)
                         # log function
                         for lf in self.log_funcs:
+                            time.sleep(0.2)
                             lf.logIfDesired(self.ix, self.iy)
-                            qkit.flow.sleep(0.2)
                         # iterate sweeps and take data
                         self._get_sweepdata()
                     # filling of value-box by storing data in the next 2d structure after every y-loop
