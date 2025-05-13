@@ -297,8 +297,8 @@ class Data(object):
     
         self.hf.agrp.attrs[param] = value
 
-    def get_dataset(self,ds_url):
-        return hdf_dataset(self.hf,ds_url = ds_url)
+    def get_dataset(self, ds_url):
+        return hdf_dataset(self.hf, ds_url=ds_url)
 
     def save_finished(self):
         pass

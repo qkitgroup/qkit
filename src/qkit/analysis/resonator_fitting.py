@@ -5,7 +5,6 @@ import scipy.ndimage
 import logging
 from qkit.storage.store import Data as qkitData
 from qkit.storage.hdf_dataset import hdf_dataset
-from qkit.storage.hdf_view import dataset_view
 
 class ResonatorFitBase(ABC):
     """

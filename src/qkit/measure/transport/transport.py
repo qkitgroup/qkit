@@ -29,6 +29,7 @@ from qkit.storage import store as hdf
 from qkit.gui.plot import plot as qviewkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.measurement_class import Measurement 
+from qkit.measure.logging_base import logFunc
 import qkit.measure.write_additional_files as waf
 
 
@@ -118,8 +119,9 @@ class transport(object):
         # x and y data
         self._hdf_x = None
         self._hdf_y = None
+        self.log_init_params = [] # buffer is necessary to allow adjusting x/y parameter sweeps after setting log functions
+        self.log_funcs: list[logFunc] = []
         # xy, 2D & 3D scan variables
-        self.set_log_function()
         self._x_name = ''
         self._y_name = ''
         self._scan_dim = None
@@ -666,128 +668,33 @@ class transport(object):
         self._x_dt = x_dt
         return
     
-    def set_log_function(self, func=None, name=None, unit=None, dtype='f'):
+    def add_logger(self, func, name, unit, over_x=True, over_y=True, is_trace=False, trace_base_vals=None, trace_base_name=None, trace_base_unit=None):
         """
-        Saves desired values obtained by a function <func> in the .h5-file as a value vector with name <name>, unit <unit> and in data format <f>.
-        The function (object) can be passed to the measurement loop which is executed before every x iteration
-        but after executing the x_object setter in 2D measurements and before every line (but after setting 
-        the x value) in 3D measurements.
-        The return value of the function of type float or similar is stored in a value vector in the h5 file.
+        Migration from set_log_function:
+
+        --------
+        def get_T():
+            ... # returns a float
+        def a():
+            ... # returns a float
         
-        Parameters
-        ----------
-        func: array_likes of callable objects
-            A callable object that returns the value to be saved.
-        name: array_likes of strings
-            Names of logging parameter appearing in h5 file. Default is 'log_param'.
-        unit: array_likes of strings
-            Units of logging parameter. Default is ''.
-        dtype: array_likes of dtypes
-            h5 data type to be used in the data file. Default is 'f' (float64).
-        
-        Returns
-        -------
-        None
+        # obsolete 
+        # tr.set_log_function([get_T, a], ["temp", "a_name"], ["K", "a_unit"])
+
+        # do instead
+        tr.add_logger(get_T, "temp", "K") # default migration
+        tr.add_logger(a, "a_name", "a_unit", over_y=False) # skip y-iteration if desired
+        ------
+
+        Alternatively more options like logging traces or skipping the x-iteration are possible now, see qkit/measure/logging_base for details.
         """
-        # TODO: dtype = float instead of 'f'
-        # log-function
-        if callable(func):
-            func = [func]
-        elif func is None:
-            func = [None]
-        elif np.iterable(func):
-            for fun in func:
-                if not callable(fun):
-                    raise ValueError('{:s}: Cannot set {!s} as y-function: callable object needed'.format(__name__, fun))
-        else:
-            raise ValueError('{:s}: Cannot set {!s} as log-function: callable object of iterable object of callable objects needed'.format(__name__, func))
-        self.log_function = func
-        # log-name
-        if name is None:
-            try:
-                name = ['log_param']*len(func)
-            except Exception:
-                name = [None]
-        elif type(name) is str:
-            name = [name]*len(func)
-        elif np.iterable(name):
-            for _name in name:
-                if type(_name) is not str:
-                    raise ValueError('{:s}: Cannot set {!s} as log-name: string needed'.format(__name__, _name))
-        else:
-            raise ValueError('{:s}: Cannot set {!s} as log-name: string of iterable object of strings needed'.format(__name__, name))
-        self.log_name = name
-        # log-unit
-        if unit is None:
-            try:
-                unit = ['log_unit']*len(func)
-            except Exception:
-                unit = [None]
-        elif type(unit) is str:
-            unit = [unit]*len(func)
-        elif np.iterable(unit):
-            for _unit in unit:
-                if type(_unit) is not str:
-                    raise ValueError('{:s}: Cannot set {!s} as log-unit: string needed'.format(__name__, _unit))
-        else:
-            raise ValueError('{:s}: Cannot set {!s} as log-unit: string of iterable object of strings needed'.format(__name__, unit))
-        self.log_unit = unit
-        # log-dtype
-        if dtype is None:
-            try:
-                dtype = [float]*len(func)
-            except Exception:
-                dtype = [None]
-        elif type(dtype) is type:
-            dtype = [dtype]*len(func)
-        elif np.iterable(dtype):
-            for _dtype in dtype:
-                if type(_dtype) is not str:
-                    raise ValueError('{:s}: Cannot set {!s} as log-dtype: string needed'.format(__name__, _dtype))
-        else:
-            raise ValueError('{:s}: Cannot set {!s} as log-dtype: string of iterable object of strings needed'.format(__name__, dtype))
-        self.log_dtype = dtype
-        return
-    
-    def get_log_function(self):
+        self.log_init_params += [(func, name, unit, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit)] # handle logger initialization in prepare_file
+
+    def clear_loggers(self):
         """
-        Gets the current log_function settings.
-        
-        Parameters
-        ----------
-        None
-        
-        Returns
-        -------
-        func: array_likes of callable objects
-            A callable object that returns the value to be saved.
-        name: array_likes of strings
-            Names of logging parameter appearing in h5 file. Default is 'log_param'.
-        unit: array_likes of strings
-            Units of logging parameter. Default is ''.
-        dtype: array_likes of dtypes
-            h5 data type to be used in the data file. Default is float (float64).
+        Clear all set log functions
         """
-        return [f.__name__ for f in self.log_function], self.log_name, self.log_unit, self.log_dtype
-    
-    def reset_log_function(self):
-        """
-        Resets all log_function settings.
-        
-        Parameters
-        ----------
-        None
-        
-        Returns
-        -------
-        None
-        """
-        self.log_function = []
-        self.log_name = []
-        self.log_unit = []
-        self.log_dtype = []
-        self._hdf_log = []
-        return
+        self.log_init_params = []
 
     def set_fit_IV(self, func, name, unit='', **kwargs):
         """
@@ -1188,8 +1095,6 @@ class transport(object):
                         self._pb.iterate()
                     time.sleep(self._x_dt)
             elif self._scan_dim in [1, 2, 3]:  # IV curve
-                _rst_log_hdf_appnd = False  # variable to save points of log-function in 2D-matrix
-                self._rst_fit_hdf_appnd = False
                 for self.ix, (x, x_func) in enumerate([(None, _pass)] if self._scan_dim < 2 else [(x, self._x_set_obj) for x in self._x_vec]):  # loop: x_obj with parameters from x_vec if 2D or 3D else pass(None)
                     x_func(x)
                     time.sleep(self._x_dt)
@@ -1197,19 +1102,8 @@ class transport(object):
                         y_func(y)
                         time.sleep(self._tdy)
                         # log function
-                        if self.log_function != [None]:
-                            for j, f in enumerate(self.log_function):
-                                if self._scan_dim == 1:
-                                    self._data_log[j] = np.array([float(f())])  # np.asarray(f(), dtype=float)
-                                    self._hdf_log[j].append(self._data_log[j])
-                                elif self._scan_dim == 2:
-                                    self._data_log[j][self.ix] = float(f())
-                                    self._hdf_log[j].append(self._data_log[j], reset=True)
-                                elif self._scan_dim == 3:
-                                    self._data_log[j][self.ix, self.iy] = float(f())
-                                    self._hdf_log[j].append(self._data_log[j][self.ix], reset=_rst_log_hdf_appnd)
-                            if self._scan_dim == 3: # reset needs to be updated for all log-functions simultaneously and thus outside of the loop 
-                                _rst_log_hdf_appnd = not bool(self.iy+1 == len(self._y_vec))
+                        for lf in self.log_funcs:
+                            lf.logIfDesired(self.ix, self.iy)
                         # iterate sweeps and take data
                         self._get_sweepdata()
                     # filling of value-box by storing data in the next 2d structure after every y-loop
@@ -1305,6 +1199,7 @@ class transport(object):
         self._hdf_dIdV = []
         self._hdf_fit = []
         self._data_fit = []
+        
         if self._scan_dim == 0:
             ''' xy '''
             # add data variables
@@ -1324,6 +1219,7 @@ class transport(object):
                     self._data_file.add_view('{:s}_vs_{:s}'.format(*np.array(self._y_name)[np.array(view[::-1])]),
                                              x=self._hdf_y[view[0]],
                                              y=self._hdf_y[view[1]])
+                    
         elif self._scan_dim == 1:
             ''' 1D scan '''
             # add data variables
@@ -1364,8 +1260,6 @@ class transport(object):
                                                                           folder='analysis',
                                                                           comment=self._get_fit_comment(i)))
                     self._data_fit.append(np.nan)
-            # log-function
-            self._add_log_value_vector()
             # add views
             self._add_views()
         elif self._scan_dim == 2:
@@ -1414,8 +1308,6 @@ class transport(object):
                                                                           folder='analysis',
                                                                           comment=self._get_fit_comment(i)))
                     self._data_fit.append(np.ones(len(self._x_vec)) * np.nan)
-            # log-function
-            self._add_log_value_vector()
             # add views
             self._add_views()
         elif self._scan_dim == 3:
@@ -1473,10 +1365,18 @@ class transport(object):
                                                                           folder='analysis',
                                                                           comment=self._get_fit_comment(i)))
                     self._data_fit.append(np.ones((len(self._x_vec), len(self._y_vec))) * np.nan)
-            # log-function
-            self._add_log_value_vector()
             # add views
             self._add_views()
+
+        # logging
+        for init_tuple in self.log_init_params:
+            func, name, unit, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit = init_tuple
+            self.log_funcs += [logFunc(self._data_file, func, name, unit, 
+                                       self._hdf_x if (self._scan_dim >= 2) and over_x else None, 
+                                       self._hdf_y if (self._scan_dim == 3) and over_y else None, 
+                                       (trace_base_vals, trace_base_name, trace_base_unit) if is_trace else None)]
+            self.log_funcs[-1].prepare_file()
+
         ''' add comment '''
         if self._comment:
             self._data_file.add_comment(self._comment)
@@ -1577,41 +1477,6 @@ class transport(object):
                                          'dVdI={:s}'.format(self._hdf_dVdI[i].name)],
                                         ['{:s}={!s}'.format(key, val) for key, val in self._fit_kwargs.items()] if self._fit_kwargs else []]))+\
                ')'
-
-    def _add_log_value_vector(self):
-        """
-        Adds all value vectors for log-function parameter.
-        
-        Parameters
-        ----------
-        None
-        
-        Returns
-        -------
-        None
-        """
-        if self.log_function != [None]:
-            self._hdf_log = []
-            self._data_log = []
-            for i, _ in enumerate(self.log_function):
-                if self._scan_dim == 1:
-                    self._hdf_log.append(self._data_file.add_coordinate(self.log_name[i],
-                                                                        unit=self.log_unit[i]))
-                    self._data_log.append(np.nan)
-                elif self._scan_dim == 2:
-                    self._hdf_log.append(self._data_file.add_value_vector(self.log_name[i],
-                                                                          x=self._hdf_x,
-                                                                          unit=self.log_unit[i],
-                                                                          dtype=self.log_dtype[i]))
-                    self._data_log.append(np.ones(len(self._x_vec))*np.nan)
-                elif self._scan_dim == 3:
-                    self._hdf_log.append(self._data_file.add_value_matrix(self.log_name[i],
-                                                                          x=self._hdf_x,
-                                                                          y=self._hdf_y,
-                                                                          unit=self.log_unit[i],
-                                                                          dtype=self.log_dtype[i]))
-                    self._data_log.append(np.ones((len(self._x_vec), len(self._y_vec)))*np.nan)
-        return
     
     def _add_views(self):
         """

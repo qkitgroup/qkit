@@ -23,7 +23,7 @@ import sys
 import threading
 
 import qkit
-import qkit.analysis.resonatorV2 as resonatorFit
+import qkit.analysis.resonator_fitting as resonatorFit
 if qkit.module_available("matplotlib"):
     import matplotlib.pylab as plt
 if qkit.module_available("scipy"):
@@ -34,6 +34,7 @@ from qkit.storage import store as hdf
 from qkit.gui.plot import plot as qviewkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.measurement_class import Measurement
+from qkit.measure.logging_base import logFunc
 import qkit.measure.write_additional_files as waf
 
 
@@ -80,8 +81,8 @@ class spectrum(object):
         self._fit_resonator = False
         self._plot_comment = ""
 
-        self.set_log_function()
-        self.set_log_function_2D()
+        self.log_init_params = [] # buffer is necessary to allow adjusting x/y parameter sweeps after setting log functions
+        self.log_funcs: list[logFunc] = []
 
         self.open_qviewkit = True
         self.qviewkit_singleInstance = False
@@ -94,97 +95,51 @@ class spectrum(object):
         self._qvk_process = False
         self._scan_dim = None
         self._scan_time = False
+    
+    def add_logger(self, func, name, unit, over_x=True, over_y=False, is_trace=False, trace_base_vals=None, trace_base_name=None, trace_base_unit=None):
+        """
+        Migration from set_log_function & set_log_function_2D:
+
+        --------
+        def get_T():
+            ... # returns a float
+        def a():
+            ... # returns a float
+        trace_base = np.linspace(1, 2, 101)
+        def b_trace():
+            ... # returns a trace
+        
+        # obsolete 
+        # spec.set_log_function([get_T, a], ["temp", "a_name"], ["K", "a_unit"])
+        # spec.set_log_function_2D([b_trace], ["b_name"], ["b_unit"], [trace_base], ["base_name"], ["base_unit"])
+
+        # do instead
+        spec.add_logger(get_T, "temp", "K", over_y=True) # over_y optional for more logged temperatures
+        spec.add_logger(a, "a_name", "a_unit") # default migration
+        spec.add_logger(b_trace, "b_name", "b_unit", is_trace=True, trace_base_vals=trace_base, trace_base_name="base_name", trace_base_unit="base_unit") # traces
+        ------
+
+        Alternatively more options like logging over y-iterations aswell or skipping the x-iteration are possible now, see qkit/measure/logging_base for details.
+        """
+        self.log_init_params += [(func, name, unit, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit)] # handle logger initialization in prepare_file
+
+    def clear_loggers(self):
+        """
+        Clear all set log functions
+        """
+        self.log_init_params = []
 
     def set_log_function(self, func=None, name=None, unit=None, log_dtype=None):
         '''
-        A function (object) can be passed to the measurement loop which is excecuted before every x iteration
-        but after executing the x_object setter in 2D measurements and before every line (but after setting
-        the x value) in 3D measurements.
-        The return value of the function of type float or similar is stored in a value vector in the h5 file.
-
-        Call without any arguments to delete all log functions. The timestamp is automatically saved.
-
-        func: function object in list form
-        name: name of logging parameter appearing in h5 file, default: 'log_param'
-        unit: unit of logging parameter, default: ''
-        log_dtype: h5 data type, default: 'f' (float32)
+        Obsolete since covered by 'add_logger'.
         '''
-
-        if name == None:
-            try:
-                name = ['log_param'] * len(func)
-            except Exception:
-                name = None
-        if unit == None:
-            try:
-                unit = [''] * len(func)
-            except Exception:
-                unit = None
-        if log_dtype == None:
-            try:
-                log_dtype = ['f'] * len(func)
-            except Exception:
-                log_dtype = None
-
-        self.log_function = []
-        self.log_name = []
-        self.log_unit = []
-        self.log_dtype = []
-
-        if func != None:
-            for i, f in enumerate(func):
-                self.log_function.append(f)
-                self.log_name.append(name[i])
-                self.log_unit.append(unit[i])
-                self.log_dtype.append(log_dtype[i])
+        logging.error("'set_log_function' is obsolete, 'add_logger' is used instead. See respective qkit/src/qkit/measure/spectroscopy function docs for how to migrate.")
     
     def set_log_function_2D(self, func=None, name=None, unit=None, y=None, y_name=None, y_unit=None, log_dtype=None):
         '''
-        A function (object) can be passed to the measurement loop which is excecuted before every x iteration
-        but after executing the x_object setter in 2D measurements and before every line (but after setting
-        the x value) in 3D measurements.
-        The return values of the function of type 1D-list or similar is stored in a value matrix in the h5 file.
-
-        Call without any arguments to delete all log functions. The timestamp is automatically saved.
-
-        func: function object in list form, returning a list each
-        name: name of logging parameter appearing in h5 file, default: 'log_param'
-        unit: unit of logging parameter, default: ''
-        log_dtype: h5 data type, default: 'f' (float32)
+        Obsolete since covered by 'add_logger'.
         '''
-        if name == None:
-            try:
-                name = ['log_param'] * len(func)
-            except Exception:
-                name = None
-        if unit == None:
-            try:
-                unit = [''] * len(func)
-            except Exception:
-                unit = None
-        if log_dtype == None:
-            try:
-                log_dtype = ['f'] * len(func)
-            except Exception:
-                log_dtype = None
-
-        self.log_function_2D = []
-        self.log_name_2D = []
-        self.log_unit_2D = []
-        self.log_y_2D = []
-        self.log_y_name_2D = []
-        self.log_y_unit_2D = []
-        self.log_dtype_2D = []
-
-        if func != None:
-            for i, _ in enumerate(func):
-                self.log_function_2D.append(func[i])
-                self.log_name_2D.append(name[i])
-                self.log_unit_2D.append(unit[i])
-                self.log_dtype_2D.append(log_dtype[i])
-                self.log_y_2D.append(y[i])
-                self.log_y_name_2D.append(y_name[i])
-                self.log_y_unit_2D.append(y_unit[i])
+        logging.error("'set_log_function_2D' is obsolete, 'add_logger' is used instead. See respective qkit/src/qkit/measure/spectroscopy function docs for how to migrate.")
 
     def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit=""):
         """
@@ -275,7 +230,8 @@ class spectrum(object):
             self._data_time.add(np.arange(0, self._nop, 1) * self.vna.get_sweeptime() / (self._nop - 1))
             sweep_vector = self._data_time
         
-        if self._fit_resonator:
+        # for automatic circlefit
+        if self._fit_resonator: 
             self._fit_select = (self._freqpoints >= self._f_min) & (self._freqpoints <= self._f_max)
             self._fit_freq = self._data_file.add_coordinate('_fit_frequency', unit='Hz', folder="analysis")
 
@@ -315,13 +271,6 @@ class spectrum(object):
                 for key in self._fit_function.extract_data.keys():
                     self._fit_extracts[key] = self._data_file.add_value_vector("fit_" + key, x=self._data_x, unit="", folder="analysis")
 
-            if self.log_function != None:  # use logging
-                self._log_value = []
-                for i in range(len(self.log_function)):
-                    self._log_value.append(
-                        self._data_file.add_value_vector(self.log_name[i], x=self._data_x, unit=self.log_unit[i], dtype=self.log_dtype[i])
-                    )
-
             if self._nop < 10:
                 """creates view: plot middle point vs x-parameter, for qubit measurements"""
                 self._views = [
@@ -356,34 +305,20 @@ class spectrum(object):
                 for key in self._fit_function.extract_data.keys():
                     self._fit_extracts[key] = self._data_file.add_value_matrix("fit_" + key, x=self._data_x, y=self._data_y, unit="", folder="analysis")
 
-            if self.log_function != None:  # use logging
-                self._log_value = []
-                for i in range(len(self.log_function)):
-                    self._log_value.append(
-                        self._data_file.add_value_vector(self.log_name[i], x=self._data_x, unit=self.log_unit[i], dtype=self.log_dtype[i])
-                    )
-
-            if self.log_function_2D != None:  # use 2D logging
-                self._log_y_value_2D = []
-                for i in range(len(self.log_y_name_2D)):
-                    if self.log_y_name_2D[i] not in self.log_y_name_2D[:i]:  # add y coordinate for 2D logging
-                        self._log_y_value_2D.append(self._data_file.add_coordinate(self.log_y_name_2D[i], unit=self.log_y_unit_2D[i], folder='data'))  # possibly use "data1"
-                        self._log_y_value_2D[i].add(self.log_y_2D[i])
-                    else:  # use y coordinate for 2D logging if it is already added
-                        self._log_y_value_2D.append(self._log_y_value_2D[np.squeeze(np.argwhere(self.log_y_name_2D[i] == np.array(self.log_y_name_2D[:i])))])
-                
-                self._log_value_2D = []
-                for i in range(len(self.log_function_2D)):
-                    self._log_value_2D.append(
-                        self._data_file.add_value_matrix(self.log_name_2D[i], x=self._data_x, y=self._log_y_value_2D[i], unit=self.log_unit_2D[i], dtype=self.log_dtype_2D[i], folder='data')
-                    ) # possibly use "data1"
-
         if self._fit_resonator:
             self._iq_view.add(self._fit_real, self._fit_imag)
             self._amp_view = self._data_file.add_view("AmplitudeFit", self._data_freq, self._data_amp)
             self._amp_view.add(self._fit_freq, self._fit_amp)
             self._pha_view = self._data_file.add_view("PhaseFit", self._data_freq, self._data_pha)
             self._pha_view.add(self._fit_freq, self._fit_pha)
+
+        for init_tuple in self.log_init_params:
+            func, name, unit, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit = init_tuple
+            self.log_funcs += [logFunc(self._data_file, func, name, unit, 
+                                       self._data_x if (self._scan_dim >= 2) and over_x else None, 
+                                       self._data_y if (self._scan_dim == 3) and over_y else None, 
+                                       (trace_base_vals, trace_base_name, trace_base_unit) if is_trace else None)]
+            self.log_funcs[-1].prepare_file()
 
         if self.comment:
             self._data_file.add_comment(self.comment)
@@ -418,6 +353,10 @@ class spectrum(object):
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase', 'views/IQ'])
 
         qkit.flow.start()
+
+        for lf in self.log_funcs:
+            lf.logIfDesired()
+        
         if rescan:
             if self.averaging_start_ready:
                 self.vna.start_measurement()
@@ -614,14 +553,6 @@ class spectrum(object):
                 self.x_set_obj(x)
                 sleep(self.tdx)
 
-                if self.log_function != None:
-                    for i, f in enumerate(self.log_function):
-                        self._log_value[i].append(float(f()))
-
-                if self.log_function_2D != None:
-                    for i, f in enumerate(self.log_function_2D):
-                        self._log_value_2D[i].append(f())
-
                 if self._scan_dim == 3:
                     fit_extracts_helper = {} # for book-keeping current y-line
                     for iy, y in enumerate(self.y_vec):
@@ -633,6 +564,10 @@ class spectrum(object):
                         else:
                             self.y_set_obj(y)
                             sleep(self.tdy)
+
+                            for lf in self.log_funcs:
+                                lf.logIfDesired(ix, iy)
+
                             if self.averaging_start_ready:
                                 self.vna.start_measurement()
                                 # Check if the VNA is STILL in ready state, then add some delay.
@@ -701,6 +636,9 @@ class spectrum(object):
                         self._fit_imag.next_matrix()
 
                 if self._scan_dim == 2:
+                    for lf in self.log_funcs:
+                        lf.logIfDesired(ix)
+
                     if self.averaging_start_ready:
                         self.vna.start_measurement()
                         if self.vna.ready():
@@ -771,7 +709,7 @@ class spectrum(object):
         if not fit_resonator:
             self._fit_resonator = False
             return
-        if fit_function == "circle_fit_reflection": # this distinction is handled manually here
+        if fit_function == "circle_fit_reflection": # this distinction is handled here manually
             fit_opt_kwargs.update({"n_ports": 1})
         if fit_function == "circle_fit_notch":
             fit_opt_kwargs.update({"n_ports": 2})
