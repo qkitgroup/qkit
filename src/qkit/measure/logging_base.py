@@ -20,21 +20,23 @@ class logFunc(object):
     is already defined in the main measurement, 'trace_vec provides information about the additional coordinate a trace log function may sweep over as 
     (*values_array*, name, unit). The same base coordinate may be chosen for different trace log functions.
     """
-    def __init__(self, file: Data, func: typing.Callable, name: str, unit: str = "", x_ds: hdf_dataset = None, y_ds: hdf_dataset = None, trace_info: tuple[np.ndarray, str, str] = None):
+    def __init__(self, file: Data, func: typing.Callable, name: str, unit: str = "", x_ds_url: str = None, y_ds_url: str = None, trace_info: tuple[np.ndarray, str, str] = None):
         self.file = file
         self.func = func
         self.name = name
         self.unit = unit
         self.signature = ""
-        self.x_ds = x_ds
-        if not (x_ds is None):
+        self.x_ds_url = x_ds_url
+        if not (x_ds_url is None):
             self.signature += "x"
-        self.y_ds = y_ds
-        if not (y_ds is None):
+        self.y_ds_url = y_ds_url
+        if not (y_ds_url is None):
             self.signature += "y"
         self.trace_info = trace_info
         if not (trace_info is None):
             self.signature += "n"
+        self.x_ds: hdf_dataset = None
+        self.y_ds: hdf_dataset = None
         self.trace_ds: hdf_dataset = None
         self.log_ds: hdf_dataset = None 
         self.buffer1d: np.ndarray = None
@@ -48,6 +50,8 @@ class logFunc(object):
                 self.trace_ds = self.file.add_coordinate(self.trace_info[1], self.trace_info[2])
                 self.trace_ds.add(self.trace_info[0])
         # the logic is admittably more complicated here, writing down all 8 possible cases of x,y,n present or not helps
+        self.x_ds = self.file.get_dataset(self.x_ds_url)
+        self.y_ds = self.file.get_dataset(self.y_ds_url)
         if len(self.signature) == 0:
             self.log_ds = self.file.add_coordinate(self.name, self.unit)
         elif len(self.signature) == 1:
