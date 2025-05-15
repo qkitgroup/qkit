@@ -3,8 +3,10 @@ import numpy as np
 from abc import ABC, abstractmethod
 from typing import Optional, Callable, Protocol
 import textwrap
+from functools import cache
 
 from qkit.measure.samples_class import Sample
+from qkit.storage import store as hdf
 
 
 # The unified measurement class infrastructure. Will attempt to unify all kinds of measurements into a common code base.
@@ -69,6 +71,13 @@ class ParentOfSweep(ABC):
         if self._sweep_child is not None:
             self._sweep_child._run_sweep(**context)
 
+    @property
+    def _child_dimensionality(self):
+        if self._sweep_child is not None:
+            return self._sweep_child.dimensionality
+        else:
+            return 0
+
 
 class ParentOfMeasurements(ABC):
     """
@@ -86,6 +95,19 @@ class ParentOfMeasurements(ABC):
         Register a measurement type at this stage. Will be executed before any nested sweeps.
         """
         self._measurements.append(measurement_type)
+
+    @property
+    def _largest_measurement_dimension(self):
+        """
+        Get the largest dimensionality of all measurements.
+        """
+        if len(self._measurements) == 0:
+            return 0
+        return max(map(lambda m: len(m.expected_structure), self._measurements))
+
+    def _create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf.hdf_dataset]):
+        for measurement in self._measurements:
+            measurement.create_datasets(data_file, swept_axes)
 
     def _run_measurements(self):
         """
@@ -144,6 +166,13 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
                 new_context[self._axis.name] = value
                 self._sweep_child._run_sweep(**new_context)
 
+    def _create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf.hdf_dataset]):
+        swept_axes.append(self._axis.create_data_axis(data_file))
+        super()._create_datasets(data_file, swept_axes)
+        if self._sweep_child is not None:
+            self._sweep_child._create_datasets(data_file, swept_axes)
+
+
     def __str__(self):
         setter_name = self._setter.__qualname__
         filter_repr = self._filter.__qualname__ if self._filter is not None else "None"
@@ -153,12 +182,27 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
             self_repr += textwrap.indent(str(self._sweep_child), '\t')
         return self_repr
 
+    @property
+    def dimensionality(self):
+        return 1 + max(self._largest_measurement_dimension, self._child_dimensionality)
 
-@dataclass(frozen=True)
+
+@dataclass()
 class Axis:
     name: str
     range: np.ndarray
     unit: str = 'a.u.'
+    _axis_dataset: Optional[hdf.hdf_dataset] = None
+
+    def create_data_axis(self, data_file: hdf.Data):
+        """
+        Creates and fills the axis, and caches the result.
+        Returns the handle.
+        """
+        if self._axis_dataset is None:
+            self._axis_dataset = data_file.add_coordinate(self.name, self.unit)
+            self._axis_dataset.add(self.range)
+        return self._axis_dataset
 
     def __str__(self):
         low = np.min(self.range)
@@ -168,11 +212,28 @@ class Axis:
 
 class MeasurementTypeAdapter(ABC):
     """
-    A high level Adapter Interface to the Measurement Type Specific Code.
+    A high-level Adapter Interface to the Measurement Type Specific Code.
 
     Should implement a particular kind of measurement, such as Spectroscopy, IV-Curve, ..., which
     then communicates with the device driver using its own interfaces.
     """
+
+    def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf.hdf_dataset]):
+        """
+        Create the datasets for this kind of measurement. Takes into account
+        swept axes in the measurement tree.
+        """
+        for descriptor in self.expected_structure:
+            all_axes = swept_axes + list(map(lambda ax: ax.create_data_axis(data_file), list(descriptor.axes)))
+            match len(all_axes):
+                case 1:
+                    data_file.add_value_vector(descriptor.name, all_axes[0], descriptor.unit)
+                case 2:
+                    data_file.add_value_matrix(descriptor.name, all_axes[0], all_axes[1], descriptor.unit)
+                case 3:
+                    data_file.add_value_box(descriptor.name, all_axes[0], all_axes[1], all_axes[2], descriptor.unit)
+                case _:
+                    raise Exception(f"Unsupported dimensionality {len(all_axes)} in HDF")
 
     @property
     @abstractmethod
@@ -226,21 +287,54 @@ class MeasurementTypeAdapter(ABC):
 
 
 class Experiment(ParentOfSweep, ParentOfMeasurements):
+    """
+    The main experiment class and root of all sweeps and measurements.
+
+    Create and instance and use sweep() and measure() to build up the experiment.
+
+    Note that sweep() is to be used with `with`-statements.
+    """
 
     _name: str
     _sample: Sample
+    _comment: Optional[str]
 
     def __init__(self, name: str, sample: Sample) -> None:
         super().__init__()
         super(ParentOfSweep, self).__init__()
         self._name = name
         self._sample = sample
+        self._comment = None
 
+    def with_comment(self, comment: str) -> 'Experiment':
+        self._comment = comment
+        return self
+
+    @property
+    def dimensionality(self):
+        """
+        Recursively calculate the maximum dimensionality of the experiment.
+        """
+        return max(self._largest_measurement_dimension, self._child_dimensionality)
+
+    @property
+    def _filename(self):
+        """
+        Derive the filename based on the largest dimension and the user provided name.
+        """
+        return f"{self.dimensionality}D_{self._name}"
 
     def run(self):
         """
         Perform the configured measurements. Sweep the nested axes and record the results.
         """
+        data_file = hdf.Data(name=self._filename, mode='a')
+
+        # Recurse down the tree to create datasets.
+        self._create_datasets(data_file, [])
+        if self._sweep_child is not None:
+            self._sweep_child._create_datasets(data_file, [])
+        # do waf
         self._run_measurements()
         self._run_child_sweep()
         # TODO: Use the measurement_class stuff to write the instrument state
