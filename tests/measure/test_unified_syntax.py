@@ -1,7 +1,10 @@
 from qkit.measure.measurement_base import Experiment, MeasurementTypeAdapter, Axis
 import numpy as np
 
+from qkit.measure.samples_class import Sample
+
 X_SWEEP_AXIS = Axis(name='x', range=np.array(range(0, 10)))
+SAMPLE = Sample()
 
 
 class SweepInspectorMeasurement(MeasurementTypeAdapter):
@@ -31,7 +34,7 @@ class SweepInspectorMeasurement(MeasurementTypeAdapter):
 
 def test_experiment_creation():
     log_measure = SweepInspectorMeasurement()
-    e = Experiment()
+    e = Experiment('creation_test', SAMPLE)
     with e.sweep(lambda val: log_measure.x_log(val), X_SWEEP_AXIS) as x_sweep:
         x_sweep.measure(log_measure)
     e.run()
@@ -40,10 +43,34 @@ def test_experiment_creation():
 
 def test_filtered_sweep():
     log_measure = SweepInspectorMeasurement()
-    e = Experiment()
-    with e.sweep(lambda val: log_measure.x_log(val),
+    e = Experiment('filter_test', SAMPLE)
+    with e.sweep(log_measure.x_log,
                  X_SWEEP_AXIS,
                  axis_filter=lambda r: np.logical_and(r <= 8, r >= 2)) as x_sweep:
         x_sweep.measure(log_measure)
     e.run()
     assert np.array_equal([2, 3, 4, 5, 6, 7, 8], log_measure.accumulated_data)
+
+def test_dimensionality_calculations():
+    log_measure = SweepInspectorMeasurement()
+
+    e = Experiment('filter_test', SAMPLE)
+    assert e.dimensionality == 0, "Default dimensionality should be 0"
+
+    e.measure(log_measure)
+    assert e.dimensionality == 1, "1D array of points is 1D"
+
+    e.measure(log_measure)
+    assert e.dimensionality == 1, "Two 1D arrays of points is 1D"
+
+    with e.sweep(log_measure.x_log, X_SWEEP_AXIS) as x_sweep:
+        x_sweep.measure(log_measure)
+
+    assert e.dimensionality == 2, "Sweep and 1D array is 2D"
+
+def test_hdf5_file_creation():
+    log_measure = SweepInspectorMeasurement()
+    e = Experiment('file_test', SAMPLE)
+    with e.sweep(log_measure.x_log, X_SWEEP_AXIS) as x_sweep:
+        x_sweep.measure(log_measure)
+    e.run()
