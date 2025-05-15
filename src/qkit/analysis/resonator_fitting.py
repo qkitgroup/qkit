@@ -285,8 +285,16 @@ class CircleFit(ResonatorFitBase):
             phase = np.unwrap(np.angle(z_data))
             
             # For centered circle roll-off should be close to 2pi. If not warn user.
-            if np.max(phase) - np.min(phase) <= 0.8*2*np.pi:
+            if np.max(phase) - np.min(phase) <= 2*np.pi/4:
                 logging.warning(
+                    "Data does not cover a full circle (only {:.1f}".format(
+                        np.max(phase) - np.min(phase)
+                    )
+                +" rad). Increase the frequency span around the resonance?"
+                )
+                roll_off = np.max(phase) - np.min(phase)
+            elif np.max(phase) - np.min(phase) <= 2*np.pi*4/5:
+                logging.debug(
                     "Data does not cover a full circle (only {:.1f}".format(
                         np.max(phase) - np.min(phase)
                     )
@@ -381,7 +389,7 @@ class CircleFit(ResonatorFitBase):
                         delay += delay_corr
             
             if 2*np.pi*(freq[-1]-freq[0])*delay_corr > np.std(residuals):
-                logging.warning("Delay could not be fit properly!")
+                logging.debug("Delay could not be fit properly!")
 
         self.extract_data["delay"] = delay
 
