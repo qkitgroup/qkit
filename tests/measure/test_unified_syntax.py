@@ -29,7 +29,7 @@ class SweepInspectorMeasurement(MeasurementTypeAdapter):
         return [self.sweep_intercept]
 
     def perform_measurement(self) -> list['MeasurementTypeAdapter.MeasurementData']:
-        return [self.sweep_intercept.with_data(self.current_x)]
+        return [self.sweep_intercept.with_data(self.accumulated_data)]
 
 
 def test_experiment_creation():
@@ -68,9 +68,33 @@ def test_dimensionality_calculations():
 
     assert e.dimensionality == 2, "Sweep and 1D array is 2D"
 
+class SinusGeneratorMeasurement(MeasurementTypeAdapter):
+
+    signal: MeasurementTypeAdapter.MeasurementDescriptor
+    time_axis: Axis
+    current_x: float
+
+    def __init__(self):
+        super().__init__()
+        self.time_axis = Axis(name='time', range=np.linspace(0, 10, 100))
+        self.signal = MeasurementTypeAdapter.MeasurementDescriptor(
+            name='signal',
+            axes=(self.time_axis,)
+        )
+
+    def x_log(self, value):
+        self.current_x = value
+
+    @property
+    def expected_structure(self) -> list['MeasurementTypeAdapter.MeasurementDescriptor']:
+        return [self.signal]
+
+    def perform_measurement(self) -> list['MeasurementTypeAdapter.MeasurementData']:
+        return [self.signal.with_data(np.sin(self.time_axis.range + self.current_x * 0.2))]
+
 def test_hdf5_file_creation():
-    log_measure = SweepInspectorMeasurement()
+    measure = SinusGeneratorMeasurement()
     e = Experiment('file_test', SAMPLE)
-    with e.sweep(log_measure.x_log, X_SWEEP_AXIS) as x_sweep:
-        x_sweep.measure(log_measure)
+    with e.sweep(measure.x_log, X_SWEEP_AXIS) as x_sweep:
+        x_sweep.measure(measure)
     e.run()
