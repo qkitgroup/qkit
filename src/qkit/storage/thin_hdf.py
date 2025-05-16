@@ -89,8 +89,8 @@ class HDF5:
                 ds.attrs[f"{label}_ds_url"] = axis.name.encode('utf-8')
         return ds
 
-    def get_dataset(self, ds_url: str):
-        return self.data_group[ds_url]
+    def get_dataset(self, ds_url: str) -> h5py.Dataset | None:
+        return self.data_group.get(ds_url, None)
 
     def write_text_record(self, name: str, content: str, comment: Optional[str] = None):
         """
@@ -123,7 +123,7 @@ class HDF5:
     def close(self):
         self.hdf.close()
 
-    @dataclass
+    @dataclass(frozen=True)
     class DataViewSettings:
         dataset_type: 'HDF5.DataSetType'
         view_type: 'HDF5.DataViewType'
@@ -134,7 +134,7 @@ class HDF5:
             dataset.attrs['view_type'] = self.view_type.value
             dataset.attrs['view_params'] = self.view_params.encode('utf-8')
 
-    @dataclass
+    @dataclass(frozen=True)
     class DataView:
         x_path: [str] = None
         y_path: [str] = None
