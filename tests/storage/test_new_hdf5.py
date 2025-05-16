@@ -20,7 +20,9 @@ def test_large_file_creation():
     cwd = __file__
     fname = pathlib.Path(cwd).parent / "large_file.h5"
     data = HDF5(fname, mode="w")
+    assert data.get_dataset('test') is None
     data.write_text_record('test', "This is a test!")
+    assert data.get_dataset('test')[0] == "This is a test!".encode('utf-8')
     data.write_text_record('json', '{"test": true}')
 
     x_axis = data.create_dataset("x", shape=(1000,))
