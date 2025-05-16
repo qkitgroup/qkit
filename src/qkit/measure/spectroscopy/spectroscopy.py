@@ -314,9 +314,9 @@ class spectrum(object):
 
         for init_tuple in self.log_init_params:
             func, name, unit, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit = init_tuple
-            self.log_funcs += [logFunc(self._data_file, func, name, unit, 
-                                       self._data_x if (self._scan_dim >= 2) and over_x else None, 
-                                       self._data_y if (self._scan_dim == 3) and over_y else None, 
+            self.log_funcs += [logFunc(self._file_name, func, name, unit, 
+                                       self._data_x.ds_url if (self._scan_dim >= 2) and over_x else None, 
+                                       self._data_y.ds_url if (self._scan_dim == 3) and over_y else None, 
                                        (trace_base_vals, trace_base_name, trace_base_unit) if is_trace else None)]
             self.log_funcs[-1].prepare_file()
 
