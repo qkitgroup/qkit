@@ -20,23 +20,25 @@ class logFunc(object):
     is already defined in the main measurement, 'trace_vec provides information about the additional coordinate a trace log function may sweep over as 
     (*values_array*, name, unit). The same base coordinate may be chosen for different trace log functions.
     """
-    def __init__(self, file: Data, func: typing.Callable, name: str, unit: str = "", x_ds_url: str = None, y_ds_url: str = None, trace_info: tuple[np.ndarray, str, str] = None):
+    def __init__(self, file: Data, func: typing.Callable, name: str, unit: str = "", x_ds: hdf_dataset = None, y_ds: hdf_dataset = None, trace_info: tuple[np.ndarray, str, str] = None):
         self.file = file
         self.func = func
         self.name = name
         self.unit = unit
         self.signature = ""
-        self.x_ds_url = x_ds_url
-        if not (x_ds_url is None):
+        self.x_ds = x_ds
+        self.x_len: int = None
+        if not (x_ds is None):
             self.signature += "x"
-        self.y_ds_url = y_ds_url
-        if not (y_ds_url is None):
+            self.x_len = x_ds.ds.shape[0]
+        self.y_ds = y_ds
+        self.y_len : int = None
+        if not (y_ds is None):
             self.signature += "y"
+            self.y_len = y_ds.ds.shape[0]
         self.trace_info = trace_info
         if not (trace_info is None):
             self.signature += "n"
-        self.x_ds: hdf_dataset = None
-        self.y_ds: hdf_dataset = None
         self.trace_ds: hdf_dataset = None
         self.log_ds: hdf_dataset = None 
         self.buffer1d: np.ndarray = None
@@ -50,8 +52,6 @@ class logFunc(object):
                 self.trace_ds = self.file.add_coordinate(self.trace_info[1], self.trace_info[2])
                 self.trace_ds.add(self.trace_info[0])
         # the logic is admittably more complicated here, writing down all 8 possible cases of x,y,n present or not helps
-        self.x_ds = self.file.get_dataset(self.x_ds_url)
-        self.y_ds = self.file.get_dataset(self.y_ds_url)
         if len(self.signature) == 0:
             self.log_ds = self.file.add_coordinate(self.name, self.unit)
         elif len(self.signature) == 1:
@@ -61,25 +61,25 @@ class logFunc(object):
         elif len(self.signature) == 3:
             self.log_ds = self.file.add_value_box(self.name, self.x_ds, self.y_ds, self.trace_ds, self.unit)
 
-    def logIfDesired(self, ix=0, iy=0):
+    def logIfDesired(self, ix=0, iy=0):        
         if (ix == 0 or "x" in self.signature) and (iy == 0 or "y" in self.signature): # log function call desired
+            print("lög")
             if len(self.signature) == 0: # ""
                 # we will only reach here once, no further case-logic required
                 self.log_ds.add(np.array([self.func()]))
             elif "n" in self.signature: # "n", "xn", "yn", "xyn"
                 self.log_ds.append(self.func())
                 if len(self.signature) == 3:
-                    if iy + 1 == self.y_ds.ds.shape[0]:
+                    if iy + 1 == self.y_len:
                         # who doesnt love 4x nested ifs edge cases? 
                         self.log_ds.next_matrix() 
             elif "y" in self.signature: # "y", "xy"
                 if iy == 0:
-                    self.buffer1d = np.full(self.y_ds.ds.shape[0], np.nan)
+                    self.buffer1d = np.full(self.y_len, np.nan)
                 self.buffer1d[iy] = self.func()
                 self.log_ds.append(self.buffer1d, reset=(iy != 0))
             else: # "x"
                 if ix == 0:
-                    self.buffer1d = np.full(self.x_ds.ds.shape[0], np.nan)
+                    self.buffer1d = np.full(self.x_len, np.nan)
                 self.buffer1d[ix] = self.func()
                 self.log_ds.append(self.buffer1d, reset=(ix != 0))
-        

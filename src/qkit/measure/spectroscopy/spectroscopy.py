@@ -267,7 +267,7 @@ class spectrum(object):
                 self._fit_real = self._data_file.add_value_matrix("_fit_real", x=self._data_x, y=sweep_vector, unit="", folder="analysis")
                 self._fit_imag = self._data_file.add_value_matrix("_fit_imag", x=self._data_x, y=sweep_vector, unit="", folder="analysis")
 
-                self._fit_extracts = {}
+                self._fit_extracts: dict[str, hdf.hdf_dataset] = {}
                 for key in self._fit_function.extract_data.keys():
                     self._fit_extracts[key] = self._data_file.add_value_vector("fit_" + key, x=self._data_x, unit="", folder="analysis")
 
@@ -301,7 +301,7 @@ class spectrum(object):
                 self._fit_real = self._data_file.add_value_box("_fit_real", x=self._data_x, y=self._data_y, z=sweep_vector, unit="", folder="analysis")
                 self._fit_imag = self._data_file.add_value_box("_fit_imag", x=self._data_x, y=self._data_y, z=sweep_vector, unit="", folder="analysis")
 
-                self._fit_extracts = {}
+                self._fit_extracts: dict[str, hdf.hdf_dataset] = {}
                 for key in self._fit_function.extract_data.keys():
                     self._fit_extracts[key] = self._data_file.add_value_matrix("fit_" + key, x=self._data_x, y=self._data_y, unit="", folder="analysis")
 
@@ -315,8 +315,8 @@ class spectrum(object):
         for init_tuple in self.log_init_params:
             func, name, unit, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit = init_tuple
             self.log_funcs += [logFunc(self._data_file, func, name, unit, 
-                                       self._data_x.ds_url if (self._scan_dim >= 2) and over_x else None, 
-                                       self._data_y.ds_url if (self._scan_dim == 3) and over_y else None, 
+                                       self._data_x if (self._scan_dim >= 2) and over_x else None, 
+                                       self._data_y if (self._scan_dim == 3) and over_y else None, 
                                        (trace_base_vals, trace_base_name, trace_base_unit) if is_trace else None)]
             self.log_funcs[-1].prepare_file()
 
@@ -407,7 +407,7 @@ class spectrum(object):
             self._fit_real.append(self._fit_function.amp_fit*np.cos(self._fit_function.pha_fit))
             self._fit_imag.append(self._fit_function.amp_fit*np.sin(self._fit_function.pha_fit))
 
-            self._fit_extracts = {}
+            self._fit_extracts: dict[str, hdf.hdf_dataset] = {}
             for key, val in self._fit_function.extract_data.items():
                 # define extract data in 1D case here instead of before measurement, so the file ist not too clustered if measurement fails
                 self._fit_extracts[key] = self._data_file.add_coordinate("fit_" + key, unit="", folder="analysis")
@@ -544,7 +544,6 @@ class spectrum(object):
         measures and plots the data depending on the measurement type.
         the measurement loops feature the setting of the objects and saving the data in the .h5 file.
         '''
-        qkit.flow.start()
         try:
             """
             loop: x_obj with parameters from x_vec
@@ -565,27 +564,26 @@ class spectrum(object):
                             self.y_set_obj(y)
                             sleep(self.tdy)
 
-                            for lf in self.log_funcs:
-                                lf.logIfDesired(ix, iy)
-
                             if self.averaging_start_ready:
                                 self.vna.start_measurement()
                                 # Check if the VNA is STILL in ready state, then add some delay.
                                 # If you manually decrease the poll_inveral, I guess you know what you are doing and will disable this safety query.
                                 if self.vna_poll_interval >= 0.1 and self.vna.ready():
                                     logging.debug("VNA STILL ready... Adding delay")
-                                    qkit.flow.sleep(
-                                        .2)  # just to make sure, the ready command does not *still* show ready
+                                    sleep(0.2)  # just to make sure, the ready command does not *still* show ready
 
                                 while not self.vna.ready():
-                                    qkit.flow.sleep(min(self.vna.get_sweeptime_averages(query=False) / 11., self.vna_poll_interval))
+                                    sleep(min(self.vna.get_sweeptime_averages(query=False) / 11., self.vna_poll_interval))
                             else:
                                 self.vna.avg_clear()
-                                qkit.flow.sleep(self._sweeptime_averages)
+                                sleep(self._sweeptime_averages)
 
                             # if "avg_status" in self.vna.get_function_names():
                             #       while self.vna.avg_status() < self.vna.get_averages():
                             #            qkit.flow.sleep(.2) #maybe one would like to adjust this at a later point
+                                                        
+                            for lf in self.log_funcs:
+                                lf.logIfDesired(ix, iy)
 
                             """ measurement """
                             if not self.landscape.xzlandscape_func:  # normal scan
@@ -620,7 +618,6 @@ class spectrum(object):
                                 fit_extracts_helper[key][iy] = val
                                 self._fit_extracts[key].append(fit_extracts_helper[key], reset=(iy != 0))
 
-                        qkit.flow.sleep()
                     """
                     filling of value-box is done here.
                     after every y-loop the data is stored the next 2d structure
@@ -636,20 +633,22 @@ class spectrum(object):
                         self._fit_imag.next_matrix()
 
                 if self._scan_dim == 2:
-                    for lf in self.log_funcs:
-                        lf.logIfDesired(ix)
-
+                    
                     if self.averaging_start_ready:
                         self.vna.start_measurement()
                         if self.vna.ready():
                             logging.debug("VNA STILL ready... Adding delay")
-                            qkit.flow.sleep(.2)  # just to make sure, the ready command does not *still* show ready
+                            sleep(.2)  # just to make sure, the ready command does not *still* show ready
 
                         while not self.vna.ready():
-                            qkit.flow.sleep(min(self.vna.get_sweeptime_averages(query=False) / 11., .2))
+                            sleep(min(self.vna.get_sweeptime_averages(query=False) / 11., .2))
                     else:
                         self.vna.avg_clear()
-                        qkit.flow.sleep(self._sweeptime_averages)
+                        sleep(self._sweeptime_averages)
+
+                    for lf in self.log_funcs:
+                        lf.logIfDesired(ix)
+
                     """ measurement """
                     if not self.landscape.xzlandscape_func:  # normal scan
                         data_amp, data_pha = self.vna.get_tracedata()
@@ -676,11 +675,8 @@ class spectrum(object):
                         for key, val in self._fit_function.extract_data.items():
                             self._fit_extracts[key].append(val)
 
-                    qkit.flow.sleep()
-
         finally:
             self._end_measurement()
-            qkit.flow.end()
 
     def _end_measurement(self):
         '''
@@ -714,7 +710,7 @@ class spectrum(object):
         if fit_function == "circle_fit_notch":
             fit_opt_kwargs.update({"n_ports": 2})
         try:
-            self._fit_function = resonatorFit.FitNames[fit_function](**fit_opt_kwargs) # init fit-class here
+            self._fit_function: resonatorFit.ResonatorFitBase = resonatorFit.FitNames[fit_function](**fit_opt_kwargs) # init fit-class here
         except KeyError:
             logging.error('Fit function not properly set. Must be either \'lorentzian\', \'skewed_lorentzian\', \'circle_fit_reflection\', \'circle_fit_notch\', \'fano\'.')
         else:
