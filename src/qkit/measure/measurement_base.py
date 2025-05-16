@@ -3,10 +3,11 @@ import numpy as np
 from abc import ABC, abstractmethod
 from typing import Optional, Callable, Protocol
 import textwrap
-from functools import cache
+from h5py import Dataset
 
 from qkit.measure.samples_class import Sample
-from qkit.storage import store as hdf
+from qkit.storage.thin_hdf import HDF5
+from qkit.storage.file_path_management import MeasurementFilePath
 
 
 # The unified measurement class infrastructure. Will attempt to unify all kinds of measurements into a common code base.
@@ -15,6 +16,8 @@ from qkit.storage import store as hdf
 # - (Optionally) Log some kind of measurement for each point of this axis
 # - When at the point of the axis, perform some kind of measurement. This measurement may be 0- or 1-Dimensional
 # - The points of a sweep may be a subset of the total range, depending on the previous axes.
+# - Handle the dataset management ourselves, as the wrapped wrapper from store is too complicated.
+# - TODO Custom Views
 #
 # It would be beneficial to have easy to understand syntax for this behaviour. With-Statements could be useful here.
 #
@@ -105,16 +108,16 @@ class ParentOfMeasurements(ABC):
             return 0
         return max(map(lambda m: len(m.expected_structure), self._measurements))
 
-    def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf.hdf_dataset]):
+    def create_datasets(self, data_file: HDF5, swept_axes: list[Dataset]):
         for measurement in self._measurements:
             measurement.create_datasets(data_file, swept_axes)
 
-    def run_measurements(self, data_file: hdf.Data):
+    def run_measurements(self, data_file: HDF5, index_list: tuple[int, ...]):
         """
         Run the measurements and handle the acquired data.
         """
         for measurement_type in self._measurements:
-            measurement_type.record(data_file)
+            measurement_type.record(data_file, index_list)
 
 
 class FilterCallback(Protocol):
@@ -141,33 +144,35 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         self._axis = axis
         self._filter = axis_filter
 
-    def _run_sweep(self, data_file, **context: float):
+    def _run_sweep(self, data_file: HDF5, index_list: tuple[int, ...], **filter_context: float):
         """
         Internal function to run the sweep. You should not call this outside measurement_base.py!
 
-        Performs the sweep, checks for filters, and updates **context before continuing down the chain of sweeps.
+        Perform the sweep, checks for filters, and updates **context before continuing down the chain of sweeps.
         """
         if self._filter is not None:
-            mask = self._filter(self._axis.range, **context)
+            mask = self._filter(self._axis.range, **filter_context)
             filtered_range = self._axis.range[mask]
+            filtered_indices = np.where(mask)[0]
         else:
             filtered_range = self._axis.range
+            filtered_indices = np.arange(len(filtered_range))
         assert filtered_range is not None, "Initialization of range failed!"
 
         # Do the sweep!
-        for value in filtered_range:
+        for index, value in zip(filtered_indices, filtered_range):
             self._setter(value)
 
-            self.run_measurements(data_file)
+            self.run_measurements(data_file, index_list)
 
             # Go down the nested sweeps.
             if self._sweep_child is not None:
-                new_context = context.copy()
+                new_context = filter_context.copy()
                 new_context[self._axis.name] = value
-                self._sweep_child._run_sweep(data_file, **new_context)
+                self._sweep_child._run_sweep(data_file, index_list + (index,), **new_context)
 
-    def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf.hdf_dataset]):
-        swept_axes.append(self._axis.create_data_axis(data_file))
+    def create_datasets(self, data_file: HDF5, swept_axes: list[Dataset]):
+        swept_axes.append(self._axis.get_data_axis(data_file))
         super().create_datasets(data_file, swept_axes)
         if self._sweep_child is not None:
             self._sweep_child.create_datasets(data_file, swept_axes)
@@ -187,22 +192,20 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         return 1 + max(self._largest_measurement_dimension, self._child_dimensionality)
 
 
-@dataclass()
+@dataclass(frozen=True)
 class Axis:
     name: str
     range: np.ndarray
     unit: str = 'a.u.'
-    _axis_dataset: Optional[hdf.hdf_dataset] = None
 
-    def create_data_axis(self, data_file: hdf.Data):
+    def get_data_axis(self, data_file: HDF5):
         """
-        Creates and fills the axis, and caches the result.
-        Returns the handle.
+        Returns the filled axis data set. Creates it if it doesn't exist yet.
         """
-        if self._axis_dataset is None:
-            self._axis_dataset = data_file.add_coordinate(self.name, self.unit)
-            self._axis_dataset.add(self.range)
-        return self._axis_dataset
+        if data_file.get_dataset(self.name) is None:
+            ds = data_file.create_dataset(self.name, (len(self.range),), self.unit)
+            ds[:] = self.range
+        return data_file.get_dataset(self.name)
 
     def __str__(self):
         low = np.min(self.range)
@@ -217,41 +220,33 @@ class MeasurementTypeAdapter(ABC):
     Should implement a particular kind of measurement, such as Spectroscopy, IV-Curve, ..., which
     then communicates with the device driver using its own interfaces.
     """
-    _dataset_cache: dict[str, hdf.hdf_dataset]
 
-    def __init__(self):
-        super().__init__()
-        self._dataset_cache = {}
-
-    def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf.hdf_dataset]):
+    def create_datasets(self, data_file: HDF5, swept_axes: list[Dataset]):
         """
         Create the datasets for this kind of measurement. Takes into account
         swept axes in the measurement tree.
         """
         for descriptor in self.expected_structure:
-            all_axes = swept_axes + list(map(lambda ax: ax.create_data_axis(data_file), list(descriptor.axes)))
-            match len(all_axes):
-                case 1:
-                    ds = data_file.add_value_vector(descriptor.name, all_axes[0], descriptor.unit)
-                case 2:
-                    ds = data_file.add_value_matrix(descriptor.name, all_axes[0], all_axes[1], descriptor.unit)
-                case 3:
-                    ds = data_file.add_value_box(descriptor.name, all_axes[0], all_axes[1], all_axes[2], descriptor.unit)
-                case _:
-                    raise Exception(f"Unsupported dimensionality {len(all_axes)} in HDF")
-            self._dataset_cache[descriptor.name] = ds
+            all_axes = swept_axes + list(map(lambda ax: ax.get_data_axis(data_file), list(descriptor.axes)))
+            data_file.create_dataset(descriptor.name,
+                                     tuple(map(lambda axis: len(axis.range), all_axes)),
+                                     descriptor.unit,
+                                     axes=all_axes
+                                     )
 
-    def record(self, data_file: hdf.Data):
+    def record(self, data_file: HDF5, sweep_indices: tuple[int, ...]):
         """
         Perform the measurement and record the results.
         """
         data = self.perform_measurement()
         for datum in data:
             datum.validate()
-            # When we save stuff, the datasets should already have been created.
-            # TODO: This is a lot more complicated because Hannes
-            # Before we write, based on if sweeps wrapped, we need to reset some internal coordinates.
-            self._dataset_cache[datum.descriptor.name].append(datum.data)
+            ds = data_file.get_dataset(datum.descriptor.name)
+            assert ds is not None, f"Dataset {datum.descriptor.name} not found!"
+            # Based on the sweeps that occurred, get the relevant subset of the Dataset
+            assert np.array_equiv(ds[*sweep_indices], np.full_like(ds[*sweep_indices], np.nan)),\
+                "Overwriting data! This indicates a logic error in the sweeps!"
+            ds[*sweep_indices] = datum.data
 
 
     @property
@@ -347,7 +342,8 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         """
         Perform the configured measurements. Sweep the nested axes and record the results.
         """
-        data_file = hdf.Data(name=self._filename, mode='a')
+        path = MeasurementFilePath(measurement_name=self._filename)
+        data_file = path.into_h5_file()
 
         # Recurse down the tree to create datasets.
         self.create_datasets(data_file, [])
@@ -355,7 +351,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             self._sweep_child.create_datasets(data_file, [])
         # TODO: do waf
         # TODO: Use the measurement_class stuff to write the instrument state
-        self.run_measurements(data_file)
+        self.run_measurements(data_file, ())
         self._run_child_sweep(data_file)
 
 
