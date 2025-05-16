@@ -177,7 +177,6 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         if self._sweep_child is not None:
             self._sweep_child.create_datasets(data_file, swept_axes)
 
-
     def __str__(self):
         setter_name = self._setter.__qualname__
         filter_repr = self._filter.__qualname__ if self._filter is not None else "None"
@@ -244,10 +243,9 @@ class MeasurementTypeAdapter(ABC):
             ds = data_file.get_dataset(datum.descriptor.name)
             assert ds is not None, f"Dataset {datum.descriptor.name} not found!"
             # Based on the sweeps that occurred, get the relevant subset of the Dataset
-            assert np.array_equiv(ds[*sweep_indices], np.full_like(ds[*sweep_indices], np.nan)),\
+            assert np.array_equiv(ds[*sweep_indices], np.full_like(ds[*sweep_indices], np.nan)), \
                 "Overwriting data! This indicates a logic error in the sweeps!"
             ds[*sweep_indices] = datum.data
-
 
     @property
     @abstractmethod
@@ -353,7 +351,6 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         # TODO: Use the measurement_class stuff to write the instrument state
         self.run_measurements(data_file, ())
         self._run_child_sweep(data_file, ())
-
 
     def __str__(self):
         return "Experiment:\r\n" + (
