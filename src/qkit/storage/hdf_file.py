@@ -39,7 +39,7 @@ class H5_file(object):
         self.create_file(output_file, mode)
         self.newfile = False
         
-        if self.hf.attrs.get("qt-file",None) or self.hf.attrs.get("qkit",None):
+        if self.hf.attrs.get("qt-file", None) or self.hf.attrs.get("qkit", None):
             "File existed before and was created by qkit."
             self.setup_required_groups()
         else:
@@ -52,7 +52,7 @@ class H5_file(object):
                 self.grp.attrs[k] = kw[k]
         
     def create_file(self,output_file, mode):
-        self.hf = h5py.File(output_file, mode,**file_kwargs )
+        self.hf = h5py.File(output_file, mode, **file_kwargs)
 
     def set_base_attributes(self):
         "stores some attributes and creates the default data group"
@@ -145,10 +145,7 @@ class H5_file(object):
         
         # we store text as unicode; this seems somewhat non-standard for hdf
         if ds_type == ds_types['txt']:
-            try:
-                dtype = h5py.special_dtype(vlen=unicode) # python 2
-            except NameError:
-                dtype = h5py.special_dtype(vlen=str) # python 3
+            dtype = h5py.special_dtype(vlen=str)
         #create the dataset ...;  delete it first if it exists, unless it is data
         if name in self.grp.keys(): 
             if folder == "data":
