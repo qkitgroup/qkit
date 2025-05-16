@@ -54,7 +54,7 @@ class EnterableWrapper[T]:
 
 class ParentOfSweep(ABC):
     """
-    Abstract class handling the children relationship of sweeps.
+    Abstract class handling the relationship to sweeps.
     """
     _sweep_child: Optional['Sweep']
 
@@ -70,9 +70,9 @@ class ParentOfSweep(ABC):
         self._sweep_child = s
         return EnterableWrapper(s)
 
-    def _run_child_sweep(self, data_file, **context: float):
+    def _run_child_sweep(self, data_file, index_list: tuple[int, ...], **context: float):
         if self._sweep_child is not None:
-            self._sweep_child._run_sweep(data_file, **context)
+            self._sweep_child._run_sweep(data_file, index_list, **context)
 
     @property
     def _child_dimensionality(self):
@@ -352,7 +352,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         # TODO: do waf
         # TODO: Use the measurement_class stuff to write the instrument state
         self.run_measurements(data_file, ())
-        self._run_child_sweep(data_file)
+        self._run_child_sweep(data_file, ())
 
 
     def __str__(self):
