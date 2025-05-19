@@ -274,7 +274,8 @@ class MeasurementTypeAdapter(ABC):
     @property
     def default_views(self) -> dict[str, HDF5.DataView]:
         """
-        A default set of views to be created for this kind of measurement. May be empty.
+        A default set of views to be created for this kind of measurement. Can be empty.
+        Maps the name to the view, thus a dict.
         """
         return {}
 
