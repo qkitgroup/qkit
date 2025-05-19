@@ -32,7 +32,9 @@ class SweepInspectorMeasurement(MeasurementTypeAdapter):
 
     @override
     def perform_measurement(self) -> list['MeasurementTypeAdapter.MeasurementData']:
-        return [self.sweep_intercept.with_data(self.accumulated_data)]
+        base = np.zeros_like(self.sweep_intercept.axes[0].range)
+        base[0:len(self.accumulated_data)] = self.accumulated_data
+        return [self.sweep_intercept.with_data(base)]
 
 
 def test_experiment_creation():
