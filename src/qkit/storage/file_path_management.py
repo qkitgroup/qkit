@@ -44,18 +44,25 @@ class MeasurementFilePath:
         """
         return self.folder_name + '.h5'
 
-    def into_path(self, base_path: str | Path = qkit.cfg['datadir']) -> Path:
-        full_path = Path(base_path) / _sanitize(self.run_id.upper()) / _sanitize(self.user)
+    @property
+    def rel_path(self) -> Path:
+        path = Path(_sanitize(self.run_id.upper())) / _sanitize(self.user)
         for folder in self.additional_path_info:
-            full_path /= folder
-        full_path /= self.folder_name
-        full_path /= self.file_name
-        return full_path
+            path /= folder
+        path /= self.folder_name
+        path /= self.file_name
+        return path
 
-    def into_h5_file(self, base_path: str | Path = qkit.cfg['datadir']) -> thin_hdf.HDF5:
+    def into_path(self, base_path: str | Path = qkit.cfg['datadir']) -> Path:
+        return Path(base_path) / self.rel_path
+
+    def mkdirs(self, base_path: str | Path = qkit.cfg['datadir']):
         full_path = self.into_path(base_path)
         full_path.parent.mkdir(parents=True, exist_ok=True)
-        return thin_hdf.HDF5(str(full_path), mode='w')
+
+    def into_h5_file(self, base_path: str | Path = qkit.cfg['datadir']) -> thin_hdf.HDF5:
+        self.mkdirs(base_path)
+        return thin_hdf.HDF5(str(self.into_path(base_path)), mode='w')
 
 def _sanitize(name: str) -> str:
     """
