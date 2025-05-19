@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from os import PathLike
 from typing import Optional, Literal
@@ -106,7 +106,7 @@ class HDF5:
         if comment is not None:
             ds.attrs['comment'] = comment.encode('utf-8')
 
-    def insert_view(self, name: str, settings: 'HDF5.DataViewSettings', views: list['HDF5.DataView']):
+    def insert_view(self, name: str, view: 'HDF5.DataView'):
         """
         Adapts QViewKits proprietary view format. Overall config in settings, and a list of views.
 
@@ -117,29 +117,29 @@ class HDF5:
         in the same plot.
         """
         ds = self.view_group.require_dataset(name, shape=(), maxshape=(), dtype='f')
-        ds.attrs['overlays'] = len(views)
-        settings.write(ds)
-        for i, view in enumerate(views):
-            view.write_to_dataset(ds, i)
+        view.write(ds)
 
     def close(self):
         self.hdf.close()
 
     @dataclass(frozen=True)
-    class DataViewSettings:
-        dataset_type: 'HDF5.DataSetType'
+    class DataView:
         view_type: 'HDF5.DataViewType'
         view_params: str
+        view_sets: list['HDF5.DataViewSet'] = field(default_factory=list)
 
         def write(self, dataset: h5py.Dataset):
-            dataset.attrs['ds_type'] = self.dataset_type.value
+            dataset.attrs['ds_type'] = HDF5.DataSetType.VIEW.value
             dataset.attrs['view_type'] = self.view_type.value
             dataset.attrs['view_params'] = self.view_params.encode('utf-8')
+            dataset.attrs['overlays'] = len(self.view_sets)
+            for i, view in enumerate(self.view_sets):
+                view.write_to_dataset(dataset, i)
 
     @dataclass(frozen=True)
-    class DataView:
-        x_path: [str] = None
-        y_path: [str] = None
+    class DataViewSet:
+        x_path: str
+        y_path: str
         filter: Optional[str] = None
         error: Optional[str] = None
 
