@@ -100,7 +100,7 @@ class HDF5:
         """
         dtype = h5py.string_dtype(encoding='utf-8')
         ds = self.data_group.create_dataset(name, shape=(1,), dtype=dtype)
-        ds[0] = content
+        ds[0] = str(content)
         ds.attrs['ds_type'] = HDF5.DataSetType.TXT.value
         ds.attrs['ds_url'] = ds.name.encode('utf-8')
         if comment is not None:
