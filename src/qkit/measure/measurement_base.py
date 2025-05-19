@@ -365,8 +365,11 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
 
             # Get Instrument settings, write to a file
             settings = waf.get_instrument_settings(str(measurement_file.into_path()))
+            import json
+            from qkit.measure.json_handler import QkitJSONEncoder
+            settings_str = json.dumps(obj=settings, cls=QkitJSONEncoder, indent = 4, sort_keys=True)
             # Also store in hdf5
-            data_file.write_text_record('settings', settings, 'Instrument States before measurement started.')
+            data_file.write_text_record('settings', settings_str, 'Instrument States before measurement started.')
 
             data_file.hdf.attrs['comment'] = self._comment if self._comment is not None else ''
 
@@ -379,6 +382,9 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             measurement.web_visible = True
             measurement.instruments = qkit.instruments.get_instrument_names()
             measurement.save()
+
+            # Write to HDF5
+            data_file.write_text_record('measurement', measurement.get_JSON(), 'Measurement description')
 
             # Everything is prepared. Do the actual measurement.
             self.run_measurements(data_file, ())
