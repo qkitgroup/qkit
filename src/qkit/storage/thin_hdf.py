@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from os import PathLike
 from typing import Optional, Literal
 
 import h5py
@@ -18,7 +19,7 @@ class HDF5:
     view_group: h5py.Group
     analysis_group: h5py.Group
 
-    def __init__(self, filename: str, mode: Literal['r', 'w', 'a'], locking: bool=False):
+    def __init__(self, filename: str | PathLike, mode: Literal['r', 'w', 'a'], locking: bool=False):
         """
         Open a hdf5 file. If writing, create base structure.
 
