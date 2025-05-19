@@ -7,6 +7,7 @@ class SpectroscopyMeasurement(MeasurementTypeAdapter):
     _frequency_axis: Axis
 
     def __init__(self, vna: AbstractVNA):
+        super().__init__()
         self._vna = vna
         self._frequency_axis = Axis(
             name='frequency',
@@ -16,7 +17,7 @@ class SpectroscopyMeasurement(MeasurementTypeAdapter):
 
     @staticmethod
     def _phase_descriptor(frequency_axis: Axis):
-        return MeasurementTypeAdapter.MeasurementDescriptor(
+        return MeasurementTypeAdapter.DataDescriptor(
             name="phase",
             unit="rad",
             axes=(frequency_axis,)
@@ -24,19 +25,19 @@ class SpectroscopyMeasurement(MeasurementTypeAdapter):
 
     @staticmethod
     def _amplitude_descriptor(frequency_axis: Axis):
-        return MeasurementTypeAdapter.MeasurementDescriptor(
+        return MeasurementTypeAdapter.DataDescriptor(
             name="amplitude",
             axes=(frequency_axis,)
         )
 
     @property
-    def expected_structure(self) -> tuple['MeasurementTypeAdapter.MeasurementDescriptor', ...]:
+    def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
         return (
             self._amplitude_descriptor(self._frequency_axis),
             self._phase_descriptor(self._frequency_axis)
         )
 
-    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.MeasurementData', ...]:
+    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
         self._vna.pre_measurement()
         self._vna.start_measurement()
         while not self._vna.ready():
