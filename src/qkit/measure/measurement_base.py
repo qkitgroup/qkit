@@ -5,7 +5,9 @@ from typing import Optional, Callable, Protocol, override
 import textwrap
 from h5py import Dataset
 
+import qkit
 from qkit.measure.samples_class import Sample
+from qkit.measure.measurement_class import Measurement
 import qkit.measure.write_additional_files as waf
 from qkit.storage.thin_hdf import HDF5
 from qkit.storage.file_path_management import MeasurementFilePath
@@ -349,6 +351,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         Perform the configured measurements. Sweep the nested axes and record the results.
         """
         measurement_file = MeasurementFilePath(measurement_name=self._filename)
+        measurement_file.mkdirs()
         # Create an additional log file:
         log_handler = waf.open_log_file(str(measurement_file.into_path()))
         try:
@@ -360,12 +363,24 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             if self._sweep_child is not None:
                 self._sweep_child.create_datasets(data_file, [])
 
-            # Get Instrument settings
+            # Get Instrument settings, write to a file
             settings = waf.get_instrument_settings(str(measurement_file.into_path()))
+            # Also store in hdf5
             data_file.write_text_record('settings', settings, 'Instrument States before measurement started.')
 
-            # TODO: do waf
-            # TODO: Use the measurement_class stuff to write the instrument state
+            data_file.hdf.attrs['comment'] = self._comment if self._comment is not None else ''
+
+            # Backwards compatibility, mostly obsolete.
+            measurement = Measurement()
+            measurement.hdf_relpath = str(measurement_file.rel_path)
+            measurement.sample = self._sample
+            measurement.uuid = measurement_file.uuid
+            measurement.analyzed = False
+            measurement.web_visible = True
+            measurement.instruments = qkit.instruments.get_instrument_names()
+            measurement.save()
+
+            # Everything is prepared. Do the actual measurement.
             self.run_measurements(data_file, ())
             self._run_child_sweep(data_file, ())
         finally:
