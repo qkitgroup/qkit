@@ -6,6 +6,7 @@ import textwrap
 from h5py import Dataset
 
 from qkit.measure.samples_class import Sample
+import qkit.measure.write_additional_files as waf
 from qkit.storage.thin_hdf import HDF5
 from qkit.storage.file_path_management import MeasurementFilePath
 
@@ -17,7 +18,7 @@ from qkit.storage.file_path_management import MeasurementFilePath
 # - When at the point of the axis, perform some kind of measurement. This measurement may be 0- or 1-Dimensional
 # - The points of a sweep may be a subset of the total range, depending on the previous axes.
 # - Handle the dataset management ourselves, as the wrapped wrapper from store is too complicated.
-# - TODO Custom Views
+# - Custom Views
 #
 # It would be beneficial to have easy to understand syntax for this behaviour. With-Statements could be useful here.
 #
@@ -347,19 +348,28 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         """
         Perform the configured measurements. Sweep the nested axes and record the results.
         """
-        path = MeasurementFilePath(measurement_name=self._filename)
-        data_file = path.into_h5_file()
+        measurement_file = MeasurementFilePath(measurement_name=self._filename)
+        # Create an additional log file:
+        log_handler = waf.open_log_file(str(measurement_file.into_path()))
+        try:
+            # HDF5 file initialization
+            data_file = measurement_file.into_h5_file()
 
-        # Recurse down the tree to create datasets.
-        self.create_datasets(data_file, [])
-        if self._sweep_child is not None:
-            self._sweep_child.create_datasets(data_file, [])
+            # Recurse down the tree to create datasets.
+            self.create_datasets(data_file, [])
+            if self._sweep_child is not None:
+                self._sweep_child.create_datasets(data_file, [])
 
+            # Get Instrument settings
+            settings = waf.get_instrument_settings(str(measurement_file.into_path()))
+            data_file.write_text_record('settings', settings, 'Instrument States before measurement started.')
 
-        # TODO: do waf
-        # TODO: Use the measurement_class stuff to write the instrument state
-        self.run_measurements(data_file, ())
-        self._run_child_sweep(data_file, ())
+            # TODO: do waf
+            # TODO: Use the measurement_class stuff to write the instrument state
+            self.run_measurements(data_file, ())
+            self._run_child_sweep(data_file, ())
+        finally:
+            waf.close_log_file(log_handler)
 
     def __str__(self):
         return "Experiment:\r\n" + (
