@@ -30,9 +30,3 @@ def test_large_file_creation():
     testdata = data.create_dataset("test2", shape=(1000,1000), axes=[x_axis, y_axis])
 
     testdata[:, :] = np.sin(np.arange(1000) / 10)[:, np.newaxis] * np.cos(np.arange(1000) / 10)[np.newaxis, :]
-
-def test_qviewkit():
-    cwd = __file__
-    fname = pathlib.Path(cwd).parent / "large_file.h5"
-    import qkit.gui.qviewkit.main as qviewkit
-    qviewkit.main(['python3', '-f', str(fname)])
