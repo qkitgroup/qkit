@@ -58,7 +58,7 @@ def test_experiment_creation(dummy_instruments_class):
     assert np.array_equal(np.asarray(log_measure.accumulated_data), X_SWEEP_AXIS.range)
 
 
-def test_filtered_sweep():
+def test_filtered_sweep(dummy_instruments_class):
     log_measure = SweepInspectorMeasurement()
     e = Experiment('filter_test', SAMPLE)
     with e.sweep(log_measure.x_log,
@@ -110,7 +110,7 @@ class SinusGeneratorMeasurement(MeasurementTypeAdapter):
     def perform_measurement(self) -> list['MeasurementTypeAdapter.MeasurementData']:
         return [self.signal.with_data(np.sin(self.time_axis.range + self.current_x * 0.2))]
 
-def test_hdf5_file_creation():
+def test_hdf5_file_creation(dummy_instruments_class):
     measure = SinusGeneratorMeasurement()
     e = Experiment('file_test', SAMPLE)
     with e.sweep(measure.x_log, X_SWEEP_AXIS) as x_sweep:
