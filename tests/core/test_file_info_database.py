@@ -33,6 +33,7 @@ def fid() -> 'Iterable[file_info_database.fid]':
     yield fid
 
     # Cleanup afterwards
+    del qkit.cfg
     from qkit.core.lib.file_service.breadcrumbs import derive_breadcrumb_filename
     print(f"Cleaning up Breadcrumbs at {derive_breadcrumb_filename()}")
     if derive_breadcrumb_filename().exists():
