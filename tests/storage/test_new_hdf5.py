@@ -1,9 +1,7 @@
 from qkit.storage.thin_hdf import HDF5
 import tempfile
-import os
 import pathlib
 import numpy as np
-import h5py
 
 def test_file_creation():
     with tempfile.TemporaryDirectory(delete=True) as tmpdir:
