@@ -24,7 +24,7 @@ from qkit.storage.file_path_management import MeasurementFilePath
 # - Handle the dataset management ourselves, as the wrapped wrapper from store is too complicated.
 # - Custom Views
 # - Default Views
-# - TODO: Analysis
+# - Analysis, TODO: Test
 #
 # It would be beneficial to have easy to understand syntax for this behaviour. With-Statements could be useful here.
 #
@@ -221,13 +221,22 @@ class Axis:
         return f"{self.name}=({low} {self.unit} to {high} {self.unit} in {len(self.range)} steps)"
 
 
-class MeasurementTypeAdapter(ABC):
+class DataGenerator(ABC):
     """
-    A high-level Adapter Interface to the Measurement Type Specific Code.
+    A high-level Adapter Interface for everything that generates data.
+    """
 
-    Should implement a particular kind of measurement, such as Spectroscopy, IV-Curve, ..., which
-    then communicates with the device driver using its own interfaces.
-    """
+    def store(self, data_file: HDF5, data: tuple['MeasurementTypeAdapter.GeneratedData', ...], sweep_indices: tuple[int, ...]):
+        assert isinstance(data, tuple), "Measurement must return a tuple of MeasurementData!"
+        for datum in data:
+            assert isinstance(datum, self.GeneratedData), "Measurement must return a tuple of MeasurementData!"
+            datum.validate()
+            ds = data_file.get_dataset(datum.descriptor.name)
+            assert ds is not None, f"Dataset {datum.descriptor.name} not found!"
+            # Based on the sweeps that occurred, get the relevant subset of the Dataset
+            assert np.all(np.isnan(ds[*sweep_indices])), \
+                "Overwriting data! This indicates a logic error in the sweeps!"
+            ds[*sweep_indices] = datum.data
 
     def create_datasets(self, data_file: HDF5, swept_axes: list[Dataset]):
         """
@@ -245,25 +254,9 @@ class MeasurementTypeAdapter(ABC):
         for name, view in self.default_views:
             data_file.insert_view(name, view)
 
-    def record(self, data_file: HDF5, sweep_indices: tuple[int, ...]):
-        """
-        Perform the measurement and record the results.
-        """
-        data = self.perform_measurement()
-        assert isinstance(data, tuple), "Measurement must return a tuple of MeasurementData!"
-        for datum in data:
-            assert isinstance(datum, self.MeasurementData), "Measurement must return a tuple of MeasurementData!"
-            datum.validate()
-            ds = data_file.get_dataset(datum.descriptor.name)
-            assert ds is not None, f"Dataset {datum.descriptor.name} not found!"
-            # Based on the sweeps that occurred, get the relevant subset of the Dataset
-            assert np.all(np.isnan(ds[*sweep_indices])), \
-                "Overwriting data! This indicates a logic error in the sweeps!"
-            ds[*sweep_indices] = datum.data
-
     @property
     @abstractmethod
-    def expected_structure(self) -> tuple['MeasurementTypeAdapter.MeasurementDescriptor', ...]:
+    def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
         """
         Return a list of MeasurementDescriptors for this kind of measurement.
 
@@ -279,8 +272,84 @@ class MeasurementTypeAdapter(ABC):
         """
         return {}
 
+    @dataclass(frozen=True)
+    class DataDescriptor:
+        """
+        A dataclass containing a n-Dimensional measurement result with axis data.
+        """
+        name: str
+        axes: tuple[Axis]
+        unit: str = 'a.u.'
+
+        def with_data(self, data: np.ndarray | float) -> 'MeasurementTypeAdapter.GeneratedData':
+            """
+            Create a MeasurementData object from this MeasurementDescriptor and the provided data.
+            """
+            return MeasurementTypeAdapter.GeneratedData(self, data=np.asarray(data))
+
+    @dataclass(frozen=True)
+    class GeneratedData:
+        """
+        Actual Measurement Data, associating a Descriptor with a nd-array.
+
+        Created by calling MeasurementDescriptor.with_data(data).
+        """
+        descriptor: 'MeasurementTypeAdapter.DataDescriptor'
+        data: np.ndarray
+
+        def validate(self):
+            assert len(self.descriptor.axes) == len(self.data.shape), "Axis data incongruent with descriptor"
+            for (i, axis) in enumerate(self.descriptor.axes):
+                assert self.data.shape[i] == len(axis.range), f"Axis ({axis.name}) length and data length mismatch"
+
+
+class AnalysisTypeAdapter(DataGenerator, ABC):
+    """
+    A high-level Adapter Interface to the Analysis Specific Code.
+
+    Should implement a particular kind of analysis, such as Resonator fitting, numerical derivatives, ...
+    """
+    def record(self, data_file: HDF5, sweep_indices: tuple[int, ...], measured_data: tuple['MeasurementTypeAdapter.GeneratedData', ...]):
+        self.store(data_file, self.perform_analysis(measured_data), sweep_indices)
+
     @abstractmethod
-    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.MeasurementData', ...]:
+    def perform_analysis(self, data: tuple['MeasurementTypeAdapter.GeneratedData', ...]) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
+        pass
+
+class MeasurementTypeAdapter(DataGenerator, ABC):
+    """
+    A high-level Adapter Interface to the Measurement Type Specific Code.
+
+    Should implement a particular kind of measurement, such as Spectroscopy, IV-Curve, ..., which
+    then communicates with the device driver using its own interfaces.
+    """
+
+    _analyses: list[AnalysisTypeAdapter]
+
+    def __init__(self):
+        super().__init__()
+        self._analyses = []
+
+    @override
+    def create_datasets(self, data_file: HDF5, swept_axes: list[Dataset]):
+        super().create_datasets(data_file, swept_axes)
+        for analysis in self._analyses:
+            analysis.create_datasets(data_file, swept_axes)
+
+    def record(self, data_file: HDF5, sweep_indices: tuple[int, ...]):
+        """
+        Perform the measurement and record the results.
+        """
+        data = self.perform_measurement()
+        self.store(data_file, data, sweep_indices)
+        for analysis in self._analyses:
+            analysis.record(data_file, sweep_indices, data)
+
+    def with_analysis(self, analysis: AnalysisTypeAdapter):
+        self._analyses.append(analysis)
+
+    @abstractmethod
+    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
         """
         Perform the measurement and return a list of MeasurementData.
 
@@ -292,35 +361,6 @@ class MeasurementTypeAdapter(ABC):
     def __str__(self):
         return f"Measurement({self.__class__.__name__}, ({self.expected_structure}))"
 
-    @dataclass(frozen=True)
-    class MeasurementDescriptor:
-        """
-        A dataclass containing a n-Dimensional measurement result with axis data.
-        """
-        name: str
-        axes: tuple[Axis]
-        unit: str = 'a.u.'
-
-        def with_data(self, data: np.ndarray | float) -> 'MeasurementTypeAdapter.MeasurementData':
-            """
-            Create a MeasurementData object from this MeasurementDescriptor and the provided data.
-            """
-            return MeasurementTypeAdapter.MeasurementData(self, data=np.asarray(data))
-
-    @dataclass(frozen=True)
-    class MeasurementData:
-        """
-        Actual Measurement Data, associating a Descriptor with a nd-array.
-
-        Created by calling MeasurementDescriptor.with_data(data).
-        """
-        descriptor: 'MeasurementTypeAdapter.MeasurementDescriptor'
-        data: np.ndarray
-
-        def validate(self):
-            assert len(self.descriptor.axes) == len(self.data.shape), "Axis data incongruent with descriptor"
-            for (i, axis) in enumerate(self.descriptor.axes):
-                assert self.data.shape[i] == len(axis.range), f"Axis ({axis.name}) length and data length mismatch"
 
 
 class Experiment(ParentOfSweep, ParentOfMeasurements):

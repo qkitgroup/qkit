@@ -12,13 +12,13 @@ SAMPLE = Sample()
 
 
 class SweepInspectorMeasurement(MeasurementTypeAdapter):
-    sweep_intercept: MeasurementTypeAdapter.MeasurementDescriptor
+    sweep_intercept: MeasurementTypeAdapter.DataDescriptor
     current_x: float
     accumulated_data: list[float]
 
     def __init__(self):
         super().__init__()
-        self.sweep_intercept = MeasurementTypeAdapter.MeasurementDescriptor(
+        self.sweep_intercept = MeasurementTypeAdapter.DataDescriptor(
             name='sweep_intercept',
             axes=(X_SWEEP_AXIS,)
         )
@@ -30,11 +30,11 @@ class SweepInspectorMeasurement(MeasurementTypeAdapter):
 
     @override
     @property
-    def expected_structure(self) -> tuple['MeasurementTypeAdapter.MeasurementDescriptor', ...]:
+    def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
         return (self.sweep_intercept,)
 
     @override
-    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.MeasurementData', ...]:
+    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
         base = np.zeros_like(self.sweep_intercept.axes[0].range)
         base[0:len(self.accumulated_data)] = self.accumulated_data
         return (self.sweep_intercept.with_data(base),)
@@ -88,14 +88,14 @@ def test_dimensionality_calculations():
 
 class SinusGeneratorMeasurement(MeasurementTypeAdapter):
 
-    signal: MeasurementTypeAdapter.MeasurementDescriptor
+    signal: MeasurementTypeAdapter.DataDescriptor
     time_axis: Axis
     current_x: float
 
     def __init__(self):
         super().__init__()
         self.time_axis = Axis(name='time', range=np.linspace(0, 10, 100))
-        self.signal = MeasurementTypeAdapter.MeasurementDescriptor(
+        self.signal = MeasurementTypeAdapter.DataDescriptor(
             name='signal',
             axes=(self.time_axis,)
         )
@@ -104,10 +104,10 @@ class SinusGeneratorMeasurement(MeasurementTypeAdapter):
         self.current_x = value
 
     @property
-    def expected_structure(self) -> tuple['MeasurementTypeAdapter.MeasurementDescriptor', ...]:
+    def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
         return (self.signal,)
 
-    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.MeasurementData', ...]:
+    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
         return (self.signal.with_data(np.sin(self.time_axis.range + self.current_x * 0.2)),)
 
 def test_hdf5_file_creation(dummy_instruments_class):
