@@ -25,12 +25,13 @@ class MeasureModes(Enum):
 
 class TransportMeasurement(MeasurementTypeAdapter):
 
-    _measurement_descriptors: list[tuple[MeasurementTypeAdapter.MeasurementDescriptor, MeasurementTypeAdapter.MeasurementDescriptor]]
+    _measurement_descriptors: list[tuple[MeasurementTypeAdapter.DataDescriptor, MeasurementTypeAdapter.DataDescriptor]]
     _iv_device: AbstractIVDevice
     _mode: MeasureModes
     _sleep: float
 
-    def __init__(self, iv_device: AbstractIVDevice, mode: MeasureModes = MeasureModes.IV, sleep: float=0):
+    def __init__(self, iv_device: AbstractIVDevice, mode: MeasureModes = MeasureModes.IV, sleep: float = 0):
+        super().__init__()
         self._iv_device = iv_device
         self._mode = mode
         self._measurement_descriptors = []
@@ -47,12 +48,12 @@ class TransportMeasurement(MeasurementTypeAdapter):
             range=np.arange(start, stop, step)
         )
         self._measurement_descriptors += (
-            MeasurementTypeAdapter.MeasurementDescriptor(
+            MeasurementTypeAdapter.DataDescriptor(
                 name=f'{self._mode.value.bias_symbol}_b_{len(self._measurement_descriptors)}',
                 unit=self._mode.value.bias_unit,
                 axes=(axis,)
             ),
-            MeasurementTypeAdapter.MeasurementDescriptor(
+            MeasurementTypeAdapter.DataDescriptor(
                 name=f'{self._mode.value.measure_symbol}_{len(self._measurement_descriptors)}',
                 unit=self._mode.value.measure_unit,
                 axes=(axis,)
@@ -105,7 +106,7 @@ class TransportMeasurement(MeasurementTypeAdapter):
 
     @override
     @property
-    def expected_structure(self) -> tuple['MeasurementTypeAdapter.MeasurementDescriptor', ...]:
+    def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
         return tuple(itertools.chain(*self._measurement_descriptors))
 
     @override
@@ -125,7 +126,7 @@ class TransportMeasurement(MeasurementTypeAdapter):
         }
 
     @override
-    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.MeasurementData', ...]:
+    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
         results = []
         for (bias, measurement) in self._measurement_descriptors:
             intended_bias_values = bias.axes[0].range
