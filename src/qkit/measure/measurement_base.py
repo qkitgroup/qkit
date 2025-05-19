@@ -245,9 +245,9 @@ class MeasurementTypeAdapter(ABC):
         Perform the measurement and record the results.
         """
         data = self.perform_measurement()
-        assert isinstance(data, list), "Measurement must return a list of MeasurementData!"
+        assert isinstance(data, tuple), "Measurement must return a tuple of MeasurementData!"
         for datum in data:
-            assert isinstance(datum, self.MeasurementData), "Measurement must return a list of MeasurementData!"
+            assert isinstance(datum, self.MeasurementData), "Measurement must return a tuple of MeasurementData!"
             datum.validate()
             ds = data_file.get_dataset(datum.descriptor.name)
             assert ds is not None, f"Dataset {datum.descriptor.name} not found!"
@@ -258,7 +258,7 @@ class MeasurementTypeAdapter(ABC):
 
     @property
     @abstractmethod
-    def expected_structure(self) -> list['MeasurementTypeAdapter.MeasurementDescriptor']:
+    def expected_structure(self) -> tuple['MeasurementTypeAdapter.MeasurementDescriptor', ...]:
         """
         Return a list of MeasurementDescriptors for this kind of measurement.
 
@@ -267,7 +267,7 @@ class MeasurementTypeAdapter(ABC):
         pass
 
     @abstractmethod
-    def perform_measurement(self) -> list['MeasurementTypeAdapter.MeasurementData']:
+    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.MeasurementData', ...]:
         """
         Perform the measurement and return a list of MeasurementData.
 

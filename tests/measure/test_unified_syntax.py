@@ -30,14 +30,14 @@ class SweepInspectorMeasurement(MeasurementTypeAdapter):
 
     @override
     @property
-    def expected_structure(self) -> list['MeasurementTypeAdapter.MeasurementDescriptor']:
-        return [self.sweep_intercept]
+    def expected_structure(self) -> tuple['MeasurementTypeAdapter.MeasurementDescriptor', ...]:
+        return (self.sweep_intercept,)
 
     @override
-    def perform_measurement(self) -> list['MeasurementTypeAdapter.MeasurementData']:
+    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.MeasurementData', ...]:
         base = np.zeros_like(self.sweep_intercept.axes[0].range)
         base[0:len(self.accumulated_data)] = self.accumulated_data
-        return [self.sweep_intercept.with_data(base)]
+        return (self.sweep_intercept.with_data(base),)
 
 
 @pytest.fixture
@@ -104,11 +104,11 @@ class SinusGeneratorMeasurement(MeasurementTypeAdapter):
         self.current_x = value
 
     @property
-    def expected_structure(self) -> list['MeasurementTypeAdapter.MeasurementDescriptor']:
-        return [self.signal]
+    def expected_structure(self) -> tuple['MeasurementTypeAdapter.MeasurementDescriptor', ...]:
+        return (self.signal,)
 
-    def perform_measurement(self) -> list['MeasurementTypeAdapter.MeasurementData']:
-        return [self.signal.with_data(np.sin(self.time_axis.range + self.current_x * 0.2))]
+    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.MeasurementData', ...]:
+        return (self.signal.with_data(np.sin(self.time_axis.range + self.current_x * 0.2)),)
 
 def test_hdf5_file_creation(dummy_instruments_class):
     measure = SinusGeneratorMeasurement()
