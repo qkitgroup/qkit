@@ -80,6 +80,7 @@ class HDF5:
             case _:
                 raise NotImplementedError(f"Dimensionality {len(shape)} not supported.")
         ds.attrs['ds_type'] = ds_type.value
+        ds.attrs['name'] = name.encode('utf-8')
         if comment is not None:
             ds.attrs['comment'] = comment.encode('utf-8')
         ds.attrs['ds_url'] = ds.name.encode('utf-8')
