@@ -240,7 +240,9 @@ class MeasurementTypeAdapter(ABC):
         Perform the measurement and record the results.
         """
         data = self.perform_measurement()
+        assert isinstance(data, list), "Measurement must return a list of MeasurementData!"
         for datum in data:
+            assert isinstance(datum, self.MeasurementData), "Measurement must return a list of MeasurementData!"
             datum.validate()
             ds = data_file.get_dataset(datum.descriptor.name)
             assert ds is not None, f"Dataset {datum.descriptor.name} not found!"
