@@ -4,8 +4,10 @@ from abc import ABC, abstractmethod
 from typing import Optional, Callable, Protocol, override
 import textwrap
 from h5py import Dataset
+import json
 
 import qkit
+from qkit.measure.json_handler import QkitJSONEncoder
 from qkit.measure.samples_class import Sample
 from qkit.measure.measurement_class import Measurement
 import qkit.measure.write_additional_files as waf
@@ -365,10 +367,9 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
 
             # Get Instrument settings, write to a file
             settings = waf.get_instrument_settings(str(measurement_file.into_path()))
-            import json
-            from qkit.measure.json_handler import QkitJSONEncoder
-            settings_str = json.dumps(obj=settings, cls=QkitJSONEncoder, indent = 4, sort_keys=True)
+
             # Also store in hdf5
+            settings_str = json.dumps(obj=settings, cls=QkitJSONEncoder, indent=4, sort_keys=True)
             data_file.write_text_record('settings', settings_str, 'Instrument States before measurement started.')
 
             data_file.hdf.attrs['comment'] = self._comment if self._comment is not None else ''
