@@ -1,3 +1,6 @@
+import pytest
+
+import qkit
 from qkit.measure.measurement_base import Experiment, MeasurementTypeAdapter, Axis
 import numpy as np
 from typing import override
@@ -37,7 +40,16 @@ class SweepInspectorMeasurement(MeasurementTypeAdapter):
         return [self.sweep_intercept.with_data(base)]
 
 
-def test_experiment_creation():
+@pytest.fixture
+def dummy_instruments_class():
+    class DummyInstruments:
+        def get_instruments(self):
+            return []
+        def get_instrument_names(self):
+            return []
+    qkit.instruments = DummyInstruments()
+
+def test_experiment_creation(dummy_instruments_class):
     log_measure = SweepInspectorMeasurement()
     e = Experiment('creation_test', SAMPLE)
     with e.sweep(lambda val: log_measure.x_log(val), X_SWEEP_AXIS) as x_sweep:
