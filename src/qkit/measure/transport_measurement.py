@@ -9,6 +9,8 @@ import itertools
 
 from qkit.drivers.AbstractIVDevice import AbstractIVDevice
 from qkit.measure.measurement_base import MeasurementTypeAdapter, Axis
+from qkit.storage.thin_hdf import HDF5
+
 
 @dataclass(frozen=True)
 class _MeasureMode:
@@ -105,6 +107,22 @@ class TransportMeasurement(MeasurementTypeAdapter):
     @property
     def expected_structure(self) -> tuple['MeasurementTypeAdapter.MeasurementDescriptor', ...]:
         return tuple(itertools.chain(*self._measurement_descriptors))
+
+    @override
+    @property
+    def default_views(self) -> dict[str, HDF5.DataView]:
+        return {
+            'IV': HDF5.DataView(
+                view_type=HDF5.DataViewType.ONE_D,
+                view_params="",
+                view_sets=list(itertools.chain(
+                    HDF5.DataViewSet(
+                        x_path= "/entry/data0/" + b.name, # TODO: Make this more elegant.
+                        y_path= "/entry/data0/" + m.name,
+                    ) for (b, m) in self._measurement_descriptors
+                ))
+            ),
+        }
 
     @override
     def perform_measurement(self) -> tuple['MeasurementTypeAdapter.MeasurementData', ...]:

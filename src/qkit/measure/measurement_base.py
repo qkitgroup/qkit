@@ -23,17 +23,19 @@ from qkit.storage.file_path_management import MeasurementFilePath
 # - The points of a sweep may be a subset of the total range, depending on the previous axes.
 # - Handle the dataset management ourselves, as the wrapped wrapper from store is too complicated.
 # - Custom Views
+# - Default Views
+# - TODO: Analysis
 #
 # It would be beneficial to have easy to understand syntax for this behaviour. With-Statements could be useful here.
 #
 # Proposed API:
-# measurement = Measurement() # At this point we don't care about the actual type of data.
-# with measurement.sweep() as x_sweep:
+# e = Experiment() # At this point we don't care about the actual type of data.
+# with e.sweep() as x_sweep:
 #   x_sweep.measure(MeasureOther()) # Log some value
 #   with x_sweep.sweep() as y_sweep:
 #       y_sweep.measure(MeasureWrapper()) # Main measurement
 #
-# measurement.run()
+# e.run()
 #
 # (Measurement, Sweep).sweep(
 #   setter: Callable(float),
@@ -240,6 +242,9 @@ class MeasurementTypeAdapter(ABC):
                                      axes=all_axes
                                      )
 
+        for name, view in self.default_views:
+            data_file.insert_view(name, view)
+
     def record(self, data_file: HDF5, sweep_indices: tuple[int, ...]):
         """
         Perform the measurement and record the results.
@@ -265,6 +270,13 @@ class MeasurementTypeAdapter(ABC):
         This is used to initialize the measurement files.
         """
         pass
+
+    @property
+    def default_views(self) -> dict[str, HDF5.DataView]:
+        """
+        A default set of views to be created for this kind of measurement. May be empty.
+        """
+        return {}
 
     @abstractmethod
     def perform_measurement(self) -> tuple['MeasurementTypeAdapter.MeasurementData', ...]:
