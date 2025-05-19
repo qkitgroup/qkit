@@ -25,7 +25,7 @@ class logFunc(object):
         self.func = func
         self.name = name
         self.unit = unit
-        print("Logging {} in file {}".format(name, file_name)) # TODO remove 
+        # print("Logging {} in file {}".format(name, file_name)) # TODO remove 
         self.signature = ""
         self.x_ds_url = x_ds_url
         if not (x_ds_url is None):
@@ -39,6 +39,7 @@ class logFunc(object):
         if not (trace_info is None):
             self.signature += "n"
         self.buffer1d: np.ndarray = None
+        self.log_ds: hdf_dataset = None
     def prepare_file(self):
         # prepare trace base coordinate if necessary
         if "n" in self.signature:
@@ -50,13 +51,13 @@ class logFunc(object):
                 trace_ds.add(self.trace_info[0])
         # the logic is admittably more complicated here, writing down all 8 possible cases of x,y,n present or not helps
         if len(self.signature) == 0:
-            self.file.add_coordinate(self.name, self.unit)
+            self.log_ds = self.file.add_coordinate(self.name, self.unit)
         elif len(self.signature) == 1:
-            self.file.add_value_vector(self.name, {"x":self.file.get_dataset(self.x_ds_url),"y":self.file.get_dataset(self.y_ds_url),"n":trace_ds}[self.signature], self.unit)
+            self.log_ds = self.file.add_value_vector(self.name, {"x":self.file.get_dataset(self.x_ds_url),"y":self.file.get_dataset(self.y_ds_url),"n":trace_ds}[self.signature], self.unit)
         elif len(self.signature) == 2:
-            self.file.add_value_matrix(self.name, self.file.get_dataset(self.x_ds_url) if "x" in self.signature else self.file.get_dataset(self.y_ds_url), trace_ds if "n" in self.signature else self.file.get_dataset(self.y_ds_url), self.unit)
+            self.log_ds = self.file.add_value_matrix(self.name, self.file.get_dataset(self.x_ds_url) if "x" in self.signature else self.file.get_dataset(self.y_ds_url), trace_ds if "n" in self.signature else self.file.get_dataset(self.y_ds_url), self.unit)
         elif len(self.signature) == 3:
-            self.file.add_value_box(self.name, self.file.get_dataset(self.x_ds_url), self.file.get_dataset(self.y_ds_url), trace_ds, self.unit)
+            self.log_ds = self.file.add_value_box(self.name, self.file.get_dataset(self.x_ds_url), self.file.get_dataset(self.y_ds_url), trace_ds, self.unit)
         
         if "x" in self.signature:
             self.x_len = self.file.get_dataset(self.x_ds_url).ds.shape[0]
@@ -65,23 +66,22 @@ class logFunc(object):
 
     def logIfDesired(self, ix=0, iy=0):        
         if (ix == 0 or "x" in self.signature) and (iy == 0 or "y" in self.signature): # log function call desired
-            log_ds = self.file.get_dataset("/entry/data0/{}".format(self.name))
             if len(self.signature) == 0: # ""
                 # we will only reach here once, no further case-logic required
-                log_ds.add(np.array([self.func()]))
+                self.log_ds.append(np.array([self.func()]), reset=True)
             elif "n" in self.signature: # "n", "xn", "yn", "xyn"
-                log_ds.append(self.func())
+                self.log_ds.append(self.func())
                 if len(self.signature) == 3:
                     if iy + 1 == self.y_len:
                         # who doesnt love 4x nested ifs edge cases? 
-                        log_ds.next_matrix() 
+                        self.log_ds.next_matrix() 
             elif "y" in self.signature: # "y", "xy"
                 if iy == 0:
                     self.buffer1d = np.full(self.y_len, np.nan)
                 self.buffer1d[iy] = self.func()
-                log_ds.append(self.buffer1d, reset=(iy != 0))
+                self.log_ds.append(self.buffer1d, reset=(iy != 0))
             else: # "x"
                 if ix == 0:
                     self.buffer1d = np.full(self.x_len, np.nan)
                 self.buffer1d[ix] = self.func()
-                log_ds.append(self.buffer1d, reset=(ix != 0))
+                self.log_ds.append(self.buffer1d, reset=(ix != 0))

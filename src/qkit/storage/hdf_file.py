@@ -32,7 +32,7 @@ class H5_file(object):
     trick of placing added data in the correct position in the dataset.
     """    
     
-    def __init__(self,output_file, mode,**kw):
+    def __init__(self, output_file, mode, **kw):
         """Inits the H5_file at the path 'output_file' with the access mode
         'mode'
         """
@@ -51,7 +51,7 @@ class H5_file(object):
             for k in kw:
                 self.grp.attrs[k] = kw[k]
         
-    def create_file(self,output_file, mode):
+    def create_file(self, output_file, mode):
         self.hf = h5py.File(output_file, mode, **file_kwargs)
 
     def set_base_attributes(self):

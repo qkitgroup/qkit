@@ -50,7 +50,7 @@ class Data(object):
                 logging.debug("Could not add newly generated h5 File '{}' to qkit.fid database: {}".format(name,e))
         else:
             self._filepath = os.path.abspath(self._name)
-            self._folder,self._filename = os.path.split(self._filepath)
+            self._folder, self._filename = os.path.split(self._filepath)
         "setup the  file"
         try:
             self.hf = H5_file(self._filepath, mode)
