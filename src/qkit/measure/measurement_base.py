@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Protocol
+from typing import Optional, Callable, Protocol, override
 import textwrap
 from h5py import Dataset
 
@@ -171,6 +171,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
                 new_context[self._axis.name] = value
                 self._sweep_child._run_sweep(data_file, index_list + (index,), **new_context)
 
+    @override
     def create_datasets(self, data_file: HDF5, swept_axes: list[Dataset]):
         swept_axes.append(self._axis.get_data_axis(data_file))
         super().create_datasets(data_file, swept_axes)
@@ -299,7 +300,7 @@ class MeasurementTypeAdapter(ABC):
         def validate(self):
             assert len(self.descriptor.axes) == len(self.data.shape), "Axis data incongruent with descriptor"
             for (i, axis) in enumerate(self.descriptor.axes):
-                assert self.data.shape[i] == len(axis.range), "Axis length and data length mismatch"
+                assert self.data.shape[i] == len(axis.range), f"Axis ({axis.name}) length and data length mismatch"
 
 
 class Experiment(ParentOfSweep, ParentOfMeasurements):
