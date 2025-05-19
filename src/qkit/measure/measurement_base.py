@@ -163,7 +163,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         for index, value in zip(filtered_indices, filtered_range):
             self._setter(value)
 
-            self.run_measurements(data_file, index_list)
+            self.run_measurements(data_file, index_list + (index,))
 
             # Go down the nested sweeps.
             if self._sweep_child is not None:
@@ -181,9 +181,10 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         setter_name = self._setter.__qualname__
         filter_repr = self._filter.__qualname__ if self._filter is not None else "None"
         self_repr = f"Sweep(setter={setter_name}, range={str(self._axis)}, filter={filter_repr})"
+        for measurement in self._measurements:
+            self_repr += '\n' + textwrap.indent(str(measurement), '\t')
         if self._sweep_child is not None:
-            self_repr += ":\r\n"
-            self_repr += textwrap.indent(str(self._sweep_child), '\t')
+            self_repr += '\n' + textwrap.indent(str(self._sweep_child), '\t')
         return self_repr
 
     @property
@@ -228,7 +229,7 @@ class MeasurementTypeAdapter(ABC):
         for descriptor in self.expected_structure:
             all_axes = swept_axes + list(map(lambda ax: ax.get_data_axis(data_file), list(descriptor.axes)))
             data_file.create_dataset(descriptor.name,
-                                     tuple(map(lambda axis: len(axis.range), all_axes)),
+                                     tuple(map(lambda axis: len(axis), all_axes)),
                                      descriptor.unit,
                                      axes=all_axes
                                      )
@@ -243,7 +244,7 @@ class MeasurementTypeAdapter(ABC):
             ds = data_file.get_dataset(datum.descriptor.name)
             assert ds is not None, f"Dataset {datum.descriptor.name} not found!"
             # Based on the sweeps that occurred, get the relevant subset of the Dataset
-            assert np.array_equiv(ds[*sweep_indices], np.full_like(ds[*sweep_indices], np.nan)), \
+            assert np.all(np.isnan(ds[*sweep_indices])), \
                 "Overwriting data! This indicates a logic error in the sweeps!"
             ds[*sweep_indices] = datum.data
 
@@ -266,6 +267,9 @@ class MeasurementTypeAdapter(ABC):
         and all MeasurementDescriptors associated with MeasurementData must be present in expected_structure.
         """
         pass
+
+    def __str__(self):
+        return f"Measurement({self.__class__.__name__}, ({self.expected_structure}))"
 
     @dataclass(frozen=True)
     class MeasurementDescriptor:
@@ -347,6 +351,8 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         self.create_datasets(data_file, [])
         if self._sweep_child is not None:
             self._sweep_child.create_datasets(data_file, [])
+
+
         # TODO: do waf
         # TODO: Use the measurement_class stuff to write the instrument state
         self.run_measurements(data_file, ())
