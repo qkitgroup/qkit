@@ -1,5 +1,6 @@
 from qkit.measure.measurement_base import Experiment, MeasurementTypeAdapter, Axis
 import numpy as np
+from typing import override
 
 from qkit.measure.samples_class import Sample
 
@@ -24,10 +25,12 @@ class SweepInspectorMeasurement(MeasurementTypeAdapter):
         self.current_x = value
         self.accumulated_data.append(value)
 
+    @override
     @property
     def expected_structure(self) -> list['MeasurementTypeAdapter.MeasurementDescriptor']:
         return [self.sweep_intercept]
 
+    @override
     def perform_measurement(self) -> list['MeasurementTypeAdapter.MeasurementData']:
         return [self.sweep_intercept.with_data(self.accumulated_data)]
 
@@ -48,6 +51,7 @@ def test_filtered_sweep():
                  X_SWEEP_AXIS,
                  axis_filter=lambda r: np.logical_and(r <= 8, r >= 2)) as x_sweep:
         x_sweep.measure(log_measure)
+    print(str(e))
     e.run()
     assert np.array_equal([2, 3, 4, 5, 6, 7, 8], log_measure.accumulated_data)
 
@@ -97,4 +101,5 @@ def test_hdf5_file_creation():
     e = Experiment('file_test', SAMPLE)
     with e.sweep(measure.x_log, X_SWEEP_AXIS) as x_sweep:
         x_sweep.measure(measure)
+    print(str(e))
     e.run()
