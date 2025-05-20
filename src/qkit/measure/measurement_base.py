@@ -14,39 +14,40 @@ import qkit.measure.write_additional_files as waf
 from qkit.storage.thin_hdf import HDF5
 from qkit.storage.file_path_management import MeasurementFilePath
 
+"""
+The unified measurement class infrastructure. Will attempt to unify all kinds of measurements into a common code base.
+This needs to do the following:
+- Allow for sweeps along various axis
+- (Optionally) Log some kind of measurement for each point of this axis
+- When at the point of the axis, perform some kind of measurement. This measurement may be 0- or 1-Dimensional
+- The points of a sweep may be a subset of the total range, depending on the previous axes.
+- Handle the dataset management ourselves, as the wrapped wrapper from store is too complicated.
+- Custom Views
+- Default Views
+- Analysis, TODO: Test, Derivative, CircleFit
 
-# The unified measurement class infrastructure. Will attempt to unify all kinds of measurements into a common code base.
-# This needs to do the following:
-# - Allow for sweeps along various axis
-# - (Optionally) Log some kind of measurement for each point of this axis
-# - When at the point of the axis, perform some kind of measurement. This measurement may be 0- or 1-Dimensional
-# - The points of a sweep may be a subset of the total range, depending on the previous axes.
-# - Handle the dataset management ourselves, as the wrapped wrapper from store is too complicated.
-# - Custom Views
-# - Default Views
-# - Analysis, TODO: Test
-#
-# It would be beneficial to have easy to understand syntax for this behaviour. With-Statements could be useful here.
-#
-# Proposed API:
-# e = Experiment() # At this point we don't care about the actual type of data.
-# with e.sweep() as x_sweep:
-#   x_sweep.measure(MeasureOther()) # Log some value
-#   with x_sweep.sweep() as y_sweep:
-#       y_sweep.measure(MeasureWrapper()) # Main measurement
-#
-# e.run()
-#
-# (Measurement, Sweep).sweep(
-#   setter: Callable(float),
-#   full_range: np.ndarray(float, 1D),
-#   filter: Callable(np.ndarray(float, 1D) -> np.ndarray(bool, 1D))
-# ) -> Sweep
-#
-# 
-# measure(
-#   measurement_adapter: MeasurementAdapter
-# )
+Nesting is performed using with-statement to improve readability.
+
+Proposed API:
+>>> e = Experiment() # At this point we don't care about the actual type of data.
+>>> with e.sweep() as x_sweep:
+>>>     x_sweep.measure(MeasureOther()) # Log some value
+>>>     with x_sweep.sweep() as y_sweep:
+>>>         y_sweep.measure(MeasureWrapper()) # Main measurement
+>>>
+>>>  e.run()
+
+>>> (Measurement, Sweep).sweep(
+>>>     setter: Callable(float),
+>>>     full_range: np.ndarray(float, 1D),
+>>>     filter: Callable(np.ndarray(float, 1D) -> np.ndarray(bool, 1D))
+>>> ) -> Sweep
+
+
+>>> measure(
+>>>     measurement_adapter: MeasurementAdapter
+>>> )
+"""
 
 @dataclass(frozen=True)
 class EnterableWrapper[T]:
@@ -116,6 +117,9 @@ class ParentOfMeasurements(ABC):
         return max(map(lambda m: len(m.expected_structure), self._measurements))
 
     def create_datasets(self, data_file: HDF5, swept_axes: list[Dataset]):
+        """
+        Based on the measurements and parent sweeps, create the datasets.
+        """
         for measurement in self._measurements:
             measurement.create_datasets(data_file, swept_axes)
 
@@ -128,6 +132,9 @@ class ParentOfMeasurements(ABC):
 
 
 class FilterCallback(Protocol):
+    """
+    A helper class defining the function signature of a filter callback.
+    """
     def __call__(self, axis_values: np.ndarray, **kwargs: float) -> np.ndarray:
         pass
 
@@ -227,6 +234,9 @@ class DataGenerator(ABC):
     """
 
     def store(self, data_file: HDF5, data: tuple['MeasurementTypeAdapter.GeneratedData', ...], sweep_indices: tuple[int, ...]):
+        """
+        Store the generated [data] in the [data_file], while selecting based on the current [sweep_indices].
+        """
         assert isinstance(data, tuple), "Measurement must return a tuple of MeasurementData!"
         for datum in data:
             assert isinstance(datum, self.GeneratedData), "Measurement must return a tuple of MeasurementData!"
@@ -346,6 +356,9 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
             analysis.record(data_file, sweep_indices, data)
 
     def with_analysis(self, analysis: AnalysisTypeAdapter):
+        """
+        Add an Analysis to this measurement.
+        """
         self._analyses.append(analysis)
 
     @abstractmethod
