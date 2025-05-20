@@ -57,7 +57,7 @@ class SavgolNumericalDerivative(AnalysisTypeAdapter):
                 MeasurementTypeAdapter.DataDescriptor(
                     name=f"d{x.name}/d{y.name}",
                     unit=f"{x.unit}/{y.unit}",
-                    axes=x.axes # TODO: Derivative reduces the size of the axis?
+                    axes=x.axes
                 ),
                 MeasurementTypeAdapter.DataDescriptor(
                     name=f"d{y.name}/d{x.name}",
