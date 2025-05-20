@@ -25,6 +25,7 @@ This needs to do the following:
 - Custom Views
 - Default Views
 - Analysis, TODO: Test, Derivative, CircleFit
+- TODO: Progress Bars
 
 Nesting is performed using with-statement to improve readability.
 
@@ -248,40 +249,6 @@ class DataGenerator(ABC):
                 "Overwriting data! This indicates a logic error in the sweeps!"
             ds[*sweep_indices] = datum.data
 
-    def create_datasets(self, data_file: HDF5, swept_axes: list[Dataset]):
-        """
-        Create the datasets for this kind of measurement. Takes into account
-        swept axes in the measurement tree.
-        """
-        for descriptor in self.expected_structure:
-            all_axes = swept_axes + list(map(lambda ax: ax.get_data_axis(data_file), list(descriptor.axes)))
-            data_file.create_dataset(descriptor.name,
-                                     tuple(map(lambda axis: len(axis), all_axes)),
-                                     descriptor.unit,
-                                     axes=all_axes
-                                     )
-
-        for name, view in self.default_views:
-            data_file.insert_view(name, view)
-
-    @property
-    @abstractmethod
-    def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
-        """
-        Return a list of MeasurementDescriptors for this kind of measurement.
-
-        This is used to initialize the measurement files.
-        """
-        pass
-
-    @property
-    def default_views(self) -> dict[str, HDF5.DataView]:
-        """
-        A default set of views to be created for this kind of measurement. Can be empty.
-        Maps the name to the view, thus a dict.
-        """
-        return {}
-
     @dataclass(frozen=True)
     class DataDescriptor:
         """
@@ -322,6 +289,31 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
     def record(self, data_file: HDF5, sweep_indices: tuple[int, ...], measured_data: tuple['MeasurementTypeAdapter.GeneratedData', ...]):
         self.store(data_file, self.perform_analysis(measured_data), sweep_indices)
 
+    def create_datasets(self, data_file: HDF5, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...], swept_axes: list[Dataset]):
+        for descriptor in self.expected_structure(parent_schema):
+            all_axes = swept_axes + list(map(lambda ax: ax.get_data_axis(data_file), list(descriptor.axes)))
+            data_file.create_dataset(descriptor.name,
+                                     tuple(map(lambda axis: len(axis), all_axes)),
+                                     descriptor.unit,
+                                     axes=all_axes
+                                     )
+
+        for name, view in self.default_views(parent_schema):
+            data_file.insert_view(name, view)
+
+    @abstractmethod
+    def expected_structure(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> tuple[
+        'MeasurementTypeAdapter.DataDescriptor', ...]:
+        pass
+
+    @abstractmethod
+    def default_views(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> dict[str, HDF5.DataView]:
+        """
+        A default set of views to be created for this kind of measurement. Can be empty.
+        Maps the name to the view, thus a dict.
+        """
+        return {}
+
     @abstractmethod
     def perform_analysis(self, data: tuple['MeasurementTypeAdapter.GeneratedData', ...]) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
         pass
@@ -340,11 +332,24 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         super().__init__()
         self._analyses = []
 
-    @override
     def create_datasets(self, data_file: HDF5, swept_axes: list[Dataset]):
-        super().create_datasets(data_file, swept_axes)
+        """
+        Create the datasets for this kind of measurement. Takes into account
+        swept axes in the measurement tree.
+        """
+        for descriptor in self.expected_structure:
+            all_axes = swept_axes + list(map(lambda ax: ax.get_data_axis(data_file), list(descriptor.axes)))
+            data_file.create_dataset(descriptor.name,
+                                     tuple(map(lambda axis: len(axis), all_axes)),
+                                     descriptor.unit,
+                                     axes=all_axes
+                                     )
+
+        for name, view in self.default_views:
+            data_file.insert_view(name, view)
+
         for analysis in self._analyses:
-            analysis.create_datasets(data_file, swept_axes)
+            analysis.create_datasets(data_file, self.expected_structure, swept_axes)
 
     def record(self, data_file: HDF5, sweep_indices: tuple[int, ...]):
         """
@@ -360,6 +365,24 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         Add an Analysis to this measurement.
         """
         self._analyses.append(analysis)
+
+    @property
+    @abstractmethod
+    def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
+        """
+        Return a list of MeasurementDescriptors for this kind of measurement.
+
+        This is used to initialize the measurement files.
+        """
+        pass
+
+    @property
+    def default_views(self) -> dict[str, HDF5.DataView]:
+        """
+        A default set of views to be created for this kind of measurement. Can be empty.
+        Maps the name to the view, thus a dict.
+        """
+        return {}
 
     @abstractmethod
     def perform_measurement(self) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
