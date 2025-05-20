@@ -54,21 +54,27 @@ class HDF5:
         self.analysis_group = entry.require_group('analysis0')
 
     def create_dataset(self, name: str, shape: tuple[int,...], unit: str = 'a.u.', dtype: str = 'f',
-                       axes: Optional[list[h5py.Dataset]] = None, comment: Optional[str] = None, **kwargs):
+                       axes: Optional[list[h5py.Dataset]] = None, comment: Optional[str] = None, category: Literal['data', 'analysis'] = 'data', **kwargs):
         """
-        Create a dataset of fixed size. No compression, no scale offset.
+        Create a dataset of fixed size. Initialized empty, but compressed, no scale offset.
 
         Let's hdf5 do automatic chunking, also uses lzf compression to minimize empty file size.
         Derives type of data from dimensionality (i.e. 1D=vector, 2D=matrix, 3D=box).
 
         Use the axis argument to define x, y, z axis.
         """
-        # We assume, that at most full vectors will be written. We can thus start growing our array from the last dimension.
-        ds = self.data_group.create_dataset(name,
-                                            shape, maxshape=shape, # Shape
-                                            dtype=dtype, fillvalue = np.nan, # Empty initialization
-                                            chunks=True, compression='lzf' # Storage options
-                                            )
+        if category == 'data':
+            group = self.data_group
+        elif category == 'analysis':
+            group = self.analysis_group
+        else:
+            raise ValueError(f"Category {category} not supported.")
+        ds = group.create_dataset(
+            name,
+            shape, maxshape=shape, # Shape
+            dtype=dtype, fillvalue = np.nan, # Empty initialization
+            chunks=True, compression='lzf' # Storage options
+        )
         # Set Metadata: ds_type from dimension
         match len(shape):
             case 1:
@@ -91,8 +97,14 @@ class HDF5:
                 ds.attrs[f"{label}_ds_url"] = axis.name.encode('utf-8')
         return ds
 
-    def get_dataset(self, ds_url: str) -> h5py.Dataset | None:
-        return self.data_group.get(ds_url, None)
+    def get_dataset(self, ds_url: str, category: Literal['data', 'analysis'] = 'data') -> h5py.Dataset | None:
+        if category == 'data':
+            group = self.data_group
+        elif category == 'analysis':
+            group = self.analysis_group
+        else:
+            raise ValueError(f"Category {category} not supported.")
+        return group.get(ds_url, default=None)
 
     def write_text_record(self, name: str, content: str, comment: Optional[str] = None):
         """
@@ -117,7 +129,7 @@ class HDF5:
         in the same plot.
         """
         ds = self.view_group.require_dataset(name, shape=(), maxshape=(), dtype='f')
-        view.write(ds)
+        view.write(self, ds)
 
     def close(self):
         self.hdf.close()
@@ -128,26 +140,39 @@ class HDF5:
         view_params: str
         view_sets: list['HDF5.DataViewSet'] = field(default_factory=list)
 
-        def write(self, dataset: h5py.Dataset):
+        def write(self, file: 'HDF5', dataset: h5py.Dataset):
             dataset.attrs['ds_type'] = HDF5.DataSetType.VIEW.value
             dataset.attrs['view_type'] = self.view_type.value
             dataset.attrs['view_params'] = self.view_params.encode('utf-8')
             dataset.attrs['overlays'] = len(self.view_sets)
             for i, view in enumerate(self.view_sets):
-                view.write_to_dataset(dataset, i)
+                view.write_to_dataset(file, dataset, i)
+
+    @dataclass(frozen=True)
+    class DataReference:
+        name: str
+        category: Literal['data', 'analysis'] = 'data'
+
+        def get_dataset(self, hdf: 'HDF5') -> h5py.Dataset:
+            return hdf.get_dataset(self.name, self.category)
+
+        def to_path(self, hdf: 'HDF5') -> str:
+            return self.get_dataset(hdf).name.decode('utf-8')
+
 
     @dataclass(frozen=True)
     class DataViewSet:
-        x_path: str
-        y_path: str
+        x_path: 'HDF5.DataReference'
+        y_path: 'HDF5.DataReference'
         filter: Optional[str] = None
         error: Optional[str] = None
 
-        def write_to_dataset(self, dataset: h5py.Dataset, index):
-            dataset.attrs[f'xy_{index}'] = f"{self.x_path}:{self.y_path}".encode('utf-8')
+        def write_to_dataset(self, file: 'HDF5', dataset: h5py.Dataset, index):
+            dataset.attrs[f'xy_{index}'] = f"{self.x_path.to_path(file)}:{self.y_path.to_path(file)}".encode('utf-8')
             dataset.attrs[f'xy_{index}_filter'] = self.filter.encode('utf-8') if self.filter else None
             if self.error:
                 dataset.attrs[f'xy_{index}_error'] = self.error.encode('utf-8')
+
 
     class DataSetType(Enum):
         COORDINATE = 0
