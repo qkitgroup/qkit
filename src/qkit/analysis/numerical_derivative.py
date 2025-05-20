@@ -1,0 +1,95 @@
+import itertools
+from enum import Enum
+from typing import override
+
+from scipy import signal
+from uncertainties.unumpy import derivative
+
+from qkit.measure.measurement_base import AnalysisTypeAdapter, MeasurementTypeAdapter
+from qkit.storage.thin_hdf import HDF5
+
+
+
+class SavgolNumericalDerivative(AnalysisTypeAdapter):
+    """
+    Apply a numerical derivative to the measurement data.
+
+    Performs pair-wise differentiation of the measurement data.
+
+    Assumes that measurement data comes in (I, V, I, V, ...) format or equivalent.
+    Assumes that names are in the form of '[IV]_(?:b_)?_[0-9]'
+    """
+
+    _window_length: int
+    _polyorder: int
+    _derivative: int
+
+    def __init__(self, window_length: int = 15, polyorder: int = 3, derivative: int = 1):
+        super().__init__()
+        self._window_length = window_length
+        self._polyorder = polyorder
+        self._derivative = derivative
+
+    @override
+    def perform_analysis(self, data: tuple['MeasurementTypeAdapter.GeneratedData', ...]) -> tuple[
+        'MeasurementTypeAdapter.GeneratedData', ...]:
+        parent_schema = tuple([element.descriptor for element in data])
+        output_schema = self.expected_structure(parent_schema)
+        out = []
+        for ((dxdy, dydx), (x, y)) in zip(itertools.batched(output_schema, 2), itertools.batched(data, 2)):
+            out.append(dxdy.with_data(
+                signal.savgol_filter(x.data, window_length=self._window_length, polyorder=self._polyorder, deriv=self._derivative)\
+                / signal.savgol_filter(y.data, window_length=self._window_length, polyorder=self._polyorder, deriv=self._derivative)
+            ))
+            out.append(dydx.with_data(
+                signal.savgol_filter(y.data, window_length=self._window_length, polyorder=self._polyorder, deriv=self._derivative)\
+                / signal.savgol_filter(x.data, window_length=self._window_length, polyorder=self._polyorder, deriv=self._derivative)
+            ))
+        return tuple(out)
+
+
+    @override
+    def expected_structure(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
+        structure = []
+        for (x, y) in itertools.batched(parent_schema, 2):
+            assert x.axes == y.axes
+            structure += [
+                MeasurementTypeAdapter.DataDescriptor(
+                    name=f"d{x.name}/d{y.name}",
+                    unit=f"{x.unit}/{y.unit}",
+                    axes=x.axes # TODO: Derivative reduces the size of the axis?
+                ),
+                MeasurementTypeAdapter.DataDescriptor(
+                    name=f"d{y.name}/d{x.name}",
+                    unit=f"{y.unit}/{x.unit}",
+                    axes=x.axes
+                )
+            ]
+        return tuple(structure)
+
+    @override
+    def default_views(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> dict[str, HDF5.DataView]:
+        schema = self.expected_structure(parent_schema)
+        variable_names = (schema[0].name.split('_')[0], schema[1].name.split('_')[0])
+        return {
+            f'd{variable_names[0]}/d{variable_names[1]}': HDF5.DataView(
+                view_type=HDF5.DataViewType.ONE_D,
+                view_params="",
+                view_sets=[
+                    HDF5.DataViewSet(
+                        x_path=HDF5.DataReference(entry.axes[0].name, category='analysis'),
+                        y_path=HDF5.DataReference(entry.name, category='analysis')
+                    ) for entry in schema[0::2]
+                ]
+            ),
+            f'd{variable_names[1]}/d{variable_names[0]}': HDF5.DataView(
+                view_type=HDF5.DataViewType.ONE_D,
+                view_params="",
+                view_sets=[
+                    HDF5.DataViewSet(
+                        x_path=HDF5.DataReference(entry.axes[0].name, category='analysis'),
+                        y_path=HDF5.DataReference(entry.name, category='analysis')
+                    ) for entry in schema[1::2]
+                ]
+            )
+        }
