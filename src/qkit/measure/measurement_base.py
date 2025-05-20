@@ -295,7 +295,8 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
             data_file.create_dataset(descriptor.name,
                                      tuple(map(lambda axis: len(axis), all_axes)),
                                      descriptor.unit,
-                                     axes=all_axes
+                                     axes=all_axes,
+                                     category='analysis'
                                      )
 
         for name, view in self.default_views(parent_schema):
@@ -304,6 +305,9 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
     @abstractmethod
     def expected_structure(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> tuple[
         'MeasurementTypeAdapter.DataDescriptor', ...]:
+        """
+        The datasets to be created in the analysis section of the file.
+        """
         pass
 
     @abstractmethod
