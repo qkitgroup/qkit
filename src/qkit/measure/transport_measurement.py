@@ -118,8 +118,8 @@ class TransportMeasurement(MeasurementTypeAdapter):
                 view_params="",
                 view_sets=list(itertools.chain(
                     HDF5.DataViewSet(
-                        x_path= "/entry/data0/" + b.name, # TODO: Make this more elegant.
-                        y_path= "/entry/data0/" + m.name,
+                        x_path= HDF5.DataReference(b.name),
+                        y_path= HDF5.DataReference(m.name),
                     ) for (b, m) in self._measurement_descriptors
                 ))
             ),
