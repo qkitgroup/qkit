@@ -23,16 +23,18 @@ import sys
 import threading
 
 import qkit
+import qkit.analysis.resonator_fitting as resonatorFit
 if qkit.module_available("matplotlib"):
     import matplotlib.pylab as plt
 if qkit.module_available("scipy"):
     from scipy.optimize import curve_fit
     from scipy.interpolate import interp1d, UnivariateSpline
 from qkit.storage import store as hdf
-from qkit.analysis.resonator import Resonator as resonator
+#from qkit.analysis.resonator import Resonator as resonator
 from qkit.gui.plot import plot as qviewkit
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
 from qkit.measure.measurement_class import Measurement
+from qkit.measure.logging_base import logFunc
 import qkit.measure.write_additional_files as waf
 
 
@@ -44,8 +46,8 @@ class spectrum(object):
     usage:
     m = spectrum(vna = vna1)
 
-    m.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current',coil.set_current, unit = 'mA')  outer scan in 3D
-    m.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency',mw_src1.set_frequency, unit = 'Hz')
+    m.set_x_parameters(arange(-0.05,0.05,0.01),'flux coil current',coil.set_current, unit = 'mA')  # outer scan in 2D & 3D
+    m.set_y_parameters(arange(4e9,7e9,10e6),'excitation frequency',mw_src1.set_frequency, unit = 'Hz') # inner scan in 3D
 
     m.landscape.generate_fit_function_xy(...) for 3D scan, can be called several times and appends the current landscape
     m.landscape.generate_fit_function_xz(...) for 2D or 3D scan, adjusts the vna freqs with respect to x
@@ -79,8 +81,8 @@ class spectrum(object):
         self._fit_resonator = False
         self._plot_comment = ""
 
-        self.set_log_function()
-        self.set_log_function_2D()
+        self.log_init_params = [] # buffer is necessary to allow adjusting x/y parameter sweeps after setting log functions
+        self.log_funcs: list[logFunc] = []
 
         self.open_qviewkit = True
         self.qviewkit_singleInstance = False
@@ -93,97 +95,51 @@ class spectrum(object):
         self._qvk_process = False
         self._scan_dim = None
         self._scan_time = False
+    
+    def add_logger(self, func, name, unit, over_x=True, over_y=False, is_trace=False, trace_base_vals=None, trace_base_name=None, trace_base_unit=None):
+        """
+        Migration from set_log_function & set_log_function_2D:
+
+        --------
+        def get_T():
+            ... # returns a float
+        def a():
+            ... # returns a float
+        trace_base = np.linspace(1, 2, 101)
+        def b_trace():
+            ... # returns a trace
+        
+        # obsolete 
+        # spec.set_log_function([get_T, a], ["temp", "a_name"], ["K", "a_unit"])
+        # spec.set_log_function_2D([b_trace], ["b_name"], ["b_unit"], [trace_base], ["base_name"], ["base_unit"])
+
+        # do instead
+        spec.add_logger(get_T, "temp", "K", over_y=True) # over_y optional for more logged temperatures
+        spec.add_logger(a, "a_name", "a_unit") # default migration
+        spec.add_logger(b_trace, "b_name", "b_unit", is_trace=True, trace_base_vals=trace_base, trace_base_name="base_name", trace_base_unit="base_unit") # traces
+        ------
+
+        Alternatively more options like logging over y-iterations aswell or skipping the x-iteration are possible now, see qkit/measure/logging_base for details.
+        """
+        self.log_init_params += [(func, name, unit, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit)] # handle logger initialization in prepare_file
+
+    def clear_loggers(self):
+        """
+        Clear all set log functions
+        """
+        self.log_init_params = []
 
     def set_log_function(self, func=None, name=None, unit=None, log_dtype=None):
         '''
-        A function (object) can be passed to the measurement loop which is excecuted before every x iteration
-        but after executing the x_object setter in 2D measurements and before every line (but after setting
-        the x value) in 3D measurements.
-        The return value of the function of type float or similar is stored in a value vector in the h5 file.
-
-        Call without any arguments to delete all log functions. The timestamp is automatically saved.
-
-        func: function object in list form
-        name: name of logging parameter appearing in h5 file, default: 'log_param'
-        unit: unit of logging parameter, default: ''
-        log_dtype: h5 data type, default: 'f' (float32)
+        Obsolete since covered by 'add_logger'.
         '''
-
-        if name == None:
-            try:
-                name = ['log_param'] * len(func)
-            except Exception:
-                name = None
-        if unit == None:
-            try:
-                unit = [''] * len(func)
-            except Exception:
-                unit = None
-        if log_dtype == None:
-            try:
-                log_dtype = ['f'] * len(func)
-            except Exception:
-                log_dtype = None
-
-        self.log_function = []
-        self.log_name = []
-        self.log_unit = []
-        self.log_dtype = []
-
-        if func != None:
-            for i, f in enumerate(func):
-                self.log_function.append(f)
-                self.log_name.append(name[i])
-                self.log_unit.append(unit[i])
-                self.log_dtype.append(log_dtype[i])
+        logging.error("'set_log_function' is obsolete, 'add_logger' is used instead. See respective qkit/src/qkit/measure/spectroscopy function docs for how to migrate.")
     
     def set_log_function_2D(self, func=None, name=None, unit=None, y=None, y_name=None, y_unit=None, log_dtype=None):
         '''
-        A function (object) can be passed to the measurement loop which is excecuted before every x iteration
-        but after executing the x_object setter in 2D measurements and before every line (but after setting
-        the x value) in 3D measurements.
-        The return values of the function of type 1D-list or similar is stored in a value matrix in the h5 file.
-
-        Call without any arguments to delete all log functions. The timestamp is automatically saved.
-
-        func: function object in list form, returning a list each
-        name: name of logging parameter appearing in h5 file, default: 'log_param'
-        unit: unit of logging parameter, default: ''
-        log_dtype: h5 data type, default: 'f' (float32)
+        Obsolete since covered by 'add_logger'.
         '''
-        if name == None:
-            try:
-                name = ['log_param'] * len(func)
-            except Exception:
-                name = None
-        if unit == None:
-            try:
-                unit = [''] * len(func)
-            except Exception:
-                unit = None
-        if log_dtype == None:
-            try:
-                log_dtype = ['f'] * len(func)
-            except Exception:
-                log_dtype = None
-
-        self.log_function_2D = []
-        self.log_name_2D = []
-        self.log_unit_2D = []
-        self.log_y_2D = []
-        self.log_y_name_2D = []
-        self.log_y_unit_2D = []
-        self.log_dtype_2D = []
-
-        if func != None:
-            for i, _ in enumerate(func):
-                self.log_function_2D.append(func[i])
-                self.log_name_2D.append(name[i])
-                self.log_unit_2D.append(unit[i])
-                self.log_dtype_2D.append(log_dtype[i])
-                self.log_y_2D.append(y[i])
-                self.log_y_name_2D.append(y_name[i])
-                self.log_y_unit_2D.append(y_unit[i])
+        logging.error("'set_log_function_2D' is obsolete, 'add_logger' is used instead. See respective qkit/src/qkit/measure/spectroscopy function docs for how to migrate.")
 
     def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit=""):
         """
@@ -259,7 +215,9 @@ class spectrum(object):
         self._mo.append(self._measurement_object.get_JSON())
 
         # write logfile and instrument settings
-        self._write_settings_dataset()
+        self._settings = self._data_file.add_textlist('settings')
+        settings = waf.get_instrument_settings(self._data_file.get_filepath())
+        self._settings.append(settings)
         self._log = waf.open_log_file(self._data_file.get_filepath())
 
         self._data_freq = self._data_file.add_coordinate('frequency', unit='Hz')
@@ -271,37 +229,53 @@ class spectrum(object):
             self._data_time = self._data_file.add_coordinate('time', unit='s')
             self._data_time.add(np.arange(0, self._nop, 1) * self.vna.get_sweeptime() / (self._nop - 1))
             sweep_vector = self._data_time
+        
+        # for automatic circlefit
+        if self._fit_resonator: 
+            self._fit_select = (self._freqpoints >= self._f_min) & (self._freqpoints <= self._f_max)
+            self._fit_freq = self._data_file.add_coordinate('_fit_frequency', unit='Hz', folder="analysis")
 
         if self._scan_dim == 1:
             self._data_real = self._data_file.add_value_vector('real', x=sweep_vector, unit='', save_timestamp=True)
             self._data_imag = self._data_file.add_value_vector('imag', x=sweep_vector, unit='', save_timestamp=True)
-            self._data_amp = self._data_file.add_value_vector('amplitude', x=sweep_vector, unit='arb. unit',
-                                                              save_timestamp=True)
-            self._data_pha = self._data_file.add_value_vector('phase', x=sweep_vector, unit='rad',
-                                                              save_timestamp=True)
+            self._data_amp = self._data_file.add_value_vector('amplitude', x=sweep_vector, unit='arb. unit', save_timestamp=True)
+            self._data_pha = self._data_file.add_value_vector('phase', x=sweep_vector, unit='rad', save_timestamp=True)
+
+            self._iq_view = self._data_file.add_view("IQ", x=self._data_real, y=self._data_imag, view_params={'aspect': 1.0})
+
+            if self._fit_resonator:
+                self._fit_amp = self._data_file.add_value_vector("_fit_amplitude", x=self._fit_freq, unit="arb. unit", folder="analysis")
+                self._fit_pha = self._data_file.add_value_vector("_fit_phase", x=self._fit_freq, unit="rad", folder="analysis")
+                self._fit_real = self._data_file.add_value_vector("_fit_real", x=self._fit_freq, unit="", folder="analysis")
+                self._fit_imag = self._data_file.add_value_vector("_fit_imag", x=self._fit_freq, unit="", folder="analysis")
+                # extract data is single datapoint for 1D measure, add as coordinate after measurement manually
 
         if self._scan_dim == 2:
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit=self.x_unit)
             self._data_x.add(self.x_vec)
-            self._data_amp = self._data_file.add_value_matrix('amplitude', x=self._data_x, y=sweep_vector,
-                                                              unit='arb. unit', save_timestamp=True)
-            self._data_pha = self._data_file.add_value_matrix('phase', x=self._data_x, y=sweep_vector, unit='rad',
-                                                              save_timestamp=True)
 
-            if self.log_function != None:  # use logging
-                self._log_value = []
-                for i in range(len(self.log_function)):
-                    self._log_value.append(
-                        self._data_file.add_value_vector(self.log_name[i], x=self._data_x, unit=self.log_unit[i],
-                                                         dtype=self.log_dtype[i]))
+            self._data_real = self._data_file.add_value_matrix('real', x=self._data_x, y=sweep_vector, unit='', save_timestamp=False)
+            self._data_imag = self._data_file.add_value_matrix('imag', x=self._data_x, y=sweep_vector, unit='', save_timestamp=False)
+            self._data_amp = self._data_file.add_value_matrix('amplitude', x=self._data_x, y=sweep_vector, unit='arb. unit', save_timestamp=True)
+            self._data_pha = self._data_file.add_value_matrix('phase', x=self._data_x, y=sweep_vector, unit='rad', save_timestamp=True)
+
+            self._iq_view = self._data_file.add_view("IQ", x=self._data_real, y=self._data_imag, view_params={'aspect': 1.0})
+
+            if self._fit_resonator:
+                self._fit_amp = self._data_file.add_value_matrix("_fit_amplitude", x=self._data_x, y=sweep_vector, unit="arb. unit", folder="analysis")
+                self._fit_pha = self._data_file.add_value_matrix("_fit_phase", x=self._data_x, y=sweep_vector, unit="rad", folder="analysis")
+                self._fit_real = self._data_file.add_value_matrix("_fit_real", x=self._data_x, y=sweep_vector, unit="", folder="analysis")
+                self._fit_imag = self._data_file.add_value_matrix("_fit_imag", x=self._data_x, y=sweep_vector, unit="", folder="analysis")
+
+                self._fit_extracts: dict[str, hdf.hdf_dataset] = {}
+                for key in self._fit_function.extract_data.keys():
+                    self._fit_extracts[key] = self._data_file.add_value_vector("fit_" + key, x=self._data_x, unit="", folder="analysis")
 
             if self._nop < 10:
                 """creates view: plot middle point vs x-parameter, for qubit measurements"""
                 self._views = [
-                    self._data_file.add_view("amplitude_midpoint",x=self._data_x,y=self._data_amp,
-                                             view_params=dict(transpose=True,default_trace=self._nop // 2,linecolors=[(200,200,100)])),
-                    self._data_file.add_view("phase_midpoint", x=self._data_x, y=self._data_pha,
-                                             view_params=dict(transpose=True, default_trace=self._nop // 2, linecolors=[(200, 200, 100)]))
+                    self._data_file.add_view("amplitude_midpoint", x=self._data_x, y=self._data_amp, view_params=dict(transpose=True, default_trace=self._nop // 2,linecolors=[(200, 200, 100)])),
+                    self._data_file.add_view("phase_midpoint", x=self._data_x, y=self._data_pha, view_params=dict(transpose=True, default_trace=self._nop // 2, linecolors=[(200, 200, 100)]))
                 ]
 
         if self._scan_dim == 3:
@@ -311,49 +285,46 @@ class spectrum(object):
             self._data_y.add(self.y_vec)
 
             if self._nop == 0:  # saving in a 2D matrix instead of a 3D box HR: does not work yet !!! test things before you put them online.
-                self._data_amp = self._data_file.add_value_matrix('amplitude', x=self._data_x, y=self._data_y,
-                                                                  unit='arb. unit', save_timestamp=False)
-                self._data_pha = self._data_file.add_value_matrix('phase', x=self._data_x, y=self._data_y, unit='rad',
-                                                                  save_timestamp=False)
+                self._data_amp = self._data_file.add_value_matrix('amplitude', x=self._data_x, y=self._data_y, unit='arb. unit', save_timestamp=False)
+                self._data_pha = self._data_file.add_value_matrix('phase', x=self._data_x, y=self._data_y, unit='rad', save_timestamp=False)
             else:
-                self._data_amp = self._data_file.add_value_box('amplitude', x=self._data_x, y=self._data_y,
-                                                               z=sweep_vector, unit='arb. unit',
-                                                               save_timestamp=False)
-                self._data_pha = self._data_file.add_value_box('phase', x=self._data_x, y=self._data_y,
-                                                               z=sweep_vector, unit='rad', save_timestamp=False)
+                self._data_real = self._data_file.add_value_box('real', x=self._data_x, y=self._data_y, z=sweep_vector, unit='', save_timestamp=False)
+                self._data_imag = self._data_file.add_value_box('imag', x=self._data_x, y=self._data_y, z=sweep_vector, unit='', save_timestamp=False)
+                self._data_amp = self._data_file.add_value_box('amplitude', x=self._data_x, y=self._data_y, z=sweep_vector, unit='arb. unit', save_timestamp=True)
+                self._data_pha = self._data_file.add_value_box('phase', x=self._data_x, y=self._data_y, z=sweep_vector, unit='rad', save_timestamp=True)
 
-            if self.log_function != None:  # use logging
-                self._log_value = []
-                for i in range(len(self.log_function)):
-                    self._log_value.append(
-                        self._data_file.add_value_vector(self.log_name[i], x=self._data_x, unit=self.log_unit[i],
-                                                         dtype=self.log_dtype[i]))
+                self._iq_view = self._data_file.add_view("IQ", x=self._data_real, y=self._data_imag, view_params={'aspect': 1.0})
 
-            if self.log_function_2D != None:  # use 2D logging
-                self._log_y_value_2D = []
-                for i in range(len(self.log_y_name_2D)):
-                    if self.log_y_name_2D[i] not in self.log_y_name_2D[:i]:  # add y coordinate for 2D logging
-                        self._log_y_value_2D.append(self._data_file.add_coordinate(self.log_y_name_2D[i], unit=self.log_y_unit_2D[i], folder='data'))  # possibly use "data1"
-                        self._log_y_value_2D[i].add(self.log_y_2D[i])
-                    else:  # use y coordinate for 2D logging if it is already added
-                        self._log_y_value_2D.append(self._log_y_value_2D[np.squeeze(np.argwhere(self.log_y_name_2D[i] == np.array(self.log_y_name_2D[:i])))])
-                
-                self._log_value_2D = []
-                for i in range(len(self.log_function_2D)):
-                    self._log_value_2D.append(
-                        self._data_file.add_value_matrix(self.log_name_2D[i], x=self._data_x, y=self._log_y_value_2D[i], unit=self.log_unit_2D[i],
-                                                         dtype=self.log_dtype_2D[i], folder='data'))  # possibly use "data1"
+            if self._fit_resonator:
+                self._fit_amp = self._data_file.add_value_box("_fit_amplitude", x=self._data_x, y=self._data_y, z=sweep_vector, unit="arb. unit", folder="analysis")
+                self._fit_pha = self._data_file.add_value_box("_fit_phase", x=self._data_x, y=self._data_y, z=sweep_vector, unit="rad", folder="analysis")
+                self._fit_real = self._data_file.add_value_box("_fit_real", x=self._data_x, y=self._data_y, z=sweep_vector, unit="", folder="analysis")
+                self._fit_imag = self._data_file.add_value_box("_fit_imag", x=self._data_x, y=self._data_y, z=sweep_vector, unit="", folder="analysis")
+
+                self._fit_extracts: dict[str, hdf.hdf_dataset] = {}
+                for key in self._fit_function.extract_data.keys():
+                    self._fit_extracts[key] = self._data_file.add_value_matrix("fit_" + key, x=self._data_x, y=self._data_y, unit="", folder="analysis")
+
+        if self._fit_resonator:
+            self._iq_view.add(self._fit_real, self._fit_imag)
+            self._amp_view = self._data_file.add_view("AmplitudeFit", self._data_freq, self._data_amp)
+            self._amp_view.add(self._fit_freq, self._fit_amp)
+            self._pha_view = self._data_file.add_view("PhaseFit", self._data_freq, self._data_pha)
+            self._pha_view.add(self._fit_freq, self._fit_pha)
+
+        for init_tuple in self.log_init_params:
+            func, name, unit, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit = init_tuple
+            self.log_funcs += [logFunc(self._data_file.get_filepath(), func, name, unit, 
+                                       self._data_x.ds_url if (self._scan_dim >= 2) and over_x else None, 
+                                       self._data_y.ds_url if (self._scan_dim == 3) and over_y else None, 
+                                       (trace_base_vals, trace_base_name, trace_base_unit) if is_trace else None)]
+            self.log_funcs[-1].prepare_file()
 
         if self.comment:
             self._data_file.add_comment(self.comment)
 
         if self.qviewkit_singleInstance and self.open_qviewkit and self._qvk_process:
             self._qvk_process.terminate()  # terminate an old qviewkit instance
-
-    def _write_settings_dataset(self):
-        self._settings = self._data_file.add_textlist('settings')
-        settings = waf.get_instrument_settings(self._data_file.get_filepath())
-        self._settings.append(settings)
 
     def measure_1D(self, rescan=True, web_visible=True):
         '''
@@ -379,11 +350,13 @@ class spectrum(object):
 
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'])
-        if self._fit_resonator:
-            self._resonator = resonator(self._data_file.get_filepath())
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase', 'views/IQ'])
 
         qkit.flow.start()
+
+        for lf in self.log_funcs:
+            lf.logIfDesired()
+        
         if rescan:
             if self.averaging_start_ready:
                 self.vna.start_measurement()
@@ -426,7 +399,19 @@ class spectrum(object):
         self._data_real.append(data_real)
         self._data_imag.append(data_imag)
         if self._fit_resonator:
-            self._do_fit_resonator()
+            self._fit_function.do_fit(self._freqpoints[self._fit_select], np.array(data_amp)[self._fit_select], np.array(data_pha)[self._fit_select])
+            # add fit data to file
+            self._fit_freq.add(self._fit_function.freq_fit)
+            self._fit_amp.append(self._fit_function.amp_fit)
+            self._fit_pha.append(self._fit_function.pha_fit)
+            self._fit_real.append(self._fit_function.amp_fit*np.cos(self._fit_function.pha_fit))
+            self._fit_imag.append(self._fit_function.amp_fit*np.sin(self._fit_function.pha_fit))
+
+            self._fit_extracts: dict[str, hdf.hdf_dataset] = {}
+            for key, val in self._fit_function.extract_data.items():
+                # define extract data in 1D case here instead of before measurement, so the file ist not too clustered if measurement fails
+                self._fit_extracts[key] = self._data_file.add_coordinate("fit_" + key, unit="", folder="analysis")
+                self._fit_extracts[key].append(val)
 
         qkit.flow.end()
         self._end_measurement()
@@ -459,8 +444,7 @@ class spectrum(object):
         if self.exp_name:
             self._file_name += '_' + self.exp_name
 
-        if self.progress_bar: self._p = Progress_Bar(len(self.x_vec), '2D VNA sweep ' + self.dirname,
-                                                     self.vna.get_sweeptime_averages())
+        if self.progress_bar: self._p = Progress_Bar(len(self.x_vec), '2D VNA sweep ' + self.dirname, self.vna.get_sweeptime_averages())
 
         self._prepare_measurement_vna()
         self._prepare_measurement_file()
@@ -469,12 +453,10 @@ class spectrum(object):
         if self._nop < 10:
             self._data_file.hf.hf.attrs['default_ds'] =['views/amplitude_midpoint', 'views/phase_midpoint']
         else:
-            self._data_file.hf.hf.attrs['default_ds'] = ['data0/amplitude_midpoint', 'data0/phase_midpoint']
+            self._data_file.hf.hf.attrs['default_ds'] = ['amplitude', 'phase', 'views/IQ']
         
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(),datasets=list(self._data_file.hf.hf.attrs['default_ds']))
-        if self._fit_resonator:
-            self._resonator = resonator(self._data_file.get_filepath())
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=list(self._data_file.hf.hf.attrs['default_ds']))
         self._measure()
 
     def measure_3D(self, web_visible=True):
@@ -512,10 +494,8 @@ class spectrum(object):
         self._prepare_measurement_file()
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         """only middle point in freq array is plotted vs x and y"""
-        if self.open_qviewkit: self._qvk_process = qviewkit.plot(self._data_file.get_filepath(),
-                                                                 datasets=['amplitude', 'phase'])
-        if self._fit_resonator:
-            self._resonator = resonator(self._data_file.get_filepath())
+        if self.open_qviewkit: 
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase', "views/IQ"])
 
         if self.progress_bar:
             if self.landscape.xylandscapes:
@@ -564,7 +544,6 @@ class spectrum(object):
         measures and plots the data depending on the measurement type.
         the measurement loops feature the setting of the objects and saving the data in the .h5 file.
         '''
-        qkit.flow.start()
         try:
             """
             loop: x_obj with parameters from x_vec
@@ -573,42 +552,38 @@ class spectrum(object):
                 self.x_set_obj(x)
                 sleep(self.tdx)
 
-                if self.log_function != None:
-                    for i, f in enumerate(self.log_function):
-                        self._log_value[i].append(float(f()))
-
-                if self.log_function_2D != None:
-                    for i, f in enumerate(self.log_function_2D):
-                        self._log_value_2D[i].append(f())
-
                 if self._scan_dim == 3:
-                    for y in self.y_vec:
+                    fit_extracts_helper = {} # for book-keeping current y-line
+                    for iy, y in enumerate(self.y_vec):
                         # loop: y_obj with parameters from y_vec (only 3D measurement)
                         if self.landscape.xylandscapes and not self.landscape.perform_measurement_at_point(x, y, ix):
                             # if point is not of interest (not close to one of the functions)
-                            data_amp = np.full(int(self._nop), np.NaN, dtype=np.float16)
-                            data_pha = np.full(int(self._nop), np.NaN, dtype=np.float16)  # fill with NaNs
+                            data_amp = np.full(int(self._nop), np.nan, dtype=np.float16)
+                            data_pha = np.full(int(self._nop), np.nan, dtype=np.float16)  # fill with NaNs
                         else:
                             self.y_set_obj(y)
                             sleep(self.tdy)
+
                             if self.averaging_start_ready:
                                 self.vna.start_measurement()
                                 # Check if the VNA is STILL in ready state, then add some delay.
                                 # If you manually decrease the poll_inveral, I guess you know what you are doing and will disable this safety query.
                                 if self.vna_poll_interval >= 0.1 and self.vna.ready():
                                     logging.debug("VNA STILL ready... Adding delay")
-                                    qkit.flow.sleep(
-                                        .2)  # just to make sure, the ready command does not *still* show ready
+                                    sleep(0.2)  # just to make sure, the ready command does not *still* show ready
 
                                 while not self.vna.ready():
-                                    qkit.flow.sleep(min(self.vna.get_sweeptime_averages(query=False) / 11., self.vna_poll_interval))
+                                    sleep(min(self.vna.get_sweeptime_averages(query=False) / 11., self.vna_poll_interval))
                             else:
                                 self.vna.avg_clear()
-                                qkit.flow.sleep(self._sweeptime_averages)
+                                sleep(self._sweeptime_averages)
 
                             # if "avg_status" in self.vna.get_function_names():
                             #       while self.vna.avg_status() < self.vna.get_averages():
                             #            qkit.flow.sleep(.2) #maybe one would like to adjust this at a later point
+                                                        
+                            for lf in self.log_funcs:
+                                lf.logIfDesired(ix, iy)
 
                             """ measurement """
                             if not self.landscape.xzlandscape_func:  # normal scan
@@ -625,44 +600,83 @@ class spectrum(object):
                         else:
                             self._data_amp.append(data_amp)
                             self._data_pha.append(data_pha)
+                            self._data_real.append(data_amp*np.cos(data_pha))
+                            self._data_imag.append(data_amp*np.sin(data_pha))
+
                         if self._fit_resonator:
-                            self._do_fit_resonator()
-                        qkit.flow.sleep()
+                            self._fit_function.do_fit(self._freqpoints[self._fit_select], data_amp[self._fit_select], data_pha[self._fit_select])
+
+                            self._fit_freq.add(self._fit_function.freq_fit) if (ix == 0) & (iy == 0) else None
+                            self._fit_amp.append(self._fit_function.amp_fit)
+                            self._fit_pha.append(self._fit_function.pha_fit)
+                            self._fit_real.append(self._fit_function.amp_fit*np.cos(self._fit_function.pha_fit))
+                            self._fit_imag.append(self._fit_function.amp_fit*np.sin(self._fit_function.pha_fit))
+
+                            for key, val in self._fit_function.extract_data.items():
+                                if iy == 0:
+                                    fit_extracts_helper[key] = np.full(len(self.y_vec), np.nan)
+                                fit_extracts_helper[key][iy] = val
+                                self._fit_extracts[key].append(fit_extracts_helper[key], reset=(iy != 0))
+
                     """
                     filling of value-box is done here.
                     after every y-loop the data is stored the next 2d structure
                     """
                     self._data_amp.next_matrix()
                     self._data_pha.next_matrix()
+                    self._data_real.next_matrix()
+                    self._data_imag.next_matrix()
+                    if self._fit_resonator:
+                        self._fit_amp.next_matrix()
+                        self._fit_pha.next_matrix()
+                        self._fit_real.next_matrix()
+                        self._fit_imag.next_matrix()
 
                 if self._scan_dim == 2:
+                    
                     if self.averaging_start_ready:
                         self.vna.start_measurement()
                         if self.vna.ready():
                             logging.debug("VNA STILL ready... Adding delay")
-                            qkit.flow.sleep(.2)  # just to make sure, the ready command does not *still* show ready
+                            sleep(.2)  # just to make sure, the ready command does not *still* show ready
 
                         while not self.vna.ready():
-                            qkit.flow.sleep(min(self.vna.get_sweeptime_averages(query=False) / 11., .2))
+                            sleep(min(self.vna.get_sweeptime_averages(query=False) / 11., .2))
                     else:
                         self.vna.avg_clear()
-                        qkit.flow.sleep(self._sweeptime_averages)
+                        sleep(self._sweeptime_averages)
+
+                    for lf in self.log_funcs:
+                        lf.logIfDesired(ix)
+
                     """ measurement """
                     if not self.landscape.xzlandscape_func:  # normal scan
                         data_amp, data_pha = self.vna.get_tracedata()
                     else:
                         data_amp, data_pha = self.landscape.get_tracedata_xz(x)
-                    self._data_amp.append(data_amp)
-                    self._data_pha.append(data_pha)
 
-                    if self._fit_resonator:
-                        self._do_fit_resonator()
                     if self.progress_bar:
                         self._p.iterate()
-                    qkit.flow.sleep()
+                    
+                    self._data_amp.append(data_amp)
+                    self._data_pha.append(data_pha)
+                    self._data_real.append(data_amp*np.cos(data_pha))
+                    self._data_imag.append(data_amp*np.sin(data_pha))
+
+                    if self._fit_resonator:
+                        self._fit_function.do_fit(self._freqpoints[self._fit_select], data_amp[self._fit_select], data_pha[self._fit_select])
+
+                        self._fit_freq.add(self._fit_function.freq_fit) if (ix == 0) else None
+                        self._fit_amp.append(self._fit_function.amp_fit)
+                        self._fit_pha.append(self._fit_function.pha_fit)
+                        self._fit_real.append(self._fit_function.amp_fit*np.cos(self._fit_function.pha_fit))
+                        self._fit_imag.append(self._fit_function.amp_fit*np.sin(self._fit_function.pha_fit))
+                        
+                        for key, val in self._fit_function.extract_data.items():
+                            self._fit_extracts[key].append(val)
+
         finally:
             self._end_measurement()
-            qkit.flow.end()
 
     def _end_measurement(self):
         '''
@@ -677,53 +691,43 @@ class spectrum(object):
         self.dirname = None
         if self.averaging_start_ready: self.vna.post_measurement()
 
-    def set_resonator_fit(self, fit_resonator=True, fit_function='', f_min=None, f_max=None):
+    def set_resonator_fit(self, fit_resonator=False, fit_function = None, f_min=None, f_max=None, **fit_opt_kwargs):
         '''
         sets fit parameter for resonator
 
         fit_resonator (bool): True or False, default: True (optional)
-        fit_function (string): function which will be fitted to the data (optional)
+        fit_function (string): function which will be fitted to the data 
+                'lorentzian','skewed_lorentzian','circle_fit_reflection', 'circle_fit_notch','fano'
         f_min (float): lower frequency boundary for the fitting function, default: None (optional)
         f_max (float): upper frequency boundary for the fitting function, default: None (optional)
-        fit types: 'lorentzian','skewed_lorentzian','circle_fit_reflection', 'circle_fit_notch','fano'
+        fit_opt_kwargs: kwargs to be passed to the fit function
         '''
         if not fit_resonator:
             self._fit_resonator = False
             return
-        self._functions = {'lorentzian': 0, 'skewed_lorentzian': 1, 'circle_fit_reflection': 2, 'circle_fit_notch': 3,
-                           'fano': 4, 'all_fits': 5}
+        if fit_function == "circle_fit_reflection": # this distinction is handled here manually
+            fit_opt_kwargs.update({"n_ports": 1})
+        if fit_function == "circle_fit_notch":
+            fit_opt_kwargs.update({"n_ports": 2})
         try:
-            self._fit_function = self._functions[fit_function]
+            self._fit_function: resonatorFit.ResonatorFitBase = resonatorFit.FitNames[fit_function](**fit_opt_kwargs) # init fit-class here
         except KeyError:
-            logging.error(
-                'Fit function not properly set. Must be either \'lorentzian\', \'skewed_lorentzian\', \'circle_fit_reflection\', \'circle_fit_notch\', \'fano\', or \'all_fits\'.')
+            logging.error('Fit function not properly set. Must be either \'lorentzian\', \'skewed_lorentzian\', \'circle_fit_reflection\', \'circle_fit_notch\', \'fano\'.')
         else:
             self._fit_resonator = True
-            self._f_min = f_min
-            self._f_max = f_max
+            self._f_min = -np.inf if f_min is None else f_min
+            self._f_max = np.inf if f_max is None else f_max
 
-    def _do_fit_resonator(self):
+    def _do_fit_resonator(self, freq, amp, pha):
         '''
         calls fit function in resonator class
-        fit function is specified in self.set_fit, with boundaries f_mim and f_max
+        fit function is specified in self.set_resonator_fit, with boundaries f_min and f_max
         only the last 'slice' of data is fitted, since we fit live while measuring.
         '''
 
-        if self._fit_function == 0:  # lorentzian
-            self._resonator.fit_lorentzian(f_min=self._f_min, f_max=self._f_max)
-        elif self._fit_function == 1:  # skewed_lorentzian
-            self._resonator.fit_skewed_lorentzian(f_min=self._f_min, f_max=self._f_max)
-        elif self._fit_function == 2:  # circle_reflection
-            self._resonator.fit_circle(reflection=True, f_min=self._f_min, f_max=self._f_max)
-        elif self._fit_function == 3:  # circle_notch
-            self._resonator.fit_circle(notch=True, f_min=self._f_min, f_max=self._f_max)
-        elif self._fit_function == 4:  # fano
-            self._resonator.fit_fano(f_min=self._f_min, f_max=self._f_max)
-        elif self._fit_function == 5: #all fits
-            logging.warning("Please performe fits individually, fit all is currently not supported.")
-        # self._resonator.fit_all_fits(f_min=self._f_min, f_max = self._f_max)
-        else:
-            logging.error("Fit function set in spectrum.set_resonator_fit is not supported. Must be either \'lorentzian\', \'skewed_lorentzian\', \'circle_fit_reflection\', \'circle_fit_notch\', \'fano\', or \'all_fits\'.")
+        select = (freq >= self._f_min) & (freq <= self._f_max)
+        self._fit_function.do_fit(freq[select], amp[select], pha[select])
+        # fit result stored in _fit_function object. Storing this data handled back in main measure loop
 
     def set_tdx(self, tdx):
         self.tdx = tdx
