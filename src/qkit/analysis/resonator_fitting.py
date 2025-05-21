@@ -1,10 +1,16 @@
+import itertools
+
 import numpy as np
 from abc import ABC, abstractmethod
 import scipy.optimize as spopt
 import scipy.ndimage
 import logging
+
+from qkit.measure.measurement_base import AnalysisTypeAdapter, MeasurementTypeAdapter
 from qkit.storage.store import Data as qkitData
 from qkit.storage.hdf_dataset import hdf_dataset
+from qkit.storage.thin_hdf import HDF5
+
 
 class ResonatorFitBase(ABC):
     """
@@ -30,6 +36,118 @@ class ResonatorFitBase(ABC):
         self.pha_fit = np.zeros(self.out_nop)
         self.extract_data = {}
         return self
+
+
+class ResonatorFitAnalysis(AnalysisTypeAdapter):
+    """
+    Fits a resonator signal, assumes parent data in the form of (amplitude(f), phase(f)).
+    """
+
+    _fitter: ResonatorFitBase
+
+    def __init__(self, fitter: ResonatorFitBase):
+        self._fitter = fitter
+
+    def expected_structure(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> tuple[
+        'MeasurementTypeAdapter.DataDescriptor', ...]:
+        frequency_axis = parent_schema[0].axes[0]
+        return tuple(
+            MeasurementTypeAdapter.DataDescriptor(
+                name=name,
+                unit=self.map_unit(name),
+                axes=tuple()
+            ) for name in self._fitter.extract_data.keys()
+        ) + (
+            MeasurementTypeAdapter.DataDescriptor(
+                name="_fit_amplitude",
+                unit="dB",
+                axes=(frequency_axis,)
+            ),
+            MeasurementTypeAdapter.DataDescriptor(
+                name="_fit_phase",
+                unit="rad",
+                axes=(frequency_axis,)
+            ),
+            MeasurementTypeAdapter.DataDescriptor(
+                name="_fit_real",
+                unit="",
+                axes=(frequency_axis,)
+            ),
+            MeasurementTypeAdapter.DataDescriptor(
+                name="_fit_imag",
+                unit="",
+                axes=(frequency_axis,)
+            )
+        )
+
+    @staticmethod
+    def map_unit(name: str) -> str:
+        if name.startswith('f_res'):
+            return 'Hz'
+        elif name.startswith('phi'):
+            return 'rad'
+        elif name == 'a':
+            return 'dB'
+        elif name.startswith('delay'):
+            return 's'
+        else:
+            return ''
+
+    def default_views(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> dict[
+        str, HDF5.DataView]:
+        return {
+            'IQ': HDF5.DataView(
+                view_type=HDF5.DataViewType.ONE_D,
+                view_params="",
+                view_sets=[
+                    HDF5.DataViewSet(
+                        x_path=HDF5.DataReference('_fit_real', category='analysis'),
+                        y_path=HDF5.DataReference('_fit_imag', category='analysis'),
+                    )
+                ]
+            ),
+            'amplitude_fit': HDF5.DataView(
+                view_type=HDF5.DataViewType.ONE_D,
+                view_params="",
+                view_sets=[
+                    HDF5.DataViewSet(
+                        x_path=HDF5.DataReference('_fit_frequency', category='analysis'),
+                        y_path=HDF5.DataReference('_fit_amplitude', category='analysis'),
+                    ),
+                    HDF5.DataViewSet(
+                        x_path=HDF5.DataReference(parent_schema[0].axes[0].name),
+                        y_path=HDF5.DataReference(parent_schema[0].name),
+                    ),
+                ]
+            ),
+            'phase_fit': HDF5.DataView(
+                view_type=HDF5.DataViewType.ONE_D,
+                view_params="",
+                view_sets=[
+                    HDF5.DataViewSet(
+                        x_path=HDF5.DataReference('_fit_frequency', category='analysis'),
+                        y_path=HDF5.DataReference('_fit_phase', category='analysis'),
+                    ),
+                    HDF5.DataViewSet(
+                        x_path=HDF5.DataReference(parent_schema[1].axes[0].name),
+                        y_path=HDF5.DataReference(parent_schema[1].name),
+                    )
+                ]
+            )
+        }
+
+    def perform_analysis(self, data: tuple['MeasurementTypeAdapter.GeneratedData', ...]) -> tuple[
+        'MeasurementTypeAdapter.GeneratedData', ...]:
+        parent_schema = tuple([entry.descriptor for entry in data])
+        structure = self.expected_structure(parent_schema)
+        self._fitter.do_fit(data[0].descriptor.axes[0].range, data[0].data, data[1].data)
+        return tuple([
+            descriptor.with_data(fit)
+            for fit, descriptor in zip(itertools.chain(
+                self._fitter.extract_data.values(),
+                [self._fitter.freq_fit, self._fitter.amp_fit, self._fitter.pha_fit]
+            ), structure)
+        ])
 
 
 def autofit_file(file: qkitData | str, fit_func: ResonatorFitBase, f_min: float = None, f_max: float = None):
