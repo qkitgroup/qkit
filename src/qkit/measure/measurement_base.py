@@ -28,6 +28,8 @@ This needs to do the following:
 - Default Views
 - Analysis, TODO: Test
 - Progress Bars
+- Open Qviewkit
+- TODO: Fix path generation (name is missing)
 
 Nesting is performed using with-statement to improve readability.
 
@@ -257,6 +259,8 @@ class DataGenerator(ABC):
             assert np.all(np.isnan(ds[*sweep_indices])), \
                 "Overwriting data! This indicates a logic error in the sweeps!"
             ds[*sweep_indices] = datum.data
+            ds.flush()
+        data_file.flush()
 
     @dataclass(frozen=True)
     class DataDescriptor:
@@ -450,7 +454,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         """
         return f"{self.dimensionality}D_{self._name}"
 
-    def run(self):
+    def run(self, open_qviewkit: bool = True):
         """
         Perform the configured measurements. Sweep the nested axes and record the results.
         """
@@ -488,6 +492,11 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
 
             # Write to HDF5
             data_file.write_text_record('measurement', measurement.get_JSON(), 'Measurement description')
+
+            # Open Qviewkit, if desired
+            if open_qviewkit:
+                import qkit.gui.plot.plot as qviewkit  # Who names these things?
+                qviewkit.plot(measurement_file.into_path()) # TODO: Default datasets?
 
             # Everything is prepared. Do the actual measurement.
             self.run_measurements(data_file, ())
