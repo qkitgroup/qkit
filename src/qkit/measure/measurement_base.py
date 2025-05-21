@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass
 import numpy as np
 from abc import ABC, abstractmethod
@@ -5,6 +6,7 @@ from typing import Optional, Callable, Protocol, override
 import textwrap
 from h5py import Dataset
 import json
+from tqdm.auto import tqdm
 
 import qkit
 from qkit.measure.json_handler import QkitJSONEncoder
@@ -24,8 +26,8 @@ This needs to do the following:
 - Handle the dataset management ourselves, as the wrapped wrapper from store is too complicated.
 - Custom Views
 - Default Views
-- Analysis, TODO: Test, Derivative, CircleFit
-- TODO: Progress Bars
+- Analysis, TODO: Test
+- Progress Bars
 
 Nesting is performed using with-statement to improve readability.
 
@@ -49,6 +51,12 @@ Proposed API:
 >>>     measurement_adapter: MeasurementAdapter
 >>> )
 """
+
+# The custom format of the progress bar for qkit
+def bar_format():
+    current_time = time.strftime("%H:%M:%S", time.localtime())
+    info_line = f"✈ {current_time} " + "🕐 {elapsed} ✚ {remaining} "
+    return "{l_bar} " + info_line + '{bar}{n_fmt}/{total_fmt}, {rate_fmt} ➤ {eta}'
 
 @dataclass(frozen=True)
 class EnterableWrapper[T]:
@@ -175,7 +183,8 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         assert filtered_range is not None, "Initialization of range failed!"
 
         # Do the sweep!
-        for index, value in zip(filtered_indices, filtered_range):
+        for index, value in tqdm(zip(filtered_indices, filtered_range),
+                                 desc=self._axis.name, bar_format=bar_format(), total=len(filtered_range), leave=False, ):
             self._setter(value)
 
             self.run_measurements(data_file, index_list + (index,))
