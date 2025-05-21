@@ -134,6 +134,12 @@ class HDF5:
     def close(self):
         self.hdf.close()
 
+    def flush(self):
+        """
+        Flush the file.
+        """
+        self.hdf.flush()
+
     @dataclass(frozen=True)
     class DataView:
         view_type: 'HDF5.DataViewType'
