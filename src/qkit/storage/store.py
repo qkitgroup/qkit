@@ -50,7 +50,7 @@ class Data(object):
                 logging.debug("Could not add newly generated h5 File '{}' to qkit.fid database: {}".format(name,e))
         else:
             self._filepath = os.path.abspath(self._name)
-            self._folder,self._filename = os.path.split(self._filepath)
+            self._folder, self._filename = os.path.split(self._filepath)
         "setup the  file"
         try:
             self.hf = H5_file(self._filepath, mode)
@@ -297,8 +297,8 @@ class Data(object):
     
         self.hf.agrp.attrs[param] = value
 
-    def get_dataset(self,ds_url):
-        return hdf_dataset(self.hf,ds_url = ds_url)
+    def get_dataset(self, ds_url):
+        return hdf_dataset(self.hf, ds_url=ds_url)
 
     def save_finished(self):
         pass

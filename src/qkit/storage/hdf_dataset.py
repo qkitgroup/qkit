@@ -69,14 +69,15 @@ class hdf_dataset(object):
         # the first dataset is used to extract a few attributes
         self.first = True
 
-    def _read_ds_from_hdf(self,ds_url):
-        ds = self.hf[str(ds_url)]
+    def _read_ds_from_hdf(self, ds_url):
+        self.first = False # assume ds has been properly initialized if we're reading it
+        self.ds = self.hf[str(ds_url)]
 
-        for attr in ds.attrs.keys():
-            val = ds.attrs.get(attr)
-            setattr(self,attr,val)
+        for attr in self.ds.attrs.keys():
+            val = self.ds.attrs.get(attr)
+            setattr(self, attr, val)
         
-        self.ds_url =  ds_url
+        self.ds_url = ds_url
         
     def _setup_metadata(self):
         ds = self.ds

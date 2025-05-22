@@ -32,14 +32,14 @@ class H5_file(object):
     trick of placing added data in the correct position in the dataset.
     """    
     
-    def __init__(self,output_file, mode,**kw):
+    def __init__(self, output_file, mode, **kw):
         """Inits the H5_file at the path 'output_file' with the access mode
         'mode'
         """
         self.create_file(output_file, mode)
         self.newfile = False
         
-        if self.hf.attrs.get("qt-file",None) or self.hf.attrs.get("qkit",None):
+        if self.hf.attrs.get("qt-file", None) or self.hf.attrs.get("qkit", None):
             "File existed before and was created by qkit."
             self.setup_required_groups()
         else:
@@ -51,8 +51,8 @@ class H5_file(object):
             for k in kw:
                 self.grp.attrs[k] = kw[k]
         
-    def create_file(self,output_file, mode):
-        self.hf = h5py.File(output_file, mode,**file_kwargs )
+    def create_file(self, output_file, mode):
+        self.hf = h5py.File(output_file, mode, **file_kwargs)
 
     def set_base_attributes(self):
         "stores some attributes and creates the default data group"
@@ -145,10 +145,7 @@ class H5_file(object):
         
         # we store text as unicode; this seems somewhat non-standard for hdf
         if ds_type == ds_types['txt']:
-            try:
-                dtype = h5py.special_dtype(vlen=unicode) # python 2
-            except NameError:
-                dtype = h5py.special_dtype(vlen=str) # python 3
+            dtype = h5py.special_dtype(vlen=str)
         #create the dataset ...;  delete it first if it exists, unless it is data
         if name in self.grp.keys(): 
             if folder == "data":
