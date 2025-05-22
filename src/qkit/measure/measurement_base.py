@@ -376,11 +376,12 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         for analysis in self._analyses:
             analysis.record(data_file, sweep_indices, data)
 
-    def with_analysis(self, analysis: AnalysisTypeAdapter):
+    def with_analysis(self, analysis: AnalysisTypeAdapter) -> 'MeasurementTypeAdapter':
         """
         Add an Analysis to this measurement.
         """
         self._analyses.append(analysis)
+        return self
 
     @property
     @abstractmethod
