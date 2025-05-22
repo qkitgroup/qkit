@@ -1,3 +1,4 @@
+import logging
 import time
 from dataclasses import dataclass
 import numpy as np
@@ -69,6 +70,7 @@ class EnterableWrapper[T]:
     def __exit__(self, *args):
         pass
 
+measurement_log = logging.getLogger("Measurement")
 
 class ParentOfSweep(ABC):
     """
@@ -186,7 +188,11 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         # Do the sweep!
         for index, value in tqdm(zip(filtered_indices, filtered_range),
                                  desc=self._axis.name, bar_format=bar_format(), total=len(filtered_range), leave=False, ):
-            self._setter(value)
+            try:
+                self._setter(value)
+            except Exception as e:
+                measurement_log.error(f"Error setting {self._axis.name} to {value}.", exc_info=e)
+                raise e
 
             self.run_measurements(data_file, index_list + (index,))
 
@@ -299,7 +305,13 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
     Should implement a particular kind of analysis, such as Resonator fitting, numerical derivatives, ...
     """
     def record(self, data_file: HDF5, sweep_indices: tuple[int, ...], measured_data: tuple['MeasurementTypeAdapter.GeneratedData', ...]):
-        self.store(data_file, self.perform_analysis(measured_data), sweep_indices)
+        try:
+            data = self.perform_analysis(measured_data)
+        except Exception as e:
+            measurement_log.error(f"Analysis failed for {self}: {e}", exc_info=e)
+            raise e
+        else:
+            self.store(data_file, data, sweep_indices)
 
     def create_datasets(self, data_file: HDF5, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...], swept_axes: list[Dataset]):
         for descriptor in self.expected_structure(parent_schema):
@@ -371,10 +383,15 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         """
         Perform the measurement and record the results.
         """
-        data = self.perform_measurement()
-        self.store(data_file, data, sweep_indices)
-        for analysis in self._analyses:
-            analysis.record(data_file, sweep_indices, data)
+        try:
+            data = self.perform_measurement()
+        except Exception as e:
+            measurement_log.error(f"Measurement failed for {self}.", exc_info=e)
+            raise e
+        else:
+            self.store(data_file, data, sweep_indices)
+            for analysis in self._analyses:
+                analysis.record(data_file, sweep_indices, data)
 
     def with_analysis(self, analysis: AnalysisTypeAdapter) -> 'MeasurementTypeAdapter':
         """
