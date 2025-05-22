@@ -414,6 +414,25 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         return f"Measurement({self.__class__.__name__}, ({self.expected_structure}))"
 
 
+class ScalarMeasurement(MeasurementTypeAdapter):
+    """
+    Implements a scalar measurement.
+    """
+    _descriptor: MeasurementTypeAdapter.DataDescriptor
+    _getter: Callable[[], float]
+
+    def __init__(self, name: str, getter: Callable[[], float], unit: str = 'a.u.'):
+        super().__init__()
+        self._descriptor = MeasurementTypeAdapter.DataDescriptor(name, axes=tuple(), unit=unit)
+        self._getter = getter
+
+    @property
+    def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
+        return (self._descriptor,)
+
+    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
+        return (self._descriptor.with_data(self._getter()),)
+
 
 class Experiment(ParentOfSweep, ParentOfMeasurements):
     """
