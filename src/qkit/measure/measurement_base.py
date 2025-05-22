@@ -29,7 +29,6 @@ This needs to do the following:
 - Analysis, TODO: Test
 - Progress Bars
 - Open Qviewkit
-- TODO: Fix path generation (name is missing)
 
 Nesting is performed using with-statement to improve readability.
 
