@@ -1,9 +1,7 @@
 import itertools
-from enum import Enum
 from typing import override
 
 from scipy import signal
-from uncertainties.unumpy import derivative
 
 from qkit.measure.measurement_base import AnalysisTypeAdapter, MeasurementTypeAdapter
 from qkit.storage.thin_hdf import HDF5
@@ -55,13 +53,13 @@ class SavgolNumericalDerivative(AnalysisTypeAdapter):
             assert x.axes == y.axes
             structure += [
                 MeasurementTypeAdapter.DataDescriptor(
-                    name=f"d{x.name}/d{y.name}",
-                    unit=f"{x.unit}/{y.unit}",
+                    name=f"d{x.name}_d{y.name}",
+                    unit=f"{x.unit}_{y.unit}",
                     axes=x.axes
                 ),
                 MeasurementTypeAdapter.DataDescriptor(
-                    name=f"d{y.name}/d{x.name}",
-                    unit=f"{y.unit}/{x.unit}",
+                    name=f"d{y.name}_d{x.name}",
+                    unit=f"{y.unit}_{x.unit}",
                     axes=x.axes
                 )
             ]
@@ -72,22 +70,20 @@ class SavgolNumericalDerivative(AnalysisTypeAdapter):
         schema = self.expected_structure(parent_schema)
         variable_names = (schema[0].name.split('_')[0], schema[1].name.split('_')[0])
         return {
-            f'd{variable_names[0]}/d{variable_names[1]}': HDF5.DataView(
-                view_type=HDF5.DataViewType.ONE_D,
-                view_params="",
+            f'd{variable_names[0]}_d{variable_names[1]}': HDF5.DataView(
+                view_type=HDF5.DataViewType.ONE_D_V,
                 view_sets=[
                     HDF5.DataViewSet(
-                        x_path=HDF5.DataReference(entry.axes[0].name, category='analysis'),
+                        x_path=HDF5.DataReference(entry.axes[0].name,),
                         y_path=HDF5.DataReference(entry.name, category='analysis')
                     ) for entry in schema[0::2]
                 ]
             ),
-            f'd{variable_names[1]}/d{variable_names[0]}': HDF5.DataView(
-                view_type=HDF5.DataViewType.ONE_D,
-                view_params="",
+            f'd{variable_names[1]}_d{variable_names[0]}': HDF5.DataView(
+                view_type=HDF5.DataViewType.ONE_D_V,
                 view_sets=[
                     HDF5.DataViewSet(
-                        x_path=HDF5.DataReference(entry.axes[0].name, category='analysis'),
+                        x_path=HDF5.DataReference(entry.axes[0].name),
                         y_path=HDF5.DataReference(entry.name, category='analysis')
                     ) for entry in schema[1::2]
                 ]

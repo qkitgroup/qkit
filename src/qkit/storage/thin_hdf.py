@@ -1,7 +1,8 @@
+import json
 from dataclasses import dataclass, field
 from enum import Enum
 from os import PathLike
-from typing import Optional, Literal
+from typing import Optional, Literal, Any
 
 import h5py
 import numpy as np
@@ -128,7 +129,8 @@ class HDF5:
         The views are a list of view objects, which define the x, y, filter, and error datasets. They are displayed
         in the same plot.
         """
-        ds = self.view_group.require_dataset(name, shape=(), maxshape=(), dtype='f')
+        ds = self.view_group.require_dataset(name, shape=(0,), dtype='f')
+        ds.attrs['name'] = name
         view.write(self, ds)
 
     def close(self):
@@ -143,13 +145,13 @@ class HDF5:
     @dataclass(frozen=True)
     class DataView:
         view_type: 'HDF5.DataViewType'
-        view_params: str
+        view_params: dict[str, Any] = field(default_factory=dict)
         view_sets: list['HDF5.DataViewSet'] = field(default_factory=list)
 
         def write(self, file: 'HDF5', dataset: h5py.Dataset):
             dataset.attrs['ds_type'] = HDF5.DataSetType.VIEW.value
             dataset.attrs['view_type'] = self.view_type.value
-            dataset.attrs['view_params'] = self.view_params.encode('utf-8')
+            dataset.attrs['view_params'] = json.dumps(self.view_params).encode('utf-8')
             dataset.attrs['overlays'] = len(self.view_sets)
             for i, view in enumerate(self.view_sets):
                 view.write_to_dataset(file, dataset, i)
@@ -163,7 +165,10 @@ class HDF5:
             return hdf.get_dataset(self.name, self.category)
 
         def to_path(self, hdf: 'HDF5') -> str:
-            return self.get_dataset(hdf).name.decode('utf-8')
+            ds = self.get_dataset(hdf)
+            if ds is None:
+                raise ValueError(f"Dataset '{self.name}' not found.")
+            return ds.name
 
 
     @dataclass(frozen=True)
@@ -175,7 +180,7 @@ class HDF5:
 
         def write_to_dataset(self, file: 'HDF5', dataset: h5py.Dataset, index):
             dataset.attrs[f'xy_{index}'] = f"{self.x_path.to_path(file)}:{self.y_path.to_path(file)}".encode('utf-8')
-            dataset.attrs[f'xy_{index}_filter'] = self.filter.encode('utf-8') if self.filter else None
+            dataset.attrs[f'xy_{index}_filter'] = str(self.filter).encode('utf-8')
             if self.error:
                 dataset.attrs[f'xy_{index}_error'] = self.error.encode('utf-8')
 
