@@ -3,7 +3,7 @@ import time
 from dataclasses import dataclass
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Protocol, override
+from typing import Optional, Callable, Protocol, override, Literal
 import textwrap
 from h5py import Dataset
 import json
@@ -250,6 +250,10 @@ class DataGenerator(ABC):
     A high-level Adapter Interface for everything that generates data.
     """
 
+    @property
+    def dataset_category(self) -> Literal['data', 'analysis']:
+        return 'data'
+
     def store(self, data_file: HDF5, data: tuple['MeasurementTypeAdapter.GeneratedData', ...], sweep_indices: tuple[int, ...]):
         """
         Store the generated [data] in the [data_file], while selecting based on the current [sweep_indices].
@@ -258,7 +262,7 @@ class DataGenerator(ABC):
         for datum in data:
             assert isinstance(datum, self.GeneratedData), "Measurement must return a tuple of MeasurementData!"
             datum.validate()
-            ds = data_file.get_dataset(datum.descriptor.name)
+            ds = data_file.get_dataset(datum.descriptor.name, category=self.dataset_category)
             assert ds is not None, f"Dataset {datum.descriptor.name} not found!"
             # Based on the sweeps that occurred, get the relevant subset of the Dataset
             assert np.all(np.isnan(ds[*sweep_indices])), \
@@ -323,8 +327,13 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
                                      category='analysis'
                                      )
 
-        for name, view in self.default_views(parent_schema):
+        for name, view in self.default_views(parent_schema).items():
             data_file.insert_view(name, view)
+
+    @override
+    @property
+    def dataset_category(self) -> Literal['data', 'analysis']:
+        return 'analysis'
 
     @abstractmethod
     def expected_structure(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> tuple[
@@ -539,6 +548,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             self._run_child_sweep(data_file, ())
         finally:
             waf.close_log_file(log_handler)
+            data_file.close()
 
     def __str__(self):
         return "Experiment:\r\n" + (
