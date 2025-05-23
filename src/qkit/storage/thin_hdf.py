@@ -12,6 +12,9 @@ from qkit._version import __version__ as qkit_version
 class HDF5:
     """
     A thin wrapper around h5py to support qviewkit meta-data.
+
+    The base structure consists out of a root node 'entry' with subnodes 'data0', 'view0', 'analysis0'.
+    Data is stored in 'data0', views in 'view0', and analysis in 'analysis0'.
     """
 
     hdf: h5py.File
@@ -22,10 +25,9 @@ class HDF5:
 
     def __init__(self, filename: str | PathLike, mode: Literal['r', 'w', 'a'], locking: bool=False):
         """
-        Open a hdf5 file. If writing, create base structure.
+        Open a hdf5 file. If writing, create a base structure (/entry/data0, /entry/view0, /entry/analysis0).
 
-        The base structure consists out of a root node 'entry' with subnodes 'data0', 'view0', 'analysis0'.
-        Data is stored in 'data0', views in 'view0', and analysis in 'analysis0'.
+        Also enables simultaneous reading by qviewkit using the SWMR feature of HDF5. Prevents crashes due to locking.
         """
         self.can_write = not 'r' in mode
         if self.can_write:
@@ -62,7 +64,8 @@ class HDF5:
         Let's hdf5 do automatic chunking, also uses lzf compression to minimize empty file size.
         Derives type of data from dimensionality (i.e. 1D=vector, 2D=matrix, 3D=box).
 
-        Use the axis argument to define x, y, z axis.
+        Use the axis argument to define x, y, z axis. The category manages placement into either the data or analysis
+        group.
         """
         if category == 'data':
             group = self.data_group
@@ -99,6 +102,9 @@ class HDF5:
         return ds
 
     def get_dataset(self, ds_url: str, category: Literal['data', 'analysis'] = 'data') -> h5py.Dataset | None:
+        """
+        Get a dataset by its name, either from the data or analysis group.
+        """
         if category == 'data':
             group = self.data_group
         elif category == 'analysis':
@@ -109,7 +115,7 @@ class HDF5:
 
     def write_text_record(self, name: str, content: str, comment: Optional[str] = None):
         """
-        Writes a text record to the dataset 'name'.
+        Writes a text record to the dataset name in the 'data' group.
         """
         dtype = h5py.string_dtype(encoding='utf-8')
         ds = self.data_group.create_dataset(name, shape=(1,), dtype=dtype)
@@ -134,21 +140,35 @@ class HDF5:
         view.write(self, ds)
 
     def close(self):
+        """
+        Close the backing file.
+        """
         self.hdf.close()
 
     def flush(self):
         """
-        Flush the file.
+        Flush the backing file.
         """
         self.hdf.flush()
 
     @dataclass(frozen=True)
     class DataView:
+        """
+        Describes the data required for a view, and allows for writing this in the format required by QViewKit.
+
+        The view type defines the type of plot, e.g. line, color, etc. The view parameters allow for default plotting
+        options, such as marker size.
+
+        The view sets contain references to data in the hdf5 file to be plotted.
+        """
         view_type: 'HDF5.DataViewType'
         view_params: dict[str, Any] = field(default_factory=dict)
         view_sets: list['HDF5.DataViewSet'] = field(default_factory=list)
 
         def write(self, file: 'HDF5', dataset: h5py.Dataset):
+            """
+            Write the view metadata to the dataset, followed by the view sets.
+            """
             dataset.attrs['ds_type'] = HDF5.DataSetType.VIEW.value
             dataset.attrs['view_type'] = self.view_type.value
             dataset.attrs['view_params'] = json.dumps(self.view_params).encode('utf-8')
@@ -158,13 +178,22 @@ class HDF5:
 
     @dataclass(frozen=True)
     class DataReference:
+        """
+        A reference to a dataset in the hdf5 file. Consists out of its name and the category it belongs to.
+        """
         name: str
         category: Literal['data', 'analysis'] = 'data'
 
         def get_dataset(self, hdf: 'HDF5') -> h5py.Dataset:
+            """
+            Get a handle to the dataset.
+            """
             return hdf.get_dataset(self.name, self.category)
 
         def to_path(self, hdf: 'HDF5') -> str:
+            """
+            Get the path of the dataset in the hdf5 file, if it exists.
+            """
             ds = self.get_dataset(hdf)
             if ds is None:
                 raise ValueError(f"Dataset '{self.name}' not found.")
@@ -173,12 +202,18 @@ class HDF5:
 
     @dataclass(frozen=True)
     class DataViewSet:
+        """
+        A view set for a view, consisting of the x and y datasets, and optional error dataset and filter methods.
+        """
         x_path: 'HDF5.DataReference'
         y_path: 'HDF5.DataReference'
         filter: Optional[str] = None
         error: Optional[str] = None
 
         def write_to_dataset(self, file: 'HDF5', dataset: h5py.Dataset, index):
+            """
+            Writes the view set to the dataset belonging to the view.
+            """
             dataset.attrs[f'xy_{index}'] = f"{self.x_path.to_path(file)}:{self.y_path.to_path(file)}".encode('utf-8')
             dataset.attrs[f'xy_{index}_filter'] = str(self.filter).encode('utf-8')
             if self.error:
@@ -186,6 +221,9 @@ class HDF5:
 
 
     class DataSetType(Enum):
+        """
+        The QViewKit proprietary data set types constants.
+        """
         COORDINATE = 0
         VECTOR = 1
         MATRIX = 2
@@ -194,6 +232,9 @@ class HDF5:
         VIEW = 20
 
     class DataViewType(Enum):
+        """
+        The QViewKit proprietary view types constants. The view type defines the type of plot, e.g. line, color, etc.
+        """
         ONE_D = 0
         ONE_D_V = 1
         TWO_D = 2
