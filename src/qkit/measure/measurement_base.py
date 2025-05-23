@@ -507,10 +507,9 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         measurement_file.mkdirs()
         # Create an additional log file:
         log_handler = waf.open_log_file(str(measurement_file.into_path()))
+        # HDF5 file initialization
+        data_file = measurement_file.into_h5_file()
         try:
-            # HDF5 file initialization
-            data_file = measurement_file.into_h5_file()
-
             # Recurse down the tree to create datasets.
             self.create_datasets(data_file, [])
             if self._sweep_child is not None:
