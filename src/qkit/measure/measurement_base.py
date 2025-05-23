@@ -27,7 +27,7 @@ This needs to do the following:
 - Handle the dataset management ourselves, as the wrapped wrapper from store is too complicated.
 - Custom Views
 - Default Views
-- Analysis, TODO: Test
+- Analysis
 - Progress Bars
 - Open Qviewkit
 
@@ -499,10 +499,11 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         """
         return f"{self.dimensionality}D_{self._name}"
 
-    def run(self, open_qviewkit: bool = True):
+    def run(self, open_qviewkit: bool = True, open_datasets: list[HDF5.DataReference] | None = None):
         """
         Perform the configured measurements. Sweep the nested axes and record the results.
         """
+
         measurement_file = MeasurementFilePath(measurement_name=self._filename)
         measurement_file.mkdirs()
         # Create an additional log file:
@@ -539,8 +540,13 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
 
             # Open Qviewkit, if desired
             if open_qviewkit:
+                if open_datasets is None:
+                    open_datasets: list[str] = []
+                else:
+                    open_datasets: list[str] = [ref.to_path(data_file) for ref in open_datasets]
+
                 import qkit.gui.plot.plot as qviewkit  # Who names these things?
-                qviewkit.plot(measurement_file.into_path()) # TODO: Default datasets?
+                qviewkit.plot(measurement_file.into_path(), datasets=open_datasets)
 
             # Everything is prepared. Do the actual measurement.
             self.run_measurements(data_file, ())
