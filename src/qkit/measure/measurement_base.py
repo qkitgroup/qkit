@@ -56,12 +56,20 @@ Proposed API:
 
 # The custom format of the progress bar for qkit
 def bar_format():
+    """
+    Build the format string for the progress bar.
+
+    Uses tqdm as a progress bar, extending it with a start time.
+    """
     current_time = time.strftime("%H:%M:%S", time.localtime())
     info_line = f"✈ {current_time} " + "🕐 {elapsed} ✚ {remaining} "
     return "{l_bar} " + info_line + '{bar}{n_fmt}/{total_fmt}, {rate_fmt} ➤ {eta}'
 
 @dataclass(frozen=True)
 class EnterableWrapper[T]:
+    """
+    Return this to require the user to use a with-statement.
+    """
     value: T
 
     def __enter__(self):
@@ -75,6 +83,8 @@ measurement_log = logging.getLogger("Measurement")
 class ParentOfSweep(ABC):
     """
     Abstract class handling the relationship to sweeps.
+
+    Has a single child sweep. Can be called upon to perform the sweep.
     """
     _sweep_child: Optional['Sweep']
 
@@ -86,6 +96,14 @@ class ParentOfSweep(ABC):
               setter: Callable[[float], None],
               axis: 'Axis',
               axis_filter: Optional[Callable[[np.ndarray], np.ndarray]] = None) -> EnterableWrapper['Sweep']:
+        """
+        Create a sweep over some axis (optionally filtered), setting the value using the setter.
+
+        Used with `with`-statements:
+        >>> e = Experiment()
+        >>> with e.sweep(lambda val: None, Axis("x", np.linspace(0, 1, 10))) as x_sweep:
+        >>>     pass # Do something, e.g., measure on each position.
+        """
         s = Sweep(setter=setter, axis=axis, axis_filter=axis_filter)
         self._sweep_child = s
         return EnterableWrapper(s)
@@ -105,6 +123,8 @@ class ParentOfSweep(ABC):
 class ParentOfMeasurements(ABC):
     """
     Abstract class handling the ownership of measurements and running them.
+
+    Can have multiple measurements and manages them (calls them for creation of datasets and running the measurements).
     """
 
     _measurements: list['MeasurementTypeAdapter']
@@ -116,6 +136,11 @@ class ParentOfMeasurements(ABC):
     def measure(self, measurement_type: 'MeasurementTypeAdapter'):
         """
         Register a measurement type at this stage. Will be executed before any nested sweeps.
+
+        Example:
+        >>> e = Experiment()
+        >>> with e.sweep(lambda val: None, Axis("x", np.linspace(0, 1, 10))) as x_sweep:
+        >>>     x_sweep.measure(ScalarMeasurement('const', lambda: 1.0))
         """
         self._measurements.append(measurement_type)
 
@@ -177,6 +202,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         Perform the sweep, checks for filters, and updates **context before continuing down the chain of sweeps.
         """
         if self._filter is not None:
+            # Apply the filter to get the subset we need to sweep over.
             mask = self._filter(self._axis.range, **filter_context)
             filtered_range = self._axis.range[mask]
             filtered_indices = np.where(mask)[0]
@@ -226,6 +252,9 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
 
 @dataclass(frozen=True)
 class Axis:
+    """
+    An object describing an axis of a measurement. Has a name, unit, and values it can have.
+    """
     name: str
     range: np.ndarray
     unit: str = 'a.u.'
@@ -248,10 +277,15 @@ class Axis:
 class DataGenerator(ABC):
     """
     A high-level Adapter Interface for everything that generates data.
+
+    Handles storing data into datasets, and provides the structures for describing the data.
     """
 
     @property
     def dataset_category(self) -> Literal['data', 'analysis']:
+        """
+        The category into which the returned data should be sorted.
+        """
         return 'data'
 
     def store(self, data_file: HDF5, data: tuple['MeasurementTypeAdapter.GeneratedData', ...], sweep_indices: tuple[int, ...]):
@@ -304,11 +338,14 @@ class DataGenerator(ABC):
 
 class AnalysisTypeAdapter(DataGenerator, ABC):
     """
-    A high-level Adapter Interface to the Analysis Specific Code.
+    A high-level Adapter Interface to the Analysis-Specific Code.
 
     Should implement a particular kind of analysis, such as Resonator fitting, numerical derivatives, ...
     """
     def record(self, data_file: HDF5, sweep_indices: tuple[int, ...], measured_data: tuple['MeasurementTypeAdapter.GeneratedData', ...]):
+        """
+        Perform the analysis and record the results.
+        """
         try:
             data = self.perform_analysis(measured_data)
         except Exception as e:
@@ -318,6 +355,9 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
             self.store(data_file, data, sweep_indices)
 
     def create_datasets(self, data_file: HDF5, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...], swept_axes: list[Dataset]):
+        """
+        Create the datasets as described in the schema provided by the child class with [expected_structure].
+        """
         for descriptor in self.expected_structure(parent_schema):
             all_axes = swept_axes + list(map(lambda ax: ax.get_data_axis(data_file), list(descriptor.axes)))
             data_file.create_dataset(descriptor.name,
@@ -353,6 +393,9 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
 
     @abstractmethod
     def perform_analysis(self, data: tuple['MeasurementTypeAdapter.GeneratedData', ...]) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
+        """
+        Perform the Analysis on the data of the measurement.
+        """
         pass
 
 class MeasurementTypeAdapter(DataGenerator, ABC):
@@ -443,7 +486,7 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
 
 class ScalarMeasurement(MeasurementTypeAdapter):
     """
-    Implements a scalar measurement.
+    Implements a scalar measurement, the simplest kind. Only has a name, unit and a getter.
     """
     _descriptor: MeasurementTypeAdapter.DataDescriptor
     _getter: Callable[[], float]
@@ -468,6 +511,11 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
     Create and instance and use sweep() and measure() to build up the experiment.
 
     Note that sweep() is to be used with `with`-statements.
+
+    Example:
+    >>> experiment = Experiment("my_experiment", Sample()) # Creates the experiment
+    >>> # Use sweep() and measure() to create an experiment
+    >>> experiment.run()
     """
 
     _name: str
@@ -475,6 +523,9 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
     _comment: Optional[str]
 
     def __init__(self, name: str, sample: Sample) -> None:
+        """
+        Create an experiment with the given name and sample.
+        """
         super().__init__()
         super(ParentOfSweep, self).__init__()
         self._name = name
@@ -482,6 +533,9 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         self._comment = None
 
     def with_comment(self, comment: str) -> 'Experiment':
+        """
+        Attach a comment to the experiment.
+        """
         self._comment = comment
         return self
 
@@ -502,6 +556,8 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
     def run(self, open_qviewkit: bool = True, open_datasets: list[HDF5.DataReference] | None = None):
         """
         Perform the configured measurements. Sweep the nested axes and record the results.
+
+        By default opens qviewkit. Using [open_datasets], a set of datasets can be opened on start.
         """
 
         measurement_file = MeasurementFilePath(measurement_name=self._filename)
