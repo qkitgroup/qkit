@@ -15,7 +15,13 @@ class MeasurementFilePath:
     """
     Derive measurement file path and name from metadata.
 
-    Replaces hdf_DateTimeGenerator
+    Replaces hdf_DateTimeGenerator.
+
+    Each measurement gets a UUID based on the current unix time stamp. Then the files are sorted
+    into folders based on the current measurement run and the username.
+
+    This places the file into a folder of the schema:
+    <data-root>/<run_id>/<user>/<uuid>_<measurement_name>/<uuid>_<measurement_name>.h5
     """
     measurement_name: str # Derived from the measurement class
     additional_path_info: list[str] = field(default_factory=list)
@@ -46,6 +52,9 @@ class MeasurementFilePath:
 
     @property
     def rel_path(self) -> Path:
+        """
+        The path of the measurement file relative to the data root.
+        """
         path = Path(_sanitize(self.run_id.upper())) / _sanitize(self.user)
         for folder in self.additional_path_info:
             path /= folder
@@ -54,13 +63,22 @@ class MeasurementFilePath:
         return path
 
     def into_path(self, base_path: str | Path = qkit.cfg['datadir']) -> Path:
+        """
+        Generate the absolute path of the measurement file, based on the qkit config 'datadir'.
+        """
         return Path(base_path) / self.rel_path
 
     def mkdirs(self, base_path: str | Path = qkit.cfg['datadir']):
+        """
+        Ensure that all the required directories exist before placing the file.
+        """
         full_path = self.into_path(base_path)
         full_path.parent.mkdir(parents=True, exist_ok=True)
 
     def into_h5_file(self, base_path: str | Path = qkit.cfg['datadir']) -> thin_hdf.HDF5:
+        """
+        Open this file path for writing using the HDF5 file wrapper.
+        """
         self.mkdirs(base_path)
         return thin_hdf.HDF5(str(self.into_path(base_path)), mode='w')
 
