@@ -32,7 +32,7 @@ class DummyDataFile:
     def __init__(self, store):
         self.dataset = DummyDataSet(store)
 
-    def get_dataset(self, name):
+    def get_dataset(self, name, category = 'data'):
         return self.dataset
 
     def flush(self):
