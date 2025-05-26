@@ -79,6 +79,7 @@ class spectrum(object):
 
         self.progress_bar = True
         self._fit_resonator = False
+        self.storeRealImag = False
         self._plot_comment = ""
 
         self.log_init_params = [] # buffer is necessary to allow adjusting x/y parameter sweeps after setting log functions
@@ -236,36 +237,36 @@ class spectrum(object):
             self._fit_freq = self._data_file.add_coordinate('_fit_frequency', unit='Hz', folder="analysis")
 
         if self._scan_dim == 1:
-            self._data_real = self._data_file.add_value_vector('real', x=sweep_vector, unit='', save_timestamp=True)
-            self._data_imag = self._data_file.add_value_vector('imag', x=sweep_vector, unit='', save_timestamp=True)
+            self._data_real = self._data_file.add_value_vector('real', x=sweep_vector, unit='', save_timestamp=True) if self.storeRealImag else None
+            self._data_imag = self._data_file.add_value_vector('imag', x=sweep_vector, unit='', save_timestamp=True) if self.storeRealImag else None
             self._data_amp = self._data_file.add_value_vector('amplitude', x=sweep_vector, unit='arb. unit', save_timestamp=True)
             self._data_pha = self._data_file.add_value_vector('phase', x=sweep_vector, unit='rad', save_timestamp=True)
 
-            self._iq_view = self._data_file.add_view("IQ", x=self._data_real, y=self._data_imag, view_params={'aspect': 1.0})
+            self._iq_view = self._data_file.add_view("IQ", x=self._data_real, y=self._data_imag, view_params={'aspect': 1.0}) if self.storeRealImag else None
 
             if self._fit_resonator:
                 self._fit_amp = self._data_file.add_value_vector("_fit_amplitude", x=self._fit_freq, unit="arb. unit", folder="analysis")
                 self._fit_pha = self._data_file.add_value_vector("_fit_phase", x=self._fit_freq, unit="rad", folder="analysis")
-                self._fit_real = self._data_file.add_value_vector("_fit_real", x=self._fit_freq, unit="", folder="analysis")
-                self._fit_imag = self._data_file.add_value_vector("_fit_imag", x=self._fit_freq, unit="", folder="analysis")
+                self._fit_real = self._data_file.add_value_vector("_fit_real", x=self._fit_freq, unit="", folder="analysis") if self.storeRealImag else None
+                self._fit_imag = self._data_file.add_value_vector("_fit_imag", x=self._fit_freq, unit="", folder="analysis") if self.storeRealImag else None
                 # extract data is single datapoint for 1D measure, add as coordinate after measurement manually
 
         if self._scan_dim == 2:
             self._data_x = self._data_file.add_coordinate(self.x_coordname, unit=self.x_unit)
             self._data_x.add(self.x_vec)
 
-            self._data_real = self._data_file.add_value_matrix('real', x=self._data_x, y=sweep_vector, unit='', save_timestamp=False)
-            self._data_imag = self._data_file.add_value_matrix('imag', x=self._data_x, y=sweep_vector, unit='', save_timestamp=False)
+            self._data_real = self._data_file.add_value_matrix('real', x=self._data_x, y=sweep_vector, unit='', save_timestamp=False) if self.storeRealImag else None
+            self._data_imag = self._data_file.add_value_matrix('imag', x=self._data_x, y=sweep_vector, unit='', save_timestamp=False) if self.storeRealImag else None
             self._data_amp = self._data_file.add_value_matrix('amplitude', x=self._data_x, y=sweep_vector, unit='arb. unit', save_timestamp=True)
             self._data_pha = self._data_file.add_value_matrix('phase', x=self._data_x, y=sweep_vector, unit='rad', save_timestamp=True)
 
-            self._iq_view = self._data_file.add_view("IQ", x=self._data_real, y=self._data_imag, view_params={'aspect': 1.0})
+            self._iq_view = self._data_file.add_view("IQ", x=self._data_real, y=self._data_imag, view_params={'aspect': 1.0}) if self.storeRealImag else None
 
             if self._fit_resonator:
                 self._fit_amp = self._data_file.add_value_matrix("_fit_amplitude", x=self._data_x, y=sweep_vector, unit="arb. unit", folder="analysis")
                 self._fit_pha = self._data_file.add_value_matrix("_fit_phase", x=self._data_x, y=sweep_vector, unit="rad", folder="analysis")
-                self._fit_real = self._data_file.add_value_matrix("_fit_real", x=self._data_x, y=sweep_vector, unit="", folder="analysis")
-                self._fit_imag = self._data_file.add_value_matrix("_fit_imag", x=self._data_x, y=sweep_vector, unit="", folder="analysis")
+                self._fit_real = self._data_file.add_value_matrix("_fit_real", x=self._data_x, y=sweep_vector, unit="", folder="analysis") if self.storeRealImag else None
+                self._fit_imag = self._data_file.add_value_matrix("_fit_imag", x=self._data_x, y=sweep_vector, unit="", folder="analysis") if self.storeRealImag else None
 
                 self._fit_extracts: dict[str, hdf.hdf_dataset] = {}
                 for key in self._fit_function.extract_data.keys():
@@ -288,25 +289,25 @@ class spectrum(object):
                 self._data_amp = self._data_file.add_value_matrix('amplitude', x=self._data_x, y=self._data_y, unit='arb. unit', save_timestamp=False)
                 self._data_pha = self._data_file.add_value_matrix('phase', x=self._data_x, y=self._data_y, unit='rad', save_timestamp=False)
             else:
-                self._data_real = self._data_file.add_value_box('real', x=self._data_x, y=self._data_y, z=sweep_vector, unit='', save_timestamp=False)
-                self._data_imag = self._data_file.add_value_box('imag', x=self._data_x, y=self._data_y, z=sweep_vector, unit='', save_timestamp=False)
+                self._data_real = self._data_file.add_value_box('real', x=self._data_x, y=self._data_y, z=sweep_vector, unit='', save_timestamp=False) if self.storeRealImag else None
+                self._data_imag = self._data_file.add_value_box('imag', x=self._data_x, y=self._data_y, z=sweep_vector, unit='', save_timestamp=False) if self.storeRealImag else None
                 self._data_amp = self._data_file.add_value_box('amplitude', x=self._data_x, y=self._data_y, z=sweep_vector, unit='arb. unit', save_timestamp=True)
                 self._data_pha = self._data_file.add_value_box('phase', x=self._data_x, y=self._data_y, z=sweep_vector, unit='rad', save_timestamp=True)
 
-                self._iq_view = self._data_file.add_view("IQ", x=self._data_real, y=self._data_imag, view_params={'aspect': 1.0})
+                self._iq_view = self._data_file.add_view("IQ", x=self._data_real, y=self._data_imag, view_params={'aspect': 1.0}) if self.storeRealImag else None
 
             if self._fit_resonator:
                 self._fit_amp = self._data_file.add_value_box("_fit_amplitude", x=self._data_x, y=self._data_y, z=sweep_vector, unit="arb. unit", folder="analysis")
                 self._fit_pha = self._data_file.add_value_box("_fit_phase", x=self._data_x, y=self._data_y, z=sweep_vector, unit="rad", folder="analysis")
-                self._fit_real = self._data_file.add_value_box("_fit_real", x=self._data_x, y=self._data_y, z=sweep_vector, unit="", folder="analysis")
-                self._fit_imag = self._data_file.add_value_box("_fit_imag", x=self._data_x, y=self._data_y, z=sweep_vector, unit="", folder="analysis")
+                self._fit_real = self._data_file.add_value_box("_fit_real", x=self._data_x, y=self._data_y, z=sweep_vector, unit="", folder="analysis") if self.storeRealImag else None
+                self._fit_imag = self._data_file.add_value_box("_fit_imag", x=self._data_x, y=self._data_y, z=sweep_vector, unit="", folder="analysis") if self.storeRealImag else None
 
                 self._fit_extracts: dict[str, hdf.hdf_dataset] = {}
                 for key in self._fit_function.extract_data.keys():
                     self._fit_extracts[key] = self._data_file.add_value_matrix("fit_" + key, x=self._data_x, y=self._data_y, unit="", folder="analysis")
 
         if self._fit_resonator:
-            self._iq_view.add(self._fit_real, self._fit_imag)
+            self._iq_view.add(self._fit_real, self._fit_imag) if self.storeRealImag else None
             self._amp_view = self._data_file.add_view("AmplitudeFit", self._data_freq, self._data_amp)
             self._amp_view.add(self._fit_freq, self._fit_amp)
             self._pha_view = self._data_file.add_view("PhaseFit", self._data_freq, self._data_pha)
@@ -392,20 +393,20 @@ class spectrum(object):
                             if self.progress_bar: self._p.iterate()
 
         data_amp, data_pha = self.vna.get_tracedata()
-        data_real, data_imag = self.vna.get_tracedata('RealImag')
+        data_real, data_imag = self.vna.get_tracedata('RealImag') if self.storeRealImag else (None, None)
 
         self._data_amp.append(data_amp)
         self._data_pha.append(data_pha)
-        self._data_real.append(data_real)
-        self._data_imag.append(data_imag)
+        self._data_real.append(data_real) if self.storeRealImag else None
+        self._data_imag.append(data_imag) if self.storeRealImag else None
         if self._fit_resonator:
             self._fit_function.do_fit(self._freqpoints[self._fit_select], np.array(data_amp)[self._fit_select], np.array(data_pha)[self._fit_select])
             # add fit data to file
             self._fit_freq.add(self._fit_function.freq_fit)
             self._fit_amp.append(self._fit_function.amp_fit)
             self._fit_pha.append(self._fit_function.pha_fit)
-            self._fit_real.append(self._fit_function.amp_fit*np.cos(self._fit_function.pha_fit))
-            self._fit_imag.append(self._fit_function.amp_fit*np.sin(self._fit_function.pha_fit))
+            self._fit_real.append(self._fit_function.amp_fit*np.cos(self._fit_function.pha_fit)) if self.storeRealImag else None
+            self._fit_imag.append(self._fit_function.amp_fit*np.sin(self._fit_function.pha_fit)) if self.storeRealImag else None
 
             self._fit_extracts: dict[str, hdf.hdf_dataset] = {}
             for key, val in self._fit_function.extract_data.items():
@@ -600,8 +601,8 @@ class spectrum(object):
                         else:
                             self._data_amp.append(data_amp)
                             self._data_pha.append(data_pha)
-                            self._data_real.append(data_amp*np.cos(data_pha))
-                            self._data_imag.append(data_amp*np.sin(data_pha))
+                            self._data_real.append(data_amp*np.cos(data_pha)) if self.storeRealImag else None
+                            self._data_imag.append(data_amp*np.sin(data_pha)) if self.storeRealImag else None
 
                         if self._fit_resonator:
                             self._fit_function.do_fit(self._freqpoints[self._fit_select], data_amp[self._fit_select], data_pha[self._fit_select])
@@ -609,8 +610,8 @@ class spectrum(object):
                             self._fit_freq.add(self._fit_function.freq_fit) if (ix == 0) & (iy == 0) else None
                             self._fit_amp.append(self._fit_function.amp_fit)
                             self._fit_pha.append(self._fit_function.pha_fit)
-                            self._fit_real.append(self._fit_function.amp_fit*np.cos(self._fit_function.pha_fit))
-                            self._fit_imag.append(self._fit_function.amp_fit*np.sin(self._fit_function.pha_fit))
+                            self._fit_real.append(self._fit_function.amp_fit*np.cos(self._fit_function.pha_fit)) if self.storeRealImag else None
+                            self._fit_imag.append(self._fit_function.amp_fit*np.sin(self._fit_function.pha_fit)) if self.storeRealImag else None
 
                             for key, val in self._fit_function.extract_data.items():
                                 if iy == 0:
@@ -624,13 +625,13 @@ class spectrum(object):
                     """
                     self._data_amp.next_matrix()
                     self._data_pha.next_matrix()
-                    self._data_real.next_matrix()
-                    self._data_imag.next_matrix()
+                    self._data_real.next_matrix() if self.storeRealImag else None
+                    self._data_imag.next_matrix() if self.storeRealImag else None
                     if self._fit_resonator:
                         self._fit_amp.next_matrix()
                         self._fit_pha.next_matrix()
-                        self._fit_real.next_matrix()
-                        self._fit_imag.next_matrix()
+                        self._fit_real.next_matrix() if self.storeRealImag else None
+                        self._fit_imag.next_matrix() if self.storeRealImag else None
 
                 if self._scan_dim == 2:
                     
@@ -660,8 +661,8 @@ class spectrum(object):
                     
                     self._data_amp.append(data_amp)
                     self._data_pha.append(data_pha)
-                    self._data_real.append(data_amp*np.cos(data_pha))
-                    self._data_imag.append(data_amp*np.sin(data_pha))
+                    self._data_real.append(data_amp*np.cos(data_pha)) if self.storeRealImag else None
+                    self._data_imag.append(data_amp*np.sin(data_pha)) if self.storeRealImag else None
 
                     if self._fit_resonator:
                         self._fit_function.do_fit(self._freqpoints[self._fit_select], data_amp[self._fit_select], data_pha[self._fit_select])
@@ -669,8 +670,8 @@ class spectrum(object):
                         self._fit_freq.add(self._fit_function.freq_fit) if (ix == 0) else None
                         self._fit_amp.append(self._fit_function.amp_fit)
                         self._fit_pha.append(self._fit_function.pha_fit)
-                        self._fit_real.append(self._fit_function.amp_fit*np.cos(self._fit_function.pha_fit))
-                        self._fit_imag.append(self._fit_function.amp_fit*np.sin(self._fit_function.pha_fit))
+                        self._fit_real.append(self._fit_function.amp_fit*np.cos(self._fit_function.pha_fit)) if self.storeRealImag else None
+                        self._fit_imag.append(self._fit_function.amp_fit*np.sin(self._fit_function.pha_fit)) if self.storeRealImag else None
                         
                         for key, val in self._fit_function.extract_data.items():
                             self._fit_extracts[key].append(val)
