@@ -74,6 +74,17 @@ def test_filtered_sweep(dummy_instruments_class):
     e.run(open_qviewkit=False)
     assert np.array_equal([2, 3, 4, 5, 6, 7, 8], log_measure.accumulated_data)
 
+
+def test_alternative_filtered_sweep(dummy_instruments_class):
+    log_measure = SweepInspectorMeasurement()
+    e = Experiment('filter_test', SAMPLE)
+    with e.sweep(log_measure.x_log, X_SWEEP_AXIS) as x_sweep:
+        x_sweep.filtered(lambda r: np.logical_and(r <= 8, r >= 2))
+        x_sweep.measure(log_measure)
+    print(str(e))
+    e.run(open_qviewkit=False)
+    assert np.array_equal([2, 3, 4, 5, 6, 7, 8], log_measure.accumulated_data)
+
 def test_dimensionality_calculations():
     log_measure = SweepInspectorMeasurement()
 
