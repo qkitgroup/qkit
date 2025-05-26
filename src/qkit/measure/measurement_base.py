@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from dataclasses import dataclass
 import numpy as np
@@ -16,6 +17,7 @@ from qkit.measure.measurement_class import Measurement
 import qkit.measure.write_additional_files as waf
 from qkit.storage.thin_hdf import HDF5
 from qkit.storage.file_path_management import MeasurementFilePath
+import qkit.gui.plot.plot as qviewkit  # Who names these things?
 
 """
 The unified measurement class infrastructure. Will attempt to unify all kinds of measurements into a common code base.
@@ -608,13 +610,15 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
                 else:
                     open_datasets: list[str] = [ref.to_path(data_file) for ref in open_datasets]
 
-                import qkit.gui.plot.plot as qviewkit  # Who names these things?
                 qviewkit.plot(measurement_file.into_path(), datasets=open_datasets)
 
             # Everything is prepared. Do the actual measurement.
             self.run_measurements(data_file, ())
             self._run_child_sweep(data_file, ())
         finally:
+            # Calling into existing plotting code in the background.
+            t = threading.Thread(target=qviewkit.save_plots, args=[measurement_file.into_path(), self._comment])
+            t.start()
             waf.close_log_file(log_handler)
             data_file.close()
 
