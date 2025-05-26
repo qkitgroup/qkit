@@ -104,6 +104,7 @@ class ParentOfSweep(ABC):
         Used with `with`-statements:
         >>> e = Experiment()
         >>> with e.sweep(lambda val: None, Axis("x", np.linspace(0, 1, 10))) as x_sweep:
+        >>>     x_sweep.filtered(lambda r: np.logical_and(r <= 8, r >= 2))
         >>>     pass # Do something, e.g., measure on each position.
         """
         s = Sweep(setter=setter, axis=axis, axis_filter=axis_filter)
