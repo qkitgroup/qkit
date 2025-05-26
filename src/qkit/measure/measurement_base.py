@@ -99,6 +99,8 @@ class ParentOfSweep(ABC):
         """
         Create a sweep over some axis (optionally filtered), setting the value using the setter.
 
+        It is recommended to add the filter function using the `sweep.filtered()` call for improved readability.
+
         Used with `with`-statements:
         >>> e = Experiment()
         >>> with e.sweep(lambda val: None, Axis("x", np.linspace(0, 1, 10))) as x_sweep:
