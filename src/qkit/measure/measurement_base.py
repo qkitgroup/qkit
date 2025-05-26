@@ -188,12 +188,16 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
     _axis: 'Axis'
     _filter: Optional[FilterCallback] = None
 
-    def __init__(self, setter, axis, axis_filter=None) -> None:
+    def __init__(self, setter: Callable[[float], None], axis: 'Axis', axis_filter: Optional[FilterCallback]=None) -> None:
         super().__init__()
         super(ParentOfSweep, self).__init__()
         self._setter = setter
         self._axis = axis
         self._filter = axis_filter
+
+    def filtered(self, axis_filter: FilterCallback) -> 'Sweep':
+        self._filter = axis_filter
+        return self
 
     def _run_sweep(self, data_file: HDF5, index_list: tuple[int, ...], **filter_context: float):
         """
