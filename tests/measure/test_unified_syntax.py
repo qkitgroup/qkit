@@ -77,7 +77,7 @@ def test_filtered_sweep(dummy_instruments_class):
 
 def test_alternative_filtered_sweep(dummy_instruments_class):
     log_measure = SweepInspectorMeasurement()
-    e = Experiment('filter_test', SAMPLE)
+    e = Experiment('filter_alt_test', SAMPLE)
     with e.sweep(log_measure.x_log, X_SWEEP_AXIS) as x_sweep:
         x_sweep.filtered(lambda r: np.logical_and(r <= 8, r >= 2))
         x_sweep.measure(log_measure)
