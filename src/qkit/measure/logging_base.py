@@ -53,7 +53,7 @@ class logFunc(object):
         if len(self.signature) == 0:
             self.log_ds = self.file.add_coordinate(self.name, self.unit)
         elif len(self.signature) == 1:
-            self.log_ds = self.file.add_value_vector(self.name, {"x":self.file.get_dataset(self.x_ds_url),"y":self.file.get_dataset(self.y_ds_url),"n":trace_ds}[self.signature], self.unit)
+            self.log_ds = self.file.add_value_vector(self.name, (self.file.get_dataset(self.x_ds_url) if self.signature == "x" else (self.file.get_dataset(self.y_ds_url) if self.signature == "y" else trace_ds)), self.unit)
         elif len(self.signature) == 2:
             self.log_ds = self.file.add_value_matrix(self.name, self.file.get_dataset(self.x_ds_url) if "x" in self.signature else self.file.get_dataset(self.y_ds_url), trace_ds if "n" in self.signature else self.file.get_dataset(self.y_ds_url), self.unit)
         elif len(self.signature) == 3:
