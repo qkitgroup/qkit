@@ -37,7 +37,6 @@ from qkit.measure.measurement_class import Measurement
 from qkit.measure.logging_base import logFunc
 import qkit.measure.write_additional_files as waf
 
-
 ##################################################################
 
 class spectrum(object):
@@ -97,7 +96,7 @@ class spectrum(object):
         self._scan_dim = None
         self._scan_time = False
     
-    def add_logger(self, func, name, unit, over_x=True, over_y=False, is_trace=False, trace_base_vals=None, trace_base_name=None, trace_base_unit=None):
+    def add_logger(self, func, name="log_param", unit="", dtype="f", over_x=True, over_y=False, is_trace=False, trace_base_vals=None, trace_base_name=None, trace_base_unit=None):
         """
         Migration from set_log_function & set_log_function_2D:
 
@@ -122,7 +121,7 @@ class spectrum(object):
 
         Alternatively more options like logging over y-iterations aswell or skipping the x-iteration are possible now, see qkit/measure/logging_base for details.
         """
-        self.log_init_params += [(func, name, unit, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit)] # handle logger initialization in prepare_file
+        self.log_init_params += [(func, name, unit, dtype, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit)] # handle logger initialization in prepare_file
 
     def clear_loggers(self):
         """
@@ -132,15 +131,83 @@ class spectrum(object):
 
     def set_log_function(self, func=None, name=None, unit=None, log_dtype=None):
         '''
-        Obsolete since covered by 'add_logger'.
+        A function (object) can be passed to the measurement loop which is excecuted before every x iteration
+        but after executing the x_object setter in 2D measurements and before every line (but after setting
+        the x value) in 3D measurements.
+        The return value of the function of type float or similar is stored in a value vector in the h5 file.
+
+        Call without any arguments to delete all log functions. The timestamp is automatically saved.
+
+        func: function object in list form
+        name: name of logging parameter appearing in h5 file, default: 'log_param'
+        unit: unit of logging parameter, default: ''
+        log_dtype: h5 data type, default: 'f' (float32)
         '''
-        logging.error("'set_log_function' is obsolete, 'add_logger' is used instead. See respective qkit/src/qkit/measure/spectroscopy function docs for how to migrate.")
+        #logging.error("'set_log_function' is obsolete, 'add_logger' is used instead. See respective qkit/src/qkit/measure/spectroscopy function docs for how to migrate.")
+        if name == None:
+            try:
+                name = ['log_param'] * len(func)
+            except Exception:
+                name = None
+        if unit == None:
+            try:
+                unit = [''] * len(func)
+            except Exception:
+                unit = None
+        if log_dtype == None:
+            try:
+                log_dtype = ['f'] * len(func)
+            except Exception:
+                log_dtype = None
+        
+        # remove all previously set 1d loggers but keep 2d loggers depending on generalizd is_trace parameter
+        self.log_init_params = [elm for elm in self.log_init_params if elm[6]]
+
+        if func == None:
+            return
+        
+        for i in range(len(func)):
+            self.add_logger(func[i], name[i], unit[i], log_dtype[i])
     
     def set_log_function_2D(self, func=None, name=None, unit=None, y=None, y_name=None, y_unit=None, log_dtype=None):
         '''
-        Obsolete since covered by 'add_logger'.
+        A function (object) can be passed to the measurement loop which is excecuted before every x iteration
+        but after executing the x_object setter in 2D measurements and before every line (but after setting
+        the x value) in 3D measurements.
+        The return values of the function of type 1D-list or similar is stored in a value matrix in the h5 file.
+
+        Call without any arguments to delete all log functions. The timestamp is automatically saved.
+
+        func: function object in list form, returning a list each
+        name: name of logging parameter appearing in h5 file, default: 'log_param'
+        unit: unit of logging parameter, default: ''
+        log_dtype: h5 data type, default: 'f' (float32)
         '''
-        logging.error("'set_log_function_2D' is obsolete, 'add_logger' is used instead. See respective qkit/src/qkit/measure/spectroscopy function docs for how to migrate.")
+        #logging.error("'set_log_function_2D' is obsolete, 'add_logger' is used instead. See respective qkit/src/qkit/measure/spectroscopy function docs for how to migrate.")
+        if name == None:
+            try:
+                name = ['log_param'] * len(func)
+            except Exception:
+                name = None
+        if unit == None:
+            try:
+                unit = [''] * len(func)
+            except Exception:
+                unit = None
+        if log_dtype == None:
+            try:
+                log_dtype = ['f'] * len(func)
+            except Exception:
+                log_dtype = None
+        
+        # remove all previously set 2d loggers but keep 1d loggers depending on generalized is_trace parameter
+        self.log_init_params = [elm for elm in self.log_init_params if not elm[6]]
+
+        if func == None:
+            return
+        
+        for i in range(len(func)):
+            self.add_logger(func[i], name[i], unit[i], log_dtype[i], True, False, True, y[i], y_name[i], y_unit[i])
 
     def set_x_parameters(self, x_vec, x_coordname, x_set_obj, x_unit=""):
         """
@@ -314,8 +381,8 @@ class spectrum(object):
             self._pha_view.add(self._fit_freq, self._fit_pha)
 
         for init_tuple in self.log_init_params:
-            func, name, unit, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit = init_tuple
-            self.log_funcs += [logFunc(self._data_file.get_filepath(), func, name, unit, 
+            func, name, unit, dtype, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit = init_tuple
+            self.log_funcs += [logFunc(self._data_file.get_filepath(), func, name, unit, dtype,
                                        self._data_x.ds_url if (self._scan_dim >= 2) and over_x else None, 
                                        self._data_y.ds_url if (self._scan_dim == 3) and over_y else None, 
                                        (trace_base_vals, trace_base_name, trace_base_unit) if is_trace else None)]

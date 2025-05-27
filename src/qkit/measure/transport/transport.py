@@ -668,7 +668,7 @@ class transport(object):
         self._x_dt = x_dt
         return
     
-    def add_logger(self, func, name, unit, over_x=True, over_y=True, is_trace=False, trace_base_vals=None, trace_base_name=None, trace_base_unit=None):
+    def add_logger(self, func, name="log_param", unit="", dtype="f", over_x=True, over_y=True, is_trace=False, trace_base_vals=None, trace_base_name=None, trace_base_unit=None):
         """
         Migration from set_log_function:
 
@@ -688,9 +688,85 @@ class transport(object):
 
         Alternatively more options like logging traces or skipping the x-iteration are possible now, see qkit/measure/logging_base for details.
         """
-        self.log_init_params += [(func, name, unit, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit)] # handle logger initialization in prepare_file
+        self.log_init_params += [(func, name, unit, dtype, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit)] # handle logger initialization in prepare_file
+    
+    def set_log_function(self, func=None, name=None, unit=None, dtype='f'):
+        """
+        Saves desired values obtained by a function <func> in the .h5-file as a value vector with name <name>, unit <unit> and in data format <f>.
+        The function (object) can be passed to the measurement loop which is executed before every x iteration
+        but after executing the x_object setter in 2D measurements and before every line (but after setting 
+        the x value) in 3D measurements.
+        The return value of the function of type float or similar is stored in a value vector in the h5 file.
+        
+        Parameters
+        ----------
+        func: array_likes of callable objects
+            A callable object that returns the value to be saved.
+        name: array_likes of strings
+            Names of logging parameter appearing in h5 file. Default is 'log_param'.
+        unit: array_likes of strings
+            Units of logging parameter. Default is ''.
+        dtype: array_likes of dtypes
+            h5 data type to be used in the data file. Default is 'f' (float64).
+        
+        Returns
+        -------
+        None
+        """
+        # TODO: dtype = float instead of 'f'
+        # log-function & general case selection of one logger, multiple or reset
+        if callable(func):
+            self.add_logger(func, "log_param" if name is None else name, "" if unit is None else unit, dtype)
+        elif func is None:
+            self.reset_log_function()
+            return
+        elif np.iterable(func):
+            for fun in func:
+                if not callable(fun):
+                    raise ValueError('{:s}: Cannot set {!s} as y-function: callable object needed'.format(__name__, fun))
+        else:
+            raise ValueError('{:s}: Cannot set {!s} as log-function: callable object or iterable object of callable objects needed'.format(__name__, func))
+        # continue with multiple loggers handling
 
-    def clear_loggers(self):
+        # log-name
+        if name is None:
+            name = ['log_param_{}'.format(i) for i in range(len(func))]
+        elif np.iterable(name):
+            for _name in name:
+                if type(_name) is not str:
+                    raise ValueError('{:s}: Cannot set {!s} as log-name: string needed'.format(__name__, _name))
+        else:
+            raise ValueError('{:s}: Cannot set {!s} as log-name: string or iterable object of strings needed'.format(__name__, name))
+        
+        # log-unit
+        if unit is None:
+            unit = ['']*len(func)
+        elif type(unit) is str:
+            unit = [unit]*len(func)
+        elif np.iterable(unit):
+            for _unit in unit:
+                if type(_unit) is not str:
+                    raise ValueError('{:s}: Cannot set {!s} as log-unit: string needed'.format(__name__, _unit))
+        else:
+            raise ValueError('{:s}: Cannot set {!s} as log-unit: string or iterable object of strings needed'.format(__name__, unit))
+
+        # log-dtype
+        if dtype is None:
+            dtype = ["f"]*len(func)
+        elif type(dtype) is str:
+            dtype = [dtype]*len(func)
+        elif np.iterable(dtype):
+            for _dtype in dtype:
+                if type(_dtype) is not str:
+                    raise ValueError('{:s}: Cannot set {!s} as log-dtype: string needed'.format(__name__, _dtype))
+        else:
+            raise ValueError('{:s}: Cannot set {!s} as log-dtype: string of iterable object of strings needed'.format(__name__, dtype))
+        
+        # add iterables
+        for i in range(len(func)):
+            self.add_logger(func[i], name[i], unit[i], dtype[i])
+
+    def reset_log_function(self):
         """
         Clear all set log functions
         """

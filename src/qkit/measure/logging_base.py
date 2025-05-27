@@ -20,11 +20,12 @@ class logFunc(object):
     is already defined in the main measurement, 'trace_vec provides information about the additional coordinate a trace log function may sweep over as 
     (*values_array*, name, unit). The same base coordinate may be chosen for different trace log functions.
     """
-    def __init__(self, file_name: str, func: typing.Callable, name: str, unit: str = "", x_ds_url: str = None, y_ds_url: str = None, trace_info: tuple[np.ndarray, str, str] = None):
+    def __init__(self, file_name: str, func: typing.Callable, name: str, unit: str = "", dtype: str = "f", x_ds_url: str = None, y_ds_url: str = None, trace_info: tuple[np.ndarray, str, str] = None):
         self.file = Data(file_name)
         self.func = func
         self.name = name
         self.unit = unit
+        self.dtype = dtype
         # print("Logging {} in file {}".format(name, file_name)) # TODO remove 
         self.signature = ""
         self.x_ds_url = x_ds_url
@@ -51,13 +52,13 @@ class logFunc(object):
                 trace_ds.add(self.trace_info[0])
         # the logic is admittably more complicated here, writing down all 8 possible cases of x,y,n present or not helps
         if len(self.signature) == 0:
-            self.log_ds = self.file.add_coordinate(self.name, self.unit)
+            self.log_ds = self.file.add_coordinate(self.name, self.unit) # coordinate dtype hardcoded as float
         elif len(self.signature) == 1:
-            self.log_ds = self.file.add_value_vector(self.name, (self.file.get_dataset(self.x_ds_url) if self.signature == "x" else (self.file.get_dataset(self.y_ds_url) if self.signature == "y" else trace_ds)), self.unit)
+            self.log_ds = self.file.add_value_vector(self.name, {"x":self.file.get_dataset(self.x_ds_url),"y":self.file.get_dataset(self.y_ds_url),"n":trace_ds}[self.signature], self.unit, dtype=self.dtype)
         elif len(self.signature) == 2:
-            self.log_ds = self.file.add_value_matrix(self.name, self.file.get_dataset(self.x_ds_url) if "x" in self.signature else self.file.get_dataset(self.y_ds_url), trace_ds if "n" in self.signature else self.file.get_dataset(self.y_ds_url), self.unit)
+            self.log_ds = self.file.add_value_matrix(self.name, self.file.get_dataset(self.x_ds_url) if "x" in self.signature else self.file.get_dataset(self.y_ds_url), trace_ds if "n" in self.signature else self.file.get_dataset(self.y_ds_url), self.unit, dtype=self.dtype)
         elif len(self.signature) == 3:
-            self.log_ds = self.file.add_value_box(self.name, self.file.get_dataset(self.x_ds_url), self.file.get_dataset(self.y_ds_url), trace_ds, self.unit)
+            self.log_ds = self.file.add_value_box(self.name, self.file.get_dataset(self.x_ds_url), self.file.get_dataset(self.y_ds_url), trace_ds, self.unit, dtype=self.dtype)
         
         if "x" in self.signature:
             self.x_len = self.file.get_dataset(self.x_ds_url).ds.shape[0]
