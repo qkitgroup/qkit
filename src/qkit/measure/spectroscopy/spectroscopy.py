@@ -418,7 +418,7 @@ class spectrum(object):
 
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         if self.open_qviewkit:
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase', 'views/IQ'])
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'] + (['views/IQ'] if self.storeRealImag else []))
 
         qkit.flow.start()
 
