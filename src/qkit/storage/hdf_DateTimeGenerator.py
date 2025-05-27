@@ -10,7 +10,8 @@ import logging
 import os
 import time
 import qkit
-import numpy as np
+
+alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
 class DateTimeGenerator(object):
@@ -71,9 +72,41 @@ class DateTimeGenerator(object):
         )
 
 
-def encode_uuid(value: int) -> str:
-    return np.base_repr(value, base=36)
+def encode_uuid(value):
+    """Encodes the integer unix timestamp into a 6 digit UUID using the alphabet.
+    
+    Args:
+        Integer-cast unix timestamp.
+    Return:
+        6 digit UUID string.
+    """
+    # if not value: value = self._unix_timestamp
+    output = ''
+    la = len(alphabet)
+    while value:
+        output += alphabet[value % la]
+        value = int(value / la)
+    return output[::-1]
 
 
-def decode_uuid(string: str) -> int:
-    return int(string, 36)
+def decode_uuid(string):
+    """Decodes the 6 digit UUID back into integer unix timestamp.
+    
+    Args:
+        6 digit UUID string.        
+    Return:
+        Integer-cast unix timestamp.
+    """
+    # if not string: string = self._uuid
+    output = 0
+    multiplier = 1
+    string = string[::-1].upper()
+    la = len(alphabet)
+    while string != '':
+        f = alphabet.find(string[0])
+        if f == -1:
+            raise ValueError("Can not decode this: {}<--".format(string[::-1]))
+        output += f * multiplier
+        multiplier *= la
+        string = string[1:]
+    return output
