@@ -5,7 +5,6 @@ import numpy as np
 
 def test_file_creation():
     with tempfile.TemporaryDirectory(delete=True) as tmpdir:
-        print("CWD", tmpdir)
         fname = tmpdir + "/hdf5test.h5"
         data = HDF5(fname, mode="w")
         data.write_text_record('test', "This is a test")
