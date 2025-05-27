@@ -1,3 +1,5 @@
+import time
+
 from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis
 from qkit.drivers.AbstractVNA import AbstractVNA
 
@@ -41,7 +43,7 @@ class SpectroscopyMeasurement(MeasurementTypeAdapter):
         self._vna.pre_measurement()
         self._vna.start_measurement()
         while not self._vna.ready():
-            pass
+            time.sleep(0.1)
         amp, phase = self._vna.get_tracedata()
         self._vna.post_measurement()
         return (
