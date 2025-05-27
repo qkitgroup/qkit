@@ -27,7 +27,7 @@ class MeasurementFilePath:
     additional_path_info: list[str] = field(default_factory=list)
     user: str = field(default_factory=lambda: qkit.cfg.get('user', 'John_Doe'), init=False)
     run_id: str = field(default_factory=lambda: qkit.cfg.get('run_id', 'NO_RUN'), init=False)
-    timestamp: int = field(default_factory=time.time, init=False)
+    timestamp: int = field(default_factory=lambda: int(time.time()), init=False)
 
     @property
     def uuid(self) -> str:
