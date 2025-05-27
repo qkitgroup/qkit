@@ -239,7 +239,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
     def update_file(self):
         "update_file is regularly called when _something_ has to be updated. open-> do something->close"
         try:
-            self.h5file= h5py.File(str(self.DATA.DataFilePath),mode='r')
+            self.h5file= h5py.File(str(self.DATA.DataFilePath),mode='r', swmr=True)
             self.DATA.filename = self.h5file.filename.split(os.path.sep)[-1]
             self.populate_data_list()
             self.update_plots()
