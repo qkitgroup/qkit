@@ -3,9 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from laboneq.dsl.experiment.builtins import sweep
-
-from qkit.measure.measurement_base import Sweep, Axis, ScalarMeasurement, Experiment
+from qkit.measure.unified_measurements import Sweep, Axis, ScalarMeasurement, Experiment
 from qkit.storage.thin_hdf import HDF5
 
 

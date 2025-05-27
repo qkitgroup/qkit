@@ -8,7 +8,7 @@ import numpy as np
 import itertools
 
 from qkit.drivers.AbstractIVDevice import AbstractIVDevice
-from qkit.measure.measurement_base import MeasurementTypeAdapter, Axis
+from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis
 from qkit.storage.thin_hdf import HDF5
 
 

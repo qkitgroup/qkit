@@ -1,7 +1,7 @@
 from typing import Any
 
 from qkit.drivers.AbstractThermometer import AbstractThermometer
-from qkit.measure.measurement_base import MeasurementTypeAdapter
+from qkit.measure.unified_measurements import MeasurementTypeAdapter
 
 
 class ThermometryMeasurement(MeasurementTypeAdapter):
