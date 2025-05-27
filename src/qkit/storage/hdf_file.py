@@ -52,7 +52,12 @@ class H5_file(object):
                 self.grp.attrs[k] = kw[k]
         
     def create_file(self,output_file, mode):
-        self.hf = h5py.File(output_file, mode,**file_kwargs )
+        kwargs = file_kwargs.copy()
+        if mode == 'r':
+            kwargs['swmr'] = True
+        self.hf = h5py.File(output_file, mode,**kwargs )
+        if mode in ('w', 'a'):
+            self.hf.swmr_mode = True
 
     def set_base_attributes(self):
         "stores some attributes and creates the default data group"
