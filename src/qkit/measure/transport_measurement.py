@@ -115,7 +115,6 @@ class TransportMeasurement(MeasurementTypeAdapter):
         return {
             'IV': HDF5.DataView(
                 view_type=HDF5.DataViewType.ONE_D,
-                view_params="",
                 view_sets=list(itertools.chain(
                     HDF5.DataViewSet(
                         x_path= HDF5.DataReference(b.name),
