@@ -79,7 +79,8 @@ def test_save_on_crash():
     Tests that data is not lost if the measurement crashes.
     """
     local_file = Path(__file__).parent / 'test.h5'
-    os.remove(local_file)
+    if local_file.exists():
+        os.remove(local_file)
     h5_file = HDF5(local_file, 'a')
     h5_file.create_dataset('test', shape=(10,))
     measurement = ScalarMeasurement(name='test', getter=CrashAfterNCalls(3))
