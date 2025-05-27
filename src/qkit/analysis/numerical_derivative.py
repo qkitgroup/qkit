@@ -3,7 +3,7 @@ from typing import override
 
 from scipy import signal
 
-from qkit.measure.measurement_base import AnalysisTypeAdapter, MeasurementTypeAdapter
+from qkit.measure.unified_measurements import AnalysisTypeAdapter, MeasurementTypeAdapter
 from qkit.storage.thin_hdf import HDF5
 
 

@@ -1,4 +1,4 @@
-from qkit.measure.measurement_base import MeasurementTypeAdapter, Axis
+from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis
 from qkit.drivers.AbstractVNA import AbstractVNA
 
 class SpectroscopyMeasurement(MeasurementTypeAdapter):

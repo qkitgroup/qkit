@@ -4,7 +4,7 @@ import pytest
 
 import qkit
 from qkit.analysis.numerical_derivative import SavgolNumericalDerivative
-from qkit.measure.measurement_base import Experiment, MeasurementTypeAdapter, Axis
+from qkit.measure.unified_measurements import Experiment, MeasurementTypeAdapter, Axis
 import numpy as np
 from typing import override
 
