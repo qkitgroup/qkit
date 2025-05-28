@@ -521,7 +521,7 @@ class spectrum(object):
         if self._nop < 10:
             self._data_file.hf.hf.attrs['default_ds'] =['views/amplitude_midpoint', 'views/phase_midpoint']
         else:
-            self._data_file.hf.hf.attrs['default_ds'] = ['amplitude', 'phase', 'views/IQ']
+            self._data_file.hf.hf.attrs['default_ds'] = ['amplitude', 'phase'] + (['views/IQ'] if self.storeRealImag else [])
         
         if self.open_qviewkit:
             self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=list(self._data_file.hf.hf.attrs['default_ds']))
@@ -563,7 +563,7 @@ class spectrum(object):
         """opens qviewkit to plot measurement, amp and pha are opened by default"""
         """only middle point in freq array is plotted vs x and y"""
         if self.open_qviewkit: 
-            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase', "views/IQ"])
+            self._qvk_process = qviewkit.plot(self._data_file.get_filepath(), datasets=['amplitude', 'phase'] + (['views/IQ'] if self.storeRealImag else []))
 
         if self.progress_bar:
             if self.landscape.xylandscapes:
