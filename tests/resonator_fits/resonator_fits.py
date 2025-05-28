@@ -1,11 +1,11 @@
 import pytest
 
 def test_circlefit():
-    from qkit.analysis.resonatorV2 import CircleFit
+    from qkit.analysis.resonator_fitting import CircleFit
     from qkit.storage.store import Data # for reading file
     import numpy as np
 
-    datafile = Data("C:/Users/mariu/Desktop/Ordner/Studium/qkit_development/tests/resonator_fits/SVSEWX_VNA_tracedata.h5")
+    datafile = Data("SVSEWX_VNA_tracedata.h5")
     freq = np.array(datafile.data.frequency)
     amp = np.array(datafile.data.amplitude)
     pha = np.array(datafile.data.phase)

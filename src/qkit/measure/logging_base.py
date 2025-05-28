@@ -41,6 +41,7 @@ class logFunc(object):
             self.signature += "n"
         self.buffer1d: np.ndarray = None
         self.log_ds: hdf_dataset = None
+    
     def prepare_file(self):
         # prepare trace base coordinate if necessary
         if "n" in self.signature:
@@ -61,9 +62,9 @@ class logFunc(object):
             self.log_ds = self.file.add_value_box(self.name, self.file.get_dataset(self.x_ds_url), self.file.get_dataset(self.y_ds_url), trace_ds, self.unit, dtype=self.dtype)
         
         if "x" in self.signature:
-            self.x_len = self.file.get_dataset(self.x_ds_url).ds.shape[0]
+            self.x_len = self.file[self.x_ds_url].shape[0]
         if "y" in self.signature:
-            self.y_len = self.file.get_dataset(self.y_ds_url).ds.shape[0]
+            self.y_len = self.file[self.y_ds_url].shape[0]
 
     def logIfDesired(self, ix=0, iy=0):        
         if (ix == 0 or "x" in self.signature) and (iy == 0 or "y" in self.signature): # log function call desired
