@@ -59,16 +59,79 @@ class Double_VTE(Instrument):
     def get_getter_matrix(self):
         return self._getter_matrix
     
-    def show_effective_minmax(self, v1_min, v1_max, v2_min, v2_max, fix_a = None, fix_b = None, make_plot = True):
-        helper = np.array([[v1_min, v1_min, v1_max, v1_max, v1_min], 
-                           [v2_min, v2_max, v2_min, v2_max, v2_min]])
+    def show_effective_minmax(self, v1_min: float, v1_max: float, v2_min: float, v2_max: float, fix_a: float | None = None, fix_b: float | None = None, make_plot: bool = True) -> tuple[float]:
+        helper = np.array([[v1_min, v1_max, v1_max, v1_min, v1_min], 
+                           [v2_min, v2_min, v2_max, v2_max, v2_min]])
+        # boundary box trivially as min/max over corners
         a_min = np.min(self._setter_matrix @ helper, axis=-1)[0]
         a_max = np.max(self._setter_matrix @ helper, axis=-1)[0]
         b_min = np.min(self._setter_matrix @ helper, axis=-1)[1]
         b_max = np.max(self._setter_matrix @ helper, axis=-1)[1]
 
+        # if specific fixed point is within boundary, its according range can be found as the innermost intersections between quadrilateral edges and fixed line
+        # draw everything in v1, v2 and va, vb space for above comment to make sense
+        if fix_a is None:
+            eff_b_min = None
+            eff_b_max = None
+        elif (fix_a < a_min) or (fix_a > a_max):
+            eff_b_min = None
+            eff_b_max = None
+        else:
+            eff_cand = []
+            for i in range(4):
+                try:
+                    # https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection P_y formula with p1 = setter@h_i, p2 = setter@h_i+1, p3 = (fix_a, 1), p4 = (fix_a, 0)
+                    eff_cand += [(np.linalg.det(self._setter_matrix) * np.linalg.det(helper[:,i:i+2]) + fix_a*(self._setter_matrix @ (helper[:,i] - helper[:,i+1]))[1])/(self._setter_matrix @ (helper[:,i] - helper[:,i+1]))[0]]
+                except:
+                    pass
+            eff_cand = np.array(eff_cand)
+            eff_cand = np.unique(eff_cand[(eff_cand >= b_min) & (eff_cand <= b_max)])
+            if len(eff_cand) != 2:
+                logging.warning("Something went wrong during fix_a calculations")
+                eff_b_min = None
+                eff_b_max = None
+            else:
+                eff_b_min = np.min(eff_cand)
+                eff_b_max = np.max(eff_cand)
+        
+        if fix_b is None:
+            eff_a_min = None
+            eff_a_max = None
+        elif (fix_b < b_min) or (fix_b > b_max):
+            eff_a_min = None
+            eff_a_max = None
+        else:
+            eff_cand = []
+            for i in range(4):
+                try:
+                    eff_cand += [(-np.linalg.det(self._setter_matrix) * np.linalg.det(helper[:,i:i+2]) + fix_b*(self._setter_matrix @ (helper[:,i] - helper[:,i+1]))[0])/(self._setter_matrix @ (helper[:,i] - helper[:,i+1]))[1]]
+                except:
+                    pass
+            eff_cand = np.array(eff_cand)
+            eff_cand = np.unique(eff_cand[(eff_cand >= a_min) & (eff_cand <= a_max)])
+            if len(eff_cand) != 2:
+                logging.warning("Something went wrong during fix_b calculations")
+                eff_a_min = None
+                eff_a_max = None
+            else:
+                eff_a_min = np.min(eff_cand)
+                eff_a_max = np.max(eff_cand)
+
+        if make_plot:
+            import matplotlib.pyplot as plt
+            plt.subplots(figsize=(12,12), dpi=360)
+            plt.plot(*(self._setter_matrix @ helper), "k-", zorder=0)
+            plt.hlines([b_min, b_max], a_min, a_max, "b", ":", zorder=1)
+            plt.vlines([a_min, a_max], b_min, b_max, "b", ":", zorder=1)
+            plt.hlines(fix_b, eff_a_min, eff_a_max, "r", "--", zorder=1) if not ((fix_b is None) or (eff_a_min is None) or (eff_a_max is None)) else None
+            plt.vlines(fix_a, eff_b_min, eff_b_max, "r", "--", zorder=1) if not ((fix_a is None) or (eff_b_min is None) or (eff_b_max is None)) else None
+            plt.scatter(*(self._setter_matrix @ helper[:,:-1]), c=range(1, helper.shape[-1]), marker="o", cmap="gist_rainbow", zorder=2)
+            plt.show()
+
+        return a_min, a_max, b_min, b_max, eff_b_min, eff_b_max, eff_a_min, eff_a_max
+
     def get_sweepdata(self, start_A, stop_A, start_B, stop_B, nop):
-        # (nop), (nop)   = *as tuple*:    (2, 2)                                        @          (2, 2)                    @      (2, nop)                               //   (1, nop),                                  (1, nop)
+        # (nop), (nop)   = *as tuple*:   (2, 2)                                         @          (2, 2)                    @      (2, nop)                               //   (1, nop),                                  (1, nop)
         sweep_1, sweep_2 = (s for s in np.array([[self.v_div_1, 0], [0, self.v_div_2]]) @ np.linalg.inv(self._setter_matrix) @ np.concatenate([np.linspace(start_A, stop_A, nop)[None,:], np.linspace(start_B, stop_B, nop)[None,:]], axis=0))
         logging.info("Sweeping Setter_1 within {}V to {}V and Setter_2 within {}V to {}V".format(np.min(sweep_1), np.max(sweep_1), np.min(sweep_2), np.max(sweep_2)))
         if self.sweep_manually:
@@ -112,3 +175,9 @@ class Double_VTE(Instrument):
             return eval("self.get_{}()".format(param)) if "etter_matrix" in param else eval("self.{}".format(param))
         except:
             return None
+        
+
+if __name__ == "__main__":
+    mydvte = Double_VTE("mydvte")
+    mydvte.set_setter_matrix(np.array([[1, -1], [1/3, 2/3]]))
+    print(mydvte.show_effective_minmax(0, 4, -4, 0, 2, 0))
