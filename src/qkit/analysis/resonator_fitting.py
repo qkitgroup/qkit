@@ -186,8 +186,7 @@ class CircleFit(ResonatorFitBase):
     
     def do_fit(self, freq: np.ndarray[float], amp: np.ndarray[float], pha: np.ndarray[float]):
         # use external circlefit 
-        my_circuit = circuit(freq, amp*np.exp(1j*pha))
-        my_circuit.n_ports = self.n_ports
+        my_circuit = circuit.reflection_port(freq, amp*np.exp(1j*pha)) if self.n_ports == 1 else circuit.notch_port(freq, amp*np.exp(1j*pha))
         my_circuit.fit_delay_max_iterations = self.fit_delay_max_iterations
         my_circuit.autofit(fixed_delay=self.fixed_delay, isolation=self.isolation)
 
@@ -220,7 +219,7 @@ class CircleFit(ResonatorFitBase):
         }
         self.extract_data.update(my_circuit.fitresults)
         self.freq_fit = np.linspace(np.min(freq), np.max(freq), self.out_nop)
-        z_sim = self.Sij(self.freq_fit, my_circuit.fr, my_circuit.Ql, my_circuit.Qc, my_circuit.phi, my_circuit.a, my_circuit.alpha, my_circuit.delay)
+        z_sim = my_circuit.Sij(self.freq_fit, my_circuit.fr, my_circuit.Ql, my_circuit.Qc, my_circuit.phi, my_circuit.a, my_circuit.alpha, my_circuit.delay)
         self.amp_fit = np.abs(z_sim)
         self.pha_fit = np.angle(z_sim)
 
