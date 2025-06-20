@@ -205,3 +205,7 @@ class ADwinProII_SMU(Instrument):
     def reset(self):
         for i in range(1, 9):
             self.do_set_dac(0.0, i)
+
+
+class ADwinProII_Double(Instrument):
+    pass

@@ -130,13 +130,13 @@ class Double_VTE(Instrument):
 
         return a_min, a_max, b_min, b_max, eff_b_min, eff_b_max, eff_a_min, eff_a_max
 
-    def get_sweepdata(self, start_A, stop_A, start_B, stop_B, nop):
-        # (nop), (nop)   = *as tuple*:   (2, 2)                                         @          (2, 2)                    @      (2, nop)                               //   (1, nop),                                  (1, nop)
-        sweep_1, sweep_2 = (s for s in np.array([[self.v_div_1, 0], [0, self.v_div_2]]) @ np.linalg.inv(self._setter_matrix) @ np.concatenate([np.linspace(start_A, stop_A, nop)[None,:], np.linspace(start_B, stop_B, nop)[None,:]], axis=0))
+    def get_sweepdata(self, a_vals: np.ndarray, b_vals: np.ndarray):
+        # (nop), (nop)   = *as tuple*:   (2, 2)                                         @          (2, 2)                    @      (2, nop)             //   (1, nop),                         (1, nop)
+        sweep_1, sweep_2 = (s for s in np.array([[self.v_div_1, 0], [0, self.v_div_2]]) @ np.linalg.inv(self._setter_matrix) @ np.concatenate([a_vals.reshape((1, len(a_vals))), b_vals.reshape((1, len(b_vals)))], axis=0))
         logging.info("Sweeping Setter_1 within {}V to {}V and Setter_2 within {}V to {}V".format(np.min(sweep_1), np.max(sweep_1), np.min(sweep_2), np.max(sweep_2)))
         if self.sweep_manually:
             v_set_1, v_set_2, v_meas_1, v_meas_2 = ([], [], [], [])
-            for i in range(nop):
+            for i in range(len(a_vals)):
                 self.setter_1(sweep_1[i])
                 self.setter_2(sweep_2[i])
                 time.sleep(self.dt)
