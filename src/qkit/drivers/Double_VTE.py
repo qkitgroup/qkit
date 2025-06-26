@@ -33,7 +33,7 @@ class Double_VTE(Instrument):
         self.getter_2: typing.Callable[[], float] = None
         self.rdb_set_1: typing.Callable[[], float] = None # optional but recommended to catch e.g. insufficient device resolution
         self.rdb_set_2: typing.Callable[[], float] = None
-        self.dt = 0.001 # wait between set & get
+        self.set_get_dt = 0.001 # wait between set & get
         # for automated sweeps: func(to_be_set_v1, to_be_set_v2) -> actual_set_v1*v_div_1, actual_set_v2*v_div_2, measured_i1*dVdA_1, measured_i2*dVdA_2
         self.double_sweeper: typing.Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = None
     
@@ -139,7 +139,7 @@ class Double_VTE(Instrument):
             for i in range(len(a_vals)):
                 self.setter_1(sweep_1[i])
                 self.setter_2(sweep_2[i])
-                time.sleep(self.dt)
+                time.sleep(self.set_get_dt)
                 v_set_1 += [self.rdb_set_1() if not (self.rdb_set_1 is None) else sweep_1[i]]
                 v_set_2 += [self.rdb_set_2() if not (self.rdb_set_2 is None) else sweep_2[i]]
                 v_meas_1 += [self.getter_1()]
