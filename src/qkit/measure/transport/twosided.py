@@ -1,23 +1,16 @@
 import numpy as np
-import qkit.drivers
-import qkit.measure
-import qkit.measure.samples_class
-import qkit.measure.transport
-import qkit.measure.transport.transport
-import qkit.storage
-import qkit.storage.hdf_file
-import qkit.storage.store
 from scipy import signal
 import logging
 import time
-import sys
-import threading
 import typing
 
 import qkit
-from qkit.storage import store as hdf
-from qkit.gui.plot import plot as qviewkit
+import qkit.storage
+import qkit.storage.hdf_dataset
+import qkit.storage.store
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
+import qkit.measure
+import qkit.measure.samples_class
 from qkit.measure.measurement_class import Measurement 
 import qkit.measure.write_additional_files as waf
 
@@ -188,7 +181,7 @@ class TransportTwoside(object):
 
     ### Main measurement routine ### 
     def prepare_measurement_file(self):
-        self.the_file = hdf.Data(name='_'.join(list(filter(None, ('{:d}D_IV_curve'.format(self._msdim), self.filename, self.expname)))), mode='a')
+        self.the_file = qkit.storage.store.Data(name='_'.join(list(filter(None, ('{:d}D_IV_curve'.format(self._msdim), self.filename, self.expname)))), mode='a')
         # settings
         self.the_file.add_textlist('settings').append(waf.get_instrument_settings(self.the_file.get_filepath()))
         self._measurement_object.uuid = self.the_file._uuid
@@ -232,13 +225,13 @@ class TransportTwoside(object):
         self._v2 = [value_dimobj("v2_{}".format(i), target_eff_va[i], "V") for i in range(len(self._sweeps))]
         self._i1 = [value_dimobj("i1_{}".format(i), target_eff_va[i], "A") for i in range(len(self._sweeps))]
         self._i2 = [value_dimobj("i2_{}".format(i), target_eff_va[i], "A") for i in range(len(self._sweeps))]
-        if self.store_effs:
-            self._va = [value_dimobj(self.eff_va_name + "_{}".format(i), target_eff_va[i], "V") for i in range(len(self._sweeps))]
-            self._vb = [value_dimobj(self.eff_vb_name + "_{}".format(i), target_eff_va[i], "V") for i in range(len(self._sweeps))]
-            self._ia = [value_dimobj(self.eff_ia_name + "_{}".format(i), target_eff_va[i], "A") for i in range(len(self._sweeps))]
-            self._ib = [value_dimobj(self.eff_ib_name + "_{}".format(i), target_eff_va[i], "A") for i in range(len(self._sweeps))]
+        
+        self._va = [value_dimobj(self.eff_va_name + "_{}".format(i), target_eff_va[i], "V") for i in range(len(self._sweeps))] if self.store_effs else []
+        self._vb = [value_dimobj(self.eff_vb_name + "_{}".format(i), target_eff_va[i], "V") for i in range(len(self._sweeps))] if self.store_effs else []
+        self._ia = [value_dimobj(self.eff_ia_name + "_{}".format(i), target_eff_va[i], "A") for i in range(len(self._sweeps))] if self.store_effs else []
+        self._ib = [value_dimobj(self.eff_ib_name + "_{}".format(i), target_eff_va[i], "A") for i in range(len(self._sweeps))] if self.store_effs else []
         # derivs
-        self._deriv_store = []
+        self._deriv_store: list[list[qkit.storage.hdf_dataset.hdf_dataset]] = []
         for dy, dx in self._derivs:
             self._deriv_store += [ [value_dimobj("d{}_d{}_{}".format(dy, dx, i), target_eff_va[i], "V", "analysis") for i in range(len(self._sweeps))] ]
         # views
@@ -275,7 +268,40 @@ class TransportTwoside(object):
         self._measure()
 
     def _measure(self):
-        pass
+        self.prepare_measurement_file()
+        pb = Progress_Bar((1 if self._msdim < 3 else len(self._y_vec))*(1 if self._msdim < 2 else len(self._x_vec))*len(self._sweeps), self.the_file.get_filepath())
+        try:
+            for ix, (x, x_func) in enumerate([(None, lambda x: None)] if self._msdim < 2 else [(x, self._x_set_obj) for x in self._x_vec]):
+                x_func(x)
+                time.sleep(self._x_dt) if (self._msdim >= 2 and not (self._x_dt is None)) else None
+                for iy, (y, y_func) in enumerate([(None, lambda y: None)] if self._msdim < 3 else [(y, self._y_set_obj) for y in self._y_vec]):
+                    y_func(y)
+                    time.sleep(self._y_dt) if (self._msdim == 3 and not (self._y_dt is None)) else None
+                    # TODO logging
+                    for i in range(len(self._sweeps)):
+                        v1, v2, i1, i2 = self._DIVD.get_sweepdata(*self._sweeps[i].get())
+                        self._v1[i].append(v1)
+                        self._v2[i].append(v2)
+                        self._i1[i].append(i1)
+                        self._i2[i].append(i2)
+                        if self.store_effs:
+                            vavb = self._DIVD._setter_matrix @ np.concatenate([v1[None,:], v2[None,:]], axis=0)
+                            iaib = self._DIVD._getter_matrix @ np.concatenate([i1[None,:], i2[None,:]], axis=0)
+                            self._va[i].append(vavb[0])
+                            self._vb[i].append(vavb[1])
+                            self._ia[i].append(iaib[0])
+                            self._ib[i].append(iaib[1])
+                        for j, (dy, dx) in enumerate(self._derivs):
+                            self._deriv_store[j][i].append(self.deriv_func(eval("self._" + dy)[i], eval("self._" + dx)[i]))
+                        pb.iterate()
+
+                if self._msdim == 3:
+                    for df in self._v1 + self._v2 + self._i1 + self._i2 + self._va + self._vb + self._ia + self._ib + sum(self._deriv_store, []):
+                        df.next_matrix()
+        except:
+            self.the_file.close_file()
+            print('Measurement complete: {:s}'.format(self.the_file.get_filepath()))
+
 
     ### Helper ###
     @staticmethod
@@ -289,6 +315,7 @@ class TransportTwoside(object):
     def _set_b_for_axis(self, val: float):
         for sweep in self._sweeps:
             sweep.set_b_const(val)
+
 class ArbTwosideSweep(object):
     def __init__(self, a_vals: np.ndarray, b_vals: np.ndarray):
         if len(a_vals.shape) != 1 or len(b_vals.shape) != 1 or a_vals.shape != b_vals.shape:
