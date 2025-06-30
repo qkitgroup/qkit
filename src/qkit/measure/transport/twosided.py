@@ -225,7 +225,6 @@ class TransportTwoside(object):
         self._v2 = [value_dimobj("v2_{}".format(i), target_eff_va[i], "V") for i in range(len(self._sweeps))]
         self._i1 = [value_dimobj("i1_{}".format(i), target_eff_va[i], "A") for i in range(len(self._sweeps))]
         self._i2 = [value_dimobj("i2_{}".format(i), target_eff_va[i], "A") for i in range(len(self._sweeps))]
-        
         self._va = [value_dimobj(self.eff_va_name + "_{}".format(i), target_eff_va[i], "V") for i in range(len(self._sweeps))] if self.store_effs else []
         self._vb = [value_dimobj(self.eff_vb_name + "_{}".format(i), target_eff_va[i], "V") for i in range(len(self._sweeps))] if self.store_effs else []
         self._ia = [value_dimobj(self.eff_ia_name + "_{}".format(i), target_eff_va[i], "A") for i in range(len(self._sweeps))] if self.store_effs else []
