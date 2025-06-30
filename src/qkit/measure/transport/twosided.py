@@ -1,4 +1,6 @@
 import numpy as np
+import qkit.measure.transport
+import qkit.measure.transport.twosided
 from scipy import signal
 import logging
 import time
@@ -13,6 +15,7 @@ import qkit.measure
 import qkit.measure.samples_class
 from qkit.measure.measurement_class import Measurement 
 import qkit.measure.write_additional_files as waf
+from qkit.measure.logging_base import logFunc
 
 
 class TransportTwoside(object):
@@ -39,7 +42,8 @@ class TransportTwoside(object):
         self.expname = None
         self.comment = None
 
-        # TODO logging
+        self.log_init_params = [] # buffer is necessary to allow adjusting x/y parameter sweeps after setting log functions
+        self.log_funcs: list[logFunc] = []
 
         self._x_coordname = None
         self._x_set_obj = lambda x: None
@@ -75,10 +79,38 @@ class TransportTwoside(object):
     def set_sample(self, sample: qkit.measure.samples_class):
         self._measurement_object.sample = sample
 
+    def add_logger(self, func, name="log_param", unit="", dtype="f", over_x=True, over_y=True, is_trace=False, trace_base_vals=None, trace_base_name=None, trace_base_unit=None):
+        """
+        Migration from set_log_function:
+
+        --------
+        def get_T():
+            ... # returns a float
+        def a():
+            ... # returns a float
+        
+        # obsolete 
+        # tr.set_log_function([get_T, a], ["temp", "a_name"], ["K", "a_unit"])
+
+        # do instead
+        tr.add_logger(get_T, "temp", "K") # default migration
+        tr.add_logger(a, "a_name", "a_unit", over_y=False) # skip y-iteration if desired
+        ------
+
+        Alternatively more options like logging traces or skipping the x-iteration are possible now, see qkit/measure/logging_base for details.
+        """
+        self.log_init_params += [(func, name, unit, dtype, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit)] # handle logger initialization in prepare_file
+
+    def reset_log_function(self):
+        """
+        Clear all set log functions
+        """
+        self.log_init_params = []
+
     def clear_sweeps(self):
         self._sweeps = []
     
-    def add_sweep(self, s: ArbTwosideSweep):
+    def add_sweep(self, s: qkit.measure.transport.twosided.ArbTwosideSweep):
         self._sweeps += [s]
 
     def set_x_parameter(self, name: str = None, set_obj: typing.Callable[[float], None] = lambda x: None, vals: list[float] = [None], unit: str = "A.U.", dt: float = None):
@@ -236,6 +268,14 @@ class TransportTwoside(object):
         # views
         for y, x in self._views:
             [self.the_file.add_view(y + "_" + x, eval("self._" + x)[i], eval("self._" + y)[i]) for i in range(len(self._sweeps))]
+        # logging
+        for init_tuple in self.log_init_params:
+            func, name, unit, dtype, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit = init_tuple
+            self.log_funcs += [logFunc(self.the_file.get_filepath(), func, name, unit, dtype,
+                                       x_coord.ds_url if (self._msdim >= 2) and over_x else None, 
+                                       y_coord.ds_url if (self._msdim == 3) and over_y else None, 
+                                       (trace_base_vals, trace_base_name, trace_base_unit) if is_trace else None)]
+            self.log_funcs[-1].prepare_file()
 
     def measure_1D(self):
         if len(self._sweeps) == 0:
@@ -276,7 +316,8 @@ class TransportTwoside(object):
                 for iy, (y, y_func) in enumerate([(None, lambda y: None)] if self._msdim < 3 else [(y, self._y_set_obj) for y in self._y_vec]):
                     y_func(y)
                     time.sleep(self._y_dt) if (self._msdim == 3 and not (self._y_dt is None)) else None
-                    # TODO logging
+                    for logger in self.log_funcs:
+                        logger.logIfDesired(ix, iy)
                     for i in range(len(self._sweeps)):
                         v1, v2, i1, i2 = self._DIVD.get_sweepdata(*self._sweeps[i].get())
                         self._v1[i].append(v1)
