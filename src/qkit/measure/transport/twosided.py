@@ -11,6 +11,7 @@ import qkit.storage
 import qkit.storage.hdf_dataset
 import qkit.storage.store
 from qkit.gui.notebook.Progress_Bar import Progress_Bar
+from qkit.gui.plot import plot as qviewkit
 import qkit.measure
 import qkit.measure.samples_class
 from qkit.measure.measurement_class import Measurement 
@@ -38,7 +39,7 @@ class ArbTwosideSweep(object):
 
 class LinearTwoside(ArbTwosideSweep):
     def __init__(self, start_a, stop_a, start_b, stop_b, nop):
-        super.__init__(np.linspace(start_a, stop_a, nop), np.linspace(start_b, stop_b, nop))
+        super().__init__(np.linspace(start_a, stop_a, nop), np.linspace(start_b, stop_b, nop))
 
 
 class TransportTwoside(object):
@@ -70,7 +71,7 @@ class TransportTwoside(object):
 
         self._x_coordname = None
         self._x_set_obj = lambda x: None
-        self._x_vec = None
+        self._x_vec = [None]
         self._x_unit = None
         self._x_dt = None
         
@@ -133,7 +134,7 @@ class TransportTwoside(object):
     def clear_sweeps(self):
         self._sweeps = []
     
-    def add_sweep(self, s: qkit.measure.transport.twosided.ArbTwosideSweep):
+    def add_sweep(self, s: ArbTwosideSweep):
         self._sweeps += [s]
 
     def set_x_parameter(self, name: str = None, set_obj: typing.Callable[[float], None] = lambda x: None, vals: list[float] = [None], unit: str = "A.U.", dt: float = None):
@@ -241,9 +242,9 @@ class TransportTwoside(object):
         self.the_file.add_textlist('settings').append(waf.get_instrument_settings(self.the_file.get_filepath()))
         self._measurement_object.uuid = self.the_file._uuid
         self._measurement_object.hdf_relpath = self.the_file._relpath
-        self._measurement_object.instruments = qkit.instruments.get_instrument_names()  # qkit.instruments.get_instruments() #
-        self._measurement_object.save()
-        self.the_file.add_textlist('measurement').append(self._measurement_object.get_JSON())
+        self._measurement_object.instruments = qkit.instruments.get_instrument_names()
+        #self._measurement_object.save() # TODO fixme
+        #self.the_file.add_textlist('measurement').append(self._measurement_object.get_JSON())
         # matrices
         mat_dummy_x = self.the_file.add_coordinate("_matrix_x", folder="analysis")
         mat_dummy_x.add([1, 2])
@@ -257,7 +258,7 @@ class TransportTwoside(object):
             getter_matrix.append(gm_elm)
         # coords
         target_eff_va = [self.the_file.add_coordinate("target_" + self.eff_va_name + "_{}".format(i), "V") for i in range(len(self._sweeps))]
-        target_eff_vb = [self.the_file.add_coordinate("target_" + self.eff_va_name + "_{}".format(i), "V") for i in range(len(self._sweeps))]
+        target_eff_vb = [self.the_file.add_coordinate("target_" + self.eff_vb_name + "_{}".format(i), "V") for i in range(len(self._sweeps))]
         for i in range(len(self._sweeps)):
             a, b = self._sweeps[i].get()
             target_eff_va[i].add(a)
@@ -288,9 +289,14 @@ class TransportTwoside(object):
         self._deriv_store: list[list[qkit.storage.hdf_dataset.hdf_dataset]] = []
         for dy, dx in self._derivs:
             self._deriv_store += [ [value_dimobj("d{}_d{}_{}".format(dy, dx, i), target_eff_va[i], "V", "analysis") for i in range(len(self._sweeps))] ]
-        # views
+            view_buf = self.the_file.add_view("d" + dy + "_d" + dx, eval("self._" + dx)[0], self._deriv_store[-1][0], view_params={"labels": (dx[0].upper(), dy[0].upper() + "/" + dx[0].upper()), 'plot_style': 1, 'markersize': 5})
+            for i in range(1, len(self._sweeps)):
+                view_buf.add(eval("self._" + dx)[i], self._deriv_store[-1][i])
+        # extra views
         for y, x in self._views:
-            [self.the_file.add_view(y + "_" + x, eval("self._" + x)[i], eval("self._" + y)[i]) for i in range(len(self._sweeps))]
+            view_buf = self.the_file.add_view(y + "_" + x, eval("self._" + x)[0], eval("self._" + y)[0], view_params={"labels": (x[0].upper(), y[0].upper()), 'plot_style': 1, 'markersize': 5})
+            for i in range(1, len(self._sweeps)):
+                view_buf.add(eval("self._" + x)[i], eval("self._" + y)[i])
         # logging
         for init_tuple in self.log_init_params:
             func, name, unit, dtype, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit = init_tuple
@@ -331,7 +337,8 @@ class TransportTwoside(object):
 
     def _measure(self):
         self.prepare_measurement_file()
-        pb = Progress_Bar((1 if self._msdim < 3 else len(self._y_vec))*(1 if self._msdim < 2 else len(self._x_vec))*len(self._sweeps), self.the_file.get_filepath())
+        pb = Progress_Bar((1 if self._msdim < 3 else len(self._y_vec))*(1 if self._msdim < 2 else len(self._x_vec))*len(self._sweeps), self.the_file._uuid)
+        qviewkit.plot(self.the_file.get_filepath(), datasets=["views/" + y + "_" + x for y, x in self._views])
         try:
             for ix, (x, x_func) in enumerate([(None, lambda x: None)] if self._msdim < 2 else [(x, self._x_set_obj) for x in self._x_vec]):
                 x_func(x)
@@ -343,6 +350,7 @@ class TransportTwoside(object):
                         logger.logIfDesired(ix, iy)
                     for i in range(len(self._sweeps)):
                         v1, v2, i1, i2 = self._DIVD.get_sweepdata(*self._sweeps[i].get())
+                        time.sleep(self.sweep_dt) if not self.sweep_dt is None else None
                         self._v1[i].append(v1)
                         self._v2[i].append(v2)
                         self._i1[i].append(i1)
@@ -350,18 +358,22 @@ class TransportTwoside(object):
                         if self.store_effs:
                             vavb = self._DIVD._setter_matrix @ np.concatenate([v1[None,:], v2[None,:]], axis=0)
                             iaib = self._DIVD._getter_matrix @ np.concatenate([i1[None,:], i2[None,:]], axis=0)
-                            self._va[i].append(vavb[0])
-                            self._vb[i].append(vavb[1])
-                            self._ia[i].append(iaib[0])
-                            self._ib[i].append(iaib[1])
+                            va = vavb[0]
+                            vb = vavb[1]
+                            ia = iaib[0]
+                            ib = iaib[1]
+                            self._va[i].append(va)
+                            self._vb[i].append(vb)
+                            self._ia[i].append(ia)
+                            self._ib[i].append(ib)
                         for j, (dy, dx) in enumerate(self._derivs):
-                            self._deriv_store[j][i].append(self.deriv_func(eval("self._" + dy)[i], eval("self._" + dx)[i]))
+                            self._deriv_store[j][i].append(self.deriv_func(eval(dy), eval(dx)))
                         pb.iterate()
 
                 if self._msdim == 3:
                     for df in self._v1 + self._v2 + self._i1 + self._i2 + self._va + self._vb + self._ia + self._ib + sum(self._deriv_store, []):
                         df.next_matrix()
-        except:
+        finally:
             self.the_file.close_file()
             print('Measurement complete: {:s}'.format(self.the_file.get_filepath()))
 

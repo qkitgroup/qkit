@@ -158,21 +158,12 @@ class Double_VTE(Instrument):
             "v_div_2": None,
             "dVdA_1": None,
             "dVdA_2": None,
-        } | ({
-            "setter_1": None,
-            "setter_2": None,
-            "getter_1": None,
-            "getter_2": None,
-            "rdb_set_1": None,
-            "rdb_set_2": None,
-            "dt": None
-        } if self.sweep_manually else {
-            "double_sweeper": None
-        })
+            "set_get_dt": None
+        }
     
     def get(self, param, **kwargs):
         try:
-            return eval("self.get_{}()".format(param)) if "etter_matrix" in param else eval("self.{}".format(param))
+            return eval("self._{}".format(param)) if "etter_matrix" in param else eval("self.{}".format(param))
         except:
             return None
         
