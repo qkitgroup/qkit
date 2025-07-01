@@ -19,8 +19,9 @@ import logging, time
 from qkit.core.instrument_base import Instrument
 import numpy as np
 import ADwin
+from typing import Callable
 
-class ADwinProII_SMU(Instrument):
+class ADwinProII_Base(Instrument):
     """
     The ADwin Pro II by Jäger Computergesteuerte Messtechnik GmbH provides slots for various 
     ADC/DAC or data in/out cards as well as an accessable FPGA-like processor for control. Our
@@ -41,24 +42,10 @@ class ADwinProII_SMU(Instrument):
     - With *adwin_install_path*/Tools/Test/ADpro/ADpro.exe one can check if communication with
       device is now possible & what the id-numbers of the used cards are (should be 1, 2, 3)
     - For usage one needs to provide a bootloader and to be run processes. The bootloader can 
-      be found under *adwin_install_path*/ADwin12.btl for the T12 processor type. This driver 
-      is in particular designed around 2 processes which configure the FPGA as a default SMU.
-      If you're still reading this your problem can't be solved any other way but with this 
-      box, so at this point I wish you good luck with whatever is troubling you. The already 
-      compiled processes can be found as .TCx-files alongside the other files on the exchange 
-      under exchange/Devices/ADwinProII/ and should be provided somewhere on the measurement pc. 
-
-    SMU_SingleSetGet.TC1 enables ADC/DAC access by checking in regular intervals if a  
-    respective action is requested. SMU_SweepLoop.TC2 is a high-priority process for sweeping 
-    over a given array and reading back a given signal. The speed of one step is mostly limited 
-    by the ADC/DAC access commands taking up to ~1600 CPU cycles = ~1.6e-6 s. The source code 
-    for these processes is provided in the .bas-files. Alternatively one can program the FPGA 
-    to do whatever one wants but then this driver obviously will no longer work with it. 
+      be found under *adwin_install_path*/ADwin12.btl for the T12 processor type. A process 
+      is defined in a compiled .TCx (x: process number) file. Tools and documentation for 
+      creating, editing, testing and compiling are provided in the ADwin software package.
     """
-    # static stuff
-    ADC_CARD_OFFSET = 10
-    ADC_FILTER_CARD_OFFSET = 20
-    DAC_CARD_OFFSET = 30
     @staticmethod
     def _to_volt(x: np.ndarray) -> np.ndarray:
         return (x.astype(np.float64) - 0x8000) * 20.0 / 0x10000
@@ -67,60 +54,43 @@ class ADwinProII_SMU(Instrument):
         x_reg = np.round((x + 10.0)/20.0*0x10000)
         x_reg = np.where(x_reg == -1, 0, x_reg)
         return np.where(x_reg == 0x10000, 0xFFFF, x_reg)
-    
-    def __init__(self, name: str, btl_path: str = "C:\\ADwin\\ADwin12.btl", proc1_path: str = "C:\\ADwin\\SMU_SingleSetGet.TC1", proc2_path: str = "C:\\ADwin\\SMU_SweepLoop.TC2", device_num: int = 1):
-        """
-        This is a driver for using the ADwinProII as an SMU by using the provided processes.
-
-        Usage:
-        Initialize with
-        <name> = qkit.instruments.create('<name>', 'ADwinProII_SMU', **kwargs)
-
-        Keyword arguments:
-            btl_path:   path to bootloader file (default: "C:\\ADwin\\ADwin12.btl")
-            proc1_path: path to process file containing low-priority ADC/DAC access
-                        (default: "C:\\ADwin\\SMU_SingleSetGet.TC1")
-            proc2_path: path to process file containing high-priority array sweep
-                        (default: "C:\\ADwin\\SMU_SweepLoop.TC1")
-            device_num: number assigned to device on your pc by ADconfig (default: 1)
-        """
-        # qkit stuff
-        Instrument.__init__(self, name, tags=['physical'])
-        self.add_parameter("adc", type = float, flags = Instrument.FLAG_GET, channels = (1, 4), minval = -10.0, maxval=10.0, units = "V")
-        self.add_parameter("adc_filtered", type = float, flags = Instrument.FLAG_GET, channels = (1, 8), minval = -10.0, maxval=10.0, units = "V")
-        self.add_parameter("dac", type = float, flags = Instrument.FLAG_SET, channels = (1, 8), minval = -10.0, maxval = 10.0, units = "V")
-        # Boot & Load processes
+    def __init__(self, name: str, btl_path: str = "C:\\ADwin\\ADwin12.btl", device_num: int = 1):
+        Instrument.__init__(self, name, tags=["physical"])
         self.adw = ADwin.ADwin(device_num)
         self.adw.Boot(btl_path)
         logging.info("Booted ADwinProII with processor {}".format(self.adw.Processor_Type()))
-        self.adw.Load_Process(proc1_path)
-        self.adw.Start_Process(1)
-        logging.info("Loaded SMU process 1 for ADwinProII's FPGA")
-        self.adw.Load_Process(proc2_path)
-        logging.info("Loaded SMU process 2 for ADwinProII's FPGA")
-        # Sweep parameters
-        self.dac_channel = 1 # 1...8
-        self.adc_channel = 1 # 1...4 or 1...8 depending on card
-        self.adc_card = 1 # 1 (normal), 2 (filtered)
-        self._sweep_channels = (self.dac_channel, self.adc_channel) # for qkit compability
-        self.delay = 2000 # NOTE: int describing to be slept time inbetween dac set and adc get. 
-        # slept time <=> self.delay * 1e-8 s, set/get commands take ~2e-6 s per point on their own always
 
-    # functionality
+class ADwinProII_SingleSetGet(Instrument):
+    """
+    To be used with the FPGA process 'SMU_SingleSetGet.TC1', enabling single set/get commands
+    for the ADC/DACs.
+    """
+    # static stuff
+    ADC_CARD_OFFSET = 10
+    ADC_FILTER_CARD_OFFSET = 20
+    DAC_CARD_OFFSET = 30
+    def __init__(self, adw_base: ADwinProII_Base, proc_path="C:\\ADwin\\SMU_SingleSetGet.TC1"):
+        Instrument.__init__(self, adw_base._name + "_SingleSetGet", tags=["virtual"])
+        self.add_parameter("adc", type = float, flags = Instrument.FLAG_GET, channels = (1, 4), minval = -10.0, maxval=10.0, units = "V")
+        self.add_parameter("adc_filtered", type = float, flags = Instrument.FLAG_GET, channels = (1, 8), minval = -10.0, maxval=10.0, units = "V")
+        self.add_parameter("dac", type = float, flags = Instrument.FLAG_SET, channels = (1, 8), minval = -10.0, maxval = 10.0, units = "V")
+        self.adw = adw_base.adw
+        self.adw.Load_Process(proc_path)
+        self.adw.Start_Process(int(proc_path[-1]))
+        logging.info("Loaded process '{}' for ADwinProII's FPGA".format(proc_path))
     def do_get_adc(self, channel: int) -> float:
         """
         This is a very nice docstring
         """
         if channel in range(1, 5):
             self.adw.Set_Par(channel + self.ADC_CARD_OFFSET, 1)
-            for i in range(5000):
+            for i in range(500):
                 if self.adw.Get_Par(channel + self.ADC_CARD_OFFSET) == 0:
                     return self.adw.Get_FPar(channel + self.ADC_CARD_OFFSET)
-                time.sleep(0.001)
+                time.sleep(0.01)
             raise TimeoutError("ADwin Pro II did not confirm ADC read within 5s")
         else:
             raise ValueError("Channel must be 1...4")
-        
     def do_get_adc_filtered(self, channel: int) -> float:
         """
         This is a very nice docstring
@@ -134,7 +104,6 @@ class ADwinProII_SMU(Instrument):
             raise TimeoutError("ADwin Pro II did not confirm ADC read within 5s")
         else:
             raise ValueError("Channel must be 1...8")
-        
     def do_set_dac(self, volt: float, channel: int) -> None:
         """
         This is a very nice docstring
@@ -144,7 +113,27 @@ class ADwinProII_SMU(Instrument):
             self.adw.Set_Par(channel + self.DAC_CARD_OFFSET, 1)
         else:
             raise ValueError("Channel must be 1...8")
+    def reset(self):
+        for i in range(1, 9):
+            self.do_set_dac(0.0, i)
 
+class ADwinProII_SweepLoop(Instrument):
+    """
+    To be used with the FPGA process 'SMU_SweepLoop.TC2', enabling SMU functionality for 
+    making qkit transport script DC sweeps.
+    """
+    def __init__(self, adw_base: ADwinProII_Base, proc_path="C:\\ADwin\\SMU_SweepLoop.TC2"):
+        Instrument.__init__(self, adw_base._name + "SweepLoop", tags=["virtual"])
+        self.proc_num = int(proc_path[-1])
+        self.adw = adw_base.adw
+        self.adw.Load_Process(proc_path)
+        logging.info("Loaded process '{}' for ADwinProII's FPGA".format(proc_path))
+        self.dac_channel = 1 # 1...8
+        self.adc_channel = 1 # 1...4 or 1...8 depending on card
+        self.adc_card = 1 # 1 (normal), 2 (filtered)
+        self._sweep_channels = (self.dac_channel, self.adc_channel) # for qkit compability
+        self.delay = 2000 # NOTE: int describing to be slept time inbetween dac set and adc get. 
+        # slept time <=> self.delay * 1e-8 s, set/get commands take ~2e-6 s per point on their own always
     def set_sweep_parameters(self, sweep: np.ndarray) -> None:
         """
         Check to be swept parameter settings and write them to the device.
@@ -177,8 +166,7 @@ class ADwinProII_SMU(Instrument):
         self.adw.Set_Par(3, self.adc_channel)
         self.adw.Set_Par(4, self.adc_card)
         self.adw.Set_Par(5, int(self.delay))
-        self.adw.SetData_Long(self._to_reg(set_array), 1, 1, len(set_array))
-
+        self.adw.SetData_Long(ADwinProII_Base._to_reg(set_array), 1, 1, len(set_array))
     def get_tracedata(self) -> tuple[np.ndarray]:
         """
         Starts a sweep with parameters currently set on device and returns
@@ -186,12 +174,11 @@ class ADwinProII_SMU(Instrument):
         is being handled by overlaying virtual_tunnel_electronic
         """
         # Sweep
-        self.adw.Start_Process(2)
-        while self.adw.Process_Status(2):
+        self.adw.Start_Process(self.proc_num)
+        while self.adw.Process_Status(self.proc_num):
             time.sleep(0.1)
         # Read result
-        return self._to_volt(self.adw.GetData_Long(1, 1, self.adw.Get_Par(1))), self._to_volt(self.adw.GetData_Long(2, 1, self.adw.Get_Par(1)))
-    
+        return ADwinProII_Base._to_volt(self.adw.GetData_Long(1, 1, self.adw.Get_Par(1))), ADwinProII_Base._to_volt(self.adw.GetData_Long(2, 1, self.adw.Get_Par(1)))
     # qkit SMU compability
     def set_sweep_mode(self, mode: int = 0):
         if mode != 0:
@@ -202,6 +189,48 @@ class ADwinProII_SMU(Instrument):
         return (self.dac_channel, self.adc_channel)
     def set_status(self, *args, **kwargs) -> None:
         pass # ADC/DACs are always responsive
-    def reset(self):
-        for i in range(1, 9):
-            self.do_set_dac(0.0, i)
+
+class ADwinProII_DoubleSweep(Instrument):
+    def __init__(self, adw_base: ADwinProII_Base, proc_path="C:\\ADwin\\SMU_DoubleSweep.TC3"):
+        Instrument.__init__(self, adw_base._name + "_DoubleSweep", tags=["virtual"])
+        self.proc_num = int(proc_path[-1])
+        self.adw = adw_base.adw
+        self.dac1_channel = 2
+        self.dac2_channel = 3
+        self.adc1_channel = 2
+        self.adc2_channel = 3
+        self.adc1_card = 1 # 1 (normal), 2 (filtered)
+        self.adc2_card = 1 # 1 (normal), 2 (filtered)
+        self.delay = 2000 # NOTE: int describing to be slept time inbetween dac set and adc get. 
+        # slept time <=> self.delay * 1e-8 s, set/get commands take ~2e-6 s per point on their own always
+
+    def double_sweep(self, v1: np.ndarray, v2: np.ndarray, update_sweep_device: Callable[[], bool] = lambda: True):
+        if update_sweep_device():
+            self.set_sweep_parameters(v1, v2)
+        self.adw.Start_Process(self.proc_num)
+        while self.adw.Process_Status(self.proc_num):
+            time.sleep(0.1)
+        nops = self.adw.Get_Par(1)
+        return ADwinProII_Base._to_volt(self.adw.GetData_Long(3, 1, nops)), ADwinProII_Base._to_volt(self.adw.GetData_Long(4, 1, nops)), ADwinProII_Base._to_volt(self.adw.GetData_Long(5, 1, nops)), ADwinProII_Base._to_volt(self.adw.GetData_Long(6, 1, nops))
+
+    def set_sweep_parameters(self, v1: np.ndarray, v2: np.ndarray):
+        # Skip checks here; if you use this, you'll know what you're doing because you're me
+        self.adw.Set_Par(41, len(v1))
+        self.adw.Set_Par(42, self.dac1_channel)
+        self.adw.Set_Par(43, self.dac2_channel)
+        self.adw.Set_Par(44, self.adc1_channel)
+        self.adw.Set_Par(45, self.adc2_channel)
+        self.adw.Set_Par(46, self.adc1_card)
+        self.adw.Set_Par(47, self.adc2_card)
+        self.adw.Set_Par(48, int(self.delay))
+        self.adw.SetData_Long(ADwinProII_Base._to_reg(v1), 3, 1, len(v1))
+        self.adw.SetData_Long(ADwinProII_Base._to_reg(v2), 4, 1, len(v1))
+
+class InitHandler(object):
+    def __init__(self):
+        self.not_called_yet = True
+    def __call__(self):
+        if self.not_called_yet:
+            self.not_called_yet = False
+            return True
+        return False
