@@ -16,6 +16,29 @@ import qkit.measure.samples_class
 from qkit.measure.measurement_class import Measurement 
 import qkit.measure.write_additional_files as waf
 from qkit.measure.logging_base import logFunc
+from qkit.drivers.Double_VTE import Double_VTE
+
+
+class ArbTwosideSweep(object):
+    def __init__(self, a_vals: np.ndarray, b_vals: np.ndarray):
+        if len(a_vals.shape) != 1 or len(b_vals.shape) != 1 or a_vals.shape != b_vals.shape:
+            logging.error("Sweep arrays must be 1D and of same length")
+            return
+        self.a_vals = a_vals
+        self.b_vals = b_vals
+    
+    def get(self):
+        return self.a_vals, self.b_vals
+    
+    def is_b_const(self) -> bool:
+        return np.all(self.b_vals == self.b_vals[0])
+    
+    def set_b_const(self, b_val: float):
+        self.b_vals = np.linspace(b_val, b_val, self.a_vals.shape[0])
+
+class LinearTwoside(ArbTwosideSweep):
+    def __init__(self, start_a, stop_a, start_b, stop_b, nop):
+        super.__init__(np.linspace(start_a, stop_a, nop), np.linspace(start_b, stop_b, nop))
 
 
 class TransportTwoside(object):
@@ -33,7 +56,7 @@ class TransportTwoside(object):
             - sweep v_a, v_b as x/y-coordinate, other x/y arb.
             - simultaneous v_a & v_b sweep, arb. x/y-coordinates
         """
-        self._DIVD: qkit.drivers.Douvle_VTE.Double_VTE = DIVD
+        self._DIVD: Double_VTE = DIVD
 
         self._measurement_object = Measurement()
         self._measurement_object.measurement_type = 'transport'
@@ -355,24 +378,3 @@ class TransportTwoside(object):
     def _set_b_for_axis(self, val: float):
         for sweep in self._sweeps:
             sweep.set_b_const(val)
-
-class ArbTwosideSweep(object):
-    def __init__(self, a_vals: np.ndarray, b_vals: np.ndarray):
-        if len(a_vals.shape) != 1 or len(b_vals.shape) != 1 or a_vals.shape != b_vals.shape:
-            logging.error("Sweep arrays must be 1D and of same length")
-            return
-        self.a_vals = a_vals
-        self.b_vals = b_vals
-    
-    def get(self):
-        return self.a_vals, self.b_vals
-    
-    def is_b_const(self) -> bool:
-        return np.all(self.b_vals == self.b_vals[0])
-    
-    def set_b_const(self, b_val: float):
-        self.b_vals = np.linspace(b_val, b_val, self.a_vals.shape[0])
-
-class LinearTwoside(ArbTwosideSweep):
-    def __init__(self, start_a, stop_a, start_b, stop_b, nop):
-        super.__init__(np.linspace(start_a, stop_a, nop), np.linspace(start_b, stop_b, nop))
