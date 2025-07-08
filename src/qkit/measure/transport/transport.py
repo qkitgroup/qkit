@@ -1446,6 +1446,7 @@ class transport(object):
             self._add_views()
 
         # logging
+        self.log_funcs = []
         for init_tuple in self.log_init_params:
             func, name, unit, dtype, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit = init_tuple
             self.log_funcs += [logFunc(self._data_file.get_filepath(), func, name, unit, dtype,
