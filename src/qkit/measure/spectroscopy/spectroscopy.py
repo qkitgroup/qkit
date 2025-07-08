@@ -756,6 +756,8 @@ class spectrum(object):
         t = threading.Thread(target=qviewkit.save_plots, args=[self._data_file.get_filepath(), self._plot_comment])
         t.start()
         self._data_file.close_file()
+        for lf in self.log_funcs:
+            lf.file.close_file()
         waf.close_log_file(self._log)
         self.dirname = None
         if self.averaging_start_ready: self.vna.post_measurement()

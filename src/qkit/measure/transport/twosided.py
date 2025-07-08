@@ -298,6 +298,7 @@ class TransportTwoside(object):
             for i in range(1, len(self._sweeps)):
                 view_buf.add(eval("self._" + x)[i], eval("self._" + y)[i])
         # logging
+        self.log_funcs = []
         for init_tuple in self.log_init_params:
             func, name, unit, dtype, over_x, over_y, is_trace, trace_base_vals, trace_base_name, trace_base_unit = init_tuple
             self.log_funcs += [logFunc(self.the_file.get_filepath(), func, name, unit, dtype,
@@ -375,6 +376,8 @@ class TransportTwoside(object):
                         df.next_matrix()
         finally:
             self.the_file.close_file()
+            for lf in self.log_funcs:
+                lf.file.close_file()
             print('Measurement complete: {:s}'.format(self.the_file.get_filepath()))
 
 
