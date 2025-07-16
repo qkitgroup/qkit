@@ -3,6 +3,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import qkit
+qkit.cfg['measurement.unified_measurements.enabled'] = True
 from qkit.measure.unified_measurements import Sweep, Axis, ScalarMeasurement, Experiment
 from qkit.storage.thin_hdf import HDF5
 

@@ -1,6 +1,7 @@
 import pytest
 
 import qkit
+qkit.cfg['measurement.unified_measurements.enabled'] = True
 from qkit.analysis.numerical_derivative import SavgolNumericalDerivative
 from qkit.measure.unified_measurements import Experiment, MeasurementTypeAdapter, Axis
 import numpy as np
