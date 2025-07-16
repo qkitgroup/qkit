@@ -9,6 +9,7 @@ import h5py
 import numpy as np
 
 from qkit._version import __version__ as qkit_version
+import qkit
 
 warn("The unified measurement class infrastructure is still in development and considered experimental.", DeprecationWarning)
 if not qkit.cfg.get("measurement.unified_measurements.enabled", False):
