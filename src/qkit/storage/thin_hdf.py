@@ -143,7 +143,8 @@ class HDF5:
         """
         Close the backing file.
         """
-        self.hdf.attrs['updating'] = False
+        if self.can_write:
+            self.hdf.attrs['updating'] = False
         self.hdf.close()
 
     def flush(self):
