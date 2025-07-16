@@ -113,9 +113,9 @@ class ParentOfSweep(ABC):
         self._sweep_child = s
         return EnterableWrapper(s)
 
-    def _run_child_sweep(self, data_file, index_list: tuple[int, ...], **context: float):
+    def _run_child_sweep(self, data_file, index_list: tuple[int, ...]):
         if self._sweep_child is not None:
-            self._sweep_child._run_sweep(data_file, index_list, **context)
+            self._sweep_child._run_sweep(data_file, index_list)
 
     @property
     def _child_dimensionality(self):
@@ -192,6 +192,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
     _setter: Callable[[float], None]
     _axis: 'Axis'
     _filter: Optional[FilterCallback] = None
+    _current_value: Optional[float] = None
 
     def __init__(self, setter: Callable[[float], None], axis: 'Axis', axis_filter: Optional[FilterCallback]=None) -> None:
         super().__init__()
@@ -204,15 +205,15 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         self._filter = axis_filter
         return self
 
-    def _run_sweep(self, data_file: HDF5, index_list: tuple[int, ...], **filter_context: float):
+    def _run_sweep(self, data_file: HDF5, index_list: tuple[int, ...]):
         """
         Internal function to run the sweep. You should not call this outside measurement_base.py!
 
-        Perform the sweep, checks for filters, and updates **context before continuing down the chain of sweeps.
+        Perform the sweep, checks for filters, and continue down the chain of sweeps.
         """
         if self._filter is not None:
             # Apply the filter to get the subset we need to sweep over.
-            mask = self._filter(self._axis.range, **filter_context)
+            mask = self._filter(self._axis.range)
             filtered_range = self._axis.range[mask]
             filtered_indices = np.where(mask)[0]
         else:
@@ -221,21 +222,24 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         assert filtered_range is not None, "Initialization of range failed!"
 
         # Do the sweep!
-        for index, value in tqdm(zip(filtered_indices, filtered_range),
-                                 desc=self._axis.name, bar_format=bar_format(), total=len(filtered_range), leave=False, ):
-            try:
-                self._setter(value)
-            except Exception as e:
-                measurement_log.error(f"Error setting {self._axis.name} to {value}.", exc_info=e)
-                raise e
+        try:
+            for index, value in tqdm(zip(filtered_indices, filtered_range),
+                                     desc=self._axis.name, bar_format=bar_format(), total=len(filtered_range), leave=False, ):
+                try:
+                    self._setter(value)
+                    self._current_value = value
+                except Exception as e:
+                    measurement_log.error(f"Error setting {self._axis.name} to {value}.", exc_info=e)
+                    raise e
 
-            self.run_measurements(data_file, index_list + (index,))
+                self.run_measurements(data_file, index_list + (index,))
 
-            # Go down the nested sweeps.
-            if self._sweep_child is not None:
-                new_context = filter_context.copy()
-                new_context[self._axis.name] = value
-                self._sweep_child._run_sweep(data_file, index_list + (index,), **new_context)
+                # Go down the nested sweeps.
+                if self._sweep_child is not None:
+                    self._sweep_child._run_sweep(data_file, index_list + (index,))
+        finally:
+            # Reset the 'current value',
+            self._current_value = None
 
     @override
     def create_datasets(self, data_file: HDF5, swept_axes: list[Dataset]):
@@ -257,6 +261,11 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
     @property
     def dimensionality(self):
         return 1 + max(self._largest_measurement_dimension, self._child_dimensionality)
+
+    @property
+    def current_value(self):
+        """When called during a sweep, returns the current value of the sweep, None otherwise."""
+        return self._current_value
 
 
 @dataclass(frozen=True)

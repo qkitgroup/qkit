@@ -1,5 +1,3 @@
-import time
-
 import pytest
 
 import qkit
@@ -11,7 +9,25 @@ from typing import override
 from qkit.measure.samples_class import Sample
 
 X_SWEEP_AXIS = Axis(name='x', range=np.array(range(0, 10)))
+Y_SWEEP_AXIS = Axis(name='y', range=np.array(range(0, 8)))
 SAMPLE = Sample()
+
+class DummyPointMeasurement(MeasurementTypeAdapter):
+
+    def __init__(self, name: str):
+        super().__init__()
+        self._descriptor = MeasurementTypeAdapter.DataDescriptor(
+            name=name,
+            axes=tuple()
+        )
+
+    @override
+    @property
+    def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
+        return (self._descriptor, )
+
+    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
+        return (self._descriptor.with_data(1),)
 
 
 class SweepInspectorMeasurement(MeasurementTypeAdapter):
@@ -19,15 +35,15 @@ class SweepInspectorMeasurement(MeasurementTypeAdapter):
     current_x: float
     accumulated_data: list[float]
 
-    def __init__(self):
+    def __init__(self, sub_name='x', axis=X_SWEEP_AXIS):
         super().__init__()
         self.sweep_intercept = MeasurementTypeAdapter.DataDescriptor(
-            name='sweep_intercept',
-            axes=(X_SWEEP_AXIS,)
+            name=f'sweep_intercept_{sub_name}',
+            axes=(axis,)
         )
         self.accumulated_data = []
 
-    def x_log(self, value):
+    def log(self, value):
         self.current_x = value
         self.accumulated_data.append(value)
 
@@ -57,7 +73,7 @@ def dummy_instruments_class():
 def test_experiment_creation(dummy_instruments_class):
     log_measure = SweepInspectorMeasurement()
     e = Experiment('creation_test', SAMPLE)
-    with e.sweep(lambda val: log_measure.x_log(val), X_SWEEP_AXIS) as x_sweep:
+    with e.sweep(lambda val: log_measure.log(val), X_SWEEP_AXIS) as x_sweep:
         x_sweep.measure(log_measure)
     e.run(open_qviewkit=False)
     assert np.array_equal(np.asarray(log_measure.accumulated_data), X_SWEEP_AXIS.range)
@@ -66,7 +82,7 @@ def test_experiment_creation(dummy_instruments_class):
 def test_filtered_sweep(dummy_instruments_class):
     log_measure = SweepInspectorMeasurement()
     e = Experiment('filter_test', SAMPLE)
-    with e.sweep(log_measure.x_log,
+    with e.sweep(log_measure.log,
                  X_SWEEP_AXIS,
                  axis_filter=lambda r: np.logical_and(r <= 8, r >= 2)) as x_sweep:
         x_sweep.measure(log_measure)
@@ -78,12 +94,24 @@ def test_filtered_sweep(dummy_instruments_class):
 def test_alternative_filtered_sweep(dummy_instruments_class):
     log_measure = SweepInspectorMeasurement()
     e = Experiment('filter_alt_test', SAMPLE)
-    with e.sweep(log_measure.x_log, X_SWEEP_AXIS) as x_sweep:
+    with e.sweep(log_measure.log, X_SWEEP_AXIS) as x_sweep:
         x_sweep.filtered(lambda r: np.logical_and(r <= 8, r >= 2))
         x_sweep.measure(log_measure)
     print(str(e))
     e.run(open_qviewkit=False)
     assert np.array_equal([2, 3, 4, 5, 6, 7, 8], log_measure.accumulated_data)
+
+def test_nested_filtered_sweep(dummy_instruments_class):
+    log_measure_x = SweepInspectorMeasurement()
+    dummy_point = DummyPointMeasurement('dummy_point')
+    e = Experiment('filter_alt_test', SAMPLE)
+    with e.sweep(log_measure_x.log, X_SWEEP_AXIS) as x_sweep:
+        x_sweep.measure(log_measure_x)
+        with x_sweep.sweep(lambda v: None, Y_SWEEP_AXIS) as y_sweep:
+            y_sweep.filtered(lambda r: r >= x_sweep.current_value)
+            y_sweep.measure(dummy_point)
+    print(e)
+    e.run(open_qviewkit=True)
 
 def test_dimensionality_calculations():
     log_measure = SweepInspectorMeasurement()
@@ -97,7 +125,7 @@ def test_dimensionality_calculations():
     e.measure(log_measure)
     assert e.dimensionality == 1, "Two 1D arrays of points is 1D"
 
-    with e.sweep(log_measure.x_log, X_SWEEP_AXIS) as x_sweep:
+    with e.sweep(log_measure.log, X_SWEEP_AXIS) as x_sweep:
         x_sweep.measure(log_measure)
 
     assert e.dimensionality == 2, "Sweep and 1D array is 2D"
