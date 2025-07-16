@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 import time
 from pathlib import Path
 from typing import Optional
+from warnings import warn
 
 import numpy as np
 
@@ -9,6 +10,10 @@ import qkit
 import qkit.storage.thin_hdf
 from qkit.storage import thin_hdf
 
+
+warn("The unified measurement class infrastructure is still in development and considered experimental.", DeprecationWarning)
+if not qkit.cfg.get("measurement.unified_measurements.enabled", False):
+    raise RuntimeError("Experimental feature requires explicit opt-in!")
 
 @dataclass(frozen=True)
 class MeasurementFilePath:

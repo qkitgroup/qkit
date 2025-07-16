@@ -18,6 +18,7 @@ import qkit.measure.write_additional_files as waf
 from qkit.storage.thin_hdf import HDF5
 from qkit.storage.file_path_management import MeasurementFilePath
 import qkit.gui.plot.plot as qviewkit  # Who names these things?
+from warnings import warn
 
 """
 The unified measurement class infrastructure. Will attempt to unify all kinds of measurements into a common code base.
@@ -55,6 +56,10 @@ Proposed API:
 >>>     measurement_adapter: MeasurementAdapter
 >>> )
 """
+
+warn("The unified measurement class infrastructure is still in development and considered experimental.", DeprecationWarning)
+if not qkit.cfg.get("measurement.unified_measurements.enabled", False):
+    raise RuntimeError("Experimental feature requires explicit opt-in!")
 
 # The custom format of the progress bar for qkit
 def bar_format():

@@ -3,11 +3,16 @@ from dataclasses import dataclass, field
 from enum import Enum
 from os import PathLike
 from typing import Optional, Literal, Any
+from warnings import warn
 
 import h5py
 import numpy as np
 
 from qkit._version import __version__ as qkit_version
+
+warn("The unified measurement class infrastructure is still in development and considered experimental.", DeprecationWarning)
+if not qkit.cfg.get("measurement.unified_measurements.enabled", False):
+    raise RuntimeError("Experimental feature requires explicit opt-in!")
 
 class HDF5:
     """
