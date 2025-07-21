@@ -312,6 +312,24 @@ class qdevil_qdacII(Instrument):
         self.write(f"SOUR{channel}:AWG:TRIG:SOUR {trigger}")
         self.write(f"SOUR{channel}:AWG:INIT")
 
+    def set_square_pulse(self, channel: int, period: int, ptp_amplitude: float, offset: float, repetitions: int, delay: int, trigger_on: str):
+        """
+        Configure a square pulse on a pin.
+
+        After a delay (delay) a pulse of duration (duration) and amplitude (amplitude) is sent.
+
+        This pulse is triggered as configured by trigger_on.
+        """
+        self.write(f"SOUR{channel}:SQU:PERIOD {period}")
+        self.write(f"SOUR{channel}:SQU:COUNT {repetitions}")
+        self.write(f"SOUR{channel}:SQU:VOLT:SPAN {ptp_amplitude}")
+        self.write(f"SOUR{channel}:SQU:VOLT:OFFSET {offset}")
+        self.write(f"SOUR{channel}:SQU:DELAY {delay}")
+        self.write(f"SOUR{channel}:SQU:TRIG:SOUR {trigger_on}")
+        # Allow continuous retriggering
+        self.write(f"SOUR{channel}:SQU:INIT:CONT ON")
+
+
     def fire_internal_trigger(self, internal_trigger: int):
         assert internal_trigger in range(1, 15), "Internal trigger must be in [1, 14]"
         self.write(f"TINT {internal_trigger}")
