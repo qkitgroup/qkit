@@ -26,7 +26,6 @@ from qkit import visa
 import numpy as np
 import time
 
-
 class qdevil_qdacII(Instrument):
     """
     Instrument class for QDevil QDAC-II.
@@ -283,6 +282,40 @@ class qdevil_qdacII(Instrument):
         :return:
         """
         self.query(f'sour{channel}:volt:last?')
+
+    def set_voltage_trace(self, channel: int, trace: np.ndarray, duration: int, trigger: str):
+        """
+        Set a AWG sequence of voltages for a channel.
+
+        Internally, we normalize the trace to be between -1 and 1, and configure scaling appropriately.
+        :param channel: The channel to be affected
+        :param trace: The voltages to be set in sequence
+        :param duration: Sequence duration in µs
+        :param trigger: Trigger to be used. Must be one of 'int#', 'ext#', 'bus' or 'imm'
+        """
+        scale = np.max(np.abs(trace))
+        trace = (trace / scale).astype(np.float32)
+        name = f"trace_{channel}"
+        # Define the trace with its temporal length
+        self.write(f"TRACE:DEFINE \"{name}\", {duration}")
+
+        # Manually write data to use binary data syntax
+        data_upload_command = f"TRACE:DATA \"{name}\","
+        self._visainstrument.write_binary_value(data_upload_command, trace)
+        self.assert_status(cmd_ref=data_upload_command)
+
+        # Assign trace to channel
+        self.write(f"SOUR{channel}:AWG:DEFINE \"{name}\"")
+        self.write(f"SOUR{channel}:AWG:SCALE {scale}; OFFSET 0")
+
+        # Configure trigger source and arm sequence
+        self.write(f"SOUR{channel}:AWG:TRIG:SOUR {trigger}")
+        self.write(f"SOUR{channel}:AWG:INIT")
+
+    def fire_internal_trigger(self, internal_trigger: int):
+        assert internal_trigger in range(1, 15), "Internal trigger must be in [1, 14]"
+        self.write(f"TINT {internal_trigger}")
+
 
     def set_output_filter(self, channel, value):
         assert value in ("dc", 'med', 'high')
