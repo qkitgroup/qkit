@@ -282,7 +282,7 @@ class ContinuousTimeSeriesSweep(Sweep):
         """
         Create a continuous time series sweep. There only may be one, since only one time axis makes sense.
         """
-        super().__init__(lambda v: None, Axis(name="timestamp", unit="s", range=None, dtype="i8"))
+        super().__init__(lambda v: None, Axis(name="timestamp", unit="s", range=None, dtype="f8"))
 
     @override
     def _generate_enumeration(self, data_file: HDF5) -> tuple[Iterable[tuple[int, float]], Optional[int]]:
@@ -291,8 +291,9 @@ class ContinuousTimeSeriesSweep(Sweep):
             while True:
                 new_time = time.time()
                 ds = self._axis.get_data_axis(data_file)
-                ds.resize((counter + 1,))
+                ds.resize(counter + 1, axis=0)
                 ds[counter] = new_time
+                ds.flush()
                 yield counter, new_time
                 counter += 1
         return sweep_generator(), None
@@ -319,7 +320,7 @@ class Axis:
                 ds = data_file.create_dataset(self.name, (len(self.range),), self.unit, dtype=self.dtype)
                 ds[:] = self.range
             else: # Unbounded range
-                data_file.create_dataset(self.name, (None,), self.unit)
+                data_file.create_dataset(self.name, (None,), self.unit, dtype=self.dtype)
         return data_file.get_dataset(self.name)
 
     def __str__(self):
@@ -355,6 +356,12 @@ class DataGenerator(ABC):
             datum.validate()
             ds = data_file.get_dataset(datum.descriptor.name, category=self.dataset_category)
             assert ds is not None, f"Dataset {datum.descriptor.name} not found!"
+            # Check if this is an out-of-bound-write in case of a resizing unlimited sweep.
+            if ds.attrs['resizable']: # We need to support resizing
+                # Calculate the new maximum size:
+                axes_to_resize = np.where(np.asarray(sweep_indices) >= ds.shape)[0]
+                for axis_index in axes_to_resize:
+                    ds.resize(ds.shape[axis_index] + 1, axis=axis_index)
             # Based on the sweeps that occurred, get the relevant subset of the Dataset
             assert np.all(np.isnan(ds[*sweep_indices])), \
                 "Overwriting data! This indicates a logic error in the sweeps!"
@@ -475,12 +482,9 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         swept axes in the measurement tree.
         """
         for descriptor in self.expected_structure:
-            all_axes = swept_axes + list(map(lambda ax: ax.get_data_axis(data_file), list(descriptor.axes)))
-            data_file.create_dataset(descriptor.name,
-                                     tuple(map(lambda axis: len(axis), all_axes)),
-                                     descriptor.unit,
-                                     axes=all_axes
-                                     )
+            all_axes: list[Dataset] = swept_axes + list(map(lambda ax: ax.get_data_axis(data_file), list(descriptor.axes)))
+            shape = tuple(map(lambda ax: len(ax) if not ax.attrs['resizable'] else None, all_axes))
+            data_file.create_dataset(descriptor.name, shape, descriptor.unit, axes=all_axes)
 
         for name, view in self.default_views:
             data_file.insert_view(name, view)
@@ -595,6 +599,13 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         """
         self._comment = comment
         return self
+
+    def timeseries(self) -> EnterableWrapper[ContinuousTimeSeriesSweep]:
+        """
+        Creates an endless timeseries. Only supported as the root of sweeps.
+        """
+        self._sweep_child = ContinuousTimeSeriesSweep()
+        return EnterableWrapper(self._sweep_child)
 
     @property
     def dimensionality(self):
