@@ -210,7 +210,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         self._filter = axis_filter
         return self
 
-    def _generate_enumeration(self) -> tuple[Iterable[tuple[int, float]], Optional[int]]:
+    def _generate_enumeration(self, data_file: HDF5) -> tuple[Iterable[tuple[int, float]], Optional[int]]:
         """
         Generates the indices and values of the sweep.
         Returns the iterator over indices and values, as well as the expected size (or None if unknown).
@@ -232,7 +232,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
 
         Perform the sweep, checks for filters, and continue down the chain of sweeps.
         """
-        sweep, size = self._generate_enumeration()
+        sweep, size = self._generate_enumeration(data_file)
         try:
             for index, value in tqdm(sweep, desc=self._axis.name, bar_format=bar_format(), total=size, leave=False):
                 try:
@@ -282,14 +282,19 @@ class ContinuousTimeSeriesSweep(Sweep):
         """
         Create a continuous time series sweep. There only may be one, since only one time axis makes sense.
         """
-        super().__init__(lambda v: None, Axis(name="timestamp", unit="s", range=None))
+        super().__init__(lambda v: None, Axis(name="timestamp", unit="s", range=None, dtype="i8"))
 
     @override
-    def _generate_enumeration(self):
+    def _generate_enumeration(self, data_file: HDF5) -> tuple[Iterable[tuple[int, float]], Optional[int]]:
         def sweep_generator():
             counter = 0
             while True:
-                yield counter, time.time()
+                new_time = time.time()
+                # TODO: Append to dataset
+                ds = self._axis.get_data_axis(data_file)
+                ds.resize((counter + 1,))
+                ds[counter] = new_time
+                yield counter, new_time
                 counter += 1
         return sweep_generator(), None
 
@@ -304,6 +309,7 @@ class Axis:
     name: str
     range: Optional[np.ndarray]
     unit: str = 'a.u.'
+    dtype: str = 'f'
 
     def get_data_axis(self, data_file: HDF5):
         """
@@ -311,7 +317,7 @@ class Axis:
         """
         if data_file.get_dataset(self.name) is None:
             if self.range is not None: # We have a known range
-                ds = data_file.create_dataset(self.name, (len(self.range),), self.unit)
+                ds = data_file.create_dataset(self.name, (len(self.range),), self.unit, dtype=self.dtype)
                 ds[:] = self.range
             else: # Unbounded range
                 data_file.create_dataset(self.name, (None,), self.unit)
