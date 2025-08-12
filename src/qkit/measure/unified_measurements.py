@@ -277,6 +277,24 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         """When called during a sweep, returns the current value of the sweep, None otherwise."""
         return self._current_value
 
+class ContinuousTimeSeriesSweep(Sweep):
+    def __init__(self):
+        """
+        Create a continuous time series sweep. There only may be one, since only one time axis makes sense.
+        """
+        super().__init__(lambda v: None, Axis(name="timestamp", unit="s", range=None))
+
+    @override
+    def _generate_enumeration(self):
+        def sweep_generator():
+            counter = 0
+            while True:
+                yield counter, time.time()
+                counter += 1
+        return sweep_generator(), None
+
+
+
 
 @dataclass(frozen=True)
 class Axis:
@@ -284,7 +302,7 @@ class Axis:
     An object describing an axis of a measurement. Has a name, unit, and values it can have.
     """
     name: str
-    range: np.ndarray
+    range: Optional[np.ndarray]
     unit: str = 'a.u.'
 
     def get_data_axis(self, data_file: HDF5):
@@ -292,14 +310,20 @@ class Axis:
         Returns the filled axis data set. Creates it if it doesn't exist yet.
         """
         if data_file.get_dataset(self.name) is None:
-            ds = data_file.create_dataset(self.name, (len(self.range),), self.unit)
-            ds[:] = self.range
+            if self.range: # We have a known range
+                ds = data_file.create_dataset(self.name, (len(self.range),), self.unit)
+                ds[:] = self.range
+            else: # Unbounded range
+                data_file.create_dataset(self.name, (0,), self.unit) # TODO: thin_hdf needs changes to accomodate this.
         return data_file.get_dataset(self.name)
 
     def __str__(self):
-        low = np.min(self.range)
-        high = np.max(self.range)
-        return f"{self.name}=({low} {self.unit} to {high} {self.unit} in {len(self.range)} steps)"
+        if self.range:
+            low = np.min(self.range)
+            high = np.max(self.range)
+            return f"{self.name}=({low} {self.unit} to {high} {self.unit} in {len(self.range)} steps)"
+        else:
+            return f"{self.name}=open ended"
 
 
 class DataGenerator(ABC):
