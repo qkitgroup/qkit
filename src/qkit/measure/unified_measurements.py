@@ -278,11 +278,15 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         return self._current_value
 
 class ContinuousTimeSeriesSweep(Sweep):
-    def __init__(self):
+
+    _stop_after: Optional[float]
+
+    def __init__(self, stop_after = None):
         """
         Create a continuous time series sweep. There only may be one, since only one time axis makes sense.
         """
         super().__init__(lambda v: None, Axis(name="timestamp", unit="s", range=None, dtype="f8"))
+        self._stop_after = stop_after
 
     @override
     def _generate_enumeration(self, data_file: HDF5) -> tuple[Iterable[tuple[int, float]], Optional[int]]:
@@ -290,6 +294,8 @@ class ContinuousTimeSeriesSweep(Sweep):
             counter = 0
             while True:
                 new_time = time.time()
+                if new_time > self._stop_after:
+                    return
                 ds = self._axis.get_data_axis(data_file)
                 ds.resize(counter + 1, axis=0)
                 ds[counter] = new_time
@@ -600,11 +606,11 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         self._comment = comment
         return self
 
-    def timeseries(self) -> EnterableWrapper[ContinuousTimeSeriesSweep]:
+    def timeseries(self, stop_after = None) -> EnterableWrapper[ContinuousTimeSeriesSweep]:
         """
         Creates an endless timeseries. Only supported as the root of sweeps.
         """
-        self._sweep_child = ContinuousTimeSeriesSweep()
+        self._sweep_child = ContinuousTimeSeriesSweep(stop_after=stop_after)
         return EnterableWrapper(self._sweep_child)
 
     @property

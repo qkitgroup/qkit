@@ -1,9 +1,11 @@
+import time
+
 import pytest
 
 import qkit
 qkit.cfg['measurement.unified_measurements.enabled'] = True
 from qkit.analysis.numerical_derivative import SavgolNumericalDerivative
-from qkit.measure.unified_measurements import Experiment, MeasurementTypeAdapter, Axis
+from qkit.measure.unified_measurements import Experiment, MeasurementTypeAdapter, Axis, ScalarMeasurement
 import numpy as np
 from typing import override
 
@@ -202,3 +204,14 @@ def test_analysis(dummy_instruments_class):
     with e.sweep(lambda val: None, X_SWEEP_AXIS) as x_sweep:
         x_sweep.measure(measure)
     e.run(open_qviewkit=False)
+
+def test_root_scalar_measurement(dummy_instruments_class):
+    e = Experiment('root_test', SAMPLE)
+    e.measure(DummyPointMeasurement('root_test'))
+    e.run(open_qviewkit=False)
+
+def test_time_series(dummy_instruments_class):
+    e = Experiment('time_series', Sample())
+    with e.timeseries(stop_after=time.time() + 1.0) as t:
+        t.measure(ScalarMeasurement(name='signal', getter=lambda: np.random.rand()))
+    e.run(open_qviewkit=True)

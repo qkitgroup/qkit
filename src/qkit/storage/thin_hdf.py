@@ -89,13 +89,15 @@ class HDF5:
         fix_shape = (value if value else 4 for value in shape) # Unspecified dimensions grow in steps of 4.
         ds = group.create_dataset(
             name,
-            fix_shape, maxshape=shape, # Shape
+            fix_shape, maxshape=shape if len(shape) > 0 else None, # Shape
             dtype=dtype, fillvalue = np.nan, # Empty initialization
-            chunks=True, compression='lzf' # Storage options
+            chunks=True if len(shape) > 0 else False, compression='lzf' if len(shape) > 0 else None # Storage options
         )
         ds.attrs['resizable'] = (None in shape)
         # Set Metadata: ds_type from dimension
         match len(shape):
+            case 0:
+                ds_type = HDF5.DataSetType.MATRIX # Actually a scalar, but close enough.
             case 1:
                 ds_type = HDF5.DataSetType.VECTOR
             case 2:
