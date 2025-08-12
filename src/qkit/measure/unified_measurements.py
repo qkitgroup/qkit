@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Protocol, override, Literal
+from typing import Optional, Callable, Protocol, override, Literal, Iterable
 import textwrap
 from h5py import Dataset
 import json
@@ -210,11 +210,10 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         self._filter = axis_filter
         return self
 
-    def _run_sweep(self, data_file: HDF5, index_list: tuple[int, ...]):
+    def _generate_enumeration(self) -> tuple[Iterable[tuple[int, float]], Optional[int]]:
         """
-        Internal function to run the sweep. You should not call this outside measurement_base.py!
-
-        Perform the sweep, checks for filters, and continue down the chain of sweeps.
+        Generates the indices and values of the sweep.
+        Returns the iterator over indices and values, as well as the expected size (or None if unknown).
         """
         if self._filter is not None:
             # Apply the filter to get the subset we need to sweep over.
@@ -225,11 +224,17 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
             filtered_range = self._axis.range
             filtered_indices = np.arange(len(filtered_range))
         assert filtered_range is not None, "Initialization of range failed!"
+        return zip(filtered_indices, filtered_range), len(filtered_range)
 
-        # Do the sweep!
+    def _run_sweep(self, data_file: HDF5, index_list: tuple[int, ...]):
+        """
+        Internal function to run the sweep. You should not call this outside measurement_base.py!
+
+        Perform the sweep, checks for filters, and continue down the chain of sweeps.
+        """
+        sweep, size = self._generate_enumeration()
         try:
-            for index, value in tqdm(zip(filtered_indices, filtered_range),
-                                     desc=self._axis.name, bar_format=bar_format(), total=len(filtered_range), leave=False, ):
+            for index, value in tqdm(sweep, desc=self._axis.name, bar_format=bar_format(), total=size, leave=False):
                 try:
                     self._setter(value)
                     self._current_value = value
