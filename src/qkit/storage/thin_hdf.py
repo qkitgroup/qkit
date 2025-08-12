@@ -70,7 +70,7 @@ class HDF5:
         self.hdf.swmr_mode = value
 
     def create_dataset(self, name: str, shape: tuple[Optional[int],...], unit: str = 'a.u.', dtype: str = 'f',
-                       axes: Optional[list[h5py.Dataset]] = None, comment: Optional[str] = None, category: Literal['data', 'analysis'] = 'data', **kwargs):
+                       axes: Optional[list[h5py.Dataset]] = None, comment: Optional[str] = None, category: Literal['data', 'analysis'] = 'data'):
         """
         Create a dataset of fixed size. Initialized empty, but compressed, no scale offset.
 
@@ -86,13 +86,14 @@ class HDF5:
             group = self.analysis_group
         else:
             raise ValueError(f"Category {category} not supported.")
-        fix_shape = [value if value in shape else 4 for value in shape] # Unspecified dimensions grow in steps of 4.
+        fix_shape = (value if value else 4 for value in shape) # Unspecified dimensions grow in steps of 4.
         ds = group.create_dataset(
             name,
             fix_shape, maxshape=shape, # Shape
             dtype=dtype, fillvalue = np.nan, # Empty initialization
             chunks=True, compression='lzf' # Storage options
         )
+        ds.attrs['resizable'] = (None in shape)
         # Set Metadata: ds_type from dimension
         match len(shape):
             case 1:
