@@ -290,7 +290,6 @@ class ContinuousTimeSeriesSweep(Sweep):
             counter = 0
             while True:
                 new_time = time.time()
-                # TODO: Append to dataset
                 ds = self._axis.get_data_axis(data_file)
                 ds.resize((counter + 1,))
                 ds[counter] = new_time
