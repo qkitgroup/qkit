@@ -310,7 +310,7 @@ class Axis:
         Returns the filled axis data set. Creates it if it doesn't exist yet.
         """
         if data_file.get_dataset(self.name) is None:
-            if self.range: # We have a known range
+            if self.range is not None: # We have a known range
                 ds = data_file.create_dataset(self.name, (len(self.range),), self.unit)
                 ds[:] = self.range
             else: # Unbounded range
@@ -318,7 +318,7 @@ class Axis:
         return data_file.get_dataset(self.name)
 
     def __str__(self):
-        if self.range:
+        if self.range is not None:
             low = np.min(self.range)
             high = np.max(self.range)
             return f"{self.name}=({low} {self.unit} to {high} {self.unit} in {len(self.range)} steps)"
