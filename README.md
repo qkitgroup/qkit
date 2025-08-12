@@ -35,7 +35,7 @@ If you can't put such a configuration file into a suitable location, you can set
 Installing qkit is a two step process: First you need to obtain the `qkit` package, and then you need to setup your system to use it properly. This guide will provide you with the required steps.
 
 ### Creating a Virtual Environment
-It is recommended to use a virtual environment. This isolates this local environment from your global packages. This way, version conflicts can be avoided. If you choose to use a virtual environment, then it needs to be activated, otherwise, qkit and its dependencies will not be available. This also means double click to open .h5 files will require configuration.
+It is mandatory to use a virtual environment if you want to use automatic installation. This isolates this local environment from your global packages. This way, version conflicts can be avoided. You need to activate the virtual environment before using qkit. Otherwise, qkit and its dependencies will not be available.
 
 **NOTE: WE DO NOT GUARANTEE COMPATIBILITY WITH ANACONDA/MINICONDA/CONDA! USE AT YOUR OWN RISK!**
 
