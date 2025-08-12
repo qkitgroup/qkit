@@ -617,6 +617,9 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             # Write to HDF5
             data_file.write_text_record('measurement', measurement.get_JSON(), 'Measurement description')
 
+            # All records are created, enter swmr mode
+            data_file.swmr = True
+
             # Open Qviewkit, if desired
             if open_qviewkit:
                 if open_datasets is None:

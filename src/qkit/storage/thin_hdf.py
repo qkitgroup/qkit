@@ -38,7 +38,6 @@ class HDF5:
         self.can_write = not 'r' in mode
         if self.can_write:
             self.hdf = h5py.File(filename, mode, libver='latest', locking=locking)
-            self.hdf.swmr_mode = True  # Enable simultaneous reading by qviewkit
             self.hdf.attrs['qkit_version'] = qkit_version.encode('utf-8')
             self.hdf.attrs['NeXus_version'] = "4.3.0".encode('utf-8')
         else: # Read-only
@@ -61,6 +60,14 @@ class HDF5:
 
         self.view_group = entry.require_group('view0')
         self.analysis_group = entry.require_group('analysis0')
+
+    @property
+    def swmr(self):
+        return self.hdf.swmr_mode
+
+    @swmr.setter
+    def swmr(self, value: bool):
+        self.hdf.swmr_mode = value
 
     def create_dataset(self, name: str, shape: tuple[int,...], unit: str = 'a.u.', dtype: str = 'f',
                        axes: Optional[list[h5py.Dataset]] = None, comment: Optional[str] = None, category: Literal['data', 'analysis'] = 'data', **kwargs):
