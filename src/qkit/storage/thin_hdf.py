@@ -69,7 +69,7 @@ class HDF5:
     def swmr(self, value: bool):
         self.hdf.swmr_mode = value
 
-    def create_dataset(self, name: str, shape: tuple[int,...], unit: str = 'a.u.', dtype: str = 'f',
+    def create_dataset(self, name: str, shape: tuple[Optional[int],...], unit: str = 'a.u.', dtype: str = 'f',
                        axes: Optional[list[h5py.Dataset]] = None, comment: Optional[str] = None, category: Literal['data', 'analysis'] = 'data', **kwargs):
         """
         Create a dataset of fixed size. Initialized empty, but compressed, no scale offset.

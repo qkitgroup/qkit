@@ -314,7 +314,7 @@ class Axis:
                 ds = data_file.create_dataset(self.name, (len(self.range),), self.unit)
                 ds[:] = self.range
             else: # Unbounded range
-                data_file.create_dataset(self.name, (0,), self.unit) # TODO: thin_hdf needs changes to accomodate this.
+                data_file.create_dataset(self.name, (None,), self.unit)
         return data_file.get_dataset(self.name)
 
     def __str__(self):
