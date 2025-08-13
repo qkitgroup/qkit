@@ -62,7 +62,7 @@ timedomain = [
     "zerorpc>=0.6"
 ]
 url = [
-    "parsita=2.2.2"
+    "parsita~=2.2.2"
 ]
 
 
