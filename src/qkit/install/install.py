@@ -125,7 +125,35 @@ def windows_install_scripts(pwd: Path):
             logging.warning("No activate.bat found, assuming no venv exists. Calling jupyter directly.")
             f.write(f'"{jupyter_path}" lab --config=./jupyter_lab_config.py\r\n')
 
+@platform("Windows")
+@windows_admin_required
+@optional("Install qviewkit url handler. Modifies the Registry.")
+def windows_install_qviewkit_url_handler(pwd: Path):
+    import winreg
+    qviewkit_url_path = get_binary("qviewkit-url")
+    qviewkit_url_launch_command = f'"{qviewkit_url_path}" "%1"'
 
+    try:
+        url_handler_key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"qviewkit")
+        winreg.SetValueEx(url_handler_key, "URL Protocol", 0, winreg.REG_SZ, "")
+        (value, type) = winreg.QueryValueEx(url_handler_key, None)
+        logging.info("URL Handler already exists.")
+        command_key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"qviewkit\shell\open\command")
+        (value, type) = winreg.QueryValueEx(command_key, None)
+        if value != qviewkit_url_launch_command:
+            winreg.SetValue(command_key, None, winreg.REG_SZ, qviewkit_url_launch_command)
+            logging.info("Redirected URL handling to this installation")
+        else:
+            logging.info("Command already exists.")
+        winreg.CloseKey(command_key)
+    except FileNotFoundError:
+        logging.info("Creating URL Handler...")
+        url_handler_key = winreg.CreateKeyEx(winreg.HKEY_CLASSES_ROOT, r"qviewkit")
+        winreg.SetValueEx(url_handler_key, "URL Protocol", 0, winreg.REG_SZ, "")
+        winreg.CloseKey(url_handler_key)
+        command_key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"qviewkit\shell\open\command")
+        winreg.SetValue(command_key, None, winreg.REG_SZ, qviewkit_url_launch_command)
+        winreg.CloseKey(command_key)
 
 @platform("Windows")
 @windows_admin_required
