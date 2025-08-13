@@ -116,9 +116,16 @@ def create_base_structure(pwd: Path):
 @platform("Windows")
 def windows_install_scripts(pwd: Path):
     with open(pwd / "launch.bat", "w") as f:
-        activate_path = get_binary('activate.bat')
         jupyter_path = get_binary('jupyter')
-        f.write(f'CALL "{activate_path}"\r\n"{jupyter_path}" lab --config=./jupyter_lab_config.py\r\n')
+        try:
+            activate_path = get_binary('activate.bat')
+            f.write(f'CALL "{activate_path}"\r\n"{jupyter_path}" lab --config=./jupyter_lab_config.py\r\n')
+        except FileNotFoundError:
+            # Not a venv, call jupyter directly.
+            logging.warning("No activate.bat found, assuming no venv exists. Calling jupyter directly.")
+            f.write(f'"{jupyter_path}" lab --config=./jupyter_lab_config.py\r\n')
+
+
 
 @platform("Windows")
 @windows_admin_required
