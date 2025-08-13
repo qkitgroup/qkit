@@ -89,5 +89,10 @@ packages = ["src/qkit"]
 [tool.hatch.build.targets.sdist]
 exclude = ["data/*", "notebooks/*", "logs/*", "venv/*"]
 
+[tool.hatch.envs.hatch-test]
+extra-dependencies = [
+    "parsita~=2.2.2"
+]
+
 [tool.pytest.ini_options]
 testpaths="tests"
