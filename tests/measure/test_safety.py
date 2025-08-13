@@ -12,9 +12,11 @@ from qkit.storage.thin_hdf import HDF5
 class DummyDataSet:
 
     datastore: np.ndarray
+    attrs: dict
 
     def __init__(self, store):
         self.datastore = store
+        self.attrs = {'resizable': False}
 
     def flush(self):
         pass
