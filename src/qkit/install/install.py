@@ -135,9 +135,9 @@ def windows_install_qviewkit_url_handler(pwd: Path):
 
     try:
         url_handler_key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"qviewkit")
-        winreg.SetValueEx(url_handler_key, "URL Protocol", 0, winreg.REG_SZ, "")
-        (value, type) = winreg.QueryValueEx(url_handler_key, None)
+        (_, _) = winreg.QueryValueEx(url_handler_key, None)
         logging.info("URL Handler already exists.")
+        winreg.SetValueEx(url_handler_key, "URL Protocol", 0, winreg.REG_SZ, "")
         command_key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"qviewkit\shell\open\command")
         (value, type) = winreg.QueryValueEx(command_key, None)
         if value != qviewkit_url_launch_command:
