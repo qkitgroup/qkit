@@ -39,6 +39,7 @@ dependencies = [
 qviewkit = "qkit.gui.qviewkit.main:main"
 qkit-install = "qkit.install.install:main"
 qkit-manual-breadcrumbs = "qkit.core.lib.file_service.breadcrumbs:manual_index"
+qviewkit-url = "qkit.gui.plot.url_launcher:url_handler"
 
 [project.optional-dependencies] # Here goes stuff like qiclib
 jupyter = [
@@ -59,6 +60,9 @@ qgrid = [
 ]
 timedomain = [
     "zerorpc>=0.6"
+]
+url = [
+    "parsita=2.2.2"
 ]
 
 
