@@ -243,7 +243,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         """
         try:
             # Try to read the file and populate data. This can go wrong if we are writing at the same time.
-            self.h5file = h5py.File(str(self.DATA.DataFilePath), mode='r')
+            self.h5file = h5py.File(str(self.DATA.DataFilePath), mode='r', swmr=True)
             self.DATA.filename = self.h5file.filename.split(os.path.sep)[-1]
             self.populate_data_list()
 
