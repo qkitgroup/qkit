@@ -6,6 +6,8 @@ from qkit.gui.plot.url_launcher import QviewkitURLParser
 def test_basic_url():
     result = QviewkitURLParser.url_pattern.parse("qviewkit://ABCDEF")
     assert result == Success(['ABCDEF', {}])
+    result = QviewkitURLParser.url_pattern.parse("qviewkit://ABCDEF/")
+    assert result == Success(['ABCDEF', {}])
 
 
 def test_url_with_repo():

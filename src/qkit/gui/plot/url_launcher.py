@@ -36,7 +36,7 @@ class QviewkitURLParser(ParserContext):
     _kv = _argument_name << lit('=') & _argument_value
     _arguments = (lit('?') >> rep1sep(_kv, lit('&')) << eof > dict) | (eof > constant({}))
     _uuid = reg(r'[A-Z0-9]{6}') > str
-    url_pattern = _prefix >> _uuid & _arguments
+    url_pattern = _prefix >> _uuid << opt(lit('/')) & _arguments
 
     @classmethod
     def parse(cls, data) -> Tuple[str, Optional[dict]]:
