@@ -66,6 +66,8 @@ class Data(object):
                 self.hf.hf.attrs['_run_id'] = qkit.cfg.get('run_id').upper()
         self._mapH5PathToObject()
         self.hf.flush()
+
+        self._lazy_creation_cache: dict[str, hdf_dataset] = {}
         
     def __enter__(self):
         return self
@@ -176,6 +178,7 @@ class Data(object):
             hdf_dataset object.
         """
         ds =  hdf_dataset(self.hf, name, comment = comment, folder=folder, ds_type = ds_types['txt'], dim=1, **meta)
+        self._lazy_creation_cache[ds.ds_url] = ds
         return ds
         
     def add_coordinate(self,  name, unit = "", comment = "",folder="data",**meta):
@@ -197,6 +200,7 @@ class Data(object):
         """
         ds =  hdf_dataset(self.hf, name,unit=unit, ds_type = ds_types['coordinate'],
                           comment= comment, folder=folder, dtype='float64', dim = 1, **meta)
+        self._lazy_creation_cache[ds.ds_url] = ds
         return ds
 
     def add_value_vector(self, name, x, unit = "", comment = "",folder="data",**meta):
@@ -218,6 +222,7 @@ class Data(object):
         """
         ds =  hdf_dataset(self.hf, name, x=x, unit=unit, ds_type = ds_types['vector'],
                           comment=comment, folder=folder, dim = 1, **meta)
+        self._lazy_creation_cache[ds.ds_url] = ds
         return ds
 
     def add_value_matrix(self, name, x , y, unit = "", comment = "",folder="data",**meta):
@@ -241,6 +246,7 @@ class Data(object):
         """
         ds =  hdf_dataset(self.hf, name, x=x, y=y, unit=unit, ds_type = ds_types['matrix'],
                           comment=comment, folder=folder, dim = 2, **meta)
+        self._lazy_creation_cache[ds.ds_url] = ds
         return ds
 
     def add_value_box(self, name, x , y, z, unit = "", comment = "",folder="data",**meta):
@@ -265,6 +271,7 @@ class Data(object):
         """        
         ds =  hdf_dataset(self.hf,name, x=x, y=y, z=z, unit=unit, ds_type = ds_types['box'],
                           comment=comment, folder=folder, dim = 3, **meta)
+        self._lazy_creation_cache[ds.ds_url] = ds
         return ds
 
     def add_view(self,name,x = None, y = None, error = None, filter  = None, view_params = {}):
@@ -298,7 +305,16 @@ class Data(object):
         self.hf.agrp.attrs[param] = value
 
     def get_dataset(self,ds_url):
-        return hdf_dataset(self.hf,ds_url = ds_url)
+        try:
+            ds = hdf_dataset(self.hf,ds_url = ds_url)
+            if ds.ds_url in self._lazy_creation_cache:
+                del self._lazy_creation_cache[ds.ds_url]
+            return ds
+        except KeyError as ke:
+            if ds_url in self._lazy_creation_cache:
+                return self._lazy_creation_cache[ds_url]
+            else:
+                raise ke
 
     def save_finished(self):
         pass
