@@ -15,8 +15,7 @@ from qkit.measure.json_handler import QkitJSONEncoder
 from qkit.measure.samples_class import Sample
 from qkit.measure.measurement_class import Measurement
 import qkit.measure.write_additional_files as waf
-from qkit.storage.thin_hdf import HDF5
-from qkit.storage.file_path_management import MeasurementFilePath
+from qkit.storage import store as hdf  # Entrypoint for existing hdf infrastructure in qkit
 import qkit.gui.plot.plot as qviewkit  # Who names these things?
 from warnings import warn
 
@@ -627,19 +626,16 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         """
         return f"{self.dimensionality}D_{self._name}"
 
-    def run(self, open_qviewkit: bool = True, open_datasets: list[HDF5.DataReference] | None = None):
+    def run(self, open_qviewkit: bool = True, open_datasets: list[str] | None = None):
         """
         Perform the configured measurements. Sweep the nested axes and record the results.
 
         By default opens qviewkit. Using [open_datasets], a set of datasets can be opened on start.
         """
-
-        measurement_file = MeasurementFilePath(measurement_name=self._filename)
-        measurement_file.mkdirs()
-        # Create an additional log file:
-        log_handler = waf.open_log_file(str(measurement_file.into_path()))
         # HDF5 file initialization
-        data_file = measurement_file.into_h5_file()
+        data_file = hdf.Data(name=self._filename, mode='a')
+        # Create an additional log file:
+        log_handler = waf.open_log_file(data_file.get_filepath())
         try:
             # Recurse down the tree to create datasets.
             self.create_datasets(data_file, [])
@@ -647,26 +643,28 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
                 self._sweep_child.create_datasets(data_file, [])
 
             # Get Instrument settings, write to a file
-            settings = waf.get_instrument_settings(str(measurement_file.into_path()))
+            settings = waf.get_instrument_settings(data_file.get_filepath())
 
             # Also store in hdf5
             settings_str = json.dumps(obj=settings, cls=QkitJSONEncoder, indent=4, sort_keys=True)
-            data_file.write_text_record('settings', settings_str, 'Instrument States before measurement started.')
+            settings_record = data_file.add_textlist(name='settings', comment='Instrument States before measurement started.')
+            settings_record.append(settings_str)
 
-            data_file.hdf.attrs['comment'] = self._comment if self._comment is not None else ''
+            data_file.hf.attrs['comment'] = self._comment if self._comment is not None else ''
 
             # Backwards compatibility, mostly obsolete.
             measurement = Measurement()
-            measurement.hdf_relpath = str(measurement_file.rel_path)
+            measurement.hdf_relpath = str(data_file._relpath)  # Access to DateTimeGenerator internals.
             measurement.sample = self._sample
-            measurement.uuid = measurement_file.uuid
+            measurement.uuid = data_file._uuid
             measurement.analyzed = False
             measurement.web_visible = True
             measurement.instruments = qkit.instruments.get_instrument_names()
             measurement.save()
 
             # Write to HDF5
-            data_file.write_text_record('measurement', measurement.get_JSON(), 'Measurement description')
+            measurement_record = data_file.add_textlist(name='measurement', comment='Measurement description')
+            measurement_record.append(measurement.get_JSON())
 
             # All records are created, enter swmr mode
             data_file.swmr = True
@@ -675,17 +673,15 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             if open_qviewkit:
                 if open_datasets is None:
                     open_datasets: list[str] = []
-                else:
-                    open_datasets: list[str] = [ref.to_path(data_file) for ref in open_datasets]
 
-                qviewkit.plot(measurement_file.into_path(), datasets=open_datasets)
+                qviewkit.plot(data_file.get_filepath(), datasets=open_datasets)
 
             # Everything is prepared. Do the actual measurement.
             self.run_measurements(data_file, ())
             self._run_child_sweep(data_file, ())
         finally:
             # Calling into existing plotting code in the background.
-            t = threading.Thread(target=qviewkit.save_plots, args=[measurement_file.into_path(), self._comment])
+            t = threading.Thread(target=qviewkit.save_plots, args=[data_file.get_filepath(), self._comment])
             t.start()
             waf.close_log_file(log_handler)
             data_file.close()
