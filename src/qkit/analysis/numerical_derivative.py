@@ -3,9 +3,7 @@ from typing import override
 
 from scipy import signal
 
-from qkit.measure.unified_measurements import AnalysisTypeAdapter, MeasurementTypeAdapter
-from qkit.storage.thin_hdf import HDF5
-
+from qkit.measure.unified_measurements import AnalysisTypeAdapter, MeasurementTypeAdapter, DataView, DataViewSet, DataReference
 
 
 class SavgolNumericalDerivative(AnalysisTypeAdapter):
@@ -66,25 +64,23 @@ class SavgolNumericalDerivative(AnalysisTypeAdapter):
         return tuple(structure)
 
     @override
-    def default_views(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> dict[str, HDF5.DataView]:
+    def default_views(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> dict[str, DataView]:
         schema = self.expected_structure(parent_schema)
         variable_names = (schema[0].name.split('_')[0], schema[1].name.split('_')[0])
         return {
-            f'd{variable_names[0]}_d{variable_names[1]}': HDF5.DataView(
-                view_type=HDF5.DataViewType.ONE_D_V,
+            f'd{variable_names[0]}_d{variable_names[1]}': DataView(
                 view_sets=[
-                    HDF5.DataViewSet(
-                        x_path=HDF5.DataReference(entry.axes[0].name,),
-                        y_path=HDF5.DataReference(entry.name, category='analysis')
+                    DataViewSet(
+                        x_path=DataReference(entry.axes[0].name,),
+                        y_path=DataReference(entry.name, category='analysis')
                     ) for entry in schema[0::2]
                 ]
             ),
-            f'd{variable_names[1]}_d{variable_names[0]}': HDF5.DataView(
-                view_type=HDF5.DataViewType.ONE_D_V,
+            f'd{variable_names[1]}_d{variable_names[0]}': DataView(
                 view_sets=[
-                    HDF5.DataViewSet(
-                        x_path=HDF5.DataReference(entry.axes[0].name),
-                        y_path=HDF5.DataReference(entry.name, category='analysis')
+                    DataViewSet(
+                        x_path=DataReference(entry.axes[0].name),
+                        y_path=DataReference(entry.name, category='analysis')
                     ) for entry in schema[1::2]
                 ]
             )

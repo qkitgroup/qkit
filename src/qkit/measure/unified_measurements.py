@@ -1,21 +1,27 @@
 import logging
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum
+
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Protocol, override, Literal, Iterable
+from typing import Optional, Callable, Protocol, override, Literal, Iterable, Any, Union
 import textwrap
-from h5py import Dataset
 import json
+
 from tqdm.auto import tqdm
 
 import qkit
+
+from qkit.storage import store as hdf  # Entrypoint for existing hdf infrastructure in qkit
+from qkit.storage.hdf_dataset import hdf_dataset  # Existing Dataset representation in qkit
+
 from qkit.measure.json_handler import QkitJSONEncoder
 from qkit.measure.samples_class import Sample
 from qkit.measure.measurement_class import Measurement
 import qkit.measure.write_additional_files as waf
-from qkit.storage import store as hdf  # Entrypoint for existing hdf infrastructure in qkit
+
 import qkit.gui.plot.plot as qviewkit  # Who names these things?
 from warnings import warn
 
@@ -162,14 +168,14 @@ class ParentOfMeasurements(ABC):
             return 0
         return max(map(lambda m: len(m.expected_structure), self._measurements))
 
-    def create_datasets(self, data_file: HDF5, swept_axes: list[Dataset]):
+    def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf_dataset]):
         """
         Based on the measurements and parent sweeps, create the datasets.
         """
         for measurement in self._measurements:
             measurement.create_datasets(data_file, swept_axes)
 
-    def run_measurements(self, data_file: HDF5, index_list: tuple[int, ...]):
+    def run_measurements(self, data_file: hdf.Data, index_list: tuple[int, ...]):
         """
         Run the measurements and handle the acquired data.
         """
@@ -209,7 +215,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         self._filter = axis_filter
         return self
 
-    def _generate_enumeration(self, data_file: HDF5) -> tuple[Iterable[tuple[int, float]], Optional[int]]:
+    def _generate_enumeration(self, data_file: hdf.Data) -> tuple[Iterable[tuple[int, float]], Optional[int]]:
         """
         Generates the indices and values of the sweep.
         Returns the iterator over indices and values, as well as the expected size (or None if unknown).
@@ -225,7 +231,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         assert filtered_range is not None, "Initialization of range failed!"
         return zip(filtered_indices, filtered_range), len(filtered_range)
 
-    def _run_sweep(self, data_file: HDF5, index_list: tuple[int, ...]):
+    def _run_sweep(self, data_file: hdf.Data, index_list: tuple[int, ...]):
         """
         Internal function to run the sweep. You should not call this outside measurement_base.py!
 
@@ -251,7 +257,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
             self._current_value = None
 
     @override
-    def create_datasets(self, data_file: HDF5, swept_axes: list[Dataset]):
+    def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf_dataset]):
         swept_axes.append(self._axis.get_data_axis(data_file))
         super().create_datasets(data_file, swept_axes)
         if self._sweep_child is not None:
@@ -284,21 +290,19 @@ class ContinuousTimeSeriesSweep(Sweep):
         """
         Create a continuous time series sweep. There only may be one, since only one time axis makes sense.
         """
-        super().__init__(lambda v: None, Axis(name="timestamp", unit="s", range=None, dtype="f8"))
+        super().__init__(lambda v: None, Axis(name="timestamp", unit="s", range=None))
         self._stop_after = stop_after
 
     @override
-    def _generate_enumeration(self, data_file: HDF5) -> tuple[Iterable[tuple[int, float]], Optional[int]]:
+    def _generate_enumeration(self, data_file: hdf.Data) -> tuple[Iterable[tuple[int, float]], Optional[int]]:
         def sweep_generator():
             counter = 0
             while True:
                 new_time = time.time()
                 if new_time > self._stop_after:
                     return
-                ds = self._axis.get_data_axis(data_file)
-                ds.resize(counter + 1, axis=0)
-                ds[counter] = new_time
-                ds.flush()
+                ds: hdf_dataset = self._axis.get_data_axis(data_file)
+                ds.append(new_time)
                 yield counter, new_time
                 counter += 1
         return sweep_generator(), None
@@ -314,19 +318,18 @@ class Axis:
     name: str
     range: Optional[np.ndarray]
     unit: str = 'a.u.'
-    dtype: str = 'f'
 
-    def get_data_axis(self, data_file: HDF5):
+    def get_data_axis(self, data_file: hdf.Data) -> hdf_dataset:
         """
         Returns the filled axis data set. Creates it if it doesn't exist yet.
         """
-        if data_file.get_dataset(self.name) is None:
-            if self.range is not None: # We have a known range
-                ds = data_file.create_dataset(self.name, (len(self.range),), self.unit, dtype=self.dtype)
-                ds[:] = self.range
-            else: # Unbounded range
-                data_file.create_dataset(self.name, (None,), self.unit, dtype=self.dtype)
-        return data_file.get_dataset(self.name)
+        try:
+            return data_file.get_dataset(self.ds_url)
+        except KeyError: # Does not exist yet.
+            ds = data_file.add_coordinate(name=self.name, unit=self.unit)
+            if self.range is not None:  # We have a known range
+                ds.add(self.range)
+            return ds
 
     def __str__(self):
         if self.range is not None:
@@ -335,6 +338,10 @@ class Axis:
             return f"{self.name}=({low} {self.unit} to {high} {self.unit} in {len(self.range)} steps)"
         else:
             return f"{self.name}=open ended"
+
+    @property
+    def ds_url(self):
+        return f"/entry/data0/{self.name}"
 
 
 class DataGenerator(ABC):
@@ -351,27 +358,17 @@ class DataGenerator(ABC):
         """
         return 'data'
 
-    def store(self, data_file: HDF5, data: tuple['MeasurementTypeAdapter.GeneratedData', ...], sweep_indices: tuple[int, ...]):
+    def store(self, data_file: hdf.Data, data: tuple['MeasurementTypeAdapter.GeneratedData', ...], sweep_indices: tuple[int, ...]):
         """
         Store the generated [data] in the [data_file], while selecting based on the current [sweep_indices].
+
+        This handles the nuances of qkit store api.
         """
         assert isinstance(data, tuple), "Measurement must return a tuple of MeasurementData!"
         for datum in data:
             assert isinstance(datum, self.GeneratedData), "Measurement must return a tuple of MeasurementData!"
             datum.validate()
-            ds = data_file.get_dataset(datum.descriptor.name, category=self.dataset_category)
-            assert ds is not None, f"Dataset {datum.descriptor.name} not found!"
-            # Check if this is an out-of-bound-write in case of a resizing unlimited sweep.
-            if ds.attrs['resizable']: # We need to support resizing
-                # Calculate the new maximum size:
-                axes_to_resize = np.where(np.asarray(sweep_indices) >= ds.shape)[0]
-                for axis_index in axes_to_resize:
-                    ds.resize(ds.shape[axis_index] + 1, axis=axis_index)
-            # Based on the sweeps that occurred, get the relevant subset of the Dataset
-            assert np.all(np.isnan(ds[*sweep_indices])), \
-                "Overwriting data! This indicates a logic error in the sweeps!"
-            ds[*sweep_indices] = datum.data
-            ds.flush()
+            datum.write_data(data_file, sweep_indices)
         data_file.flush()
 
     @dataclass(frozen=True)
@@ -383,11 +380,36 @@ class DataGenerator(ABC):
         axes: tuple[Axis]
         unit: str = 'a.u.'
 
-        def with_data(self, data: np.ndarray | float) -> 'MeasurementTypeAdapter.GeneratedData':
+        def with_data(self, data: Union[np.ndarray, float]) -> 'MeasurementTypeAdapter.GeneratedData':
             """
             Create a MeasurementData object from this MeasurementDescriptor and the provided data.
             """
             return MeasurementTypeAdapter.GeneratedData(self, data=np.asarray(data))
+
+        def create_dataset(self, file: hdf.Data, axes: list[hdf_dataset]) -> hdf_dataset:
+            """
+            Use qkit facility to write to file.
+            Axes contains a list of a swept axis.
+
+            This is the central method for wrapping the discrepancies in the qkit API.
+            """
+            all_axes: list[hdf_dataset] = axes + list(map(lambda ax: ax.get_data_axis(file), list(self.axes)))
+            # The API has different methods, depending on dimensionality, which it then unifies again to a generic case.
+            # For political reasons, we have to live with this.
+            if len(all_axes) == 0:
+                return file.add_coordinate(name=self.name, unit=self.unit)
+            elif len(all_axes) == 1:
+                return file.add_value_vector(name=self.name,x = all_axes[0], unit=self.unit)
+            elif len(all_axes) == 2:
+                return file.add_value_matrix(name=self.name, x = all_axes[0], y = all_axes[1], unit=self.unit)
+            elif len(all_axes) == 3:
+                return file.add_value_box(name=self.name, x = all_axes[0], y = all_axes[1], z = all_axes[2], unit=self.unit)
+            else:
+                raise NotImplementedError("Qkit Store does not support more than 3 dimensions!")
+
+        @property
+        def ds_url(self):
+            return f"/entry/data0/{self.name}"
 
     @dataclass(frozen=True)
     class GeneratedData:
@@ -400,10 +422,53 @@ class DataGenerator(ABC):
         data: np.ndarray
 
         def validate(self):
+            """
+            Validate that the data matches the descriptor.
+            """
             assert len(self.descriptor.axes) == len(self.data.shape), "Axis data incongruent with descriptor"
             for (i, axis) in enumerate(self.descriptor.axes):
                 assert self.data.shape[i] == len(axis.range), f"Axis ({axis.name}) length and data length mismatch"
 
+
+        def write_data(self, file: hdf.Data, sweep_indices: tuple[int, ...]):
+            """
+            Use qkit store api to actually store the data.
+            """
+            ds: hdf_dataset = file.get_dataset(self.descriptor.ds_url)
+            assert ds is not None, f"Dataset {self.descriptor.name} not found!"
+
+            # Integrates into existing storage infrastructure. Should be better, but may not touch append.
+            if len(self.data.shape) == 0: # We save a scalar
+                if len(sweep_indices) == 0: # Single data point.
+                    ds.append(self.data, reset=True) # We won't get here again.
+                    return
+                elif len(sweep_indices) == 1: # Into a vector, e.g x
+                    # This is not supported by qkit hdf_file natively.
+                    # QKit expects a 1D array with a single point. We need to hack it a bit.
+                    ds.append(np.asarray([self.data]))
+                    return
+                elif len(sweep_indices) == 2: # Into a matrix, e.g. x,y
+                    # QKit expects a 1D array with a single point. We need to hack it a bit.
+                    # Explicitly tell it, that it is pointwise.
+                    ds.append(np.asarray([self.data]), pointwise=True)
+                    # If we reached the end of the inner iteration, go to next
+                    if sweep_indices[-1] + 1 == ds.ds.shape[1]:
+                        ds.next_matrix()
+                    return
+                elif len(sweep_indices) == 3: # Into a box
+                    raise NotImplementedError("QKit does not support 3D data consisting out of single points!")
+            elif len(self.data.shape) == 1: # We save a vector
+                ds.append(self.data)
+                if len(sweep_indices) == 2: # We fill a box with vectors
+                    # In case we just hit end of the last iteration, we need to wrap over.
+                    if sweep_indices[-1] + 1 == ds.ds.shape[1]:
+                        ds.next_matrix()
+                elif len(sweep_indices) >= 3:
+                    raise NotImplementedError("QKit does not higher than 3 dimensions!")
+                return
+            else:
+                raise NotImplementedError("QKit does not support higher than 1 dimension of recorded data at once!")
+            raise NotImplementedError(f"Uncovered State sweep:{len(sweep_indices)}, data:{len(self.data.shape)}!")
 
 class AnalysisTypeAdapter(DataGenerator, ABC):
     """
@@ -411,7 +476,7 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
 
     Should implement a particular kind of analysis, such as Resonator fitting, numerical derivatives, ...
     """
-    def record(self, data_file: HDF5, sweep_indices: tuple[int, ...], measured_data: tuple['MeasurementTypeAdapter.GeneratedData', ...]):
+    def record(self, data_file: hdf.Data, sweep_indices: tuple[int, ...], measured_data: tuple['MeasurementTypeAdapter.GeneratedData', ...]):
         """
         Perform the analysis and record the results.
         """
@@ -423,21 +488,15 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
         else:
             self.store(data_file, data, sweep_indices)
 
-    def create_datasets(self, data_file: HDF5, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...], swept_axes: list[Dataset]):
+    def create_datasets(self, data_file: hdf.Data, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...], swept_axes: list[hdf_dataset]):
         """
         Create the datasets as described in the schema provided by the child class with [expected_structure].
         """
         for descriptor in self.expected_structure(parent_schema):
-            all_axes = swept_axes + list(map(lambda ax: ax.get_data_axis(data_file), list(descriptor.axes)))
-            data_file.create_dataset(descriptor.name,
-                                     tuple(map(lambda axis: len(axis), all_axes)),
-                                     descriptor.unit,
-                                     axes=all_axes,
-                                     category='analysis'
-                                     )
+            descriptor.create_dataset(data_file, axes=swept_axes)
 
         for name, view in self.default_views(parent_schema).items():
-            data_file.insert_view(name, view)
+            view.write(data_file, name)
 
     @override
     @property
@@ -453,7 +512,7 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
         pass
 
     @abstractmethod
-    def default_views(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> dict[str, HDF5.DataView]:
+    def default_views(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> dict[str, "DataView"]:
         """
         A default set of views to be created for this kind of measurement. Can be empty.
         Maps the name to the view, thus a dict.
@@ -481,23 +540,21 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         super().__init__()
         self._analyses = []
 
-    def create_datasets(self, data_file: HDF5, swept_axes: list[Dataset]):
+    def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf_dataset]):
         """
         Create the datasets for this kind of measurement. Takes into account
         swept axes in the measurement tree.
         """
         for descriptor in self.expected_structure:
-            all_axes: list[Dataset] = swept_axes + list(map(lambda ax: ax.get_data_axis(data_file), list(descriptor.axes)))
-            shape = tuple(map(lambda ax: len(ax) if not ax.attrs['resizable'] else None, all_axes))
-            data_file.create_dataset(descriptor.name, shape, descriptor.unit, axes=all_axes)
+            descriptor.create_dataset(data_file, axes=swept_axes)
 
         for name, view in self.default_views:
-            data_file.insert_view(name, view)
+            view.create_dataset(data_file, name)
 
         for analysis in self._analyses:
             analysis.create_datasets(data_file, self.expected_structure, swept_axes)
 
-    def record(self, data_file: HDF5, sweep_indices: tuple[int, ...]):
+    def record(self, data_file: hdf.Data, sweep_indices: tuple[int, ...]):
         """
         Perform the measurement and record the results.
         """
@@ -529,7 +586,7 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         pass
 
     @property
-    def default_views(self) -> dict[str, HDF5.DataView]:
+    def default_views(self) -> dict[str, 'DataView']:
         """
         A default set of views to be created for this kind of measurement. Can be empty.
         Maps the name to the view, thus a dict.
@@ -626,7 +683,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         """
         return f"{self.dimensionality}D_{self._name}"
 
-    def run(self, open_qviewkit: bool = True, open_datasets: list[str] | None = None):
+    def run(self, open_qviewkit: bool = True, open_datasets: list["DataReference"] | None = None):
         """
         Perform the configured measurements. Sweep the nested axes and record the results.
 
@@ -650,7 +707,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             settings_record = data_file.add_textlist(name='settings', comment='Instrument States before measurement started.')
             settings_record.append(settings_str)
 
-            data_file.hf.attrs['comment'] = self._comment if self._comment is not None else ''
+            data_file.hf.hf.attrs['comment'] = self._comment if self._comment is not None else ''
 
             # Backwards compatibility, mostly obsolete.
             measurement = Measurement()
@@ -673,6 +730,8 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             if open_qviewkit:
                 if open_datasets is None:
                     open_datasets: list[str] = []
+                else:
+                    open_datasets: list[str] = [ref.to_path(data_file) for ref in open_datasets]
 
                 qviewkit.plot(data_file.get_filepath(), datasets=open_datasets)
 
@@ -690,3 +749,61 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         return "Experiment:\r\n" + (
             textwrap.indent(str(self._sweep_child), '\t') if self._sweep_child is not None else "No Sweep"
         )
+
+@dataclass(frozen=True)
+class DataView:
+    """
+    Describes the data required for a view, and allows for writing this in the format required by QViewKit.
+
+    The view type defines the type of plot, e.g. line, color, etc. The view parameters allow for default plotting
+    options, such as marker size.
+
+    The view sets contain references to data in the hdf5 file to be plotted.
+    """
+    view_params: dict[str, Any] = field(default_factory=dict)
+    view_sets: list['DataViewSet'] = field(default_factory=list)
+
+    def write(self, file: hdf.Data, name: str):
+        """
+        Write the view metadata to the dataset, followed by the view sets.
+        """
+        dv = file.add_view(name, view_params=self.view_params, x=self.view_sets[0].x_path, y=self.view_sets[0].y_path)
+        for i, view in enumerate(self.view_sets[1:]):
+            dv.add(view.x_path, view.y_path, view.error, view.filter)
+
+@dataclass(frozen=True)
+class DataReference:
+    """
+    A reference to a dataset in the hdf5 file. Consists out of its name and the category it belongs to.
+    """
+    name: str
+    category: Literal['data', 'analysis'] = 'data'
+
+    def get_dataset(self, file: hdf.Data) -> hdf_dataset:
+        """
+        Get a handle to the dataset.
+        """
+        return file.get_dataset(self.ds_url)
+
+    def to_path(self, file: hdf.Data) -> str:
+        """
+        Get the path of the dataset in the hdf5 file, if it exists.
+        """
+        ds = self.get_dataset(file)
+        if ds is None:
+            raise ValueError(f"Dataset '{self.name}' not found.")
+        return ds.name
+
+    @property
+    def ds_url(self):
+        return f"/entry/{self.category}0/{self.name}"
+
+@dataclass(frozen=True)
+class DataViewSet:
+    """
+    A view set for a view, consisting of the x and y datasets, and optional error dataset and filter methods.
+    """
+    x_path: 'DataReference'
+    y_path: 'DataReference'
+    filter: Optional[str] = None
+    error: Optional[str] = None
