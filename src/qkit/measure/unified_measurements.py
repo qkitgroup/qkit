@@ -377,7 +377,7 @@ class DataGenerator(ABC):
         A dataclass containing a n-Dimensional measurement result with axis data.
         """
         name: str
-        axes: tuple[Axis]
+        axes: tuple[Axis, ...]
         unit: str = 'a.u.'
 
         def with_data(self, data: Union[np.ndarray, float]) -> 'MeasurementTypeAdapter.GeneratedData':
