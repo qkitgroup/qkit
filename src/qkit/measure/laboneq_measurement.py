@@ -13,22 +13,20 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
     _compiled_experiment: CompiledExperiment
     _structure: tuple['MeasurementTypeAdapter.DataDescriptor', ...]
 
-    def __init__(self, session: Session, experiment: Experiment, unit: str = 'a.U.'):
+    def __init__(self, session: Session, experiment: Experiment, unit: str = 'a.u.'):
         super().__init__()
         self._session = session
         self._compiled_experiment = self._session.compile(experiment)
-        test_measurement = self._run_unwrapped()
+        emulated_session = Session(device_setup=self._compiled_experiment.device_setup)
+        emulated_session.connect(do_emulation=True)
+        emulated_result = emulated_session.run(self._compiled_experiment)
         self._structure = tuple(
             MeasurementTypeAdapter.DataDescriptor(
                 name=name,
                 axes=tuple(Axis(name=name, range=values) for (name, values) in zip(entry.axis_name, entry.axis)),
                 unit=unit
-            ) for (name, entry) in test_measurement.acquired_results
+            ) for (name, entry) in emulated_result.acquired_results
         )
-
-    def _run_unwrapped(self):
-        return self._session.run(self._compiled_experiment)
-
 
     @property
     def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
