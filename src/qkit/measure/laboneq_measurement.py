@@ -31,7 +31,9 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         self._structure = tuple()
         for (name, entry) in emulated_result.acquired_results.items():
             sanitized = LabOneQMeasurement.sanitize_name(name)
-            axes = (Axis(name=name, range=values, unit=unit) for (name, values, unit) in zip(entry.axis_name, entry.axis, axis_units))
+            if axis_units is None:
+                axis_units = ("a.u.",) * len(entry.axis_name)
+            axes = tuple(Axis(name=name, range=values, unit=unit) for (name, values, unit) in zip(entry.axis_name, entry.axis, axis_units))
             if np.iscomplexobj(entry.data):
                 self._structure += (
                     MeasurementTypeAdapter.DataDescriptor(name=sanitized + "_real", axes=axes, unit=unit),
