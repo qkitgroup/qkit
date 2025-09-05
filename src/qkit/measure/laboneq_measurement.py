@@ -1,3 +1,5 @@
+import logging
+
 from laboneq.simple import *
 
 from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis
@@ -25,7 +27,7 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         super().__init__()
         self._session = session
         self._compiled_experiment = self._session.compile(experiment)
-        emulated_session = Session(device_setup=self._compiled_experiment.device_setup)
+        emulated_session = Session(device_setup=self._compiled_experiment.device_setup, log_level=logging.WARNING)
         emulated_session.connect(do_emulation=True)
         emulated_result = emulated_session.run(self._compiled_experiment)
         self._structure = tuple()
