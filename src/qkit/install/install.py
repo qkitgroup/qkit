@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 import platform
 from types import ModuleType
-from typing import Callable, Literal
+from typing import Callable, Literal, Optional
 import shutil
 import sys
 
@@ -55,7 +55,7 @@ def get_binary(name: str) -> str:
     return str(candidate)
 
 
-def copy_named_template(source_cache: Traversable, target_path: Path, target_name: str, human_readable: str | None = None):
+def copy_named_template(source_cache: Traversable, target_path: Path, target_name: str, human_readable: Optional[str] = None):
     package_file: Traversable = source_cache / f'{target_name}-tpl'
     logging.debug("Got reference %s: %s", human_readable if human_readable is not None else target_name, package_file)
     target = (target_path / target_name)
@@ -194,7 +194,7 @@ def windows_associate_h5(pwd: Path):
         (value, type) = winreg.QueryValueEx(key, None)
         if value != r"qviewkit.h5":
             logging.info("Different association found. Overwriting...")
-            winreg.SetValue(key, None, winreg.REG_SZ, r"qviewkit.h5")
+            winreg.SetValue(key, None, winreg.REG_SZ, r"qviewkit.h5") #TODO: This is buggy
     except FileNotFoundError:
         assoc_key = winreg.CreateKey(winreg.HKEY_CLASSES_ROOT, r".h5")
         winreg.SetValue(assoc_key, None, winreg.REG_SZ, "qviewkit.h5")

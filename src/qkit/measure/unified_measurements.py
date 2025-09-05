@@ -6,7 +6,15 @@ from enum import Enum
 
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Protocol, override, Literal, Iterable, Any, Union
+from typing import Optional, Callable, Protocol, Literal, Iterable, Any, Union
+
+try:
+    from typing import override
+except ImportError:
+    # This feature got added in 3.12. In older versions, do nothing
+    def override(func):
+        return func
+
 import textwrap
 import json
 
@@ -78,11 +86,11 @@ def bar_format():
     return "{l_bar} " + info_line + '{bar}{n_fmt}/{total_fmt}, {rate_fmt} ➤ {eta}'
 
 @dataclass(frozen=True)
-class EnterableWrapper[T]:
+class EnterableWrapper:
     """
     Return this to require the user to use a with-statement.
     """
-    value: T
+    value: Any
 
     def __enter__(self):
         return self.value
@@ -107,7 +115,7 @@ class ParentOfSweep(ABC):
     def sweep(self,
               setter: Callable[[float], None],
               axis: 'Axis',
-              axis_filter: Optional[Callable[[np.ndarray], np.ndarray]] = None) -> EnterableWrapper['Sweep']:
+              axis_filter: Optional[Callable[[np.ndarray], np.ndarray]] = None) -> EnterableWrapper:
         """
         Create a sweep over some axis (optionally filtered), setting the value using the setter.
 
@@ -662,7 +670,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         self._comment = comment
         return self
 
-    def timeseries(self, stop_after = None) -> EnterableWrapper[ContinuousTimeSeriesSweep]:
+    def timeseries(self, stop_after = None) -> EnterableWrapper:
         """
         Creates an endless timeseries. Only supported as the root of sweeps.
         """
@@ -683,7 +691,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         """
         return f"{self.dimensionality}D_{self._name}"
 
-    def run(self, open_qviewkit: bool = True, open_datasets: list["DataReference"] | None = None):
+    def run(self, open_qviewkit: bool = True, open_datasets: Optional[list["DataReference"]] = None):
         """
         Perform the configured measurements. Sweep the nested axes and record the results.
 
