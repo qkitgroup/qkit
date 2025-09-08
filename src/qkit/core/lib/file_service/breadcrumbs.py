@@ -16,7 +16,7 @@ UUID=rel_path\n
 
 The UUID is 6 symbols long. It is followed by an `=` symbol. The rest of the line is the relative path.
 """
-
+import os
 from pathlib import Path
 import qkit
 from os import PathLike
