@@ -39,9 +39,9 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
             if np.iscomplexobj(entry.data):
                 self._structure += (
                     MeasurementTypeAdapter.DataDescriptor(name=sanitized + "_real", axes=axes, unit=unit),
-                    MeasurementTypeAdapter.DataDescriptor(name=sanitized + "_imag", axes=axes, unit=unit),
+                    MeasurementTypeAdapter.DataDescriptor(name=sanitized + "_imag", axes=axes, unit="i" + unit),
                     MeasurementTypeAdapter.DataDescriptor(name=sanitized + "_mag", axes=axes, unit=unit),
-                    MeasurementTypeAdapter.DataDescriptor(name=sanitized + "_phase", axes=axes, unit=unit)
+                    MeasurementTypeAdapter.DataDescriptor(name=sanitized + "_phase", axes=axes, unit='rad')
                 )
             else:
                 self._structure += tuple(
