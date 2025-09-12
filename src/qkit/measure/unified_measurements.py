@@ -2,7 +2,6 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from enum import Enum
 
 import numpy as np
 from abc import ABC, abstractmethod
@@ -31,7 +30,6 @@ from qkit.measure.measurement_class import Measurement
 import qkit.measure.write_additional_files as waf
 
 import qkit.gui.plot.plot as qviewkit  # Who names these things?
-from warnings import warn
 
 """
 The unified measurement class infrastructure. Will attempt to unify all kinds of measurements into a common code base.
@@ -69,10 +67,6 @@ Proposed API:
 >>>     measurement_adapter: MeasurementAdapter
 >>> )
 """
-
-warn("The unified measurement class infrastructure is still in development and considered experimental.", DeprecationWarning)
-if not qkit.cfg.get("measurement.unified_measurements.enabled", False):
-    raise RuntimeError("Experimental feature requires explicit opt-in!")
 
 # The custom format of the progress bar for qkit
 def bar_format():
