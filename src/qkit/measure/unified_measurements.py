@@ -175,6 +175,7 @@ class ParentOfMeasurements(ABC):
         Based on the measurements and parent sweeps, create the datasets.
         """
         for measurement in self._measurements:
+            measurement_log.debug(f"Creating dataset for {measurement.__str__()}")
             measurement.create_datasets(data_file, swept_axes)
 
     def run_measurements(self, data_file: hdf.Data, index_list: tuple[int, ...]):
@@ -396,6 +397,7 @@ class DataGenerator(ABC):
             This is the central method for wrapping the discrepancies in the qkit API.
             """
             all_axes: list[hdf_dataset] = axes + list(map(lambda ax: ax.get_data_axis(file), list(self.axes)))
+            measurement_log.debug(f"Creating dataset {self.name} with axes {all_axes}")
             # The API has different methods, depending on dimensionality, which it then unifies again to a generic case.
             # For political reasons, we have to live with this.
             if len(all_axes) == 0:
@@ -495,9 +497,11 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
         Create the datasets as described in the schema provided by the child class with [expected_structure].
         """
         for descriptor in self.expected_structure(parent_schema):
+            measurement_log.debug(f"Creating dataset for Analysis from descriptor for {descriptor.name} with axes {swept_axes}")
             descriptor.create_dataset(data_file, axes=swept_axes)
 
         for name, view in self.default_views(parent_schema).items():
+            measurement_log.debug(f"Creating View {name} for Analysis.")
             view.write(data_file, name)
 
     @override
@@ -548,12 +552,15 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         swept axes in the measurement tree.
         """
         for descriptor in self.expected_structure:
+            measurement_log.debug(f"Creating dataset from descriptor for {descriptor.name} with axes {swept_axes}")
             descriptor.create_dataset(data_file, axes=swept_axes)
 
         for name, view in self.default_views:
-            view.create_dataset(data_file, name)
+            measurement_log.debug(f"Creating view {name}.")
+            view.write(data_file, name)
 
         for analysis in self._analyses:
+            measurement_log.debug(f"Creating analysis datasets for {analysis}.")
             analysis.create_datasets(data_file, self.expected_structure, swept_axes)
 
     def record(self, data_file: hdf.Data, sweep_indices: tuple[int, ...]):
