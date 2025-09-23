@@ -382,7 +382,7 @@ class DataGenerator(ABC):
         assert isinstance(data, tuple), "Measurement must return a tuple of MeasurementData!"
         for datum in data:
             assert isinstance(datum, self.GeneratedData), "Measurement must return a tuple of MeasurementData!"
-            datum.validate()
+            # The data is validated on wrapper creation, see GeneratedData.__post_init__
             datum.write_data(data_file, sweep_indices)
         data_file.flush()
 
@@ -447,15 +447,9 @@ class DataGenerator(ABC):
         def __post_init__(self):
             assert isinstance(self.descriptor, MeasurementTypeAdapter.DataDescriptor), "MeasurementData must be created from a MeasurementDescriptor!"
             assert isinstance(self.data, np.ndarray), "MeasurementData must be an ndarray!"
-
-        def validate(self):
-            """
-            Validate that the data matches the descriptor.
-            """
-            assert len(self.descriptor.axes) == len(self.data.shape), "Axis data incongruent with descriptor"
+            assert len(self.descriptor.axes) == len(self.data.shape), f"Data shape (d={len(self.data.shape)}) incongruent with descriptor (d={len(self.descriptor.axes)})"
             for (i, axis) in enumerate(self.descriptor.axes):
                 assert self.data.shape[i] == len(axis.range), f"Axis ({axis.name}) length and data length mismatch"
-
 
         def write_data(self, file: hdf.Data, sweep_indices: tuple[int, ...]):
             """
