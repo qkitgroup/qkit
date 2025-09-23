@@ -4,7 +4,7 @@ from laboneq.simple import *
 
 from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis
 
-from typing import Optional, List
+from typing import Optional, List, Generator
 
 import numpy as np
 
@@ -23,6 +23,17 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
     def sanitize_name(internal_name):
         return internal_name.replace('/', '_').replace(' ', '_')
 
+    @staticmethod
+    def flatten(l: list) -> Generator:
+        """
+        Takes a list of lists and flattens it into a list. Must handle the case where the root list entries are not lists.
+        """
+        for element in l:
+            if isinstance(element, list):
+                yield from LabOneQMeasurement.flatten(element)
+            else:
+                yield element
+
     def __init__(self, session: Session, experiment: Experiment, unit: str = 'a.u.', axis_units: Optional[List[str]] = None):
         super().__init__()
         self._session = session
@@ -34,9 +45,11 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         self._structure = tuple()
         for (name, entry) in emulated_result.acquired_results.items():
             sanitized = LabOneQMeasurement.sanitize_name(name)
+            axis_names = list(LabOneQMeasurement.flatten(entry.axis_name))
+            axes = list(LabOneQMeasurement.flatten(entry.axis))
             if axis_units is None:
-                axis_units = ("a.u.",) * len(entry.axis_name)
-            axes = tuple(Axis(name=name, range=values, unit=unit) for (name, values, unit) in zip(entry.axis_name, entry.axis, axis_units))
+                axis_units = ("a.u.",) * len(axis_names)
+            axes = tuple(Axis(name=name, range=values, unit=unit) for (name, values, unit) in zip(axis_names, axes, axis_units))
             if np.iscomplexobj(entry.data):
                 self._structure += (
                     MeasurementTypeAdapter.DataDescriptor(name=sanitized + "_real", axes=axes, unit=unit),
