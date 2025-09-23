@@ -738,7 +738,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
 
         By default opens qviewkit. Using [open_datasets], a set of datasets can be opened on start.
         """
-        measurement_log.info(f"Starting measurement {self._filename} with {self._sample}")
+        measurement_log.info(f"Starting measurement {self._filename} with {self._sample.name}")
         # HDF5 file initialization
         measurement_log.debug(f"Creating HDF5 file {self._filename}")
         data_file = hdf.Data(name=self._filename, mode='a')
