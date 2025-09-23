@@ -159,6 +159,7 @@ class ParentOfMeasurements(ABC):
         >>> with e.sweep(lambda val: None, Axis("x", np.linspace(0, 1, 10))) as x_sweep:
         >>>     x_sweep.measure(ScalarMeasurement('const', lambda: 1.0))
         """
+        assert isinstance(measurement_type, MeasurementTypeAdapter), "Measurement type must be an instance of MeasurementTypeAdapter!"
         self._measurements.append(measurement_type)
 
     @property
@@ -210,6 +211,9 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
     def __init__(self, setter: Callable[[float], None], axis: 'Axis', axis_filter: Optional[FilterCallback]=None) -> None:
         super().__init__()
         super(ParentOfSweep, self).__init__()
+        assert callable(setter)
+        assert isinstance(axis, Axis)
+        assert axis_filter is None or callable(axis_filter)
         self._setter = setter
         self._axis = axis
         self._filter = axis_filter
@@ -322,6 +326,12 @@ class Axis:
     range: Optional[np.ndarray]
     unit: str = 'a.u.'
 
+    def __post_init__(self):
+        assert isinstance(self.name, str), "Axis name must be a string!"
+        assert self.range is None or isinstance(self.range, np.ndarray), "Axis range must be a numpy array!"
+        assert isinstance(self.unit, str), "Axis unit must be a string!"
+        # In the future, maybe consider enforcing the range to be strictly monotonic.
+
     def get_data_axis(self, data_file: hdf.Data) -> hdf_dataset:
         """
         Returns the filled axis data set. Creates it if it doesn't exist yet.
@@ -383,6 +393,13 @@ class DataGenerator(ABC):
         axes: tuple[Axis, ...]
         unit: str = 'a.u.'
 
+        def __post_init__(self):
+            assert isinstance(self.name, str), "Name must be a string!"
+            assert isinstance(self.axes, tuple), "Axes must be a tuple!"
+            for axis in self.axes:
+                assert isinstance(axis, Axis), "Axes must be a tuple of Axis objects!"
+            assert isinstance(self.unit, str), "Unit must be a string!"
+
         def with_data(self, data: Union[np.ndarray, float]) -> 'MeasurementTypeAdapter.GeneratedData':
             """
             Create a MeasurementData object from this MeasurementDescriptor and the provided data.
@@ -424,6 +441,10 @@ class DataGenerator(ABC):
         """
         descriptor: 'MeasurementTypeAdapter.DataDescriptor'
         data: np.ndarray
+
+        def __post_init__(self):
+            assert isinstance(self.descriptor, MeasurementTypeAdapter.DataDescriptor), "MeasurementData must be created from a MeasurementDescriptor!"
+            assert isinstance(self.data, np.ndarray), "MeasurementData must be an ndarray!"
 
         def validate(self):
             """
@@ -485,6 +506,7 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
         Perform the analysis and record the results.
         """
         try:
+            # Validity of data is asserted in self.store in the else branch.
             data = self.perform_analysis(measured_data)
         except Exception as e:
             measurement_log.error(f"Analysis failed for {self}: {e}", exc_info=e)
@@ -496,11 +518,18 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
         """
         Create the datasets as described in the schema provided by the child class with [expected_structure].
         """
-        for descriptor in self.expected_structure(parent_schema):
+        descriptors = self.expected_structure(parent_schema)
+        assert isinstance(descriptors, tuple), "Expected structure must be a tuple of DataDescriptors!"
+        for descriptor in descriptors:
+            assert isinstance(descriptor, self.DataDescriptor), "Each descriptor must be of type DataDescriptors!"
             measurement_log.debug(f"Creating dataset for Analysis from descriptor for {descriptor.name} with axes {swept_axes}")
             descriptor.create_dataset(data_file, axes=swept_axes)
 
-        for name, view in self.default_views(parent_schema).items():
+        views = self.default_views(parent_schema)
+        assert isinstance(views, dict), "Default views must be a dict of str to DataViews!"
+        for name, view in views.items():
+            assert isinstance(name, str), "Name of view must be a string!"
+            assert isinstance(view, DataView), "Each view must be of type DataView!"
             measurement_log.debug(f"Creating View {name} for Analysis.")
             view.write(data_file, name)
 
@@ -551,11 +580,18 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         Create the datasets for this kind of measurement. Takes into account
         swept axes in the measurement tree.
         """
-        for descriptor in self.expected_structure:
+        exp_structure = self.expected_structure
+        assert isinstance(exp_structure, tuple), "Expected structure must be a tuple of DataDescriptors!"
+        for descriptor in exp_structure:
+            assert isinstance(descriptor, self.DataDescriptor), "Each descriptor must be of type DataDescriptors!"
             measurement_log.debug(f"Creating dataset from descriptor for {descriptor.name} with axes {swept_axes}")
             descriptor.create_dataset(data_file, axes=swept_axes)
 
-        for name, view in self.default_views:
+        views = self.default_views
+        assert isinstance(views, dict), "Default views must be a dict of str to DataViews!"
+        for name, view in views:
+            assert isinstance(name, str), "Name of view must be a string!"
+            assert isinstance(view, DataView), "Each view must be of type DataView!"
             measurement_log.debug(f"Creating view {name}.")
             view.write(data_file, name)
 
@@ -581,6 +617,7 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         """
         Add an Analysis to this measurement.
         """
+        assert isinstance(analysis, AnalysisTypeAdapter), "Analysis must be of type AnalysisTypeAdapter!"
         self._analyses.append(analysis)
         return self
 
@@ -772,6 +809,12 @@ class DataView:
     view_params: dict[str, Any] = field(default_factory=dict)
     view_sets: list['DataViewSet'] = field(default_factory=list)
 
+    def __post_init__(self):
+        assert isinstance(self.view_params, dict), "View parameters must be a dict."
+        assert isinstance(self.view_sets, list), "View sets must be a list."
+        for view_set in self.view_sets:
+            assert isinstance(view_set, DataViewSet), "View sets must be a list of DataViewSet."
+
     def write(self, file: hdf.Data, name: str):
         """
         Write the view metadata to the dataset, followed by the view sets.
@@ -787,6 +830,10 @@ class DataReference:
     """
     name: str
     category: Literal['data', 'analysis'] = 'data'
+
+    def __post_init__(self):
+        assert self.category in ['data', 'analysis'], "Category must be either 'data' or 'analysis'."
+        assert isinstance(self.name, str), "Name must be a string."
 
     def get_dataset(self, file: hdf.Data) -> hdf_dataset:
         """
@@ -816,3 +863,9 @@ class DataViewSet:
     y_path: 'DataReference'
     filter: Optional[str] = None
     error: Optional[str] = None
+
+    def __post_init__(self):
+        assert isinstance(self.x_path, DataReference), "X-Axis must be a DataReference."
+        assert isinstance(self.y_path, DataReference), "Y-Axis must be a DataReference."
+        assert self.filter is None or isinstance(self.filter, str), "Filter must be a string or None."
+        assert self.error is None or isinstance(self.error, str), "Error must be a string or None."
