@@ -46,7 +46,7 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         for (name, entry) in emulated_result.acquired_results.items():
             sanitized = LabOneQMeasurement.sanitize_name(name)
             axis_names = list(LabOneQMeasurement.flatten(entry.axis_name))
-            axes = list(LabOneQMeasurement.flatten(entry.axis))
+            axes = tuple(LabOneQMeasurement.flatten(entry.axis))
             if axis_units is None:
                 axis_units = ("a.u.",) * len(axis_names)
             axes = tuple(Axis(name=name, range=values, unit=unit) for (name, values, unit) in zip(axis_names, axes, axis_units))
