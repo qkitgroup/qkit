@@ -68,6 +68,8 @@ Proposed API:
 >>> )
 """
 
+measurement_log = logging.getLogger(__name__)
+
 # The custom format of the progress bar for qkit
 def bar_format():
     """
@@ -91,8 +93,6 @@ class EnterableWrapper:
 
     def __exit__(self, *args):
         pass
-
-measurement_log = logging.getLogger("Measurement")
 
 class ParentOfSweep(ABC):
     """
@@ -265,6 +265,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
 
     @override
     def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf_dataset]):
+        measurement_log.debug(f"Dataset creation passing sweep of {self._axis.name}")
         swept_axes.append(self._axis.get_data_axis(data_file))
         super().create_datasets(data_file, swept_axes)
         if self._sweep_child is not None:
@@ -377,6 +378,7 @@ class DataGenerator(ABC):
 
         This handles the nuances of qkit store api.
         """
+        measurement_log.debug(f"Storing data for {type(self).__name__}")
         assert isinstance(data, tuple), "Measurement must return a tuple of MeasurementData!"
         for datum in data:
             assert isinstance(datum, self.GeneratedData), "Measurement must return a tuple of MeasurementData!"
@@ -580,6 +582,7 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         Create the datasets for this kind of measurement. Takes into account
         swept axes in the measurement tree.
         """
+        measurement_log.debug(f"Creating datasets for {type(self).__name__} with swept axes {swept_axes}.")
         exp_structure = self.expected_structure
         assert isinstance(exp_structure, tuple), "Expected structure must be a tuple of DataDescriptors!"
         for descriptor in exp_structure:
@@ -606,7 +609,7 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         try:
             data = self.perform_measurement()
         except Exception as e:
-            measurement_log.error(f"Measurement failed for {self}.", exc_info=e)
+            measurement_log.error(f"Measurement failed for {type(self).__name__}.", exc_info=e)
             raise e
         else:
             self.store(data_file, data, sweep_indices)
@@ -735,17 +738,22 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
 
         By default opens qviewkit. Using [open_datasets], a set of datasets can be opened on start.
         """
+        measurement_log.info(f"Starting measurement {self._filename} with {self._sample}")
         # HDF5 file initialization
+        measurement_log.debug(f"Creating HDF5 file {self._filename}")
         data_file = hdf.Data(name=self._filename, mode='a')
         # Create an additional log file:
+        measurement_log.debug(f"Creating log file {self._filename}.log")
         log_handler = waf.open_log_file(data_file.get_filepath())
         try:
             # Recurse down the tree to create datasets.
+            measurement_log.debug(f"Creating measurement datasets for {self._name}.")
             self.create_datasets(data_file, [])
             if self._sweep_child is not None:
                 self._sweep_child.create_datasets(data_file, [])
 
             # Get Instrument settings, write to a file
+            measurement_log.debug("Writing instrument settings to file...")
             settings = waf.get_instrument_settings(data_file.get_filepath())
 
             # Also store in hdf5
@@ -756,6 +764,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             data_file.hf.hf.attrs['comment'] = self._comment if self._comment is not None else ''
 
             # Backwards compatibility, mostly obsolete.
+            measurement_log.debug("Writing Measurement metadata")
             measurement = Measurement()
             measurement.hdf_relpath = str(data_file._relpath)  # Access to DateTimeGenerator internals.
             measurement.sample = self._sample
@@ -770,10 +779,12 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             measurement_record.append(measurement.get_JSON())
 
             # All records are created, enter swmr mode
+            measurement_log.debug("Entering SWMR mode")
             data_file.swmr = True
 
             # Open Qviewkit, if desired
             if open_qviewkit:
+                measurement_log.info("Opening Qviewkit")
                 if open_datasets is None:
                     open_datasets: list[str] = []
                 else:
@@ -782,14 +793,17 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
                 qviewkit.plot(data_file.get_filepath(), datasets=open_datasets)
 
             # Everything is prepared. Do the actual measurement.
+            measurement_log.info("Starting measurement")
             self.run_measurements(data_file, ())
             self._run_child_sweep(data_file, ())
         finally:
             # Calling into existing plotting code in the background.
+            measurement_log.info("Creating plots...")
             t = threading.Thread(target=qviewkit.save_plots, args=[data_file.get_filepath(), self._comment])
             t.start()
             waf.close_log_file(log_handler)
             data_file.close()
+            measurement_log.info("Measurement finalized")
 
     def __str__(self):
         return "Experiment:\r\n" + (
