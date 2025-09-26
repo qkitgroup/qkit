@@ -32,7 +32,8 @@ dependencies = [
     "tomli>=2.0.1",
     "ipython",
     "packaging",
-    "filelock>=3.17"
+    "filelock>=3.17",
+    "tqdm>=4.67.0"
 ]
 
 [project.scripts]
@@ -48,7 +49,7 @@ jupyter = [
     "ipywidgets>=8.0"
 ]
 zurich-instruments = [
-    "zhinst~=23.2"
+    "LabOneQ>=2.59.0"
 ]
 analysis = [
     "matplotlib>=3.7",
