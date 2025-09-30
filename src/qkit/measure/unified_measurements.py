@@ -2,6 +2,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
+from os import PathLike
 
 import numpy as np
 from abc import ABC, abstractmethod
@@ -726,7 +727,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         """
         return f"{self.dimensionality}D_{self._name}"
 
-    def run(self, open_qviewkit: bool = True, open_datasets: Optional[list["DataReference"]] = None):
+    def run(self, open_qviewkit: bool = True, open_datasets: Optional[list["DataReference"]] = None) -> PathLike:
         """
         Perform the configured measurements. Sweep the nested axes and record the results.
 
@@ -798,6 +799,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             waf.close_log_file(log_handler)
             data_file.close()
             measurement_log.info("Measurement finalized")
+            return data_file.get_filepath()
 
     def __str__(self):
         return "Experiment:\r\n" + (

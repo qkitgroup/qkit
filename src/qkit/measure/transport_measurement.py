@@ -8,8 +8,7 @@ import numpy as np
 import itertools
 
 from qkit.drivers.AbstractIVDevice import AbstractIVDevice
-from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis
-from qkit.storage.thin_hdf import HDF5
+from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis, DataView, DataViewSet, DataReference
 
 
 @dataclass(frozen=True)
@@ -111,14 +110,13 @@ class TransportMeasurement(MeasurementTypeAdapter):
 
     @override
     @property
-    def default_views(self) -> dict[str, HDF5.DataView]:
+    def default_views(self) -> dict[str, DataView]:
         return {
-            'IV': HDF5.DataView(
-                view_type=HDF5.DataViewType.ONE_D,
+            'IV': DataView(
                 view_sets=list(itertools.chain(
-                    HDF5.DataViewSet(
-                        x_path= HDF5.DataReference(b.name),
-                        y_path= HDF5.DataReference(m.name),
+                    DataViewSet(
+                        x_path= DataReference(b.name),
+                        y_path= DataReference(m.name),
                     ) for (b, m) in self._measurement_descriptors
                 ))
             ),
