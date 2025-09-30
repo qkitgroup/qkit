@@ -170,7 +170,7 @@ class ParentOfMeasurements(ABC):
         """
         if len(self._measurements) == 0:
             return 0
-        return max(map(lambda m: len(m.expected_structure), self._measurements))
+        return max(map(lambda m: m.dimension, self._measurements))
 
     def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf_dataset]):
         """
@@ -248,6 +248,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         sweep, size = self._generate_enumeration(data_file)
         try:
             for index, value in tqdm(sweep, desc=self._axis.name, bar_format=bar_format(), total=size, leave=False):
+                measurement_log.debug(f"Sweeping {self._axis.name} index: {index} value: {value}")
                 try:
                     self._setter(value)
                     self._current_value = value
@@ -434,6 +435,13 @@ class DataGenerator(ABC):
         @property
         def ds_url(self):
             return f"/entry/data0/{self.name}"
+        
+        @property
+        def dimension(self):
+            """
+            The dimensionality of the expected Data.
+            """
+            return len(self.axes)
 
     @dataclass(frozen=True)
     class GeneratedData:
@@ -450,7 +458,7 @@ class DataGenerator(ABC):
             assert isinstance(self.data, np.ndarray), "MeasurementData must be an ndarray!"
             assert len(self.descriptor.axes) == len(self.data.shape), f"Data shape (d={len(self.data.shape)}) incongruent with descriptor (d={len(self.descriptor.axes)})"
             for (i, axis) in enumerate(self.descriptor.axes):
-                assert self.data.shape[i] == len(axis.range), f"Axis ({axis.name}) length and data length mismatch"
+                assert self.data.shape[i] == len(axis.range), f"Axis {i} ({axis.name}) length ({len(axis.range)}) and data length ({self.data.shape[i]}) mismatch"
 
         def write_data(self, file: hdf.Data, sweep_indices: tuple[int, ...]):
             """
@@ -587,9 +595,9 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
 
         views = self.default_views
         assert isinstance(views, dict), "Default views must be a dict of str to DataViews!"
-        for name, view in views:
+        for name, view in views.items():
             assert isinstance(name, str), "Name of view must be a string!"
-            assert isinstance(view, DataView), "Each view must be of type DataView!"
+            assert isinstance(view, DataView), f"Each view must be of type DataView! But {name} is {type(view)}"
             measurement_log.debug(f"Creating view {name}.")
             view.write(data_file, name)
 
@@ -618,6 +626,13 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         assert isinstance(analysis, AnalysisTypeAdapter), "Analysis must be of type AnalysisTypeAdapter!"
         self._analyses.append(analysis)
         return self
+    
+    @property
+    def dimension(self):
+        """
+        Determine the dimensionality of the measurement as the maximum dimensionality of any expected structure.
+        """
+        return max(map(lambda es: es.dimension, self.expected_structure))
 
     @property
     @abstractmethod
@@ -791,6 +806,9 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             measurement_log.info("Starting measurement")
             self.run_measurements(data_file, ())
             self._run_child_sweep(data_file, ())
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
         finally:
             # Calling into existing plotting code in the background.
             measurement_log.info("Creating plots...")

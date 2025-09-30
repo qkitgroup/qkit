@@ -7,9 +7,10 @@ import numpy as np
 class AbstractIVDevice(ABC):
 
     @abstractmethod
-    def take_IV(self, sweep: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def take_IV(self, sweep: tuple[float, float, float, float]) -> tuple[np.ndarray, np.ndarray]:
         """
         Perform an IV sweep. Returns (bias, sense).
+        Sweep is (start, stop, step, sleep)
         """
         pass
 
