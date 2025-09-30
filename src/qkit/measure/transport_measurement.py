@@ -25,16 +25,20 @@ class MeasureModes(Enum):
 class TransportMeasurement(MeasurementTypeAdapter):
 
     _measurement_descriptors: list[tuple[MeasurementTypeAdapter.DataDescriptor, MeasurementTypeAdapter.DataDescriptor]]
+    _sweep_parameters: list[tuple[float, float, float]]
     _iv_device: AbstractIVDevice
     _mode: MeasureModes
     _sleep: float
+    _extend_range: bool
 
-    def __init__(self, iv_device: AbstractIVDevice, mode: MeasureModes = MeasureModes.IV, sleep: float = 0):
+    def __init__(self, iv_device: AbstractIVDevice, mode: MeasureModes = MeasureModes.IV, sleep: float = 0, extend_range=False):
         super().__init__()
         self._iv_device = iv_device
         self._mode = mode
         self._measurement_descriptors = []
+        self._sweep_parameters = []
         self._sleep = sleep
+        self._extend_range = extend_range
         if mode == MeasureModes.IV:
             assert iv_device.get_sweep_mode() == 1
         elif mode == MeasureModes.VI:
@@ -44,9 +48,10 @@ class TransportMeasurement(MeasurementTypeAdapter):
         axis = Axis(
             name=f'{self._mode.value.bias_symbol}_{len(self._measurement_descriptors)}',
             unit=self._mode.value.bias_unit,
-            range=np.arange(start, stop, step)
+            range=np.arange(start, stop if not self._extend_range else (stop + step/2), step)
         )
-        self._measurement_descriptors += (
+        self._sweep_parameters += [(start, stop, step)] # TODO: Refactor by lazy DataDescriptor creation based on sweep parameters
+        self._measurement_descriptors += [(
             MeasurementTypeAdapter.DataDescriptor(
                 name=f'{self._mode.value.bias_symbol}_b_{len(self._measurement_descriptors)}',
                 unit=self._mode.value.bias_unit,
@@ -57,7 +62,7 @@ class TransportMeasurement(MeasurementTypeAdapter):
                 unit=self._mode.value.measure_unit,
                 axes=(axis,)
             )
-        )
+        )]
 
     def add_4_quadrant_sweep(self, start: float, stop: float, step: float, offset: float = 0):
         """
@@ -100,8 +105,8 @@ class TransportMeasurement(MeasurementTypeAdapter):
         offset: float
             Offset value by which <start> and <stop> are shifted. Default is 0.
         """
-        self.add_sweep(amplitude + offset, -amplitude + offset, step)
-        self.add_sweep(-amplitude + offset, amplitude + offset, -step)
+        self.add_sweep(amplitude + offset, -amplitude + offset, -step)
+        self.add_sweep(-amplitude + offset, amplitude + offset, step)
 
     @override
     @property
@@ -125,9 +130,8 @@ class TransportMeasurement(MeasurementTypeAdapter):
     @override
     def perform_measurement(self) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
         results = []
-        for (bias, measurement) in self._measurement_descriptors:
-            intended_bias_values = bias.axes[0].range
-            bias_data, measurement_data = self._iv_device.take_IV(intended_bias_values)
+        for ((bias, measurement), sweep_params) in zip(self._measurement_descriptors, self._sweep_parameters):
+            bias_data, measurement_data = self._iv_device.take_IV((*sweep_params, self._sleep))
             results.append((
                 bias.with_data(bias_data),
                 measurement.with_data(measurement_data)
