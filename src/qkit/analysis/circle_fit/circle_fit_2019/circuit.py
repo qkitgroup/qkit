@@ -419,13 +419,15 @@ class circuit:
         phase = np.unwrap(np.angle(z_data))
         
         # For centered circle roll-off should be close to 2pi. If not warn user.
-        if np.max(phase) - np.min(phase) <= 0.8*2*np.pi:
+        if np.max(phase) - np.min(phase) <= 0.4*2*np.pi:
             logging.warning(
                 "Data does not cover a full circle (only {:.1f}".format(
                     np.max(phase) - np.min(phase)
                 )
                +" rad). Increase the frequency span around the resonance?"
             )
+            roll_off = np.max(phase) - np.min(phase)
+        elif np.max(phase) - np.min(phase) <= 0.8*2*np.pi:
             roll_off = np.max(phase) - np.min(phase)
         else:
             roll_off = 2*np.pi

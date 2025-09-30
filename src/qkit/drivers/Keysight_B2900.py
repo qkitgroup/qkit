@@ -2052,7 +2052,7 @@ class Keysight_B2900(Instrument):
                 self._wait_for_transition_idle(channel=channel_bias)
                 I_values = np.fromstring(self._ask(':fetc:arr:curr?').replace('+9.910000E+37', 'nan').replace('9.900000E+37', 'inf'), sep=',', dtype=float)
                 V_values = np.fromstring(self._ask(':fetc:arr:volt?').replace('+9.910000E+37', 'nan').replace('9.900000E+37', 'inf'), sep=',', dtype=float)
-                return (I_values, V_values)[::int(np.sign(.5 - self.get_sweep_bias()))]
+                return (I_values, V_values)#[::int(np.sign(.5 - self.get_sweep_bias()))] # IVD.get_tracedata should always yield (I,V)! correct sorting to bias/sense already handled in transport script
         except Exception as e:
             logging.error('{!s}: Cannot take sweep data of channel {!s}'.format(__name__, self._sweep_channels))
             raise type(e)('{!s}: Cannot take sweep data of channel {!s}\n{!s}'.format(__name__, self._sweep_channels, e))

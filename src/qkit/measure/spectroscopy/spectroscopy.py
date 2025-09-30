@@ -620,6 +620,7 @@ class spectrum(object):
             for ix, x in enumerate(self.x_vec):
                 self.x_set_obj(x)
                 sleep(self.tdx)
+                self._sweeptime_averages = self.vna.get_sweeptime_averages()
 
                 if self._scan_dim == 3:
                     fit_extracts_helper = {} # for book-keeping current y-line
@@ -632,6 +633,7 @@ class spectrum(object):
                         else:
                             self.y_set_obj(y)
                             sleep(self.tdy)
+                            self._sweeptime_averages = self.vna.get_sweeptime_averages()
 
                             if self.averaging_start_ready:
                                 self.vna.start_measurement()
@@ -702,6 +704,8 @@ class spectrum(object):
                         self._fit_imag.next_matrix() if self.storeRealImag else None
 
                 if self._scan_dim == 2:
+                    for lf in self.log_funcs:
+                        lf.logIfDesired(ix)
                     
                     if self.averaging_start_ready:
                         self.vna.start_measurement()
@@ -710,13 +714,10 @@ class spectrum(object):
                             sleep(.2)  # just to make sure, the ready command does not *still* show ready
 
                         while not self.vna.ready():
-                            sleep(min(self.vna.get_sweeptime_averages(query=False) / 11., .2))
+                            sleep(min(self.vna.get_sweeptime_averages(query=False) / 11., 0.2))
                     else:
                         self.vna.avg_clear()
                         sleep(self._sweeptime_averages)
-
-                    for lf in self.log_funcs:
-                        lf.logIfDesired(ix)
 
                     """ measurement """
                     if not self.landscape.xzlandscape_func:  # normal scan
