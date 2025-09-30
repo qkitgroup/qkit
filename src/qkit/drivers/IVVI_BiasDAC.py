@@ -108,8 +108,8 @@ class IVVI_BiasDAC(Instrument):
             self.v_div = None # for voltage bias
         def get_sweep_mode(self):
             # 0: V bias V measure, 1: I bias V measure, 2: V bias I measure
-            # technically mode 2 also possible, this class cant determine 0 vs 2 without hidden knowledge about measure function though
-            return 1 - self.pseudo_bias_mode
+            # technically mode 0 also possible, this class cant determine 0 vs 2 without hidden knowledge about measure function though
+            return 1 + self.pseudo_bias_mode
         def get_sweep_bias(self):
             return self.pseudo_bias_mode
         def get_sweep_channels(self):

@@ -170,7 +170,7 @@ class ParentOfMeasurements(ABC):
         """
         if len(self._measurements) == 0:
             return 0
-        return max(map(lambda m: len(m.expected_structure), self._measurements))
+        return max(map(lambda m: m.dimension, self._measurements))
 
     def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf_dataset]):
         """
@@ -248,6 +248,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         sweep, size = self._generate_enumeration(data_file)
         try:
             for index, value in tqdm(sweep, desc=self._axis.name, bar_format=bar_format(), total=size, leave=False):
+                measurement_log.debug(f"Sweeping {self._axis.name} index: {index} value: {value}")
                 try:
                     self._setter(value)
                     self._current_value = value
@@ -366,13 +367,6 @@ class DataGenerator(ABC):
     Handles storing data into datasets, and provides the structures for describing the data.
     """
 
-    @property
-    def dataset_category(self) -> Literal['data', 'analysis']:
-        """
-        The category into which the returned data should be sorted.
-        """
-        return 'data'
-
     def store(self, data_file: hdf.Data, data: tuple['MeasurementTypeAdapter.GeneratedData', ...], sweep_indices: tuple[int, ...]):
         """
         Store the generated [data] in the [data_file], while selecting based on the current [sweep_indices].
@@ -395,6 +389,7 @@ class DataGenerator(ABC):
         name: str
         axes: tuple[Axis, ...]
         unit: str = 'a.u.'
+        category: Literal['data', 'analysis'] = "data"
 
         def __post_init__(self):
             assert isinstance(self.name, str), "Name must be a string!"
@@ -402,6 +397,7 @@ class DataGenerator(ABC):
             for axis in self.axes:
                 assert isinstance(axis, Axis), "Axes must be a tuple of Axis objects!"
             assert isinstance(self.unit, str), "Unit must be a string!"
+            assert self.category == "data" or self.category == "analysis", "Category must bei either 'data' or 'analysis'"
 
         def with_data(self, data: Union[np.ndarray, float]) -> 'MeasurementTypeAdapter.GeneratedData':
             """
@@ -421,19 +417,26 @@ class DataGenerator(ABC):
             # The API has different methods, depending on dimensionality, which it then unifies again to a generic case.
             # For political reasons, we have to live with this.
             if len(all_axes) == 0:
-                return file.add_coordinate(name=self.name, unit=self.unit)
+                return file.add_coordinate(name=self.name, unit=self.unit, folder=self.category)
             elif len(all_axes) == 1:
-                return file.add_value_vector(name=self.name,x = all_axes[0], unit=self.unit)
+                return file.add_value_vector(name=self.name,x = all_axes[0], unit=self.unit, folder=self.category)
             elif len(all_axes) == 2:
-                return file.add_value_matrix(name=self.name, x = all_axes[0], y = all_axes[1], unit=self.unit)
+                return file.add_value_matrix(name=self.name, x = all_axes[0], y = all_axes[1], unit=self.unit, folder=self.category)
             elif len(all_axes) == 3:
-                return file.add_value_box(name=self.name, x = all_axes[0], y = all_axes[1], z = all_axes[2], unit=self.unit)
+                return file.add_value_box(name=self.name, x = all_axes[0], y = all_axes[1], z = all_axes[2], unit=self.unit, folder=self.category)
             else:
                 raise NotImplementedError("Qkit Store does not support more than 3 dimensions!")
 
         @property
         def ds_url(self):
-            return f"/entry/data0/{self.name}"
+            return f"/entry/{self.category}0/{self.name}"
+        
+        @property
+        def dimension(self):
+            """
+            The dimensionality of the expected Data.
+            """
+            return len(self.axes)
 
     @dataclass(frozen=True)
     class GeneratedData:
@@ -450,7 +453,7 @@ class DataGenerator(ABC):
             assert isinstance(self.data, np.ndarray), "MeasurementData must be an ndarray!"
             assert len(self.descriptor.axes) == len(self.data.shape), f"Data shape (d={len(self.data.shape)}) incongruent with descriptor (d={len(self.descriptor.axes)})"
             for (i, axis) in enumerate(self.descriptor.axes):
-                assert self.data.shape[i] == len(axis.range), f"Axis ({axis.name}) length and data length mismatch"
+                assert self.data.shape[i] == len(axis.range), f"Axis {i} ({axis.name}) length ({len(axis.range)}) and data length ({self.data.shape[i]}) mismatch"
 
         def write_data(self, file: hdf.Data, sweep_indices: tuple[int, ...]):
             """
@@ -530,11 +533,6 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
             measurement_log.debug(f"Creating View {name} for Analysis.")
             view.write(data_file, name)
 
-    @override
-    @property
-    def dataset_category(self) -> Literal['data', 'analysis']:
-        return 'analysis'
-
     @abstractmethod
     def expected_structure(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> tuple[
         'MeasurementTypeAdapter.DataDescriptor', ...]:
@@ -587,9 +585,9 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
 
         views = self.default_views
         assert isinstance(views, dict), "Default views must be a dict of str to DataViews!"
-        for name, view in views:
+        for name, view in views.items():
             assert isinstance(name, str), "Name of view must be a string!"
-            assert isinstance(view, DataView), "Each view must be of type DataView!"
+            assert isinstance(view, DataView), f"Each view must be of type DataView! But {name} is {type(view)}"
             measurement_log.debug(f"Creating view {name}.")
             view.write(data_file, name)
 
@@ -618,6 +616,13 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         assert isinstance(analysis, AnalysisTypeAdapter), "Analysis must be of type AnalysisTypeAdapter!"
         self._analyses.append(analysis)
         return self
+    
+    @property
+    def dimension(self):
+        """
+        Determine the dimensionality of the measurement as the maximum dimensionality of any expected structure.
+        """
+        return max(map(lambda es: es.dimension, self.expected_structure))
 
     @property
     @abstractmethod
@@ -791,6 +796,9 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             measurement_log.info("Starting measurement")
             self.run_measurements(data_file, ())
             self._run_child_sweep(data_file, ())
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
         finally:
             # Calling into existing plotting code in the background.
             measurement_log.info("Creating plots...")
