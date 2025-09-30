@@ -53,12 +53,14 @@ class SavgolNumericalDerivative(AnalysisTypeAdapter):
                 MeasurementTypeAdapter.DataDescriptor(
                     name=f"d{x.name}_d{y.name}",
                     unit=f"{x.unit}_{y.unit}",
-                    axes=x.axes
+                    axes=x.axes, 
+                    category="analysis"
                 ),
                 MeasurementTypeAdapter.DataDescriptor(
                     name=f"d{y.name}_d{x.name}",
                     unit=f"{y.unit}_{x.unit}",
-                    axes=x.axes
+                    axes=x.axes,
+                    category="analysis"
                 )
             ]
         return tuple(structure)
@@ -67,16 +69,26 @@ class SavgolNumericalDerivative(AnalysisTypeAdapter):
     def default_views(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> dict[str, DataView]:
         schema = self.expected_structure(parent_schema)
         variable_names = (schema[0].name.split('_')[0], schema[1].name.split('_')[0])
-        return {
-            f'd{variable_names[0]}_d{variable_names[1]}': DataView(
+        return { # dx/dy
+            f'{variable_names[0]}_{variable_names[1]}': DataView(
+                view_params={
+                    "labels": (schema[0].axes[0].name, f'{variable_names[0]}_{variable_names[1]}'),
+                    'plot_style': 1,
+                    'markersize': 5
+                },
                 view_sets=[
                     DataViewSet(
                         x_path=DataReference(entry.axes[0].name,),
                         y_path=DataReference(entry.name, category='analysis')
                     ) for entry in schema[0::2]
                 ]
-            ),
-            f'd{variable_names[1]}_d{variable_names[0]}': DataView(
+            ), # dy/dx
+            f'{variable_names[1]}_{variable_names[0]}': DataView(
+                view_params={
+                    "labels": (schema[1].axes[0].name, f'{variable_names[1]}_{variable_names[0]}'),
+                    'plot_style': 1,
+                    'markersize': 5
+                },
                 view_sets=[
                     DataViewSet(
                         x_path=DataReference(entry.axes[0].name),

@@ -367,13 +367,6 @@ class DataGenerator(ABC):
     Handles storing data into datasets, and provides the structures for describing the data.
     """
 
-    @property
-    def dataset_category(self) -> Literal['data', 'analysis']:
-        """
-        The category into which the returned data should be sorted.
-        """
-        return 'data'
-
     def store(self, data_file: hdf.Data, data: tuple['MeasurementTypeAdapter.GeneratedData', ...], sweep_indices: tuple[int, ...]):
         """
         Store the generated [data] in the [data_file], while selecting based on the current [sweep_indices].
@@ -396,6 +389,7 @@ class DataGenerator(ABC):
         name: str
         axes: tuple[Axis, ...]
         unit: str = 'a.u.'
+        category: Literal['data', 'analysis'] = "data"
 
         def __post_init__(self):
             assert isinstance(self.name, str), "Name must be a string!"
@@ -403,6 +397,7 @@ class DataGenerator(ABC):
             for axis in self.axes:
                 assert isinstance(axis, Axis), "Axes must be a tuple of Axis objects!"
             assert isinstance(self.unit, str), "Unit must be a string!"
+            assert self.category == "data" or self.category == "analysis", "Category must bei either 'data' or 'analysis'"
 
         def with_data(self, data: Union[np.ndarray, float]) -> 'MeasurementTypeAdapter.GeneratedData':
             """
@@ -422,19 +417,19 @@ class DataGenerator(ABC):
             # The API has different methods, depending on dimensionality, which it then unifies again to a generic case.
             # For political reasons, we have to live with this.
             if len(all_axes) == 0:
-                return file.add_coordinate(name=self.name, unit=self.unit)
+                return file.add_coordinate(name=self.name, unit=self.unit, folder=self.category)
             elif len(all_axes) == 1:
-                return file.add_value_vector(name=self.name,x = all_axes[0], unit=self.unit)
+                return file.add_value_vector(name=self.name,x = all_axes[0], unit=self.unit, folder=self.category)
             elif len(all_axes) == 2:
-                return file.add_value_matrix(name=self.name, x = all_axes[0], y = all_axes[1], unit=self.unit)
+                return file.add_value_matrix(name=self.name, x = all_axes[0], y = all_axes[1], unit=self.unit, folder=self.category)
             elif len(all_axes) == 3:
-                return file.add_value_box(name=self.name, x = all_axes[0], y = all_axes[1], z = all_axes[2], unit=self.unit)
+                return file.add_value_box(name=self.name, x = all_axes[0], y = all_axes[1], z = all_axes[2], unit=self.unit, folder=self.category)
             else:
                 raise NotImplementedError("Qkit Store does not support more than 3 dimensions!")
 
         @property
         def ds_url(self):
-            return f"/entry/data0/{self.name}"
+            return f"/entry/{self.category}0/{self.name}"
         
         @property
         def dimension(self):
@@ -537,11 +532,6 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
             assert isinstance(view, DataView), "Each view must be of type DataView!"
             measurement_log.debug(f"Creating View {name} for Analysis.")
             view.write(data_file, name)
-
-    @override
-    @property
-    def dataset_category(self) -> Literal['data', 'analysis']:
-        return 'analysis'
 
     @abstractmethod
     def expected_structure(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> tuple[

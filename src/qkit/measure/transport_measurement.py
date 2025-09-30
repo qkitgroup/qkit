@@ -19,6 +19,9 @@ class _MeasureMode:
     measure_unit: str
 
 class MeasureModes(Enum):
+    """
+    TODO DocString BiasSense (?)
+    """
     IV = _MeasureMode('i', 'A', 'v', 'V')
     VI = _MeasureMode('v', 'V', 'i', 'A')
 
@@ -40,20 +43,20 @@ class TransportMeasurement(MeasurementTypeAdapter):
         self._sleep = sleep
         self._extend_range = extend_range
         if mode == MeasureModes.IV:
-            assert iv_device.get_sweep_mode() == 1
+            assert iv_device.get_sweep_bias() == 0
         elif mode == MeasureModes.VI:
-            assert iv_device.get_sweep_mode() == 2
+            assert iv_device.get_sweep_bias() == 1
 
     def add_sweep(self, start: float, stop: float, step: float):
         axis = Axis(
-            name=f'{self._mode.value.bias_symbol}_{len(self._measurement_descriptors)}',
+            name=f'{self._mode.value.bias_symbol}_b_{len(self._measurement_descriptors)}',
             unit=self._mode.value.bias_unit,
             range=np.arange(start, stop if not self._extend_range else (stop + step/2), step)
         )
         self._sweep_parameters += [(start, stop, step)] # TODO: Refactor by lazy DataDescriptor creation based on sweep parameters
         self._measurement_descriptors += [(
             MeasurementTypeAdapter.DataDescriptor(
-                name=f'{self._mode.value.bias_symbol}_b_{len(self._measurement_descriptors)}',
+                name=f'{self._mode.value.bias_symbol}_{len(self._measurement_descriptors)}',
                 unit=self._mode.value.bias_unit,
                 axes=(axis,)
             ),
@@ -118,10 +121,28 @@ class TransportMeasurement(MeasurementTypeAdapter):
     def default_views(self) -> dict[str, DataView]:
         return {
             'IV': DataView(
+                view_params={
+                    "labels": ('V', 'I'),
+                    'plot_style': 1,
+                    'markersize': 5
+                },
                 view_sets=list(itertools.chain(
                     DataViewSet(
-                        x_path= DataReference(b.name),
-                        y_path= DataReference(m.name),
+                        x_path = DataReference(b.name if self._mode == MeasureModes.VI else m.name),
+                        y_path = DataReference(m.name if self._mode == MeasureModes.VI else b.name),
+                    ) for (b, m) in self._measurement_descriptors
+                ))
+            ),
+            'VI': DataView(
+                view_params={
+                    "labels": ('I', 'V'),
+                    'plot_style': 1,
+                    'markersize': 5
+                },
+                view_sets=list(itertools.chain(
+                    DataViewSet(
+                        x_path = DataReference(b.name if self._mode == MeasureModes.IV else m.name),
+                        y_path = DataReference(m.name if self._mode == MeasureModes.IV else b.name),
                     ) for (b, m) in self._measurement_descriptors
                 ))
             ),
