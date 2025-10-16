@@ -1,5 +1,5 @@
 import itertools
-from typing import override
+from typing import override, Any
 
 from scipy import signal
 
@@ -16,15 +16,15 @@ class SavgolNumericalDerivative(AnalysisTypeAdapter):
     Assumes that names are in the form of '[IV]_(?:b_)?_[0-9]'
     """
 
-    _window_length: int
-    _polyorder: int
-    _derivative: int
+    savgol_kwargs: dict[str, Any]
 
-    def __init__(self, window_length: int = 15, polyorder: int = 3, derivative: int = 1):
+    def __init__(self, **savgol_kwargs):
+        """
+        savgol_kwargs: 
+            kwargs to pass to scipy.signal.savgol_filter alongside data, refer to scipy docs for more information
+        """
         super().__init__()
-        self._window_length = window_length
-        self._polyorder = polyorder
-        self._derivative = derivative
+        self.savgol_kwargs = {"window_length": 15, "polyorder": 3, "deriv": 1} | savgol_kwargs
 
     @override
     def perform_analysis(self, data: tuple['MeasurementTypeAdapter.GeneratedData', ...]) -> tuple[
@@ -33,14 +33,8 @@ class SavgolNumericalDerivative(AnalysisTypeAdapter):
         output_schema = self.expected_structure(parent_schema)
         out = []
         for ((dxdy, dydx), (x, y)) in zip(itertools.batched(output_schema, 2), itertools.batched(data, 2)):
-            out.append(dxdy.with_data(
-                signal.savgol_filter(x.data, window_length=self._window_length, polyorder=self._polyorder, deriv=self._derivative)\
-                / signal.savgol_filter(y.data, window_length=self._window_length, polyorder=self._polyorder, deriv=self._derivative)
-            ))
-            out.append(dydx.with_data(
-                signal.savgol_filter(y.data, window_length=self._window_length, polyorder=self._polyorder, deriv=self._derivative)\
-                / signal.savgol_filter(x.data, window_length=self._window_length, polyorder=self._polyorder, deriv=self._derivative)
-            ))
+            out.append(dxdy.with_data(signal.savgol_filter(x.data, **self.savgol_kwargs)/signal.savgol_filter(y.data, **self.savgol_kwargs)))
+            out.append(dydx.with_data(signal.savgol_filter(y.data, **self.savgol_kwargs)/signal.savgol_filter(x.data, **self.savgol_kwargs)))
         return tuple(out)
 
 
@@ -52,13 +46,13 @@ class SavgolNumericalDerivative(AnalysisTypeAdapter):
             structure += [
                 MeasurementTypeAdapter.DataDescriptor(
                     name=f"d{x.name}_d{y.name}",
-                    unit=f"{x.unit}_{y.unit}",
+                    unit=f"{x.unit}/{y.unit}",
                     axes=x.axes, 
                     category="analysis"
                 ),
                 MeasurementTypeAdapter.DataDescriptor(
                     name=f"d{y.name}_d{x.name}",
-                    unit=f"{y.unit}_{x.unit}",
+                    unit=f"{y.unit}/{x.unit}",
                     axes=x.axes,
                     category="analysis"
                 )
