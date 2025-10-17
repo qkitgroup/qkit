@@ -111,6 +111,13 @@ class TransportMeasurement(MeasurementTypeAdapter):
         self.add_sweep(amplitude + offset, -amplitude + offset, -step)
         self.add_sweep(-amplitude + offset, amplitude + offset, step)
 
+    def reset_sweeps(self):
+        """
+        Clear currently defined sweeps
+        """
+        self._sweep_parameters = [] 
+        self._measurement_descriptors = []
+
     @override
     @property
     def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:

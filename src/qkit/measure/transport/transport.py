@@ -1318,7 +1318,7 @@ class transport(object):
                 if self._dVdI:
                     self._hdf_dVdI.append(self._data_file.add_value_vector('dVdI_{!s}'.format(i),
                                                                            x=self._hdf_bias[i],
-                                                                           unit='V/A',
+                                                                           unit='Ohm',
                                                                            save_timestamp=False,
                                                                            folder='analysis',
                                                                            comment=self._get_numder_comment(self._hdf_V[i].name)+

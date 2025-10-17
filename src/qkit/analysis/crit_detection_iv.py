@@ -31,6 +31,7 @@ class CritDetectionIV(AnalysisTypeAdapter):
     @override
     def perform_analysis(self, data: tuple['MeasurementTypeAdapter.GeneratedData', ...]) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
         data[0].descriptor.axes[:-1]
+        data[0].descriptor.name
         return ()
 
     @override
@@ -40,4 +41,27 @@ class CritDetectionIV(AnalysisTypeAdapter):
     @override
     def default_views(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> dict[str, DataView]:
         return ()
+    
+    """
+    @override
+    def expected_structure(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
+        structure = []
+        for (x, y) in itertools.batched(parent_schema, 2):
+            assert x.axes == y.axes
+            structure += [
+                MeasurementTypeAdapter.DataDescriptor(
+                    name=f"d{x.name}_d{y.name}",
+                    unit=f"{x.unit}/{y.unit}",
+                    axes=x.axes, 
+                    category="analysis"
+                ),
+                MeasurementTypeAdapter.DataDescriptor(
+                    name=f"d{y.name}_d{x.name}",
+                    unit=f"{y.unit}/{x.unit}",
+                    axes=x.axes,
+                    category="analysis"
+                )
+            ]
+        return tuple(structure)
+    """
 
