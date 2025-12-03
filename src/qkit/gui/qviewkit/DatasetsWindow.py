@@ -234,25 +234,55 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             ds =str("/entry/"+getSelected[0].text(0)) 
             self.Dataset_properties.clear()
             self.Dataset_properties.insertPlainText(self.DATA.dataset_info[ds])
- 
-            
-    def update_file(self):
-        "update_file is regularly called when _something_ has to be updated. open-> do something->close"
+
+    def _read_file_and_update_content(self, handle_update=False, crash_reload=True):
+        """
+        Shared logic to read the h5 file and update the content of the tree.
+        If handle_update is True, the update-specific part is run.
+        If crash_reload is True, the h5 file is reloaded if it crashes. This used to prevent infinite recursion.
+        """
         try:
-            self.h5file= h5py.File(str(self.DATA.DataFilePath),mode='r')
+            # Try to read the file and populate data. This can go wrong if we are writing at the same time.
+            self.h5file = h5py.File(str(self.DATA.DataFilePath), mode='r')
             self.DATA.filename = self.h5file.filename.split(os.path.sep)[-1]
             self.populate_data_list()
-            self.update_plots()
-            self._disable_live_update()
-            self.h5file.close()
-            
+
+            if handle_update:
+                # If we're called in the update routing, update plots and configure signals.
+                self.update_plots()
+                self._disable_live_update()
+
+        except IOError as ioe:
+            print(ioe)
+            # Step 1: Get rid of the old file handle, if it exists.
+            if crash_reload:
+                print("Potential h5py crash, reloading.")
+                if self.h5file:
+                    self.h5file.close()
+                    self.h5file = None
+                # Step 2: Reload h5py to clear the internal state of the C library.
+                from importlib import reload
+                reload(h5py)
+                # Step 3: Try all of the above again but prevent infinite loops.
+                self._read_file_and_update_content(handle_update=handle_update, crash_reload=False)
+        finally:
+            # Common cleanup logic.
+            if self.h5file:
+                # If the file exists, close it.
+                self.h5file.close()
+
+            # Use the file path data to update the title.
             s = (self.DATA.DataFilePath.split(os.path.sep)[-5:])
             self.statusBar().showMessage((os.path.sep).join(s for s in s))
-            
-            title = "Qviewkit: %s"%(self.DATA.DataFilePath.split(os.path.sep)[-1:][0][:6])
+
+            title = "Qviewkit: %s" % (self.DATA.DataFilePath.split(os.path.sep)[-1:][0][:6])
             self.setWindowTitle(title)
-        except IOError as e:
-            print(e)
+
+
+
+    def update_file(self):
+        "update_file is regularly called when _something_ has to be updated. open-> do something->close"
+        self._read_file_and_update_content(handle_update=True)
 
     def open_file(self):
         if in_pyqt5:
@@ -262,15 +292,7 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             
         if _DataFilePath:
             self.DATA.DataFilePath = _DataFilePath
-            self.h5file= h5py.File(self.DATA.DataFilePath,mode='r')
-            self.DATA.filename = self.h5file.filename.split(os.path.sep)[-1]
-            self.populate_data_list()
-            self.h5file.close()
-            
-            s = (self.DATA.DataFilePath.split(os.path.sep)[-5:])
-            self.statusBar().showMessage((os.path.sep).join(s for s in s))
-            title = "Qviewkit: %s"%(self.DATA.DataFilePath.split(os.path.sep)[-1:][0][:6])
-            self.setWindowTitle(title)
+            self._read_file_and_update_content(handle_update=False)
             
     def update_plots(self):
         self.refresh_signal.emit()

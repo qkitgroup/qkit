@@ -16,10 +16,10 @@ UUID=rel_path\n
 
 The UUID is 6 symbols long. It is followed by an `=` symbol. The rest of the line is the relative path.
 """
-
+import os
 from pathlib import Path
 import qkit
-import os
+from os import PathLike
 import itertools
 from filelock import FileLock, Timeout
 import logging
@@ -68,7 +68,7 @@ class BreadCrumbCreator():
             log.error("Could not acquire lock file for clearing breadcrumbs.")
             raise
 
-    def append_entry(self, uuid: str, path: Path|str):
+    def append_entry(self, uuid: str, path: PathLike):
         rel_path = Path(path).relative_to(self._breadcrumb_path.parent)
         try:
             with self._lock:

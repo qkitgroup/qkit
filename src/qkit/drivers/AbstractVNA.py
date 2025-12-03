@@ -36,7 +36,7 @@ class AbstractVNA(ABC):
         return freqs[-1] - freqs[0]
 
     @abstractmethod
-    def get_tracedata(self, RealImag = None) -> tuple((np.ndarray, np.ndarray)):
+    def get_tracedata(self, RealImag = None) -> tuple[np.ndarray, np.ndarray]:
         """
         When the measurement succeeded, this method returns the resulting data.
         The behaviour depends on the [RealImag] keyword argument.

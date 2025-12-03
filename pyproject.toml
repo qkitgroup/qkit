@@ -32,13 +32,15 @@ dependencies = [
     "tomli>=2.0.1",
     "ipython",
     "packaging",
-    "filelock>=3.17"
+    "filelock>=3.17",
+    "tqdm>=4.67.0"
 ]
 
 [project.scripts]
 qviewkit = "qkit.gui.qviewkit.main:main"
 qkit-install = "qkit.install.install:main"
 qkit-manual-breadcrumbs = "qkit.core.lib.file_service.breadcrumbs:manual_index"
+qviewkit-url = "qkit.gui.plot.url_launcher:url_handler"
 
 [project.optional-dependencies] # Here goes stuff like qiclib
 jupyter = [
@@ -47,7 +49,7 @@ jupyter = [
     "ipywidgets>=8.0"
 ]
 zurich-instruments = [
-    "zhinst~=23.2"
+    "LabOneQ>=2.59.0"
 ]
 analysis = [
     "matplotlib>=3.7",
@@ -59,6 +61,9 @@ qgrid = [
 ]
 timedomain = [
     "zerorpc>=0.6"
+]
+url = [
+    "parsita~=2.2.2"
 ]
 
 
@@ -84,6 +89,11 @@ artifacts = ["src/qkit/_version.py"]
 packages = ["src/qkit"]
 [tool.hatch.build.targets.sdist]
 exclude = ["data/*", "notebooks/*", "logs/*", "venv/*"]
+
+[tool.hatch.envs.hatch-test]
+extra-dependencies = [
+    "parsita~=2.2.2"
+]
 
 [tool.pytest.ini_options]
 testpaths="tests"
