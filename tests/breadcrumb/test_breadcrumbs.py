@@ -13,6 +13,16 @@ def test_read_single_file():
     assert len(result) == 1
     assert result['MNOPQR'] == datadir_path / "file3.h5"
 
+def test_multiple_writers():
+    try:
+        writer1 = BreadCrumbCreator()
+        writer2 = BreadCrumbCreator()
+    finally:
+        # Cleanup breadcrumb
+        if derive_breadcrumb_filename().exists():
+            import os
+            os.remove(derive_breadcrumb_filename())
+
 def test_read_all_breadcrumbs():
     datadir_path =  Path(__file__).parent
     result = read_breadcrumbs(datadir_path)
@@ -20,6 +30,17 @@ def test_read_all_breadcrumbs():
     assert result['ABCDEF'] == datadir_path / "file1.h5"
     assert result['GHIJKL'] == datadir_path / "file2.h5"
     assert result['MNOPQR'] == datadir_path / "file3.h5"
+
+def test_clear_breadcrumb():
+    try:
+        writer = BreadCrumbCreator()
+        writer.clear_file()
+        assert not writer._breadcrumb_path.exists()
+    finally:
+        # Cleanup breadcrumb
+        if derive_breadcrumb_filename().exists():
+            import os
+            os.remove(derive_breadcrumb_filename())
 
 @patch("os.getcwd", return_value=(str(Path(__file__).parent)))
 @patch("builtins.input", return_value="y")

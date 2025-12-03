@@ -46,7 +46,10 @@ def windows_admin_required(f: Callable) -> Callable:
 
 
 # Get binary path for installed command:
-def get_binary(name: str) -> Path:
+def get_binary(name: str) -> str:
+    if platform.system() == "Windows" and not '.' in name: # This file has no extension.
+        # Windows Executables end in .exe. Append to allow other code to be platform independent.
+        name = name + ".exe"
     candidate = (Path(sys.executable).parent / name).absolute()
     assert candidate.exists(), f"'{name}' does not exist!"
     return str(candidate)
@@ -137,8 +140,11 @@ def windows_associate_h5(pwd: Path):
     # Create Association if it does not exist.
     try:
         key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r".h5")
-        (value, type) = winreg.QueryValueEx(key, None)
         logging.info("Association of .h5 to %s already exists.", value)
+        (value, type) = winreg.QueryValueEx(key, None)
+        if value != r"qviewkit.h5":
+            logging.info("Different association found. Overwriting...")
+            winreg.SetValue(key, None, winreg.REG_SZ, r"qviewkit.h5")
     except FileNotFoundError:
         assoc_key = winreg.CreateKey(winreg.HKEY_CLASSES_ROOT, r".h5")
         winreg.SetValue(assoc_key, None, winreg.REG_SZ, "qviewkit.h5")

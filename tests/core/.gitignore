@@ -1,2 +1,3 @@
 *.breadcrumb
+*.breadcrumb.lock
 Z45678_dummy.h5

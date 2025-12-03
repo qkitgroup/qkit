@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+authors:
+  - name: "qkitgroup"
+  - name: "KIT PHI"
+contact:
+  - affiliation: "KIT IQMT"
+    email: rotzinger@kit.edu
+    family-names: Rotzinger
+    given-names: Hannes
+title: "Qkit - a quantum measurement suite in python"
+version: 0.4.11
+date-released: 2024-12-16
+license: "GPU-2.0"
+url: "https://github.com/qkitgroup/qkit"

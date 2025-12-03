@@ -63,6 +63,8 @@ Create a virtual environment, as described above. Then use pip to install qkit:
 pip install qkit[jupyter,analysis]
 ```
 
+If you are simply using qkit, changes to files in `src/` **should not** be necessary. If you find things you need to change there, this might be a bug. Please report this.
+
 #### Install `qkit` for development
 Clone this repository to wherever is convenient.
 ```bash
@@ -131,17 +133,6 @@ notebook_dir = r'C:\notebooks' # Change this line
 ```
 
 Also, you will need to migrate your local config to a parent directory of your notebooks, or point to it using the environment variable `QKIT_LOCAL_CONFIG`. It is possible to set this environment variable in `jupyter_lab_config.py`, as environment variables are inherited to process children.
-
-
-## Long Term Goal: Pip Installation (NOT YET WORKING)
-If you intend to actively work on the code, look at the section for developing this code.
-To install this package, run:
-```bash
-pip install 'qkit[jupyter,analysis] @ git+https://github.com/qkitgroup/qkit.git@master'
-```
-If you are simply using qkit, changes to files in `src/` **should not** be necessary. If you find things you need to change there, this might be a bug. Please report this.
-
-If you intend to use the option to click on .h5 files in order to open them, don't install qkit in a virtual environment.
 
 ## Requirements
 This project uses python. An up to date installation of python is expected to be present.

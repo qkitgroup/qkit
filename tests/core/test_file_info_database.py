@@ -28,7 +28,7 @@ def fid() -> 'Iterable[file_info_database.fid]':
     import threading
     [thread.join() for thread in threading.enumerate() if thread.name == "creating_db"]
     print(f"Indexed: {fid._get_datadir()}")
-    print(f"Breadcrumb: {fid._breadcrumb_creator._breadcrumb_file}")
+    print(f"Breadcrumb: {fid._breadcrumb_creator._breadcrumb_path}")
     # Return reference to File Info Data Base. Type error ignorde because of weird qkit import semantics
     yield fid
 
