@@ -1,5 +1,6 @@
 import logging
 
+from hatch.cli import self
 from laboneq.simple import *
 
 from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis
@@ -8,6 +9,7 @@ from typing import Optional, List, Generator
 
 import numpy as np
 
+log = logging.getLogger(__name__)
 
 class LabOneQMeasurement(MeasurementTypeAdapter):
     """
@@ -38,15 +40,22 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         super().__init__()
         self._session = session
         self._experiment = experiment
+        log.debug("Compiling LabOneQ experiment for measurement structure inspection.")
         compiled_experiment = self._session.compile(self._experiment)
+
+        log.debug("Starting emulated session...")
         emulated_session = Session(device_setup=compiled_experiment.device_setup, log_level=logging.WARNING)
         emulated_session.connect(do_emulation=True)
+        log.debug("Running emulated experiment...")
         emulated_result = emulated_session.run(compiled_experiment)
+
+        log.debug("Received emulated result. Building measurement structure...")
         self._structure = tuple()
         for (name, entry) in emulated_result.acquired_results.items():
             sanitized = LabOneQMeasurement.sanitize_name(name)
             axis_names = list(LabOneQMeasurement.flatten(entry.axis_name))
             axes = tuple(LabOneQMeasurement.flatten(entry.axis))
+            log.debug("Discovered result '%s' with '%d' axes called %s.", sanitized, len(axes), str(axis_names))
             if axis_units is None:
                 axis_units = ("a.u.",) * len(axis_names)
             axes = tuple(Axis(name=name, range=values, unit=unit) for (name, values, unit) in zip(axis_names, axes, axis_units))
@@ -58,9 +67,11 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
                     MeasurementTypeAdapter.DataDescriptor(name=sanitized + "_phase", axes=axes, unit='rad')
                 )
             else:
-                self._structure += tuple(
-                    MeasurementTypeAdapter.DataDescriptor(name=sanitized, axes=axes, unit=unit)
+                self._structure += (
+                    MeasurementTypeAdapter.DataDescriptor(name=sanitized, axes=axes, unit=unit),
                 )
+        log.debug("Finished building measurement structure.")
+        log.debug(f"Measurement structure: {self._structure}")
 
     @property
     def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
