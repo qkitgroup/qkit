@@ -4,7 +4,6 @@
 """
 import qkit
 import logging
-from pkgutil import find_loader
 
 
 def _load_visa():
