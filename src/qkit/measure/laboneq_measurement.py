@@ -1,6 +1,5 @@
 import logging
 
-from hatch.cli import self
 from laboneq.simple import *
 
 from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis
