@@ -8,6 +8,8 @@ from typing import Optional, List, Generator
 
 import numpy as np
 
+from qkit.services.raspi_misc.step_attenuator_server import attenuation
+
 log = logging.getLogger(__name__)
 
 class LabOneQMeasurement(MeasurementTypeAdapter):
@@ -91,3 +93,27 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         return tuple(
             descriptor.with_data(datum) for descriptor, (_, datum) in zip(self._structure, data_mapper(result.acquired_results))
         )
+
+    @staticmethod
+    def calculate_range_and_amplitudes(power: float | np.ndarray) -> tuple[float, np.ndarray]:
+        """
+        Based on an output power or an array of output powers, calculate the amplitudes and output range for ZI.
+        :param power: The output power or array of output powers in dBm
+        :return: The output range and the amplitudes
+        """
+        powers = np.asarray(power)
+        maximum_power = np.max(powers)
+        # Adjust to steps of 5
+        output_range = np.ceil(maximum_power / 5) * 5
+        # Calculate amplitudes relative to output range
+        amplitudes = np.power(10, (powers - output_range) / 20)
+        assert np.all(amplitudes >= 0), "Amplitudes must be positive!"
+        assert np.all(amplitudes <= 1), "Amplitudes must be less than or equal to 1!"
+        return output_range, amplitudes
+
+    @staticmethod
+    def calculate_powers(amplitudes: float | np.ndarray, device_range: float) -> np.ndarray:
+        """
+        Based on a device input or output range and amplitudes, calculate the corresponding powers in dBm.
+        """
+        return device_range + 20 * np.log10(amplitudes)
