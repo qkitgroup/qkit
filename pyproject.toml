@@ -49,7 +49,8 @@ jupyter = [
     "ipywidgets>=8.0"
 ]
 zurich-instruments = [
-    "LabOneQ>=2.59.0"
+    "LabOneQ>=2.59.0",
+    "laboneq-applications>=25.10.0"
 ]
 analysis = [
     "matplotlib>=3.7",
