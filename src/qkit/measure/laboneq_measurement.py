@@ -8,8 +8,6 @@ from typing import Optional, List, Generator
 
 import numpy as np
 
-from qkit.services.raspi_misc.step_attenuator_server import attenuation
-
 log = logging.getLogger(__name__)
 
 class LabOneQMeasurement(MeasurementTypeAdapter):
