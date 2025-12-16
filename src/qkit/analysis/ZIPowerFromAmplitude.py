@@ -22,14 +22,14 @@ class ZIPowerFromAmplitude(AnalysisTypeAdapter):
 
     def _should_convert_dataset(self, schema: 'MeasurementTypeAdapter.DataDescriptor') -> bool:
         if self._convert_datasets is None:
-            return schema.name.endswith("mag")
+            return schema.name.endswith("_mag")
         else:
             return schema.name in self._convert_datasets
 
     def _map_dataset_name(self, schema: 'MeasurementTypeAdapter.DataDescriptor') -> str:
         assert self._should_convert_dataset(schema)
         if self._convert_datasets is None:
-            return schema.name.replace("mag", "power")
+            return schema.name.replace("_mag", "_power")
         else:
             return self._convert_datasets[schema.name]
 
@@ -48,18 +48,18 @@ class ZIPowerFromAmplitude(AnalysisTypeAdapter):
 
     @staticmethod
     def amplitude_to_power(amplitudes: np.ndarray) -> np.ndarray:
-        return 30 * np.log10(amplitudes**2 / 50) # Power at 50 Ohm impedance, amplitudes in Volts, dBm
+        return 30 + 20 * np.log10(amplitudes) # Power at 50 Ohm impedance, amplitudes in Volts, dBm
 
     def _map_axes(self, axes: tuple[Axis, ...]) -> tuple[Axis, ...]:
         return tuple(
-            Axis(a.name, LabOneQMeasurement.calculate_powers(a.range, self._output_range), 'dBm') if self._should_convert_axis(a) else a
+            Axis(self._map_axis_name(a), LabOneQMeasurement.calculate_powers(a.range, self._output_range), 'dBm') if self._should_convert_axis(a) else a
             for a in axes
         )
 
     def expected_structure(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> tuple[
         'MeasurementTypeAdapter.DataDescriptor', ...]:
         self._generated_datasets: dict[str, MeasurementTypeAdapter.DataDescriptor] = {
-            schema.name: MeasurementTypeAdapter.DataDescriptor(self._map_dataset_name(schema), self._map_axes(schema.axes), schema.unit, schema.category)
+            schema.name: MeasurementTypeAdapter.DataDescriptor(self._map_dataset_name(schema), self._map_axes(schema.axes), "dBm?", schema.category)
             for schema in parent_schema if self._should_convert_dataset(schema)
         }
         return tuple(self._generated_datasets.values())
