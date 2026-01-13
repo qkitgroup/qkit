@@ -32,7 +32,7 @@ dependencies = [
     "tomli>=2.0.1",
     "ipython",
     "packaging",
-    "filelock>=3.17",
+    "filelock>=3.10",
     "tqdm>=4.67.0"
 ]
 
@@ -64,7 +64,7 @@ timedomain = [
     "zerorpc>=0.6"
 ]
 url = [
-    "parsita~=2.2.2"
+    "parsita>=2.1.0"
 ]
 
 
