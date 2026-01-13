@@ -94,7 +94,7 @@ exclude = ["data/*", "notebooks/*", "logs/*", "venv/*"]
 
 [tool.hatch.envs.hatch-test]
 extra-dependencies = [
-    "parsita~=2.2.2"
+    "parsita>=2.0.0"
 ]
 
 [tool.pytest.ini_options]
