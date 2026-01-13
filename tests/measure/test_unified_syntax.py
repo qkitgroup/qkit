@@ -7,7 +7,6 @@ qkit.cfg['measurement.unified_measurements.enabled'] = True
 from qkit.analysis.numerical_derivative import SavgolNumericalDerivative
 from qkit.measure.unified_measurements import Experiment, MeasurementTypeAdapter, Axis, ScalarMeasurement
 import numpy as np
-from typing import override
 
 from qkit.measure.samples_class import Sample
 
@@ -24,7 +23,6 @@ class DummyPointMeasurement(MeasurementTypeAdapter):
             axes=tuple()
         )
 
-    @override
     @property
     def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
         return (self._descriptor, )
@@ -50,12 +48,10 @@ class SweepInspectorMeasurement(MeasurementTypeAdapter):
         self.current_x = value
         self.accumulated_data.append(value)
 
-    @override
     @property
     def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
         return (self.sweep_intercept,)
 
-    @override
     def perform_measurement(self) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
         base = np.zeros_like(self.sweep_intercept.axes[0].range)
         base[0:len(self.accumulated_data)] = self.accumulated_data
