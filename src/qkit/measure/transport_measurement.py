@@ -2,7 +2,6 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 from time import sleep
-from typing import override
 
 import numpy as np
 import itertools
@@ -111,12 +110,10 @@ class TransportMeasurement(MeasurementTypeAdapter):
         self.add_sweep(amplitude + offset, -amplitude + offset, -step)
         self.add_sweep(-amplitude + offset, amplitude + offset, step)
 
-    @override
     @property
     def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
         return tuple(itertools.chain(*self._measurement_descriptors))
 
-    @override
     @property
     def default_views(self) -> dict[str, DataView]:
         return {
@@ -148,7 +145,6 @@ class TransportMeasurement(MeasurementTypeAdapter):
             ),
         }
 
-    @override
     def perform_measurement(self) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
         results = []
         for ((bias, measurement), sweep_params) in zip(self._measurement_descriptors, self._sweep_parameters):
