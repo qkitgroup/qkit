@@ -33,7 +33,8 @@ dependencies = [
     "ipython",
     "packaging",
     "filelock>=3.10",
-    "tqdm>=4.67.0"
+    "tqdm>=4.67.0",
+    "importlib_resources; python_version == 3.9 or python_version == 3.10"
 ]
 
 [project.scripts]
