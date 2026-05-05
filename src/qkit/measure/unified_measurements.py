@@ -609,7 +609,11 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
             measurement_log.error(f"Measurement failed for {type(self).__name__}.", exc_info=e)
             raise e
         else:
-            self.store(data_file, data, sweep_indices)
+            try:
+                self.store(data_file, data, sweep_indices)
+            except Exception as e:
+                measurement_log.error(f"Storing data failed for {type(self).__name__}.", exc_info=e)
+                raise e
             for analysis in self._analyses:
                 analysis.record(data_file, sweep_indices, data)
 
