@@ -369,7 +369,16 @@ class DataGenerator(ABC):
         for datum in data:
             assert isinstance(datum, self.GeneratedData), "Measurement must return a tuple of MeasurementData!"
             # The data is validated on wrapper creation, see GeneratedData.__post_init__
-            datum.write_data(data_file, sweep_indices)
+            try:
+                datum.write_data(data_file, sweep_indices)
+            except Exception as e:
+                measurement_log.error(f"Failed to store data: {e}", exc_info=e)
+                measurement_log.error(f"Data: {datum.data}")
+                measurement_log.error(f"Descriptor: {datum.descriptor}")
+                measurement_log.error(f"Sweep indices: {sweep_indices}")
+                measurement_log.error(f"Data file: {data_file}")
+                measurement_log.error(f"")
+                raise e
         data_file.flush()
 
     @dataclass(frozen=True)
