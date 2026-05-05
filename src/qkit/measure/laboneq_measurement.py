@@ -51,7 +51,7 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         log.debug("Received emulated result. Building measurement structure...")
         self._structure = tuple()
         for (name, entry) in emulated_result.acquired_results.items():
-            sanitized = LabOneQMeasurement.sanitize_name(self._experiment.name) + "/" +LabOneQMeasurement.sanitize_name(name)
+            sanitized = LabOneQMeasurement.sanitize_name(self._experiment.name) + "/" + LabOneQMeasurement.sanitize_name(name)
             axis_names = list(LabOneQMeasurement.flatten(entry.axis_name))
             axes = tuple(LabOneQMeasurement.flatten(entry.axis))
             log.debug("Discovered result '%s' with '%d' axes called %s.", sanitized, len(axes), str(axis_names))
@@ -81,13 +81,14 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         result: Results = self._session.run(compiled_experiment)
         def data_mapper(acquired_results):
             for (name, entry) in acquired_results.items():
+                prefixed = LabOneQMeasurement.sanitize_name(self._experiment.name) + "/" + name
                 if np.iscomplexobj(entry.data):
-                    yield name + "_real", np.real(entry.data)
-                    yield name + "_imag", np.imag(entry.data)
-                    yield name + "_mag", np.abs(entry.data)
-                    yield name + "_phase", np.angle(entry.data)
+                    yield prefixed + "_real", np.real(entry.data)
+                    yield prefixed + "_imag", np.imag(entry.data)
+                    yield prefixed + "_mag", np.abs(entry.data)
+                    yield prefixed + "_phase", np.angle(entry.data)
                 else:
-                    yield name, entry.data
+                    yield prefixed, entry.data
         return tuple(
             descriptor.with_data(datum) for descriptor, (_, datum) in zip(self._structure, data_mapper(result.acquired_results))
         )
