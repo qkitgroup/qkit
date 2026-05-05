@@ -51,7 +51,7 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         log.debug("Received emulated result. Building measurement structure...")
         self._structure = tuple()
         for (name, entry) in emulated_result.acquired_results.items():
-            sanitized = LabOneQMeasurement.sanitize_name(name)
+            sanitized = LabOneQMeasurement.sanitize_name(self._experiment.name) + "/" +LabOneQMeasurement.sanitize_name(name)
             axis_names = list(LabOneQMeasurement.flatten(entry.axis_name))
             axes = tuple(LabOneQMeasurement.flatten(entry.axis))
             log.debug("Discovered result '%s' with '%d' axes called %s.", sanitized, len(axes), str(axis_names))
