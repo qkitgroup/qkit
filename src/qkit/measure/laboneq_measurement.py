@@ -1,10 +1,11 @@
 import logging
 
 from laboneq.simple import *
+from numpy import _DType_co, _ShapeType_co, dtype, floating, ndarray, object_
 
 from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis
 
-from typing import Optional, List, Generator
+from typing import Optional, List, Generator, Any
 
 import numpy as np
 
@@ -22,7 +23,7 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
 
     @staticmethod
     def sanitize_name(internal_name):
-        return internal_name.replace('/', '_').replace(' ', '_')
+        return internal_name.lower().replace('/', '_').replace(' ', '_')
 
     @staticmethod
     def flatten(l: list) -> Generator:
@@ -51,7 +52,7 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         log.debug("Received emulated result. Building measurement structure...")
         self._structure = tuple()
         for (name, entry) in emulated_result.acquired_results.items():
-            sanitized = LabOneQMeasurement.sanitize_name(self._experiment.name) + "-" + LabOneQMeasurement.sanitize_name(name)
+            sanitized = LabOneQMeasurement.sanitize_name(self._experiment.name) + "_" + LabOneQMeasurement.sanitize_name(name)
             axis_names = list(LabOneQMeasurement.flatten(entry.axis_name))
             axes = tuple(LabOneQMeasurement.flatten(entry.axis))
             log.debug("Discovered result '%s' with '%d' axes called %s.", sanitized, len(axes), str(axis_names))
@@ -81,16 +82,15 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         result: Results = self._session.run(compiled_experiment)
         def data_mapper(acquired_results):
             for (name, entry) in acquired_results.items():
-                prefixed = LabOneQMeasurement.sanitize_name(self._experiment.name) + "-" + name
                 if np.iscomplexobj(entry.data):
-                    yield prefixed + "_real", np.real(entry.data)
-                    yield prefixed + "_imag", np.imag(entry.data)
-                    yield prefixed + "_mag", np.abs(entry.data)
-                    yield prefixed + "_phase", np.angle(entry.data)
+                    yield np.real(entry.data)
+                    yield np.imag(entry.data)
+                    yield np.abs(entry.data)
+                    yield np.angle(entry.data)
                 else:
-                    yield prefixed, entry.data
+                    yield entry.data
         return tuple(
-            descriptor.with_data(datum) for descriptor, (_, datum) in zip(self._structure, data_mapper(result.acquired_results))
+            descriptor.with_data(datum) for descriptor, datum in zip(self._structure, data_mapper(result.acquired_results))
         )
 
     @staticmethod
