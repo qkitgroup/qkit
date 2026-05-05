@@ -801,9 +801,10 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             return data_file.get_filepath()
 
     def __str__(self):
-        desc = f"Experiment: ({self._comment})\r\n"
+        desc = f"Experiment: ({self._comment})"
         for measurement in self._measurements:
             desc += '\n' + textwrap.indent(str(measurement), '\t')
+        desc += '\r\n'
         desc += textwrap.indent(str(self._sweep_child), '\t') if self._sweep_child is not None else "No Sweep"
         return desc
 
