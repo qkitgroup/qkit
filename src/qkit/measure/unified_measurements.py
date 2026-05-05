@@ -450,7 +450,11 @@ class DataGenerator(ABC):
             """
             Use qkit store api to actually store the data.
             """
-            ds: hdf_dataset = file.get_dataset(self.descriptor.ds_url)
+            try:
+                ds: hdf_dataset = file.get_dataset(self.descriptor.ds_url)
+            except KeyError as ke:
+                measurement_log.error(f"Dataset {self.descriptor.name} not found! (URL: {self.descriptor.ds_url})")
+                raise ke
             assert ds is not None, f"Dataset {self.descriptor.name} not found!"
 
             # Integrates into existing storage infrastructure. Should be better, but may not touch append.
