@@ -55,7 +55,7 @@ class Data(object):
         try:
             self.hf = H5_file(self._filepath, mode)
         except IOError:
-            raise IOError('File does not exist. Use argument \"mode=\'a\'\" to create a new h5 file.')
+            raise IOError(f'File "{self._filepath}" does not exist. Use argument \"mode=\'a\'\" to create a new h5 file.')
         if self.hf.newfile:
             if self.__dict__.get('_uuid', False):
                 tags = ["_unix_timestamp", "_localtime", "_timestamp", "_timemark", "_datemark", "_uuid", "_filename", "_folder", "_relpath", "_filepath"]
