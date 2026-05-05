@@ -1,7 +1,6 @@
 import logging
 
 from laboneq.simple import *
-from numpy import _DType_co, _ShapeType_co, dtype, floating, ndarray, object_
 
 from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis
 
