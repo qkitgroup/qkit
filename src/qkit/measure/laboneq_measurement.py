@@ -93,16 +93,20 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         )
 
     @staticmethod
-    def calculate_range_and_amplitudes(power: float | np.ndarray) -> tuple[float, np.ndarray]:
+    def calculate_range_and_amplitudes(power: float | np.ndarray, force_range = None) -> tuple[float, np.ndarray]:
         """
         Based on an output power or an array of output powers, calculate the amplitudes and output range for ZI.
         :param power: The output power or array of output powers in dBm
+        :param force_range: If set, the output range will be forced to this value.
         :return: The output range and the amplitudes
         """
         powers = np.asarray(power)
         maximum_power = np.max(powers)
         # Adjust to steps of 5
-        output_range = np.ceil(maximum_power / 5) * 5
+        if force_range is not None:
+            output_range = force_range
+        else:
+            output_range = np.ceil(maximum_power / 5) * 5
         # Calculate amplitudes relative to output range
         amplitudes = np.power(10, (powers - output_range) / 20)
         assert np.all(amplitudes >= 0), "Amplitudes must be positive!"
