@@ -465,30 +465,36 @@ class DataGenerator(ABC):
                 measurement_log.error(f"Dataset {self.descriptor.name} not found! (URL: {self.descriptor.ds_url})")
                 raise ke
             assert ds is not None, f"Dataset {self.descriptor.name} not found!"
+            self._qkit_store_adapter(self.data, ds, sweep_indices)
 
+        @staticmethod
+        def _qkit_store_adapter(data: np.ndarray, ds: hdf_dataset, sweep_indices: tuple[int, ...]):
+            """
+            Use qkit store api to actually store the data.
+            """
             # Integrates into existing storage infrastructure. Should be better, but may not touch append.
-            if len(self.data.shape) == 0: # We save a scalar
-                if len(sweep_indices) == 0: # Single data point.
-                    ds.append(self.data, reset=True) # We won't get here again.
+            if len(data.shape) == 0:  # We save a scalar
+                if len(sweep_indices) == 0:  # Single data point.
+                    ds.append(data, reset=True)  # We won't get here again.
                     return
-                elif len(sweep_indices) == 1: # Into a vector, e.g x
+                elif len(sweep_indices) == 1:  # Into a vector, e.g x
                     # This is not supported by qkit hdf_file natively.
                     # QKit expects a 1D array with a single point. We need to hack it a bit.
-                    ds.append(np.asarray([self.data]))
+                    ds.append(np.asarray([data]))
                     return
-                elif len(sweep_indices) == 2: # Into a matrix, e.g. x,y
+                elif len(sweep_indices) == 2:  # Into a matrix, e.g. x,y
                     # QKit expects a 1D array with a single point. We need to hack it a bit.
                     # Explicitly tell it, that it is pointwise.
-                    ds.append(np.asarray([self.data]), pointwise=True)
+                    ds.append(np.asarray([data]), pointwise=True)
                     # If we reached the end of the inner iteration, go to next
                     if sweep_indices[-1] + 1 == ds.ds.shape[1]:
                         ds.next_matrix()
                     return
-                elif len(sweep_indices) == 3: # Into a box
+                elif len(sweep_indices) == 3:  # Into a box
                     raise NotImplementedError("QKit does not support 3D data consisting out of single points!")
-            elif len(self.data.shape) == 1: # We save a vector
-                ds.append(self.data)
-                if len(sweep_indices) == 2: # We fill a box with vectors
+            elif len(data.shape) == 1:  # We save a vector
+                ds.append(data)
+                if len(sweep_indices) == 2:  # We fill a box with vectors
                     # In case we just hit end of the last iteration, we need to wrap over.
                     if sweep_indices[-1] + 1 == ds.ds.shape[1]:
                         ds.next_matrix()
@@ -496,8 +502,11 @@ class DataGenerator(ABC):
                     raise NotImplementedError("QKit does not higher than 3 dimensions!")
                 return
             else:
-                raise NotImplementedError("QKit does not support higher than 1 dimension of recorded data at once!")
-            raise NotImplementedError(f"Uncovered State sweep:{len(sweep_indices)}, data:{len(self.data.shape)}!")
+                # Recursively decompose high dimensional data.
+                for i in range(data.shape[0]):
+                    DataGenerator.GeneratedData._qkit_store_adapter(data[i], ds, sweep_indices + (i,))
+                return
+            raise NotImplementedError(f"Uncovered State sweep:{len(sweep_indices)}, data:{len(data.shape)}!")
 
 class AnalysisTypeAdapter(DataGenerator, ABC):
     """
