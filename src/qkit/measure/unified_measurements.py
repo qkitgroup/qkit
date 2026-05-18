@@ -249,11 +249,13 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
                     measurement_log.error(f"Error setting {self._axis.name} to {value}.", exc_info=e)
                     raise e
 
-                self.run_measurements(data_file, index_list + (index,))
+                new_indices = index_list + (index,)
+
+                self.run_measurements(data_file, new_indices)
 
                 # Go down the nested sweeps.
                 if self._sweep_child is not None:
-                    self._sweep_child._run_sweep(data_file, index_list + (index,))
+                    self._sweep_child._run_sweep(data_file, new_indices)
         finally:
             # Reset the 'current value',
             self._current_value = None
@@ -485,21 +487,20 @@ class DataGenerator(ABC):
                 elif len(sweep_indices) == 2:  # Into a matrix, e.g. x,y
                     # QKit expects a 1D array with a single point. We need to hack it a bit.
                     # Explicitly tell it, that it is pointwise.
-                    ds.append(np.asarray([data]), pointwise=True)
-                    # If we reached the end of the inner iteration, go to next
-                    if sweep_indices[-1] + 1 == ds.ds.shape[1]:
+                    if sweep_indices[1] == 0 and sweep_indices[0] != 0:
+                        # We just wrapped. notify qkit. Signaling has to occur before the next write.
                         ds.next_matrix()
+                    ds.append(np.asarray([data]), pointwise=True)
                     return
                 elif len(sweep_indices) == 3:  # Into a box
                     raise NotImplementedError("QKit does not support 3D data consisting out of single points!")
             elif len(data.shape) == 1:  # We save a vector
-                ds.append(data)
-                if len(sweep_indices) == 2:  # We fill a box with vectors
-                    # In case we just hit end of the last iteration, we need to wrap over.
-                    if sweep_indices[-1] + 1 == ds.ds.shape[1]:
-                        ds.next_matrix()
+                if len(sweep_indices) == 2 and sweep_indices[1] == 0 and sweep_indices[0] != 0:
+                    # We just wrapped. notify qkit. Signaling has to occur before the next write.
+                    ds.next_matrix()
                 elif len(sweep_indices) >= 3:
                     raise NotImplementedError("QKit does not higher than 3 dimensions!")
+                ds.append(data)
                 return
             else:
                 # Recursively decompose high dimensional data.
