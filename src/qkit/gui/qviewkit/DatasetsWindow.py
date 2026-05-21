@@ -216,7 +216,12 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         return item
 
     def handleChanged(self, item, column):
-        ds = str("/entry/"+item.parent().text(column)+"/"+item.text(column))
+        def recursive_path_recovery(item, column) -> str:
+            if item.parent():
+                return recursive_path_recovery(item.parent(), column) + "/" +item.text(column)
+            else:
+                return "/entry/" + item.text(column)
+        ds = recursive_path_recovery(item, column)
         if item.checkState(column) == QtCore.Qt.Checked:
             
             if not self.DATA.plot_is_open(ds):
