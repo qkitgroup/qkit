@@ -1,6 +1,8 @@
+import sys
 import time
 
 import pytest
+import logging
 
 import qkit
 qkit.cfg['measurement.unified_measurements.enabled'] = True
@@ -245,3 +247,8 @@ def test_doubly_nested_sweep_scalar_vector_return(dummy_instruments_class):
     ds = result.data.signal
     assert ds.shape == (10, 8, 1)
 
+def test_configuration_hook(dummy_instruments_class):
+    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+    e = Experiment('config_hook_test', Sample())
+    e.measure(DummyPointMeasurement('lambda_test').with_configuration_hook(lambda m:print("Lambda called")))
+    e.run()

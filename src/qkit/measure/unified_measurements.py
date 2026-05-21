@@ -6,7 +6,7 @@ from os import PathLike
 
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Protocol, Literal, Iterable, Any, Union
+from typing import Optional, Callable, Protocol, Literal, Iterable, Any, Union, Self
 
 import textwrap
 import json
@@ -579,10 +579,12 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
     """
 
     _analyses: list[AnalysisTypeAdapter]
+    _config_hooks: list[Callable[[Self], None]]
 
     def __init__(self):
         super().__init__()
         self._analyses = []
+        self._config_hooks = []
 
     def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf_dataset]):
         """
@@ -613,6 +615,14 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         """
         Perform the measurement and record the results.
         """
+        for hook in self._config_hooks:
+            try:
+                hook(self)
+            except Exception as e:
+                measurement_log.error(f"Configuration hook {hook.__name__} failed for {type(self).__name__}.", exc_info=e)
+                raise e
+            else:
+                measurement_log.debug(f"Configuration hook {hook.__name__} for {type(self).__name__} succeeded.")
         try:
             data = self.perform_measurement()
         except Exception as e:
@@ -635,6 +645,17 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         """
         assert isinstance(analysis, AnalysisTypeAdapter), "Analysis must be of type AnalysisTypeAdapter!"
         self._analyses.append(analysis)
+        return self
+
+    def with_configuration_hook(self, config_hook: Callable[[Self], None]):
+        """
+        Add a configuration hook to this measurement. It will be called before the measurement is performed.
+
+        If the hook raises an exception, the measurement will be aborted because hooks may be used to configure
+        devices before the measurement is performed.
+        """
+        assert callable(config_hook), "Configuration hook must be callable!"
+        self._config_hooks.append(config_hook)
         return self
     
     @property
