@@ -9,26 +9,26 @@ class SpectroscopyMeasurement(MeasurementTypeAdapter):
     _frequency_axis: Axis
     _prefix: str
 
-    def __init__(self, vna: AbstractVNA, prefix: str = 'vna'):
+    def __init__(self, vna: AbstractVNA, prefix: str = 'spectroscopy'):
         super().__init__()
         self._vna = vna
         self._prefix = prefix
         self._frequency_axis = Axis(
-            name=f'{self._prefix}_frequency',
+            name=f'{self._prefix}/frequency',
             unit='Hz',
             range=vna.get_freqpoints()
         )
 
     def _phase_descriptor(self, frequency_axis: Axis):
         return MeasurementTypeAdapter.DataDescriptor(
-            name=f"{self._prefix}_phase",
+            name=f"{self._prefix}/phase",
             unit="rad",
             axes=(frequency_axis,)
         )
 
     def _amplitude_descriptor(self, frequency_axis: Axis):
         return MeasurementTypeAdapter.DataDescriptor(
-            name=f"{self._prefix}_amplitude",
+            name=f"{self._prefix}/amplitude",
             axes=(frequency_axis,)
         )
 
