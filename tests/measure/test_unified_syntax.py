@@ -252,3 +252,10 @@ def test_configuration_hook(dummy_instruments_class):
     e = Experiment('config_hook_test', Sample())
     e.measure(DummyPointMeasurement('lambda_test').with_configuration_hook(lambda m:print("Lambda called")))
     e.run()
+
+def test_nesting(dummy_instruments_class):
+    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+    e = Experiment('config_hook_test', Sample())
+    e.measure(DummyPointMeasurement('in_root'))
+    e.measure(DummyPointMeasurement('not_in_root/nested'))
+    e.run()

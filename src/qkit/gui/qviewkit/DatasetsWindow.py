@@ -14,7 +14,8 @@ try:
     from PyQt5 import QtCore
     import PyQt5.QtWidgets as QtGui
     from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject,QTimer
-    from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog
+    from PyQt5.QtWidgets import QMainWindow, QApplication, QFileDialog, QTreeWidgetItem
+
     in_pyqt5 = True
 except ImportError as e:
     pass
@@ -138,54 +139,68 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
 
     def _refresh_time_handler(self,refreshTime):
         self.refreshTime_value = refreshTime*1000 # ms -> s
-        
+
+    def _visit_h5_leaf(self, gui_tree_parent, current_entry: h5py.Dataset):
+        # Leaf node.
+        path = current_entry.name
+        leaf_name = path.split("/")[-1]
+        if path not in self.DATA.ds_tree_items:
+
+            item = self.addChild(gui_tree_parent, 0, str(leaf_name), path)
+            self.DATA.ds_tree_items[path] = item
+
+            if path in self.DATA.ds_cmd_open:
+                # the order of the following two lines are important! otherwise two plots are opened
+                self.DATA.append_plot(self, item, path)
+                item.setCheckState(0, QtCore.Qt.Checked)
+                self.update_plots()
+
+        s = ""
+        try:
+            s = "shape\t" + str(current_entry.shape) + "\n"
+            for k in list(current_entry.attrs.keys()):
+                s += k + "\t" + str3(current_entry.attrs[k]) + "\n"
+        except TypeError:
+            s = "shape\t" + str(current_entry.shape) + "\n"
+            for k in list(current_entry.attrs.keys()):
+                s += k + "\t" + str(current_entry.attrs[k]) + "\n"
+        except ValueError as e:
+            print("catch: populate data list:", e)
+
+        self.DATA.dataset_info[path] = s
+
+    def _visit_h5_group(self, gui_tree_parent, current_entry: h5py.Group, depth: int):
+        path = current_entry.name
+        group_name = path.split("/")[-1]
+        if group_name == "entry" and depth == -1:
+            # Omit the root entry node.
+            parent = gui_tree_parent
+        elif path not in self.DATA.ds_tree_items:
+            # If group nodes have not been created yet, create them.
+            parent = self.addParent(gui_tree_parent, 0, str(group_name))
+            self.DATA.ds_tree_items[path] = parent
+        else:
+            # Otherwise, use the existing group node.
+            parent = self.DATA.ds_tree_items[path]
+
+        s = "comment:\t" + str3(current_entry.attrs.get('comment', "")) + "\n"
+        self.DATA.dataset_info[path] = s
+        for index, subpath in enumerate(current_entry.keys()):
+            child_entry = current_entry[subpath]
+            if isinstance(child_entry, h5py.Dataset):
+                self._visit_h5_leaf(parent, child_entry)
+            elif isinstance(child_entry, h5py.Group):
+                self._visit_h5_group(parent, child_entry, depth=depth + 1)
+
+
     def populate_data_list(self):
         """
         populate_data_list is called regularly withing the refresh cycle to
         update the data tree.
         """
         self.parent = self.treeWidget.invisibleRootItem()
-        column = 0
-        parents = []
-        s=""
-        """itterate over the whole entry tree and collect the attributes """
-        for i,pentry in enumerate(self.h5file["/entry"].keys()):
-            tree_key = "/entry/"+pentry
-            if tree_key not in self.DATA.ds_tree_items:
-                parent = self.addParent(self.parent, column, str(pentry))
-                self.DATA.ds_tree_items[tree_key] = parent
-                parents.append(parent)
-            else:
-                parent = self.DATA.ds_tree_items[tree_key]
-                
-            s= "comment:\t"+str3(self.h5file[tree_key].attrs.get('comment',""))+"\n"
-            self.DATA.dataset_info[tree_key] = s
-            
-            for j,centry in enumerate(self.h5file[tree_key].keys()):
-                tree_key = "/entry/"+pentry+"/"+centry
-                if tree_key not in self.DATA.ds_tree_items:
-                    item = self.addChild(parent, column, str(centry),tree_key)
-                    self.DATA.ds_tree_items[tree_key] = item
-                    
-                    if tree_key in self.DATA.ds_cmd_open:
-                        # the order of the following two lines are important! otherwise two plots are opened
-                        self.DATA.append_plot(self,item,tree_key)
-                        item.setCheckState(0,QtCore.Qt.Checked)
-                        self.update_plots()
-                       
-                s = ""
-                try:
-                    s="shape\t"+str(self.h5file[tree_key].shape)+"\n"
-                    for k in list(self.h5file[tree_key].attrs.keys()):
-                        s += k + "\t" + str3(self.h5file[tree_key].attrs[k]) + "\n"
-                except TypeError:
-                    s="shape\t"+str(self.h5file[tree_key].shape)+"\n"
-                    for k in list(self.h5file[tree_key].attrs.keys()): 
-                        s += k + "\t" + str(self.h5file[tree_key].attrs[k]) + "\n"
-                except ValueError as e:
-                    print("catch: populate data list:",e)
-                
-                self.DATA.dataset_info[tree_key] = s
+        root_entry = self.h5file["entry"]
+        self._visit_h5_group(self.parent, root_entry, depth=-1)
                
     def addParent(self, parent, column, title,data = ''):
         item = QtGui.QTreeWidgetItem(parent, [title])
