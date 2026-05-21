@@ -51,13 +51,13 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         log.debug("Received emulated result. Building measurement structure...")
         self._structure = tuple()
         for (name, entry) in emulated_result.acquired_results.items():
-            sanitized = LabOneQMeasurement.sanitize_name(self._experiment.name) + "_" + LabOneQMeasurement.sanitize_name(name)
+            sanitized = LabOneQMeasurement.sanitize_name(self._experiment.name) + "/" + LabOneQMeasurement.sanitize_name(name)
             axis_names = list(LabOneQMeasurement.flatten(entry.axis_name))
             axes = tuple(LabOneQMeasurement.flatten(entry.axis))
             log.debug("Discovered result '%s' with '%d' axes called %s.", sanitized, len(axes), str(axis_names))
             if axis_units is None:
                 axis_units = ("a.u.",) * len(axis_names)
-            axes = tuple(Axis(name=name, range=values, unit=unit) for (name, values, unit) in zip(axis_names, axes, axis_units))
+            axes = tuple(Axis(name=sanitized + "_" + name, range=values, unit=unit) for (name, values, unit) in zip(axis_names, axes, axis_units))
             if np.iscomplexobj(entry.data):
                 self._structure += (
                     MeasurementTypeAdapter.DataDescriptor(name=sanitized + "_real", axes=axes, unit=unit),
