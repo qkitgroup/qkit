@@ -173,12 +173,12 @@ class ParentOfMeasurements(ABC):
             measurement_log.debug(f"Creating dataset for {measurement.__str__()}")
             measurement.create_datasets(data_file, swept_axes)
 
-    def run_measurements(self, data_file: hdf.Data, index_list: tuple[int, ...]):
+    def run_measurements(self, data_file: hdf.Data, index_list: tuple[int, ...], do_measure: bool = True):
         """
         Run the measurements and handle the acquired data.
         """
         for measurement_type in self._measurements:
-            measurement_type.record(data_file, index_list)
+            measurement_type.record(data_file, index_list, do_measure)
 
 
 class FilterCallback(Protocol):
@@ -216,7 +216,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         self._filter = axis_filter
         return self
 
-    def _generate_enumeration(self, data_file: hdf.Data) -> tuple[Iterable[tuple[int, float]], Optional[int]]:
+    def _generate_enumeration(self, data_file: hdf.Data) -> tuple[Iterable[tuple[int, float, bool]], Optional[int]]:
         """
         Generates the indices and values of the sweep.
         Returns the iterator over indices and values, as well as the expected size (or None if unknown).
@@ -224,38 +224,39 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         if self._filter is not None:
             # Apply the filter to get the subset we need to sweep over.
             mask = self._filter(self._axis.range)
-            filtered_range = self._axis.range[mask]
-            filtered_indices = np.where(mask)[0]
         else:
-            filtered_range = self._axis.range
-            filtered_indices = np.arange(len(filtered_range))
-        assert filtered_range is not None, "Initialization of range failed!"
-        return zip(filtered_indices, filtered_range), len(filtered_range)
+            mask = np.full_like(self._axis.range, True, dtype=bool)
+        return zip(np.arange(len(self._axis.range)), self._axis.range, mask), len(self._axis.range)
 
-    def _run_sweep(self, data_file: hdf.Data, index_list: tuple[int, ...]):
+    def _run_sweep(self, data_file: hdf.Data, index_list: tuple[int, ...], parent_do_measure: bool = True):
         """
         Internal function to run the sweep. You should not call this outside measurement_base.py!
 
         Perform the sweep, checks for filters, and continue down the chain of sweeps.
+
+        parent_do_measure: If True, the sweep will be run, otherwise it will be skipped. The iterations will still be performed,
+            but no settings will be set, and the 'recorded' data will be None. This is necessary to keep the shape of the data consistent.
         """
         sweep, size = self._generate_enumeration(data_file)
         try:
-            for index, value in tqdm(sweep, desc=self._axis.name, bar_format=bar_format(), total=size, leave=False):
-                measurement_log.debug(f"Sweeping {self._axis.name} index: {index} value: {value}")
-                try:
-                    self._setter(value)
-                    self._current_value = value
-                except Exception as e:
-                    measurement_log.error(f"Error setting {self._axis.name} to {value}.", exc_info=e)
-                    raise e
+            for index, value, do_measure in tqdm(sweep, desc=self._axis.name, bar_format=bar_format(), total=size, leave=False):
+                if parent_do_measure and do_measure:
+                    # Skip setting parameters if either we or our parent decided not to.
+                    measurement_log.debug(f"Sweeping {self._axis.name} index: {index} value: {value}")
+                    try:
+                        self._setter(value)
+                        self._current_value = value
+                    except Exception as e:
+                        measurement_log.error(f"Error setting {self._axis.name} to {value}.", exc_info=e)
+                        raise e
 
                 new_indices = index_list + (index,)
 
-                self.run_measurements(data_file, new_indices)
+                self.run_measurements(data_file, new_indices, do_measure=do_measure and parent_do_measure)
 
                 # Go down the nested sweeps.
                 if self._sweep_child is not None:
-                    self._sweep_child._run_sweep(data_file, new_indices)
+                    self._sweep_child._run_sweep(data_file, new_indices, parent_do_measure=do_measure and parent_do_measure)
         finally:
             # Reset the 'current value',
             self._current_value = None
@@ -440,6 +441,10 @@ class DataGenerator(ABC):
             """
             return len(self.axes)
 
+        @property
+        def shape(self) -> tuple[int, ...]:
+            return tuple(ax.range.shape[0] for ax in self.axes)
+
     @dataclass(frozen=True)
     class GeneratedData:
         """
@@ -611,20 +616,28 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
             measurement_log.debug(f"Creating analysis datasets for {analysis}.")
             analysis.create_datasets(data_file, self.expected_structure, swept_axes)
 
-    def record(self, data_file: hdf.Data, sweep_indices: tuple[int, ...]):
+    def record(self, data_file: hdf.Data, sweep_indices: tuple[int, ...], do_measurement: bool = True):
         """
         Perform the measurement and record the results.
+
+        do_measurement: Fs False, the measurement is not performed, and data filled with Nones is returned.
+            The analysis is run normaly and must be robust against this.
         """
-        for hook in self._config_hooks:
-            try:
-                hook(self)
-            except Exception as e:
-                measurement_log.error(f"Configuration hook {hook.__name__} failed for {type(self).__name__}.", exc_info=e)
-                raise e
-            else:
-                measurement_log.debug(f"Configuration hook {hook.__name__} for {type(self).__name__} succeeded.")
+        if do_measurement:
+            for hook in self._config_hooks:
+                try:
+                    hook(self)
+                except Exception as e:
+                    measurement_log.error(f"Configuration hook {hook.__name__} failed for {type(self).__name__}.", exc_info=e)
+                    raise e
+                else:
+                    measurement_log.debug(f"Configuration hook {hook.__name__} for {type(self).__name__} succeeded.")
         try:
-            data = self.perform_measurement()
+            if do_measurement:
+                data = self.perform_measurement()
+            else:
+                # Create None-data for the h5 file.
+                data = tuple(expected.with_data(np.full(expected.shape, None)) for expected in self.expected_structure)
         except Exception as e:
             measurement_log.error(f"Measurement failed for {type(self).__name__}.", exc_info=e)
             raise e
