@@ -185,7 +185,7 @@ class FilterCallback(Protocol):
     """
     A helper class defining the function signature of a filter callback.
     """
-    def __call__(self, axis_values: np.ndarray, **kwargs: float) -> np.ndarray:
+    def __call__(self, axis_values: np.ndarray) -> np.ndarray:
         pass
 
 
@@ -597,6 +597,7 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         swept axes in the measurement tree.
         """
         measurement_log.debug(f"Creating datasets for {type(self).__name__} with swept axes {swept_axes}.")
+        self._run_config_hooks()
         exp_structure = self.expected_structure
         assert isinstance(exp_structure, tuple), "Expected structure must be a tuple of DataDescriptors!"
         for descriptor in exp_structure:
@@ -624,14 +625,7 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
             The analysis is run normaly and must be robust against this.
         """
         if do_measurement:
-            for hook in self._config_hooks:
-                try:
-                    hook(self)
-                except Exception as e:
-                    measurement_log.error(f"Configuration hook {hook.__name__} failed for {type(self).__name__}.", exc_info=e)
-                    raise e
-                else:
-                    measurement_log.debug(f"Configuration hook {hook.__name__} for {type(self).__name__} succeeded.")
+            self._run_config_hooks()
         try:
             if do_measurement:
                 data = self.perform_measurement()
@@ -651,6 +645,17 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
                 raise e
             for analysis in self._analyses:
                 analysis.record(data_file, sweep_indices, data)
+
+    def _run_config_hooks(self):
+        for hook in self._config_hooks:
+            try:
+                hook(self)
+            except Exception as e:
+                measurement_log.error(f"Configuration hook {hook.__name__} failed for {type(self).__name__}.",
+                                      exc_info=e)
+                raise e
+            else:
+                measurement_log.debug(f"Configuration hook {hook.__name__} for {type(self).__name__} succeeded.")
 
     def with_analysis(self, analysis: AnalysisTypeAdapter) -> 'MeasurementTypeAdapter':
         """
