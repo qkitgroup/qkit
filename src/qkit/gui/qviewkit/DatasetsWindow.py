@@ -219,13 +219,14 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
         item.setCheckState (column, QtCore.Qt.Unchecked)
         return item
 
+    def _recursive_path_recovery(self, item, column) -> str:
+        if item.parent():
+            return self._recursive_path_recovery(item.parent(), column) + "/" + item.text(column)
+        else:
+            return "/entry/" + item.text(column)
+
     def handleChanged(self, item, column):
-        def recursive_path_recovery(item, column) -> str:
-            if item.parent():
-                return recursive_path_recovery(item.parent(), column) + "/" +item.text(column)
-            else:
-                return "/entry/" + item.text(column)
-        ds = recursive_path_recovery(item, column)
+        ds = self._recursive_path_recovery(item, column)
         if item.checkState(column) == QtCore.Qt.Checked:
             
             if not self.DATA.plot_is_open(ds):
@@ -249,15 +250,10 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
                 self.DATA.remove_plot(str(item),ds)
         
     def handleSelectionChanged(self):
-        getSelected = self.treeWidget.selectedItems()
-        if getSelected[0].parent():
-            ds =str("/entry/"+getSelected[0].parent().text(0)+"/"+getSelected[0].text(0)) 
-            self.Dataset_properties.clear()
-            self.Dataset_properties.insertPlainText(self.DATA.dataset_info[ds])
-        else:
-            ds =str("/entry/"+getSelected[0].text(0)) 
-            self.Dataset_properties.clear()
-            self.Dataset_properties.insertPlainText(self.DATA.dataset_info[ds])
+        selection = self.treeWidget.selectedItems()
+        ds = self._recursive_path_recovery(selection[0], 0)
+        self.Dataset_properties.clear()
+        self.Dataset_properties.insertPlainText(self.DATA.dataset_info[ds])
 
     def _read_file_and_update_content(self, handle_update=False, crash_reload=True):
         """
