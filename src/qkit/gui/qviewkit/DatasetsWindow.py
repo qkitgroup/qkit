@@ -82,12 +82,16 @@ class DatasetsWindow(QMainWindow, Ui_MainWindow):
             dss = self.DATA.args.datasets.split(',')
             
             for ds in dss:
-                fd = ds.split('/')
-                if len(fd) == 1:
-                    dsp = "/entry/data0/"+fd[0]
+                if ds.startswith('/'):
+                    # Absolute path, just add it to the list
+                    self.DATA.ds_cmd_open[ds] = True
+                elif not '/' in ds:
+                    # implicit data0 reference
+                    dsp = "/entry/data0/" + ds
                     self.DATA.ds_cmd_open[dsp] = True
-                if len(fd) == 2:
-                    dsp = "/entry/"+fd[0]+"/"+fd[1]
+                else:
+                    # relative path with subfolder. This requires specification of the category.
+                    dsp = "/entry/" + ds
                     self.DATA.ds_cmd_open[dsp] = True
             print("Display:", self.DATA.ds_cmd_open)
         if self.DATA.args.file:
