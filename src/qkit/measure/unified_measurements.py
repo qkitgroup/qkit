@@ -858,6 +858,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         except Exception as e:
             import traceback
             traceback.print_exc()
+            raise e # Tests must fail
         finally:
             # Calling into existing plotting code in the background.
             measurement_log.info("Creating plots...")
