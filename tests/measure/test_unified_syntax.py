@@ -71,6 +71,12 @@ def dummy_instruments_class():
             return []
     qkit.instruments = DummyInstruments()
 
+@pytest.fixture
+def fix_module_available():
+    from qkit.core.s_init.S16_available_modules import ModuleAvailable
+    qkit.module_available = ModuleAvailable()
+
+
 def test_experiment_creation(dummy_instruments_class):
     log_measure = SweepInspectorMeasurement()
     e = Experiment('creation_test', SAMPLE)
@@ -253,9 +259,9 @@ def test_configuration_hook(dummy_instruments_class):
     e.measure(DummyPointMeasurement('lambda_test').with_configuration_hook(lambda m:print("Lambda called")))
     e.run()
 
-def test_nesting(dummy_instruments_class):
+def test_nesting(dummy_instruments_class, fix_module_available):
     logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
-    e = Experiment('config_hook_test', Sample())
+    e = Experiment('nesting', Sample())
     e.measure(DummyPointMeasurement('in_root'))
     e.measure(DummyPointMeasurement('not_in_root/nested'))
     e.run()
