@@ -1,6 +1,8 @@
+import sys
 import time
 
 import pytest
+import logging
 
 import qkit
 qkit.cfg['measurement.unified_measurements.enabled'] = True
@@ -68,6 +70,12 @@ def dummy_instruments_class():
         def get_instrument_names():
             return []
     qkit.instruments = DummyInstruments()
+
+@pytest.fixture
+def fix_module_available():
+    from qkit.core.s_init.S16_available_modules import ModuleAvailable
+    qkit.module_available = ModuleAvailable()
+
 
 def test_experiment_creation(dummy_instruments_class):
     log_measure = SweepInspectorMeasurement()
@@ -211,3 +219,49 @@ def test_time_series(dummy_instruments_class):
     with e.timeseries(stop_after=time.time() + 1.0) as t:
         t.measure(ScalarMeasurement(name='signal', getter=lambda: np.random.rand()))
     e.run(open_qviewkit=True)
+
+class DummyVNAMeasurement(MeasurementTypeAdapter):
+
+    def __init__(self):
+        super().__init__()
+        self._descriptor = MeasurementTypeAdapter.DataDescriptor(
+            name='signal',
+            axes=(Axis(name=f'vna_freq', range=np.asarray([1.0]), unit='Hz'),)
+        )
+
+    @property
+    def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
+        return (self._descriptor,)
+
+    def perform_measurement(self) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
+        return (self._descriptor.with_data(np.random.rand(1)),)
+
+
+def test_doubly_nested_sweep_scalar_vector_return(dummy_instruments_class):
+    """
+    When a two-tone voltage scan is performed, the sweeps are nested twice. Also, the VNA returns an array with a singular
+    value. This test checks that the measurement works correctly, and the frequency scan columns are terminated correctly.
+    """
+    e = Experiment('twotone-voltage-test', Sample())
+    with e.sweep(lambda val: None, X_SWEEP_AXIS) as x_sweep:
+        with x_sweep.sweep(lambda val: None, Y_SWEEP_AXIS) as y_sweep:
+            y_sweep.measure(DummyVNAMeasurement())
+    file = e.run(open_qviewkit=False)
+    from qkit.storage.store import Data
+    result = Data(file)
+    print(result)
+    ds = result.data.signal
+    assert ds.shape == (10, 8, 1)
+
+def test_configuration_hook(dummy_instruments_class):
+    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+    e = Experiment('config_hook_test', Sample())
+    e.measure(DummyPointMeasurement('lambda_test').with_configuration_hook(lambda m:print("Lambda called")))
+    e.run()
+
+def test_nesting(dummy_instruments_class, fix_module_available):
+    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+    e = Experiment('nesting', Sample())
+    e.measure(DummyPointMeasurement('in_root'))
+    e.measure(DummyPointMeasurement('not_in_root/nested'))
+    e.run()

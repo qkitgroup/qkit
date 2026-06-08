@@ -4,7 +4,7 @@ from laboneq.simple import *
 
 from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis
 
-from typing import Optional, List, Generator
+from typing import Optional, List, Generator, Any
 
 import numpy as np
 
@@ -22,7 +22,7 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
 
     @staticmethod
     def sanitize_name(internal_name):
-        return internal_name.replace('/', '_').replace(' ', '_')
+        return internal_name.lower().replace('/', '_').replace(' ', '_')
 
     @staticmethod
     def flatten(l: list) -> Generator:
@@ -51,13 +51,13 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         log.debug("Received emulated result. Building measurement structure...")
         self._structure = tuple()
         for (name, entry) in emulated_result.acquired_results.items():
-            sanitized = LabOneQMeasurement.sanitize_name(name)
+            sanitized = LabOneQMeasurement.sanitize_name(self._experiment.name) + "/" + LabOneQMeasurement.sanitize_name(name)
             axis_names = list(LabOneQMeasurement.flatten(entry.axis_name))
             axes = tuple(LabOneQMeasurement.flatten(entry.axis))
             log.debug("Discovered result '%s' with '%d' axes called %s.", sanitized, len(axes), str(axis_names))
             if axis_units is None:
                 axis_units = ("a.u.",) * len(axis_names)
-            axes = tuple(Axis(name=name, range=values, unit=unit) for (name, values, unit) in zip(axis_names, axes, axis_units))
+            axes = tuple(Axis(name=sanitized + "_" + name, range=values, unit=unit) for (name, values, unit) in zip(axis_names, axes, axis_units))
             if np.iscomplexobj(entry.data):
                 self._structure += (
                     MeasurementTypeAdapter.DataDescriptor(name=sanitized + "_real", axes=axes, unit=unit),
@@ -82,27 +82,31 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         def data_mapper(acquired_results):
             for (name, entry) in acquired_results.items():
                 if np.iscomplexobj(entry.data):
-                    yield name + "_real", np.real(entry.data)
-                    yield name + "_imag", np.imag(entry.data)
-                    yield name + "_mag", np.abs(entry.data)
-                    yield name + "_phase", np.angle(entry.data)
+                    yield np.real(entry.data)
+                    yield np.imag(entry.data)
+                    yield np.abs(entry.data)
+                    yield np.angle(entry.data)
                 else:
-                    yield name, entry.data
+                    yield entry.data
         return tuple(
-            descriptor.with_data(datum) for descriptor, (_, datum) in zip(self._structure, data_mapper(result.acquired_results))
+            descriptor.with_data(datum) for descriptor, datum in zip(self._structure, data_mapper(result.acquired_results))
         )
 
     @staticmethod
-    def calculate_range_and_amplitudes(power: float | np.ndarray) -> tuple[float, np.ndarray]:
+    def calculate_range_and_amplitudes(power: float | np.ndarray, force_range = None) -> tuple[float, np.ndarray]:
         """
         Based on an output power or an array of output powers, calculate the amplitudes and output range for ZI.
         :param power: The output power or array of output powers in dBm
+        :param force_range: If set, the output range will be forced to this value.
         :return: The output range and the amplitudes
         """
         powers = np.asarray(power)
         maximum_power = np.max(powers)
         # Adjust to steps of 5
-        output_range = np.ceil(maximum_power / 5) * 5
+        if force_range is not None:
+            output_range = force_range
+        else:
+            output_range = np.ceil(maximum_power / 5) * 5
         # Calculate amplitudes relative to output range
         amplitudes = np.power(10, (powers - output_range) / 20)
         assert np.all(amplitudes >= 0), "Amplitudes must be positive!"

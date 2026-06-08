@@ -138,19 +138,22 @@ class h5plot(object):
         # open the h5 file and get the hdf_lib object
         self.hf = store.Data(self.path)
 
-        # check for datasets
-        for i, pentry in enumerate(self.hf['/entry'].keys()):
-            key='/entry/'+pentry
-            for j, centry in enumerate(self.hf[key].keys()):
+        def recursive_visitor(entry):
+            if entry.attrs.get('save_plot', True):
                 try:
-                    self.key='/entry/'+pentry+"/"+centry
-                    self.ds = self.hf[self.key]
-                    if self.ds.attrs.get('save_plot', True):
-                        self.plt() # this is the plot function
+                    # Use weird instance variable for argument passing, because reasons...
+                    self.key = entry.name
+                    self.ds = entry
+                    self.plt()
                 except Exception as e:
                     print("Exception in qkit/gui/plot/plot.py while plotting")
-                    print(self.key)
+                    print(entry.name)
                     print(e)
+            if hasattr(entry, 'keys'):
+                for child_key in entry.keys():
+                    recursive_visitor(entry[child_key])
+
+        recursive_visitor(self.hf['/entry'])
         #close hf file
         self.hf.close()
         print('Plots saved in ' + self.image_dir)

@@ -6,7 +6,7 @@ from os import PathLike
 
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Protocol, Literal, Iterable, Any, Union
+from typing import Optional, Callable, Protocol, Literal, Iterable, Any, Union, Self
 
 import textwrap
 import json
@@ -173,19 +173,19 @@ class ParentOfMeasurements(ABC):
             measurement_log.debug(f"Creating dataset for {measurement.__str__()}")
             measurement.create_datasets(data_file, swept_axes)
 
-    def run_measurements(self, data_file: hdf.Data, index_list: tuple[int, ...]):
+    def run_measurements(self, data_file: hdf.Data, index_list: tuple[int, ...], do_measure: bool = True):
         """
         Run the measurements and handle the acquired data.
         """
         for measurement_type in self._measurements:
-            measurement_type.record(data_file, index_list)
+            measurement_type.record(data_file, index_list, do_measure)
 
 
 class FilterCallback(Protocol):
     """
     A helper class defining the function signature of a filter callback.
     """
-    def __call__(self, axis_values: np.ndarray, **kwargs: float) -> np.ndarray:
+    def __call__(self, axis_values: np.ndarray) -> np.ndarray:
         pass
 
 
@@ -216,7 +216,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         self._filter = axis_filter
         return self
 
-    def _generate_enumeration(self, data_file: hdf.Data) -> tuple[Iterable[tuple[int, float]], Optional[int]]:
+    def _generate_enumeration(self, data_file: hdf.Data) -> tuple[Iterable[tuple[int, float, bool]], Optional[int]]:
         """
         Generates the indices and values of the sweep.
         Returns the iterator over indices and values, as well as the expected size (or None if unknown).
@@ -224,36 +224,39 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         if self._filter is not None:
             # Apply the filter to get the subset we need to sweep over.
             mask = self._filter(self._axis.range)
-            filtered_range = self._axis.range[mask]
-            filtered_indices = np.where(mask)[0]
         else:
-            filtered_range = self._axis.range
-            filtered_indices = np.arange(len(filtered_range))
-        assert filtered_range is not None, "Initialization of range failed!"
-        return zip(filtered_indices, filtered_range), len(filtered_range)
+            mask = np.full_like(self._axis.range, True, dtype=bool)
+        return zip(np.arange(len(self._axis.range)), self._axis.range, mask), len(self._axis.range)
 
-    def _run_sweep(self, data_file: hdf.Data, index_list: tuple[int, ...]):
+    def _run_sweep(self, data_file: hdf.Data, index_list: tuple[int, ...], parent_do_measure: bool = True):
         """
         Internal function to run the sweep. You should not call this outside measurement_base.py!
 
         Perform the sweep, checks for filters, and continue down the chain of sweeps.
+
+        parent_do_measure: If True, the sweep will be run, otherwise it will be skipped. The iterations will still be performed,
+            but no settings will be set, and the 'recorded' data will be None. This is necessary to keep the shape of the data consistent.
         """
         sweep, size = self._generate_enumeration(data_file)
         try:
-            for index, value in tqdm(sweep, desc=self._axis.name, bar_format=bar_format(), total=size, leave=False):
-                measurement_log.debug(f"Sweeping {self._axis.name} index: {index} value: {value}")
-                try:
-                    self._setter(value)
-                    self._current_value = value
-                except Exception as e:
-                    measurement_log.error(f"Error setting {self._axis.name} to {value}.", exc_info=e)
-                    raise e
+            for index, value, do_measure in tqdm(sweep, desc=self._axis.name, bar_format=bar_format(), total=size, leave=False):
+                if parent_do_measure and do_measure:
+                    # Skip setting parameters if either we or our parent decided not to.
+                    measurement_log.debug(f"Sweeping {self._axis.name} index: {index} value: {value}")
+                    try:
+                        self._setter(value)
+                        self._current_value = value
+                    except Exception as e:
+                        measurement_log.error(f"Error setting {self._axis.name} to {value}.", exc_info=e)
+                        raise e
 
-                self.run_measurements(data_file, index_list + (index,))
+                new_indices = index_list + (index,)
+
+                self.run_measurements(data_file, new_indices, do_measure=do_measure and parent_do_measure)
 
                 # Go down the nested sweeps.
                 if self._sweep_child is not None:
-                    self._sweep_child._run_sweep(data_file, index_list + (index,))
+                    self._sweep_child._run_sweep(data_file, new_indices, parent_do_measure=do_measure and parent_do_measure)
         finally:
             # Reset the 'current value',
             self._current_value = None
@@ -369,7 +372,16 @@ class DataGenerator(ABC):
         for datum in data:
             assert isinstance(datum, self.GeneratedData), "Measurement must return a tuple of MeasurementData!"
             # The data is validated on wrapper creation, see GeneratedData.__post_init__
-            datum.write_data(data_file, sweep_indices)
+            try:
+                datum.write_data(data_file, sweep_indices)
+            except Exception as e:
+                measurement_log.error(f"Failed to store data: {e}", exc_info=e)
+                measurement_log.error(f"Data: {datum.data}")
+                measurement_log.error(f"Descriptor: {datum.descriptor}")
+                measurement_log.error(f"Sweep indices: {sweep_indices}")
+                measurement_log.error(f"Data file: {data_file}")
+                measurement_log.error(f"")
+                raise e
         data_file.flush()
 
     @dataclass(frozen=True)
@@ -429,6 +441,10 @@ class DataGenerator(ABC):
             """
             return len(self.axes)
 
+        @property
+        def shape(self) -> tuple[int, ...]:
+            return tuple(ax.range.shape[0] for ax in self.axes)
+
     @dataclass(frozen=True)
     class GeneratedData:
         """
@@ -448,12 +464,13 @@ class DataGenerator(ABC):
 
         def write_data(self, file: hdf.Data, sweep_indices: tuple[int, ...]):
             """
-            Write the data represented by this object to disk.
-            :param file: The file to write to
-            :param sweep_indices: The current sweep_indices
-            :return: None
+            Use qkit store api to actually store the data.
             """
-            ds: hdf_dataset = file.get_dataset(self.descriptor.ds_url)
+            try:
+                ds: hdf_dataset = file.get_dataset(self.descriptor.ds_url)
+            except KeyError as ke:
+                measurement_log.error(f"Dataset {self.descriptor.name} not found! (URL: {self.descriptor.ds_url})")
+                raise ke
             assert ds is not None, f"Dataset {self.descriptor.name} not found!"
             self._qkit_store_adapter(self.data, ds, sweep_indices)
 
@@ -463,33 +480,32 @@ class DataGenerator(ABC):
             Use qkit store api to actually store the data.
             """
             # Integrates into existing storage infrastructure. Should be better, but may not touch append.
-            if len(data.shape) == 0: # We save a scalar
-                if len(sweep_indices) == 0: # Single data point.
-                    ds.append(data, reset=True) # We won't get here again.
+            if len(data.shape) == 0:  # We save a scalar
+                if len(sweep_indices) == 0:  # Single data point.
+                    ds.append(data, reset=True)  # We won't get here again.
                     return
-                elif len(sweep_indices) == 1: # Into a vector, e.g x
+                elif len(sweep_indices) == 1:  # Into a vector, e.g x
                     # This is not supported by qkit hdf_file natively.
                     # QKit expects a 1D array with a single point. We need to hack it a bit.
                     ds.append(np.asarray([data]))
                     return
-                elif len(sweep_indices) == 2: # Into a matrix, e.g. x,y
+                elif len(sweep_indices) == 2:  # Into a matrix, e.g. x,y
                     # QKit expects a 1D array with a single point. We need to hack it a bit.
                     # Explicitly tell it, that it is pointwise.
+                    if sweep_indices[1] == 0 and sweep_indices[0] != 0:
+                        # We just wrapped. notify qkit. Signaling has to occur before the next write.
+                        ds.next_matrix()
                     ds.append(np.asarray([data]), pointwise=True)
-                    # If we reached the end of the inner iteration, go to next
-                    if sweep_indices[-1] + 1 == ds.ds.shape[1]:
-                        ds.next_matrix()
                     return
-                elif len(sweep_indices) == 3: # Into a box
+                elif len(sweep_indices) == 3:  # Into a box
                     raise NotImplementedError("QKit does not support 3D data consisting out of single points!")
-            elif len(data.shape) == 1: # We save a vector
-                ds.append(data)
-                if len(sweep_indices) == 2: # We fill a box with vectors
-                    # In case we just hit end of the last iteration, we need to wrap over.
-                    if sweep_indices[-1] + 1 == ds.ds.shape[1]:
-                        ds.next_matrix()
+            elif len(data.shape) == 1:  # We save a vector
+                if len(sweep_indices) == 2 and sweep_indices[1] == 0 and sweep_indices[0] != 0:
+                    # We just wrapped. notify qkit. Signaling has to occur before the next write.
+                    ds.next_matrix()
                 elif len(sweep_indices) >= 3:
                     raise NotImplementedError("QKit does not higher than 3 dimensions!")
+                ds.append(data)
                 return
             else:
                 # Recursively decompose high dimensional data.
@@ -568,10 +584,12 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
     """
 
     _analyses: list[AnalysisTypeAdapter]
+    _config_hooks: list[Callable[[Self], None]]
 
     def __init__(self):
         super().__init__()
         self._analyses = []
+        self._config_hooks = []
 
     def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf_dataset]):
         """
@@ -579,6 +597,7 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         swept axes in the measurement tree.
         """
         measurement_log.debug(f"Creating datasets for {type(self).__name__} with swept axes {swept_axes}.")
+        self._run_config_hooks()
         exp_structure = self.expected_structure
         assert isinstance(exp_structure, tuple), "Expected structure must be a tuple of DataDescriptors!"
         for descriptor in exp_structure:
@@ -598,19 +617,45 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
             measurement_log.debug(f"Creating analysis datasets for {analysis}.")
             analysis.create_datasets(data_file, self.expected_structure, swept_axes)
 
-    def record(self, data_file: hdf.Data, sweep_indices: tuple[int, ...]):
+    def record(self, data_file: hdf.Data, sweep_indices: tuple[int, ...], do_measurement: bool = True):
         """
         Perform the measurement and record the results.
+
+        do_measurement: Fs False, the measurement is not performed, and data filled with Nones is returned.
+            The analysis is run normaly and must be robust against this.
         """
+        if do_measurement:
+            self._run_config_hooks()
         try:
-            data = self.perform_measurement()
+            if do_measurement:
+                data = self.perform_measurement()
+            else:
+                # Create None-data for the h5 file.
+                data = tuple(expected.with_data(np.full(expected.shape, None)) for expected in self.expected_structure)
         except Exception as e:
             measurement_log.error(f"Measurement failed for {type(self).__name__}.", exc_info=e)
             raise e
         else:
-            self.store(data_file, data, sweep_indices)
+            try:
+                self.store(data_file, data, sweep_indices)
+            except Exception as e:
+                measurement_log.error(f"Storing data failed for {type(self).__name__}.", exc_info=e)
+                measurement_log.error(f"Data: {data}")
+                measurement_log.error(f"Expected structure: {self.expected_structure}")
+                raise e
             for analysis in self._analyses:
                 analysis.record(data_file, sweep_indices, data)
+
+    def _run_config_hooks(self):
+        for hook in self._config_hooks:
+            try:
+                hook(self)
+            except Exception as e:
+                measurement_log.error(f"Configuration hook {hook.__name__} failed for {type(self).__name__}.",
+                                      exc_info=e)
+                raise e
+            else:
+                measurement_log.debug(f"Configuration hook {hook.__name__} for {type(self).__name__} succeeded.")
 
     def with_analysis(self, analysis: AnalysisTypeAdapter) -> 'MeasurementTypeAdapter':
         """
@@ -618,6 +663,17 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         """
         assert isinstance(analysis, AnalysisTypeAdapter), "Analysis must be of type AnalysisTypeAdapter!"
         self._analyses.append(analysis)
+        return self
+
+    def with_configuration_hook(self, config_hook: Callable[[Self], None]):
+        """
+        Add a configuration hook to this measurement. It will be called before the measurement is performed.
+
+        If the hook raises an exception, the measurement will be aborted because hooks may be used to configure
+        devices before the measurement is performed.
+        """
+        assert callable(config_hook), "Configuration hook must be callable!"
+        self._config_hooks.append(config_hook)
         return self
     
     @property
@@ -802,6 +858,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         except Exception as e:
             import traceback
             traceback.print_exc()
+            raise e # Tests must fail
         finally:
             # Calling into existing plotting code in the background.
             measurement_log.info("Creating plots...")
@@ -813,9 +870,12 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             return data_file.get_filepath()
 
     def __str__(self):
-        return "Experiment:\r\n" + (
-            textwrap.indent(str(self._sweep_child), '\t') if self._sweep_child is not None else "No Sweep"
-        )
+        desc = f"Experiment: ({self._comment})"
+        for measurement in self._measurements:
+            desc += '\n' + textwrap.indent(str(measurement), '\t')
+        desc += '\r\n'
+        desc += textwrap.indent(str(self._sweep_child), '\t') if self._sweep_child is not None else "No Sweep"
+        return desc
 
 @dataclass(frozen=True)
 class DataView:
