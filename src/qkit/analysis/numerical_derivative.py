@@ -1,5 +1,4 @@
 import itertools
-from typing import override
 
 from scipy import signal
 
@@ -26,7 +25,6 @@ class SavgolNumericalDerivative(AnalysisTypeAdapter):
         self._polyorder = polyorder
         self._derivative = derivative
 
-    @override
     def perform_analysis(self, data: tuple['MeasurementTypeAdapter.GeneratedData', ...]) -> tuple[
         'MeasurementTypeAdapter.GeneratedData', ...]:
         parent_schema = tuple([element.descriptor for element in data])
@@ -44,7 +42,6 @@ class SavgolNumericalDerivative(AnalysisTypeAdapter):
         return tuple(out)
 
 
-    @override
     def expected_structure(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
         structure = []
         for (x, y) in itertools.batched(parent_schema, 2):
@@ -65,7 +62,6 @@ class SavgolNumericalDerivative(AnalysisTypeAdapter):
             ]
         return tuple(structure)
 
-    @override
     def default_views(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> dict[str, DataView]:
         schema = self.expected_structure(parent_schema)
         variable_names = (schema[0].name.split('_')[0], schema[1].name.split('_')[0])

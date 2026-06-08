@@ -12,10 +12,10 @@ authors = [
 description = "qKIT quantum measurement suite in python"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 classifiers = [
     "Framework :: Jupyter :: JupyterLab :: 3",
-    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.9",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: GNU General Public License v2 (GPLv2)"
 ]
@@ -32,8 +32,9 @@ dependencies = [
     "tomli>=2.0.1",
     "ipython",
     "packaging",
-    "filelock>=3.17",
-    "tqdm>=4.67.0"
+    "filelock>=3.10",
+    "tqdm>=4.67.0",
+    "importlib_resources; python_version == '3.9' or python_version == '3.10'"
 ]
 
 [project.scripts]
@@ -64,7 +65,7 @@ timedomain = [
     "zerorpc>=0.6"
 ]
 url = [
-    "parsita~=2.2.2"
+    "parsita>=2.0.0"
 ]
 
 
@@ -93,7 +94,7 @@ exclude = ["data/*", "notebooks/*", "logs/*", "venv/*"]
 
 [tool.hatch.envs.hatch-test]
 extra-dependencies = [
-    "parsita~=2.2.2"
+    "parsita>=2.0.0"
 ]
 
 [tool.pytest.ini_options]

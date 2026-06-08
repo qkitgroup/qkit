@@ -8,13 +8,6 @@ import numpy as np
 from abc import ABC, abstractmethod
 from typing import Optional, Callable, Protocol, Literal, Iterable, Any, Union
 
-try:
-    from typing import override
-except ImportError:
-    # This feature got added in 3.12. In older versions, do nothing
-    def override(func):
-        return func
-
 import textwrap
 import json
 
@@ -265,7 +258,6 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
             # Reset the 'current value',
             self._current_value = None
 
-    @override
     def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf_dataset]):
         measurement_log.debug(f"Dataset creation passing sweep of {self._axis.name}")
         swept_axes.append(self._axis.get_data_axis(data_file))
@@ -303,7 +295,6 @@ class ContinuousTimeSeriesSweep(Sweep):
         super().__init__(lambda v: None, Axis(name="timestamp", unit="s", range=None))
         self._stop_after = stop_after
 
-    @override
     def _generate_enumeration(self, data_file: hdf.Data) -> tuple[Iterable[tuple[int, float]], Optional[int]]:
         def sweep_generator():
             counter = 0

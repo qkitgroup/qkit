@@ -18,7 +18,7 @@
 ### Platform:
   The qkit framework has been tested under windows and with limits under macos x and linux. 
   The gui requires h5py, qt and pyqtgraph, which work fine on these platforms. 
-  The core of the framework should run with python 2.7.x/3.4+
+  The core of the framework should run with python 3.9+
 
 ## Configuration
 There are three sources of configuration, which are used to set up your environment
