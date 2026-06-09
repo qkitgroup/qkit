@@ -363,18 +363,23 @@ class QFIT(object):
                         return
             
         else:   #use specified entries
-            entrytypes = self.hf['/entry/'].keys()
-            try: entrytypes.remove('views')
-            except (ValueError,AttributeError): pass
-            for et in entrytypes:
-                for e in entries:
-                    for k in self.hf['/entry/'+et].keys():
+            for entry in entries:
+                if entry.startswith('/'):
+                    # This is an absolute path, just take it.
+                    urls.append(entry)
+                else:
+                    # This is a relative path, and likely an implicit reference to /entry/data0/...
+                    # We need to search for it.
+                    for category in self.hf['/entry/'].keys():
+                        if category == 'views':
+                            continue
+                        path_candidate = '/entry/' + category + '/' + entry
                         try:
-                            if e == et+k or (e == k and et == 'data0'):
-                                urls.append('/entry/'+et+'/'+k)
-                        except IndexError:
-                            logging.error('Entries cannot be identified. No data for >> {:s} << found. Aborting.'.format(str(e)))
-                            return
+                            self.hf[path_candidate]
+                            urls.append(path_candidate)
+                            break
+                        except KeyError:
+                            pass
 
         self.hf.close()                
         #cast to real strings in case the urls ended up to be unicode
