@@ -23,7 +23,7 @@ class ZISetup(Instrument):
         parameters = self._qubits[0].parameters
         attributes = [entry for entry in dir(parameters) if not entry.startswith('_') and not callable(getattr(parameters, entry))]
         for key in attributes:
-            self.add_parameter(key, channels=(0, len(self._qubits)),
+            self.add_parameter(key, channels=(0, len(self._qubits)-1),
                                get_cmd=lambda channel: getattr(self._qubits[channel].parameters, key),
                                set_cmd=lambda value, channel: setattr(self._qubits[channel].parameters, key, value))
 
