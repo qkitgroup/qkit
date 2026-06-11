@@ -1,7 +1,7 @@
 import logging
 
 from laboneq.dsl.device import DeviceSetup
-from laboneq.dsl.quantum import QPU
+from laboneq.dsl.quantum import QPU, QuantumParameters
 from laboneq.dsl.session import Session
 from laboneq_applications.qpu_types.tunable_transmon import TunableTransmonQubit, TunableTransmonOperations
 
@@ -20,10 +20,11 @@ class ZISetup(Instrument):
         self._qpu = QPU(self._qubits, quantum_operations=self._qops)
 
         # Register parameters for each qubit.
-        parameters = self._qubits[0].parameters
-        attributes = [entry for entry in dir(parameters) if not entry.startswith('_') and not callable(getattr(parameters, entry))]
-        for key in attributes:
-            self.add_parameter(key, channels=(0, len(self._qubits)-1), type=type(getattr(parameters, key)),
+        parameters: QuantumParameters = self._qubits[0].parameters
+        attributes = [(entry, float if not isinstance(getattr(parameters, entry), dict) else dict)
+                      for entry in dir(parameters) if not entry.startswith('_') and not callable(getattr(parameters, entry))]
+        for key, t in attributes:
+            self.add_parameter(key, channels=(0, len(self._qubits)-1), type=t,
                                get_cmd=lambda channel: getattr(self._qubits[channel].parameters, key),
                                set_cmd=lambda value, channel: setattr(self._qubits[channel].parameters, key, value))
 
