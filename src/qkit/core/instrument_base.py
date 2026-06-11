@@ -624,6 +624,7 @@ class Instrument(object):
             bool: bool,
             tuple: tuple,
             list: list,
+            dict: dict,
             np.ndarray: lambda x: x.tolist(),
     }
 
