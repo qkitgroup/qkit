@@ -2,6 +2,7 @@ import logging
 
 from laboneq.simple import *
 
+from qkit.drivers.ZISetup import ZISetup
 from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis
 
 from typing import Optional, List, Generator, Any
@@ -35,9 +36,10 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
             else:
                 yield element
 
-    def __init__(self, session: Session, experiment: Experiment, unit: str = 'a.u.', axis_units: Optional[List[str]] = None):
+    def __init__(self, setup: ZISetup, experiment: Experiment, unit: str = 'a.u.', axis_units: Optional[List[str]] = None):
         super().__init__()
-        self._session = session
+        self._setup = setup
+        self._session = self._setup.get_session()
         self._experiment = experiment
         log.debug("Compiling LabOneQ experiment for measurement structure inspection.")
         compiled_experiment = self._session.compile(self._experiment)

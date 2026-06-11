@@ -1,7 +1,9 @@
 import logging
+from types import NoneType
 
 from laboneq.dsl.device import DeviceSetup
 from laboneq.dsl.quantum import QPU, QuantumParameters
+from laboneq.dsl.quantum.quantum_element import AttrDict, QuantumElement
 from laboneq.dsl.session import Session
 from laboneq_applications.qpu_types.tunable_transmon import TunableTransmonQubit, TunableTransmonOperations
 
@@ -21,15 +23,22 @@ class ZISetup(Instrument):
 
         # Register parameters for each qubit.
         parameters: QuantumParameters = self._qubits[0].parameters
-        attributes = [(entry, float if not isinstance(getattr(parameters, entry), dict) else dict)
-                      for entry in dir(parameters) if not entry.startswith('_') and not callable(getattr(parameters, entry))]
-        for key, t in attributes:
-            self.add_parameter(key, channels=(0, len(self._qubits)-1), type=t,
-                               get_cmd=lambda channel: getattr(self._qubits[channel].parameters, key),
-                               set_cmd=lambda value, channel: setattr(self._qubits[channel].parameters, key, value))
+        attributes = [entry for entry in dir(parameters) if not entry.startswith('_') and not callable(getattr(parameters, entry))]
+        for key in attributes:
+            inferred_type = type(getattr(parameters, key))
+            if inferred_type is AttrDict:
+                inferred_type = dict
+            elif inferred_type is NoneType:
+                inferred_type = float
+            self.add_parameter(key, channels=(0, len(self._qubits)-1), type=inferred_type, flags=Instrument.FLAG_GETSET,
+                               get_func=lambda channel, _key=key: getattr(self.get_qubit(channel).parameters, _key),
+                               set_func=lambda value, channel, _key=key: setattr(self.get_qubit(channel).parameters, _key, value))
 
-    def get_qpu(self):
+    def get_qpu(self) -> QPU:
         return self._qpu
 
-    def get_qubit(self, index: int):
+    def get_qubit(self, index: int) -> QuantumElement:
         return self._qubits[index]
+
+    def get_session(self):
+        return self._session
