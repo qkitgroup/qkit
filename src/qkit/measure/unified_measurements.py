@@ -847,7 +847,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
                 if open_datasets is None:
                     open_datasets: list[str] = []
                 else:
-                    open_datasets: list[str] = [ref.to_path(data_file) for ref in open_datasets]
+                    open_datasets: list[str] = [ref.ds_url for ref in open_datasets]
 
                 qviewkit.plot(data_file.get_filepath(), datasets=open_datasets)
 

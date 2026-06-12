@@ -7,7 +7,7 @@ import logging
 import qkit
 qkit.cfg['measurement.unified_measurements.enabled'] = True
 from qkit.analysis.numerical_derivative import SavgolNumericalDerivative
-from qkit.measure.unified_measurements import Experiment, MeasurementTypeAdapter, Axis, ScalarMeasurement
+from qkit.measure.unified_measurements import Experiment, MeasurementTypeAdapter, Axis, ScalarMeasurement, DataReference
 import numpy as np
 
 from qkit.measure.samples_class import Sample
@@ -264,4 +264,4 @@ def test_nesting(dummy_instruments_class, fix_module_available):
     e = Experiment('nesting', Sample())
     e.measure(DummyPointMeasurement('in_root'))
     e.measure(DummyPointMeasurement('not_in_root/nested'))
-    e.run()
+    e.run(open_datasets=[DataReference('not_in_root/nested')])
