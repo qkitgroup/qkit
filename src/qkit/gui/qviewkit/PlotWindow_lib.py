@@ -771,7 +771,7 @@ def _display_string(ds):
     data = np.array(ds)
     txt = ""
     for d in data:
-        txt += d + '\n'
+        txt += d.decode('utf-8') + '\n'
     return txt
 
 
