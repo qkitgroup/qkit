@@ -4,8 +4,6 @@ from qkit.measure.json_handler import QkitJSONEncoder
 import pathlib, typing, json
 import pandas as pd
 
-p = pathlib.Path(r"C:\Users\Marius Frohn\Desktop\Qrious\Messungen\ForgeLogs\SPC_TitaniumTest_JH.csv")
-
 ALIAS: dict[str,str] = {
     "synthesium/m600dc/m600dc1_spc/actualCurrent": "dc_sputter_i",
     "synthesium/m600dc/m600dc1_spc/actualVoltage":"dc_sputter_v", 
@@ -32,12 +30,12 @@ def forge_log_converter(csv_path: str|pathlib.Path, override_name: None|str = No
         csv_path = pathlib.Path(csv_path)
     with open(csv_path, encoding="utf8") as df:
         data = pd.read_csv(df)
-        if time_fmt == "abs": # TODO: Infer this automatically from file?
-            data["time"] = pd.to_datetime(data['time'])
-            init_timestamp = data["time"][0]
-            data["time"] = ((data["time"] - init_timestamp) // pd.Timedelta("1ns"))*1e-9
-        else:
-            init_timestamp = False
+    if time_fmt == "abs": # TODO: Infer this automatically from file?
+        data["time"] = pd.to_datetime(data['time'])
+        init_timestamp = data["time"][0]
+        data["time"] = ((data["time"] - init_timestamp) // pd.Timedelta("1ns"))*1e-9
+    else:
+        init_timestamp = False
     
     # Make new file
     if override_name is None:
@@ -60,7 +58,7 @@ def forge_log_converter(csv_path: str|pathlib.Path, override_name: None|str = No
         try:
             val_name = ALIAS[col.split("[")[0][:-1]]
         except KeyError:
-            print(f"'{col.split("[")[0][:-1]}' not found in aliases dict, feel free to add it in the source code. Defaulting to forge device name")
+            print("'{}' not found in aliases dict, feel free to add it in the source code. Defaulting to forge device name".format(col.split("[")[0][:-1]))
             val_name = "{}_{}_{}".format(*col.split("[")[0][:-1].split("/")[-3:])
         data_ax = data_file.add_value_vector(val_name, time_ax, col.split("[")[-1][:-1])
         data_ax.append(data[col])
@@ -93,6 +91,5 @@ def forge_log_converter(csv_path: str|pathlib.Path, override_name: None|str = No
 
     # Cleanup
     if move_csv:
-        csv_path = csv_path.move_into(data_file.get_folder())
-        csv_path.rename(csv_path.with_stem(data_file._uuid + "_" + csv_path.stem))
+        csv_path.rename(data_file.get_folder() + "/" + data_file._uuid + "_" + csv_path.name)
     data_file.close_file()
