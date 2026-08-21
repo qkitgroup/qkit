@@ -67,6 +67,9 @@ timedomain = [
 url = [
     "parsita>=2.0.0"
 ]
+forge = [
+    "pandas >= 3.0"
+]
 
 
 [project.urls]

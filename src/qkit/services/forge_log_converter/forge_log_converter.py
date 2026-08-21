@@ -2,7 +2,7 @@ from qkit.storage.store import Data
 from qkit.storage.hdf_dataset import hdf_dataset
 from qkit.measure.json_handler import QkitJSONEncoder
 import pathlib, typing, json
-import pandas as pd
+import pandas as pd # TODO: manually parse csv to avoid additional pandas dependency
 
 ALIAS: dict[str,str] = {
     "synthesium/m600dc/m600dc1_spc/actualCurrent": "dc_sputter_i",
@@ -15,7 +15,7 @@ ALIAS: dict[str,str] = {
     "synthesium/quartzbalances/qb_spc/rate":"qb_rate",
 }
 
-def forge_log_converter(csv_path: str|pathlib.Path, override_name: None|str = None, prompt_views: bool|typing.Iterable[typing.Iterable[str, typing.Iterable[int], typing.Iterable[int]]] = True, time_fmt: typing.Literal["abs", "rel"] = "abs", move_csv: bool = True) -> None:
+def forge_log_converter(csv_path: str|pathlib.Path, override_name: None|str = None, prompt_views: bool|typing.Iterable[list[str, typing.Iterable[int], typing.Iterable[int]]] = True, time_fmt: typing.Literal["abs", "rel"] = "abs", move_csv: bool = True) -> None:
     """
     Turns a .csv file as generated from FORGE viewer 'Chart/Export to cvs' to a qviewkit-compatible .h5 file, stored in the data folder
 
@@ -36,7 +36,7 @@ def forge_log_converter(csv_path: str|pathlib.Path, override_name: None|str = No
         data["time"] = ((data["time"] - init_timestamp) // pd.Timedelta("1ns"))*1e-9
     else:
         init_timestamp = False
-    
+
     # Make new file
     if override_name is None:
         override_name = csv_path.stem
