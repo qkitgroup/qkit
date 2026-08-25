@@ -18,14 +18,14 @@ class ZISetup(Instrument):
         self._session = Session(self._setup, log_level=logging.WARNING)
         self._session.connect(reset_devices=True)
         self._qubits = TunableTransmonQubit.from_device_setup(self._setup)
-        self._qops = TunableTransmonOperations()
-        self._qpu = QPU(self._qubits, quantum_operations=self._qops)
 
         # Register parameters for each qubit.
         parameters: QuantumParameters = self._qubits[0].parameters
         attributes = [entry for entry in dir(parameters) if not entry.startswith('_') and not callable(getattr(parameters, entry))]
         for key in attributes:
             inferred_type = type(getattr(parameters, key))
+            if inferred_type is int:
+                inferred_type = float
             if inferred_type is AttrDict:
                 inferred_type = dict
             elif inferred_type is NoneType:
@@ -35,7 +35,7 @@ class ZISetup(Instrument):
                                set_func=lambda value, channel, _key=key: setattr(self.get_qubit(channel).parameters, _key, value))
 
     def get_qpu(self) -> QPU:
-        return self._qpu
+        return QPU(self._qubits, quantum_operations=TunableTransmonOperations())
 
     def get_qubit(self, index: int) -> QuantumElement:
         return self._qubits[index]

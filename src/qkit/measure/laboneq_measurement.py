@@ -5,7 +5,7 @@ from laboneq.simple import *
 from qkit.drivers.ZISetup import ZISetup
 from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis
 
-from typing import Optional, List, Generator, Any
+from typing import Optional, List, Generator, Any, Callable
 
 import numpy as np
 
@@ -18,7 +18,7 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
     """
 
     _session: Session
-    _experiment: Experiment
+    _experiment: Experiment | Callable[[], Experiment]
     _structure: tuple['MeasurementTypeAdapter.DataDescriptor', ...]
 
     @staticmethod
@@ -36,13 +36,14 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
             else:
                 yield element
 
-    def __init__(self, setup: ZISetup, experiment: Experiment, unit: str = 'a.u.', axis_units: Optional[List[str]] = None):
+    def __init__(self, setup: ZISetup, experiment: Experiment | Callable[[], Experiment], unit: str = 'a.u.', axis_units: Optional[List[str]] = None):
         super().__init__()
         self._setup = setup
         self._session = self._setup.get_session()
         self._experiment = experiment
         log.debug("Compiling LabOneQ experiment for measurement structure inspection.")
-        compiled_experiment = self._session.compile(self._experiment)
+        exp_instance = self._experiment() if callable(self._experiment) else self._experiment
+        compiled_experiment = self._session.compile(exp_instance)
 
         log.debug("Starting emulated session...")
         emulated_session = Session(device_setup=compiled_experiment.device_setup, log_level=logging.WARNING)
@@ -53,7 +54,7 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         log.debug("Received emulated result. Building measurement structure...")
         self._structure = tuple()
         for (name, entry) in emulated_result.acquired_results.items():
-            sanitized = LabOneQMeasurement.sanitize_name(self._experiment.name) + "/" + LabOneQMeasurement.sanitize_name(name)
+            sanitized = LabOneQMeasurement.sanitize_name(exp_instance.name) + "/" + LabOneQMeasurement.sanitize_name(name)
             axis_names = list(LabOneQMeasurement.flatten(entry.axis_name))
             axes = tuple(LabOneQMeasurement.flatten(entry.axis))
             log.debug("Discovered result '%s' with '%d' axes called %s.", sanitized, len(axes), str(axis_names))
@@ -79,7 +80,8 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         return self._structure
 
     def perform_measurement(self) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
-        compiled_experiment = self._session.compile(self._experiment)
+        exp_instance = self._experiment() if callable(self._experiment) else self._experiment
+        compiled_experiment = self._session.compile(exp_instance)
         result: Results = self._session.run(compiled_experiment)
         def data_mapper(acquired_results):
             for (name, entry) in acquired_results.items():

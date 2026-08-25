@@ -1,6 +1,6 @@
 import numpy as np
 
-from qkit.analysis.circle_fit.circle_fit_2019.circuit import circuit
+from qkit.analysis.circle_fit.circle_fit_2019.circuit import circuit, reflection_port, notch_port
 from qkit.measure.unified_measurements import AnalysisTypeAdapter, MeasurementTypeAdapter, DataView, DataViewSet, \
     DataReference
 
@@ -10,8 +10,11 @@ class CircleFitAnalysis(AnalysisTypeAdapter):
     Perform circle fit analysis on a spectroscopy measurement.
     """
 
-    def __init__(self, ports = 2):
+    def __init__(self, ports = 2, amplitude_tag = 'amp', phase_tag = 'phase', autocorrect = False):
         self._ports = ports
+        self._amplitude_tag = amplitude_tag
+        self._phase_tag = phase_tag
+        self._autocorrect = autocorrect
 
     def expected_structure(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> tuple[
         'MeasurementTypeAdapter.DataDescriptor', ...]:
@@ -26,15 +29,15 @@ class CircleFitAnalysis(AnalysisTypeAdapter):
             MeasurementTypeAdapter.DataDescriptor("fit_imag", frequency_axis, "imag", "analysis"),
             MeasurementTypeAdapter.DataDescriptor("fit_mag", frequency_axis, "mag", "analysis"),
             MeasurementTypeAdapter.DataDescriptor("fit_phase", frequency_axis, "rad", "analysis"),
-            MeasurementTypeAdapter.DataDescriptor("Q_c", (), "", "analysis"),
-            MeasurementTypeAdapter.DataDescriptor("Q_c_abs", (), "", "analysis"),
-            MeasurementTypeAdapter.DataDescriptor("Q_c_min", (), "", "analysis"),
-            MeasurementTypeAdapter.DataDescriptor("Q_c_max", (), "", "analysis"),
-            MeasurementTypeAdapter.DataDescriptor("Q_i", (), "", "analysis"),
-            MeasurementTypeAdapter.DataDescriptor("Q_i_min", (), "", "analysis"),
-            MeasurementTypeAdapter.DataDescriptor("Q_i_max", (), "", "analysis"),
-            MeasurementTypeAdapter.DataDescriptor("Q_i_no_dia_corr", (), "", "analysis"),
-            MeasurementTypeAdapter.DataDescriptor("Q_l", (), "", "analysis"),
+            MeasurementTypeAdapter.DataDescriptor("q_c", (), "", "analysis"),
+            MeasurementTypeAdapter.DataDescriptor("q_c_abs", (), "", "analysis"),
+            MeasurementTypeAdapter.DataDescriptor("q_c_min", (), "", "analysis"),
+            MeasurementTypeAdapter.DataDescriptor("q_c_max", (), "", "analysis"),
+            MeasurementTypeAdapter.DataDescriptor("q_i", (), "", "analysis"),
+            MeasurementTypeAdapter.DataDescriptor("q_i_min", (), "", "analysis"),
+            MeasurementTypeAdapter.DataDescriptor("q_i_max", (), "", "analysis"),
+            MeasurementTypeAdapter.DataDescriptor("q_i_no_dia_corr", (), "", "analysis"),
+            MeasurementTypeAdapter.DataDescriptor("q_l", (), "", "analysis"),
             MeasurementTypeAdapter.DataDescriptor("a", (), "mag", "analysis"),
             MeasurementTypeAdapter.DataDescriptor("alpha", (), "rad", "analysis"),
             MeasurementTypeAdapter.DataDescriptor("delay", (), "s", "analysis"),
@@ -47,19 +50,20 @@ class CircleFitAnalysis(AnalysisTypeAdapter):
     def default_views(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> dict[
         str, "DataView"]:
         frequency = parent_schema[0].axes[0]
-        parent_amp_name = [entry.name for entry in parent_schema if 'amp' in entry.name][0]
-        parent_phase_name = [entry.name for entry in parent_schema if 'phase' in entry.name][0]
+        parent_amp_name = [entry.name for entry in parent_schema if self._amplitude_tag in entry.name][0]
+        parent_phase_name = [entry.name for entry in parent_schema if self._phase_tag in entry.name][0]
         return {
             "circle_fit": DataView(
                 view_params={
                     "labels": ("real", "imag"),
                     "plot_style": 1,
-                    "markersize": 5
+                    "markersize": 5,
+                    "aspect": 1.0
                 },
                 view_sets=[
                     DataViewSet( # Real data
-                        x_path=DataReference("real", category='analysis'),
-                        y_path=DataReference("imag", category='analysis'),
+                        x_path=DataReference("real", category='data'),
+                        y_path=DataReference("imag", category='data'),
                     ),
                     DataViewSet( # Fit result
                         x_path=DataReference("fit_real", category='analysis'),
@@ -105,12 +109,17 @@ class CircleFitAnalysis(AnalysisTypeAdapter):
 
     def perform_analysis(self, data: tuple['MeasurementTypeAdapter.GeneratedData', ...]) -> tuple[
         'MeasurementTypeAdapter.GeneratedData', ...]:
-        amp_data = [datum for datum in data if 'amp' in datum.descriptor.name][0]
-        phase_data = [datum for datum in data if 'phase' in datum.descriptor.name][0]
+        amp_data = [datum for datum in data if self._amplitude_tag in datum.descriptor.name][0]
+        phase_data = [datum for datum in data if self._phase_tag in datum.descriptor.name][0]
 
         frequencies = amp_data.descriptor.axes[0].range
         amplitudes = amp_data.data
-        phases = phase_data.data
+        # Unwrap and linearly correct data
+        if self._autocorrect:
+            unwrapped = np.unwrap(phase_data.data)
+            phases = unwrapped - np.nan_to_num(np.linspace(unwrapped[0], unwrapped[-1], len(unwrapped)))
+        else:
+            phases = phase_data.data
         z_data = amplitudes * np.exp(1j * phases)
 
         # precompute for storage later.
@@ -118,13 +127,17 @@ class CircleFitAnalysis(AnalysisTypeAdapter):
         real = np.real(z_data)
 
         # Perform the fit
-        fit = circuit(frequencies, z_data)
-        fit.n_ports = self._ports
+        if self._ports == 1:
+            fit: circuit = reflection_port(frequencies, z_data)
+        elif self._ports == 2:
+            fit: circuit = notch_port(frequencies, z_data)
+        else:
+            raise NotImplemented
         fit.autofit()
 
         results = [
             real, imag, # Converted measured data
-            fit.z_data_sim.real, fit.z_data_sim.imag, fit.z_data_sim.mag, fit.z_data_sim.phase, # Fitted data
+            fit.z_data_sim.real, fit.z_data_sim.imag, np.abs(fit.z_data_sim), np.angle(fit.z_data_sim), # Fitted data
             # The fit parameters
             # Quality factors
             fit.Qc, fit.absQc, fit.Qc_min, fit.Qc_max,
