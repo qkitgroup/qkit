@@ -3,7 +3,7 @@ import logging
 from laboneq.simple import *
 
 from qkit.drivers.ZISetup import ZISetup
-from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis
+from qkit.measure.unified_measurements import MeasurementTypeAdapter, Axis, DataGenerator
 
 from typing import Optional, List, Generator, Any
 
@@ -20,6 +20,7 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
     _session: Session
     _experiment: Experiment
     _structure: tuple['MeasurementTypeAdapter.DataDescriptor', ...]
+    _embedding_location: np.ndarray | None
 
     @staticmethod
     def sanitize_name(internal_name):
@@ -74,14 +75,25 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
         log.debug("Finished building measurement structure.")
         log.debug(f"Measurement structure: {self._structure}")
 
+    def configure_embedding(self, embedding):
+        self._embedding_location = embedding
+
     @property
     def expected_structure(self) -> tuple['MeasurementTypeAdapter.DataDescriptor', ...]:
         return self._structure
 
+    def _data_embedder(self, raw: np.ndarray, descriptor: DataGenerator.DataDescriptor) -> np.ndarray:
+        if self._embedding_location is None:
+            return raw
+        else:
+            embedding = np.empty(shape=descriptor.shape, dtype=raw.dtype)
+            embedding[self._embedding_location] = raw
+            return embedding
+
     def perform_measurement(self) -> tuple['MeasurementTypeAdapter.GeneratedData', ...]:
         compiled_experiment = self._session.compile(self._experiment)
         result: Results = self._session.run(compiled_experiment)
-        def data_mapper(acquired_results):
+        def data_mapper(acquired_results) -> Generator[np.ndarray, None, None]:
             for (name, entry) in acquired_results.items():
                 if np.iscomplexobj(entry.data):
                     yield np.real(entry.data)
@@ -91,7 +103,7 @@ class LabOneQMeasurement(MeasurementTypeAdapter):
                 else:
                     yield entry.data
         return tuple(
-            descriptor.with_data(datum) for descriptor, datum in zip(self._structure, data_mapper(result.acquired_results))
+            descriptor.with_data(self._data_embedder(datum, descriptor)) for descriptor, datum in zip(self._structure, data_mapper(result.acquired_results))
         )
 
     @staticmethod
