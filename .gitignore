@@ -32,3 +32,4 @@ notebooks/
 # User install
 qkit_local_config.py
 jupyter_lab_config.py
+launch.bat
