@@ -560,7 +560,6 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
         """
         pass
 
-    @abstractmethod
     def default_views(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> dict[str, "DataView"]:
         """
         A default set of views to be created for this kind of measurement. Can be empty.
@@ -624,10 +623,9 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         do_measurement: Fs False, the measurement is not performed, and data filled with Nones is returned.
             The analysis is run normaly and must be robust against this.
         """
-        if do_measurement:
-            self._run_config_hooks()
         try:
             if do_measurement:
+                self._run_config_hooks()
                 data = self.perform_measurement()
             else:
                 # Create None-data for the h5 file.
