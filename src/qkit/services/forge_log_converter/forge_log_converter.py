@@ -2,27 +2,31 @@ from qkit.storage.store import Data
 from qkit.storage.hdf_dataset import hdf_dataset
 from qkit.measure.json_handler import QkitJSONEncoder
 import pathlib, typing, json
-import pandas as pd # TODO: manually parse csv to avoid additional pandas dependency
+import pandas as pd # TODO: manually parse csv to avoid additional pandas dependency? -> probably not, datetime functionality too useful
 
 ALIAS: dict[str,str] = {
     "synthesium/m600dc/m600dc1_spc/actualCurrent": "dc_sputter_i",
     "synthesium/m600dc/m600dc1_spc/actualVoltage":"dc_sputter_v", 
     "synthesium/m600dc/m600dc1_spc/actualPower":"dc_sputter_p",
+    "synthesium/m600dc/m1600pdc2_spc/actualCurrent":"pdc_sputter_i",
+    "synthesium/m600dc/m1600pdc2_spc/actualVoltage":"pdc_sputter_v",
+    "synthesium/m600dc/m1600pdc2_spc/actualPower":"pdc_sputter_p",
     "synthesium/mkses/ar_20_sccm/ActualFlowSccm":"ar_mix_flow",
     "synthesium/mkses/n2/ActualFlowSccm":"n2_flow",
     "synthesium/gaugevalues/spc_bara/value":"spc_pressure_bara",
     "synthesium/gaugevalues/spc_hg/value": "spc_pressure_hg",
     "synthesium/quartzbalances/qb_spc/rate":"qb_rate",
+    "synthesium/axes/spc_z/positionActual":"height",
+    "synthesium/axes/spc_r1/positionActual":"angle_r1",
 }
 
-def forge_log_converter(csv_path: str|pathlib.Path, override_name: None|str = None, prompt_views: bool|typing.Iterable[list[str, typing.Iterable[int], typing.Iterable[int]]] = True, time_fmt: typing.Literal["abs", "rel"] = "abs", move_csv: bool = True) -> None:
+def forge_log_converter(csv_path: str|pathlib.Path, override_name: None|str = None, prompt_views: bool|typing.Iterable[list[str, typing.Iterable[int], typing.Iterable[int]]] = True, move_csv: bool = True) -> None:
     """
-    Turns a .csv file as generated from FORGE viewer 'Chart/Export to cvs' to a qviewkit-compatible .h5 file, stored in the data folder
+    Turns a .csv file as generated from FORGE viewer 'Chart/Export to cvs' or regular FORGE data acquisition to a qviewkit-compatible .h5 file, stored in the data folder
 
     csv_path: Path to to be converted file
     override_name: Name for the new .h5 file, if None the name from the .csv is used
     prompt_views: Whether to ask for adding additional views to the file or not. Alternatively the to be added views can be given directly in the format e.g. [["flows", [0,0], [1,2]],...] ordered by csv column number
-    time_fmt: Whether time axis is stored as absolute date-time or relative to start
     move_csv: Moves the parsed csv file to the data folder
     """
     # Read csv to pandas
@@ -30,12 +34,22 @@ def forge_log_converter(csv_path: str|pathlib.Path, override_name: None|str = No
         csv_path = pathlib.Path(csv_path)
     with open(csv_path, encoding="utf8") as df:
         data = pd.read_csv(df)
-    if time_fmt == "abs": # TODO: Infer this automatically from file?
-        data["time"] = pd.to_datetime(data['time'])
-        init_timestamp = data["time"][0]
-        data["time"] = ((data["time"] - init_timestamp) // pd.Timedelta("1ns"))*1e-9
+    if data.shape[-1] == 1: # lets try this again...
+        with open(csv_path, encoding="utf8") as df:
+            data = pd.read_csv(df, delimiter=";")
+
+    # Handle different time formats
+    if "Relative time [s]" in data:
+        data["time"] = data["Relative time [s]"]
+        init_timestamp = data["Date"][0]
     else:
-        init_timestamp = False
+        if pd.to_datetime(data["time"][0]) < pd.to_datetime("2026-01-01"):
+            init_timestamp = pd.to_datetime("2026-01-01") # default value if we don't know the actual start time
+            # time (very likely?) already in correct seconds format
+        else:
+            data["time"] = pd.to_datetime(data['time'])
+            init_timestamp = data["time"][0]
+            data["time"] = ((data["time"] - init_timestamp) // pd.Timedelta("1ns"))*1e-9
 
     # Make new file
     if override_name is None:
@@ -53,7 +67,7 @@ def forge_log_converter(csv_path: str|pathlib.Path, override_name: None|str = No
 
     col: str
     for col in data:
-        if col == "time":
+        if col == "time" or col == "Date" or col == "Relative time [s]":
             continue
         try:
             val_name = ALIAS[col.split("[")[0][:-1]]
