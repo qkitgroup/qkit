@@ -1,12 +1,15 @@
 import numpy as np
 import scipy as sp
-import matplotlib.pyplot as plt
 from qkit.measure.utils.spectroscopy_tools import ModelGuidedExtremumTracker
 
 def test_modelled_resonance_tracker():
     data = [simulate_detection(35, 4) for i in range(1000)]
-    plt.hist(data, bins=range(30, 41, 1))
-    plt.show()
+    try:
+        import matplotlib.pyplot as plt
+        plt.hist(data, bins=range(30, 41, 1))
+        plt.show()
+    except ImportError:
+        pass
 
 def simulate_detection(true_peak, guess_deviation):
     frequencies = np.linspace(0, 100, 100)
