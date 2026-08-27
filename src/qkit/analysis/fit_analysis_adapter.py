@@ -14,6 +14,7 @@ class FitAnalysisAdapter(AnalysisTypeAdapter):
     def __init__(self, fit_function: Callable, dataset_phrase: str,
                  p0: Union[tuple[FitParam, ...], Callable[[np.ndarray, np.ndarray], tuple[FitParam, ...]]],
                  post_hook: Union[Callable, None] = None, fit_name: str = 'fit_curve'):
+        self.synth_desc = None
         self.fit_function = fit_function
         self.dataset_phrase = dataset_phrase
         self.p0 = p0
@@ -28,8 +29,8 @@ class FitAnalysisAdapter(AnalysisTypeAdapter):
     def expected_structure(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> tuple[
         'MeasurementTypeAdapter.DataDescriptor', ...]:
         relevant_descriptor = [desc for desc in parent_schema if self.dataset_phrase in desc.name][0]
-        synth_desc = DataGenerator.DataDescriptor(name=self.fit_name, unit=relevant_descriptor.unit, axes=relevant_descriptor.axes, category='analysis')
-        return self.structure + (synth_desc,)
+        self.synth_desc = DataGenerator.DataDescriptor(name=self.fit_name, unit=relevant_descriptor.unit, axes=relevant_descriptor.axes, category='analysis')
+        return self.structure + (self.synth_desc,)
 
     def default_views(self, parent_schema: tuple['MeasurementTypeAdapter.DataDescriptor', ...]) -> dict[str, "DataView"]:
         relevant_descriptor = [desc for desc in parent_schema if self.dataset_phrase in desc.name][0]
@@ -65,5 +66,5 @@ class FitAnalysisAdapter(AnalysisTypeAdapter):
         synthetic_data = self.fit_function(x, *popt)
         return tuple(
             desc.with_data(opt_param)
-            for (desc, opt_param) in zip(self.structure[:-1], popt)
-        ) + (self.structure[-1].with_data(synthetic_data),)
+            for (desc, opt_param) in zip(self.structure, popt)
+        ) + (self.synth_desc.with_data(synthetic_data),)
