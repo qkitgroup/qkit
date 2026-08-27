@@ -34,7 +34,7 @@ class FitAnalysisAdapter(AnalysisTypeAdapter):
         y = relevant_data.data
 
         start_params = self.p0(x, y) if callable(self.p0) else self.p0
-        popt, pcov = curve_fit(self.fit_function, x, y, p0=(param.init_value for param in start_params))
+        popt, pcov = curve_fit(self.fit_function, x, y, p0=tuple(param.init_value for param in start_params))
         self.post_hook(popt, pcov)
         return tuple(
             desc.with_data(opt_param)
