@@ -65,5 +65,5 @@ class FitAnalysisAdapter(AnalysisTypeAdapter):
         synthetic_data = self.fit_function(x, *popt)
         return tuple(
             desc.with_data(opt_param)
-            for (desc, opt_param) in zip(self.structure, popt + (synthetic_data,))
+            for (desc, opt_param) in zip(self.structure, np.concat(popt, synthetic_data))
         )
