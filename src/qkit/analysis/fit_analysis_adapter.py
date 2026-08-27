@@ -30,7 +30,7 @@ class FitAnalysisAdapter(AnalysisTypeAdapter):
     def perform_analysis(self, data: tuple['MeasurementTypeAdapter.GeneratedData', ...]) -> tuple[
         'MeasurementTypeAdapter.GeneratedData', ...]:
         relevant_data = [datum for datum in data if self.dataset_phrase in datum.descriptor.name][0]
-        x = relevant_data.descriptor.axes[0]
+        x = relevant_data.descriptor.axes[0].range
         y = relevant_data.data
 
         start_params = self.p0(x, y) if callable(self.p0) else self.p0
