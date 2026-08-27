@@ -396,6 +396,7 @@ class DataGenerator(ABC):
 
         def __post_init__(self):
             assert isinstance(self.name, str), "Name must be a string!"
+            assert self.name.islower(), "Name must be a lower-cased string, otherwise h5 backend fails!"
             assert isinstance(self.axes, tuple), "Axes must be a tuple!"
             for axis in self.axes:
                 assert isinstance(axis, Axis), "Axes must be a tuple of Axis objects!"
