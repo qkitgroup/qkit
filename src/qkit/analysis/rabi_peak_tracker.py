@@ -19,7 +19,7 @@ class RabiPeakTracker(AnalysisTypeAdapter):
     def perform_analysis(self, data: tuple['MeasurementTypeAdapter.GeneratedData', ...]) -> tuple[
         'MeasurementTypeAdapter.GeneratedData', ...]:
         data = [datum for datum in data if self.dataset_phrase in datum.descriptor.name][0]
-        x_axis = data.descriptor.axes[0]
+        x_axis = data.descriptor.axes[0].range
         signal_strength = np.std(data.data)
         maximum_frequency = x_axis[np.argmax(signal_strength)]
         self.post_hook(maximum_frequency)
