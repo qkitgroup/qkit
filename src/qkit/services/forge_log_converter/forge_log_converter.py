@@ -11,13 +11,34 @@ ALIAS: dict[str,str] = {
     "synthesium/m600dc/m1600pdc2_spc/actualCurrent":"pdc_sputter_i",
     "synthesium/m600dc/m1600pdc2_spc/actualVoltage":"pdc_sputter_v",
     "synthesium/m600dc/m1600pdc2_spc/actualPower":"pdc_sputter_p",
-    "synthesium/mkses/ar_20_sccm/ActualFlowSccm":"ar_mix_flow",
+    "synthesium/ag0313/ag0613/actualCurrent":"rf_sputter_i",
+    "synthesium/ag0313/ag0613/actualVoltage":"rf_sputter_v",
+    "synthesium/ag0313/ag0613/actualPower":"rf_sputter_p",
+    "synthesium/ag0313/ag0613/actualForwardPower":"rf_sputter_forward",
+    "synthesium/ag0313/ag0613/actualReflectedPower":"rf_sputter_reflect",
+    "synthesium/ag0313/ag0613/actualDCBias":"rf_sputter_bias",
+    "synthesium/mkses/ar_100_sccm/ActualFlowSccm":"ar_large_flow",
+    "synthesium/mkses/ar_20_sccm/ActualFlowSccm":"ar_flow",
+    "synthesium/mkses/ar_ox/ActualFlowSccm":"arox_flow",
     "synthesium/mkses/n2/ActualFlowSccm":"n2_flow",
-    "synthesium/gaugevalues/spc_bara/value":"spc_pressure_bara",
+    "synthesium/mkses/o2/ActualFlowSccm":"o2_flow",
     "synthesium/gaugevalues/spc_hg/value": "spc_pressure_hg",
+    "synthesium/gaugevalues/spc_bara/value":"spc_pressure_bara",
+    "synthesium/gaugevalues/spc_fg/value": "spc_pressure_fg",
+    "synthesium/gaugevalues/oxi_hg/value":"oxi_pressure_hg",
+    "synthesium/gaugevalues/oxi_hg2/value":"oxi_pressure_hg2",
+    "synthesium/gaugevalues/oxi_hg3/value":"oxi_pressure_hg3",
+    "synthesium/gaugevalues/oxi_fg/value":"oxi_pressure_fg",
+    "synthesium/gaugevalues/ll_hg/value":"ll_pressure_hg",
+    "synthesium/gaugevalues/ll_fg/value":"ll_pressure_fg",
     "synthesium/quartzbalances/qb_spc/rate":"qb_rate",
     "synthesium/axes/spc_z/positionActual":"height",
     "synthesium/axes/spc_r1/positionActual":"angle_r1",
+    "synthesium/axes/spc_r2/positionActual":"angle_r2",
+    "synthesium/heat3/heat3_oxi/thermocouple1":"oxi_heater_temp",
+    "synthesium/heat3/heat3_spc/thermocouple1":"spc_heater_temp",
+    "synthesium/heatings/heating_res_oxi/heaterPcActual":"oxi_heater_power",
+    "synthesium/heatings/heating_res_spc/heaterPcActual":"spc_heater_power",
 }
 
 def forge_log_converter(csv_path: str|pathlib.Path, override_name: None|str = None, prompt_views: bool|typing.Iterable[list[str, typing.Iterable[int], typing.Iterable[int]]] = True, move_csv: bool = True) -> None:
@@ -25,7 +46,7 @@ def forge_log_converter(csv_path: str|pathlib.Path, override_name: None|str = No
     Turns a .csv file as generated from FORGE viewer 'Chart/Export to cvs' or regular FORGE data acquisition to a qviewkit-compatible .h5 file, stored in the data folder
 
     csv_path: Path to to be converted file
-    override_name: Name for the new .h5 file, if None the name from the .csv is used
+    override_name: Name for the new .h5 file, if None the name of the .csv is used
     prompt_views: Whether to ask for adding additional views to the file or not. Alternatively the to be added views can be given directly in the format e.g. [["flows", [0,0], [1,2]],...] ordered by csv column number
     move_csv: Moves the parsed csv file to the data folder
     """
