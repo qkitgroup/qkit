@@ -64,12 +64,19 @@ class DateTimeGenerator(object):
             filename += '_' + str(name)
         self.returndict['_filename'] = filename + '.h5'
         '''New filename with datadir/run_id/user/uuid_name/uuid_name.h5'''
+
+        path_components = [
+            qkit.cfg.get('run_id', 'NO_RUN').strip().replace(" ", "_").upper(),
+            qkit.cfg.get('user', 'John_Doe').strip().replace(" ", "_")
+        ]
+
+        path_extension = qkit.cfg.get('path_extension')
+        if path_extension is not None and path_extension:
+            path_components.append(str(path_extension))
         
-        self.returndict['_relfolder'] = os.path.join(
-                qkit.cfg.get('run_id', 'NO_RUN').strip().replace(" ", "_").upper(),
-                qkit.cfg.get('user', 'John_Doe').strip().replace(" ", "_"),
-                filename
-        )
+        path_components.append(filename)
+        
+        self.returndict['_relfolder'] = os.path.join(*path_components)
 
 
 def encode_uuid(value):
