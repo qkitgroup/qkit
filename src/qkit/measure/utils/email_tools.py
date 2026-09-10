@@ -1,4 +1,7 @@
 import logging
+import time
+import traceback
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import List
 
@@ -47,3 +50,31 @@ class EmailConfiguration:
 
         payload = header_payload + "\r\n" + content
         self.server.send_email(self.sender.address, [recp.address for recp in self.recipients], payload)
+
+@dataclass(frozen=True)
+class ExecutionMonitor(AbstractContextManager):
+    email_config: EmailConfiguration
+    task_name: str
+    subject_tag: str = "AEM"
+    exec_start_subject: str = "Execution Started"
+    exec_end_subject: str = "Execution Ended"
+    exec_failed_subject: str = "Execution Failed"
+
+    def _format_status_message(self, condition: str, details: str | None = None) -> str:
+        message = f"Task: {self.task_name}\r\nStatus: {condition}\r\nTime: {time.strftime('%H:%M:%S')}\r\nMonitored by Wrapper.\r\n"
+        if details:
+            message += "\r\n" + details + "\r\n"
+        return message
+
+    def __enter__(self):
+        subject = f"[{self.subject_tag}] {self.task_name}: {self.exec_start_subject}"
+        self.email_config.send(subject, self._format_status_message(self.exec_start_subject))
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if not exc_type:
+            self.email_config.send(self.exec_end_subject, self._format_status_message(self.exec_end_subject))
+        else:
+            details = f"Exception: {exc_type.__name__}: {exc_val}\r\n"
+            details += "\r\n".join(traceback.format_tb(exc_tb))
+            self.email_config.send(self.exec_failed_subject, details)
+
