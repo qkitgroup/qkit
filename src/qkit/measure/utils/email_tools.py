@@ -71,12 +71,12 @@ class ExecutionMonitor(AbstractContextManager):
         self.email_config.send(subject, self._format_status_message(self.exec_start_subject))
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if not exc_type:
-            subject = f"[{self.subject_tag}] {self.task_name}: {self.exec_end_subject}"
-            self.email_config.send(subject, self._format_status_message(self.exec_end_subject))
-        else:
+        if exc_type is not None or exc_val is not None or exc_tb is not None:
             subject = f"[{self.subject_tag}] {self.task_name}: {self.exec_failed_subject}"
             details = f"Exception: {exc_type.__name__}: {exc_val}\r\n"
             details += "\r\n".join(traceback.format_tb(exc_tb))
             self.email_config.send(subject, details)
+        else:
+            subject = f"[{self.subject_tag}] {self.task_name}: {self.exec_end_subject}"
+            self.email_config.send(subject, self._format_status_message(self.exec_end_subject))
 
