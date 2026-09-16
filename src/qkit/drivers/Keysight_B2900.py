@@ -89,6 +89,7 @@ class Keysight_B2900(Instrument):
         self._IV_modes = {0: 'curr', 1: 'volt', 2: 'res'}
         self._IV_units = {0: 'A', 1: 'V', 2: 'Ohm'}
         self._sense_mode = {i + 1: 0 for i in range(self._channels)}
+        self._switch_display_sweep = True
         # dict of defaults values: defaults[<sweep_mode>][<channel>][<parameter>][<value>]
         self._defaults = {0: [{self.set_measurement_mode: 0,
                                self.set_bias_mode: 1,
@@ -1992,7 +1993,7 @@ class Keysight_B2900(Instrument):
                 self._write(':trig{:d}:all:count {:d}'.format(channel_sense, self._get_sweep_nop(channel=channel_sense)))
                 # general
                 self.set_sync(True)
-                self.set_display('dual')
+                self.set_display('dual') if self._switch_display_sweep else None
             except Exception as e:
                 logging.error('{!s}: Cannot set sweep parameters of channels {!s} to {!s}'.format(__name__, self._sweep_channels, sweep))
                 raise type(e)('{!s}: Cannot set sweep parameters of channels {!s} to {!s}\n{!s}'.format(__name__, self._sweep_channels, sweep, e))
@@ -2012,7 +2013,7 @@ class Keysight_B2900(Instrument):
                 self._write(':trig:acq:sour aint')
                 self._write(':trig:tran:sour aint')
                 self._write(':trig:all:count {:d}'.format(self._get_sweep_nop(channel=channel_bias)))
-                self.set_display('grap')
+                self.set_display('grap') if self._switch_display_sweep else None
                 ### TODO: auto scale display
             except Exception as e:
                 logging.error('{!s}: Cannot set sweep parameters of channel {!s} to {!s}'.format(__name__, self._sweep_channels, sweep))

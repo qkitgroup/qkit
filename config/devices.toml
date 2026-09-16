@@ -1,0 +1,73 @@
+# Probestation Setup
+[probestation-multimeter]
+instype="Keysight_B2900"
+address="TCPIP0::10.22.197.137::INSTR"
+
+# Multimeters and Current Sources
+[cs-129]
+instype="Keysight_B2900"
+address="TCPIP0::10.22.197.129::INSTR"
+
+[cs-130]
+instype="Keysight_B2900"
+address="TCPIP0::10.22.197.130::INSTR"
+
+[qdevil]
+instype="qdevil_qdacII"
+address="10.22.197.176"
+
+# Microwave Switches
+[switch-edel]
+instype="switch_client"
+url="tcp://10.22.197.200:5000"
+
+[switch-perl]
+instype="switch_client"
+url="tcp://10.22.197.179:5000"
+
+# Thermometry Clients
+[tip-edel]
+instype="tip2_client"
+url="tcp://pi-us46:5000"
+
+[tip-perl]
+instype="tip2_client"
+url="tcp://pi-us45:5000"
+
+# VNAs
+[vna-131]
+instype="Keysight_VNA_E5080B"
+address="TCPIP0::10.22.197.131::INSTR"
+
+[vna-132]
+instype="Keysight_VNA_E5080B"
+address="TCPIP0::10.22.197.132::INSTR"
+
+[vna-136]
+instype="Keysight_VNA_E5080B"
+address="TCPIP0::10.22.197.136::INSTR"
+
+# Microwave Sources
+[mw-133]
+instype="Keysight_N5173B"
+address="TCPIP0::10.22.197.133::INSTR"
+
+[mw-134]
+instype="Keysight_N5173B"
+address="TCPIP0::10.22.197.134::INSTR"
+
+[mw-135]
+instype="Keysight_N5173B"
+address="TCPIP0::10.22.197.135::INSTR"
+
+[mw-94]
+instype="Keysight_N5173B"
+address="TCPIP0::10.22.197.94::INSTR"
+
+[mw-21]
+instype="Anritsu_MG37022"
+address="TCPIP0::10.22.197.21::INSTR"
+
+[mw-151]
+instype="RS_SGMA"
+address="TCPIP0::10.22.197.151::INSTR"
