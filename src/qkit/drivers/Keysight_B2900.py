@@ -2019,6 +2019,69 @@ class Keysight_B2900(Instrument):
                 logging.error('{!s}: Cannot set sweep parameters of channel {!s} to {!s}'.format(__name__, self._sweep_channels, sweep))
                 raise type(e)('{!s}: Cannot set sweep parameters of channel {!s} to {!s}\n{!s}'.format(__name__, self._sweep_channels, sweep, e))
         return
+    def set_sine_wave_voltage_list_sweep(self, voltage, frequency, n_points=2500, channel=1):
+        """
+        Configures the Keysight B2901A to generate a sine wave using List Sweep.
+
+        Parameters
+        ----------
+        voltage : float
+            Peak amplitude of the sine wave in volts.
+        frequency : float
+            Frequency of the sine wave in Hz.
+        n_points : int
+            Number of points to build the sine wave.
+        channel : int, optional
+            Channel number (default: 1).
+
+        Returns
+        -------
+        None
+        """
+        try:
+            # Generate sine wave points
+            x = np.linspace(0, n_points-1, n_points)
+            voltage_points = voltage * np.sin(2 * np.pi * x / n_points) #one period independent of frequency
+
+            # Convert voltage points to a comma-separated string
+            voltage_points_str = ', '.join([str(v) for v in voltage_points])
+            
+            # Set the list sweep mode
+            self._write(f':SOUR{channel}:VOLT:MODE LIST')
+            
+            # Set the list sweep voltage points
+            self._write(f':SOUR{channel}:LIST:VOLT {voltage_points_str}')
+
+            # Set the number of points
+            self._write(f':SOUR{channel}:SWE:POIN {len(voltage_points)}')
+
+            # Set linear spacing
+            self._write(f':SOUR{channel}:SWE:SPAC LIN')
+
+            # Set sweep direction
+            self._write(f':SOUR{channel}:SWE:DIR UP')
+
+            # Configure the trigger (MANUAL)
+            self._write(f':TRIG{channel}:SOUR TIM')
+            #set time period between two points and number of points
+            period = 1 / (n_points *frequency)  # Time between points
+            self._write(f':TRIG{channel}:TIM {period}')
+            self._write(f':TRIG{channel}:COUN {n_points}')
+            
+            #Configure ARM layer: loop infinitly the sweep list
+            self._write(f':ARM{channel}:COUN INF')
+            
+            # Enable the output
+            #self._write(f':OUTP{channel} ON')
+            
+            # Initialize and start the sweep immediately
+            #self._write(f':INIT{channel}:IMM')  # Start the sweep
+
+            logging.debug(f'{__name__}: Sine wave configured on channel {channel} using List Sweep')
+
+        except Exception as e:
+            logging.error(f'{__name__}: Failed to configure sine wave on channel {channel}')
+            raise type(e)(f'{__name__}: Failed to configure sine wave on channel {channel}\n{e}')
 
     def get_tracedata(self):
         """
