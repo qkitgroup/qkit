@@ -120,23 +120,6 @@ def test_nested_filtered_sweep(dummy_instruments_class):
     print(e)
     e.run(open_qviewkit=True)
 
-def test_dimensionality_calculations():
-    log_measure = SweepInspectorMeasurement()
-
-    e = Experiment('filter_test', SAMPLE)
-    assert e.dimensionality == 0, "Default dimensionality should be 0"
-
-    e.measure(log_measure)
-    assert e.dimensionality == 1, "1D array of points is 1D"
-
-    e.measure(log_measure)
-    assert e.dimensionality == 1, "Two 1D arrays of points is 1D"
-
-    with e.sweep(log_measure.log, X_SWEEP_AXIS) as x_sweep:
-        x_sweep.measure(log_measure)
-
-    assert e.dimensionality == 2, "Sweep and 1D array is 2D"
-
 class SinusGeneratorMeasurement(MeasurementTypeAdapter):
 
     signal: MeasurementTypeAdapter.DataDescriptor

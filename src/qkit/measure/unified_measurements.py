@@ -6,7 +6,7 @@ from os import PathLike
 
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Protocol, Literal, Iterable, Any, Union, Self, List
+from typing import Optional, Callable, Protocol, Literal, Iterable, Any, Union, Self, List, TypeVar
 
 import textwrap
 import json
@@ -88,22 +88,20 @@ class EnterableWrapper:
     def __exit__(self, *args):
         pass
 
-class ParentOfSweep(ABC):
+class ASTNode(ABC):
     """
-    Abstract class handling the relationship to sweeps.
-
-    Has a single child sweep. Can be called upon to perform the sweep.
+    Abstract class handling the relationship to sweeps and measurements.
     """
-    _sweep_children: List['Sweep']
+    _children: List['ASTNode']
 
     def __init__(self) -> None:
         super().__init__()
-        self._sweep_children = []
+        self._children = []
 
     def sweep(self,
               setter: Callable[[float], None],
               axis: 'Axis',
-              axis_filter: Optional[Callable[[np.ndarray], np.ndarray]] = None) -> EnterableWrapper:
+              axis_filter: Optional['FilterCallback'] = None) -> EnterableWrapper:
         """
         Create a sweep over some axis (optionally filtered), setting the value using the setter.
 
@@ -116,33 +114,8 @@ class ParentOfSweep(ABC):
         >>>     pass # Do something, e.g., measure on each position.
         """
         s = Sweep(setter=setter, axis=axis, axis_filter=axis_filter)
-        self._sweep_children.append(s)
+        self._children.append(s)
         return EnterableWrapper(s)
-
-    def _run_child_sweep(self, data_file, index_list: tuple[int, ...]):
-        for sweep in self._sweep_children:
-            sweep._run_sweep(data_file, index_list)
-
-    @property
-    def _child_dimensionality(self):
-        if len(self._sweep_children) > 0:
-            return max([sweep.dimensionality for sweep in self._sweep_children])
-        else:
-            return 0
-
-
-class ParentOfMeasurements(ABC):
-    """
-    Abstract class handling the ownership of measurements and running them.
-
-    Can have multiple measurements and manages them (calls them for creation of datasets and running the measurements).
-    """
-
-    _measurements: list['MeasurementTypeAdapter']
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._measurements = []
 
     def measure(self, measurement_type: 'MeasurementTypeAdapter'):
         """
@@ -154,32 +127,19 @@ class ParentOfMeasurements(ABC):
         >>>     x_sweep.measure(ScalarMeasurement('const', lambda: 1.0))
         """
         assert isinstance(measurement_type, MeasurementTypeAdapter), "Measurement type must be an instance of MeasurementTypeAdapter!"
-        self._measurements.append(measurement_type)
+        self._children.append(measurement_type)
 
-    @property
-    def _largest_measurement_dimension(self):
-        """
-        Get the largest dimensionality of all measurements.
-        """
-        if len(self._measurements) == 0:
-            return 0
-        return max(map(lambda m: m.dimension, self._measurements))
+    @abstractmethod
+    def execute(self, data_file, index_list: tuple[int, ...], do_measure: bool = True):
+        pass
 
+    def _run_children(self, data_file, index_list: tuple[int, ...], do_measure: bool = True):
+        for child in self._children:
+            child.execute(data_file, index_list, do_measure)
+
+    @abstractmethod
     def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf_dataset]):
-        """
-        Based on the measurements and parent sweeps, create the datasets.
-        """
-        for measurement in self._measurements:
-            measurement_log.debug(f"Creating dataset for {measurement.__str__()}")
-            measurement.create_datasets(data_file, swept_axes)
-
-    def run_measurements(self, data_file: hdf.Data, index_list: tuple[int, ...], do_measure: bool = True):
-        """
-        Run the measurements and handle the acquired data.
-        """
-        for measurement_type in self._measurements:
-            measurement_type.record(data_file, index_list, do_measure)
-
+        pass
 
 class FilterCallback(Protocol):
     """
@@ -189,7 +149,7 @@ class FilterCallback(Protocol):
         pass
 
 
-class Sweep(ParentOfSweep, ParentOfMeasurements):
+class Sweep(ASTNode):
     """
     Describes a sweep of some parameter set with the setter over some range.
 
@@ -204,7 +164,6 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
 
     def __init__(self, setter: Callable[[float], None], axis: 'Axis', axis_filter: Optional[FilterCallback]=None) -> None:
         super().__init__()
-        super(ParentOfSweep, self).__init__()
         assert callable(setter)
         assert isinstance(axis, Axis)
         assert axis_filter is None or callable(axis_filter)
@@ -228,7 +187,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
             mask = np.full_like(self._axis.range, True, dtype=bool)
         return zip(np.arange(len(self._axis.range)), self._axis.range, mask), len(self._axis.range)
 
-    def _run_sweep(self, data_file: hdf.Data, index_list: tuple[int, ...], parent_do_measure: bool = True):
+    def execute(self, data_file, index_list: tuple[int, ...], do_measure: bool = True):
         """
         Internal function to run the sweep. You should not call this outside measurement_base.py!
 
@@ -239,8 +198,8 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         """
         sweep, size = self._generate_enumeration(data_file)
         try:
-            for index, value, do_measure in tqdm(sweep, desc=self._axis.name, bar_format=bar_format(), total=size, leave=False):
-                if parent_do_measure and do_measure:
+            for index, value, loop_do_measure in tqdm(sweep, desc=self._axis.name, bar_format=bar_format(), total=size, leave=False):
+                if do_measure and loop_do_measure:
                     # Skip setting parameters if either we or our parent decided not to.
                     measurement_log.debug(f"Sweeping {self._axis.name} index: {index} value: {value}")
                     try:
@@ -252,11 +211,7 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
 
                 new_indices = index_list + (index,)
 
-                self.run_measurements(data_file, new_indices, do_measure=do_measure and parent_do_measure)
-
-                # Go down the nested sweeps.
-                for sweep in self._sweep_children:
-                    sweep._run_sweep(data_file, new_indices, parent_do_measure=do_measure and parent_do_measure)
+                self._run_children(data_file, new_indices, do_measure=do_measure and loop_do_measure)
         finally:
             # Reset the 'current value',
             self._current_value = None
@@ -264,23 +219,17 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
     def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf_dataset]):
         measurement_log.debug(f"Dataset creation passing sweep of {self._axis.name}")
         swept_axes.append(self._axis.get_data_axis(data_file))
-        super().create_datasets(data_file, swept_axes)
-        for sweep in self._sweep_children:
-            sweep.create_datasets(data_file, swept_axes)
+        for child in self._children:
+            child.create_datasets(data_file, swept_axes)
+
 
     def __str__(self):
         setter_name = self._setter.__qualname__
         filter_repr = self._filter.__qualname__ if self._filter is not None else "None"
         self_repr = f"Sweep(setter={setter_name}, range={str(self._axis)}, filter={filter_repr})"
-        for measurement in self._measurements:
-            self_repr += '\n' + textwrap.indent(str(measurement), '\t')
-        if self._sweep_children is not None:
-            self_repr += '\n' + textwrap.indent(str(self._sweep_children), '\t')
+        for child in self._children:
+            self_repr += '\n' + textwrap.indent(str(child), '\t')
         return self_repr
-
-    @property
-    def dimensionality(self):
-        return 1 + max(self._largest_measurement_dimension, self._child_dimensionality)
 
     @property
     def current_value(self):
@@ -310,8 +259,6 @@ class ContinuousTimeSeriesSweep(Sweep):
                 yield counter, new_time
                 counter += 1
         return sweep_generator(), None
-
-
 
 
 @dataclass(frozen=True)
@@ -575,7 +522,7 @@ class AnalysisTypeAdapter(DataGenerator, ABC):
         """
         pass
 
-class MeasurementTypeAdapter(DataGenerator, ABC):
+class MeasurementTypeAdapter(DataGenerator, ASTNode, ABC):
     """
     A high-level Adapter Interface to the Measurement Type Specific Code.
 
@@ -617,7 +564,7 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
             measurement_log.debug(f"Creating analysis datasets for {analysis}.")
             analysis.create_datasets(data_file, self.expected_structure, swept_axes)
 
-    def record(self, data_file: hdf.Data, sweep_indices: tuple[int, ...], do_measurement: bool = True):
+    def execute(self, data_file: hdf.Data, index_list: tuple[int, ...], do_measure: bool = True):
         """
         Perform the measurement and record the results.
 
@@ -625,7 +572,7 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
             The analysis is run normaly and must be robust against this.
         """
         try:
-            if do_measurement:
+            if do_measure:
                 self._run_config_hooks()
                 data = self.perform_measurement()
             else:
@@ -636,14 +583,14 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
             raise e
         else:
             try:
-                self.store(data_file, data, sweep_indices)
+                self.store(data_file, data, index_list)
             except Exception as e:
                 measurement_log.error(f"Storing data failed for {type(self).__name__}.", exc_info=e)
                 measurement_log.error(f"Data: {data}")
                 measurement_log.error(f"Expected structure: {self.expected_structure}")
                 raise e
             for analysis in self._analyses:
-                analysis.record(data_file, sweep_indices, data)
+                analysis.record(data_file, index_list, data)
 
     def _run_config_hooks(self):
         for hook in self._config_hooks:
@@ -674,13 +621,6 @@ class MeasurementTypeAdapter(DataGenerator, ABC):
         assert callable(config_hook), "Configuration hook must be callable!"
         self._config_hooks.append(config_hook)
         return self
-    
-    @property
-    def dimension(self):
-        """
-        Determine the dimensionality of the measurement as the maximum dimensionality of any expected structure.
-        """
-        return max(map(lambda es: es.dimension, self.expected_structure))
 
     @property
     @abstractmethod
@@ -734,7 +674,7 @@ class ScalarMeasurement(MeasurementTypeAdapter):
         return (self._descriptor.with_data(self._getter()),)
 
 
-class Experiment(ParentOfSweep, ParentOfMeasurements):
+class Experiment(ASTNode):
     """
     The main experiment class and root of all sweeps and measurements.
 
@@ -757,7 +697,6 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         Create an experiment with the given name and sample.
         """
         super().__init__()
-        super(ParentOfSweep, self).__init__()
         self._name = name
         self._sample = sample
         self._comment = None
@@ -774,22 +713,22 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         Creates an endless timeseries. Only supported as the root of sweeps.
         """
         sweep = ContinuousTimeSeriesSweep(stop_after=stop_after)
-        self._sweep_children = [sweep]
+        self._children.append(sweep)
         return EnterableWrapper(sweep)
-
-    @property
-    def dimensionality(self):
-        """
-        Recursively calculate the maximum dimensionality of the experiment.
-        """
-        return max(self._largest_measurement_dimension, self._child_dimensionality)
 
     @property
     def _filename(self):
         """
         Derive the filename based on the largest dimension and the user provided name.
         """
-        return f"{self.dimensionality}D_{self._name}"
+        return f"unified_{self._name}"
+
+    def execute(self, data_file, index_list: tuple[int, ...], do_measure: bool = True):
+        self._run_children(data_file, index_list, do_measure)
+
+    def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf_dataset]):
+        for child in self._children:
+            child.create_datasets(data_file, [])
 
     def run(self, open_qviewkit: bool = True, open_datasets: Optional[list["DataReference"]] = None) -> PathLike:
         """
@@ -808,8 +747,6 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             # Recurse down the tree to create datasets.
             measurement_log.debug(f"Creating measurement datasets for {self._name}.")
             self.create_datasets(data_file, [])
-            for sweep_child in self._sweep_children:
-                sweep_child.create_datasets(data_file, [])
 
             # Get Instrument settings, write to a file
             measurement_log.debug("Writing instrument settings to file...")
@@ -853,8 +790,7 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
 
             # Everything is prepared. Do the actual measurement.
             measurement_log.info("Starting measurement")
-            self.run_measurements(data_file, ())
-            self._run_child_sweep(data_file, ())
+            self.execute(data_file, (), do_measure=True)
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -871,11 +807,8 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
 
     def __str__(self):
         desc = f"Experiment: ({self._comment})"
-        for measurement in self._measurements:
-            desc += '\n' + textwrap.indent(str(measurement), '\t')
-        desc += '\r\n'
-        for sweep_child in self._sweep_children:
-            desc += '\n' + textwrap.indent(str(sweep_child), '\t')
+        for child in self._children:
+            desc += '\n' + textwrap.indent(str(child), '\t')
         return desc
 
 @dataclass(frozen=True)
