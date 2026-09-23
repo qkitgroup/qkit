@@ -265,3 +265,12 @@ def test_nesting(dummy_instruments_class, fix_module_available):
     e.measure(DummyPointMeasurement('in_root'))
     e.measure(DummyPointMeasurement('not_in_root/nested'))
     e.run(open_datasets=[DataReference('not_in_root/nested')])
+
+def test_multiple_sweeps(dummy_instruments_class, fix_module_available):
+    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+    e = Experiment('multiple_sweeps', Sample())
+    with e.sweep(lambda val: None, X_SWEEP_AXIS) as x_sweep:
+        x_sweep.measure(DummyPointMeasurement('in_root'))
+    with e.sweep(lambda val: None, Y_SWEEP_AXIS) as y_sweep:
+        y_sweep.measure(DummyPointMeasurement('also_in_root'))
+    e.run()

@@ -6,7 +6,7 @@ from os import PathLike
 
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Protocol, Literal, Iterable, Any, Union, Self
+from typing import Optional, Callable, Protocol, Literal, Iterable, Any, Union, Self, List
 
 import textwrap
 import json
@@ -94,11 +94,11 @@ class ParentOfSweep(ABC):
 
     Has a single child sweep. Can be called upon to perform the sweep.
     """
-    _sweep_child: Optional['Sweep']
+    _sweep_children: List['Sweep']
 
     def __init__(self) -> None:
         super().__init__()
-        self._sweep_child = None
+        self._sweep_children = []
 
     def sweep(self,
               setter: Callable[[float], None],
@@ -116,17 +116,17 @@ class ParentOfSweep(ABC):
         >>>     pass # Do something, e.g., measure on each position.
         """
         s = Sweep(setter=setter, axis=axis, axis_filter=axis_filter)
-        self._sweep_child = s
+        self._sweep_children.append(s)
         return EnterableWrapper(s)
 
     def _run_child_sweep(self, data_file, index_list: tuple[int, ...]):
-        if self._sweep_child is not None:
-            self._sweep_child._run_sweep(data_file, index_list)
+        for sweep in self._sweep_children:
+            sweep._run_sweep(data_file, index_list)
 
     @property
     def _child_dimensionality(self):
-        if self._sweep_child is not None:
-            return self._sweep_child.dimensionality
+        if len(self._sweep_children) > 0:
+            return max([sweep.dimensionality for sweep in self._sweep_children])
         else:
             return 0
 
@@ -255,8 +255,8 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
                 self.run_measurements(data_file, new_indices, do_measure=do_measure and parent_do_measure)
 
                 # Go down the nested sweeps.
-                if self._sweep_child is not None:
-                    self._sweep_child._run_sweep(data_file, new_indices, parent_do_measure=do_measure and parent_do_measure)
+                for sweep in self._sweep_children:
+                    sweep._run_sweep(data_file, new_indices, parent_do_measure=do_measure and parent_do_measure)
         finally:
             # Reset the 'current value',
             self._current_value = None
@@ -265,8 +265,8 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         measurement_log.debug(f"Dataset creation passing sweep of {self._axis.name}")
         swept_axes.append(self._axis.get_data_axis(data_file))
         super().create_datasets(data_file, swept_axes)
-        if self._sweep_child is not None:
-            self._sweep_child.create_datasets(data_file, swept_axes)
+        for sweep in self._sweep_children:
+            sweep.create_datasets(data_file, swept_axes)
 
     def __str__(self):
         setter_name = self._setter.__qualname__
@@ -274,8 +274,8 @@ class Sweep(ParentOfSweep, ParentOfMeasurements):
         self_repr = f"Sweep(setter={setter_name}, range={str(self._axis)}, filter={filter_repr})"
         for measurement in self._measurements:
             self_repr += '\n' + textwrap.indent(str(measurement), '\t')
-        if self._sweep_child is not None:
-            self_repr += '\n' + textwrap.indent(str(self._sweep_child), '\t')
+        if self._sweep_children is not None:
+            self_repr += '\n' + textwrap.indent(str(self._sweep_children), '\t')
         return self_repr
 
     @property
@@ -773,8 +773,9 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         """
         Creates an endless timeseries. Only supported as the root of sweeps.
         """
-        self._sweep_child = ContinuousTimeSeriesSweep(stop_after=stop_after)
-        return EnterableWrapper(self._sweep_child)
+        sweep = ContinuousTimeSeriesSweep(stop_after=stop_after)
+        self._sweep_children = [sweep]
+        return EnterableWrapper(sweep)
 
     @property
     def dimensionality(self):
@@ -807,8 +808,8 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
             # Recurse down the tree to create datasets.
             measurement_log.debug(f"Creating measurement datasets for {self._name}.")
             self.create_datasets(data_file, [])
-            if self._sweep_child is not None:
-                self._sweep_child.create_datasets(data_file, [])
+            for sweep_child in self._sweep_children:
+                sweep_child.create_datasets(data_file, [])
 
             # Get Instrument settings, write to a file
             measurement_log.debug("Writing instrument settings to file...")
@@ -873,7 +874,8 @@ class Experiment(ParentOfSweep, ParentOfMeasurements):
         for measurement in self._measurements:
             desc += '\n' + textwrap.indent(str(measurement), '\t')
         desc += '\r\n'
-        desc += textwrap.indent(str(self._sweep_child), '\t') if self._sweep_child is not None else "No Sweep"
+        for sweep_child in self._sweep_children:
+            desc += '\n' + textwrap.indent(str(sweep_child), '\t')
         return desc
 
 @dataclass(frozen=True)
