@@ -218,9 +218,9 @@ class Sweep(ASTNode):
 
     def create_datasets(self, data_file: hdf.Data, swept_axes: list[hdf_dataset]):
         measurement_log.debug(f"Dataset creation passing sweep of {self._axis.name}")
-        swept_axes.append(self._axis.get_data_axis(data_file))
+        axes = swept_axes + [self._axis.get_data_axis(data_file),]
         for child in self._children:
-            child.create_datasets(data_file, swept_axes)
+            child.create_datasets(data_file, axes)
 
 
     def __str__(self):
@@ -550,7 +550,11 @@ class MeasurementTypeAdapter(DataGenerator, ASTNode, ABC):
         for descriptor in exp_structure:
             assert isinstance(descriptor, self.DataDescriptor), "Each descriptor must be of type DataDescriptors!"
             measurement_log.debug(f"Creating dataset from descriptor for {descriptor.name} with axes {swept_axes}")
-            descriptor.create_dataset(data_file, axes=swept_axes)
+            try:
+                descriptor.create_dataset(data_file, axes=swept_axes)
+            except Exception as e:
+                e.add_note(f"Error creating dataset {descriptor.name}")
+                raise e
 
         views = self.default_views
         assert isinstance(views, dict), "Default views must be a dict of str to DataViews!"
