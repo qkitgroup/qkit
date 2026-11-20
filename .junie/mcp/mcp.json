@@ -1,7 +1,14 @@
 {
   "mcpServers": {
     "qkit": {
-      "url": "http://localhost:8000/mcp"
+      "url": "http://localhost:8000/mcp",
+      "headers": {
+        "Authorization": "Bearer NyzjkLce1rTA6aY25UMdqVNszswA2XILd6lbA78Xj38="
+      }
+    },
+    "pycharm": {
+      "url": "http://127.0.0.1:64462/stream",
+      "type": "http"
     }
   }
 }

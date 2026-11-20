@@ -4,18 +4,16 @@ import os
 from mcp.server import MCPServer
 
 import qkit
-from qkit.agent import tls
 from qkit.agent.auth import StaticTokenVerifier
-import anyio
-import uvicorn
 
 log = logging.getLogger(__name__)
 
-tls_settings = tls.TLSConfig()
+SERVER_URL = "http://localhost:8000"
+
 server = MCPServer(
     name="qkit",
     token_verifier=StaticTokenVerifier(),
-    auth=StaticTokenVerifier.create_auth_settings(tls_settings.get_base_url()),
+    auth=StaticTokenVerifier.create_auth_settings(SERVER_URL),
     description="Qkit MCP server - Read, Execute Experiments on real hardware",
     instructions="Consult this MCP server if you need to evaluate or execute quantum experiments on real hardware"
 )
@@ -26,19 +24,7 @@ def list_devices() -> list[str]:
 
 
 def mcp_main():
-
-    host, port = tls_settings.get_bind_address()
-
-    app = server.streamable_http_app(host=host)
-    config = uvicorn.Config(
-        app,
-        host=host,
-        port=port,
-        log_level=server.settings.log_level.lower(),
-        **tls_settings.get_ssl_kwargs(),
-    )
-    log.info("Serving the MCP server over HTTPS on %s:%s", host, port)
-    anyio.run(uvicorn.Server(config).serve)
+    server.run(transport="streamable-http", host="localhost", port=8000)
 
 
 if __name__ == "__main__":
