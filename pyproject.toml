@@ -20,7 +20,7 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v2 (GPLv2)"
 ]
 keywords = ["Quantum", "Measurement", "Framework", "Data Acquisition"]
-dependencies = [ 
+dependencies = [
     "numpy>=1.24",
     "scipy>=1.10",
     "h5py>=3.8",
@@ -66,6 +66,9 @@ timedomain = [
 ]
 url = [
     "parsita>=2.0.0"
+]
+mcp = [
+    "mcp>=2.3.0"
 ]
 
 
