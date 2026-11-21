@@ -171,7 +171,9 @@ class MeasureBase(object):
             self.dim = len(coords)
             self.unit = unit
             self.kwargs = kwargs
-            self.kwargs.update({"save_timestamp": save_timestamp, "average_over": average_over})
+            self.kwargs["save_timestamp"] = save_timestamp
+            if average_over is not None:
+                self.kwargs["average_over"] = average_over
             self.hdf_dataset = None
     
         def validate_parameters(self):

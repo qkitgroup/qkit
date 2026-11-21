@@ -1,6 +1,8 @@
 from pathlib import Path
 from pytest import fixture
+import h5py
 import numpy as np
+from qkit.measure.measurement_base import MeasureBase
 from qkit.storage.store import Data
 import tempfile
 
@@ -56,3 +58,21 @@ def test_file_creation(testdata):
         assert np.array_equal(datafile.data.test1d[:], testdata[0, 0]), "Failed saving 1D data"
         assert np.array_equal(datafile.data.test2d[:], testdata[0]), "Failed saving 2D data"
         assert np.array_equal(datafile.data.test3d[:], testdata), "Failed saving 3D data"
+
+
+def test_measurement_average_over_metadata(tmp_path):
+    path = tmp_path / "measurement.h5"
+    frequency = MeasureBase.Coordinate("frequency", "Hz", [1, 2])
+    voltage = MeasureBase.Data("voltage", [frequency])
+    averaged = MeasureBase.Data("averaged", [frequency], average_over="repetitions")
+
+    with Data(path, mode="w") as datafile:
+        voltage.create_dataset(datafile).append([0.5, 1.5])
+        averaged.create_dataset(datafile).append([2.0, 4.0])
+
+    with h5py.File(path, "r") as saved:
+        group = saved["entry/data0"]
+        np.testing.assert_array_equal(group["voltage"][:], [0.5, 1.5])
+        assert "average_over" not in group["voltage"].attrs
+        np.testing.assert_array_equal(group["averaged"][:], [2.0, 4.0])
+        assert group["averaged"].attrs["average_over"] == "repetitions"
