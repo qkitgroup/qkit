@@ -30,12 +30,22 @@ def list_devices() -> list[str]:
     """
     return qkit.instruments.get_instrument_names()
 
+def _measurement_sort_key(uuid: str) -> int:
+    """Sort key for a measurement UUID: its base36-encoded unix timestamp."""
+    try:
+        return qkit.fid.get_time(uuid)
+    except ValueError:
+        return 0
+
+
 @server.tool()
 def list_measurements(offset: int = 0, limit: int = 10) -> list[str]:
     """
     List all measurements stored in the database by its UUID, from newest to oldest.
     """
-    return list(qkit.fid.h5_db.keys())[offset:offset+limit]
+    return sorted(
+        qkit.fid.h5_db.keys(), key=_measurement_sort_key, reverse=True
+    )[offset:offset + limit]
 
 def _open_uuid(uuid: str):
     file = qkit.fid.h5_db[uuid]
