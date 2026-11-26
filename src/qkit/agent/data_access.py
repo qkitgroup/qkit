@@ -322,6 +322,11 @@ def read_view(
     global normalization, so the tools only forward ``baseline``/``normalize``.
     """
     max_points = max(1, int(max_points))
+    if isinstance(ds, h5py.Group):
+        raise ValueError(
+            "expected an HDF5 dataset, got an HDF5 group; pass the name of a "
+            "dataset (list_datasets returns the dataset names of a measurement)"
+        )
     data = np.asarray(ds[:] if selection is None else ds[selection])
     total = data.size
     if data.dtype.kind in "biufc":

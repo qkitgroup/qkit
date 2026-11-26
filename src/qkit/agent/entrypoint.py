@@ -1,6 +1,7 @@
 import logging
 import os
 
+import h5py
 from mcp.server import MCPServer
 
 import qkit
@@ -55,7 +56,13 @@ def _open_uuid(uuid: str):
 
 def _open_dataset(uuid: str, dataset_name: str):
     """Return the dataset (by name) of a measurement (identified by its UUID)."""
-    return _open_uuid(uuid).hf.hf[dataset_name]
+    ds = _open_uuid(uuid).hf.hf[dataset_name]
+    if not isinstance(ds, h5py.Dataset):
+        raise ValueError(
+            f"{dataset_name!r} is an HDF5 group, not a dataset; pass the name "
+            "of a dataset (list_datasets returns the dataset names of a measurement)"
+        )
+    return ds
 
 @server.tool()
 def list_datasets(uuid: str) -> list[str]:
@@ -64,7 +71,11 @@ def list_datasets(uuid: str) -> list[str]:
     """
     h5 = _open_uuid(uuid).hf.hf
     dataset_list = []
-    h5.visititems(lambda name, item: dataset_list.append(name))
+    h5.visititems(
+        lambda name, item: dataset_list.append(name)
+        if isinstance(item, h5py.Dataset)
+        else None
+    )
     return dataset_list
 
 @server.tool()

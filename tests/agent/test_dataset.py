@@ -119,6 +119,32 @@ def test_dataset_overview_processing(h5_file, monkeypatch):
     assert res.max() == pytest.approx(1.0)
 
 
+def test_dataset_overview_rejects_group(h5_file, monkeypatch):
+    monkeypatch.setitem(
+        entrypoint.qkit.__dict__, "fid", SimpleNamespace(h5_db={"test-uuid": str(h5_file)})
+    )
+    # Names of groups (e.g. "/data") must not crash with an obscure h5py
+    # TypeError; the tool should reject them with a clear, actionable error.
+    with pytest.raises(ValueError, match="group"):
+        entrypoint.dataset_overview("test-uuid", "/data")
+
+
+def test_dataset_detail_rejects_group(h5_file, monkeypatch):
+    monkeypatch.setitem(
+        entrypoint.qkit.__dict__, "fid", SimpleNamespace(h5_db={"test-uuid": str(h5_file)})
+    )
+    with pytest.raises(ValueError, match="group"):
+        entrypoint.dataset_detail("test-uuid", "/data", region=((0, 0),))
+
+
+def test_dataset_metadata_rejects_group(h5_file, monkeypatch):
+    monkeypatch.setitem(
+        entrypoint.qkit.__dict__, "fid", SimpleNamespace(h5_db={"test-uuid": str(h5_file)})
+    )
+    with pytest.raises(ValueError, match="group"):
+        entrypoint.dataset_metadata("test-uuid", "/data")
+
+
 def test_dataset_overview_invalid_options(h5_file, monkeypatch):
     monkeypatch.setitem(
         entrypoint.qkit.__dict__, "fid", SimpleNamespace(h5_db={"test-uuid": str(h5_file)})
@@ -289,6 +315,14 @@ def test_dataset_overview_text_downsampled(tmp_path, monkeypatch):
     res = entrypoint.dataset_overview("t", "/txt")
     assert isinstance(res, np.ndarray)
     assert res.size <= 20000
+
+
+def test_read_view_rejects_group(h5_file):
+    with h5py.File(h5_file, "r") as f:
+        # A group cannot be read like a dataset; reject it clearly instead of
+        # raising h5py's obscure "Accessing a group is done with bytes or str..."
+        with pytest.raises(ValueError, match="group"):
+            da.read_view(f["/data"])
 
 
 def test_read_view(h5_file):
